@@ -1,0 +1,32 @@
+# Five Social Template
+# A binary prediction/sentiment market template
+
+[package]
+name = "five-social-template"
+version = "0.1.0"
+authors = ["Five Org"]
+edition = "2024"
+
+[dependencies]
+# Standard library is implicit
+
+[build]
+target = "vm"
+entry_point = "src/main.v"
+
+# Multi-file compilation support
+multi_file_mode = true
+
+[optimizations]
+enable_vle = true
+enable_compression = true
+enable_register_allocation = true
+enable_constraint_optimization = true
+optimization_level = 2
+
+modules = [
+    "src/social_types.v",
+    "src/market_logic.v",
+    "src/voting_logic.v",
+    "src/main.v"
+]

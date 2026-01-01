@@ -1,0 +1,20 @@
+{
+  "bytecode": "NUlWRU8AAAABAWcNSGVsbG8sIFdvcmxkIZI8BgA=",
+  "abi": {
+    "program_name": "Module",
+    "functions": [
+      {
+        "name": "main",
+        "index": 0,
+        "parameters": [],
+        "return_type": null,
+        "is_public": true,
+        "bytecode_offset": 0
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0",
+  "metadata": {}
+}

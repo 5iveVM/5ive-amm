@@ -1,0 +1,17 @@
+{
+  "filename": "unknown.v",
+  "bytecode": "NUlWRV8BAAABAdwZACcCEgAAkAAYAAAA2tQGBgADAHR5cGVzOjpzdGFraW5nX3R5cGVzCmltcG9ydF9hbGwAc3Rha2luZzo6c3Rha2luZ19jb3JlCmltcG9ydF9hbGwAc3Rha2luZzo6c3Rha2luZ19yZXdhcmRzCmltcG9ydF9hbGw=",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_simple",
+        "index": 0,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

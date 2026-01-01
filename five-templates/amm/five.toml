@@ -1,0 +1,31 @@
+# Five AMM Template
+# A modular Automated Market Maker (DEX) template
+
+[package]
+name = "five-amm-template"
+version = "0.1.0"
+authors = ["Five Org"]
+edition = "2024"
+
+[build]
+target = "vm"
+entry_point = "src/main.v"
+
+# Multi-file compilation support
+multi_file_mode = true
+
+[optimizations]
+enable_vle = true
+enable_compression = true
+enable_register_allocation = true
+enable_constraint_optimization = true
+optimization_level = 2
+
+modules = [
+    "src/amm_types.v",
+    "src/amm_math.v",
+    "src/amm_liquidity.v",
+    "src/amm_swap.v",
+    "src/pool_manager.v",
+    "src/main.v"
+]

@@ -1,0 +1,39 @@
+# NFT core template
+
+[project]
+name = "five-nft-template"
+version = "1.0.0"
+description = "NFT core template"
+source_dir = "src"
+build_dir = "build"
+target = "vm"
+entry_point = "src/main.v"
+
+multi_file_mode = true
+
+[optimizations]
+enable_vle = true
+enable_compression = true
+enable_register_allocation = true
+enable_constraint_optimization = true
+optimization_level = 2
+
+[build]
+max_bytecode_size = 2097152
+target_compute_units = 500000
+output_artifact_name = "five-nft-template"
+
+modules = [
+    "src/types/nft_types.v",
+    "src/nft/nft_core.v",
+    "src/main.v"
+]
+
+[deploy]
+cluster = "devnet"
+commitment = "confirmed"
+rpc_url = "https://api.devnet.solana.com"
+
+[doc]
+generate_docs = true
+docs_dir = "docs"

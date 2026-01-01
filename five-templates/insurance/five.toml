@@ -1,0 +1,40 @@
+# Insurance pool template
+
+[project]
+name = "five-insurance-template"
+version = "1.0.0"
+description = "Insurance pool template"
+source_dir = "src"
+build_dir = "build"
+target = "vm"
+entry_point = "src/main.v"
+
+multi_file_mode = true
+
+[optimizations]
+enable_vle = true
+enable_compression = true
+enable_register_allocation = true
+enable_constraint_optimization = true
+optimization_level = 2
+
+[build]
+max_bytecode_size = 2097152
+target_compute_units = 500000
+output_artifact_name = "five-insurance-template"
+
+modules = [
+    "src/types/insurance_types.v",
+    "src/insurance/insurance_core.v",
+    "src/insurance/insurance_claims.v",
+    "src/main.v"
+]
+
+[deploy]
+cluster = "devnet"
+commitment = "confirmed"
+rpc_url = "https://api.devnet.solana.com"
+
+[doc]
+generate_docs = true
+docs_dir = "docs"

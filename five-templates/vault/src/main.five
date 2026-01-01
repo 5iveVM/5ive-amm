@@ -1,0 +1,44 @@
+{
+  "filename": "unknown.v",
+  "bytecode": "NUlWRQ8BAAAEBNwZACcCJwDcGQEnAjEA3BkCJwI9ANwZAycCTQAApQGlApACXQAAAKUBpQKlA5ADhQAAAKUBpQKlA6UEpQWQBbEAAAClAaUCpQOlBKUFkAW2AQAAdQLYGygAAAAAAAAAgxsoAAAAAAAAABgChFcDQgIA2EICIB0AQgIoBnUC2BsoAAAAAAAAAIMbKAAAAAAAAAAYAoRXBEICAFcDQgIg2EICQNhCAkgGQwIoMgRDAyBXBScEWANXBCcEpQXYJQQeMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTIYAqUF1NARG4ACIxHU0BEbgAIjEdTQERuAAiMR1NARG4ACIxHU0BEbgAIjEdTQERuAAiMR1NARG4ACIxHU0BEbgAIjEdTQERuAAiMR1BuAAiIh0BEbgAIjEdQbgAIiIdARG4ACIxHUG4ACIiHQERuAAiMR1BuAAiIh0BEbgAIjEdQbgAIiIdARG4ACIxHUG4ACIiHQERuAAiMR1BuAAiIh0BEbgAIjEdQbgAIiIWEJGAUYBBgCgEMCIKUFIEICIEMDQKUFIEIDQNhCA0gGQwIoMgRDAyBXBScEWANXBCcEQwNApQUoBB4xMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMhgCpQXU0BEbgAIjEdTQERuAAiMR1NARG4ACIxHU0BEbgAIjEdTQERuAAiMR1NARG4ACIxHU0BEbgAIjEdTQERuAAiMR1NARG4ACIxHUG4ACIiHQERuAAiMR1BuAAiIh0BEbgAIjEdQbgAIiIdARG4ACIxHUG4ACIiHQERuAAiMR1BuAAiIh0BEbgAIjEdQbgAIiIdARG4ACIxHUG4ACIiHQERuAAiMR1BuAAiIhYQkYBBgFGAKAQwIgpQUhQgIgQwNApQUhQgNABgA=",
+  "abi": {
+    "functions": [
+      {
+        "name": "init_vault",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "init_user",
+        "index": 1,
+        "parameters": []
+      },
+      {
+        "name": "deposit",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "withdraw",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

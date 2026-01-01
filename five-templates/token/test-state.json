@@ -1,0 +1,25 @@
+{
+  "config": {
+    "rpcUrl": "http://127.0.0.1:8899",
+    "programId": "9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH",
+    "vmStatePda": "DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys"
+  },
+  "accounts": {
+    "mint": "Ez481desykkwhexXMEviWZVmykMRihu6LSAmKc6UfZDv",
+    "user1": "83SkD347Ld2Q5VVoVegQeNR5KJCxtYTrSemq4FJezU4w",
+    "user2": "F3AL5taL4yxRTNQ1pd112hzq21jYpzaFyTgGgeZHXF8K",
+    "user3": "BfhyNDjuwnxV4up6Swo5qM7iCCoCcuUSdmifs46LEcVm",
+    "payer": "EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt",
+    "user1TokenAccount": "DrJcML7JZSTbnQqdc5teeSf7DEvH9WhT4cEedzPk3yyt",
+    "user2TokenAccount": "2M7fNayDGYfyvqBbvHczoKyh8Yii4s9thWV1fRaeYoFs",
+    "user3TokenAccount": "DUksWBEteE6hqzvpHfEuvWhsd4Rs6MRGgUVSnNgdjzSY"
+  },
+  "expected": {
+    "mintSupply": 1900,
+    "user1Balance": 950,
+    "user2Balance": 400,
+    "user3Balance": 550,
+    "tokenName": "TestToken",
+    "tokenSymbol": "TEST"
+  }
+}

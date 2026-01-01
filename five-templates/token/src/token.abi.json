@@ -1,0 +1,621 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "init_mint",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "mint_account",
+          "param_type": "Mint",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "init",
+            "signer"
+          ]
+        },
+        {
+          "name": "authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "freeze_authority",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "decimals",
+          "param_type": "u8",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "name",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "symbol",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "uri",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "pubkey",
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "init_token_account",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "token_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "init",
+            "signer"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "mint",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "pubkey",
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "create_associated_token_account",
+      "index": 2,
+      "parameters": [
+        {
+          "name": "ata_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "init",
+            "signer"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "mint",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "pubkey",
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "create_deterministic_token_account",
+      "index": 3,
+      "parameters": [
+        {
+          "name": "ata_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "init"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "mint",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "pubkey",
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "mint_to",
+      "index": 4,
+      "parameters": [
+        {
+          "name": "mint_state",
+          "param_type": "Mint",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "destination_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "mint_authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "burn",
+      "index": 5,
+      "parameters": [
+        {
+          "name": "mint_state",
+          "param_type": "Mint",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "source_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "transfer",
+      "index": 6,
+      "parameters": [
+        {
+          "name": "source_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "destination_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "transfer_from",
+      "index": 7,
+      "parameters": [
+        {
+          "name": "source_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "destination_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "approve",
+      "index": 8,
+      "parameters": [
+        {
+          "name": "source_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "delegate",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "revoke",
+      "index": 9,
+      "parameters": [
+        {
+          "name": "source_account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "freeze_account",
+      "index": 10,
+      "parameters": [
+        {
+          "name": "mint_state",
+          "param_type": "Mint",
+          "is_account": true,
+          "attributes": []
+        },
+        {
+          "name": "account_to_freeze",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "freeze_authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "thaw_account",
+      "index": 11,
+      "parameters": [
+        {
+          "name": "mint_state",
+          "param_type": "Mint",
+          "is_account": true,
+          "attributes": []
+        },
+        {
+          "name": "account_to_thaw",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "freeze_authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "set_mint_authority",
+      "index": 12,
+      "parameters": [
+        {
+          "name": "mint_state",
+          "param_type": "Mint",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "current_authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "new_authority",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "set_freeze_authority",
+      "index": 13,
+      "parameters": [
+        {
+          "name": "mint_state",
+          "param_type": "Mint",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "current_freeze_authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "new_freeze_authority",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "disable_mint",
+      "index": 14,
+      "parameters": [
+        {
+          "name": "mint_state",
+          "param_type": "Mint",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "current_authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "disable_freeze",
+      "index": 15,
+      "parameters": [
+        {
+          "name": "mint_state",
+          "param_type": "Mint",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "current_freeze_authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "verify_account_mint",
+      "index": 16,
+      "parameters": [
+        {
+          "name": "account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": []
+        },
+        {
+          "name": "mint",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "verify_account_owner",
+      "index": 17,
+      "parameters": [
+        {
+          "name": "account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": []
+        },
+        {
+          "name": "owner",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "verify_account_full",
+      "index": 18,
+      "parameters": [
+        {
+          "name": "account",
+          "param_type": "TokenAccount",
+          "is_account": true,
+          "attributes": []
+        },
+        {
+          "name": "mint",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "owner",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}
