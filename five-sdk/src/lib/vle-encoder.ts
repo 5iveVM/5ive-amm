@@ -95,6 +95,20 @@ export class VLEEncoder {
       return Buffer.from(bytes);
     };
 
+    const encodeVleU64 = (value: number | bigint): Buffer => {
+      const bytes: number[] = [];
+      let remaining = BigInt(value);
+      if (remaining < BigInt(0)) {
+        throw new Error("Negative values not supported for unsigned VLE");
+      }
+      while (remaining >= BigInt(0x80)) {
+        bytes.push(Number((remaining & BigInt(0x7f)) | BigInt(0x80)));
+        remaining >>= BigInt(7);
+      }
+      bytes.push(Number(remaining));
+      return Buffer.from(bytes);
+    };
+
     const usesTypedParams = paramValues.some(({ param }) => this.isBytesParam(param));
 
     if (!usesTypedParams) {
@@ -109,7 +123,7 @@ export class VLEEncoder {
     parts.push(encodeVleU32(TYPED_PARAM_SENTINEL));
 
     for (const { param, value } of paramValues) {
-      parts.push(this.encodeTypedParam(param, value, encodeVleU32));
+      parts.push(this.encodeTypedParam(param, value, encodeVleU32, encodeVleU64));
     }
 
     return Buffer.concat(parts);
@@ -119,6 +133,7 @@ export class VLEEncoder {
     param: ParameterDefinition,
     value: any,
     encodeVleU32: (value: number) => Buffer,
+    encodeVleU64: (value: number | bigint) => Buffer,
   ): Buffer {
     const typeName = this.normalizeType(param);
     const typeId = this.getTypeId(typeName);
@@ -142,11 +157,22 @@ export class VLEEncoder {
       return Buffer.concat([Buffer.from([typeId]), valBytes]);
     }
 
-    const numberValue = Number(value);
-    if (!Number.isFinite(numberValue) || numberValue < 0 || numberValue > 0xFFFF_FFFF) {
-      throw new Error(`Invalid numeric value for parameter: ${param.name}`);
+    // For numbers/bigints (u8...u64, i8...i64)
+    let valBytes: Buffer;
+    if (typeof value === 'bigint') {
+        valBytes = encodeVleU64(value);
+    } else {
+        const numberValue = Number(value);
+        if (!Number.isFinite(numberValue)) {
+             throw new Error(`Invalid numeric value for parameter: ${param.name}`);
+        }
+        if (numberValue < 0) {
+             // For simplicity in this fix, assume non-negative for VLE (Five VM uses u64 mostly)
+             // or implement signed VLE if needed. Protocol uses unsigned VLE for params mostly.
+             throw new Error(`Negative values not supported in TS VLE encoder yet: ${param.name}`);
+        }
+        valBytes = encodeVleU64(numberValue);
     }
-    const valBytes = encodeVleU32(Math.floor(numberValue));
     return Buffer.concat([Buffer.from([typeId]), valBytes]);
   }
 

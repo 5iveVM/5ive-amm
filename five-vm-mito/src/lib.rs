@@ -104,6 +104,9 @@ mod test_property_based;
 #[cfg(test)]
 mod test_polymorphic_arithmetic;
 
+#[cfg(test)]
+mod test_vle_param_decoding;
+
 // Performance benchmarks
 #[cfg(test)]
 mod bench_lazy_validation;
