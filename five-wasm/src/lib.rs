@@ -4307,7 +4307,7 @@ impl WasmFiveCompiler {
     #[wasm_bindgen]
     pub fn get_compiler_stats(&self) -> JsValue {
         let stats = serde_json::json!({
-            "version": "1.0.0",
+            "version": env!("CARGO_PKG_VERSION"),
             "features": ["dsl-compilation", "bytecode-generation", "abi-generation", "type-checking", "optimization", "account-parsing", "constraint-validation"],
             "supported_syntax": ["vault", "init", "constraints", "account-definitions", "function-parameters"],
             "target_vm": "mito-vm"
@@ -4757,7 +4757,7 @@ fn metrics_format_label(format: &ExportFormat) -> &'static str {
 pub fn get_wasm_compiler_info() -> JsValue {
     let info = serde_json::json!({
         "name": "five-dsl-compiler-wasm",
-        "version": "1.0.0",
+        "version": env!("CARGO_PKG_VERSION"),
         "description": "WebAssembly-based Five DSL compiler for client-side compilation",
         "features": {
             "compilation": true,
