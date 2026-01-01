@@ -14,7 +14,7 @@ crate-type = ["cdylib"]
 five-vm-mito = { path = "../five-vm-mito", default-features = false }
 five-dsl-compiler = { path = "../five-dsl-compiler", default-features = false }
 five-protocol = { path = "../five-protocol" }
-pinocchio = "0.9.2"
+pinocchio = { path = "../third_party/pinocchio" }
 
 # WASM bindings
 wasm-bindgen = "0.2"
