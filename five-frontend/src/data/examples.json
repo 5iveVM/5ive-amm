@@ -1,0 +1,149 @@
+{
+    "categories": [
+        {
+            "name": "Featured Examples",
+            "files": [
+                {
+                    "name": "token.v",
+                    "path": "featured/token.v"
+                },
+                {
+                    "name": "vault.v",
+                    "path": "featured/vault.v"
+                },
+                {
+                    "name": "counter.v",
+                    "path": "featured/counter.v"
+                },
+                {
+                    "name": "amm.v",
+                    "path": "featured/amm.v"
+                }
+            ]
+        },
+        {
+            "name": "Project: DEX",
+            "files": [
+                {
+                    "name": "five_spl_token_amm_fixed.v",
+                    "path": "dex_project/five_spl_token_amm_fixed.v",
+                    "additional_files": {
+                        "math.v": "dex_project/math.v"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Language Basics",
+            "files": [
+                {
+                    "name": "simple-add.v",
+                    "path": "language-basics/simple-add.v"
+                },
+                {
+                    "name": "multiple-functions.v",
+                    "path": "language-basics/multiple-functions.v"
+                },
+                {
+                    "name": "variables-local.v",
+                    "path": "language-basics/variables-local.v"
+                }
+            ]
+        },
+        {
+            "name": "Operators & Logic",
+            "files": [
+                {
+                    "name": "basic-arithmetic.v",
+                    "path": "operators/basic-arithmetic.v"
+                },
+                {
+                    "name": "boolean-logic.v",
+                    "path": "operators/boolean-logic.v"
+                },
+                {
+                    "name": "comparison-logic.v",
+                    "path": "operators/comparison-logic.v"
+                }
+            ]
+        },
+        {
+            "name": "Control Flow",
+            "files": [
+                {
+                    "name": "conditionals-if.v",
+                    "path": "control-flow/conditionals-if.v"
+                },
+                {
+                    "name": "nested-conditionals.v",
+                    "path": "control-flow/nested-conditionals.v"
+                },
+                {
+                    "name": "while-loops.v",
+                    "path": "control-flow/while-loops.v"
+                }
+            ]
+        },
+        {
+            "name": "Account & State",
+            "files": [
+                {
+                    "name": "state_arithmetic.v",
+                    "path": "account/state_arithmetic.v"
+                },
+                {
+                    "name": "account-definition.v",
+                    "path": "account/account-definition.v"
+                }
+            ]
+        },
+        {
+            "name": "Blockchain Integration",
+            "files": [
+                {
+                    "name": "pda_operations.v",
+                    "path": "blockchain/pda_operations.v"
+                }
+            ]
+        },
+        {
+            "name": "Advanced Features",
+            "files": [
+                {
+                    "name": "array-operations.v",
+                    "path": "advanced/array-operations.v"
+                },
+                {
+                    "name": "string-operations.v",
+                    "path": "advanced/string-operations.v"
+                }
+            ]
+        },
+        {
+            "name": "Error System",
+            "files": [
+                {
+                    "name": "correct-syntax.v",
+                    "path": "error-system/correct-syntax.v"
+                },
+                {
+                    "name": "enhanced-errors.v",
+                    "path": "error-system/enhanced-errors.v"
+                },
+                {
+                    "name": "syntax-error.v",
+                    "path": "error-system/syntax-error.v"
+                }
+            ]
+        },
+        {
+            "name": "Match Expressions",
+            "files": [
+                {
+                    "name": "match_expressions.v",
+                    "path": "language/match_expressions.v"
+                }
+            ]
+        }
+    ]
+}
