@@ -4945,7 +4945,7 @@ export class FiveSDK {
 
   /**
    * Create instruction data for multi-chunk AppendBytecode instruction
-   * Format: [discriminator(5), num_chunks, chunk1_len, chunk1_data, chunk2_len, chunk2_data, ...]
+   * Format: [discriminator(5), chunk1_data + chunk2_data + ...]
    */
   private static createMultiChunkInstructionData(chunks: Uint8Array[]): Buffer {
     if (chunks.length < 2 || chunks.length > 10) {
@@ -4954,25 +4954,13 @@ export class FiveSDK {
       );
     }
 
+    // Just concatenate all chunks with discriminator 5
+    // This allows the on-chain program (which only sees bytes) to append them as a single stream
     const buffers: Buffer[] = [
-      Buffer.from([5]), // AppendMultipleBytecodeChunks discriminator
-      Buffer.from([chunks.length]), // num_chunks
+      Buffer.from([5]), // AppendBytecode discriminator
     ];
 
-    // Add each chunk with length prefix
     for (const chunk of chunks) {
-      if (chunk.length > 65535) {
-        throw new Error(
-          `Chunk too large for u16 length prefix: ${chunk.length} bytes`,
-        );
-      }
-
-      // Add chunk length as u16 little-endian
-      const lengthBuffer = Buffer.allocUnsafe(2);
-      lengthBuffer.writeUInt16LE(chunk.length, 0);
-      buffers.push(lengthBuffer);
-
-      // Add chunk data
       buffers.push(Buffer.from(chunk));
     }
 
