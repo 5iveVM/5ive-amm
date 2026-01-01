@@ -1,23 +1,23 @@
 # WASM Build Report
 
-Generated: Sat Dec 27 13:14:42 EST 2025
+Generated: Thu Jan  1 20:58:51 UTC 2026
 
 ## Bundle Sizes
 
 ### Web Target
-- WASM: 1.6M
-- JS: 104K
+- WASM: 2.2M
+- JS: 106K
 
 ### Node.js Target  
-- WASM: 1.6M
-- JS: 100K
+- WASM: 2.2M
+- JS: 103K
 
 ### Bundler Target
-- WASM: 1.6M
-- JS: 188B
+- WASM: 2.2M
+- JS: 188
 
 ## Build Configuration
-- Target: rustc 1.87.0 (17067e9ac 2025-05-09)
+- Target: rustc 1.91.0 (f8297e351 2025-10-28)
 - Profile: Release
 - Optimization: -Oz (if wasm-opt available)
 

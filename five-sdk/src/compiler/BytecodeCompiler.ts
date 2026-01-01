@@ -46,6 +46,8 @@ interface WasmCompiler {
     disassembly?: string[];
   }>;
 
+  getCompilerInfo(): { version: string; features: string[] };
+
   validateSource(source: string): Promise<{
     valid: boolean;
     errors: string[];
@@ -148,6 +150,8 @@ export class BytecodeCompiler {
           functions: normalizedFunctions,
         };
 
+        const compilerInfo = await this.getCompilerInfo();
+
         return {
           success: true,
           bytecode: result.bytecode,
@@ -156,7 +160,7 @@ export class BytecodeCompiler {
           metadata: {
             sourceFile: sourceFilename,
             timestamp: new Date().toISOString(),
-            compilerVersion: '1.0.0', // TODO: Get from WASM
+            compilerVersion: compilerInfo.version || '1.0.0',
             target: (options.target || 'vm') as CompilationTarget,
             optimizations: [],
             originalSize: sourceContent.length,
@@ -237,6 +241,8 @@ export class BytecodeCompiler {
       const compilationTime = Date.now() - startTime;
 
       if (result.success && result.bytecode) {
+        const compilerInfo = await this.getCompilerInfo();
+
         return {
           success: true,
           bytecode: result.bytecode,
@@ -245,7 +251,7 @@ export class BytecodeCompiler {
           metadata: {
             sourceFile: mainSource.filename || 'main.v',
             timestamp: new Date().toISOString(),
-            compilerVersion: '1.0.0',
+            compilerVersion: compilerInfo.version || '1.0.0',
             target: (options.target || 'vm') as CompilationTarget,
             optimizations: [],
             originalSize: mainSource.content.length,
@@ -352,8 +358,14 @@ export class BytecodeCompiler {
         await this.loadWasmCompiler();
       }
 
+      let version = "1.0.0";
+      if (this.wasmCompiler && typeof this.wasmCompiler.getCompilerInfo === 'function') {
+        const info = this.wasmCompiler.getCompilerInfo();
+        version = info.version;
+      }
+
       return {
-        version: "1.0.0", // TODO: Get from WASM module
+        version,
         wasmLoaded: !!this.wasmCompiler,
         debug: this.debug,
       };

@@ -1,0 +1,17 @@
+{
+  "name": "five-vm-wasm",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "five_vm_wasm_bg.wasm",
+    "five_vm_wasm.js",
+    "five_vm_wasm_bg.js",
+    "five_vm_wasm.d.ts"
+  ],
+  "main": "five_vm_wasm.js",
+  "types": "five_vm_wasm.d.ts",
+  "sideEffects": [
+    "./five_vm_wasm.js",
+    "./snippets/*"
+  ]
+}
