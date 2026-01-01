@@ -113,12 +113,11 @@ pub fn process_instruction(
             instructions::initialize(program_id, accounts)
         }
         FIVEInstruction::InitLargeProgram { expected_size, chunk_data } => {
-            let chunk_info = chunk_data.map(|c| c.len()).unwrap_or(0);
             log_if_debug!(
                 debug,
                 "Processing InitLargeProgram instruction (expected size {}, chunk {})",
                 expected_size,
-                chunk_info
+                chunk_data.map(|c| c.len()).unwrap_or(0)
             );
             instructions::init_large_program(program_id, accounts, expected_size, chunk_data)
         }
@@ -171,8 +170,15 @@ pub fn process_instruction(
             log_if_debug!(debug, "Instruction processed successfully");
         }
         Err(e) => {
-            let code: u64 = (*e).into();
-            log_if_debug!(error, "Instruction failed with error code: {}", code);
+            #[cfg(feature = "debug-logs")]
+            {
+                let code: u64 = (*e).into();
+                log_if_debug!(error, "Instruction failed with error code: {}", code);
+            }
+            #[cfg(not(feature = "debug-logs"))]
+            {
+                let _ = e; // Suppress unused variable warning
+            }
         }
     }
 

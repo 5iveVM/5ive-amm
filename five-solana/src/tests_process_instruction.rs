@@ -39,7 +39,7 @@ mod tests {
         init_large_data.extend_from_slice(&1234u32.to_le_bytes());
         let init_large_ix = FIVEInstruction::try_from(init_large_data.as_slice()).unwrap();
         match init_large_ix {
-            FIVEInstruction::InitLargeProgram { expected_size } => {
+            FIVEInstruction::InitLargeProgram { expected_size, chunk_data: _ } => {
                 assert_eq!(expected_size, 1234);
             }
             _ => panic!("Expected InitLargeProgram instruction"),
@@ -353,7 +353,7 @@ mod tests {
             &[script_account, vm_account, payer_account],
             &[],
         );
-        assert!(matches!(result, Err(ProgramError::MissingRequiredSignature)));
+        assert!(matches!(result, Err(ProgramError::Custom(1107))));
     }
 
     #[test]
