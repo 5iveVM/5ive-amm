@@ -1,0 +1,11 @@
+# Build artifacts
+target/
+.cargo/
+
+# Generated files
+mito-program-keypair-fixed.json
+*.md
+target/deploy/five.so
+
+# System files
+.DS_Store
