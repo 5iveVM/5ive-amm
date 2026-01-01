@@ -552,14 +552,7 @@ fn handle_compile(
 
     if metrics {
         // Compile with metrics (using config)
-        let (bytecode, mut compilation_metrics) = if v2_preview {
-            // TODO: Add compile_with_metrics_and_config method to DslCompiler
-            // For now, use fallback to regular compile and empty metrics
-            let bytecode = DslCompiler::compile_with_config(&source_code, &config)?;
-            (bytecode, five_dsl_compiler::CompilerMetrics::default())
-        } else {
-            DslCompiler::compile_with_metrics(&source_code, mode, constraint_cache)?
-        };
+        let (bytecode, mut compilation_metrics) = DslCompiler::compile_with_metrics_and_config(&source_code, &config)?;
 
         let compile_time = start_time.elapsed();
 

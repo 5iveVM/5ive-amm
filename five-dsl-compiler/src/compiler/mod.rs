@@ -253,14 +253,31 @@ impl DslCompiler {
         enable_constraint_cache: bool,
     ) -> Result<(Vec<u8>, CompilerMetrics), CompilerError> {
         let config = CompilationConfig::new(mode).with_constraint_cache(enable_constraint_cache);
+        Self::compile_with_metrics_and_config(source, &config)
+    }
 
+    /// Compile DSL with metrics collection enabled using a specific configuration.
+    ///
+    /// Returns both the bytecode and detailed compilation metrics.
+    /// Useful for performance analysis and optimization when advanced configuration is needed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let config = CompilationConfig::new(CompilationMode::Testing).with_v2_preview(true);
+    /// let (bytecode, metrics) = DslCompiler::compile_with_metrics_and_config(source, &config)?;
+    /// ```
+    pub fn compile_with_metrics_and_config(
+        source: &str,
+        config: &CompilationConfig,
+    ) -> Result<(Vec<u8>, CompilerMetrics), CompilerError> {
         let mut pipeline = CompilationPipeline::new(source, None);
 
         // Execute standard pipeline
         let tokens = pipeline.tokenize()?;
         let ast = pipeline.parse(tokens)?;
         pipeline.type_check(&ast)?;
-        let bytecode = pipeline.generate_bytecode(&ast, &config)?;
+        let bytecode = pipeline.generate_bytecode(&ast, config)?;
 
         // Finalize metrics
         pipeline.finalize_metrics(&bytecode);
