@@ -715,10 +715,20 @@ impl FiveVMWasm {
         let mut lamports: Vec<u64> = wasm_accounts.iter().map(|a| a.lamports).collect();
         let mut data: Vec<Vec<u8>> = wasm_accounts.iter().map(|a| a.data.clone()).collect();
 
-        // TODO: Manual AccountInfo construction requires updated Pinocchio API
-        // The AccountInfo::new() constructor is not available in pinocchio 0.9.2
-        // For now, using empty account list - upgrade Pinocchio when available
-        let account_infos: Vec<pinocchio::account_info::AccountInfo> = Vec::new();
+        // Manual AccountInfo construction using Pinocchio API
+        let mut account_infos: Vec<pinocchio::account_info::AccountInfo> = Vec::with_capacity(wasm_accounts.len());
+        for i in 0..wasm_accounts.len() {
+             account_infos.push(pinocchio::account_info::AccountInfo::new(
+                 &keys[i],
+                 wasm_accounts[i].is_signer,
+                 wasm_accounts[i].is_writable,
+                 &mut lamports[i],
+                 &mut data[i],
+                 &owners[i],
+                 false, // executable
+                 0,     // rent_epoch
+             ));
+        }
 
         // Execute using MitoVM with populated accounts
         web_sys::console::log_1(
@@ -737,17 +747,24 @@ impl FiveVMWasm {
             &account_infos,
         );
 
-        // Reconstruct updated WasmAccounts from the modified backing stores
+        // Reconstruct updated WasmAccounts from the modified AccountInfos
+        // Note: AccountInfo::new() creates a copy, so we must read back from AccountInfo
         let mut updated_wasm_accounts = Vec::with_capacity(wasm_accounts.len());
         for i in 0..wasm_accounts.len() {
+             let account_info = &account_infos[i];
+
+             // Safety: We are the only ones accessing this data in this thread
+             let new_data = unsafe { account_info.borrow_data_unchecked() }.to_vec();
+             let new_lamports = account_info.lamports();
+             let new_owner = *account_info.owner();
+
              updated_wasm_accounts.push(WasmAccount {
                 key: keys[i],
-                // data vector was modified in-place by MitoVM (via raw pointer alias)
-                data: data[i].clone(), 
-                lamports: lamports[i],
+                data: new_data,
+                lamports: new_lamports,
                 is_writable: wasm_accounts[i].is_writable,
                 is_signer: wasm_accounts[i].is_signer,
-                owner: owners[i],
+                owner: new_owner,
              });
         }
 
