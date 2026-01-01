@@ -203,7 +203,7 @@ export default function IdePage() {
         setEstimatedCost(null);
         setEstimatedRent(null);
         setEstimatedDeployFee(null);
-        setFeeConfig(null, null);
+        setFeeConfig(null, null, null);
         return;
       }
 
@@ -235,13 +235,13 @@ export default function IdePage() {
           const view = new DataView(vmInfo.data.buffer, vmInfo.data.byteOffset, vmInfo.data.byteLength);
           deployFeeBps = view.getUint32(VM_STATE_DEPLOY_FEE_OFFSET, true);
           const executeFeeBps = view.getUint32(VM_STATE_EXECUTE_FEE_OFFSET, true);
-          setFeeConfig(deployFeeBps, executeFeeBps);
+          setFeeConfig(deployFeeBps, executeFeeBps, null);
         } else {
-          setFeeConfig(null, null);
+          setFeeConfig(null, null, null);
         }
       } catch (feeErr) {
         console.warn("Failed to fetch fee config, defaulting to 0 bps", feeErr);
-        setFeeConfig(null, null);
+        setFeeConfig(null, null, null);
       }
 
       const deployFee = Math.floor((rent * deployFeeBps) / 10000);

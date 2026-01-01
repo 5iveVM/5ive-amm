@@ -8,7 +8,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 
 // --- Opcode Definitions (Based on five-protocol/src/opcodes.rs) ---
 const UNKNOWN_OP = { name: 'UNKNOWN', args: 0 };
-// @ts-expect-error - Index signature mismatch is fine for this map
+// @ts-ignore - Index signature mismatch is fine for this map
 const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     // Control Flow
     0x00: { name: 'HALT', args: 'none' },
