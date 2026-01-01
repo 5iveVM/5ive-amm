@@ -12,7 +12,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-pinocchio = "0.9.2"
+pinocchio = { path = "../third_party/pinocchio" }
 pinocchio-system = "0.2.3"
 pinocchio-pubkey = "0.2.4"
 five-vm-mito = { path = "../five-vm-mito", default-features = false }
@@ -29,7 +29,7 @@ solana-program = "1.18.0"
 five-protocol = { path = "../five-protocol", features = ["test-fixtures"] }
 
 [features]
-default = ["debug-logs"]
+default = []
 # Enable debug logging (disabled in production)
 debug-logs = ["pinocchio-log", "five-vm-mito/debug-logs"]
 # Use test-sbf feature when running tests

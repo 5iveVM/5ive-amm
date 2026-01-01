@@ -14,7 +14,9 @@ use crate::{
     state::{FIVEVMState, ScriptAccountHeader},
 };
 use five_protocol::parser;
-use five_vm_mito::{MitoVM, VMError};
+use five_vm_mito::MitoVM;
+#[cfg(feature = "debug-logs")]
+use five_vm_mito::VMError;
 
 // Script deployment and execution instructions
 pub const DEPLOY_INSTRUCTION: u8 = 8;
@@ -24,6 +26,7 @@ pub const EXECUTE_INSTRUCTION: u8 = 9;
 pub const STANDARD_TX_FEE: u64 = 5000;
 
 /// Map VMError to a short code string for debug logging.
+#[cfg(feature = "debug-logs")]
 fn vm_error_name(err: &VMError) -> &'static str {
     match err {
         VMError::StackError => "StackError",
@@ -178,7 +181,10 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 // Check if chunk data is present (InitLargeProgramWithChunk optimization)
                 let chunk_data = if data.len() > 5 { Some(&data[5..]) } else { None };
                 if let Some(chunk) = chunk_data {
+                    #[cfg(feature = "debug-logs")]
                     log_if_debug!(debug, "InitLargeProgram with {} byte first chunk", chunk.len());
+                    #[cfg(not(feature = "debug-logs"))]
+                    let _ = chunk;
                 }
                 Ok(FIVEInstruction::InitLargeProgram { expected_size, chunk_data })
             }
@@ -337,6 +343,7 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResul
 ///
 /// **Admin Requirement**: Only the admin key can deploy bytecode with any special permissions.
 /// If permissions != 0, the admin must sign the transaction.
+#[allow(unused_variables)]
 pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], permissions: u8) -> ProgramResult {
     use crate::common::validate_permissions;
 
@@ -383,6 +390,9 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
 
     // **Deploy-time verification**: Verify bytecode content
     verify_bytecode_content(bytecode)?;
+
+    #[cfg(not(feature = "debug-logs"))]
+    let _ = program_id; // Suppress unused variable warning
 
     // Calculate required account size: header + bytecode + metadata
     let required_size = ScriptAccountHeader::LEN + bytecode.len();
@@ -513,6 +523,7 @@ pub fn init_large_program(
     // Validate chunk size if present
     if let Some(chunk) = chunk_data {
         if chunk.len() > expected_size {
+            #[cfg(feature = "debug-logs")]
             log_if_debug!(error, "Chunk size {} exceeds expected size {}", chunk.len(), expected_size);
             return Err(ProgramError::InvalidInstructionData);
         }
@@ -632,8 +643,11 @@ pub fn append_bytecode(
 
         log_if_debug!(debug, "Verifying bytecode content...");
         if let Err(e) = verify_bytecode_content(bytecode) {
-            let code: u64 = e.into();
-            log_if_debug!(error, "Bytecode verification failed: {}", code);
+            #[cfg(feature = "debug-logs")]
+            {
+                let code: u64 = e.into();
+                log_if_debug!(error, "Bytecode verification failed: {}", code);
+            }
             return Err(e);
         }
         log_if_debug!(debug, "Verification successful.");
@@ -861,6 +875,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     }
 
     let bytecode = &script_data[bytecode_start..bytecode_end];
+    #[allow(unused_variables)]
     let instruction_offset = compute_instruction_start_offset(bytecode) as usize;
 
     log_if_debug!(
@@ -960,6 +975,7 @@ fn compute_instruction_start_offset(bytecode: &[u8]) -> u16 {
 /// - Function name metadata format is valid (if present)
 ///
 /// Results are cached in ScriptAccountHeader for fast execution.
+#[allow(unused_variables)]
 pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     // Validate bytecode size
     if bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
