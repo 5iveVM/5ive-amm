@@ -18,6 +18,8 @@ import {
   keyValue,
   uiColors
 } from '../utils/cli-ui.js';
+import { getNetworkDisplay } from '../utils/ascii-art.js';
+import { ConfigManager } from '../config/ConfigManager.js';
 import { commands, getCommand, getCommandsByCategory } from './index.js';
 
 /**
@@ -157,7 +159,7 @@ async function showGeneralHelp(options: any, context: CommandContext): Promise<v
   }
   
   // Show current configuration
-  showCurrentConfig(context);
+  await showCurrentConfig(context);
   
   // Command categories with styling
   console.log(section('Available Commands'));
@@ -204,12 +206,16 @@ async function showGeneralHelp(options: any, context: CommandContext): Promise<v
 /**
  * Show current configuration status
  */
-function showCurrentConfig(context: CommandContext): void {
-  // For now, show a simple status. In the future, integrate with ConfigManager
+async function showCurrentConfig(context: CommandContext): Promise<void> {
+  // Get configuration from ConfigManager
+  const configManager = ConfigManager.getInstance();
+  const config = await configManager.get();
+  const target = config.target;
+
   const configInfo = [
     `${chalk.bold('Status:')} ${uiColors.success('Ready')}`,
     `${chalk.bold('Version:')} ${uiColors.info('1.2.2')}`,
-    // `${chalk.bold('Network:')} ${getNetworkDisplay('local')}`, // TODO: Get from config
+    `${chalk.bold('Network:')} ${getNetworkDisplay(target)}`,
     `${chalk.bold('Debug:')} ${context.options.debug ? uiColors.warn('ON') : uiColors.muted('OFF')}`
   ];
   
