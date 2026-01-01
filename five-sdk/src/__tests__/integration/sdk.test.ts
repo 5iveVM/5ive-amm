@@ -14,14 +14,14 @@ const mockConnection = {
   getMultipleAccountsInfo: jest.fn()
 };
 
-describe.skip('Five SDK Integration Tests', () => {
+describe('Five SDK Integration Tests', () => {
   // Skip integration tests until WASM modules are properly initialized
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('Script Compilation Workflow', () => {
-    it.skip('should compile Five script source to bytecode', async () => {
+    it('should compile Five script source to bytecode', async () => {
       // TODO: Test real WASM compilation once compiler is initialized
       const sourceCode = `
         function initialize() -> void {
