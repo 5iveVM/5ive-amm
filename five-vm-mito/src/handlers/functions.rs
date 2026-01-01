@@ -397,7 +397,29 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // NEW: Import verification for Five bytecode accounts
     // Check if the account matches verified imports using zero-copy metadata
-    let pda_derivation_fn: Option<crate::metadata::PdaDerivationFn> = None;  // TODO: Implement PDA derivation if needed
+    let pda_derivation_fn: Option<crate::metadata::PdaDerivationFn> = Some(|seeds, program_id| {
+        #[cfg(target_os = "solana")]
+        {
+            // On Solana, use pinocchio's find_program_address which calls the runtime syscall
+            let (key, _bump) = pinocchio::pubkey::find_program_address(seeds, unsafe {
+                &*(program_id as *const _ as *const pinocchio::pubkey::Pubkey)
+            });
+            key
+        }
+        #[cfg(not(target_os = "solana"))]
+        {
+            // On non-Solana targets (host tests, simulations), we can't reliably derive PDAs
+            // without a crypto library that implements ed25519 point validation.
+            // Pinocchio's implementation panics or returns None on host.
+            //
+            // We return a zeroed key here which will cause verification to fail unless expected key is also zero.
+            // This ensures we don't return an incorrect PDA that might be accepted.
+            // Users running off-chain tests should mock import verification if needed.
+            let _ = seeds;
+            let _ = program_id;
+            [0u8; 32]
+        }
+    });
 
     if !ctx.import_metadata.verify_account(
         {
