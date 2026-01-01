@@ -6,7 +6,8 @@
  */
 
 import { readFile } from 'fs/promises';
-import { extname, isAbsolute, join } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { extname, isAbsolute, join, resolve } from 'path';
 import ora from 'ora';
 
 import {
@@ -423,7 +424,7 @@ async function executeScriptAccount(scriptAccount: string, options: any, context
     try {
       // Get function index, parameters, and additional accounts
       const functionIndex = options.function ? parseInt(options.function) : 0;
-      const parameters = options.params ? JSON.parse(options.params) : [];
+      const parameters = parseParameters(options.params);
 
       // Parse additional accounts for on-chain execution
       let additionalAccounts: string[] = [];
@@ -657,7 +658,20 @@ function parseParameters(paramsOption: any): any[] {
       return JSON.parse(paramsOption);
     }
 
-    // TODO: Handle parameter files
+    // Handle parameter files
+    if (typeof paramsOption === 'string') {
+      const filePath = isAbsolute(paramsOption) ? paramsOption : resolve(process.cwd(), paramsOption);
+      if (existsSync(filePath)) {
+        const fileContent = readFileSync(filePath, 'utf-8');
+        return JSON.parse(fileContent);
+      }
+    }
+
+    // If it looks like a file path but didn't exist, and doesn't look like JSON
+    if (typeof paramsOption === 'string' && (paramsOption.endsWith('.json') || paramsOption.includes('/'))) {
+      throw new Error(`Parameter file not found or invalid: ${paramsOption}`);
+    }
+
     return [];
   } catch (error) {
     throw new Error(`Failed to parse parameters: ${error}`);
