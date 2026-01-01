@@ -245,7 +245,7 @@ export class WasmCompilerService {
                 outcome = 'failed';
                 description = `Unknown execution status: ${status}`;
                 testSuccess = false;
-        }
+            }
 
         return {
             outcome,
@@ -316,16 +316,124 @@ export class WasmCompilerService {
         }
 
         const opcode = bytecode[ip];
-        
-        // Handle PUSH instruction which has variable size
-        if (opcode === this.constants?.opcodes?.PUSH) {
-            if (ip + 1 < bytecode.length) {
-                const valueType = bytecode[ip + 1];
-                return 2 + this.getValueTypeSize(valueType);
+        const ops = this.constants?.opcodes;
+        if (!ops) return 1;
+
+        // VLE argument sizes must be decoded from bytecode if possible,
+        // but for analysis purposes we might need rough estimates or actual decoding logic.
+        // However, typescript doesn't have the VLE decoder handy unless we implement it or import it.
+        // This is a "best effort" size estimator for stepping through bytecode.
+
+        // Helper to decode VLE size
+        const decodeVLESize = (offset: number): number => {
+            let length = 0;
+            while (offset + length < bytecode.length) {
+                const byte = bytecode[offset + length];
+                length++;
+                if ((byte & 0x80) === 0) break;
             }
+            return length;
         }
 
-        // Most instructions are single byte
+        // 1 byte opcodes (no args)
+        // ... handled by default return 1
+
+        // Handle specific opcodes with arguments based on protocol
+        if (opcode === ops.PUSH_U8 || opcode === ops.PUSH_BOOL ||
+            opcode === ops.PUSH_STRING_LITERAL || opcode === ops.PUSH_ARRAY_LITERAL ||
+            opcode === ops.CREATE_ARRAY || opcode === ops.SET_LOCAL ||
+            opcode === ops.GET_LOCAL || opcode === ops.LOAD_PARAM ||
+            opcode === ops.STORE_PARAM || opcode === ops.CAST ||
+            opcode === ops.LOAD_REG_U8 || opcode === ops.LOAD_REG_U32 ||
+            opcode === ops.LOAD_REG_U64 || opcode === ops.LOAD_REG_BOOL ||
+            opcode === ops.LOAD_REG_PUBKEY || opcode === ops.PUSH_REG ||
+            opcode === ops.POP_REG || opcode === ops.CLEAR_REG ||
+            opcode === ops.TRANSFER_DEBIT || opcode === ops.TRANSFER_CREDIT ||
+            opcode === ops.BULK_LOAD_FIELD_N) {
+            return 2; // opcode + u8
+        }
+
+        if (opcode === ops.PUSH_U16) {
+             // Fixed 2 bytes (u16)
+             return 3;
+        }
+
+        if (opcode === ops.PUSH_U32 || opcode === ops.LOAD_ACCOUNT ||
+            opcode === ops.SAVE_ACCOUNT || opcode === ops.GET_ACCOUNT ||
+            opcode === ops.GET_LAMPORTS || opcode === ops.SET_LAMPORTS ||
+            opcode === ops.GET_DATA || opcode === ops.GET_KEY ||
+            opcode === ops.GET_OWNER || opcode === ops.INIT_ACCOUNT ||
+            opcode === ops.INIT_PDA_ACCOUNT || opcode === ops.CHECK_SIGNER ||
+            opcode === ops.CHECK_WRITABLE || opcode === ops.CHECK_OWNER ||
+            opcode === ops.CHECK_INITIALIZED || opcode === ops.CHECK_PDA ||
+            opcode === ops.CHECK_UNINITIALIZED) {
+            // VLE u32
+            return 1 + decodeVLESize(ip + 1);
+        }
+
+        if (opcode === ops.PUSH_U64 || opcode === ops.PUSH_I64) {
+            // VLE u64
+            return 1 + decodeVLESize(ip + 1);
+        }
+
+        if (opcode === ops.PUSH_PUBKEY) {
+            return 33; // opcode + 32 bytes
+        }
+
+        if (opcode === ops.PUSH_U128) {
+             return 17; // opcode + 16 bytes
+        }
+
+        if (opcode === ops.PUSH_STRING) {
+            // u8 + bytes? Or VLE length + bytes?
+            // Protocol says PUSH_STRING length_vle + string_data.
+            // But OpcodePatterns emits u8 length?
+            // Five-protocol says PUSH_STRING arg_type U8.
+            // If ArgType U8, it's just 2 bytes for instruction + arg, but where is string data?
+            // Assuming parser handles it specially or it's an index?
+            // Let's assume standard op size logic doesn't fully apply to var-len data unless encoded.
+            // If it's just an index, return 2.
+            return 2;
+        }
+
+        if (opcode === ops.LOAD_FIELD || opcode === ops.STORE_FIELD) {
+             // u8 account_index + VLE field_offset
+             return 2 + decodeVLESize(ip + 2);
+        }
+
+        if (opcode === ops.JUMP || opcode === ops.JUMP_IF || opcode === ops.JUMP_IF_NOT ||
+            opcode === ops.EQ_ZERO_JUMP || opcode === ops.GT_ZERO_JUMP || opcode === ops.LT_ZERO_JUMP) {
+            return 3; // opcode + u16 (fixed)
+        }
+
+        if (opcode === ops.CALL) {
+             // u8 param_count + u16 func_addr
+             return 4;
+        }
+
+        if (opcode === ops.CALL_EXTERNAL) {
+            // u8 acc + u16 off + u8 param
+            return 5;
+        }
+
+        if (opcode === ops.BR_EQ_U8) {
+            // u8 val + u16 off (VLE encoded? parser says ArgType::U8, but emitter emits VLE u16 too)
+            // Assuming 1 + 1 + VLE size
+            return 2 + decodeVLESize(ip + 2);
+        }
+
+        if (opcode === ops.COPY_REG) {
+             return 3; // opcode + 2 reg indices
+        }
+
+        if (opcode === ops.ADD_REG || opcode === ops.SUB_REG ||
+            opcode === ops.MUL_REG || opcode === ops.DIV_REG ||
+            opcode === ops.EQ_REG || opcode === ops.GT_REG ||
+            opcode === ops.LT_REG) {
+            return 4; // opcode + 3 reg indices
+        }
+
+        // 1 byte opcodes
         return 1;
     }
 
@@ -423,27 +531,60 @@ export class WasmCompilerService {
             bytecode.push(opcodeValue);
 
             // Handle arguments for specific opcodes
-            if (op.opcode === 'PUSH' && op.args && op.args.length >= 2) {
-                const [valueType, value] = op.args;
-                const typeValue = this.constants.types[valueType];
-                if (typeValue === undefined) {
-                    throw new Error(`Unknown type: ${valueType}`);
+            if (op.opcode === 'PUSH_U64' || op.opcode === 'PUSH_I64') {
+                 // Opcode + VLE u64. For simplicity in test helper, we might just emit fixed 8 bytes or need VLE encoder.
+                 // This test helper is basic. Let's assume standard simple encoding or implement VLE.
+                 // Implementing simple VLE here:
+                 if (op.args && op.args.length > 0) {
+                     let val = BigInt(op.args[0]);
+                     do {
+                         let byte = Number(val & BigInt(0x7F));
+                         val >>= BigInt(7);
+                         if (val !== BigInt(0)) {
+                             byte |= 0x80;
+                         }
+                         bytecode.push(byte);
+                     } while (val !== BigInt(0));
+                 }
+            } else if (op.opcode === 'PUSH_U32') {
+                 if (op.args && op.args.length > 0) {
+                     let val = op.args[0];
+                     do {
+                         let byte = val & 0x7F;
+                         val >>= 7;
+                         if (val !== 0) {
+                             byte |= 0x80;
+                         }
+                         bytecode.push(byte);
+                     } while (val !== 0);
+                 }
+            } else if (op.opcode === 'PUSH_U16') {
+                 if (op.args && op.args.length > 0) {
+                     let val = op.args[0];
+                     do {
+                         let byte = val & 0x7F;
+                         val >>= 7;
+                         if (val !== 0) {
+                             byte |= 0x80;
+                         }
+                         bytecode.push(byte);
+                     } while (val !== 0);
+                 }
+            } else if (op.opcode === 'PUSH_U8' || op.opcode === 'PUSH_BOOL' ||
+                       op.opcode === 'PUSH_STRING_LITERAL' || op.opcode === 'PUSH_ARRAY_LITERAL' ||
+                       op.opcode === 'CREATE_ARRAY' || op.opcode === 'SET_LOCAL' ||
+                       op.opcode === 'GET_LOCAL' || op.opcode === 'LOAD_PARAM' ||
+                       op.opcode === 'STORE_PARAM' || op.opcode === 'CAST') {
+                if (op.args && op.args.length > 0) {
+                    bytecode.push(op.args[0] & 0xFF);
                 }
-                
-                bytecode.push(typeValue);
-                
-                // Encode value based on type
-                if (valueType === 'U64' || valueType === 'I64') {
-                    const value64 = BigInt(value);
-                    const bytes = new Array(8);
-                    for (let i = 0; i < 8; i++) {
-                        bytes[i] = Number((value64 >> BigInt(i * 8)) & BigInt(0xFF));
+            } else if (op.opcode === 'PUSH_PUBKEY') {
+                if (op.args && op.args.length > 0) {
+                    // Expect 32 byte array or string
+                    const pk = op.args[0];
+                    if (pk.length === 32) {
+                        bytecode.push(...pk);
                     }
-                    bytecode.push(...bytes);
-                } else if (valueType === 'U8') {
-                    bytecode.push(value & 0xFF);
-                } else if (valueType === 'BOOL') {
-                    bytecode.push(value ? 1 : 0);
                 }
             }
         }

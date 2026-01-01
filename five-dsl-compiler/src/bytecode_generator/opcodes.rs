@@ -347,6 +347,8 @@ impl OpcodeAnalyzer {
         matches!(
             opcode,
             opcodes::PUSH_U8
+                | opcodes::PUSH_U16
+                | opcodes::PUSH_U32
                 | opcodes::PUSH_U64
                 | opcodes::PUSH_I64
                 | opcodes::PUSH_BOOL
@@ -358,23 +360,85 @@ impl OpcodeAnalyzer {
                 | opcodes::JUMP_IF_NOT
                 | opcodes::JUMP_IF
                 | opcodes::CALL
+                | opcodes::CALL_EXTERNAL
                 | opcodes::BR_EQ_U8
+                | opcodes::PUSH_ARRAY_LITERAL
+                | opcodes::PUSH_STRING_LITERAL
+                | opcodes::CREATE_ARRAY
+                | opcodes::CHECK_SIGNER
+                | opcodes::CHECK_WRITABLE
+                | opcodes::CHECK_OWNER
+                | opcodes::CHECK_INITIALIZED
+                | opcodes::CHECK_PDA
+                | opcodes::CHECK_UNINITIALIZED
+                | opcodes::LOAD_ACCOUNT
+                | opcodes::SAVE_ACCOUNT
+                | opcodes::GET_ACCOUNT
+                | opcodes::GET_LAMPORTS
+                | opcodes::SET_LAMPORTS
+                | opcodes::GET_DATA
+                | opcodes::GET_KEY
+                | opcodes::GET_OWNER
+                | opcodes::INIT_ACCOUNT
+                | opcodes::INIT_PDA_ACCOUNT
+                | opcodes::SET_LOCAL
+                | opcodes::GET_LOCAL
+                | opcodes::LOAD_PARAM
+                | opcodes::STORE_PARAM
+                | opcodes::CAST
+                | opcodes::LOAD_REG_U8
+                | opcodes::LOAD_REG_U32
+                | opcodes::LOAD_REG_U64
+                | opcodes::LOAD_REG_BOOL
+                | opcodes::LOAD_REG_PUBKEY
+                | opcodes::ADD_REG
+                | opcodes::SUB_REG
+                | opcodes::MUL_REG
+                | opcodes::DIV_REG
+                | opcodes::EQ_REG
+                | opcodes::GT_REG
+                | opcodes::LT_REG
+                | opcodes::PUSH_REG
+                | opcodes::POP_REG
+                | opcodes::COPY_REG
+                | opcodes::CLEAR_REG
+                | opcodes::TRANSFER_DEBIT
+                | opcodes::TRANSFER_CREDIT
+                | opcodes::EQ_ZERO_JUMP
+                | opcodes::GT_ZERO_JUMP
+                | opcodes::LT_ZERO_JUMP
+                | opcodes::BULK_LOAD_FIELD_N
         )
     }
 
-    /// Get the size of operands for an opcode
+    /// Get the logical size of operands for an opcode (not necessarily encoded size for VLE)
+    /// Returns the maximum expected size in bytes for analysis purposes.
     pub fn operand_size(opcode: u8) -> usize {
         match opcode {
-            opcodes::PUSH_U64 => 8,
-            opcodes::PUSH_I64 => 8,
+            opcodes::PUSH_U64 | opcodes::PUSH_I64 => 8, // VLE (logical max)
+            opcodes::PUSH_U128 => 16,
             opcodes::PUSH_BOOL => 1,
             opcodes::PUSH_PUBKEY => 32,
             opcodes::PUSH_STRING => 1,
             opcodes::PUSH_U8 => 1,
-            opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 4, // 32-bit field index
+            opcodes::PUSH_U16 => 2, // Fixed 2 bytes (based on parser)
+            opcodes::PUSH_U32 => 4, // VLE (logical max)
+            opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 5, // u8 + u32 (VLE max)
             opcodes::JUMP | opcodes::JUMP_IF_NOT | opcodes::JUMP_IF => 2, // 16-bit offset
-            opcodes::CALL => 3, // 8-bit param_count + 16-bit function_address (+ optional name_len + name_bytes)
-            opcodes::BR_EQ_U8 => 2, // Variable size: 1-byte u8 + 1-3 bytes VLE u16 (estimate 2 bytes average)
+            opcodes::CALL => 3, // 8-bit param_count + 16-bit function_address
+            opcodes::BR_EQ_U8 => 3, // u8 + u16 offset
+            opcodes::CALL_EXTERNAL => 4, // account_index(1) + offset(2) + param_count(1)
+            opcodes::PUSH_ARRAY_LITERAL | opcodes::PUSH_STRING_LITERAL | opcodes::CREATE_ARRAY => 1,
+            opcodes::CHECK_SIGNER | opcodes::CHECK_WRITABLE | opcodes::CHECK_OWNER | opcodes::CHECK_INITIALIZED | opcodes::CHECK_PDA | opcodes::CHECK_UNINITIALIZED => 4, // VLE u32 account index
+            opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT | opcodes::GET_LAMPORTS | opcodes::SET_LAMPORTS | opcodes::GET_DATA | opcodes::GET_KEY | opcodes::GET_OWNER | opcodes::INIT_ACCOUNT | opcodes::INIT_PDA_ACCOUNT => 4, // VLE u32 account index
+            opcodes::SET_LOCAL | opcodes::GET_LOCAL | opcodes::LOAD_PARAM | opcodes::STORE_PARAM | opcodes::CAST => 1,
+            opcodes::LOAD_REG_U8 | opcodes::LOAD_REG_U32 | opcodes::LOAD_REG_U64 | opcodes::LOAD_REG_BOOL | opcodes::LOAD_REG_PUBKEY => 1, // Reg index
+            opcodes::ADD_REG | opcodes::SUB_REG | opcodes::MUL_REG | opcodes::DIV_REG | opcodes::EQ_REG | opcodes::GT_REG | opcodes::LT_REG => 3, // 3 Reg indices
+            opcodes::PUSH_REG | opcodes::POP_REG | opcodes::CLEAR_REG => 1,
+            opcodes::COPY_REG => 2,
+            opcodes::TRANSFER_DEBIT | opcodes::TRANSFER_CREDIT => 1, // u8 account index
+            opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => 2, // u16 offset
+            opcodes::BULK_LOAD_FIELD_N => 1, // u8
             _ => 0,
         }
     }
@@ -390,6 +454,10 @@ impl OpcodeAnalyzer {
                 | opcodes::RETURN
                 | opcodes::HALT
                 | opcodes::BR_EQ_U8
+                | opcodes::CALL_EXTERNAL
+                | opcodes::EQ_ZERO_JUMP
+                | opcodes::GT_ZERO_JUMP
+                | opcodes::LT_ZERO_JUMP
         )
     }
 
@@ -398,6 +466,8 @@ impl OpcodeAnalyzer {
         matches!(
             opcode,
             opcodes::PUSH_U8
+                | opcodes::PUSH_U16
+                | opcodes::PUSH_U32
                 | opcodes::PUSH_U64
                 | opcodes::PUSH_I64
                 | opcodes::PUSH_BOOL
@@ -421,6 +491,37 @@ impl OpcodeAnalyzer {
                 | opcodes::AND
                 | opcodes::OR
                 | opcodes::NOT
+                | opcodes::PUSH_U128
+                | opcodes::PUSH_ARRAY_LITERAL
+                | opcodes::PUSH_STRING_LITERAL
+                | opcodes::CREATE_ARRAY
+                | opcodes::ARRAY_GET
+                | opcodes::GET_LAMPORTS
+                | opcodes::GET_DATA
+                | opcodes::GET_KEY
+                | opcodes::GET_OWNER
+                | opcodes::LOAD_ACCOUNT
+                | opcodes::GET_ACCOUNT
+                | opcodes::LOAD_GLOBAL
+                | opcodes::GET_LOCAL
+                | opcodes::LOAD_PARAM
+                | opcodes::CAST
+                | opcodes::PUSH_REG
+                | opcodes::POP_REG
+                | opcodes::PUSH_ZERO
+                | opcodes::PUSH_ONE
+                | opcodes::PUSH_0
+                | opcodes::PUSH_1
+                | opcodes::PUSH_2
+                | opcodes::PUSH_3
+                | opcodes::GET_LOCAL_0
+                | opcodes::GET_LOCAL_1
+                | opcodes::GET_LOCAL_2
+                | opcodes::GET_LOCAL_3
+                | opcodes::LOAD_PARAM_0
+                | opcodes::LOAD_PARAM_1
+                | opcodes::LOAD_PARAM_2
+                | opcodes::LOAD_PARAM_3
         )
     }
 }
