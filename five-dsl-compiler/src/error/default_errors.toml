@@ -1,0 +1,300 @@
+# Five DSL Compiler Error Definitions
+# 
+# This file contains the default error definitions for the Five DSL compiler.
+# Error codes follow the Rust convention: E#### where #### is a 4-digit number.
+# 
+# Categories:
+# - 0000-0999: Syntax/Parse errors  
+# - 1000-1999: Type system errors
+# - 2000-2999: Semantic analysis errors
+# - 3000-3999: Code generation errors
+# - 4000-4999: Runtime/VM errors
+# - 5000-5999: IO/System errors
+
+[errors.E0001]
+title = "expected `{expected}`, found `{found}`"
+category = "syntax"
+severity = "error"
+description = "The parser expected a specific token but found something else"
+template = "expected `{expected}`, found `{found}`"
+help = "Check the syntax around this location"
+
+[[errors.E0001.suggestions]]
+condition = "missing_semicolon"
+text = "Did you forget a semicolon?"
+fix = "Add `;` at the end of the statement"
+
+[[errors.E0001.suggestions]] 
+condition = "missing_brace"
+text = "Did you forget a closing brace `}`?"
+fix = "Add `}` to close the block"
+
+[errors.E0001.examples]
+before = "let x = 5"
+after = "let x = 5;"
+description = "Missing semicolon after variable declaration"
+
+[errors.E0002]
+title = "unexpected token `{found}`"
+category = "syntax" 
+severity = "error"
+description = "An unexpected token was encountered during parsing"
+template = "unexpected token `{found}`"
+help = "This token is not valid in this context"
+
+[[errors.E0002.suggestions]]
+condition = "assignment_vs_equality"
+text = "Did you mean `==` for comparison instead of `=`?"
+fix = "Replace `=` with `==`"
+
+[errors.E0003]
+title = "unexpected end of file"
+category = "syntax"
+severity = "error" 
+description = "The file ended unexpectedly while parsing"
+template = "unexpected end of file"
+help = "The file contains an incomplete construct"
+
+[errors.E0004]
+title = "invalid syntax: {message}"
+category = "syntax"
+severity = "error"
+description = "General syntax error with context-specific message"
+template = "invalid syntax: {message}"
+
+[errors.E0010]
+title = "unmatched delimiter `{delimiter}`" 
+category = "syntax"
+severity = "error"
+description = "Opening delimiter has no corresponding closing delimiter"
+template = "unmatched delimiter `{delimiter}`"
+help = "Every opening delimiter must have a corresponding closing delimiter"
+
+[errors.E0011]
+title = "missing identifier"
+category = "syntax"
+severity = "error"
+description = "An identifier was expected but not found"
+template = "expected identifier, found `{found}`"
+help = "Identifiers must start with a letter or underscore"
+
+# Type System Errors (1000-1999)
+
+[errors.E1000]
+title = "mismatched types: expected `{expected_type}`, found `{actual_type}`"
+category = "type"
+severity = "error" 
+description = "Type mismatch between expected and actual types"
+template = "mismatched types: expected `{expected_type}`, found `{actual_type}`"
+
+[[errors.E1000.suggestions]]
+condition = "integer_promotion" 
+text = "Try converting with `.into()` or cast with `as {expected_type}`"
+fix = "Add type conversion"
+
+[[errors.E1000.suggestions]]
+condition = "string_conversion"
+text = "Try converting to string with `.to_string()` or `format!(\"{}\"​, value)`"
+fix = "Add string conversion"
+
+[errors.E1001]
+title = "cannot infer type for `{identifier}`"
+category = "type"
+severity = "error"
+description = "Type inference failed for this identifier" 
+template = "cannot infer type for `{identifier}`"
+help = "Add an explicit type annotation"
+
+[[errors.E1001.suggestions]]
+text = "Add type annotation: `let {identifier}: SomeType = value;`"
+
+[errors.E1002] 
+title = "invalid conversion from `{from_type}` to `{to_type}`"
+category = "type"
+severity = "error"
+description = "The requested type conversion is not valid"
+template = "cannot convert `{from_type}` to `{to_type}`"
+help = "These types are not compatible for automatic conversion"
+
+[errors.E1003]
+title = "function signature mismatch"
+category = "type" 
+severity = "error"
+description = "Function call does not match the function signature"
+template = "function signature mismatch for `{function_name}`"
+
+[errors.E1010]
+title = "literal `{literal}` does not fit in type `{target_type}`"
+category = "type"
+severity = "error"
+description = "Numeric literal is too large for the target type"
+template = "literal `{literal}` does not fit in type `{target_type}`"
+help = "Use a larger type or check the value range"
+
+# Semantic Errors (2000-2999)
+
+[errors.E2000]
+title = "cannot find value `{identifier}` in this scope"
+category = "semantic"
+severity = "error"
+description = "Undefined variable or identifier"
+template = "cannot find value `{identifier}` in this scope"
+help = "Variables must be declared with `let` before use"
+
+[[errors.E2000.suggestions]]
+text = "Did you forget to declare variable `{identifier}`?"
+fix = "Add declaration: `let {identifier}: Type = value;`"
+
+[errors.E2001]
+title = "variable `{identifier}` is already defined"
+category = "semantic" 
+severity = "error"
+description = "Attempt to redefine an existing variable"
+template = "variable `{identifier}` is already defined in this scope"
+help = "Variable names must be unique within their scope"
+
+[errors.E2002]
+title = "function `{function_name}` is already defined"
+category = "semantic"
+severity = "error"
+description = "Attempt to redefine an existing function"
+template = "function `{function_name}` is already defined"
+
+[errors.E2010]
+title = "unreachable code"
+category = "semantic"
+severity = "warning"
+description = "Code that will never be executed"
+template = "unreachable code detected"
+help = "This code comes after a return or other control flow that exits the function"
+
+[errors.E2011]
+title = "unused variable `{identifier}`"
+category = "semantic"  
+severity = "warning"
+description = "Variable is declared but never used"
+template = "unused variable: `{identifier}`"
+help = "Consider removing this variable or prefixing with `_` to suppress this warning"
+
+# Code Generation Errors (3000-3999)
+
+[errors.E3000]
+title = "stack overflow during code generation"
+category = "codegen"
+severity = "error"
+description = "Expression too complex for code generation"
+template = "stack overflow during code generation"
+help = "Try breaking complex expressions into smaller parts"
+
+[errors.E3001]
+title = "register allocation failed" 
+category = "codegen"
+severity = "error"
+description = "Ran out of available registers"
+template = "register allocation failed for expression" 
+help = "Simplify the expression or use fewer intermediate values"
+
+[errors.E3002]
+title = "bytecode size limit exceeded"
+category = "codegen"
+severity = "error" 
+description = "Generated bytecode is too large"
+template = "generated bytecode exceeds size limit: {size} bytes (max: {limit} bytes)"
+help = "Try reducing script complexity or splitting into smaller functions"
+
+[errors.E3010]
+title = "invalid opcode `{opcode}`"
+category = "codegen"
+severity = "error"
+description = "Invalid opcode in bytecode generation" 
+template = "invalid opcode `{opcode}` in bytecode generation"
+help = "This is likely a compiler bug - please report it"
+
+# Runtime Errors (4000-4999)
+
+[errors.E4000]
+title = "stack underflow"
+category = "runtime"
+severity = "error"
+description = "Attempted to pop from empty stack"
+template = "stack underflow: attempted to pop from empty stack"
+help = "This indicates a compiler bug in stack management"
+
+[errors.E4001]
+title = "division by zero"
+category = "runtime" 
+severity = "error"
+description = "Division by zero at runtime"
+template = "division by zero detected in expression: {expression}"
+help = "Add a check to ensure the divisor is not zero"
+
+[errors.E4002]
+title = "integer overflow"
+category = "runtime"
+severity = "error"
+description = "Integer overflow in arithmetic operation"
+template = "integer overflow in operation: {operation}"
+help = "Use checked arithmetic or a larger integer type"
+
+[errors.E4003]
+title = "array index out of bounds"
+category = "runtime"
+severity = "error"
+description = "Array access with invalid index"
+template = "array index out of bounds: index {index}, length {length}"
+help = "Ensure array accesses are within bounds"
+
+[errors.E4010]
+title = "compute unit limit exceeded"
+category = "runtime"
+severity = "warning"
+description = "Script may exceed Solana compute unit limits"
+template = "compute unit limit exceeded: estimated {estimated} CU (limit: {limit} CU)"
+help = "Optimize the script to reduce compute unit usage"
+
+[[errors.E4010.suggestions]]
+text = "Reduce loop iterations and simplify expressions"
+
+[[errors.E4010.suggestions]]
+text = "Consider breaking into multiple transactions"
+
+[errors.E4011]
+title = "stack depth limit exceeded"
+category = "runtime"
+severity = "error"
+description = "Call stack too deep"
+template = "stack depth limit exceeded: {depth} (max: {limit})"
+help = "Reduce recursion depth or use iterative approaches"
+
+# IO/System Errors (5000-5999)
+
+[errors.E5000]
+title = "file not found: `{filename}`"
+category = "io"
+severity = "error"
+description = "Could not find the specified file"
+template = "file not found: `{filename}`"
+help = "Check that the file path is correct and the file exists"
+
+[errors.E5001]
+title = "permission denied: `{filename}`"
+category = "io"
+severity = "error"
+description = "Permission denied when accessing file"
+template = "permission denied: `{filename}`"  
+help = "Check file permissions and access rights"
+
+[errors.E5002]
+title = "IO error: {message}"
+category = "io"
+severity = "error"
+description = "General input/output error"
+template = "IO error: {message}"
+
+[errors.E5010]
+title = "invalid configuration"
+category = "io"
+severity = "error"
+description = "Configuration file is invalid or corrupted"
+template = "invalid configuration: {message}"
+help = "Check the configuration file format and syntax"

@@ -1,0 +1,171 @@
+warning: unused import: `debug_log`
+ --> five-vm-mito/src/context.rs:7:5
+  |
+7 |     debug_log,
+  |     ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `heapless::String as HString`
+  --> five-vm-mito/src/handlers/option_result.rs:12:5
+   |
+12 | use heapless::String as HString;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `five-vm-mito` (lib) generated 2 warnings (run `cargo fix --lib -p five-vm-mito` to apply 2 suggestions)
+    Checking five-dsl-compiler v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-dsl-compiler)
+error[E0252]: the name `OpcodeEmitter` is defined multiple times
+  --> five-dsl-compiler/src/bytecode_generator/constraint_optimizer.rs:10:5
+   |
+9  | use super::OpcodeEmitter;
+   |     -------------------- previous import of the trait `OpcodeEmitter` here
+10 | use super::OpcodeEmitter;
+   |     ^^^^^^^^^^^^^^^^^^^^ `OpcodeEmitter` reimported here
+   |
+   = note: `OpcodeEmitter` must be defined only once in the type namespace of this module
+
+warning: unused import: `super::OpcodeEmitter`
+  --> five-dsl-compiler/src/bytecode_generator/constraint_optimizer.rs:10:5
+   |
+10 | use super::OpcodeEmitter;
+   |     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `InstructionParameter` and `TypeNode`
+ --> five-dsl-compiler/src/bytecode_generator/module_merger.rs:6:27
+  |
+6 | use crate::ast::{AstNode, InstructionParameter, TypeNode};
+  |                           ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^
+
+warning: unused import: `five_vm_mito::error::VMError`
+  --> five-dsl-compiler/src/module_resolver.rs:12:5
+   |
+12 | use five_vm_mito::error::VMError;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> five-dsl-compiler/src/bytecode_generator/abi_generator.rs:238:37
+    |
+238 |                         attributes: param.attributes.clone(),
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Vec<String>`, found `Vec<Attribute>`
+    |
+    = note: expected struct `std::vec::Vec<std::string::String>`
+               found struct `std::vec::Vec<Attribute>`
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/ast_generator/mod.rs:827:17
+    |
+827 |                 is_public: _,
+    |                 ^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/ast_generator/mod.rs:117:31
+    |
+117 |                         name, is_public, ..
+    |                               ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+  --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:79:25
+   |
+79 |                         is_public, name, ..
+   |                         ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:207:57
+    |
+207 |                 if let AstNode::InstructionDefinition { is_public, .. } = instruction_def {
+    |                                                         ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:226:21
+    |
+226 |                     is_public,
+    |                     ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:259:21
+    |
+259 |                     is_public,
+    |                     ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:562:21
+    |
+562 |                     is_public,
+    |                     ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:572:21
+    |
+572 |                     is_public,
+    |                     ^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:751:61
+    |
+751 |                     .insert(param.name.clone(), (type_name, param.attributes.clone()));
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Vec<String>`, found `Vec<Attribute>`
+    |
+    = note: expected struct `std::vec::Vec<std::string::String>`
+               found struct `std::vec::Vec<Attribute>`
+
+error[E0277]: `Attribute` doesn't implement `std::fmt::Display`
+   --> five-dsl-compiler/src/bytecode_generator/performance.rs:695:78
+    |
+695 |             let pattern_key = format!("{}:{}@{}", function_name, param.name, attribute);
+    |                                                                              ^^^^^^^^^ `Attribute` cannot be formatted with the default formatter
+    |
+    = help: the trait `std::fmt::Display` is not implemented for `Attribute`
+    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+    = note: this error originates in the macro `$crate::__export::format_args` which comes from the expansion of the macro `format` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no method named `as_str` found for reference `&Attribute` in the current scope
+   --> five-dsl-compiler/src/bytecode_generator/performance.rs:697:51
+    |
+697 |             let constraint_type = match attribute.as_str() {
+    |                                                   ^^^^^^ method not found in `&Attribute`
+    |
+help: one of the expressions' fields has a method of the same name
+    |
+697 |             let constraint_type = match attribute.name.as_str() {
+    |                                                   +++++
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/type_checker/mod.rs:138:17
+    |
+138 |                 is_public: _,
+    |                 ^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> five-dsl-compiler/src/compiler/mod.rs:289:13
+    |
+289 |         let mut graph = discoverer.discover_modules(entry_point).map_err(|e| {
+    |             ----^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+   --> five-dsl-compiler/src/compiler/mod.rs:426:13
+    |
+426 |         let mut graph = discoverer.discover_modules(entry_point).map_err(|e| {
+    |             ----^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: unused variable: `e`
+   --> five-dsl-compiler/src/module_resolver.rs:231:27
+    |
+231 |                 .map_err(|e| ModuleResolutionError::ModuleNotFound {
+    |                           ^ help: if this is intentional, prefix it with an underscore: `_e`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+Some errors have detailed explanations: E0252, E0277, E0308, E0599.
+For more information about an error, try `rustc --explain E0252`.
+warning: `five-dsl-compiler` (lib) generated 15 warnings
+error: could not compile `five-dsl-compiler` (lib) due to 5 previous errors; 15 warnings emitted

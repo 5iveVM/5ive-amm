@@ -1,0 +1,158 @@
+# Grammar Metadata for Five DSL AST Nodes
+# Maps AstNode enum variants to their tree-sitter grammar rules
+# Used by the generate-grammar CLI tool to auto-generate grammar.js
+
+# Top-level items
+[Program]
+name = "source_file"
+rule = 'repeat($._top_level_item)'
+
+[Block]
+name = "block"
+rule = 'seq("{", repeat($._statement), "}")'
+
+# Statements
+[Assignment]
+name = "assignment_statement"
+rule = 'seq(field("left", $._assignable_expression), "=", field("right", $._expression), ";")'
+
+[FieldAssignment]
+name = "field_assignment"
+rule = 'seq(field("object", $._expression), ".", field("field", $.identifier), "=", field("value", $._expression), ";")'
+
+[RequireStatement]
+name = "require_statement"
+rule = 'seq("require", "(", field("condition", $._expression), ")", ";")'
+
+[LetStatement]
+name = "let_statement"
+rule = 'seq("let", field("pattern", choice($.identifier, $.tuple_pattern)), "=", field("value", $._expression), ";")'
+
+[TupleDestructuring]
+name = "tuple_destructuring"
+rule = 'seq("let", "(", field("targets", $.pattern_list), ")", "=", field("value", $._expression), ";")'
+
+[TupleAssignment]
+name = "tuple_assignment"
+rule = 'seq("(", field("targets", $.pattern_list), ")", "=", field("value", $._expression), ";")'
+
+[IfStatement]
+name = "if_statement"
+rule = 'seq("if", "(", field("condition", $._expression), ")", field("then_block", $.block), optional(seq("else", field("else_block", $.block))))'
+
+[MatchExpression]
+name = "match_expression"
+rule = 'seq("match", field("expression", $._expression), "{", repeat(seq(field("pattern", $.identifier), "=>", field("body", $.block), ",")), "}")'
+
+[ReturnStatement]
+name = "return_statement"
+rule = 'seq("return", optional(field("value", $._expression)), ";")'
+
+# Definitions
+[AccountDefinition]
+name = "account_definition"
+rule = 'seq("account", field("name", $.identifier), "{", repeat($.field_definition), "}")'
+
+[FieldDefinition]
+name = "field_definition"
+rule = 'seq(field("name", $.identifier), ":", field("type", $._type_expression), ";")'
+
+[InstructionDefinition]
+name = "instruction_definition"
+rule = 'seq(optional("pub"), "instruction", field("name", $.identifier), "(", optional($.parameter_list), ")", optional(seq("->", field("return_type", $._type_expression))), field("body", $.block))'
+
+[EventDefinition]
+name = "event_definition"
+rule = 'seq("event", field("name", $.identifier), "{", repeat($.field_definition), "}")'
+
+[EmitStatement]
+name = "emit_statement"
+rule = 'seq("emit", field("event_name", $.identifier), "{", repeat(seq(field("field_name", $.identifier), ":", field("value", $._expression), ",")), "}")'
+
+[ErrorTypeDefinition]
+name = "error_type_definition"
+rule = 'seq("error", field("name", $.identifier), "{", repeat(seq(field("variant", $.identifier), ",")), "}")'
+
+# Expressions - Literals
+[StringLiteral]
+name = "string_literal"
+rule = 'seq("\"", repeat(choice(token.immediate(prec(1, /[^"\\]+/)), $.escape_sequence)), "\"")'
+
+[ArrayLiteral]
+name = "array_literal"
+rule = 'seq("[", optional($.array_element_list), "]")'
+
+[TupleLiteral]
+name = "tuple_literal"
+rule = 'seq("(", $._expression, ",", optional(seq($._expression, repeat(seq(",", $._expression)), optional(","))), ")")'
+
+[StructLiteral]
+name = "struct_literal"
+rule = 'seq(field("type", $.identifier), "{", optional(seq($._expression, repeat(seq(",", $._expression)), optional(","))), "}")'
+
+# Expressions - Access and Calls
+[FieldAccess]
+name = "field_access"
+rule = 'prec.left(13, seq(field("object", $._expression), ".", field("field", $.identifier)))'
+
+[ArrayAccess]
+name = "array_access"
+rule = 'seq(field("array", $._expression), "[", field("index", $._expression), "]")'
+
+[TupleAccess]
+name = "tuple_access"
+rule = 'seq(field("object", $._expression), ".", field("index", $.number_literal))'
+
+[MethodCall]
+name = "method_call_expression"
+rule = 'seq(field("interface", $.identifier), ".", field("method", $.identifier), "(", optional($.argument_list), ")")'
+
+[FunctionCall]
+name = "call_expression"
+rule = 'seq(field("function", $.identifier), "(", optional($.argument_list), ")")'
+
+[EnumVariantAccess]
+name = "enum_variant_access"
+rule = 'seq(field("enum_name", $.identifier), "::", field("variant_name", $.identifier))'
+
+[ErrorPropagation]
+name = "error_propagation"
+rule = 'seq(field("expression", $._expression), "?")'
+
+# Expressions - Operators
+[UnaryExpression]
+name = "unary_expression"
+rule = 'prec(14, seq(field("operator", choice("!", "-", "+")), field("operand", $._expression)))'
+precedence = 14
+
+[BinaryExpression]
+name = "binary_expression"
+rule = 'choice(prec.left(12, seq(field("left", $._expression), "||", field("right", $._expression))), prec.left(11, seq(field("left", $._expression), "&&", field("right", $._expression))), prec.left(7, seq(field("left", $._expression), choice("==", "!="), field("right", $._expression))), prec.left(6, seq(field("left", $._expression), choice("<", "<=", ">", ">="), field("right", $._expression))), prec.left(4, seq(field("left", $._expression), choice("+", "-"), field("right", $._expression))), prec.left(3, seq(field("left", $._expression), choice("*", "/", "%"), field("right", $._expression))))'
+
+# Control Flow (simplified - not all are in AST currently)
+[ForLoop]
+name = "for_loop"
+rule = 'seq("for", "(", optional($._statement), ";", optional($._expression), ";", optional($._expression), ")", $.block)'
+
+[WhileLoop]
+name = "while_statement"
+rule = 'seq("while", "(", field("condition", $._expression), ")", field("body", $.block))'
+
+[TemplateLiteral]
+name = "template_literal"
+rule = 'seq("`", repeat(choice($._expression, /[^`]+/)), "`")'
+
+# Type system nodes (these are in TypeNode, not AstNode)
+# But we can reference them here for completeness
+
+[TypeGeneric]
+name = "generic_type"
+rule = 'seq(field("name", $.identifier), "<", field("type_args", $.type_argument_list), ">")'
+
+[TypeArray]
+name = "array_type"
+rule = 'seq("[", field("element_type", $._type_expression), ";", optional(field("size", $.number_literal)), "]")'
+
+[TypeTuple]
+name = "tuple_type"
+rule = 'seq("(", $._type_expression, repeat(seq(",", $._type_expression)), optional(","), ")")'

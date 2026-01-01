@@ -1,0 +1,187 @@
+use five_dsl_compiler::compiler::{CompilationConfig, CompilationMode, DslCompiler};
+use five_dsl_compiler::error::ErrorCode;
+// Removed ModuleGraph and DslTokenizer from imports as they are not directly used in these tests
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use tempfile::{tempdir, TempDir};
+
+// Helper to create a temporary directory and write .v files into it for testing
+fn create_test_project(
+    files: HashMap<String, String>,
+) -> Result<(TempDir, PathBuf, PathBuf), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let root_path = dir.path().to_path_buf();
+    let src_dir = root_path.join("src");
+    std::fs::create_dir_all(&src_dir)?; // Ensure src_dir exists
+
+    let mut entry_point_path = PathBuf::new();
+
+    for (name, content) in &files {
+        let file_path = src_dir.join(name);
+        // Create parent directories for nested files (e.g., src/utils/helpers.v)
+        if let Some(parent) = file_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&file_path, content)?;
+        println!("Created file: {:?}", file_path);
+    }
+
+    // Determine entry point path
+    if files.contains_key("main.v") {
+        entry_point_path = src_dir.join("main.v");
+    } else if let Some(first_file) = files.keys().next() {
+        // Fallback to any file if main.v is missing (for specific tests)
+        entry_point_path = src_dir.join(first_file);
+    }
+
+    // Convert both to absolute paths if possible
+    let root_path = std::fs::canonicalize(&root_path).unwrap_or(root_path);
+    // Only canonicalize entry point if it exists (it should)
+    if entry_point_path.exists() {
+        entry_point_path = std::fs::canonicalize(&entry_point_path).unwrap_or(entry_point_path);
+    }
+
+    println!("Root path: {:?}", root_path);
+    println!("Entry point: {:?}", entry_point_path);
+
+    // Return TempDir to keep directory alive
+    Ok((dir, root_path, entry_point_path))
+}
+
+#[test]
+fn test_discover_modules_simple() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert("main.v".to_string(), "script main { use lib; }".to_string());
+    files.insert("lib.v".to_string(), "script lib { }".to_string());
+
+    let (_dir, root_path, entry_point_path) = create_test_project(files)?;
+
+    let modules = DslCompiler::discover_modules(&entry_point_path)?;
+    
+    // Resolve paths for comparison
+    let lib_path = root_path.join("src/lib.v").canonicalize()?;
+    let main_path = root_path.join("src/main.v").canonicalize()?;
+    
+    // Use canonical paths for comparison to handle symlinks
+    let modules_canonical: Vec<PathBuf> = modules.iter()
+        .map(|m| Path::new(m).canonicalize().unwrap_or_else(|_| PathBuf::from(m)))
+        .collect();
+
+    assert!(modules_canonical.contains(&lib_path), "Module list {:?} does not contain {:?}", modules_canonical, lib_path);
+    assert!(modules_canonical.contains(&main_path), "Module list {:?} does not contain {:?}", modules_canonical, main_path);
+    assert_eq!(modules.len(), 2);
+
+    Ok(())
+}
+
+#[test]
+fn test_discover_modules_nested_path() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert("main.v".to_string(), "script main { use utils::helpers; }".to_string());
+    files.insert("utils/helpers.v".to_string(), "script helpers { }".to_string());
+
+    let (_dir, root_path, entry_point_path) = create_test_project(files)?;
+
+    let modules = DslCompiler::discover_modules(&entry_point_path)?;
+    
+    let helpers_path = root_path.join("src/utils/helpers.v").canonicalize()?;
+    let main_path = root_path.join("src/main.v").canonicalize()?;
+
+    let modules_canonical: Vec<PathBuf> = modules.iter()
+        .map(|m| Path::new(m).canonicalize().unwrap_or_else(|_| PathBuf::from(m)))
+        .collect();
+
+    assert!(modules_canonical.contains(&helpers_path), "Module list {:?} does not contain {:?}", modules_canonical, helpers_path);
+    assert!(modules_canonical.contains(&main_path), "Module list {:?} does not contain {:?}", modules_canonical, main_path);
+    assert_eq!(modules.len(), 2);
+
+    Ok(())
+}
+
+#[test]
+fn test_auto_discovery_simple_compilation() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert("main.v".to_string(), "script main { use lib; pub fn do_stuff() { } }".to_string());
+    files.insert("lib.v".to_string(), "script lib { pub fn my_func() { } }".to_string());
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    assert!(bytecode.len() > 10); // Should contain some instructions
+
+    Ok(())
+}
+
+#[test]
+fn test_auto_discovery_circular_dependency_error() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert("a.v".to_string(), "script a { use b; }".to_string());
+    files.insert("b.v".to_string(), "script b { use a; }".to_string());
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+
+    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.message.contains("Circular dependency"));
+
+    Ok(())
+}
+
+#[test]
+fn test_auto_discovery_missing_module_error() -> Result<(), Box<dyn std::error::Error>> {
+    // We need to create a project where main.v refers to a non-existent module
+    // But create_test_project only writes files we give it.
+    // So we provide main.v, but NOT the module it uses.
+    let mut files = HashMap::new();
+    files.insert("main.v".to_string(), "script main { use non_existent; }".to_string());
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+
+    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+
+    assert!(result.is_err(), "Expected error for missing module");
+    let err = result.unwrap_err();
+    assert_eq!(err.code, ErrorCode::FILE_NOT_FOUND, "Expected FILE_NOT_FOUND error code, got {:?}", err.code);
+
+    Ok(())
+}
+
+#[test]
+fn test_compile_modules_explicit_mode() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert("main.v".to_string(), "script main { use lib; pub fn test_main() { } }".to_string());
+    files.insert("lib.v".to_string(), "script lib { pub fn test_lib() { } }".to_string());
+
+    let (_dir, root_path, _entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+
+    let main_path = root_path.join("src/main.v").to_string_lossy().to_string();
+    let lib_path = root_path.join("src/lib.v").to_string_lossy().to_string();
+
+    let module_files = vec![main_path.clone(), lib_path.clone()];
+
+    let bytecode = DslCompiler::compile_modules(module_files, &main_path, &config)?;
+    assert!(!bytecode.is_empty());
+    assert!(bytecode.len() > 10);
+
+    Ok(())
+}
+
+#[test]
+fn test_call_external_generation_via_auto_discovery() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert("main.v".to_string(), "script main { use \"some_external_address\"; pub fn main_func() { } }".to_string());
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+
+    Ok(())
+}

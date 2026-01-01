@@ -1,0 +1,7 @@
+# Potential Issues for Agent Review
+
+- five_file.rs:314-325 — `type_to_id` only accepts `"String"`/`"Pubkey"` casing, but the compiler emits lowercase `"string"`/`"pubkey"` from `account_utils::type_node_to_string`, so `FiveFile::to_bytes` rejects valid ABIs containing those types. Normalize casing or accept both.
+- bytecode_parser.rs:154-165 — `get_operand_size` treats `PUSH_STRING` as a 1-byte operand and never skips the string payload. When a string literal precedes a CALL, `parse_function_calls` misaligns and can surface spurious `IncompleteFunctionName` errors; operand sizing should consume the length and string bytes.
+- security_rules.rs:176-199 — `current_context.call_depth` increments for every external call and is never decremented, so sequential external calls beyond the threshold are flagged as “Excessive call depth” even without recursion. Depth accounting needs to unwind per call or traversal.
+- bytecode_generator/mod.rs:208-223 — `with_optimization_config` unconditionally sets `v2_preview = true`, so pipelines using it ignore `CompilationConfig.v2_preview` and emit preview bytecode even when disabled. This is a compatibility/regression risk.
+- compiler/mod.rs:200-238 — Standard compile paths (`compile_with_config`, `compile_to_five_file*`) never run `type_check_with_interfaces` or pass an interface registry into codegen, so interface definitions are ignored outside the debug/log API. Interface-dependent type checking and bytecode generation likely miss coverage or fail on interface-based imports.

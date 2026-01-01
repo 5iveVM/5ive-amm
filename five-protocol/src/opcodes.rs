@@ -471,6 +471,7 @@ pub enum ArgType {
     TwoRegisters,   // Two register indices
     ThreeRegisters, // Three register indices (dest, src1, src2)
     CallExternal,   // account_index (u8) + function_offset (u16) + param_count (u8)
+    AccountField,   // account_index (u8) + field_offset (VLE)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -901,19 +902,69 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
-        opcode: ROTATE_LEFT,
-        name: "ROTATE_LEFT",
-        arg_type: ArgType::None,
-        stack_effect: -1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
         opcode: ROTATE_RIGHT,
         name: "ROTATE_RIGHT",
         arg_type: ArgType::None,
         stack_effect: -1,
         compute_cost: 1,
     },
+    // Memory operations
+    OpcodeInfo {
+        opcode: STORE,
+        name: "STORE",
+        arg_type: ArgType::U32,
+        stack_effect: -1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: LOAD,
+        name: "LOAD",
+        arg_type: ArgType::U32,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: STORE_FIELD,
+        name: "STORE_FIELD",
+        arg_type: ArgType::AccountField,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: LOAD_FIELD,
+        name: "LOAD_FIELD",
+        arg_type: ArgType::AccountField,
+        stack_effect: 1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: LOAD_INPUT,
+        name: "LOAD_INPUT",
+        arg_type: ArgType::U8,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: STORE_GLOBAL,
+        name: "STORE_GLOBAL",
+        arg_type: ArgType::U16,
+        stack_effect: -1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: LOAD_GLOBAL,
+        name: "LOAD_GLOBAL",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: LOAD_EXTERNAL_FIELD,
+        name: "LOAD_EXTERNAL_FIELD",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 5,
+    }, // stack: [pubkey, field_name_key]
     // Byte manipulation operations
     OpcodeInfo {
         opcode: BYTE_SWAP_16,
@@ -1007,6 +1058,170 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::None,
         stack_effect: 1,
         compute_cost: 8,
+    },
+    // Account operations
+    OpcodeInfo {
+        opcode: CREATE_ACCOUNT,
+        name: "CREATE_ACCOUNT",
+        arg_type: ArgType::None,
+        stack_effect: -127,
+        compute_cost: 10,
+    },
+    OpcodeInfo {
+        opcode: LOAD_ACCOUNT,
+        name: "LOAD_ACCOUNT",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 1,
+        compute_cost: 5,
+    },
+    OpcodeInfo {
+        opcode: SAVE_ACCOUNT,
+        name: "SAVE_ACCOUNT",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: -1,
+        compute_cost: 5,
+    },
+    OpcodeInfo {
+        opcode: GET_ACCOUNT,
+        name: "GET_ACCOUNT",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: GET_LAMPORTS,
+        name: "GET_LAMPORTS",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: SET_LAMPORTS,
+        name: "SET_LAMPORTS",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: -1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: GET_DATA,
+        name: "GET_DATA",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: GET_KEY,
+        name: "GET_KEY",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: GET_OWNER,
+        name: "GET_OWNER",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: TRANSFER,
+        name: "TRANSFER",
+        arg_type: ArgType::None,
+        stack_effect: -3,
+        compute_cost: 5,
+    },
+    OpcodeInfo {
+        opcode: TRANSFER_SIGNED,
+        name: "TRANSFER_SIGNED",
+        arg_type: ArgType::None,
+        stack_effect: -3,
+        compute_cost: 8,
+    },
+    // Constraint operations
+    OpcodeInfo {
+        opcode: CHECK_SIGNER,
+        name: "CHECK_SIGNER",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: CHECK_WRITABLE,
+        name: "CHECK_WRITABLE",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: CHECK_OWNER,
+        name: "CHECK_OWNER",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: CHECK_INITIALIZED,
+        name: "CHECK_INITIALIZED",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: CHECK_PDA,
+        name: "CHECK_PDA",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: -1,
+        compute_cost: 5,
+    },
+    OpcodeInfo {
+        opcode: CHECK_UNINITIALIZED,
+        name: "CHECK_UNINITIALIZED",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    // System operations
+    OpcodeInfo {
+        opcode: INVOKE,
+        name: "INVOKE",
+        arg_type: ArgType::None,
+        stack_effect: -127,
+        compute_cost: 20,
+    },
+    OpcodeInfo {
+        opcode: INVOKE_SIGNED,
+        name: "INVOKE_SIGNED",
+        arg_type: ArgType::None,
+        stack_effect: -127,
+        compute_cost: 25,
+    },
+    OpcodeInfo {
+        opcode: INIT_ACCOUNT,
+        name: "INIT_ACCOUNT",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: 0,
+        compute_cost: 15,
+    },
+    OpcodeInfo {
+        opcode: INIT_PDA_ACCOUNT,
+        name: "INIT_PDA_ACCOUNT",
+        arg_type: ArgType::AccountIndex,
+        stack_effect: -1,
+        compute_cost: 20,
+    },
+    OpcodeInfo {
+        opcode: DERIVE_PDA_PARAMS,
+        name: "DERIVE_PDA_PARAMS",
+        arg_type: ArgType::None,
+        stack_effect: -127,
+        compute_cost: 10,
+    },
+    OpcodeInfo {
+        opcode: FIND_PDA_PARAMS,
+        name: "FIND_PDA_PARAMS",
+        arg_type: ArgType::None,
+        stack_effect: -127,
+        compute_cost: 12,
     },
     // Additional VLE PUSH operations
     OpcodeInfo {
@@ -1300,6 +1515,191 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::U8,
         stack_effect: 127,
         compute_cost: 5,
+    },
+
+    // Nibble immediate GET_LOCAL operations (0xD0-0xD3)
+    OpcodeInfo {
+        opcode: GET_LOCAL_0,
+        name: "GET_LOCAL_0",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: GET_LOCAL_1,
+        name: "GET_LOCAL_1",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: GET_LOCAL_2,
+        name: "GET_LOCAL_2",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: GET_LOCAL_3,
+        name: "GET_LOCAL_3",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+
+    // Nibble immediate SET_LOCAL operations (0xD4-0xD7)
+    OpcodeInfo {
+        opcode: SET_LOCAL_0,
+        name: "SET_LOCAL_0",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: SET_LOCAL_1,
+        name: "SET_LOCAL_1",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: SET_LOCAL_2,
+        name: "SET_LOCAL_2",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: SET_LOCAL_3,
+        name: "SET_LOCAL_3",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 1,
+    },
+
+    // Nibble immediate PUSH constant operations (0xD8-0xDB)
+    OpcodeInfo {
+        opcode: PUSH_0,
+        name: "PUSH_0",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: PUSH_1,
+        name: "PUSH_1",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: PUSH_2,
+        name: "PUSH_2",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: PUSH_3,
+        name: "PUSH_3",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+
+    // Nibble immediate LOAD_PARAM operations (0xDC-0xDF)
+    OpcodeInfo {
+        opcode: LOAD_PARAM_0,
+        name: "LOAD_PARAM_0",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: LOAD_PARAM_1,
+        name: "LOAD_PARAM_1",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: LOAD_PARAM_2,
+        name: "LOAD_PARAM_2",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: LOAD_PARAM_3,
+        name: "LOAD_PARAM_3",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    // Local variable operations
+    OpcodeInfo {
+        opcode: CLEAR_LOCAL,
+        name: "CLEAR_LOCAL",
+        arg_type: ArgType::LocalIndex,
+        stack_effect: 0,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: WRITE_DATA,
+        name: "WRITE_DATA",
+        arg_type: ArgType::None,
+        stack_effect: -2,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: DATA_LEN,
+        name: "DATA_LEN",
+        arg_type: ArgType::None,
+        stack_effect: 0,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: EMIT_EVENT,
+        name: "EMIT_EVENT",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 10,
+    },
+    OpcodeInfo {
+        opcode: LOG_DATA,
+        name: "LOG_DATA",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 5,
+    },
+    OpcodeInfo {
+        opcode: GET_SIGNER_KEY,
+        name: "GET_SIGNER_KEY",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    // Array operations
+    OpcodeInfo {
+        opcode: CREATE_ARRAY,
+        name: "CREATE_ARRAY",
+        arg_type: ArgType::U8,
+        stack_effect: 1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: ARRAY_SET,
+        name: "ARRAY_SET",
+        arg_type: ArgType::None,
+        stack_effect: -3,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: ARRAY_GET,
+        name: "ARRAY_GET",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 2,
     },
 ];
 

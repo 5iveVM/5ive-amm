@@ -291,6 +291,23 @@ fn parse_instruction(
             arg2 = param_count;
             total_size += 4;
         }
+        ArgType::AccountField => {
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            arg1 = bytecode[offset + total_size] as u32; // account_index
+            total_size += 1;
+
+            match VLE::decode_u32(&bytecode[offset + total_size..]) {
+                Some((value, consumed)) => {
+                    arg2 = value; // field_offset
+                    total_size += consumed;
+                }
+                None => {
+                    return Err(ParseError::InvalidVLE);
+                }
+            }
+        }
     }
 
     // Check bounds

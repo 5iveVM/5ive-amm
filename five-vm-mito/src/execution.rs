@@ -827,8 +827,8 @@ impl MitoVM {
         input_data: &[u8],
         accounts: &[AccountInfo],
     ) -> Result<Option<Value>> {
-        // UNCONDITIONAL LOG - no feature gate
-        pinocchio_log::log!("MitoVM_ENTRY: script={} input={} accounts={}",
+        // UNCONDITIONAL LOG - use error_log which is always compiled in
+        error_log!("MitoVM_ENTRY: script={} input={} accounts={}",
             script.len() as u32, input_data.len() as u32, accounts.len() as u32);
 
         // Use error_log which is always compiled in to verify logging works
