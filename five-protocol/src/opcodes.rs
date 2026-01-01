@@ -1353,63 +1353,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 0,
         compute_cost: 1,
     },
-    // Nibble immediate operations
-    OpcodeInfo {
-        opcode: PUSH_0,
-        name: "PUSH_0",
-        arg_type: ArgType::None,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: PUSH_1,
-        name: "PUSH_1",
-        arg_type: ArgType::None,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: PUSH_2,
-        name: "PUSH_2",
-        arg_type: ArgType::None,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: PUSH_3,
-        name: "PUSH_3",
-        arg_type: ArgType::None,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_PARAM_0,
-        name: "LOAD_PARAM_0",
-        arg_type: ArgType::None,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_PARAM_1,
-        name: "LOAD_PARAM_1",
-        arg_type: ArgType::None,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_PARAM_2,
-        name: "LOAD_PARAM_2",
-        arg_type: ArgType::None,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_PARAM_3,
-        name: "LOAD_PARAM_3",
-        arg_type: ArgType::None,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
     // Array and string operations
     OpcodeInfo {
         opcode: PUSH_ARRAY_LITERAL,
