@@ -5,7 +5,7 @@
  * and configurable output formats for optimal development and debugging experience.
  */
 
-import { writeFile, appendFile, mkdir } from 'fs/promises';
+import { writeFile, appendFile, mkdir, stat, rename, unlink } from 'fs/promises';
 import { join, dirname } from 'path';
 import { LogLevel, Logger } from '../types.js';
 import chalk from 'chalk';
@@ -18,6 +18,7 @@ export interface LoggerOptions {
   enableContext: boolean;
   logFile?: string;
   maxLogSize?: number;
+  maxBackups?: number;
   enablePerformance?: boolean;
 }
 
@@ -33,6 +34,7 @@ export class FiveLogger implements Logger {
       enableTimestamps: true,
       enableContext: false,
       maxLogSize: 10 * 1024 * 1024, // 10MB
+      maxBackups: 5,
       enablePerformance: false,
       ...options
     };
@@ -319,10 +321,63 @@ export class FiveLogger implements Logger {
       // Append to log file
       await appendFile(this.options.logFile, logEntry + '\n');
 
-      // TODO: Implement log rotation based on maxLogSize
-
+      // Check for rotation
+      if (this.options.maxLogSize) {
+        await this.rotateLogIfNeeded();
+      }
     } catch (error) {
       // Silent fail to avoid infinite logging loops
+    }
+  }
+
+  /**
+   * Rotate logs if file size exceeds maxLogSize
+   */
+  private async rotateLogIfNeeded(): Promise<void> {
+    if (!this.options.logFile || !this.options.maxLogSize) {
+      return;
+    }
+
+    try {
+      const stats = await stat(this.options.logFile);
+      if (stats.size < this.options.maxLogSize) {
+        return;
+      }
+
+      const maxBackups = this.options.maxBackups || 5;
+      const baseLogFile = this.options.logFile;
+
+      // Remove oldest backup if it exists
+      const oldestBackup = `${baseLogFile}.${maxBackups}`;
+      try {
+        await unlink(oldestBackup);
+      } catch (e) {
+        // Ignore if file doesn't exist
+      }
+
+      // Rotate existing backups
+      for (let i = maxBackups - 1; i >= 1; i--) {
+        const source = `${baseLogFile}.${i}`;
+        const dest = `${baseLogFile}.${i + 1}`;
+        try {
+          await rename(source, dest);
+        } catch (e) {
+          // Ignore if source doesn't exist
+        }
+      }
+
+      // Rename current log file to .1
+      try {
+        await rename(baseLogFile, `${baseLogFile}.1`);
+        // Re-create the main log file immediately to ensure subsequent logs succeed
+        // Although appendFile will create it, explicit creation or just letting the next write handle it is fine.
+        // But if we just renamed it, it's gone.
+      } catch (e) {
+        // Should not happen if we just wrote to it, but handle gracefully
+      }
+
+    } catch (error) {
+      // Fail silently on rotation errors
     }
   }
 
