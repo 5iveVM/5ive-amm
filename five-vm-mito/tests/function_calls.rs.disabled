@@ -1,0 +1,280 @@
+//! Tests for enhanced MitoVM function call capabilities
+
+use five_vm_mito::{MitoVM, Value, enhanced_opcodes::*, FIVE_MAGIC};
+
+/// Test basic function call and return
+#[test]
+fn test_basic_function_call() {
+    let mut script = Vec::new();
+    
+    // Magic bytes
+    script.extend_from_slice(b"5IVE");
+    
+    // Main function starts here (offset 4)
+    // PUSH 10
+    script.push(PUSH);
+    script.push(0x02); // U64 type
+    script.extend_from_slice(&10u64.to_le_bytes());
+    
+    // CALL to function at offset 30
+    script.push(CALL);
+    script.extend_from_slice(&30u16.to_le_bytes());
+    
+    // After return, result should be 20 (10 * 2)
+    // HALT
+    script.push(HALT);
+    
+    // Pad to reach offset 30
+    while script.len() < 30 {
+        script.push(0); // Padding
+    }
+    
+    // Function at offset 30: multiply by 2
+    // DUP (duplicate the argument)
+    script.push(DUP);
+    
+    // ADD (x + x = x * 2)  
+    script.push(ADD);
+    
+    // RET
+    script.push(RET);
+    
+    let result = MitoVM::execute_direct(&script, &[], &[]).unwrap();
+    
+    match result {
+        Some(Value::U64(val)) => assert_eq!(val, 20),
+        _ => panic!("Expected U64(20), got {:?}", result),
+    }
+}
+
+/// Test nested function calls
+#[test]
+fn test_nested_function_calls() {
+    let mut script = Vec::new();
+    
+    // Magic bytes
+    script.extend_from_slice(b"5IVE");
+    
+    // Main function: PUSH 5, CALL function_a, HALT
+    script.push(PUSH);
+    script.push(0x02);
+    script.extend_from_slice(&5u64.to_le_bytes());
+    
+    script.push(CALL);
+    script.extend_from_slice(&30u16.to_le_bytes()); // Call function_a
+    
+    script.push(HALT);
+    
+    // Pad to offset 30
+    while script.len() < 30 {
+        script.push(0);
+    }
+    
+    // Function A at offset 30: add 10, then call function B
+    script.push(PUSH);
+    script.push(0x02);
+    script.extend_from_slice(&10u64.to_le_bytes());
+    
+    script.push(ADD); // 5 + 10 = 15
+    
+    script.push(CALL);
+    script.extend_from_slice(&50u16.to_le_bytes()); // Call function_b
+    
+    script.push(RET);
+    
+    // Pad to offset 50
+    while script.len() < 50 {
+        script.push(0);
+    }
+    
+    // Function B at offset 50: multiply by 3
+    script.push(PUSH);
+    script.push(0x02);
+    script.extend_from_slice(&3u64.to_le_bytes());
+    
+    script.push(MUL); // 15 * 3 = 45
+    
+    script.push(RET);
+    
+    let result = MitoVM::execute_direct(&script, &[], &[]).unwrap();
+    
+    match result {
+        Some(Value::U64(val)) => assert_eq!(val, 45), // 5 + 10 = 15, 15 * 3 = 45
+        _ => panic!("Expected U64(45), got {:?}", result),
+    }
+}
+
+/// Test function call with local variables
+#[test]
+fn test_function_with_locals() {
+    let mut script = Vec::new();
+    
+    // Magic bytes
+    script.extend_from_slice(b"5IVE");
+    
+    // Main: PUSH 7, CALL factorial_like, HALT
+    script.push(PUSH);
+    script.push(0x02);
+    script.extend_from_slice(&7u64.to_le_bytes());
+    
+    script.push(CALL);
+    script.extend_from_slice(&30u16.to_le_bytes());
+    
+    script.push(HALT);
+    
+    // Pad to offset 30
+    while script.len() < 30 {
+        script.push(0);
+    }
+    
+    // Function: store input in local 0, add 1, multiply by original
+    // SET_LOCAL 0 (store original value)
+    script.push(DUP); // Duplicate input
+    script.push(SET_LOCAL);
+    script.extend_from_slice(&0u32.to_le_bytes());
+    
+    // Add 1 to top of stack
+    script.push(PUSH);
+    script.push(0x02);
+    script.extend_from_slice(&1u64.to_le_bytes());
+    script.push(ADD); // 7 + 1 = 8
+    
+    // Get original value and multiply
+    script.push(GET_LOCAL);
+    script.extend_from_slice(&0u32.to_le_bytes());
+    script.push(MUL); // 8 * 7 = 56
+    
+    script.push(RET);
+    
+    let result = MitoVM::execute_direct(&script, &[], &[]).unwrap();
+    
+    match result {
+        Some(Value::U64(val)) => assert_eq!(val, 56), // (7 + 1) * 7 = 56
+        _ => panic!("Expected U64(56), got {:?}", result),
+    }
+}
+
+/// Test call stack overflow protection
+#[test]
+fn test_call_stack_overflow() {
+    let mut script = Vec::new();
+    
+    // Magic bytes
+    script.extend_from_slice(b"5IVE");
+    
+    // Recursive function that calls itself
+    script.push(CALL);
+    script.extend_from_slice(&4u16.to_le_bytes()); // Call self
+    
+    script.push(HALT);
+    
+    let result = MitoVM::execute_direct(&script, &[], &[]);
+    assert!(result.is_err(), "Should fail with call stack overflow");
+}
+
+/// Test return without call
+#[test]
+fn test_return_without_call() {
+    let mut script = Vec::new();
+    
+    // Magic bytes
+    script.extend_from_slice(b"5IVE");
+    
+    // RET without prior CALL
+    script.push(RET);
+    
+    script.push(HALT);
+    
+    let result = MitoVM::execute_direct(&script, &[], &[]);
+    assert!(result.is_err(), "Should fail with call stack underflow");
+}
+
+/// Test function that doesn't return (should halt normally)
+#[test]
+fn test_function_without_return() {
+    let mut script = Vec::new();
+    
+    // Magic bytes
+    script.extend_from_slice(b"5IVE");
+    
+    // CALL function that halts instead of returning
+    script.push(CALL);
+    script.extend_from_slice(&20u16.to_le_bytes());
+    
+    script.push(PUSH); // This should not execute
+    script.push(0x01);
+    script.extend_from_slice(&999u32.to_le_bytes());
+    
+    script.push(HALT);
+    
+    // Pad to offset 20
+    while script.len() < 20 {
+        script.push(0);
+    }
+    
+    // Function that halts
+    script.push(PUSH);
+    script.push(0x01);
+    script.extend_from_slice(&42u32.to_le_bytes());
+    
+    script.push(HALT); // Halt instead of RET
+    
+    let result = MitoVM::execute_direct(&script, &[], &[]).unwrap();
+    
+    match result {
+        Some(Value::U64(val)) => assert_eq!(val, 42),
+        _ => panic!("Expected U64(42), got {:?}", result),
+    }
+}
+
+/// Test function calls with conditional logic
+#[test]
+fn test_conditional_function_calls() {
+    let mut script = Vec::new();
+    
+    // Magic bytes
+    script.extend_from_slice(b"5IVE");
+    
+    // PUSH true condition
+    script.push(PUSH);
+    script.push(0x04); // Bool type
+    script.push(1); // true
+    
+    // JZ to else branch (should not jump)
+    script.push(JZ);
+    script.extend_from_slice(&40u32.to_le_bytes());
+    
+    // If branch: call function that returns 100
+    script.push(CALL);
+    script.extend_from_slice(&30u16.to_le_bytes());
+    script.push(HALT);
+    
+    // Pad to offset 30
+    while script.len() < 30 {
+        script.push(0);
+    }
+    
+    // Function returns 100
+    script.push(PUSH);
+    script.push(0x02);
+    script.extend_from_slice(&100u64.to_le_bytes());
+    script.push(RET);
+    
+    // Pad to offset 40 (else branch)
+    while script.len() < 40 {
+        script.push(0);
+    }
+    
+    // Else branch: push 200 and halt (should not execute)
+    script.push(PUSH);
+    script.push(0x02);
+    script.extend_from_slice(&200u64.to_le_bytes());
+    script.push(HALT);
+    
+    let result = MitoVM::execute_direct(&script, &[], &[]).unwrap();
+    
+    match result {
+        Some(Value::U64(val)) => assert_eq!(val, 100),
+        _ => panic!("Expected U64(100), got {:?}", result),
+    }
+}

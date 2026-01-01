@@ -1,0 +1,702 @@
+//! Stack operation macros for MitoVM
+//!
+//! This module provides declarative macros to reduce boilerplate in stack operations
+//! across Five VM handlers. The macros provide type-safe stack manipulation with
+//! consistent error handling and debug logging.
+
+/// Extract u64 from stack top with type validation and automatic error propagation.
+/// Now supports narrowing from u128 with overflow detection for polymorphic arithmetic.
+///
+/// # Example
+/// ```rust,ignore
+/// # use five_vm_mito::*;
+/// # use five_protocol::ValueRef;
+/// # use five_vm_mito::StackStorage;
+/// # let bytecode: &[u8] = &[b'5', b'I', b'V', b'E', 0, 0, 0, 0, 1, 1];
+/// # let mut storage = StackStorage::new(bytecode);
+/// # let mut ctx = ExecutionManager::new(bytecode, &[], pinocchio::pubkey::Pubkey::default(), &[], 0, &mut storage, 1, 1);
+/// # ctx.push(ValueRef::U64(42)).unwrap();
+/// let value = pop_u64!(ctx);
+/// assert_eq!(value, 42);
+/// ```
+#[macro_export]
+macro_rules! pop_u64 {
+    ($ctx:expr) => {
+        match $ctx.pop()? {
+            five_protocol::ValueRef::U64(val) => val,
+            five_protocol::ValueRef::U128(val) => {
+                if val <= u64::MAX as u128 {
+                    val as u64
+                } else {
+                    return Err($crate::error::VMErrorCode::NumericOverflow.into());
+                }
+            }
+            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
+        }
+    };
+}
+
+/// Extract u8 from stack top with type validation and automatic error propagation.
+#[macro_export]
+macro_rules! pop_u8 {
+    ($ctx:expr) => {
+        match $ctx.pop()? {
+            five_protocol::ValueRef::U8(val) => val,
+            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
+        }
+    };
+}
+
+/// Extract signed 64-bit integer from stack with type validation.
+#[macro_export]
+macro_rules! pop_i64 {
+    ($ctx:expr) => {
+        match $ctx.pop()? {
+            five_protocol::ValueRef::I64(val) => val,
+            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
+        }
+    };
+}
+
+/// Extract u128 from stack top with type validation and automatic error propagation.
+/// MITO-style: zero-copy, direct stack access, BPF-optimized.
+#[macro_export]
+macro_rules! pop_u128 {
+    ($ctx:expr) => {
+        match $ctx.pop()? {
+            five_protocol::ValueRef::U128(val) => val,
+            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
+        }
+    };
+}
+
+/// Extract boolean from stack top with type validation.
+#[macro_export]
+macro_rules! pop_bool {
+    ($ctx:expr) => {
+        match $ctx.pop()? {
+            five_protocol::ValueRef::Bool(val) => val,
+            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
+        }
+    };
+}
+
+/// Push u64 value onto execution stack as ValueRef::U64.
+///
+/// # Example
+/// ```rust,ignore
+/// # use five_vm_mito::*;
+/// # use five_vm_mito::StackStorage;
+/// # let bytecode: &[u8] = &[b'5', b'I', b'V', b'E', 0, 0, 0, 0, 1, 1];
+/// # let mut storage = StackStorage::new(bytecode);
+/// # let mut ctx = ExecutionManager::new(bytecode, &[], pinocchio::pubkey::Pubkey::default(), &[], 0, &mut storage, 1, 1);
+/// vm_push_u64!(ctx, 42);
+/// assert_eq!(ctx.size(), 1);
+/// # Ok::<(), VMError>(())
+/// ```
+#[macro_export]
+macro_rules! vm_push_u64 {
+    ($ctx:expr, $val:expr) => {
+        $ctx.push(five_protocol::ValueRef::U64($val))?
+    };
+}
+
+/// Push u8 value onto execution stack as ValueRef::U8.
+#[macro_export]
+macro_rules! push_u8 {
+    ($ctx:expr, $val:expr) => {
+        $ctx.push(five_protocol::ValueRef::U8($val))?
+    };
+}
+
+/// Push signed 64-bit integer onto execution stack.
+#[macro_export]
+macro_rules! push_i64 {
+    ($ctx:expr, $val:expr) => {
+        $ctx.push(five_protocol::ValueRef::I64($val))?
+    };
+}
+
+/// Push boolean value onto execution stack.
+#[macro_export]
+macro_rules! vm_push_bool {
+    ($ctx:expr, $val:expr) => {
+        $ctx.push(five_protocol::ValueRef::Bool($val))?
+    };
+}
+
+/// Push u128 value onto execution stack as ValueRef::U128.
+/// MITO-style: zero-copy, direct stack push, BPF-optimized.
+#[macro_export]
+macro_rules! vm_push_u128 {
+    ($ctx:expr, $val:expr) => {
+        $ctx.push(five_protocol::ValueRef::U128($val))?
+    };
+}
+
+/// Execute binary arithmetic with automatic stack management and debug output.
+///
+/// # Example
+/// ```ignore
+/// # use five_vm_mito::*;
+/// # use five_protocol::ValueRef;
+/// # use crate::StackStorage;
+/// # let bytecode: &[u8] = &[];
+/// # let mut storage = StackStorage::new(bytecode);
+/// # let mut ctx = ExecutionContext::new(bytecode, &[], Default::default(), &[], 0, &mut storage, 0, 0);
+/// # ctx.push(ValueRef::U64(10)).unwrap();
+/// # ctx.push(ValueRef::U64(5)).unwrap();
+/// binary_op!(ctx, "ADD", saturating_add);
+/// let result = pop_u64!(ctx);
+/// assert_eq!(result, 15);
+/// ```
+#[macro_export]
+macro_rules! binary_op {
+    ($ctx:expr, $op_name:literal, $op:ident) => {{
+        debug_log!($op_name);
+        debug_log!("Stack before: {}", $ctx.len() as u32);
+        let b = pop_u64!($ctx);
+        let a = pop_u64!($ctx);
+        let result = a.$op(b);
+        debug_log!("Result: {}", result);
+        debug_log!("Stack after: {}", ($ctx.len() + 1) as u32);
+        vm_push_u64!($ctx, result);
+    }};
+}
+
+/// Handle binary arithmetic operations with division by zero check
+#[macro_export]
+macro_rules! binary_op_checked {
+    ($ctx:expr, $op_name:literal, $op:ident) => {{
+        debug_log!($op_name);
+        debug_log!("Stack before: {}", $ctx.len() as u32);
+        let b = pop_u64!($ctx);
+        let a = pop_u64!($ctx);
+        if b == 0 {
+            return Err($crate::error::VMErrorCode::DivisionByZero.into());
+        }
+        let result = a.$op(b);
+        debug_log!("Result: {}", result);
+        debug_log!("Stack after: {}", ($ctx.len() + 1) as u32);
+        vm_push_u64!($ctx, result);
+    }};
+}
+
+/// Handle unary operations on the top stack value
+#[macro_export]
+macro_rules! unary_op {
+    ($ctx:expr, $op_name:literal, $op:ident) => {{
+        debug_log!($op_name);
+        debug_log!("Stack before: {}", $ctx.len() as u32);
+        let a = pop_u64!($ctx);
+        let result = a.$op();
+        debug_log!("Result: {}", result);
+        debug_log!("Stack after: {}", ($ctx.len() + 1) as u32);
+        vm_push_u64!($ctx, result);
+    }};
+}
+
+/// Handle comparison operations that return boolean results
+#[macro_export]
+macro_rules! comparison_op {
+    ($ctx:expr, $op_name:literal, $op:tt) => {{
+        debug_log!($op_name);
+        debug_log!("Stack before: {}", $ctx.len() as u32);
+        let b = pop_u64!($ctx);
+        let a = pop_u64!($ctx);
+        let result = a $op b;
+        debug_log!("Result: {}", result as u32);
+        debug_log!("Stack after: {}", ($ctx.len() + 1) as u32);
+        vm_push_bool!($ctx, result);
+    }};
+}
+
+/// Standardized debug logging for stack operations
+#[macro_export]
+macro_rules! debug_stack_op {
+    ($op_name:literal, $ctx:expr) => {
+        debug_log!($op_name);
+        debug_log!("Stack size: {}", $ctx.len() as u32);
+    };
+    ($op_name:literal, $ctx:expr, $val:expr) => {
+        debug_log!($op_name);
+        debug_log!("Value: {}", $val);
+        debug_log!("Stack size: {}", $ctx.len() as u32);
+    };
+}
+
+/// Pop two values and push one - common pattern for binary operations
+#[macro_export]
+macro_rules! stack_binary_pattern {
+    ($ctx:expr, $a_type:ident, $b_type:ident, $result_type:ident, $operation:expr) => {{
+        let b = paste::paste! { [<pop_ $b_type>]!($ctx) };
+        let a = paste::paste! { [<pop_ $a_type>]!($ctx) };
+        let result = $operation;
+        paste::paste! { [<push_ $result_type>]!($ctx, result) };
+    }};
+}
+
+/// Pop one value and push one - common pattern for unary operations  
+#[macro_export]
+macro_rules! stack_unary_pattern {
+    ($ctx:expr, $input_type:ident, $result_type:ident, $operation:expr) => {{
+        let val = paste::paste! { [<pop_ $input_type>]!($ctx) };
+        let result = $operation;
+        paste::paste! { [<push_ $result_type>]!($ctx, result) };
+    }};
+}
+
+/// Helper macro for saturating arithmetic operations
+#[macro_export]
+macro_rules! saturating_binary_op {
+    ($ctx:expr, $op_name:literal, $op:ident) => {
+        binary_op!($ctx, $op_name, $op)
+    };
+}
+
+/// Helper macro for checked arithmetic operations (division, modulo)
+#[macro_export]
+macro_rules! checked_binary_op {
+    ($ctx:expr, $op_name:literal, $op:ident) => {
+        binary_op_checked!($ctx, $op_name, $op)
+    };
+}
+
+// Feature-gated stack debug helpers to avoid runtime overhead in release builds
+#[cfg(feature = "debug-logs")]
+#[macro_export]
+macro_rules! debug_stack_state {
+    ($opcode:expr, $ctx:expr, $operation:literal) => {
+        debug_log!("STACK_TRACE opcode execution");
+        debug_log!("Stack size: {}", $ctx.len() as u32);
+        if $ctx.len() > 0 {
+            debug_log!("Stack has values");
+        } else {
+            debug_log!("Stack is empty");
+        }
+    };
+}
+
+#[cfg(not(feature = "debug-logs"))]
+#[macro_export]
+macro_rules! debug_stack_state {
+    ($opcode:expr, $ctx:expr, $operation:literal) => {};
+}
+
+#[cfg(feature = "debug-logs")]
+#[macro_export]
+macro_rules! stack_error_context {
+    ($opcode:expr, $ctx:expr, $operation:literal, $required:expr, $available:expr) => {
+        debug_log!("STACK_ERROR: Operation failed");
+        debug_log!("Available: {}", $available as u32);
+        debug_log!("Required: {}", $required as u32);
+        debug_log!("Call depth: {}", $ctx.call_depth() as u32);
+        let _params_count = $ctx.parameters().iter().filter(|p| !p.is_empty()).count();
+        debug_log!("Parameters: {}", _params_count as u32);
+    };
+}
+
+#[cfg(not(feature = "debug-logs"))]
+#[macro_export]
+macro_rules! stack_error_context {
+    ($opcode:expr, $ctx:expr, $operation:literal, $required:expr, $available:expr) => {};
+}
+
+/// Polymorphic binary arithmetic with automatic u128 promotion.
+/// Maintains fast path for u64×u64 operations while supporting mixed-type arithmetic.
+/// When any operand is u128, the result is promoted to u128.
+/// U8 values are promoted to U64 for arithmetic operations.
+#[macro_export]
+macro_rules! polymorphic_binary_op {
+    ($ctx:expr, $op_name:literal, $op:ident) => {{
+        debug_log!($op_name);
+        debug_log!("Stack before: {}", $ctx.len() as u32);
+        let b = $ctx.pop()?;
+        let a = $ctx.pop()?;
+
+        match (a, b) {
+            // Fast path: u64 × u64 (unchanged performance)
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                let result = a_val.$op(b_val);
+                debug_log!("Result (u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
+            // U8 × U8 → U64 (promote both to u64)
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                let result = (a_val as u64).$op(b_val as u64);
+                debug_log!("Result (u8+u8→u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
+            // U8 × U64 → U64 (promote u8 to u64)
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                let result = (a_val as u64).$op(b_val);
+                debug_log!("Result (u8+u64→u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                let result = a_val.$op(b_val as u64);
+                debug_log!("Result (u64+u8→u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
+            // U8 × U128 → U128 (promote both to u128)
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                let result = (a_val as u128).$op(b_val);
+                debug_log!("Result (u8+u128→u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                let result = a_val.$op(b_val as u128);
+                debug_log!("Result (u128+u8→u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            // Promotion paths: any u128 involvement → u128 result
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                let result = (a_val as u128).$op(b_val);
+                debug_log!("Result (promoted u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                let result = a_val.$op(b_val as u128);
+                debug_log!("Result (promoted u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                let result = a_val.$op(b_val);
+                debug_log!("Result (u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
+        }
+        debug_log!("Stack after: {}", $ctx.len() as u32);
+    }};
+}
+
+/// Polymorphic binary arithmetic with division by zero check.
+/// Same promotion rules as polymorphic_binary_op but checks for zero divisor.
+/// U8 values are promoted to U64 for arithmetic operations.
+#[macro_export]
+macro_rules! polymorphic_binary_op_checked {
+    ($ctx:expr, $op_name:literal, $op:ident) => {{
+        debug_log!($op_name);
+        debug_log!("Stack before: {}", $ctx.len() as u32);
+        let b = $ctx.pop()?;
+        let a = $ctx.pop()?;
+
+        match (a, b) {
+            // Fast path: u64 × u64 with zero check
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = a_val.$op(b_val);
+                debug_log!("Result (u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
+            // U8 × U8 → U64 with zero check
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = (a_val as u64).$op(b_val as u64);
+                debug_log!("Result (u8+u8→u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
+            // U8 × U64 → U64 with zero check
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = (a_val as u64).$op(b_val);
+                debug_log!("Result (u8+u64→u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = a_val.$op(b_val as u64);
+                debug_log!("Result (u64+u8→u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
+            // U8 × U128 → U128 with zero check
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = (a_val as u128).$op(b_val);
+                debug_log!("Result (u8+u128→u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = a_val.$op(b_val as u128);
+                debug_log!("Result (u128+u8→u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            // Promotion paths with zero check
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = (a_val as u128).$op(b_val);
+                debug_log!("Result (promoted u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = a_val.$op(b_val as u128);
+                debug_log!("Result (promoted u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = a_val.$op(b_val);
+                debug_log!("Result (u128): {}", result);
+                vm_push_u128!($ctx, result);
+            }
+            _ => return Err($crate::error::VMErrorCode::TypeMismatch),
+        }
+        debug_log!("Stack after: {}", $ctx.len() as u32);
+    }};
+}
+
+/// Polymorphic binary arithmetic with overflow checking.
+/// Returns ArithmeticOverflow error if operation would overflow/underflow.
+/// Used for ADD_CHECKED, SUB_CHECKED, MUL_CHECKED opcodes.
+#[macro_export]
+macro_rules! polymorphic_binary_op_checked_overflow {
+    ($ctx:expr, $op_name:literal, $op:ident) => {{
+        debug_log!($op_name);
+        debug_log!("Stack before: {}", $ctx.len() as u32);
+        let b = $ctx.pop()?;
+        let a = $ctx.pop()?;
+
+        match (a, b) {
+            // Fast path: u64 × u64 with overflow check
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                match a_val.$op(b_val) {
+                    Some(result) => {
+                        debug_log!("Result (u64): {}", result);
+                        vm_push_u64!($ctx, result);
+                    }
+                    None => {
+                        let _unused = 0; // Prevent unused variable warning if logging disabled
+                         #[cfg(feature = "debug-logs")]
+                        debug_log!("{} overflow detected: {} op {}", $op_name, a_val, b_val);
+                        return Err($crate::error::VMErrorCode::ArithmeticOverflow.into());
+                    }
+                }
+            }
+            // U8 × U8 → U64 with check (promoted)
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                 let res = (a_val as u64).$op(b_val as u64);
+                 match res {
+                    Some(result) => {
+                         debug_log!("Result (u8+u8→u64): {}", result);
+                         vm_push_u64!($ctx, result);
+                    }
+                     None => return Err($crate::error::VMErrorCode::ArithmeticOverflow.into()),
+                 }
+            }
+            // U8 × U64 → U64 with check
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                 match (a_val as u64).$op(b_val) {
+                    Some(result) => {
+                         debug_log!("Result (u8+u64→u64): {}", result);
+                         vm_push_u64!($ctx, result);
+                    }
+                     None => return Err($crate::error::VMErrorCode::ArithmeticOverflow.into()),
+                 }
+            }
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                 match a_val.$op(b_val as u64) {
+                    Some(result) => {
+                         debug_log!("Result (u64+u8→u64): {}", result);
+                         vm_push_u64!($ctx, result);
+                    }
+                     None => return Err($crate::error::VMErrorCode::ArithmeticOverflow.into()),
+                 }
+            }
+             // U8 × U128 → U128 with check
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                 match (a_val as u128).$op(b_val) {
+                    Some(result) => {
+                         debug_log!("Result (u8+u128→u128): {}", result);
+                         vm_push_u128!($ctx, result);
+                    }
+                     None => return Err($crate::error::VMErrorCode::ArithmeticOverflow.into()),
+                 }
+            }
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                 match a_val.$op(b_val as u128) {
+                    Some(result) => {
+                         debug_log!("Result (u128+u8→u128): {}", result);
+                         vm_push_u128!($ctx, result);
+                    }
+                     None => return Err($crate::error::VMErrorCode::ArithmeticOverflow.into()),
+                 }
+            }
+            // Promotion paths with overflow check
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                match (a_val as u128).$op(b_val) {
+                    Some(result) => {
+                        debug_log!("Result (promoted u128): {}", result);
+                        vm_push_u128!($ctx, result);
+                    }
+                    None => {
+                        let _unused = 0;
+                         #[cfg(feature = "debug-logs")]
+                        debug_log!(
+                            "{} overflow detected (promoted): {} op {}",
+                            $op_name,
+                            a_val,
+                            b_val
+                        );
+                        return Err(crate::error::VMErrorCode::ArithmeticOverflow);
+                    }
+                }
+            }
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                match a_val.$op(b_val as u128) {
+                    Some(result) => {
+                        debug_log!("Result (promoted u128): {}", result);
+                        vm_push_u128!($ctx, result);
+                    }
+                    None => {
+                        let _unused = 0;
+                         #[cfg(feature = "debug-logs")]
+                        debug_log!(
+                            "{} overflow detected (promoted): {} op {}",
+                            $op_name,
+                            a_val,
+                            b_val
+                        );
+                        return Err(crate::error::VMErrorCode::ArithmeticOverflow);
+                    }
+                }
+            }
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                match a_val.$op(b_val) {
+                    Some(result) => {
+                        debug_log!("Result (u128): {}", result);
+                        vm_push_u128!($ctx, result);
+                    }
+                    None => {
+                        let _unused = 0;
+                         #[cfg(feature = "debug-logs")]
+                        debug_log!("{} overflow detected: {} op {}", $op_name, a_val, b_val);
+                        return Err(crate::error::VMErrorCode::ArithmeticOverflow);
+                    }
+                }
+            }
+            _ => return Err(crate::error::VMErrorCode::TypeMismatch),
+        }
+        debug_log!("Stack after: {}", $ctx.len() as u32);
+    }};
+}
+
+/// Polymorphic comparison operations that return boolean results.
+/// Supports mixed u64/u128 comparisons with automatic promotion.
+#[macro_export]
+macro_rules! polymorphic_comparison_op {
+    ($ctx:expr, $op_name:literal, $op:tt) => {{
+        debug_log!($op_name);
+        debug_log!("Stack before: {}", $ctx.len() as u32);
+        let b = $ctx.pop()?;
+        let a = $ctx.pop()?;
+
+        let result = match (a, b) {
+            // Fast path: u64 × u64
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                a_val $op b_val
+            },
+            // U8 × U8 → U64 comparison
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                (a_val as u64) $op (b_val as u64)
+            },
+            // U8 × U64 → U64 comparison
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                (a_val as u64) $op b_val
+            },
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                a_val $op (b_val as u64)
+            },
+            // U8 × U128 → U128 comparison
+            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                (a_val as u128) $op b_val
+            },
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U8(b_val)) => {
+                a_val $op (b_val as u128)
+            },
+            // Promotion paths for comparison
+            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                (a_val as u128) $op b_val
+            },
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U64(b_val)) => {
+                a_val $op (b_val as u128)
+            },
+            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U128(b_val)) => {
+                a_val $op b_val
+            },
+            _ => return Err($crate::error::VMErrorCode::TypeMismatch),
+        };
+
+        debug_log!("Comparison result: {}", result as u32);
+        vm_push_bool!($ctx, result);
+        debug_log!("Stack after: {}", $ctx.len() as u32);
+    }};
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{debug_log, stack::StackStorage, error::CompactResult, ExecutionContext, Pubkey};
+
+    #[test]
+    fn test_pop_push_macros() -> CompactResult<()> {
+        let mut storage = StackStorage::new(&[]);
+        let mut ctx =
+            ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
+
+        vm_push_u64!(ctx, 42);
+        push_u8!(ctx, 7);
+        push_i64!(ctx, -3);
+        vm_push_bool!(ctx, true);
+
+        assert_eq!(ctx.len(), 4);
+
+        assert!(pop_bool!(ctx));
+        assert_eq!(pop_i64!(ctx), -3);
+        assert_eq!(pop_u8!(ctx), 7);
+        assert_eq!(pop_u64!(ctx), 42);
+
+        assert_eq!(ctx.len(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_binary_op_macro() -> CompactResult<()> {
+        let mut storage = StackStorage::new(&[]);
+        let mut ctx =
+            ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
+
+        vm_push_u64!(ctx, 10);
+        vm_push_u64!(ctx, 5);
+
+        binary_op!(ctx, "ADD", saturating_add);
+
+        assert_eq!(ctx.len(), 1);
+        assert_eq!(pop_u64!(ctx), 15);
+
+        Ok(())
+    }
+}
+
+// ===== END OF POLYMORPHIC MACROS =====
+// Polymorphic arithmetic eliminates need for dedicated u128 opcodes
+// All integer operations now support mixed u64/u128 with auto-promotion
