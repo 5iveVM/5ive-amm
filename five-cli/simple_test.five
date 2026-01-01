@@ -1,0 +1,22 @@
+{
+  "bytecode": "NUlWRQABGSoHAA==",
+  "abi": {
+    "functions": {
+      "test": {
+        "index": 0,
+        "parameters": [],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [
+    "HEADER: OptimizedHeader - 6 bytes: magic='5IVE', features=0, functions=1",
+    "0004: MAGIC - Five VM bytecode magic bytes '5IVE'",
+    "0005: FEATURES 0 - No optimization flags enabled",
+    "0006: FUNC_COUNT 1 - 1 functions in script",
+    "000A: HALT - End program execution"
+  ],
+  "version": "1.0"
+}

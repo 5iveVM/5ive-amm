@@ -1,0 +1,29 @@
+{
+  "name": "Compilation Test Suite",
+  "description": "Tests for Five DSL compilation",
+  "tests": [
+    {
+      "name": "compile_simple_function",
+      "description": "Compile simple function and verify output",
+      "source": "../test.v",
+      "compile_options": ["--debug"],
+      "expected_success": false,
+      "expected_error": "expected `'script' keyword`"
+    },
+    {
+      "name": "compile_valid_script",
+      "description": "Compile valid Five script",
+      "source": "../test-simple-call.v",
+      "compile_options": ["--debug", "--analyze"],
+      "expected_success": true,
+      "expected_bytecode_size": 36
+    },
+    {
+      "name": "compile_with_optimization",
+      "description": "Test compilation with optimization levels",
+      "source": "../test-scripts/01-language-basics/simple-return.v",
+      "compile_options": ["-O", "3"],
+      "expected_success": true
+    }
+  ]
+}

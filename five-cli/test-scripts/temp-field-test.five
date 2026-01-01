@@ -1,0 +1,106 @@
+{
+  "bytecode": "NUlWRU8AAAAACdDR0vgDB6AIpQGiAKUCogHQ1BkA1dHWGsCEPdcGoAalAaIApQKiAdAZASgE0RkAJQRDARgyBEMACBkAJQRDABBDAAgZZCMgQgAQ0UIAGNFDAAgg10MAEAegBKUBogClAqIBQwAIQwEQ+AIHoAelAaIApQKiAdEZkE4lAxEA0BkBINQdAUIAGNIZZCNCABBDAQjSJQMPAEMBEBkCIkIBENFDAQgg1QagCKUBogClAqIBpQOiAqUEogPRQgAA0kIACNNCABAZAUIAGAagC6UBogClAqIBpQOiAqUEogPS0yUEQwEQ0igE0RkBINXS0yDW0xkBINdDARDSIUIBEEMACNIg0yFCAAhDABAZCiBCABDTQgAYBqAMpQGiAKUCogGlA6ICpQSiA9HSINMj1EMBCEMCCCIZkE4jQgAQQwAQ0CBCARDTQgEY0NEg1wagDaUBogClAqIBpQOiAqUEogOlBaIE0RkCINXSowQZZCMg1kMAEKMEIUIAEEMBEKMEIEIBEEMCCKMEIUICCEMDCKMEIEIDCNFCAhjRQgMY0RnoByLXBgA=",
+  "abi": {
+    "functions": [
+      {
+        "name": "initialize_protocol",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "version",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "admin_fee",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "initialize_token_account",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "mint_address",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "owner_address",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "initial_amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "process_deposit",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "deposit_amount",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "fee_amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "calculate_user_rewards",
+        "index": 3,
+        "parameters": []
+      },
+      {
+        "name": "batch_process_transactions",
+        "index": 4,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_protocol_stats",
+        "index": 5,
+        "parameters": []
+      },
+      {
+        "name": "get_account_summary",
+        "index": 6,
+        "parameters": []
+      },
+      {
+        "name": "emergency_pause_check",
+        "index": 7,
+        "parameters": []
+      },
+      {
+        "name": "advanced_field_operations",
+        "index": 8,
+        "parameters": [
+          {
+            "name": "multiplier",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

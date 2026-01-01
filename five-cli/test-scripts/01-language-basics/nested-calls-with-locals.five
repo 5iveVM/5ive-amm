@@ -1,0 +1,60 @@
+{
+  "bytecode": "NUlWRU8BAAABBRkBF3Rlc3RfbmVzdGVkX3dpdGhfbG9jYWxzoAEZAdTQkAE2AAZsZXZlbDEHoASlAaIA0BkBINXRkAFVAAZsZXZlbDLW0hkCItEgB6AEpQGiANAZAiDX05ABdgAGbGV2ZWwzogSjBBkCItMgB6AEpQGiANAZAyCiBaMFkAGaAAZsZXZlbDSiBqMGGQIiowUgB6ADpQGiANAZBCCiB6MHBwA=",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_nested_with_locals",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "level1",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "val",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "level2",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "val",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "level3",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "val",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "level4",
+        "index": 4,
+        "parameters": [
+          {
+            "name": "val",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

@@ -1,0 +1,22 @@
+{
+  "program_name": "StateModification",
+  "functions": [
+    {
+      "name": "test",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "StateAccount",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        }
+      ],
+      "return_type": null
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

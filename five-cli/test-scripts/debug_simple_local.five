@@ -1,0 +1,21 @@
+{
+  "bytecode": "NUlWRU8BAAABAwgBBl9faW5pdKABGWTUBqADGcgB1NDQIdXRB6ADgtbS0CHX0wcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_literal_local",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "test_function_local",
+        "index": 1,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

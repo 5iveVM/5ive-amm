@@ -1,0 +1,13 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "test",
+      "index": 0,
+      "parameters": [],
+      "return_type": null
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

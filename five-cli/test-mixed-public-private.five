@@ -1,0 +1,26 @@
+{
+  "bytecode": "NUlWRToBRAAAGwAAAAAAAAAACQIAkAA2AAAbAQAAAAAAAAAJAgCQACwAAACQADYA1NClASAHGSoHAA==",
+  "abi": {
+    "functions": {
+      "helper": {
+        "index": 1,
+        "parameters": [],
+        "accounts": []
+      },
+      "main": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "input",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

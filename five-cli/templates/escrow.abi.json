@@ -1,0 +1,151 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "init_escrow",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "EscrowState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "maker",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "taker",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "fund_escrow",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "EscrowState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "maker",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "claim_escrow",
+      "index": 2,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "EscrowState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "taker",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "cancel_escrow",
+      "index": 3,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "EscrowState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "maker",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "reset",
+      "index": 4,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "EscrowState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "is_claimable",
+      "index": 5,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "EscrowState",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": "bool",
+      "is_public": false
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

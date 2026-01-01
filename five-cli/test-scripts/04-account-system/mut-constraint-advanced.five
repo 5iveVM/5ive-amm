@@ -1,0 +1,38 @@
+{
+  "bytecode": "NUlWRU8BAAADAzMDFnVwZGF0ZV93aXRoX3ZlcnNpb25pbmcLYnVsa191cGRhdGUOZ2V0X3N0YXRlX2luZm/cGQAnAlQA3BkBJwJiANwZAicCdAAApQGlAqUDpQSQBIsAAAClAaUCpQOlBKUFpQaQBr8AAAClAZABfAAAAEMBAEMBCEMBMEMBEPgEB6UEGQAlBFcBVwIqBEMDABkBIEIDAEMDCKUEIEIDCFcBQgMQQwMwGQEgQgMwQwMwpQT4AgdXAlcDKgRXA1cEKgRXAlcEKgRDBQAZAyBCBQBDBQilBhkDIiBCBQhXAUIFEEMFMBkBIEIFMEMFAAcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "update_with_versioning",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "new_value",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "bulk_update",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "value",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_state_info",
+        "index": 2,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

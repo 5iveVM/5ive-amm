@@ -1,0 +1,33 @@
+{
+  "filename": "unknown.v",
+  "bytecode": "NUlWRQ8BAAABAtwZACcCGQDcGQEnAiMAAKUBpQKQAikAAACQAGcAAADdZwV2YXVsdN7dZwV2YXVsdN4YAx4BAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIIb6AvoC1dTQB2cEdGVzdBh7ZwR0ZXN0GHsYAh4BAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIIYHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_basic_destructuring",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "user",
+            "type": "pubkey",
+            "optional": false
+          },
+          {
+            "name": "seed",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_simple_pda",
+        "index": 1,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

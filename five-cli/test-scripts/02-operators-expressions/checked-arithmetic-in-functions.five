@@ -1,0 +1,107 @@
+{
+  "bytecode": "NUlWRU8BAAACBjoCHHRlc3RfY2hlY2tlZF9pbl9uZXN0ZWRfY2FsbHMbdGVzdF9tdWx0aV9zdGVwX2NhbGN1bGF0aW9uoASlAaIApQKiAdDRkAKuAA9wcm9jZXNzX3BheW1lbnQHoAilAaIApQKiAaUDogLQ0ZACzgAMc3VidHJhY3RfZmVl1NDSkALcAA9tdWx0aXBseV9hbW91bnTV0QegA6UBogDQGQIi1tIHoAWlAaIApQKiAdDRIdfTkAGhAAthcHBseV9ib251cwegBKUBogClAqIB0NEhB6AEpQGiAKUCogHQ0SIHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_checked_in_nested_calls",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "fee",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_multi_step_calculation",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "initial",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "deduct",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "multiplier",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "process_payment",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "fee",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "apply_bonus",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "subtract_fee",
+        "index": 4,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "fee",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "multiply_amount",
+        "index": 5,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "factor",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

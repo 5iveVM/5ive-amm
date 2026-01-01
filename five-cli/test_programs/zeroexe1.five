@@ -1,0 +1,739 @@
+{
+  "bytecode": "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",
+  "abi": {
+    "functions": {
+      "reels_hit": {
+        "index": 20,
+        "parameters": [
+          {
+            "name": "slot",
+            "type": "u64"
+          },
+          {
+            "name": "boss_id",
+            "type": "u8"
+          },
+          {
+            "name": "modn",
+            "type": "u16"
+          }
+        ],
+        "accounts": []
+      },
+      "maybe_jackpot": {
+        "index": 22,
+        "parameters": [
+          {
+            "name": "cur_slot",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "zero_mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "base_vault",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "treasury_base",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "authority",
+            "writable": false,
+            "signer": true
+          },
+          {
+            "name": "winner_base_dst",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "winner_zero_dst",
+            "writable": true,
+            "signer": false
+          }
+        ]
+      },
+      "set_paused": {
+        "index": 7,
+        "parameters": [
+          {
+            "name": "v",
+            "type": "bool"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "quote_buy": {
+        "index": 23,
+        "parameters": [
+          {
+            "name": "tokens_out_total",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "zero_mint",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      },
+      "buy_exact_tokens": {
+        "index": 3,
+        "parameters": [
+          {
+            "name": "tokens_out_total",
+            "type": "u64"
+          },
+          {
+            "name": "max_base_in",
+            "type": "u64"
+          },
+          {
+            "name": "cur_slot",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "zero_mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "base_vault",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "treasury_base",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "treasury_token",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "buyer_base_src",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "buyer_zero_dst",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "authority",
+            "writable": false,
+            "signer": true
+          },
+          {
+            "name": "buyer",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "mint_to": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "dest",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_rotation": {
+        "index": 10,
+        "parameters": [
+          {
+            "name": "every_slots",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "maybe_rotate": {
+        "index": 21,
+        "parameters": [
+          {
+            "name": "cur_slot",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          }
+        ]
+      },
+      "quote_sell": {
+        "index": 24,
+        "parameters": [
+          {
+            "name": "tokens_in",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "zero_mint",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      },
+      "price_units": {
+        "index": 15,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "zm",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      },
+      "set_mint_bonus": {
+        "index": 12,
+        "parameters": [
+          {
+            "name": "mint_bonus_bps",
+            "type": "u16"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "era_bonus_bps": {
+        "index": 19,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      },
+      "apply_preset": {
+        "index": 25,
+        "parameters": [
+          {
+            "name": "preset",
+            "type": "u8"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          }
+        ]
+      },
+      "sell_exact_tokens": {
+        "index": 4,
+        "parameters": [
+          {
+            "name": "tokens_in",
+            "type": "u64"
+          },
+          {
+            "name": "min_base_out",
+            "type": "u64"
+          },
+          {
+            "name": "cur_slot",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "zero_mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "base_vault",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "treasury_base",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "seller_zero_src",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "seller_base_dst",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "authority",
+            "writable": false,
+            "signer": true
+          },
+          {
+            "name": "seller",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "init_zero_preset": {
+        "index": 6,
+        "parameters": [
+          {
+            "name": "token_decimals",
+            "type": "u8"
+          },
+          {
+            "name": "price_preset",
+            "type": "u8"
+          },
+          {
+            "name": "rotate_every_slots",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "zero_mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "base_mint",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "base_vault",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "treasury_base",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "treasury_token",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "authority",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "spin_overload": {
+        "index": 5,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "dir",
+            "type": "u8"
+          },
+          {
+            "name": "cur_slot",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "zero_mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "base_vault",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "treasury_base",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "authority",
+            "writable": false,
+            "signer": true
+          },
+          {
+            "name": "player_wallet",
+            "writable": false,
+            "signer": true
+          },
+          {
+            "name": "player_base",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "z1",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "z2",
+            "writable": true,
+            "signer": false
+          }
+        ]
+      },
+      "transfer": {
+        "index": 2,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "src",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "dst",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "signer",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_curve": {
+        "index": 8,
+        "parameters": [
+          {
+            "name": "base_price",
+            "type": "u64"
+          },
+          {
+            "name": "slope",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_operator": {
+        "index": 9,
+        "parameters": [
+          {
+            "name": "operator_bps",
+            "type": "u16"
+          },
+          {
+            "name": "treasury_base",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_token",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "burn": {
+        "index": 1,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "src",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_max_boss": {
+        "index": 11,
+        "parameters": [
+          {
+            "name": "new_max",
+            "type": "u8"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_spins_trigger": {
+        "index": 13,
+        "parameters": [
+          {
+            "name": "v",
+            "type": "bool"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_jackpot_tuning": {
+        "index": 14,
+        "parameters": [
+          {
+            "name": "base_trigger_mod",
+            "type": "u16"
+          },
+          {
+            "name": "trigger_step",
+            "type": "u16"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "cost_to_mint_linear": {
+        "index": 16,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64"
+          },
+          {
+            "name": "b",
+            "type": "u64"
+          },
+          {
+            "name": "s_units",
+            "type": "u64"
+          },
+          {
+            "name": "n_units",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "revenue_from_burn_linear": {
+        "index": 17,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64"
+          },
+          {
+            "name": "b",
+            "type": "u64"
+          },
+          {
+            "name": "s_units",
+            "type": "u64"
+          },
+          {
+            "name": "n_units",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "era_trigger_mod": {
+        "index": 18,
+        "parameters": [
+          {
+            "name": "slot",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

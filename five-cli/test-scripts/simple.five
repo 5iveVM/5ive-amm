@@ -1,0 +1,27 @@
+{
+  "bytecode": "NUlWRU8BAAABAwgBBl9faW5pdKABGQHUBqAB0AegA6UBogDQ1NAHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "test",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "update_value",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "new_value",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

@@ -1,0 +1,26 @@
+{
+  "bytecode": "NUlWRToEGQDUBtAZASDUBtAZASHUBhkA1AYA",
+  "abi": {
+    "functions": {
+      "reset": {
+        "index": 2,
+        "parameters": [],
+        "accounts": []
+      },
+      "increment": {
+        "index": 0,
+        "parameters": [],
+        "accounts": []
+      },
+      "decrement": {
+        "index": 1,
+        "parameters": [],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

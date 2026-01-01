@@ -1,0 +1,38 @@
+{
+  "bytecode": "NUlWRU8BAAABAxQBEnRlc3RfcmV0dXJuX25lc3RlZKACGWTUGQqQAT8AD21pZGRsZV9mdW5jdGlvbtXQ0SAHoASlAaIA0BkUINbSkAFjAA5pbm5lcl9mdW5jdGlvbtfS0yAHoAOlAaIA0BkeIKIEowQHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_return_nested",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "middle_function",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "input",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "inner_function",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "input",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

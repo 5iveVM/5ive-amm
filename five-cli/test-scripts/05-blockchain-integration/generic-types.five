@@ -1,0 +1,80 @@
+{
+  "filename": "unknown.v",
+  "bytecode": "NUlWRQ8BAAAICNwZACcCQwDcGQEnAkkA3BkCJwJPANwZAycCVwDcGQQnAmEA3BkFJwJtANwZBicCcwDcGQcnAnkAAJAAfwAAAJAAhgAAAKUBkAGdAAAApQGlApACpwAAAKUBpQKlA5ADuwAAAJAAiAAAAJAAigAAAJAAkgAAANjU2NXY1gbQB9IH0NTY1NjV0AcYCtrbkAO7ANTQB9DU3dTS2SDW0Afe2CcDsQDZ1dgH3d4j1NLZINbQB97YJwPFANnV2Afd3iPU0tkg1tDfINXRBwA=",
+  "abi": {
+    "functions": [
+      {
+        "name": "get_cached_value",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "update_cached_value",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "new_value",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "divide_numbers",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "safe_calculation",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "c",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_operations_count",
+        "index": 4,
+        "parameters": []
+      },
+      {
+        "name": "clear_cache",
+        "index": 5,
+        "parameters": []
+      },
+      {
+        "name": "test",
+        "index": 6,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

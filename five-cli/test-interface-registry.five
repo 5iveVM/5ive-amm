@@ -1,0 +1,31 @@
+{
+  "bytecode": "NUlWRQIQAAAAAQAPAAADlQGVApUBlQNwVG9rZW5rZWdRZmVaeWlOd0FKYk5iR0tQRlhDV3VCdmYHBAYA",
+  "abi": {
+    "functions": {
+      "test_interface_registry": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "dest",
+            "writable": true,
+            "signer": false
+          }
+        ]
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

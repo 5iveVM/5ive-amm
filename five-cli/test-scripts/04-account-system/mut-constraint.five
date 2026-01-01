@@ -1,0 +1,38 @@
+{
+  "bytecode": "NUlWRU8BAAADAzQDDnVwZGF0ZV9hY2NvdW50DGJhdGNoX3VwZGF0ZRZnZXRfbW9kaWZpY2F0aW9uX2NvdW503BkAJwJVANwZAScCYwDcGQInAnMAAKUBpQKlA6UEkAR/AAAApQGlAqUDpQSlBZAFlwAAAKUBkAF7AAAAQwEAB0MDABkBIEIDAKUEGQAlBFcBVwIqBKUEB0MEABkCIEIEAFcCVwMqBEMEAAcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "update_account",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "new_value",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "batch_update",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "value",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_modification_count",
+        "index": 2,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

@@ -1,0 +1,59 @@
+{
+  "bytecode": "NUlWRU8BAAABBBoBGHRlc3RfY29tcGxleF9pbnRlZ3JhdGlvbqACGWTU0BkykAJQAA5wcm9jZXNzX2xldmVsMdXRB6ADpQGiANAZCiHW0gegBqUBogClAqIB0NEh19MZCpACewAOcHJvY2Vzc19sZXZlbDKiBNOjBCAHoAalAaIApQKiAdDRIKIFowWQAUMADnByb2Nlc3NfbGV2ZWwzogajBhkCIgcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_complex_integration",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "process_level1",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "fee",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "process_level2",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "bonus",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "process_level3",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

@@ -1,0 +1,53 @@
+{
+  "bytecode": "NUlWRU8BAAACAigCEWNyZWF0ZV91c2VyX3ZhdWx0FGNyZWF0ZV90b2tlbl9hY2NvdW503BkAJwJCANwZAScCUAAApQGlAqUDpQSQBF4AAAClAaUCpQOlBJAEqQAAAKUBZwV2YXVsdKUCpQFnBXZhdWx0pQIYAx4BAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIIb6AtXUVwPQJwTR8kIEAFcDB2cFdG9rZW6lAaUCZwV0b2tlbqUBpQIYAx4BAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIIb6AtfWVwPSJwTT8kIECFcDBwA=",
+  "abi": {
+    "functions": [
+      {
+        "name": "create_user_vault",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "user",
+            "type": "pubkey",
+            "optional": false
+          },
+          {
+            "name": "seed",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "vault",
+            "type": "Account",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "create_token_account",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "mint",
+            "type": "pubkey",
+            "optional": false
+          },
+          {
+            "name": "owner",
+            "type": "pubkey",
+            "optional": false
+          },
+          {
+            "name": "token_account",
+            "type": "Account",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

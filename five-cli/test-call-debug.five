@@ -1,0 +1,21 @@
+{
+  "bytecode": "NUlWRToCkAANANTQBxkqBwA=",
+  "abi": {
+    "functions": {
+      "helper_func": {
+        "index": 1,
+        "parameters": [],
+        "accounts": []
+      },
+      "main": {
+        "index": 0,
+        "parameters": [],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

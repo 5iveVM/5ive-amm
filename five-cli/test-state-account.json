@@ -1,0 +1,11 @@
+[
+  {
+    "pubkey": "11111111111111111111111111111112",
+    "lamports": 1000000,
+    "data": "AAAAAAAAAAAAAAAA",
+    "owner": "11111111111111111111111111111111",
+    "isWritable": false,
+    "isSigner": false,
+    "executable": false
+  }
+]

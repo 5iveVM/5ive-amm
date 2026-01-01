@@ -1,0 +1,32 @@
+{
+  "program_name": "MultipleParameters",
+  "functions": [
+    {
+      "name": "test",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "a",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "b",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "c",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64"
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

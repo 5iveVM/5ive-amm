@@ -1,0 +1,26 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "add",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "a",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "b",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64"
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

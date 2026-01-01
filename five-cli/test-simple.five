@@ -1,0 +1,15 @@
+{
+  "bytecode": "NUlWRRwqAAAAAAAAAAcA",
+  "abi": {
+    "functions": {
+      "simple": {
+        "index": 0,
+        "parameters": [],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

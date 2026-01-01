@@ -1,0 +1,16 @@
+{
+  "bytecode": "NUlWRU8AAAAAAaACpQGiABkqQgAABgA=",
+  "abi": {
+    "functions": [
+      {
+        "name": "test",
+        "index": 0,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

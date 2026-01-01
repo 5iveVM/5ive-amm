@@ -1,0 +1,24 @@
+{
+  "bytecode": "NUlWRQIQAAAAAQAPAAECpQHUpQLVGQrWGQDX0NIiogTR0iKiBdDRIKIGowTTIKIHowXTIKIIowbSIqIJ0KMHIKIK0aMIIKIL0qMJIKIMowqjCyCjDCCiDaMNBwA=",
+  "abi": {
+    "functions": {
+      "main_calculation": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "input1",
+            "type": "u64"
+          },
+          {
+            "name": "input2",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

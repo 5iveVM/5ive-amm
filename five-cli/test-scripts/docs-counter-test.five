@@ -1,0 +1,26 @@
+{
+  "bytecode": "NUlWRU8BAAADAyADCmluaXRpYWxpemUJaW5jcmVtZW50CWdldF9jb3VudKACpQGiABkAQgAABqACpQGiAEMAABkBIEIAAAagAqUBogBDAAAHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "initialize",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "increment",
+        "index": 1,
+        "parameters": []
+      },
+      {
+        "name": "get_count",
+        "index": 2,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

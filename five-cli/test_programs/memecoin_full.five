@@ -1,0 +1,870 @@
+{
+  "bytecode": "NUlWRTofGQBCAUgZAEIBagYdAUIBgAEGpQJCASAZAEIBxAUGpQGlApACBgAGGQJCAmgGGQFCAmgGpQNCAYEBBqUDQgFABqUDQgHEBQalA0IBswUGHQFCAcMFBkMBQKUEIUIBQEMCQKUEIEICQAZDAQClBCBCAQBDAkClBCBCAkAGQwJApQQhQgJAQwEApQQhQgEABqUDQgFIpQRCAWoGQwFqpQQhQgFqQwFApQQhQgFAQwJApQQgQgJABqUDQgGCAaUEQgGEAQalA0IBiwGlBEIBqwEGpQMJAGQAAwkBVgADCQJIAAMJAzoAAwkELAADCQUeAAMJBhAAAwkHAgAGAKUEQgGTAwEGAKUEQgHzAgEGAKUEQgHTAgEGAKUEQgGzAgEGAKUEQgGTAgEGAKUEQgHzAQEGAKUEQgHTAQEGAKUEQgGzAQalAwkAZAADCQFWAAMJAkgAAwkDOgADCQQsAAMJBR4AAwkGEAADCQcCAAYApQRCAZMFAQYApQRCAfMEAQYApQRCAdMEAQYApQRCAbMEAQYApQRCAZMEAQYApQRCAfMDAQYApQRCAdMDAQYApQRCAbMDBqUBpQKlA6UEkASUAAalAqUDpQSQAy0ABqUCpQOlBJADMwAGpQNCAYYBpQRCAYcBpQVCAYkBBqUCpQOlBKUFkARuAAalAqUDpQSlBZAEgQAGpQKlA6UEpQWQBG4ABqUFQgIIHQFCAgmlA0ICKqUDQgIKVwJCAQClA0IBIFcEQgFAGQBCAWAdAEIBgAEdAEIBgQGlB0IBggGlCEIBhAEdAUIBhgEZyAFCAYcBGawCQgGJARkAQgGLARkAQgGrARkAQgGzBRqAowVCAbsFHQBCAcMFGQBCAcQFGQBCAbMBGQBCAdMBGQBCAfMBGQBCAZMCGQBCAbMCGQBCAdMCGQBCAfMCGQBCAZMDGQBCAbMDGQBCAdMDGQBCAfMDGQBCAZMEGQBCAbMEGQBCAdMEGQBCAfMEGQBCAZMFpQYZACUDDAClAqUEpQOlBpAEbgAGQwGBAQMAAEMBgAEyAwAApQGlBpACGgQyAwAAVwNDAYsBJwMAAEMBhgGlAaUGkAIaBDIwAw0AQwIAQwGHASIZkE4j1BkA1aUI1qUBpQaQAhoEMkMBggEZACUwAxgApQhDAYIBIhmQTiPV0RkAJQMFAKUI0SHWQwGGAaUBWASQAhoEMjADFABDAgBDAYkBIhmQTiPXQwRA0iCiBKUDpQSlBtKQBFsA0RkAJQM6ANFDAYQBIhmQTiOiBdGjBSGiBqMFGQAlAwwApQKlA6UGowWQBIEAowYZACUDDAClA6UFpQajBpAEWwAGpQGlAqUDpQSlBaUGpQelCJAIAwMGpQGlAqUDpQSlBaUGpQelCJAIAwMGpQEZACcHpQJYASelAkMBswEnMaUCQwHTAScxpQJDAfMBJzGlAkMBkwInMaUCQwGzAicxpQJDAdMCJzGlAkMB8wInMaUCQwGTAycxB6UCQwGzAycDAwAdAQelAkMB0wMnAwMAHQEHpQJDAfMDJwMDAB0BB6UCQwGTBCcDAwAdAQelAkMBswQnAwMAHQEHpQJDAdMEJwMDAB0BB6UCQwHzBCcDAwAdAQelAkMBkwUnAwMAHQEHHQAHAA==",
+  "abi": {
+    "functions": {
+      "is_blacklisted": {
+        "index": 33,
+        "parameters": [
+          {
+            "name": "who",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      },
+      "set_global_freeze": {
+        "index": 10,
+        "parameters": [
+          {
+            "name": "freeze",
+            "type": "bool"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "burn": {
+        "index": 2,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "token_account",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "owner_freeze": {
+        "index": 27,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "acct",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "freeze_account": {
+        "index": 6,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "account",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "freeze_authority",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_tax": {
+        "index": 11,
+        "parameters": [
+          {
+            "name": "tax_bps",
+            "type": "u16"
+          },
+          {
+            "name": "burn_bps",
+            "type": "u16"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "mint_to": {
+        "index": 1,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "destination",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "mint_authority",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "owner_mint": {
+        "index": 22,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "dest",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "transfer_with_tax": {
+        "index": 29,
+        "parameters": [
+          {
+            "name": "now",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "src",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "dst",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "treasury_acc",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "memecoin_transfer": {
+        "index": 21,
+        "parameters": [
+          {
+            "name": "now",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "src",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "dst",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "treasury_acc",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "transfer": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "source",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "destination",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "authority",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "transfer_ownership": {
+        "index": 17,
+        "parameters": [
+          {
+            "name": "new_owner",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "owner_burn": {
+        "index": 23,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "from",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "renounce_finish": {
+        "index": 20,
+        "parameters": [
+          {
+            "name": "now",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "is_zero": {
+        "index": 31,
+        "parameters": [
+          {
+            "name": "p",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": []
+      },
+      "set_limits": {
+        "index": 12,
+        "parameters": [
+          {
+            "name": "enabled",
+            "type": "bool"
+          },
+          {
+            "name": "max_tx_bps",
+            "type": "u16"
+          },
+          {
+            "name": "max_wallet_bps",
+            "type": "u16"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "transfer_from": {
+        "index": 5,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "source",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "destination",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "delegate",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_liquidity_lock": {
+        "index": 14,
+        "parameters": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "unlock_ts",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "wallet_revoke": {
+        "index": 26,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "account",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "renounce_start": {
+        "index": 19,
+        "parameters": [
+          {
+            "name": "now",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "wallet_approve": {
+        "index": 25,
+        "parameters": [
+          {
+            "name": "delegate",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "account",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "thaw_account": {
+        "index": 7,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "account",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "freeze_authority",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "init_memecoin": {
+        "index": 8,
+        "parameters": [
+          {
+            "name": "decimals",
+            "type": "u8"
+          },
+          {
+            "name": "initial_supply",
+            "type": "u64"
+          },
+          {
+            "name": "tax_bps",
+            "type": "u16"
+          },
+          {
+            "name": "burn_bps",
+            "type": "u16"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          },
+          {
+            "name": "treasury_account",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      },
+      "approve_delegate": {
+        "index": 3,
+        "parameters": [
+          {
+            "name": "delegate",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "account",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "transfer_from_with_tax": {
+        "index": 30,
+        "parameters": [
+          {
+            "name": "now",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "src",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "dst",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "treasury_acc",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "delegate",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "revoke_delegate": {
+        "index": 4,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "account",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_trading_open": {
+        "index": 9,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "airdrop": {
+        "index": 24,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "to",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "owner_thaw": {
+        "index": 28,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "acct",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_treasury": {
+        "index": 13,
+        "parameters": [
+          {
+            "name": "new_treasury",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_exempt_slot": {
+        "index": 15,
+        "parameters": [
+          {
+            "name": "idx",
+            "type": "u8"
+          },
+          {
+            "name": "who",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "accept_ownership": {
+        "index": 18,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "new_owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "is_exempt": {
+        "index": 32,
+        "parameters": [
+          {
+            "name": "who",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      },
+      "set_blacklist_slot": {
+        "index": 16,
+        "parameters": [
+          {
+            "name": "idx",
+            "type": "u8"
+          },
+          {
+            "name": "who",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

@@ -1,0 +1,47 @@
+{
+  "bytecode": "NUlWRU8BAAABBggBBl9faW5pdKABGWTUBqABGWQZGSDU0BkAJQTQB6ABGUvV0RkAKATRB6ABGX3W0hkAJQTSB6ABGWQZBSPX0xkAJQTTB6AGpQGiAKUCogHQ0SDQIqIEowQHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_addition",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "test_subtraction",
+        "index": 1,
+        "parameters": []
+      },
+      {
+        "name": "test_multiplication",
+        "index": 2,
+        "parameters": []
+      },
+      {
+        "name": "test_division",
+        "index": 3,
+        "parameters": []
+      },
+      {
+        "name": "calculate_with_base",
+        "index": 4,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

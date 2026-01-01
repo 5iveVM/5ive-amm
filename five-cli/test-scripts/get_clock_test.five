@@ -1,0 +1,26 @@
+{
+  "bytecode": "NUlWRU8BAAABBAgBBl9faW5pdKACGQDUGQDVBqABgtTQB6ABgtTQB6ADgtXR0SHW0dXSBwA=",
+  "abi": {
+    "functions": [
+      {
+        "name": "update_time",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "get_current_time",
+        "index": 1,
+        "parameters": []
+      },
+      {
+        "name": "time_since_last_update",
+        "index": 2,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

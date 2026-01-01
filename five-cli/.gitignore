@@ -1,0 +1,48 @@
+# Build artifacts
+dist/
+build/
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Test outputs
+.five/
+test-cache/
+*.bin
+test-scripts/**/*.bin
+test-config-project
+test-project
+jest.config.mjs
+
+test-runner.sh
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Misc
+.tmp/
+*.pid
+*.seed

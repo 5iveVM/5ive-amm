@@ -1,0 +1,91 @@
+{
+  "filename": "unknown.v",
+  "bytecode": "NUlWRQ8BAAABB9wZACcCPADcGQEnAkgA3BkCJwJUANwZAycCYADcGQQnAmwA3BkFJwJ0ANwZBicCfAAApQGlAqUDkAOEAAAApQGlAqUDkAPcAAAApQGlAqUDkANZAQAApQGlAqUDkAOlAQAApQGQAdAAAAClAZAB1AAAAKUBkAHYAAAA3WcFdmF1bHTe3WcFdmF1bHTeGAMeAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyCG+gL6AtXU0fJCAwBDAxDZIEIDENDwB0MBAAdDAQgHQwEQB0MDABEbAAAAAAAAAAAnAzYBogDdZwV2YXVsdN7Q3WcFdmF1bHTe0BgEHgECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8ghtVDAxDZIEIDENHwBwFZAaICZxpWYXVsdCBidW1wIG5vdCBpbml0aWFsaXplZPEHAVkBZwV0b2tlbt3eZwV0b2tlbt3eGAMeAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyCG+gL6AtXU0fJCAwhDAxDZIEIDENDwB0MDCBEbAAAAAAAAAAAnA/8BogBnBXRva2Vu3d7QZwV0b2tlbt3e0BgEHgECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8ghtVDAxDZIEIDENHwBwEiAqICZxpUb2tlbiBidW1wIG5vdCBpbml0aWFsaXplZPEHASICAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "init_vault_bump",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "user",
+            "type": "pubkey",
+            "optional": false
+          },
+          {
+            "name": "seed",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "validate_vault_fast",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "user",
+            "type": "pubkey",
+            "optional": false
+          },
+          {
+            "name": "seed",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "init_token_bump",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "mint",
+            "type": "pubkey",
+            "optional": false
+          },
+          {
+            "name": "owner",
+            "type": "pubkey",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "validate_token_fast",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "mint",
+            "type": "pubkey",
+            "optional": false
+          },
+          {
+            "name": "owner",
+            "type": "pubkey",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_vault_bump",
+        "index": 4,
+        "parameters": []
+      },
+      {
+        "name": "get_token_bump",
+        "index": 5,
+        "parameters": []
+      },
+      {
+        "name": "get_operations_count",
+        "index": 6,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

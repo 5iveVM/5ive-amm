@@ -1,0 +1,49 @@
+{
+  "bytecode": "NUlWRU8BAAAEBEsEE211bHRpX3NpZ19vcGVyYXRpb24QYXV0aG9yaXplX3NpZ25lchNkZWxlZ2F0ZWRfb3BlcmF0aW9uEGdldF9zaWduZXJfc3RhdGXcGQAnAnMA3BkBJwKBANwZAicCjQDcGQMnApkAAKUBpQKlA6UEkATrAAAApQGlAqUDkAOvAAAApQGlAqUDkAPHAAAApQGQAaEAAABDASBDAUhYAUMBKPgEB1cBWAMnBEMDIBkBIEIDIKUCQgMoQwMgB0MCIBkAJQSlAxmIJykEQwJIGQEgQgJIVwFCAihDAkhXAfgCB6UEGQAlBKUEGZBOKQRXAVcCKgRXAVgDJwRDA0gZASBCA0hXAkIDKKUEQwNIIgcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "multi_sig_operation",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "authorize_signer",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "new_signer",
+            "type": "pubkey",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "delegated_operation",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_signer_state",
+        "index": 3,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

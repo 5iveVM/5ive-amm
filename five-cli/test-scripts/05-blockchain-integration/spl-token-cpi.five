@@ -1,0 +1,34 @@
+{
+  "filename": "unknown.v",
+  "bytecode": "NUlWRQ8BAAABAtwZACcCGQDcGQEnAiUAAKUBpQKlA5ADMQAAAKUBpQKlA5ADYgAAAB5Ub2tlbmtlZ1FmZVp5aU53QUpiTmJHS1BGWENXdUJ2ZhgA32ECGAEYARgCGAOA3gceVG9rZW5rZWdRZmVaeWlOd0FKYk5iR0tQRlhDV3VCdmYYB9/U0BEbAAEAAAAAAAAjEdTQERsAAQAAAAAAACMR1NARGwABAAAAAAAAIxHU0BEbAAEAAAAAAAAjEdTQERsAAQAAAAAAACMR1NARGwABAAAAAAAAIxHU0BEbAAEAAAAAAAAjEdTQERsAAQAAAAAAACMR1NARGwABAAAAAAAAIxHUGwABAAAAAAAAIiHQERsAAQAAAAAAACMR1BsAAQAAAAAAACIh0BEbAAEAAAAAAAAjEdQbAAEAAAAAAAAiIdARGwABAAAAAAAAIxHUGwABAAAAAAAAIiHQERsAAQAAAAAAACMR1BsAAQAAAAAAACIh0BEbAAEAAAAAAAAjEdQbAAEAAAAAAAAiIdARGwABAAAAAAAAIxHUGwABAAAAAAAAIiHQERsAAQAAAAAAACMR1BsAAQAAAAAAACIhYQkYARgCGAEYA4AGAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "create_mint",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "decimals",
+            "type": "u8",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "mint_tokens",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

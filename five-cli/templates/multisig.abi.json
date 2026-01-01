@@ -1,0 +1,83 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "init_multisig",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "MultisigState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "threshold",
+          "param_type": "u8",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "open_proposal",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "MultisigState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "proposal_hash",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "approve",
+      "index": 2,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "MultisigState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "execute",
+      "index": 3,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "MultisigState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

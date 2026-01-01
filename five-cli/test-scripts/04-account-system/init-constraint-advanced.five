@@ -1,0 +1,37 @@
+{
+  "bytecode": "NUlWRU8BAAACAisCF2NyZWF0ZV9hbmRfZnVuZF9hY2NvdW50EWdldF9hY2NvdW50X3N0YXRz3BkAJwJFANwZAScCVQAApQGlAqUDpQSlBZAFaQAAAKUBkAFdAAAAQwEAQwEIQwEQ+AMHpQQZACUEpQUZACUEQwMAGQEgQgMAQwMIpQUgQgMIVwJCAxClBKUFINRXAtD4AgcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "create_and_fund_account",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "new_account",
+            "type": "Account",
+            "optional": false
+          },
+          {
+            "name": "initial_value",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "funded_amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_account_stats",
+        "index": 1,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

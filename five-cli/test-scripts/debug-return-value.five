@@ -1,0 +1,21 @@
+{
+  "bytecode": "NUlWRU8AAAAAAhkqB6ABkAAKAApzaW1wbGVfYWRk1NAHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "simple_add",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "test",
+        "index": 1,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

@@ -1,0 +1,74 @@
+{
+  "bytecode": "NUlWRU8BAAADA0EDFXRlc3RfbWl4ZWRfb3BlcmF0aW9ucxJ0ZXN0X2NoZWNrZWRfY2hhaW4WdGVzdF9jaGVja2VkX211bF9jaGFpbqAIpQGiAKUCogGlA6IC0NEg1NDSINXRB6AIpQGiAKUCogGlA6IC0NEh1tLSINfTB6AIpQGiAKUCogGlA6IC0NEiogSjBNIiogWjBQcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_mixed_operations",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "c",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_checked_chain",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "c",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_checked_mul_chain",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "c",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

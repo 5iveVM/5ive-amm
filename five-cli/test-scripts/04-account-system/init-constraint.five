@@ -1,0 +1,32 @@
+{
+  "bytecode": "NUlWRU8BAAACAiICDmNyZWF0ZV9hY2NvdW50EWdldF9jcmVhdGVkX2NvdW503BkAJwI8ANwZAScCSgAApQGlAqUDpQSQBFYAAAClAZABUgAAAEMBAAdDAwAZASBCAwClBBkAJQSlAgcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "create_account",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "new_account",
+            "type": "Account",
+            "optional": false
+          },
+          {
+            "name": "initial_value",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_created_count",
+        "index": 1,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

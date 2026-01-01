@@ -1,0 +1,134 @@
+{
+  "bytecode": "NUlWRU8BAAAECzEEBG1haW4NY2FsY3VsYXRlX3N1bRFjYWxjdWxhdGVfcHJvZHVjdApnZXRfc3RhdHVzkADaABFnZXRfc3lzdGVtX3N0YXR1cwegBKUBogDQkAHhAA1wcm9jZXNzX2lucHV01NCQAfYAD3ZhbGlkYXRlX3Jlc3VsdNXRkAEIAQ9maW5hbGl6ZV9vdXRwdXQHoASlAaIApQKiAdDRkAIlAQxpbnRlcm5hbF9hZGQHoASlAaIApQKiAdDRkAIzARFpbnRlcm5hbF9tdWx0aXBseQcZyAEHGQoHoAKlAaIA0AkAAgADABkBB9AZAiIHoAKlAaIA0BlkJQMDABlkB9AHoAKlAaIA0JAA3gAPZ2V0X2Jhc2Vfb2Zmc2V0IAegBKUBogClAqIB0NEgB6AEpQGiAKUCogHQ0SIHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "main",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "value",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "calculate_sum",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "calculate_product",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "x",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "y",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_status",
+        "index": 3,
+        "parameters": []
+      },
+      {
+        "name": "process_input",
+        "index": 4,
+        "parameters": [
+          {
+            "name": "input",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "validate_result",
+        "index": 5,
+        "parameters": [
+          {
+            "name": "result",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "finalize_output",
+        "index": 6,
+        "parameters": [
+          {
+            "name": "output",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "internal_add",
+        "index": 7,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "internal_multiply",
+        "index": 8,
+        "parameters": [
+          {
+            "name": "x",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "y",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_system_status",
+        "index": 9,
+        "parameters": []
+      },
+      {
+        "name": "get_base_offset",
+        "index": 10,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

@@ -1,0 +1,16 @@
+{
+  "bytecode": "NUlWRToBGSoHAA==",
+  "abi": {
+    "functions": {
+      "test": {
+        "index": 0,
+        "parameters": [],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

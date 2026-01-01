@@ -1,0 +1,70 @@
+{
+  "bytecode": "NUlWRU8BAAAFBVcFFGluc3RydWN0aW9uX2Rpc3BhdGNoD2JpbmFyeV9kaXNwYXRjaA9uZXN0ZWRfZGlzcGF0Y2gNc3RhdGVfbWFjaGluZRJ0ZXN0X2FsbF9zZWxlY3RvcnOgBxkBkAHaABRpbnN0cnVjdGlvbl9kaXNwYXRjaNQZA5AB2gD/ANUZY5AB2gD/ANYZAJABQAEPYmluYXJ5X2Rpc3BhdGNo1xkBkAFAAf8BogQZABkBkALvAQ1zdGF0ZV9tYWNoaW5logUZARkCkALvAf8CogYdAQegAqUBogDQCQFOAAkCPAAJAysACQQbAAkFDAAHVW5rbm93bgcBCABnBUNsb3NlBwEJAGcGUmV2b2tlBwEKAGcHQXBwcm92ZQcBCwBnCFRyYW5zZmVyBwENAGcKSW5pdGlhbGl6ZQegAqUBogDQCQAFAAEHAQMAHQAHoASlAaIApQKiAdAJAVQACQIVABBDYXRlZ29yeSBVbmtub3duBwE4ANEJASYACQISAA1Ub2tlbiBVbmtub3duBwENAGcKVG9rZW4gQnVybgcBDQBnClRva2VuIE1pbnQHATkA0QkBJgAJAhEADFVzZXIgVW5rbm93bgcBDgBnC1VzZXIgVXBkYXRlBwEOAGcLVXNlciBDcmVhdGUHoASlAaIApQKiAdAJAEEACQEjAAkCBQAABwEXANEJAQ8ACQMFAAIHAQMAGQMHAQMAGQEHARcA0QkCDwAJAwUAAQcBAwAZAwcBAwAZAgcBDQDRCQEFAAAHAQMAGQEHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "instruction_dispatch",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "selector",
+            "type": "u8",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "binary_dispatch",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "flag",
+            "type": "u8",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "nested_dispatch",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "category",
+            "type": "u8",
+            "optional": false
+          },
+          {
+            "name": "action",
+            "type": "u8",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "state_machine",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "current_state",
+            "type": "u8",
+            "optional": false
+          },
+          {
+            "name": "input_event",
+            "type": "u8",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_all_selectors",
+        "index": 4,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

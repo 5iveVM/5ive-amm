@@ -1,0 +1,54 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "add",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "a",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "b",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64",
+      "is_public": false
+    },
+    {
+      "name": "multiply",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "a",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "b",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64",
+      "is_public": false
+    },
+    {
+      "name": "test",
+      "index": 2,
+      "parameters": [],
+      "return_type": "u64",
+      "is_public": false
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

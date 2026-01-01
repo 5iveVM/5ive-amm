@@ -1,0 +1,34 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "increment",
+      "index": 0,
+      "parameters": [],
+      "return_type": null,
+      "is_public": true
+    },
+    {
+      "name": "decrement",
+      "index": 1,
+      "parameters": [],
+      "return_type": null,
+      "is_public": true
+    },
+    {
+      "name": "reset",
+      "index": 2,
+      "parameters": [],
+      "return_type": null,
+      "is_public": true
+    }
+  ],
+  "fields": [
+    {
+      "name": "count",
+      "field_type": "u64",
+      "is_mutable": true
+    }
+  ],
+  "version": "1.0"
+}

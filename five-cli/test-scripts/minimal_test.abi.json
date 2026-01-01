@@ -1,0 +1,32 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "set_value",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "new_value",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64"
+    },
+    {
+      "name": "get_value",
+      "index": 1,
+      "parameters": [],
+      "return_type": "u64"
+    }
+  ],
+  "fields": [
+    {
+      "name": "value",
+      "field_type": "u64",
+      "is_mutable": true
+    }
+  ],
+  "version": "1.0"
+}

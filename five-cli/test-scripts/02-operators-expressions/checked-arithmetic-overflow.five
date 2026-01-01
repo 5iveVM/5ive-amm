@@ -1,0 +1,107 @@
+{
+  "bytecode": "NUlWRU8BAAAGBmIGDXRlc3RfYWRkX3NhZmURdGVzdF9hZGRfb3ZlcmZsb3cNdGVzdF9zdWJfc2FmZRJ0ZXN0X3N1Yl91bmRlcmZsb3cNdGVzdF9tdWxfc2FmZRF0ZXN0X211bF9vdmVyZmxvd6AEpQGiAKUCogHQ0SAHoASlAaIApQKiAdDRIAegBKUBogClAqIB0NEhB6AEpQGiAKUCogHQ0SEHoASlAaIApQKiAdDRIgegBKUBogClAqIB0NEiBwA=",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_add_safe",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_add_overflow",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_sub_safe",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_sub_underflow",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_mul_safe",
+        "index": 4,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test_mul_overflow",
+        "index": 5,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

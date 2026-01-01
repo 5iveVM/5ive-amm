@@ -1,0 +1,37 @@
+{
+  "name": "Basic Functions Test Suite",
+  "description": "Tests for basic Five VM function execution",
+  "tests": [
+    {
+      "name": "simple_return",
+      "description": "Test simple return value",
+      "bytecode": "../test-scripts/01-language-basics/simple-return.bin",
+      "expected_result": 100,
+      "timeout": 5000
+    },
+    {
+      "name": "function_with_params",
+      "description": "Test function with parameters",
+      "bytecode": "../test-function-with-params.bin",
+      "function": 0,
+      "parameters": [
+        {"type": 4, "value": 5},
+        {"type": 4, "value": 3}
+      ],
+      "expected_result": 8,
+      "timeout": 5000
+    },
+    {
+      "name": "arithmetic_operations",
+      "description": "Test complex arithmetic operations",
+      "bytecode": "../test-scripts/02-operators-expressions/arithmetic-operations.bin",
+      "function": 0,
+      "parameters": [
+        {"type": 4, "value": 10},
+        {"type": 4, "value": 5}
+      ],
+      "expected_result": 28,
+      "timeout": 5000
+    }
+  ]
+}

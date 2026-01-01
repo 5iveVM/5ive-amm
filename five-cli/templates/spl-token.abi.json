@@ -1,0 +1,111 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "create_mint",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "payer",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "mint",
+          "param_type": "Account",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "decimals",
+          "param_type": "u8",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "pubkey",
+      "is_public": true
+    },
+    {
+      "name": "mint_tokens",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "mint",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "dest",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true
+    },
+    {
+      "name": "transfer_tokens",
+      "index": 2,
+      "parameters": [
+        {
+          "name": "source",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "dest",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

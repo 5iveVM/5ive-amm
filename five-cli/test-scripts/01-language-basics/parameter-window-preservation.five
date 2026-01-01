@@ -1,0 +1,53 @@
+{
+  "bytecode": "NUlWRU8BAAABAxkBF3Rlc3RfcGFyYW1fcHJlc2VydmF0aW9uGQoZFBkekANMAA5vdXRlcl9mdW5jdGlvbgegBKUBogClAqIB0NEgB6AHpQGiAKUCogGlA6IC0NGQAj4ADmlubmVyX2Z1bmN0aW9u1NDSIAcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_param_preservation",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "outer_function",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "c",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "inner_function",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "x",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "y",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

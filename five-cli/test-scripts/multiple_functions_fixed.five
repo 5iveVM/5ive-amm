@@ -1,0 +1,74 @@
+{
+  "bytecode": "NUlWRU8BAAAFBTQFA2FkZAhtdWx0aXBseQR0ZXN0DGdldF9jb25zdGFudBNjb21wbGV4X2NhbGN1bGF0aW9uoAIZBRkDkAJnAANhZGTUGQQZApACdQAIbXVsdGlwbHnV0NEgBxkqB6AEpQGiAKUCogHQ0SAHoASlAaIApQKiAdDRIgegCKUBogClAqIBpQOiAtDRkAJnAP8A1tLSkAJ1AP8B19OQAGQADGdldF9jb25zdGFudCAHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "add",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "multiply",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test",
+        "index": 2,
+        "parameters": []
+      },
+      {
+        "name": "get_constant",
+        "index": 3,
+        "parameters": []
+      },
+      {
+        "name": "complex_calculation",
+        "index": 4,
+        "parameters": [
+          {
+            "name": "x",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "y",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "z",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

@@ -1,0 +1,13 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "test_vle_heavy",
+      "index": 0,
+      "parameters": [],
+      "return_type": "u64"
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

@@ -1,0 +1,201 @@
+{
+  "bytecode": "NUlWRToHpQNCAWAGpQNCAWEGpQNCAUAGpQNCASAGQwEApQQgQgEAQwJApQQgQgJABkMBYAMAAKUHQwFhIhmQTiPUpQfQIdVDA0ClByFCA0BDBEDRIEIEQNAZACUDCABDBUDQIEIFQAalBUICCKUDQgIJVwJCAQClA0IBIFcEQgFAHQFCAWClB0IBYaUGGQAlAwwApQKlBKUDpQaQBB4ABgA=",
+  "abi": {
+    "functions": {
+      "mint_to": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "dest",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "auth",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_treasury": {
+        "index": 5,
+        "parameters": [
+          {
+            "name": "t",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_tax": {
+        "index": 4,
+        "parameters": [
+          {
+            "name": "v",
+            "type": "u16"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_owner": {
+        "index": 6,
+        "parameters": [
+          {
+            "name": "n",
+            "type": "pubkey"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "set_paused": {
+        "index": 3,
+        "parameters": [
+          {
+            "name": "v",
+            "type": "bool"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "transfer": {
+        "index": 1,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "src",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "dst",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "treasury",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          }
+        ]
+      },
+      "init_memecoin": {
+        "index": 2,
+        "parameters": [
+          {
+            "name": "decimals",
+            "type": "u8"
+          },
+          {
+            "name": "initial_supply",
+            "type": "u64"
+          },
+          {
+            "name": "tax_bps",
+            "type": "u16"
+          }
+        ],
+        "accounts": [
+          {
+            "name": "cfg",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "mint",
+            "writable": true,
+            "signer": false
+          },
+          {
+            "name": "owner",
+            "writable": false,
+            "signer": true
+          },
+          {
+            "name": "treasury_acc",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

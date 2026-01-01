@@ -1,0 +1,16 @@
+{
+  "bytecode": "NUlWRU8BAAACAhQCBl9faW5pdAtnZXRfYmFsYW5jZRnoB9QG0AcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "get_balance",
+        "index": 0,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

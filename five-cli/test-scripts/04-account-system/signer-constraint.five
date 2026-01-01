@@ -1,0 +1,38 @@
+{
+  "bytecode": "NUlWRU8BAAADAzEDDmF1dGhvcml6ZV91c2VyEHNlY3VyZV9vcGVyYXRpb24PZ2V0X2xhc3Rfc2lnbmVy3BkAJwJSANwZAScCXgDcGQInAmgAAKUBpQKlA5ADgQAAAKUBpQKQAnQAAAClAZABcAAAAEMBCAelAhnoBykEpQIZAiIHVwFDAggnBEMCABkBIEICAKUDQgIIHQEHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "authorize_user",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "user",
+            "type": "pubkey",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "secure_operation",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_last_signer",
+        "index": 2,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

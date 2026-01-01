@@ -1,0 +1,119 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "mint_nft",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "NFT",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "uri",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "transfer_nft",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "NFT",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "from",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "to",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "set_uri",
+      "index": 2,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "NFT",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "new_uri",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": false
+    },
+    {
+      "name": "get_uri",
+      "index": 3,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "NFT",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": "string",
+      "is_public": false
+    },
+    {
+      "name": "get_owner",
+      "index": 4,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "NFT",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": "pubkey",
+      "is_public": false
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

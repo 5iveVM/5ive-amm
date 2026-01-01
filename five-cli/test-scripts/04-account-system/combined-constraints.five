@@ -1,0 +1,49 @@
+{
+  "bytecode": "NUlWRU8BAAADAzgDD2NyZWF0ZV9hbmRfZnVuZBd0cmFuc2Zlcl93aXRoX2F1dGhvcml0eQ5hZG1pbl9vdmVycmlkZdwZACcCWQDcGQEnAmcA3BkCJwJ3AAClAaUCpQOlBJAEnAAAAKUBpQKlA6UEpQWQBbUAAAClAaUCpQOQA4MAAABXAUMDCCcEVwJCAwhDAwAZASBCAwBDAwgHVwFDAwgnBKUEGWQoBEMDABkBIEIDAFcCB1cBQwQIJwRXAlcDKgSlBRkAJQRDBAAZASBCBAAdAQcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "create_and_fund",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "new_account",
+            "type": "Account",
+            "optional": false
+          },
+          {
+            "name": "initial_amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "transfer_with_authority",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "admin_override",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "new_admin_account",
+            "type": "Account",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

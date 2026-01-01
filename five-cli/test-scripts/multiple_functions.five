@@ -1,0 +1,48 @@
+{
+  "bytecode": "NUlWRU8AAAAAA6ACGQUZA5ACLwADYWRk1BkEGQKQAj0ACG11bHRpcGx51dDRIAegBKUBogClAqIB0NEgB6AEpQGiAKUCogHQ0SIHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "add",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "multiply",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "test",
+        "index": 2,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

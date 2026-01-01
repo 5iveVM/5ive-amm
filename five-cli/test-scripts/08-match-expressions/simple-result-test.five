@@ -1,0 +1,16 @@
+{
+  "bytecode": "NUlWRU8BAAABAQ0BC3Rlc3RfcmVzdWx0oAIZZPDU0BEbAAAAAAAAAAAnAwcAogHRBwEWABEbAQAAAAAAAAAnAwgAogIZAAcBAAA=",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_result",
+        "index": 0,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

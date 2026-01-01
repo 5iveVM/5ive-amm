@@ -1,0 +1,27 @@
+{
+  "bytecode": "NUlWRU8AAAAAAaAEpQGiAKUCogHQ0SAHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "add_numbers",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

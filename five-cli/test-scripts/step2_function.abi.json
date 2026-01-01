@@ -1,0 +1,19 @@
+{
+  "program_name": "FunctionExample",
+  "functions": [
+    {
+      "name": "increment",
+      "index": 0,
+      "parameters": [],
+      "return_type": null
+    }
+  ],
+  "fields": [
+    {
+      "name": "value",
+      "field_type": "u64",
+      "is_mutable": true
+    }
+  ],
+  "version": "1.0"
+}

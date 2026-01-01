@@ -1,0 +1,27 @@
+{
+  "bytecode": "NUlWRU8BAAABAQYBBHRlc3SgBKUBogClAqIB0NEgGQIi0NEjIQcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "test",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

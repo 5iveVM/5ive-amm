@@ -1,0 +1,119 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "create_and_fund",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "payer",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "new_account",
+          "param_type": "Account",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "state",
+          "param_type": "CombinedState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "initial_amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "pubkey",
+      "is_public": false
+    },
+    {
+      "name": "transfer_with_authority",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "from",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "to",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "state",
+          "param_type": "CombinedState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "bool",
+      "is_public": false
+    },
+    {
+      "name": "admin_override",
+      "index": 2,
+      "parameters": [
+        {
+          "name": "current_admin",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "new_admin_account",
+          "param_type": "Account",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "state",
+          "param_type": "CombinedState",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        }
+      ],
+      "return_type": "pubkey",
+      "is_public": false
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

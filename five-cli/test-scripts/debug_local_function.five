@@ -1,0 +1,26 @@
+{
+  "bytecode": "NUlWRU8BAAABBAgBBl9faW5pdKABGWTUBqABgtTQB6ADGcgB1dHQIdbSB6ADgtfT0CGiBNMHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_function_call_local",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "test_literal_local_binary",
+        "index": 1,
+        "parameters": []
+      },
+      {
+        "name": "test_function_call_binary",
+        "index": 2,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

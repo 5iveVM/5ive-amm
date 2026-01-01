@@ -1,0 +1,41 @@
+{
+  "bytecode": "NUlWRU8BAAAGBmgGEHRlc3Rfb3B0aW9uX3NvbWUQdGVzdF9vcHRpb25fbm9uZQ50ZXN0X3Jlc3VsdF9vaw90ZXN0X3Jlc3VsdF9lcnISdGVzdF9uZXN0ZWRfb3B0aW9uEnRlc3RfbmVzdGVkX3Jlc3VsdBkq8gegAfMHGWTwB2cUU29tZXRoaW5nIHdlbnQgd3JvbmfxBxl78vIHGcgD8PAHAA==",
+  "abi": {
+    "functions": [
+      {
+        "name": "test_option_some",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "test_option_none",
+        "index": 1,
+        "parameters": []
+      },
+      {
+        "name": "test_result_ok",
+        "index": 2,
+        "parameters": []
+      },
+      {
+        "name": "test_result_err",
+        "index": 3,
+        "parameters": []
+      },
+      {
+        "name": "test_nested_option",
+        "index": 4,
+        "parameters": []
+      },
+      {
+        "name": "test_nested_result",
+        "index": 5,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

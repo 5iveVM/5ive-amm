@@ -1,0 +1,106 @@
+{
+  "bytecode": "NUlWRU8BAAABCwgBBl9faW5pdKADGQDUGQDVGQDWBqAB0BkBINTQB6AB0AegAdIHoAHRB6ADGQDUGQDVGQDWBqADpQGiANDV0QegA6UBogDQGQAlBNDQINTQB6ACpQGiANAZAiIHoAalAaIApQKiAdDQKATQ0CHU0tEg1tAHoAmlAaIApQKiAaUDogLQ0SDU0NIi1dHV0QcA",
+  "abi": {
+    "functions": [
+      {
+        "name": "set_value",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "x",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "deposit",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "increment_balance",
+        "index": 2,
+        "parameters": []
+      },
+      {
+        "name": "calculate_double",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "input",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "transfer_between_accounts",
+        "index": 4,
+        "parameters": [
+          {
+            "name": "from_amount",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "to_amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "complex_operation",
+        "index": 5,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "b",
+            "type": "u64",
+            "optional": false
+          },
+          {
+            "name": "c",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_balance",
+        "index": 6,
+        "parameters": []
+      },
+      {
+        "name": "get_secondary_balance",
+        "index": 7,
+        "parameters": []
+      },
+      {
+        "name": "get_value",
+        "index": 8,
+        "parameters": []
+      },
+      {
+        "name": "reset_all",
+        "index": 9,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}

@@ -1,0 +1,47 @@
+{
+  "bytecode": "NUlWRU8AAAAABqACpQGiABkAQgAABqACpQGiAEMAABkBIEIAAAagAqUBogBDAAAZACUDCQBDAAAZASFCAAAGoAKlAaIAQwAAB6ACpQGiABkAQgAABqAEpQGiAKUCogFDAADRIEIAAAYA",
+  "abi": {
+    "functions": [
+      {
+        "name": "initialize",
+        "index": 0,
+        "parameters": []
+      },
+      {
+        "name": "increment",
+        "index": 1,
+        "parameters": []
+      },
+      {
+        "name": "decrement",
+        "index": 2,
+        "parameters": []
+      },
+      {
+        "name": "add_amount",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "u64",
+            "optional": false
+          }
+        ]
+      },
+      {
+        "name": "get_count",
+        "index": 4,
+        "parameters": []
+      },
+      {
+        "name": "reset",
+        "index": 5,
+        "parameters": []
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "disassembly": [],
+  "version": "1.0"
+}
