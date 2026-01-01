@@ -429,8 +429,8 @@ impl OpcodeAnalyzer {
             opcodes::BR_EQ_U8 => 3, // u8 + u16 offset
             opcodes::CALL_EXTERNAL => 4, // account_index(1) + offset(2) + param_count(1)
             opcodes::PUSH_ARRAY_LITERAL | opcodes::PUSH_STRING_LITERAL | opcodes::CREATE_ARRAY => 1,
-            opcodes::CHECK_SIGNER | opcodes::CHECK_WRITABLE | opcodes::CHECK_OWNER | opcodes::CHECK_INITIALIZED | opcodes::CHECK_PDA | opcodes::CHECK_UNINITIALIZED => 4, // VLE u32 account index
-            opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT | opcodes::GET_LAMPORTS | opcodes::SET_LAMPORTS | opcodes::GET_DATA | opcodes::GET_KEY | opcodes::GET_OWNER | opcodes::INIT_ACCOUNT | opcodes::INIT_PDA_ACCOUNT => 4, // VLE u32 account index
+            opcodes::CHECK_SIGNER | opcodes::CHECK_WRITABLE | opcodes::CHECK_OWNER | opcodes::CHECK_INITIALIZED | opcodes::CHECK_PDA | opcodes::CHECK_UNINITIALIZED => 1, // u8 account index
+            opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT | opcodes::GET_LAMPORTS | opcodes::SET_LAMPORTS | opcodes::GET_DATA | opcodes::GET_KEY | opcodes::GET_OWNER | opcodes::INIT_ACCOUNT | opcodes::INIT_PDA_ACCOUNT => 1, // u8 account index
             opcodes::SET_LOCAL | opcodes::GET_LOCAL | opcodes::LOAD_PARAM | opcodes::STORE_PARAM | opcodes::CAST => 1,
             opcodes::LOAD_REG_U8 | opcodes::LOAD_REG_U32 | opcodes::LOAD_REG_U64 | opcodes::LOAD_REG_BOOL | opcodes::LOAD_REG_PUBKEY => 1, // Reg index
             opcodes::ADD_REG | opcodes::SUB_REG | opcodes::MUL_REG | opcodes::DIV_REG | opcodes::EQ_REG | opcodes::GT_REG | opcodes::LT_REG => 3, // 3 Reg indices
