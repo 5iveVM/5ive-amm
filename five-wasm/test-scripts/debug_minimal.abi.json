@@ -1,0 +1,13 @@
+{
+  "program_name": "DebugMinimal",
+  "functions": [
+    {
+      "name": "test_function",
+      "index": 0,
+      "parameters": [],
+      "return_type": "u64"
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

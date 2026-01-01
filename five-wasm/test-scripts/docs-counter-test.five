@@ -1,0 +1,43 @@
+{
+  "bytecode": "NUlWRQIQAAAAAwAZAAEBAR8AAQECKQABAfMAQgEABkMBAPMBIEIBAAZDAQAHAA==",
+  "abi": {
+    "functions": {
+      "initialize": {
+        "index": 0,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "state",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      },
+      "get_count": {
+        "index": 2,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "state",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      },
+      "increment": {
+        "index": 1,
+        "parameters": [],
+        "accounts": [
+          {
+            "name": "state",
+            "writable": false,
+            "signer": false
+          }
+        ]
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

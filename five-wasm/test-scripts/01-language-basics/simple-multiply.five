@@ -1,0 +1,24 @@
+{
+  "bytecode": "NUlWRZUBkgCVApIBkwCTASIHAA==",
+  "abi": {
+    "functions": {
+      "multiply": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "x",
+            "type": "u64"
+          },
+          {
+            "name": "y",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

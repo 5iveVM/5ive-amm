@@ -1,0 +1,71 @@
+{
+  "bytecode": "NUlWRQIQAAAABQBJAAECAVcAAQMCTwABAgMyAAEBBCMAAQAZBRkDkAJPANTQkAEyAAelARlkJQMJAKUBGQIiBwEGAKUBGQogB6UCGQEgB6UBpQIg1dEHpQMZAiIHAA==",
+  "abi": {
+    "functions": {
+      "test_conditional": {
+        "index": 3,
+        "parameters": [
+          {
+            "name": "value",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "test": {
+        "index": 4,
+        "parameters": [],
+        "accounts": []
+      },
+      "test_basic_operation": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "seed",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "test_multiple_params": {
+        "index": 1,
+        "parameters": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "test_arithmetic": {
+        "index": 2,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64"
+          },
+          {
+            "name": "b",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

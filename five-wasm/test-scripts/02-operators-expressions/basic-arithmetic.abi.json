@@ -1,0 +1,14 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "test",
+      "index": 0,
+      "parameters": [],
+      "return_type": "u64",
+      "is_public": true
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

@@ -1,0 +1,40 @@
+# Build artifacts
+dist/
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+target/
+*.wasm
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+cargo.lock
+
+# Logs and debugging
+*.log
+*.debug
+logs/
+debug/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+.tmp/
+temp/

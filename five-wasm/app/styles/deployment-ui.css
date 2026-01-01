@@ -1,0 +1,293 @@
+/* Deployment UI Styles - Rose Pine Moon Theme */
+
+/* Glass morphism base styles */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Main playground background */
+.deployment-playground {
+  background: linear-gradient(135deg, #1f1d2e 0%, #000000 50%, #1f1d2e 100%);
+  min-height: 100vh;
+}
+
+/* Wallet adapter button overrides */
+.wallet-adapter-button {
+  background: linear-gradient(135deg, #e11d48 0%, #ec4899 100%) !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: white !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+.wallet-adapter-button:hover {
+  background: linear-gradient(135deg, #be185d 0%, #db2777 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.4);
+}
+
+.wallet-adapter-button:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Wallet adapter modal styling */
+.wallet-adapter-modal {
+  background: rgba(0, 0, 0, 0.9) !important;
+  backdrop-filter: blur(20px) !important;
+}
+
+.wallet-adapter-modal-container {
+  background: rgba(31, 29, 46, 0.95) !important;
+  border: 1px solid rgba(244, 204, 221, 0.2) !important;
+  border-radius: 12px !important;
+}
+
+.wallet-adapter-modal-title {
+  color: rgb(244 204 221) !important;
+}
+
+.wallet-adapter-modal-list {
+  background: transparent !important;
+}
+
+.wallet-adapter-modal-list-item {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(244, 204, 221, 0.1) !important;
+  border-radius: 8px !important;
+  color: rgb(244 204 221) !important;
+  margin-bottom: 8px !important;
+}
+
+.wallet-adapter-modal-list-item:hover {
+  background: rgba(244, 63, 94, 0.1) !important;
+  border-color: rgba(244, 204, 221, 0.3) !important;
+}
+
+/* Toast styling for Rose Pine Moon theme */
+.toast {
+  background: rgba(0, 0, 0, 0.9) !important;
+  border: 1px solid rgba(244, 204, 221, 0.2) !important;
+  color: rgb(244 204 221) !important;
+  backdrop-filter: blur(20px);
+}
+
+.toast[data-variant="destructive"] {
+  background: rgba(127, 29, 29, 0.9) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  color: rgb(254 202 202) !important;
+}
+
+.toast-title {
+  color: rgb(244 204 221) !important;
+}
+
+.toast-description {
+  color: rgba(244, 204, 221, 0.7) !important;
+}
+
+/* Data table styling */
+.deployment-history-table .data-table {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 1px solid rgba(244, 204, 221, 0.1);
+}
+
+.deployment-history-table table {
+  background: transparent;
+}
+
+.deployment-history-table th {
+  background: rgba(0, 0, 0, 0.3);
+  color: rgb(244 204 221);
+  border-bottom: 1px solid rgba(244, 204, 221, 0.2);
+  font-weight: 600;
+}
+
+.deployment-history-table td {
+  border-bottom: 1px solid rgba(244, 204, 221, 0.1);
+  color: rgb(244 204 221);
+}
+
+.deployment-history-table tr:hover {
+  background: rgba(244, 63, 94, 0.1);
+}
+
+.deployment-history-table .table-pagination {
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(244, 204, 221, 0.1);
+  color: rgba(244, 204, 221, 0.7);
+}
+
+/* Progress bar styling */
+.progress-root {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.progress-indicator {
+  background: linear-gradient(135deg, #e11d48 0%, #ec4899 100%);
+  transition: transform 0.3s ease;
+}
+
+/* Select component styling */
+.select-trigger {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(244, 204, 221, 0.2);
+  color: rgb(244 204 221);
+}
+
+.select-trigger:hover {
+  border-color: rgba(244, 204, 221, 0.3);
+}
+
+.select-content {
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(244, 204, 221, 0.2);
+  backdrop-filter: blur(20px);
+}
+
+.select-item {
+  color: rgb(244 204 221);
+}
+
+.select-item:hover {
+  background: rgba(244, 63, 94, 0.2);
+}
+
+/* Input styling */
+.input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(244, 204, 221, 0.2);
+  color: rgb(244 204 221);
+}
+
+.input:focus {
+  border-color: #e11d48;
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.2);
+}
+
+.input::placeholder {
+  color: rgba(244, 204, 221, 0.5);
+}
+
+/* Button variants */
+.button-outline {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(244, 204, 221, 0.2);
+  color: rgb(244 204 221);
+}
+
+.button-outline:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 204, 221, 0.3);
+}
+
+/* Card styling */
+.card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Tabs styling */
+.tabs-list {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(244, 204, 221, 0.2);
+}
+
+.tabs-trigger {
+  color: rgba(244, 204, 221, 0.7);
+}
+
+.tabs-trigger[data-state="active"] {
+  background: #e11d48;
+  color: white;
+}
+
+/* Dropdown menu styling */
+.dropdown-content {
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(244, 204, 221, 0.2);
+  backdrop-filter: blur(20px);
+}
+
+.dropdown-item {
+  color: rgb(244 204 221);
+}
+
+.dropdown-item:hover {
+  background: rgba(244, 63, 94, 0.2);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(244, 204, 221, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 204, 221, 0.5);
+}
+
+/* Animation classes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .deployment-playground {
+    padding: 1rem;
+  }
+  
+  .glass-morphism {
+    margin: 0.5rem 0;
+  }
+  
+  .tabs-list {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.25rem;
+  }
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .glass-morphism {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}

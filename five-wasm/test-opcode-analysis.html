@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five VM - Opcode Analysis Demo</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .container { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+        }
+        .panel { 
+            border: 1px solid #ddd; 
+            padding: 15px; 
+            border-radius: 8px; 
+        }
+        textarea { 
+            width: 100%; 
+            height: 300px; 
+            font-family: 'Courier New', monospace; 
+        }
+        .output { 
+            background: #f5f5f5; 
+            padding: 10px; 
+            border-radius: 4px; 
+            white-space: pre-wrap; 
+            max-height: 400px; 
+            overflow-y: auto; 
+        }
+        button { 
+            background: #007cba; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 5px; 
+        }
+        button:hover { 
+            background: #005a8b; 
+        }
+        .metrics { 
+            background: #e8f4fd; 
+            padding: 10px; 
+            border-radius: 4px; 
+            margin: 10px 0; 
+        }
+        .used-opcodes { 
+            background: #d4edda; 
+            padding: 10px; 
+            border-radius: 4px; 
+            margin: 10px 0; 
+        }
+        .unused-opcodes { 
+            background: #f8d7da; 
+            padding: 10px; 
+            border-radius: 4px; 
+            margin: 10px 0; 
+        }
+        .opcode-item { 
+            display: inline-block; 
+            background: white; 
+            padding: 4px 8px; 
+            margin: 2px; 
+            border-radius: 3px; 
+            font-family: 'Courier New', monospace; 
+            font-size: small; 
+        }
+    </style>
+</head>
+<body>
+    <h1>Five VM - Opcode Analysis Demo</h1>
+    <p>This demo shows the new opcode counting functionality that tracks which opcodes are used vs unused during Five DSL compilation.</p>
+    
+    <div class="container">
+        <div class="panel">
+            <h3>Five DSL Source Code</h3>
+            <textarea id="sourceCode">// Simple counter example
+fn main() {
+    let mut counter: u64 = 42;
+    counter = counter + 1;
+    
+    if counter > 40 {
+        counter = counter * 2;
+    }
+    
+    println!("Counter value: {}", counter);
+}
+
+fn increment(value: u64) -> u64 {
+    value + 1
+}</textarea>
+            <br>
+            <button onclick="compileAndAnalyze()">Compile & Analyze Opcodes</button>
+            <button onclick="loadExample('simple')">Load Simple Example</button>
+            <button onclick="loadExample('complex')">Load Complex Example</button>
+        </div>
+        
+        <div class="panel">
+            <h3>Compilation Results</h3>
+            <div id="compilationResults" class="output">Click "Compile & Analyze Opcodes" to see results...</div>
+        </div>
+    </div>
+    
+    <div class="panel">
+        <h3>Opcode Usage Analysis</h3>
+        <div id="opcodeAnalysis" class="output">Opcode analysis will appear here after compilation...</div>
+    </div>
+
+    <script type="module">
+        import init, { FiveCompiler } from './pkg/five_vm_wasm.js';
+
+        let compiler = null;
+
+        async function initWasm() {
+            try {
+                await init();
+                compiler = new FiveCompiler();
+                console.log('Five VM WASM compiler initialized successfully');
+                document.getElementById('compilationResults').textContent = 'Five VM WASM compiler ready! Enter some Five DSL code and click "Compile & Analyze Opcodes".';
+            } catch (error) {
+                console.error('Failed to initialize WASM:', error);
+                document.getElementById('compilationResults').textContent = 'Error initializing WASM: ' + error.message;
+            }
+        }
+
+        window.compileAndAnalyze = async function() {
+            if (!compiler) {
+                alert('Compiler not initialized yet. Please wait...');
+                return;
+            }
+
+            const source = document.getElementById('sourceCode').value;
+            const resultsDiv = document.getElementById('compilationResults');
+            const analysisDiv = document.getElementById('opcodeAnalysis');
+            
+            try {
+                resultsDiv.textContent = 'Compiling...';
+                analysisDiv.textContent = 'Analyzing opcodes...';
+                
+                // Compile the source code
+                const result = compiler.compile_dsl(source);
+                const compilationInfo = JSON.parse(result);
+                
+                resultsDiv.innerHTML = `
+<div class="metrics">
+<strong>Compilation Successful!</strong>
+Bytecode Size: ${compilationInfo.bytecode_size} bytes
+Compilation Time: ${compilationInfo.compilation_time_ms}ms
+</div>
+<strong>Bytecode (hex):</strong>
+${compilationInfo.bytecode.substring(0, 200)}${compilationInfo.bytecode.length > 200 ? '...' : ''}
+                `;
+
+                // Get opcode usage statistics
+                try {
+                    const opcodeUsage = compiler.get_opcode_usage(source);
+                    const usageData = JSON.parse(opcodeUsage);
+                    
+                    let usageHTML = `
+<div class="metrics">
+<strong>Opcode Usage Summary:</strong>
+Total Opcodes Generated: ${usageData.total_opcodes}
+Unique Opcodes Used: ${usageData.unique_opcodes}
+</div>
+
+<strong>Top Used Opcodes:</strong>
+<div class="used-opcodes">
+`;
+                    
+                    if (usageData.top_opcodes && usageData.top_opcodes.length > 0) {
+                        usageData.top_opcodes.forEach(([opcode, count]) => {
+                            usageHTML += `<span class="opcode-item">${opcode}: ${count}</span>`;
+                        });
+                    } else {
+                        usageHTML += '<span class="opcode-item">No opcodes recorded</span>';
+                    }
+                    
+                    usageHTML += '</div>';
+
+                    // Get comprehensive opcode analysis
+                    try {
+                        const opcodeAnalysis = compiler.get_opcode_analysis(source);
+                        const analysisData = JSON.parse(opcodeAnalysis);
+                        
+                        usageHTML += `
+<div class="metrics">
+<strong>Complete Opcode Analysis:</strong>
+Available Opcodes: ${analysisData.summary.total_opcodes_available}
+Opcodes Used: ${analysisData.summary.opcodes_used}
+Opcodes Unused: ${analysisData.summary.opcodes_unused}
+Usage Percentage: ${analysisData.summary.usage_percentage.toFixed(1)}%
+</div>
+
+<strong>Used Opcodes (${analysisData.used_opcodes.length}):</strong>
+<div class="used-opcodes">
+`;
+                        analysisData.used_opcodes.forEach(opcode => {
+                            usageHTML += `<span class="opcode-item">${opcode.name} (${opcode.usage_count})</span>`;
+                        });
+                        
+                        usageHTML += `</div>
+
+<strong>Unused Opcodes (${analysisData.unused_opcodes.length}):</strong>
+<div class="unused-opcodes">
+`;
+                        analysisData.unused_opcodes.slice(0, 20).forEach(opcode => {
+                            usageHTML += `<span class="opcode-item">${opcode.name}</span>`;
+                        });
+                        
+                        if (analysisData.unused_opcodes.length > 20) {
+                            usageHTML += `<span class="opcode-item">... and ${analysisData.unused_opcodes.length - 20} more</span>`;
+                        }
+                        
+                        usageHTML += '</div>';
+                        
+                    } catch (analysisError) {
+                        usageHTML += `\n<strong>Analysis Error:</strong> ${analysisError.message}`;
+                    }
+                    
+                    analysisDiv.innerHTML = usageHTML;
+                    
+                } catch (usageError) {
+                    analysisDiv.textContent = `Opcode usage error: ${usageError.message}`;
+                }
+                
+            } catch (error) {
+                resultsDiv.textContent = `Compilation error: ${error.message}`;
+                analysisDiv.textContent = 'Opcode analysis not available due to compilation error.';
+            }
+        };
+
+        window.loadExample = function(type) {
+            const sourceArea = document.getElementById('sourceCode');
+            
+            if (type === 'simple') {
+                sourceArea.value = `// Simple arithmetic example
+fn main() {
+    let a: u64 = 10;
+    let b: u64 = 20;
+    let result: u64 = a + b * 2;
+    
+    if result > 30 {
+        result = result - 5;
+    }
+}`;
+            } else if (type === 'complex') {
+                sourceArea.value = `// Complex example with various features
+fn main() {
+    let counter: u64 = 0;
+    let values: [u64; 3] = [1, 2, 3];
+    
+    for i in 0..values.len() {
+        counter = counter + values[i];
+    }
+    
+    let maybe_value: Option<u64> = Some(42);
+    match maybe_value {
+        Some(val) => {
+            counter = counter + val;
+        }
+        None => {
+            counter = 0;
+        }
+    }
+    
+    let result: Result<u64, String> = Ok(counter);
+    match result {
+        Ok(val) => println!("Success: {}", val),
+        Err(msg) => println!("Error: {}", msg),
+    }
+}
+
+fn fibonacci(n: u64) -> u64 {
+    if n <= 1 {
+        n
+    } else {
+        fibonacci(n - 1) + fibonacci(n - 2)
+    }
+}`;
+            }
+        };
+
+        // Initialize when page loads
+        initWasm();
+    </script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "bytecode": "NUlWRQIQAAAAAwAZAAEBATsAAQECXwABAqUBERsAAAAAAAAAACcDCgCiANAZAiIHAQgAogEZAAcBAAClAREbAAAAAAAAAAAnAwcAogLSBwENAKIDZwVlbXB0eQcBAAClAREbAAAAAAAAAAAnAyoAogSlAhEbAAAAAAAAAAAnAwwAogWjBKMFIPIHAQkAogajBPIHAQAAAQgAogelAgcBAAA=",
+  "abi": {
+    "functions": {
+      "chain_optional_operations": {
+        "index": 2,
+        "parameters": [
+          {
+            "name": "first",
+            "type": "Option<u64>"
+          },
+          {
+            "name": "second",
+            "type": "Option<u64>"
+          }
+        ],
+        "accounts": []
+      },
+      "handle_optional_number": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "input",
+            "type": "Option<u64>"
+          }
+        ],
+        "accounts": []
+      },
+      "process_optional_string": {
+        "index": 1,
+        "parameters": [
+          {
+            "name": "text",
+            "type": "Option<string>"
+          }
+        ],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

@@ -1,0 +1,70 @@
+# [workspace]
+# members = [".", "grammar_macros"]
+# resolver = "2"
+
+[package]
+name = "five-dsl-compiler"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "compile_script"
+path = "src/bin/compile_script.rs"
+
+[[bin]]
+name = "test_bytecode"
+path = "src/bin/test_bytecode.rs"
+
+[[bin]]
+name = "debug_compile"
+path = "src/bin/debug_compile.rs"
+
+
+[[bin]]
+name = "extract_abi"
+path = "src/bin/extract_abi.rs"
+
+
+[[bin]]
+name = "five"
+path = "src/bin/five.rs"
+
+[[bin]]
+name = "enhanced_error_cli"
+path = "src/bin/enhanced_error_cli.rs"
+
+[[bin]]
+name = "import_discovery_demo"
+path = "src/bin/import_discovery_demo.rs"
+
+[[bin]]
+name = "standalone_demo"
+path = "src/bin/standalone_demo.rs"
+
+[features]
+default = ["abi-pack"]
+call-metadata = []
+security-audit = []
+abi-pack = []
+
+[dependencies]
+grammar_macros = { path = "./grammar_macros" }
+five-protocol = { path = "../five-protocol", features = ["serde"] }
+five-vm-mito = { path = "../five-vm-mito" }
+heapless = "0.8"  # For String<32> compatibility with five-vm-mito
+sha2 = "0.10"
+hex = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "js"] }
+clap = { version = "4.4", features = ["derive"] }
+web-time = { version = "1.1", features = ["serde"] }
+glob = "0.3.3"
+
+[dev-dependencies]
+tempfile = "3.8"

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stacks WASM ABI Generation Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: 80vh;
+        }
+        .panel {
+            background-color: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel h3 {
+            margin: 0 0 15px 0;
+            color: #4CAF50;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        textarea {
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            flex: 1;
+        }
+        .output {
+            background-color: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            flex: 1;
+            white-space: pre-wrap;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .info {
+            color: #61dafb;
+        }
+    </style>
+</head>
+<body>
+    <h1>🦀 Stacks WASM ABI Generation Test</h1>
+    
+    <div class="container">
+        <div class="panel">
+            <h3>📝 Stacks DSL Input</h3>
+            <textarea id="dslInput" placeholder="Enter your Stacks DSL code here...">script counter_example {
+    account Counter {
+        value: u64;
+        owner: pubkey;
+    }
+
+    init {
+        // Initialize the counter
+    }
+
+    increment(counter: Counter @mut @signer) -> u64 {
+        counter.value = counter.value + 1;
+        return counter.value;
+    }
+
+    get_value(counter: Counter) -> u64 {
+        return counter.value;
+    }
+
+    reset(counter: Counter @mut) {
+        counter.value = 0;
+    }
+}</textarea>
+            <div class="buttons">
+                <button onclick="generateABI()">Generate ABI</button>
+                <button onclick="compileWithABI()">Compile + ABI</button>
+                <button onclick="validateSyntax()">Validate Syntax</button>
+                <button onclick="clearOutput()">Clear Output</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>📄 Output</h3>
+            <div class="output" id="output">Click "Generate ABI" to see the generated ABI for the DSL code.</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, { WasmStacksCompiler, get_wasm_compiler_info } from './pkg/stacks_vm_wasm.js';
+
+        let compiler;
+
+        async function initWasm() {
+            try {
+                await init();
+                compiler = new WasmStacksCompiler();
+                
+                const info = get_wasm_compiler_info();
+                const infoObj = JSON.parse(info);
+                
+                log(`🚀 WASM Compiler initialized successfully!`, 'success');
+                log(`📦 Name: ${infoObj.name}`, 'info');
+                log(`🔢 Version: ${infoObj.version}`, 'info');
+                log(`✨ Features: ${Object.keys(infoObj.features).filter(k => infoObj.features[k]).join(', ')}`, 'info');
+                log(`───────────────────────────────────────────────────────\n`, 'info');
+            } catch (error) {
+                log(`❌ Failed to initialize WASM: ${error}`, 'error');
+            }
+        }
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const span = document.createElement('span');
+            span.className = type;
+            span.textContent = message + '\n';
+            output.appendChild(span);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        window.generateABI = function() {
+            const dslCode = document.getElementById('dslInput').value;
+            
+            if (!compiler) {
+                log('❌ Compiler not initialized', 'error');
+                return;
+            }
+
+            if (!dslCode.trim()) {
+                log('❌ Please enter some DSL code', 'error');
+                return;
+            }
+
+            try {
+                log('🔄 Generating ABI...', 'info');
+                const abiResult = compiler.generate_abi(dslCode);
+                const abi = JSON.parse(abiResult);
+                
+                log('✅ ABI Generation Successful!', 'success');
+                log('📋 Generated ABI:', 'info');
+                log(JSON.stringify(abi, null, 2), 'info');
+                
+                // Show function summary
+                log(`\n📊 Summary:`, 'info');
+                log(`  • Program: ${abi.program_name}`, 'info');
+                log(`  • Functions: ${abi.functions.length}`, 'info');
+                log(`  • Fields: ${abi.fields.length}`, 'info');
+                
+                abi.functions.forEach((func, index) => {
+                    const paramTypes = func.parameters.map(p => `${p.name}: ${p.param_type}${p.is_account ? ' (account)' : ''}`).join(', ');
+                    const returnType = func.return_type ? ` -> ${func.return_type}` : '';
+                    log(`  • Function ${func.index}: ${func.name}(${paramTypes})${returnType}`, 'info');
+                });
+                
+            } catch (error) {
+                log(`❌ ABI generation failed: ${error}`, 'error');
+            }
+        };
+
+        window.compileWithABI = function() {
+            const dslCode = document.getElementById('dslInput').value;
+            
+            if (!compiler) {
+                log('❌ Compiler not initialized', 'error');
+                return;
+            }
+
+            if (!dslCode.trim()) {
+                log('❌ Please enter some DSL code', 'error');
+                return;
+            }
+
+            try {
+                log('🔄 Compiling with ABI...', 'info');
+                const result = compiler.compile_with_abi(dslCode);
+                
+                log('✅ Compilation + ABI Generation Successful!', 'success');
+                log(`📊 Bytecode size: ${result.bytecode_size} bytes`, 'info');
+                log(`⏱️ Compilation time: ${result.compilation_time.toFixed(2)}ms`, 'info');
+                
+                // Show ABI summary
+                const abi = result.abi;
+                log(`\n📋 ABI Summary:`, 'info');
+                log(`  • Program: ${abi.program_name}`, 'info');
+                log(`  • Functions: ${abi.functions.length}`, 'info');
+                log(`  • Version: ${abi.version}`, 'info');
+                
+                abi.functions.forEach((func) => {
+                    const params = func.parameters.map(p => 
+                        `${p.name}: ${p.param_type}${p.attributes.length > 0 ? ' @' + p.attributes.join(' @') : ''}`
+                    ).join(', ');
+                    const returnType = func.return_type ? ` -> ${func.return_type}` : '';
+                    log(`  • [${func.index}] ${func.name}(${params})${returnType}`, 'info');
+                });
+
+                log(`\n🔧 Bytecode hex (first 64 bytes):`, 'info');
+                const hexView = Array.from(result.bytecode.slice(0, 64))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join(' ');
+                log(hexView, 'info');
+                
+            } catch (error) {
+                log(`❌ Compilation failed: ${error}`, 'error');
+            }
+        };
+
+        window.validateSyntax = function() {
+            const dslCode = document.getElementById('dslInput').value;
+            
+            if (!compiler) {
+                log('❌ Compiler not initialized', 'error');
+                return;
+            }
+
+            if (!dslCode.trim()) {
+                log('❌ Please enter some DSL code', 'error');
+                return;
+            }
+
+            try {
+                log('🔄 Validating syntax...', 'info');
+                const result = compiler.validate_syntax(dslCode);
+                const validation = JSON.parse(result);
+                
+                if (validation.valid) {
+                    log('✅ Syntax validation passed!', 'success');
+                } else {
+                    log('❌ Syntax validation failed:', 'error');
+                    validation.errors.forEach(error => {
+                        log(`  • ${error}`, 'error');
+                    });
+                }
+                
+            } catch (error) {
+                log(`❌ Validation failed: ${error}`, 'error');
+            }
+        };
+
+        window.clearOutput = clearOutput;
+
+        // Initialize WASM when page loads
+        initWasm();
+    </script>
+</body>
+</html>

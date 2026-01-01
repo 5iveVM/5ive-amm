@@ -1,0 +1,57 @@
+{
+  "bytecode": "NUlWRQIQAAAABAA3AAECAUgAAQICbQABAgMeAAEAGQoZBZACNwDUGRQZHpACSADV0NGQAm0AB6UCCQAJAAGlAiLyBwECAPMHpQIZZCUDFgBnD1ZhbHVlIHRvbyBsYXJnZfEHAQcApQGlAiDwB6UBERsAAAAAAAAAACcDNgCiAqUCERsAAAAAAAAAACcDCQCiA9LTIAcBGAARGwEAAAAAAAAAJwMKAKIE0hkCIgcBAAABMwCiBaUCERsAAAAAAAAAACcDCACiBqMGBwEWABEbAQAAAAAAAAAnAwgAogcZAAcBAAABAAA=",
+  "abi": {
+    "functions": {
+      "comprehensive_test": {
+        "index": 3,
+        "parameters": [],
+        "accounts": []
+      },
+      "handle_computation": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "x",
+            "type": "u64"
+          },
+          {
+            "name": "y",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "complex_match_demo": {
+        "index": 2,
+        "parameters": [
+          {
+            "name": "opt",
+            "type": "Option<u64>"
+          },
+          {
+            "name": "res",
+            "type": "Result<u64, string>"
+          }
+        ],
+        "accounts": []
+      },
+      "safe_operation": {
+        "index": 1,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64"
+          },
+          {
+            "name": "b",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

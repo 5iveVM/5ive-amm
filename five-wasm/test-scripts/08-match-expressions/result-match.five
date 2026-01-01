@@ -1,0 +1,61 @@
+{
+  "bytecode": "NUlWRQIQAAAABAAyAAECAUMAAQICWAABAwMeAAEAGQoZApACQwDUGRQZBBkCkANYAAelAgkACAABpQIjBwEDABkAB6UBpQKQAjIA1dEJAAQABwEDABkBB6UBpQKQAjIA1tIJABYApQOQAjIA19MJAAQABwEDABkABwEDABkABwA=",
+  "abi": {
+    "functions": {
+      "handle_division_result": {
+        "index": 1,
+        "parameters": [
+          {
+            "name": "dividend",
+            "type": "u64"
+          },
+          {
+            "name": "divisor",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "process_calculation_chain": {
+        "index": 2,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64"
+          },
+          {
+            "name": "b",
+            "type": "u64"
+          },
+          {
+            "name": "c",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "test": {
+        "index": 3,
+        "parameters": [],
+        "accounts": []
+      },
+      "safe_divide": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "a",
+            "type": "u64"
+          },
+          {
+            "name": "b",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

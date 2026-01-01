@@ -1,0 +1,700 @@
+# Node Metadata for Five DSL - SINGLE SOURCE OF TRUTH
+# This file defines all AST nodes with their fields, grammar rules, and categories
+# Used to generate both Rust AST structures and tree-sitter grammar.js
+
+# ==============================================================================
+# AUXILIARY STRUCTURES (used by multiple AST nodes)
+# ==============================================================================
+
+[[auxiliary_types]]
+name = "StructField"
+fields = { name = "String", field_type = "TypeNode", is_mutable = "bool", is_optional = "bool" }
+doc = "Field definition in a struct or account type"
+
+[[auxiliary_types]]
+name = "InstructionParameter"
+fields = { name = "String", param_type = "TypeNode", is_optional = "bool", default_value = "Option<Box<AstNode>>", attributes = "Vec<Attribute>", is_init = "bool", init_config = "Option<InitConfig>" }
+doc = "Parameter definition for instructions and functions"
+
+[[auxiliary_types]]
+name = "Attribute"
+fields = { name = "String", args = "Vec<AstNode>" }
+doc = "Attribute on parameters (e.g., @requires, @signer)"
+
+[[auxiliary_types]]
+name = "InitConfig"
+fields = { seeds = "Option<Vec<AstNode>>", bump = "Option<String>", space = "Option<u64>" }
+doc = "Account initialization configuration for @init constraints"
+
+[[auxiliary_types]]
+name = "EventFieldAssignment"
+fields = { field_name = "String", value = "Box<AstNode>" }
+doc = "Field assignment in emit statements"
+
+[[auxiliary_types]]
+name = "MatchArm"
+fields = { pattern = "Box<AstNode>", guard = "Option<Box<AstNode>>", body = "Box<AstNode>" }
+doc = "Pattern arm in match expressions"
+
+[[auxiliary_types]]
+name = "ErrorVariant"
+fields = { name = "String", fields = "Vec<StructField>" }
+doc = "Variant in error type definitions"
+
+[[auxiliary_types]]
+name = "StructLiteralField"
+fields = { field_name = "String", value = "Box<AstNode>" }
+doc = "Field assignment in struct literals"
+
+[[auxiliary_types]]
+name = "SwitchCase"
+fields = { pattern = "Box<AstNode>", body = "Vec<AstNode>" }
+doc = "Case in switch statements"
+
+[[auxiliary_types]]
+name = "TestAttribute"
+fields = { name = "String", args = "Vec<AstNode>" }
+doc = "Test function attribute (e.g., ignore, should_fail)"
+
+# ==============================================================================
+# PROGRAM & STRUCTURE NODES
+# ==============================================================================
+
+[[nodes]]
+name = "Program"
+category = "program"
+doc = "Root node representing entire DSL program"
+fields.program_name = { type = "String", doc = "Program/script name" }
+fields.field_definitions = { type = "Vec<AstNode>", doc = "Global field definitions" }
+fields.instruction_definitions = { type = "Vec<AstNode>", doc = "Instruction definitions" }
+fields.event_definitions = { type = "Vec<AstNode>", doc = "Event definitions" }
+fields.account_definitions = { type = "Vec<AstNode>", doc = "Account definitions" }
+fields.interface_definitions = { type = "Vec<AstNode>", doc = "Interface definitions" }
+fields.import_statements = { type = "Vec<AstNode>", doc = "Import/use statements" }
+fields.init_block = { type = "Option<Box<AstNode>>", doc = "Initialization block" }
+fields.constraints_block = { type = "Option<Box<AstNode>>", doc = "Constraints block" }
+
+[nodes.grammar]
+rule_name = "source_file"
+rule = 'repeat($._top_level_item)'
+
+[[nodes]]
+name = "Block"
+category = "structure"
+doc = "Block of statements enclosed in braces"
+fields.statements = { type = "Vec<AstNode>", doc = "Statements in block" }
+fields.kind = { type = "BlockKind", doc = "Type of block (Regular, Init, Constraints)" }
+
+[nodes.grammar]
+rule_name = "block"
+rule = 'seq("{", repeat($._statement), "}")'
+
+# ==============================================================================
+# STATEMENT NODES
+# ==============================================================================
+
+[[nodes]]
+name = "Assignment"
+category = "statement"
+doc = "Variable assignment statement"
+fields.target = { type = "String", doc = "Variable name being assigned" }
+fields.value = { type = "Box<AstNode>", doc = "Expression being assigned" }
+
+[nodes.grammar]
+rule_name = "assignment_statement"
+rule = 'seq(field("left", $._assignable_expression), "=", field("right", $._expression), ";")'
+
+[[nodes]]
+name = "FieldAssignment"
+category = "statement"
+doc = "Field assignment on object (obj.field = value)"
+fields.object = { type = "Box<AstNode>", doc = "Object being modified" }
+fields.field = { type = "String", doc = "Field name" }
+fields.value = { type = "Box<AstNode>", doc = "New value" }
+
+[nodes.grammar]
+rule_name = "field_assignment"
+rule = 'seq(field("object", $._expression), ".", field("field", $.identifier), "=", field("value", $._expression), ";")'
+
+[[nodes]]
+name = "RequireStatement"
+category = "statement"
+doc = "Runtime assertion/constraint statement"
+fields.condition = { type = "Box<AstNode>", doc = "Condition that must be true" }
+
+[nodes.grammar]
+rule_name = "require_statement"
+rule = 'seq("require", "(", field("condition", $._expression), ")", ";")'
+
+[[nodes]]
+name = "LetStatement"
+category = "statement"
+doc = "Variable declaration with optional type annotation"
+fields.name = { type = "String", doc = "Variable name" }
+fields.type_annotation = { type = "Option<Box<TypeNode>>", doc = "Optional type annotation" }
+fields.is_mutable = { type = "bool", doc = "Whether variable is mutable" }
+fields.value = { type = "Box<AstNode>", doc = "Initial value" }
+
+[nodes.grammar]
+rule_name = "let_statement"
+rule = 'seq("let", field("pattern", choice($.identifier, $.tuple_pattern)), "=", field("value", $._expression), ";")'
+
+[[nodes]]
+name = "TupleDestructuring"
+category = "statement"
+doc = "Destructure tuple into multiple variables"
+fields.targets = { type = "Vec<String>", doc = "Variable names to bind" }
+fields.value = { type = "Box<AstNode>", doc = "Tuple expression" }
+
+[nodes.grammar]
+rule_name = "tuple_destructuring"
+rule = 'seq("let", "(", field("targets", $.pattern_list), ")", "=", field("value", $._expression), ";")'
+
+[[nodes]]
+name = "TupleAssignment"
+category = "statement"
+doc = "Assign to multiple targets in tuple form"
+fields.targets = { type = "Vec<AstNode>", doc = "Can be Identifier or FieldAccess nodes" }
+fields.value = { type = "Box<AstNode>", doc = "Expression being assigned" }
+
+[nodes.grammar]
+rule_name = "tuple_assignment"
+rule = 'seq("(", field("targets", $.pattern_list), ")", "=", field("value", $._expression), ";")'
+
+[[nodes]]
+name = "IfStatement"
+category = "statement"
+doc = "Conditional statement with optional else block"
+fields.condition = { type = "Box<AstNode>", doc = "Condition to evaluate" }
+fields.then_branch = { type = "Box<AstNode>", doc = "Block to execute if true" }
+fields.else_branch = { type = "Option<Box<AstNode>>", doc = "Optional else block" }
+
+[nodes.grammar]
+rule_name = "if_statement"
+rule = 'seq("if", "(", field("condition", $._expression), ")", field("then_block", $.block), optional(seq("else", field("else_block", $.block))))'
+
+[[nodes]]
+name = "MatchExpression"
+category = "statement"
+doc = "Pattern matching expression"
+fields.expression = { type = "Box<AstNode>", doc = "Expression to match" }
+fields.arms = { type = "Vec<MatchArm>", doc = "Pattern matching arms" }
+
+[nodes.grammar]
+rule_name = "match_expression"
+rule = 'seq("match", field("expression", $._expression), "{", repeat(seq(field("pattern", $.identifier), "=>", field("body", $.block), ",")), "}")'
+
+[[nodes]]
+name = "ReturnStatement"
+category = "statement"
+doc = "Return from function with optional value"
+fields.value = { type = "Option<Box<AstNode>>", doc = "Return value" }
+
+[nodes.grammar]
+rule_name = "return_statement"
+rule = 'seq("return", optional(field("value", $._expression)), ";")'
+
+[[nodes]]
+name = "ForLoop"
+category = "statement"
+doc = "C-style for loop"
+fields.init = { type = "Option<Box<AstNode>>", doc = "Initialization statement" }
+fields.condition = { type = "Option<Box<AstNode>>", doc = "Loop condition" }
+fields.update = { type = "Option<Box<AstNode>>", doc = "Update expression" }
+fields.body = { type = "Box<AstNode>", doc = "Loop body block" }
+
+[nodes.grammar]
+rule_name = "for_loop"
+rule = 'seq("for", "(", optional($._statement), ";", optional($._expression), ";", optional($._expression), ")", $.block)'
+
+[[nodes]]
+name = "ForInLoop"
+category = "statement"
+doc = "For-in loop iterating over object properties"
+fields.variable = { type = "String", doc = "Loop variable name" }
+fields.iterable = { type = "Box<AstNode>", doc = "Object to iterate" }
+fields.body = { type = "Box<AstNode>", doc = "Loop body block" }
+
+[nodes.grammar]
+rule_name = "for_in_loop"
+rule = 'seq("for", field("variable", $.identifier), "in", field("iterable", $._expression), field("body", $.block))'
+
+[[nodes]]
+name = "ForOfLoop"
+category = "statement"
+doc = "For-of loop iterating over values"
+fields.variable = { type = "String", doc = "Loop variable name" }
+fields.iterable = { type = "Box<AstNode>", doc = "Iterable to loop over" }
+fields.body = { type = "Box<AstNode>", doc = "Loop body block" }
+
+[nodes.grammar]
+rule_name = "for_of_loop"
+rule = 'seq("for", field("variable", $.identifier), "of", field("iterable", $._expression), field("body", $.block))'
+
+[[nodes]]
+name = "WhileLoop"
+category = "statement"
+doc = "While loop with condition"
+fields.condition = { type = "Box<AstNode>", doc = "Loop condition" }
+fields.body = { type = "Box<AstNode>", doc = "Loop body block" }
+
+[nodes.grammar]
+rule_name = "while_statement"
+rule = 'seq("while", "(", field("condition", $._expression), ")", field("body", $.block))'
+
+[[nodes]]
+name = "DoWhileLoop"
+category = "statement"
+doc = "Do-while loop executing at least once"
+fields.body = { type = "Box<AstNode>", doc = "Loop body block" }
+fields.condition = { type = "Box<AstNode>", doc = "Loop condition" }
+
+[nodes.grammar]
+rule_name = "do_while_loop"
+rule = 'seq("do", field("body", $.block), "while", "(", field("condition", $._expression), ")", ";")'
+
+[[nodes]]
+name = "SwitchStatement"
+category = "statement"
+doc = "Switch statement with multiple cases"
+fields.discriminant = { type = "Box<AstNode>", doc = "Value to switch on" }
+fields.cases = { type = "Vec<SwitchCase>", doc = "Switch cases" }
+fields.default_case = { type = "Option<Box<AstNode>>", doc = "Default case body" }
+
+[nodes.grammar]
+rule_name = "switch_statement"
+rule = 'seq("switch", "(", field("discriminant", $._expression), ")", "{", repeat(seq("case", field("value", $._expression), ":", field("body", repeat($._statement)))), optional(seq("default", ":", field("default_case", repeat($._statement)))), "}")'
+
+[[nodes]]
+name = "BreakStatement"
+category = "statement"
+doc = "Break from loop or switch"
+fields.label = { type = "Option<String>", doc = "Optional label to break to" }
+
+[nodes.grammar]
+rule_name = "break_statement"
+rule = 'seq("break", optional(field("label", $.identifier)), ";")'
+
+[[nodes]]
+name = "ContinueStatement"
+category = "statement"
+doc = "Continue to next loop iteration"
+fields.label = { type = "Option<String>", doc = "Optional label to continue" }
+
+[nodes.grammar]
+rule_name = "continue_statement"
+rule = 'seq("continue", optional(field("label", $.identifier)), ";")'
+
+[[nodes]]
+name = "EmitStatement"
+category = "statement"
+doc = "Emit an event with field assignments"
+fields.event_name = { type = "String", doc = "Name of event to emit" }
+fields.fields = { type = "Vec<EventFieldAssignment>", doc = "Event field assignments" }
+
+[nodes.grammar]
+rule_name = "emit_statement"
+rule = 'seq("emit", field("event_name", $.identifier), "{", repeat(seq(field("field_name", $.identifier), ":", field("value", $._expression), ",")), "}")'
+
+# ==============================================================================
+# DEFINITION NODES
+# ==============================================================================
+
+[[nodes]]
+name = "FieldDefinition"
+category = "definition"
+doc = "Field definition in account or struct"
+fields.name = { type = "String", doc = "Field name" }
+fields.field_type = { type = "Box<TypeNode>", doc = "Field type" }
+fields.is_mutable = { type = "bool", doc = "Whether field is mutable" }
+fields.is_optional = { type = "bool", doc = "Whether field is optional" }
+fields.default_value = { type = "Option<Box<AstNode>>", doc = "Optional default value" }
+fields.visibility = { type = "Visibility", doc = "Public or internal" }
+
+[nodes.grammar]
+rule_name = "field_definition"
+rule = 'seq(field("name", $.identifier), ":", field("type", $._type_expression), ";")'
+
+[[nodes]]
+name = "InstructionDefinition"
+category = "definition"
+doc = "On-chain instruction definition"
+fields.name = { type = "String", doc = "Instruction name" }
+fields.parameters = { type = "Vec<InstructionParameter>", doc = "Instruction parameters" }
+fields.return_type = { type = "Option<Box<TypeNode>>", doc = "Optional return type" }
+fields.body = { type = "Box<AstNode>", doc = "Instruction body block" }
+fields.visibility = { type = "Visibility", doc = "Public or internal" }
+
+[nodes.grammar]
+rule_name = "instruction_definition"
+rule = 'seq(optional("pub"), "instruction", field("name", $.identifier), "(", optional($.parameter_list), ")", optional(seq("->", field("return_type", $._type_expression))), field("body", $.block))'
+
+[[nodes]]
+name = "EventDefinition"
+category = "definition"
+doc = "Event type definition"
+fields.name = { type = "String", doc = "Event name" }
+fields.fields = { type = "Vec<StructField>", doc = "Event fields" }
+fields.visibility = { type = "Visibility", doc = "Public or internal" }
+
+[nodes.grammar]
+rule_name = "event_definition"
+rule = 'seq("event", field("name", $.identifier), "{", repeat($.field_definition), "}")'
+
+[[nodes]]
+name = "ErrorTypeDefinition"
+category = "definition"
+doc = "Custom error type with variants"
+fields.name = { type = "String", doc = "Error type name" }
+fields.variants = { type = "Vec<ErrorVariant>", doc = "Error variants" }
+
+[nodes.grammar]
+rule_name = "error_type_definition"
+rule = 'seq("error", field("name", $.identifier), "{", repeat(seq(field("variant", $.identifier), ",")), "}")'
+
+[[nodes]]
+name = "AccountDefinition"
+category = "definition"
+doc = "Account type definition"
+fields.name = { type = "String", doc = "Account name" }
+fields.fields = { type = "Vec<StructField>", doc = "Account fields" }
+fields.visibility = { type = "Visibility", doc = "Public or internal" }
+
+[nodes.grammar]
+rule_name = "account_definition"
+rule = 'seq("account", field("name", $.identifier), "{", repeat($.field_definition), "}")'
+
+[[nodes]]
+name = "InterfaceDefinition"
+category = "definition"
+doc = "Cross-program interface definition"
+fields.name = { type = "String", doc = "Interface name" }
+fields.program_id = { type = "Option<String>", doc = "Optional custom program ID" }
+fields.serializer = { type = "Option<String>", doc = "Optional serializer hint (raw, borsh, bincode)" }
+fields.functions = { type = "Vec<AstNode>", doc = "Interface methods" }
+
+[nodes.grammar]
+rule_name = "interface_definition"
+rule = 'seq("interface", field("name", $.identifier), optional(seq("<", field("program_id", $.string_literal), ">")), optional(seq("@", "serializer", "(", field("serializer", $.string_literal), ")")), "{", repeat($.interface_function), "}")'
+
+[[nodes]]
+name = "InterfaceFunction"
+category = "definition"
+doc = "Method in an interface"
+fields.name = { type = "String", doc = "Method name" }
+fields.parameters = { type = "Vec<InstructionParameter>", doc = "Method parameters" }
+fields.return_type = { type = "Option<Box<TypeNode>>", doc = "Optional return type" }
+fields.discriminator = { type = "Option<u8>", doc = "Custom instruction discriminator" }
+fields.discriminator_bytes = { type = "Option<Vec<u8>>", doc = "Optional multi-byte discriminator for Anchor-style CPIs" }
+
+[nodes.grammar]
+rule_name = "interface_function"
+rule = 'seq(field("name", $.identifier), "(", optional($.parameter_list), ")", optional(seq("->", field("return_type", $._type_expression))), optional(seq("@", "discriminator_bytes", "(", optional(seq(field("discriminator_bytes", repeat1($.number_literal)), optional(seq(",", repeat($.number_literal))))), ")")), optional(seq("@", "discriminator", "(", field("discriminator", $.number_literal), ")")), ";")'
+
+[[nodes]]
+name = "ImportStatement"
+category = "definition"
+doc = "Import/use statement for modules"
+fields.module_specifier = { type = "ModuleSpecifier", doc = "Module path" }
+fields.imported_items = { type = "Option<Vec<String>>", doc = "Specific items (None = all)" }
+
+[[nodes]]
+name = "ArrowFunction"
+category = "definition"
+doc = "Arrow function / lambda"
+fields.parameters = { type = "Vec<InstructionParameter>", doc = "Function parameters" }
+fields.return_type = { type = "Option<Box<TypeNode>>", doc = "Optional return type" }
+fields.body = { type = "Box<AstNode>", doc = "Function body" }
+fields.is_async = { type = "bool", doc = "Whether function is async" }
+
+[nodes.grammar]
+rule_name = "arrow_function"
+rule = 'seq(optional("async"), "(", optional($.parameter_list), ")", "=>", field("body", choice($._expression, $.block)))'
+
+[[nodes]]
+name = "TestFunction"
+category = "definition"
+doc = "Unit test function"
+fields.name = { type = "String", doc = "Test function name" }
+fields.attributes = { type = "Vec<TestAttribute>", doc = "Test attributes" }
+fields.body = { type = "Box<AstNode>", doc = "Test function body" }
+
+[nodes.grammar]
+rule_name = "test_function"
+rule = 'seq("#", "[", "test", "]", "fn", field("name", $.identifier), "(", ")", field("body", $.block))'
+
+[[nodes]]
+name = "TestModule"
+category = "definition"
+doc = "Test module grouping"
+fields.name = { type = "String", doc = "Module name" }
+fields.attributes = { type = "Vec<TestAttribute>", doc = "Module attributes" }
+fields.body = { type = "Box<AstNode>", doc = "Module body" }
+
+[nodes.grammar]
+rule_name = "test_module"
+rule = 'seq("#", "[", "test_module", "]", "mod", field("name", $.identifier), field("body", $.block))'
+
+# ==============================================================================
+# EXPRESSION NODES - LITERALS
+# ==============================================================================
+
+[[nodes]]
+name = "StringLiteral"
+category = "expression"
+doc = "String literal"
+fields.value = { type = "String", doc = "String value" }
+
+[nodes.grammar]
+rule_name = "string_literal"
+rule = 'seq("\"", repeat(choice(token.immediate(prec(1, /[^"\\]+/)), $.escape_sequence)), "\"")'
+
+[[nodes]]
+name = "ArrayLiteral"
+category = "expression"
+doc = "Array literal [...]"
+fields.elements = { type = "Vec<AstNode>", doc = "Array elements" }
+
+[nodes.grammar]
+rule_name = "array_literal"
+rule = 'seq("[", optional($.array_element_list), "]")'
+
+[[nodes]]
+name = "TupleLiteral"
+category = "expression"
+doc = "Tuple literal (...)"
+fields.elements = { type = "Vec<AstNode>", doc = "Tuple elements" }
+
+[nodes.grammar]
+rule_name = "tuple_literal"
+rule = 'seq("(", $._expression, ",", optional(seq($._expression, repeat(seq(",", $._expression)), optional(","))), ")")'
+
+[[nodes]]
+name = "StructLiteral"
+category = "expression"
+doc = "Struct literal Type { ... }"
+fields.fields = { type = "Vec<StructLiteralField>", doc = "Struct field assignments" }
+
+[nodes.grammar]
+rule_name = "struct_literal"
+rule = 'seq(field("type", $.identifier), "{", optional(seq($._expression, repeat(seq(",", $._expression)), optional(","))), "}")'
+
+[[nodes]]
+name = "TemplateLiteral"
+category = "expression"
+doc = "Template literal with interpolation"
+fields.parts = { type = "Vec<AstNode>", doc = "Alternating strings and expressions" }
+
+[nodes.grammar]
+rule_name = "template_literal"
+rule = 'seq("`", repeat(choice($._expression, /[^`]+/)), "`")'
+
+# ==============================================================================
+# EXPRESSION NODES - ACCESS & CALLS
+# ==============================================================================
+
+[[nodes]]
+name = "FieldAccess"
+category = "expression"
+doc = "Field access on object (obj.field)"
+fields.object = { type = "Box<AstNode>", doc = "Object being accessed" }
+fields.field = { type = "String", doc = "Field name" }
+
+[nodes.grammar]
+rule_name = "field_access"
+rule = 'prec.left(13, seq(field("object", $._expression), ".", field("field", $.identifier)))'
+precedence = 13
+associativity = "left"
+
+[[nodes]]
+name = "ArrayAccess"
+category = "expression"
+doc = "Array/collection access (arr[index])"
+fields.array = { type = "Box<AstNode>", doc = "Array being indexed" }
+fields.index = { type = "Box<AstNode>", doc = "Index expression" }
+
+[nodes.grammar]
+rule_name = "array_access"
+rule = 'seq(field("array", $._expression), "[", field("index", $._expression), "]")'
+
+[[nodes]]
+name = "TupleAccess"
+category = "expression"
+doc = "Tuple element access (tuple.0)"
+fields.object = { type = "Box<AstNode>", doc = "Tuple being accessed" }
+fields.index = { type = "u32", doc = "Numeric index" }
+
+[nodes.grammar]
+rule_name = "tuple_access"
+rule = 'seq(field("object", $._expression), ".", field("index", $.number_literal))'
+
+[[nodes]]
+name = "FunctionCall"
+category = "expression"
+doc = "Function call function(...)"
+fields.name = { type = "String", doc = "Function name" }
+fields.args = { type = "Vec<AstNode>", doc = "Function arguments" }
+
+[nodes.grammar]
+rule_name = "call_expression"
+rule = 'seq(field("function", $.identifier), "(", optional($.argument_list), ")")'
+
+[[nodes]]
+name = "MethodCall"
+category = "expression"
+doc = "Method call interface.method(...)"
+fields.object = { type = "Box<AstNode>", doc = "Object/interface" }
+fields.method = { type = "String", doc = "Method name" }
+fields.args = { type = "Vec<AstNode>", doc = "Method arguments" }
+
+[nodes.grammar]
+rule_name = "method_call_expression"
+rule = 'seq(field("interface", $.identifier), ".", field("method", $.identifier), "(", optional($.argument_list), ")")'
+
+[[nodes]]
+name = "EnumVariantAccess"
+category = "expression"
+doc = "Enum variant access (Enum::Variant)"
+fields.enum_name = { type = "String", doc = "Enum name" }
+fields.variant_name = { type = "String", doc = "Variant name" }
+
+[nodes.grammar]
+rule_name = "enum_variant_access"
+rule = 'seq(field("enum_name", $.identifier), "::", field("variant_name", $.identifier))'
+
+[[nodes]]
+name = "ErrorPropagation"
+category = "expression"
+doc = "Error propagation operator (?)"
+fields.expression = { type = "Box<AstNode>", doc = "Expression to propagate" }
+
+[nodes.grammar]
+rule_name = "error_propagation"
+rule = 'seq(field("expression", $._expression), "?")'
+
+# ==============================================================================
+# EXPRESSION NODES - OPERATORS
+# ==============================================================================
+
+[[nodes]]
+name = "UnaryExpression"
+category = "expression"
+doc = "Unary operators (!x, -x, +x)"
+fields.operator = { type = "String", doc = "Operator symbol" }
+fields.operand = { type = "Box<AstNode>", doc = "Expression operand" }
+
+[nodes.grammar]
+rule_name = "unary_expression"
+rule = 'prec(14, seq(field("operator", choice("!", "-", "+")), field("operand", $._expression)))'
+precedence = 14
+
+[[nodes]]
+name = "BinaryExpression"
+category = "expression"
+doc = "Binary operators (a + b, a == b, etc)"
+fields.operator = { type = "String", doc = "Operator symbol" }
+fields.left = { type = "Box<AstNode>", doc = "Left operand" }
+fields.right = { type = "Box<AstNode>", doc = "Right operand" }
+
+[nodes.grammar]
+rule_name = "binary_expression"
+rule = 'choice(prec.left(12, seq(field("left", $._expression), "||", field("right", $._expression))), prec.left(11, seq(field("left", $._expression), "&&", field("right", $._expression))), prec.left(7, seq(field("left", $._expression), choice("==", "!="), field("right", $._expression))), prec.left(6, seq(field("left", $._expression), choice("<", "<=", ">", ">="), field("right", $._expression))), prec.left(4, seq(field("left", $._expression), choice("+", "-"), field("right", $._expression))), prec.left(3, seq(field("left", $._expression), choice("*", "/", "%"), field("right", $._expression))))'
+
+# ==============================================================================
+# SPECIAL NODES
+# ==============================================================================
+
+[[nodes]]
+name = "Identifier"
+category = "expression"
+doc = "Variable/identifier reference"
+fields.name = { type = "String", doc = "Identifier name" }
+
+[[nodes]]
+name = "Literal"
+category = "expression"
+doc = "Literal value (number, bool, etc)"
+fields.value = { type = "five_protocol::Value", doc = "Literal value" }
+
+[[nodes]]
+name = "AssertStatement"
+category = "statement"
+doc = "Assertion statement for testing"
+fields.assertion_type = { type = "AssertionType", doc = "Type of assertion" }
+fields.args = { type = "Vec<AstNode>", doc = "Assertion arguments" }
+
+[nodes.grammar]
+rule_name = "assert_statement"
+rule = 'seq("assert", choice("eq", "ne", "lt", "le", "gt", "ge"), "(", field("args", $.argument_list), ")", ";")'
+
+# ==============================================================================
+# TYPE SYSTEM NODES (TypeNode enum)
+# ==============================================================================
+
+[[type_nodes]]
+name = "Primitive"
+doc = "Primitive types (u64, i32, bool, string, pubkey, etc)"
+field = "String"
+
+[[type_nodes]]
+name = "Generic"
+doc = "Generic types with type parameters (Option<T>, Result<T, E>)"
+fields.base = { type = "String", doc = "Base type name" }
+fields.args = { type = "Vec<TypeNode>", doc = "Type arguments" }
+
+[[type_nodes]]
+name = "Array"
+doc = "Array types [T; N]"
+fields.element_type = { type = "Box<TypeNode>", doc = "Element type" }
+fields.size = { type = "Option<u64>", doc = "Optional fixed size" }
+
+[[type_nodes]]
+name = "Tuple"
+doc = "Tuple types (T1, T2, T3)"
+fields.elements = { type = "Vec<TypeNode>", doc = "Element types" }
+
+[[type_nodes]]
+name = "Struct"
+doc = "Struct types { field1: T1, ... }"
+fields.fields = { type = "Vec<StructField>", doc = "Struct fields" }
+
+[[type_nodes]]
+name = "Sized"
+doc = "Sized types string<32>"
+fields.base_type = { type = "String", doc = "Base type" }
+fields.size = { type = "u64", doc = "Size parameter" }
+
+[[type_nodes]]
+name = "Union"
+doc = "Union/sum types T | U"
+fields.types = { type = "Vec<TypeNode>", doc = "Union member types" }
+
+[[type_nodes]]
+name = "Account"
+doc = "Built-in Account type with implicit properties"
+
+[[type_nodes]]
+name = "Named"
+doc = "Custom/named types"
+field = "String"
+
+# ==============================================================================
+# ENUM VARIANTS FOR CATEGORIZATION
+# ==============================================================================
+
+[enums]
+BlockKind = ["Regular", "Init", "Constraints"]
+Visibility = ["Public", "Internal", "Private"]
+ModuleSpecifier_variants = ["Local(String)", "Nested(Vec<String>)", "External(String)"]
+AssertionType = ["Equal", "True", "False", "Fails", "ApproxEq"]
+
+# ==============================================================================
+# METADATA
+# ==============================================================================
+
+[metadata]
+version = "1.0"
+total_ast_nodes = 48
+total_type_nodes = 9
+total_auxiliary_types = 10
+description = "Single source of truth for Five DSL AST structure"

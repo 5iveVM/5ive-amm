@@ -1,0 +1,19 @@
+[package]
+name = "five-protocol"
+version = "0.1.0"
+edition = "2021"
+description = "Unified protocol specification and interface layer for FIVE VMs and compilers"
+license = "UNLICENSED"
+
+[features]
+default = []
+debug-logs = []
+# LEGACY: Static precompile system (replaced by library accounts)
+precompiles = []
+test-fixtures = []
+
+[dependencies]
+# No external dependencies - following MitoVM zero-allocation patterns
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]

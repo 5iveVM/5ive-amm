@@ -1,0 +1,49 @@
+{
+  "bytecode": "NUlWRQIQAAAABAAtAAEBAVIAAQECZQABAgMeAAEAGTKQAVIA1NAZGZACZQAHpQEZZCUDCQClARkCIgcBFAClARkKJQMJAKUBGTIgBwEDABkAB6UBkAEtANXRCQAEAAcBAwAZAQelARkAJQMXAKUCGQAlAwkApQGlAiAHAQMApQEHAREApQIZACUDBgClAgcBAwAZAAcA",
+  "abi": {
+    "functions": {
+      "combine_values": {
+        "index": 2,
+        "parameters": [
+          {
+            "name": "val1",
+            "type": "u64"
+          },
+          {
+            "name": "val2",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "test": {
+        "index": 3,
+        "parameters": [],
+        "accounts": []
+      },
+      "handle_process_result": {
+        "index": 1,
+        "parameters": [
+          {
+            "name": "data",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      },
+      "process_data": {
+        "index": 0,
+        "parameters": [
+          {
+            "name": "input",
+            "type": "u64"
+          }
+        ],
+        "accounts": []
+      }
+    },
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0"
+}

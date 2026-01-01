@@ -1,0 +1,441 @@
+warning: unexpected `cfg` condition value: `solana`
+   --> five-vm-mito/src/lib.rs:113:11
+    |
+113 | ...ot(target_os = "solana"))]
+    |       ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, `uefi`, and `unknown` and 8 more
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unused import: `debug_log`
+ --> five-vm-mito/src/context.rs:7:5
+  |
+7 |     debug_log,
+  |     ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unexpected `cfg` condition value: `solana`
+  --> five-vm-mito/src/execution.rs:33:11
+   |
+33 | ...ot(target_os = "solana"))]
+   |       ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, `uefi`, and `unknown` and 8 more
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition value: `solana`
+   --> five-vm-mito/src/execution.rs:917:15
+    |
+917 | ...ot(target_os = "solana"))]
+    |       ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, `uefi`, and `unknown` and 8 more
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unused import: `debug_stack_op`
+  --> five-vm-mito/src/handlers/arithmetic.rs:47:5
+   |
+47 |     debug_stack_op,
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `heapless::String as HString`
+  --> five-vm-mito/src/handlers/option_result.rs:12:5
+   |
+12 | use heapless::String as HString;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `five-vm-mito` (lib) generated 6 warnings (run `cargo fix --lib -p five-vm-mito` to apply 3 suggestions)
+warning: type `structure` should have an upper camel case name
+   --> five-dsl-compiler/src/ast/generated.rs:427:10
+    |
+427 | pub enum structure {
+    |          ^^^^^^^^^ help: convert the identifier to upper camel case (notice the capitalization): `Structure`
+    |
+    = note: `#[warn(non_camel_case_types)]` on by default
+
+warning: unused imports: `AstNode` and `generated::*`
+  --> five-dsl-compiler/src/ast/conversions.rs:10:18
+   |
+10 | ...::{AstNode, generated::*};
+   |       ^^^^^^^  ^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `super::super::types::FieldInfo`
+ --> five-dsl-compiler/src/bytecode_generator/ast_generator/accounts.rs:5:5
+  |
+5 | use super::super::types::FieldInfo;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `InterfaceSerializer`
+ --> five-dsl-compiler/src/bytecode_generator/ast_generator/functions.rs:9:59
+  |
+9 | ...d, InterfaceSerializer};
+  |       ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `InstructionParameter` and `TypeNode`
+ --> five-dsl-compiler/src/bytecode_generator/module_merger.rs:6:27
+  |
+6 | ...e, InstructionParameter, TypeNode};
+  |       ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^
+
+warning: unused import: `FEATURE_FUNCTION_METADATA`
+ --> five-dsl-compiler/src/bytecode_generator/header.rs:2:38
+  |
+2 | ...r, FEATURE_FUNCTION_METADATA, F...
+  |       ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ErrorCategory`, `ErrorCode`, and `ErrorSeverity`
+   --> five-dsl-compiler/src/compiler/mod.rs:508:28
+    |
+508 | ...::{ErrorCategory, ErrorCode, ErrorSeverity};
+    |       ^^^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^^^^
+
+warning: unused import: `five_vm_mito::error::VMError`
+  --> five-dsl-compiler/src/module_resolver.rs:12:5
+   |
+12 | use five_vm_mito::error::VMError;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `EventFieldAssignment`
+ --> five-dsl-compiler/src/type_checker/definition_builder.rs:8:48
+  |
+8 | ...y, EventFieldAssignment, T...
+  |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `AstNode` and `TypeNode`
+ --> five-dsl-compiler/src/type_checker/type_safe_checker.rs:8:18
+  |
+8 | ...::{AstNode, TypeNode, g...
+  |       ^^^^^^^  ^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/ast_generator/mod.rs:938:17
+    |
+938 | ...   is_public: _,
+    |       ^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/ast_generator/mod.rs:160:31
+    |
+160 | ...e, is_public, ..
+    |       ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+  --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:86:25
+   |
+86 | ...   is_public, na...
+   |       ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:214:57
+    |
+214 | ... { is_public, ....
+    |       ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:233:21
+    |
+233 | ...   is_public,
+    |       ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:266:21
+    |
+266 | ...   is_public,
+    |       ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:583:21
+    |
+583 | ...   is_public,
+    |       ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:593:21
+    |
+593 | ...   is_public,
+    |       ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/bytecode_generator/module_merger.rs:193:17
+    |
+193 | ...   is_public,
+    |       ^^^^^^^^^
+
+warning: use of deprecated field `ast::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/src/type_checker/mod.rs:165:17
+    |
+165 | ...   is_public: _,
+    |       ^^^^^^^^^^^^
+
+warning: unused variable: `name`
+   --> five-dsl-compiler/src/bytecode_generator/ast_generator/functions.rs:450:48
+    |
+450 | ...fier(name) = ob...
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_name`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `emitter`
+   --> five-dsl-compiler/src/bytecode_generator/constraint_enforcer.rs:153:5
+    |
+153 |     emitter: &mut T,
+    |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_emitter`
+
+warning: unused variable: `account_idx`
+   --> five-dsl-compiler/src/bytecode_generator/constraint_enforcer.rs:154:5
+    |
+154 |     account_idx: u8,
+    |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_account_idx`
+
+warning: unused variable: `attribute`
+   --> five-dsl-compiler/src/bytecode_generator/constraint_enforcer.rs:155:5
+    |
+155 |     attribute: &At...
+    |     ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_attribute`
+
+warning: variable does not need to be mutable
+   --> five-dsl-compiler/src/compiler/mod.rs:480:13
+    |
+480 | ...et mut graph = ...
+    |       ----^^^^^
+    |       |
+    |       help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `e`
+   --> five-dsl-compiler/src/module_resolver.rs:231:27
+    |
+231 | ...err(|e| ModuleR...
+    |         ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: method `emit_call_with_deduplication` is never used
+   --> five-dsl-compiler/src/bytecode_generator/ast_generator/jumps.rs:174:19
+    |
+10  | impl ASTGenerator {
+    | ----------------- method in this implementation
+...
+174 |     pub(super) fn emit_call_with_deduplication<T:...
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: field `v2_preview` is never read
+  --> five-dsl-compiler/src/bytecode_generator/ast_generator/types.rs:98:16
+   |
+55 | ...ct ASTGenerator {
+   |       ------------ field in this struct
+...
+98 | ...super) v2_preview: b...
+   |           ^^^^^^^^^^
+
+warning: multiple associated functions are never used
+   --> five-dsl-compiler/src/parser/expression_builder.rs:15:19
+    |
+13  | impl crate::parser::DslParser {
+    | ----------------------------- associated functions in this implementation
+14  |     /// Create a binary expression from new types
+15  |     pub(crate) fn build_binary_expression(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^
+...
+28  |     pub(crate) fn build_unary_expression(opera...
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+36  |     pub(crate) fn build_field_access(object: A...
+    |                   ^^^^^^^^^^^^^^^^^^
+...
+44  |     pub(crate) fn build_array_access(array: As...
+    |                   ^^^^^^^^^^^^^^^^^^
+...
+52  |     pub(crate) fn build_tuple_access(object: A...
+    |                   ^^^^^^^^^^^^^^^^^^
+...
+60  |     pub(crate) fn build_function_call(name: St...
+    |                   ^^^^^^^^^^^^^^^^^^^
+...
+65  |     pub(crate) fn build_method_call(object: As...
+    |                   ^^^^^^^^^^^^^^^^^
+...
+74  |     pub(crate) fn build_string_literal(value: ...
+    |                   ^^^^^^^^^^^^^^^^^^^^
+...
+79  |     pub(crate) fn build_array_literal(elements...
+    |                   ^^^^^^^^^^^^^^^^^^^
+...
+84  |     pub(crate) fn build_tuple_literal(elements...
+    |                   ^^^^^^^^^^^^^^^^^^^
+...
+89  |     pub(crate) fn build_struct_literal(fields:...
+    |                   ^^^^^^^^^^^^^^^^^^^^
+...
+94  |     pub(crate) fn build_template_literal(parts...
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+99  |     pub(crate) fn build_enum_variant_access(en...
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+107 |     pub(crate) fn build_error_propagation(expr...
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^
+...
+114 |     pub(crate) fn build_identifier(name: Strin...
+    |                   ^^^^^^^^^^^^^^^^
+...
+119 |     pub(crate) fn build_literal(value: Value) ...
+    |                   ^^^^^^^^^^^^^
+
+warning: multiple associated functions are never used
+   --> five-dsl-compiler/src/type_checker/definition_builder.rs:14:19
+    |
+12  | impl super::types::TypeCheckerContext {
+    | ------------------------------------- associated functions in this implementation
+13  |     /// Create a field definition
+14  |     pub(crate) fn build_field_definition(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+33  |     pub(crate) fn build_instruction_definition(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+50  |     pub(crate) fn build_event_definition(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+63  |     pub(crate) fn build_error_type_definition(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+71  |     pub(crate) fn build_account_definition(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+84  |     pub(crate) fn build_interface_definition(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+98  |     pub(crate) fn build_interface_function(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+114 |     pub(crate) fn build_import_statement(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+125 |     pub(crate) fn build_arrow_function(
+    |                   ^^^^^^^^^^^^^^^^^^^^
+...
+140 |     pub(crate) fn build_test_function(
+    |                   ^^^^^^^^^^^^^^^^^^^
+...
+153 |     pub(crate) fn build_test_module(
+    |                   ^^^^^^^^^^^^^^^^^
+
+warning: multiple associated functions are never used
+   --> five-dsl-compiler/src/type_checker/statement_builder.rs:26:19
+    |
+11  | impl super::types::TypeCheckerContext {
+    | ------------------------------------- associated functions in this implementation
+...
+26  |     pub(crate) fn build_while_loop(condition: ...
+    |                   ^^^^^^^^^^^^^^^^
+...
+34  |     pub(crate) fn build_for_loop(
+    |                   ^^^^^^^^^^^^^^
+...
+49  |     pub(crate) fn build_return_statement(value...
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+56  |     pub(crate) fn build_let_statement(
+    |                   ^^^^^^^^^^^^^^^^^^^
+...
+71  |     pub(crate) fn build_assignment(target: Str...
+    |                   ^^^^^^^^^^^^^^^^
+...
+79  |     pub(crate) fn build_field_assignment(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+92  |     pub(crate) fn build_require_statement(cond...
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^
+...
+99  |     pub(crate) fn build_emit_statement(
+    |                   ^^^^^^^^^^^^^^^^^^^^
+...
+110 |     pub(crate) fn build_match_expression(expre...
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+118 |     pub(crate) fn build_tuple_destructuring(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+129 |     pub(crate) fn build_tuple_assignment(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+140 |     pub(crate) fn build_assert_statement(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+151 |     pub(crate) fn build_break_statement(label:...
+    |                   ^^^^^^^^^^^^^^^^^^^^^
+...
+156 |     pub(crate) fn build_continue_statement(lab...
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `check_definition_safe` is never used
+   --> five-dsl-compiler/src/type_checker/type_safe_checker.rs:214:19
+    |
+11  | impl TypeCheckerContext {
+    | ----------------------- method in this implementation
+...
+214 |     pub(crate) fn check_definition_safe(&m...
+    |                   ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `five-dsl-compiler` (lib) generated 32 warnings (run `cargo fix --lib -p five-dsl-compiler` to apply 10 suggestions)
+    Checking five-vm-wasm v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-wasm)
+error: expected expression, found `.`
+    --> five-wasm/src/lib.rs:2420:13
+     |
+2420 |             .map(|line| JsValue::from_str(line))
+     |             ^ expected expression
+
+error: expected an expression
+    --> five-wasm/src/lib.rs:2420:13
+     |
+2420 |             .map(|line| JsValue::from_str(line))
+     |             ^
+
+warning: unused import: `Deserialize`
+    --> five-wasm/src/lib.rs:2928:32
+     |
+2928 |         use serde::{Serialize, Deserialize};
+     |                                ^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` on by default
+
+warning: unused variable: `source`
+    --> five-wasm/src/lib.rs:2577:114
+     |
+2577 |     pub fn format_error_terminal(&self, message: String, code: String, severity: String, line: u32, column: u32, source: &str) -> String {
+     |                                                                                                                  ^^^^^^ help: if this is intentional, prefix it with an underscore: `_source`
+     |
+     = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `compilation_time`
+    --> five-wasm/src/lib.rs:2735:13
+     |
+2735 |         let compilation_time = (js_sys::Date::now() - start_time) as f64;
+     |             ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_compilation_time`
+
+warning: variable does not need to be mutable
+    --> five-wasm/src/lib.rs:2671:13
+     |
+2671 |         let mut metrics_format = if options.metrics_format.is_empty() {
+     |             ----^^^^^^^^^^^^^^
+     |             |
+     |             help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `compilation_start`
+    --> five-wasm/src/lib.rs:3204:21
+     |
+3204 |                 let compilation_start = js_sys::Date::now();
+     |                     ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_compilation_start`
+
+warning: `five-vm-wasm` (lib) generated 5 warnings
+error: could not compile `five-vm-wasm` (lib) due to 2 previous errors; 5 warnings emitted

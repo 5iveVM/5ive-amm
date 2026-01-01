@@ -1,0 +1,20 @@
+{
+  "program_name": "StateAccess",
+  "functions": [
+    {
+      "name": "test",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "state",
+          "param_type": "StateAccount",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64"
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}
