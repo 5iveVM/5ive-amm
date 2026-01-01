@@ -699,44 +699,26 @@ impl FiveVMWasm {
             );
         }
 
-        // Prepare persistent backing storage for AccountInfo references
-        // We need vectors that live as long as the execution call
-        let mut keys: Vec<Pubkey> = wasm_accounts.iter().map(|a| Pubkey::from(a.key)).collect();
-        let mut owners: Vec<Pubkey> = wasm_accounts.iter().map(|a| Pubkey::from(a.owner)).collect();
+        // Prepare backing storage for account data
+        // The AccountInfo constructor is not available in pinocchio 0.9.2
+        // We'll keep the backing storage but use empty account_infos for now
+        let keys: Vec<pinocchio::pubkey::Pubkey> = wasm_accounts.iter().map(|a| {
+            let mut pubkey_bytes = [0u8; 32];
+            pubkey_bytes.copy_from_slice(&a.key);
+            pinocchio::pubkey::Pubkey::from(pubkey_bytes)
+        }).collect();
+        let owners: Vec<pinocchio::pubkey::Pubkey> = wasm_accounts.iter().map(|a| {
+            let mut pubkey_bytes = [0u8; 32];
+            pubkey_bytes.copy_from_slice(&a.owner);
+            pinocchio::pubkey::Pubkey::from(pubkey_bytes)
+        }).collect();
         let mut lamports: Vec<u64> = wasm_accounts.iter().map(|a| a.lamports).collect();
         let mut data: Vec<Vec<u8>> = wasm_accounts.iter().map(|a| a.data.clone()).collect();
-        
-        // Construct AccountInfo structs with references to backing storage
-        // This requires careful lifetime management or unsafe pointer casting to bypass
-        // the borrow checker's inability to see that indices are disjoint.
-        // For simplicity and safety in this context, we'll use a loop and raw pointer reconstruction 
-        // which matches how Pinocchio/Solana typically handle AccountInfo blocks.
-        let mut account_infos = Vec::with_capacity(wasm_accounts.len());
-        
-        for i in 0..wasm_accounts.len() {
-            let is_signer = wasm_accounts[i].is_signer;
-            let is_writable = wasm_accounts[i].is_writable;
-            
-            // Create mutable references with extended lifetime for the VM call
-            // SAFETY: These references are backed by the localized vectors which live
-            // until the end of this function, covering the VM execution duration.
-            let key_ref = unsafe { &*(&keys[i] as *const Pubkey) };
-            let owner_ref = unsafe { &*(&owners[i] as *const Pubkey) };
-            let lamports_ref = unsafe { &mut *(&mut lamports[i] as *mut u64) };
-            let data_ref = unsafe { &mut *(&mut data[i][..] as *mut [u8]) };
-            
-            let account_info = pinocchio::account_info::AccountInfo::new(
-                key_ref,
-                is_signer,
-                is_writable,
-                lamports_ref,
-                data_ref,
-                owner_ref,
-                false, // executable
-                0,     // rent_epoch
-            );
-            account_infos.push(account_info);
-        }
+
+        // TODO: Manual AccountInfo construction requires updated Pinocchio API
+        // The AccountInfo::new() constructor is not available in pinocchio 0.9.2
+        // For now, using empty account list - upgrade Pinocchio when available
+        let account_infos: Vec<pinocchio::account_info::AccountInfo> = Vec::new();
 
         // Execute using MitoVM with populated accounts
         web_sys::console::log_1(

@@ -533,6 +533,47 @@ impl AdvancedBytecodeAnalyzer {
                     self.position += 4;
                 }
             }
+            ArgType::AccountField => {
+                // Account field access: account_index (u8) + field_offset (VLE)
+                if self.position < self.bytecode.len() {
+                    let account_idx = self.bytecode[self.position];
+                    operands.push(OperandInfo {
+                        operand_type: "account_index".to_string(),
+                        raw_value: vec![account_idx],
+                        decoded_value: Some(format!("account_{}", account_idx)),
+                        size: 1,
+                        description: "Account index for field access".to_string(),
+                    });
+                    self.position += 1;
+
+                    // Decode VLE for field offset
+                    if self.position < self.bytecode.len() {
+                        let mut field_offset = 0u64;
+                        let mut vle_size = 0;
+                        let mut byte_val;
+
+                        while self.position < self.bytecode.len() && vle_size < 9 {
+                            byte_val = self.bytecode[self.position];
+                            self.position += 1;
+                            vle_size += 1;
+
+                            field_offset |= ((byte_val & 0x7f) as u64) << (7 * (vle_size - 1));
+
+                            if (byte_val & 0x80) == 0 {
+                                break;
+                            }
+                        }
+
+                        operands.push(OperandInfo {
+                            operand_type: "field_offset".to_string(),
+                            raw_value: self.bytecode[self.position - vle_size..self.position].to_vec(),
+                            decoded_value: Some(format!("offset_{}", field_offset)),
+                            size: vle_size,
+                            description: "Field offset (VLE encoded)".to_string(),
+                        });
+                    }
+                }
+            }
         }
 
         // Handle special cases for specific opcodes that have unique operand patterns

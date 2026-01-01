@@ -1236,8 +1236,9 @@ impl<'a> ExecutionContext<'a> {
             }
             let account = &self.accounts[idx];
 
-            // Pinocchio's refresh_after_cpi() ensures we're working with current account metadata
-            account.refresh_after_cpi();
+            // TODO: Pinocchio's refresh_after_cpi() ensures we're working with current account metadata
+            // This method is not available in pinocchio 0.9.2 but may be added in future versions
+            // account.refresh_after_cpi();
 
             // Log for debugging
             let data_len = account.data_len();
