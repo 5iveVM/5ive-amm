@@ -468,13 +468,13 @@ pub fn parse_vle_parameters_unified(
             debug_log!("MitoVM: VLE param parse - decoding pure VLE value at offset");
 
             if let Some((param_value, consumed)) =
-                five_protocol::VLE::decode_u32(&input_data[offset..])
+        five_protocol::VLE::decode_u64(&input_data[offset..])
             {
                 debug_log!("MitoVM: VLE param parse - parameter decoded VLE value successfully");
                 offset += consumed;
 
-                // Store as U64 for maximum compatibility (VLE values are inherently u32, stored as u64)
-                let value_ref = ValueRef::U64(param_value as u64);
+        // Store as U64 for maximum compatibility
+        let value_ref = ValueRef::U64(param_value);
                 params[i + 1] = value_ref; // Store after function index: [0]=func_idx, [1]=param1, [2]=param2
 
                 debug_log!("MitoVM: VLE param parse - parameter stored successfully as U64");
