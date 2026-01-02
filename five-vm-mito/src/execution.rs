@@ -764,11 +764,24 @@ impl MitoVM {
         script: &[u8],
         input_data: &[u8],
         accounts: &[AccountInfo],
-    ) -> Result<(Option<Value>, VMExecutionContext)> {
+    ) -> std::result::Result<(Option<Value>, VMExecutionContext), (VMError, VMExecutionContext)> {
         // Phase 1: Initialize execution context with script validation and function dispatch
         let mut storage = crate::stack::StackStorage::new(script);
+        // Map initialization error to (VMError, EmptyContext) since we can't create a meaningful context yet
         let (mut ctx, _dispatch_ip) =
-            Self::initialize_execution_context(script, input_data, accounts, &mut storage)?;
+            Self::initialize_execution_context(script, input_data, accounts, &mut storage).map_err(
+                |e| {
+                    (
+                        VMError::from(e),
+                        VMExecutionContext {
+                            instruction_pointer: 0,
+                            halted: false,
+                            error: Some(VMError::from(e)),
+                            memory: [0u8; crate::TEMP_BUFFER_SIZE],
+                        },
+                    )
+                },
+            )?;
 
         #[cfg(feature = "debug-logs")]
         debug_log!(
@@ -813,10 +826,9 @@ impl MitoVM {
                     "STACK_DEBUG: Right before finalize_execution_result - stack size: {}",
                     ctx.size() as u32
                 );
-                
+
                 // Do NOT reset temp buffer here, as we want to return it in the context
-                Self::finalize_execution_result(&mut ctx)
-                    .map_err(VMError::from)
+                Self::finalize_execution_result(&mut ctx).map_err(VMError::from)
             }
             Err(e) => Err(VMError::from(e)),
         };
@@ -849,7 +861,20 @@ impl MitoVM {
                         ctx.call_depth() as u32
                     );
                 }
-                Err(e)
+
+                // Capture execution context even on error
+                let final_ip = ctx.ip();
+                let final_halted = ctx.halted();
+                let mut memory = [0u8; crate::TEMP_BUFFER_SIZE];
+                memory.copy_from_slice(ctx.temp_buffer());
+                let error_context = VMExecutionContext {
+                    instruction_pointer: final_ip,
+                    halted: final_halted,
+                    error: Some(e.clone()),
+                    memory,
+                };
+
+                Err((e, error_context))
             }
         }
     }
