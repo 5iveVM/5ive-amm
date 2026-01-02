@@ -93,6 +93,7 @@ impl MitoVM {
         script: &'a [u8],
         input_data: &'a [u8],
         accounts: &'a [AccountInfo],
+        program_id: &Pubkey,
         storage: &'a mut crate::stack::StackStorage<'a>,
     ) -> CompactResult<(ExecutionManager<'a>, usize)> {
         #[cfg(feature = "debug-logs")]
@@ -136,8 +137,6 @@ impl MitoVM {
         // Create execution manager with optimized approach
         debug_log!("MitoVM: Creating ExecutionManager...");
 
-        let program_id = Pubkey::from(crate::FIVE_VM_PROGRAM_ID);
-
         // 🚀 OPTIMIZED: Direct ExecutionManager creation - no expensive resource parsing
         debug_log!("MitoVM: ⚡ Using compile-time defaults for optimal performance");
         debug_log!(
@@ -148,7 +147,7 @@ impl MitoVM {
         let mut ctx = ExecutionManager::new(
             script,
             accounts,
-            program_id,
+            *program_id,
             input_data,
             start_ip as u16,
             storage,
@@ -692,6 +691,7 @@ impl MitoVM {
     /// ```rust,no_run
     /// use five_vm_mito::MitoVM;
     /// use pinocchio::account_info::AccountInfo;
+    /// use pinocchio::pubkey::Pubkey;
     ///
     /// // Simple bytecode that pushes 42 and returns it
     /// // FIVE header (10 bytes): magic(4) + features(4) + public_count(1) + total_count(1)
@@ -705,8 +705,9 @@ impl MitoVM {
     /// ];
     /// let input_data = &[];
     /// let accounts = &[];
+    /// let program_id = Pubkey::default();
     ///
-    /// let result = MitoVM::execute_direct(bytecode, input_data, accounts)?;
+    /// let result = MitoVM::execute_direct(bytecode, input_data, accounts, &program_id)?;
     /// assert_eq!(result, Some(five_protocol::Value::U8(42)));
     /// # Ok::<(), five_vm_mito::VMError>(())
     /// ```
@@ -715,13 +716,14 @@ impl MitoVM {
         script: &[u8],
         input_data: &[u8],
         accounts: &[AccountInfo],
+        program_id: &Pubkey,
     ) -> Result<Option<Value>> {
         error_log!("MitoVM: execute_direct ENTRY - script={} input={} accounts={}",
             script.len() as u32, input_data.len() as u32, accounts.len() as u32);
 
         let mut storage = crate::stack::StackStorage::new(script);
         let (mut ctx, _dispatch_ip) =
-            Self::initialize_execution_context(script, input_data, accounts, &mut storage)?;
+            Self::initialize_execution_context(script, input_data, accounts, program_id, &mut storage)?;
         let execution_result = Self::execute_instruction_loop(&mut ctx);
         match execution_result {
             Ok(()) => {
@@ -741,6 +743,7 @@ impl MitoVM {
     /// # Example
     /// ```rust,no_run
     /// use five_vm_mito::MitoVM;
+    /// use pinocchio::pubkey::Pubkey;
     ///
     /// // FIVE header (10 bytes): magic(4) + features(4) + public_count(1) + total_count(1)
     /// let bytecode = &[
@@ -752,7 +755,8 @@ impl MitoVM {
     /// ];
     /// #[cfg(not(target_os = "solana"))]
     /// {
-    ///     let (result, context) = MitoVM::execute_with_context(bytecode, &[], &[]).unwrap();
+    ///     let program_id = Pubkey::default();
+    ///     let (result, context) = MitoVM::execute_with_context(bytecode, &[], &[], &program_id).unwrap();
     ///     assert!(!context.halted);
     ///     assert_eq!(context.error, None);
     /// }
@@ -764,12 +768,13 @@ impl MitoVM {
         script: &[u8],
         input_data: &[u8],
         accounts: &[AccountInfo],
+        program_id: &Pubkey,
     ) -> std::result::Result<(Option<Value>, VMExecutionContext), (VMError, VMExecutionContext)> {
         // Phase 1: Initialize execution context with script validation and function dispatch
         let mut storage = crate::stack::StackStorage::new(script);
         // Map initialization error to (VMError, EmptyContext) since we can't create a meaningful context yet
         let (mut ctx, _dispatch_ip) =
-            Self::initialize_execution_context(script, input_data, accounts, &mut storage).map_err(
+            Self::initialize_execution_context(script, input_data, accounts, program_id, &mut storage).map_err(
                 |e| {
                     (
                         VMError::from(e),

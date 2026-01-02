@@ -888,8 +888,11 @@ impl ASTGenerator {
                         // Handle custom account fields using AccountSystem
                         let account_type = &field_info.field_type;
 
-                        // Check if the field is optional
-                        let is_optional = if let Some(account_system) = &self.account_system {
+                        // Check if the field is optional and if it is a pubkey
+                        let mut is_optional = false;
+                        let mut is_pubkey = false;
+
+                        if let Some(account_system) = &self.account_system {
                             let namespace_suffix = format!("::{}", account_type);
                             let account_type_info = account_system
                                 .get_account_registry()
@@ -904,23 +907,23 @@ impl ASTGenerator {
                             if let Some(account_type_info) = account_type_info {
                                 if let Some(struct_field_info) = account_type_info.fields.get(field)
                                 {
-                                    struct_field_info.is_optional
-                                } else {
-                                    false
+                                    is_optional = struct_field_info.is_optional;
+                                    is_pubkey = struct_field_info.field_type == "pubkey";
                                 }
-                            } else {
-                                false
                             }
-                        } else {
-                            false
-                        };
+                        }
 
                         // Calculate field offset within account using the account type
                         let field_offset =
                             self.calculate_account_field_offset(account_type, field)?;
 
                         // Generate zero-copy account field load operation using MitoVM VLE
-                        emitter.emit_opcode(LOAD_FIELD); // Zero-copy field read
+                        if is_pubkey {
+                            emitter.emit_opcode(LOAD_FIELD_PUBKEY); // Zero-copy pubkey read (32 bytes)
+                        } else {
+                            emitter.emit_opcode(LOAD_FIELD); // Zero-copy u64 read (8 bytes)
+                        }
+                        
                         emitter.emit_u8(
                             super::account_utils::account_index_from_param_offset(
                                 field_info.offset,

@@ -12,7 +12,7 @@ mod vle_tests;
 use five_protocol::{
     encoding::VLE, opcodes, types, Value, FIVE_DEPLOY_MAGIC, FIVE_MAGIC, MAX_SCRIPT_SIZE,
 };
-use five_vm_mito::{error::VMError, Pubkey};
+use five_vm_mito::{error::VMError, Pubkey, FIVE_VM_PROGRAM_ID};
 use serde::{Deserialize, Serialize};
 
 // Define missing constants
@@ -758,10 +758,12 @@ impl FiveVMWasm {
 
         // Execute using MitoVM
         // Execute using MitoVM
+        let program_id = pinocchio::pubkey::Pubkey::from(FIVE_VM_PROGRAM_ID);
         let result = five_vm_mito::MitoVM::execute_with_context(
             &self.bytecode,
             &decoded_input,
             &account_infos,
+            &program_id,
         );
 
         // Reconstruct updated WasmAccounts from the modified AccountInfos

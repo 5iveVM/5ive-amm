@@ -82,14 +82,6 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             let field_offset = ctx.fetch_vle_u32()?;
             let value = ctx.pop()?;
 
-            // Use error_log to ensure visibility (always compiled)
-            error_log!(
-                "STORE_FIELD: acct={} offset={} num_accounts={}",
-                account_index,
-                field_offset,
-                ctx.accounts().len() as u32
-            );
-
             debug_log!(
                 "MitoVM: STORE_FIELD account_index={}, offset={}, num_accounts={}",
                 account_index,
@@ -99,11 +91,6 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
 
             // Validate account index
             if (account_index as usize) >= ctx.accounts().len() {
-                debug_log!(
-                    "MitoVM: STORE_FIELD ERROR - account_index {} >= num_accounts {}",
-                    account_index,
-                    ctx.accounts().len() as u32
-                );
                 return Err(VMErrorCode::InvalidAccountIndex);
             }
 
@@ -111,103 +98,80 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             ctx.check_bytecode_authorization(account_index)?;
 
             let account = ctx.get_account(account_index)?;
+            
+            // Debug log owner and program_id
+            let owner_bytes = account.owner().as_ref();
+            let prog_bytes = ctx.program_id.as_ref();
+            debug_log!("MitoVM: STORE_FIELD account {} owner: {} {} {} {}", account_index, owner_bytes[0], owner_bytes[1], owner_bytes[2], owner_bytes[3]);
+            debug_log!("MitoVM: STORE_FIELD program_id: {} {} {} {}", prog_bytes[0], prog_bytes[1], prog_bytes[2], prog_bytes[3]);
+            debug_log!("MitoVM: STORE_FIELD account data_len: {}", account.data_len());
 
-            // CRITICAL: Check if account is writable BEFORE attempting to write
-            // pinocchio's borrow_mut_data_unchecked() does NOT check is_writable!
+            // CRITICAL: Check if account is writable
             if !account.is_writable() {
-                error_log!(
-                    "STORE_FIELD REJECTED: Account {} is READ-ONLY but bytecode tried to write to it",
-                    account_index
-                );
-                return Err(VMErrorCode::InvalidOperation);
+                return Err(VMErrorCode::AccountNotWritable);
             }
 
-            // CRITICAL DEBUG: Log pointer to verify we are writing to the correct location
-            let data_ptr = unsafe { account.borrow_data_unchecked().as_ptr() as usize };
-            error_log!(
-                "STORE_FIELD_PTR: idx={} ptr={} offset={}",
-                account_index,
-                data_ptr,
-                field_offset
-            );
+            // Prepare value bytes buffer
+            let mut value_buffer = [0u8; 32];
+            let write_len;
 
-            // Log account key (first 4 bytes for brevity)
-            let _key_bytes = account.key();
-            debug_log!(
-                "MitoVM: STORE_FIELD target account key: {} {} {} {}",
-                _key_bytes[0],
-                _key_bytes[1],
-                _key_bytes[2],
-                _key_bytes[3]
-            );
+            match value {
+                ValueRef::U64(v) => {
+                    value_buffer[0..8].copy_from_slice(&v.to_le_bytes());
+                    write_len = 8;
+                },
+                ValueRef::U8(v) => {
+                    value_buffer[0] = v;
+                    write_len = 1;
+                },
+                ValueRef::Bool(v) => {
+                    value_buffer[0] = if v { 1 } else { 0 };
+                    write_len = 1;
+                },
+                ValueRef::TempRef(offset, len) => {
+                    let len_usize = len as usize;
+                    if len_usize > 32 {
+                        return Err(VMErrorCode::MemoryViolation);
+                    }
+                    let temp_data = ctx.get_temp_data(offset, len)?;
+                    value_buffer[0..len_usize].copy_from_slice(temp_data);
+                    write_len = len_usize;
+                },
+                _ => {
+                    debug_log!("MitoVM: STORE_FIELD TypeMismatch");
+                    return Err(VMErrorCode::TypeMismatch);
+                }
+            }
 
-            // SAFETY: Account is verified by index and writable, granting exclusive mutable access
-
+            // SAFETY: Account is verified by index and writable
             let data = unsafe { account.borrow_mut_data_unchecked() };
 
-            debug_log!(
-                "MitoVM: STORE_FIELD data_len={}, is_writable={}",
-                data.len() as u32,
-                if account.is_writable() { 1u8 } else { 0u8 }
-            );
-
-            if (field_offset as usize + 8) > data.len() {
+            if (field_offset as usize + write_len) > data.len() {
                 debug_log!(
-                    "MitoVM: STORE_FIELD ERROR - offset {} + 8 > data_len {}",
+                    "MitoVM: STORE_FIELD ERROR - offset {} + len {} > data_len {}",
                     field_offset,
+                    write_len,
                     data.len() as u32
                 );
                 return Err(VMErrorCode::InvalidAccountData);
             }
 
-            let value_u64 = value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-
-            // Log data before write (first 8 bytes at target offset)
             let offset = field_offset as usize;
+            
             debug_log!(
-                "MitoVM: STORE_FIELD BEFORE data[{}..{}]: {} {} {} {} {} {} {} {}",
-                offset as u32,
-                (offset + 8) as u32,
-                data[offset],
-                data[offset + 1],
-                data[offset + 2],
-                data[offset + 3],
-                data[offset + 4],
-                data[offset + 5],
-                data[offset + 6],
-                data[offset + 7]
-            );
-
-            debug_log!(
-                "MitoVM: STORE_FIELD writing value={} to offset={}",
-                value_u64,
+                "MitoVM: STORE_FIELD writing {} bytes to offset={}",
+                write_len,
                 field_offset
             );
 
-            data[offset..offset + 8].copy_from_slice(&value_u64.to_le_bytes());
+            data[offset..offset + write_len].copy_from_slice(&value_buffer[0..write_len]);
 
-            // Log data after write
-            debug_log!(
-                "MitoVM: STORE_FIELD AFTER data[{}..{}]: {} {} {} {} {} {} {} {}",
-                offset as u32,
-                (offset + 8) as u32,
-                data[offset],
-                data[offset + 1],
-                data[offset + 2],
-                data[offset + 3],
-                data[offset + 4],
-                data[offset + 5],
-                data[offset + 6],
-                data[offset + 7]
-            );
-
-            // CRITICAL: Log to error_log to ensure persistence verification is visible
+            // Log to error_log for persistence verification
             error_log!(
-                "STORE_FIELD_WRITTEN: idx={} offset={} value={} ptr={}",
+                "STORE_FIELD_WRITTEN: idx={} offset={} len={}",
                 account_index,
                 field_offset,
-                value_u64,
-                data_ptr
+                write_len
             );
         }
         LOAD_FIELD => {
@@ -240,6 +204,44 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                     .map_err(|_| VMErrorCode::InvalidAccountData)?,
             );
             ctx.push(ValueRef::U64(value))?;
+        }
+        LOAD_FIELD_PUBKEY => {
+            // Protocol V3: LOAD_FIELD_PUBKEY account_index_u8, offset_vle -> PubkeyRef
+            let account_index = ctx.fetch_byte()?;
+            let field_offset = ctx.fetch_vle_u32()?;
+
+            debug_log!(
+                "MitoVM: LOAD_FIELD_PUBKEY account_index={}, offset={}",
+                account_index,
+                field_offset
+            );
+
+            // Validate account index
+            if (account_index as usize) >= ctx.accounts().len() {
+                return Err(VMErrorCode::InvalidAccountIndex);
+            }
+
+            let mut pubkey_bytes = [0u8; 32];
+            {
+                let account = &ctx.accounts()[account_index as usize];
+                // SAFETY: Read-only access, no mutable references active
+                let data = unsafe { account.borrow_data_unchecked() };
+
+                if (field_offset as usize + 32) > data.len() {
+                    debug_log!("MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset {} + 32 > len {}", field_offset, data.len());
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
+                
+                pubkey_bytes.copy_from_slice(&data[field_offset as usize..field_offset as usize + 32]);
+            }
+
+            // Read 32 bytes and copy to temp buffer
+            let temp_offset = ctx.alloc_temp(32)?;
+            let temp_buf = ctx.get_temp_data_mut(temp_offset, 32)?;
+            
+            temp_buf.copy_from_slice(&pubkey_bytes);
+            
+            ctx.push(ValueRef::TempRef(temp_offset, 32))?;
         }
         LOAD_INPUT => {
             // LOAD_INPUT: Read raw input data directly (not function parameters)

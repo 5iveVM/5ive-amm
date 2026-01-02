@@ -192,6 +192,7 @@ pub const LOAD_GLOBAL: u8 = 0x46;
 // External field operations (MITO-style zero-copy)
 pub const LOAD_EXTERNAL_FIELD: u8 = 0x47; // LOAD_EXTERNAL_FIELD (stack: account_pubkey, field_name) -> value
                                           // Note: No STORE_EXTERNAL_FIELD - external state is read-only for security
+pub const LOAD_FIELD_PUBKEY: u8 = 0x48; // LOAD_FIELD_PUBKEY account_index_u8, offset_vle -> PubkeyRef
 
 // ===== ACCOUNT OPERATIONS (0x50-0x5F) =====
 pub const CREATE_ACCOUNT: u8 = 0x50;
@@ -966,6 +967,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: -1,
         compute_cost: 5,
     }, // stack: [pubkey, field_name_key]
+    OpcodeInfo {
+        opcode: LOAD_FIELD_PUBKEY,
+        name: "LOAD_FIELD_PUBKEY",
+        arg_type: ArgType::AccountField,
+        stack_effect: 1,
+        compute_cost: 3,
+    },
     // Byte manipulation operations
     OpcodeInfo {
         opcode: BYTE_SWAP_16,

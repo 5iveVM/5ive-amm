@@ -154,6 +154,20 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 (ValueRef::U64(a_val), ValueRef::U128(b_val)) => (a_val as u128) == b_val,
                 (ValueRef::U128(a_val), ValueRef::U64(b_val)) => a_val == (b_val as u128),
                 (ValueRef::U128(a_val), ValueRef::U128(b_val)) => a_val == b_val,
+                
+                // Handle Pubkey comparison (TempRef or PubkeyRef) by value
+                (ValueRef::TempRef(_, _), ValueRef::TempRef(_, _)) |
+                (ValueRef::TempRef(_, _), ValueRef::PubkeyRef(_)) |
+                (ValueRef::PubkeyRef(_), ValueRef::TempRef(_, _)) |
+                (ValueRef::PubkeyRef(_), ValueRef::PubkeyRef(_)) => {
+                     // Try to extract as pubkeys. If extraction fails (e.g. size != 32), fall back to exact match
+                     if let (Ok(pk_a), Ok(pk_b)) = (ctx.extract_pubkey(&a), ctx.extract_pubkey(&b)) {
+                         pk_a == pk_b
+                     } else {
+                         a == b
+                     }
+                },
+
                 (left, right) => left == right,
             };
             vm_push_bool!(ctx, result);
@@ -174,6 +188,20 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 (ValueRef::U64(a_val), ValueRef::U128(b_val)) => (a_val as u128) != b_val,
                 (ValueRef::U128(a_val), ValueRef::U64(b_val)) => a_val != (b_val as u128),
                 (ValueRef::U128(a_val), ValueRef::U128(b_val)) => a_val != b_val,
+                
+                // Handle Pubkey comparison (TempRef or PubkeyRef) by value
+                (ValueRef::TempRef(_, _), ValueRef::TempRef(_, _)) |
+                (ValueRef::TempRef(_, _), ValueRef::PubkeyRef(_)) |
+                (ValueRef::PubkeyRef(_), ValueRef::TempRef(_, _)) |
+                (ValueRef::PubkeyRef(_), ValueRef::PubkeyRef(_)) => {
+                     // Try to extract as pubkeys
+                     if let (Ok(pk_a), Ok(pk_b)) = (ctx.extract_pubkey(&a), ctx.extract_pubkey(&b)) {
+                         pk_a != pk_b
+                     } else {
+                         a != b
+                     }
+                },
+
                 (left, right) => left != right,
             };
             vm_push_bool!(ctx, result);

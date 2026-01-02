@@ -42,3 +42,5 @@ temp/
 # Directories to ignore
 five-surfpool/
 runbooks/
+/five-dex-frontend/.next
+/five-dex-frontend/out

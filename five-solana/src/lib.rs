@@ -83,6 +83,23 @@ pub fn process_instruction(
     // Log instruction details for debugging
     log_if_debug!(debug, "Program ID: {}", program_id);
     log_if_debug!(debug, "Accounts provided: {}", accounts.len());
+
+    // Detailed account logging
+    #[cfg(feature = "debug-logs")]
+    for (i, account) in accounts.iter().enumerate() {
+        let key_bytes = account.key().as_ref();
+        let owner_bytes = account.owner().as_ref();
+        pinocchio_log::log!(
+            "  Account {}: Key={} {} Owner={} {} DataLen={} Writable={} Signer={}",
+            i,
+            key_bytes[0], key_bytes[1],
+            owner_bytes[0], owner_bytes[1],
+            account.data_len(),
+            if account.is_writable() { 1 } else { 0 },
+            if account.is_signer() { 1 } else { 0 }
+        );
+    }
+
     log_if_debug!(debug, "Instruction data length: {}", instruction_data.len());
     log_if_debug!(debug, "Instruction discriminator: {}", instruction_data[0]);
 

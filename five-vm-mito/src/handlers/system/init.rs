@@ -118,39 +118,21 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Extract owner pubkey from ValueRef
     let owner = extract_owner_pubkey(owner_ref, ctx)?;
 
-    // Create account via System Program CPI (runtime integration required)
-    // WORKAROUND: Create with 0 space first, then realloc to target space.
-    // This pattern helps ensuring ownership transfer is recognized before resizing.
-    match ctx.create_account(account_idx, 0, lamports, &owner) {
+    // Create account via System Program CPI with the actual target size
+    // NOTE: The previous "Create 0-size + Resize" pattern was removed because
+    // Solana's runtime doesn't allow modifying account data/metadata after
+    // ownership transfer within the same instruction. This caused
+    // "ExternalAccountDataModified" errors.
+    match ctx.create_account(account_idx, space, lamports, &owner) {
         Ok(()) => {
-            if space > 0 {
-                let new_len = space as usize;
-                let account = ctx.get_account_unchecked(account_idx)?;
-                
-                unsafe {
-                    match account.resize(new_len) {
-                        Ok(()) => {
-                             // Force touch data to ensure persistence
-                             if new_len > 0 {
-                                 let mut data = account.borrow_mut_data_unchecked();
-                                 data[0] = 0; 
-                             }
-                             error_log!("INIT_ACCOUNT: Resize to {} bytes success", new_len);
-                        },
-                        Err(_) => {
-                             error_log!("INIT_ACCOUNT: Resize failed");
-                             return Err(VMErrorCode::InvokeError);
-                        }
-                    }
-                }
-            }
-            error_log!("INIT_ACCOUNT: SUCCESS - created/updated account {}", account_idx);
+            error_log!("INIT_ACCOUNT: SUCCESS - created account {} with {} bytes", account_idx, space);
         }
         Err(e) => {
             error_log!("INIT_ACCOUNT: FAILED - account {}", account_idx);
             return Err(e);
         }
     }
+
 
     // Log account info after creation
     let _account_after = ctx.get_account(account_idx)?;

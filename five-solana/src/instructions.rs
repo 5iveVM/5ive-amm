@@ -943,7 +943,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     // Run pre-execution hook if permission is set
     if has_permission(header.permissions, PERMISSION_PRE_BYTECODE) {
         log_if_debug!(debug, "Running PRE-BYTECODE hook");
-        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts) {
+        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
         log_if_debug!(
             error,
             "MitoVM PRE hook failed code={}",
@@ -955,7 +955,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     // Execute main bytecode
     log_if_debug!(debug, "Executing MAIN bytecode");
-    if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts) {
+    if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
         log_if_debug!(
             error,
             "MitoVM MAIN execution failed code={}",
@@ -967,7 +967,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     // Run post-execution hook if permission is set
     if has_permission(header.permissions, PERMISSION_POST_BYTECODE) {
         log_if_debug!(debug, "Running POST-BYTECODE hook");
-        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts) {
+        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
             log_if_debug!(
                 error,
                 "MitoVM POST hook failed code={}",
