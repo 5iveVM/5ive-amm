@@ -12,9 +12,10 @@ use crate::{
     error::{CompactResult, Result, VMErrorCode, VMError},
     handlers::{
         handle_accounts, handle_arithmetic, handle_arrays, handle_constraints, handle_control_flow,
-        handle_functions, handle_init_ops, handle_invoke_ops, handle_locals, handle_logical,
-        handle_memory, handle_native_ops, handle_nibble_locals, handle_option_result_ops,
-        handle_pda_ops, handle_registers, handle_stack_ops, handle_sysvar_ops,
+        handle_functions, handle_fusion_ops, handle_init_ops, handle_invoke_ops, handle_locals,
+        handle_logical, handle_memory, handle_native_ops, handle_nibble_locals,
+        handle_option_result_ops, handle_pda_ops, handle_registers, handle_stack_ops,
+        handle_sysvar_ops,
     },
     stack_error_context, // Import enhanced debugging macros
     FIVE_MAGIC,
@@ -398,6 +399,10 @@ impl MitoVM {
             }
             0xD0..=0xDF => {
                 handle_nibble_locals(opcode, ctx)
+            }
+            0xE0..=0xEF => {
+                // Pattern Fusion operations (0xE0-0xEF)
+                handle_fusion_ops(opcode, ctx)
             }
             0xF0..=0xFF => {
                 // Option and Result operations
