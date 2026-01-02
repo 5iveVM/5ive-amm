@@ -38,3 +38,7 @@ debug/
 *.tmp
 .tmp/
 temp/
+
+# Directories to ignore
+five-surfpool/
+runbooks/
