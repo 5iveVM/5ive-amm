@@ -3667,7 +3667,7 @@ export class FiveSDK {
 
     // Generate VM state keypair
     const vmStateKeypair = Keypair.generate();
-    const VM_STATE_SIZE = 48; // FIVEVMState::LEN
+    const VM_STATE_SIZE = 56; // FIVEVMState::LEN
     const vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
 
     if (options.debug) {
@@ -3814,7 +3814,7 @@ export class FiveSDK {
       let vmStatePubkey: any;
       let vmStateKeypair: any;
       let vmStateRent = 0;
-      const VM_STATE_SIZE = 48; // FIVEVMState::LEN
+      const VM_STATE_SIZE = 56; // FIVEVMState::LEN
 
       if (options.vmStateAccount) {
         vmStatePubkey = new PublicKey(options.vmStateAccount);
@@ -4096,7 +4096,7 @@ export class FiveSDK {
       let vmStatePubkey: any;
       let vmStateKeypair: any;
       let vmStateRent = 0;
-      const VM_STATE_SIZE = 48; // FIVEVMState::LEN
+      const VM_STATE_SIZE = 56; // FIVEVMState::LEN
 
       if (options.vmStateAccount) {
         vmStatePubkey = new PublicKey(options.vmStateAccount);
