@@ -107,8 +107,8 @@ fn test_execution_context_temp_buffer_methods() {
     assert_eq!(slot3, slot2 + 17);
 
     // Test temp buffer access
-    let temp_buffer = ctx.temp_buffer_64_mut().expect("Should get temp buffer");
-    assert_eq!(temp_buffer.len(), 64);
+    let temp_buffer = ctx.temp_buffer_fixed_mut().expect("Should get temp buffer");
+    assert_eq!(temp_buffer.len(), 256);
 
     // Test we can write to it
     temp_buffer[slot1 as usize] = 0x42;
@@ -141,10 +141,10 @@ fn test_temp_buffer_exhaustion() {
         0,
     );
 
-    // Try to allocate too many slots (64 bytes / 12 bytes = 5 slots max)
+    // Try to allocate too many slots (256 bytes / 17 bytes = 15 slots max)
     let mut slots = Vec::new();
 
-    for i in 0..10 {
+    for i in 0..20 {
         match ctx.allocate_temp_slot() {
             Ok(slot) => {
                 slots.push(slot);
@@ -159,7 +159,8 @@ fn test_temp_buffer_exhaustion() {
 
     // Should have allocated some slots but eventually failed
     assert!(!slots.is_empty());
-    assert!(slots.len() < 10); // Should fail before 10 slots
+    assert!(slots.len() < 20); // Should fail before 20 slots
+    assert!(slots.len() >= 15); // Should allocate at least 15 slots
 
     println!(
         "Successfully allocated {} slots before exhaustion",
@@ -186,12 +187,12 @@ fn test_temp_buffer_reset_allows_reuse() {
         0,
     );
 
-    // Fill the temp buffer to capacity using slots (3 * 17 = 51 bytes, leaving 13 bytes)
-    for _ in 0..3 {
+    // Fill the temp buffer to capacity using slots (15 * 17 = 255 bytes, leaving 1 byte)
+    for _ in 0..15 {
         ctx.allocate_temp_slot()
             .expect("initial allocation should succeed");
     }
-    // Further allocation should fail due to exhaustion (need 17 bytes but only 13 left)
+    // Further allocation should fail due to exhaustion (need 17 bytes but only 1 left)
     assert!(ctx.allocate_temp_slot().is_err());
 
     // Reset the temp buffer and ensure allocations start over

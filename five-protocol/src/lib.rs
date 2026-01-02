@@ -53,7 +53,7 @@ pub const MAX_FUNCTIONS: usize = 255;
 pub const FIVE_HEADER_OPTIMIZED_SIZE: usize = 10;
 pub const FIVE_MAGIC: [u8; 4] = *b"5IVE";
 pub const FIVE_DEPLOY_MAGIC: [u8; 4] = *b"5DEP";
-pub const TEMP_BUFFER_SIZE: usize = 64;
+pub const TEMP_BUFFER_SIZE: usize = 256;
 pub const MAX_SCRIPT_SIZE: usize = 64 * 1024;
 
 // Feature flags for header
