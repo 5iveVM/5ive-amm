@@ -12,17 +12,17 @@ mod deploy_verification_tests {
 
     #[test]
     fn test_verify_valid_bytecode_with_call() {
-        // Create bytecode with header + valid CALL to function index 0
-        let bytecode_data = bytecode!(emit_header(1, 1), emit_call(0), emit_halt());
+        // Create bytecode with header + valid CALL to function address 0 with 0 params
+        let bytecode_data = bytecode!(emit_header(1, 1), emit_call(0, 0), emit_halt());
         assert!(verify_bytecode_content(&bytecode_data).is_ok());
     }
 
     #[test]
     fn test_verify_invalid_call_out_of_bounds() {
-        // Create bytecode with CALL pointing to function index > total_count (invalid)
+        // Create bytecode with CALL pointing to function address > total_count (invalid)
         let bytecode_data = bytecode!(
             emit_header(0, 0), // total_count = 0
-            emit_call(5)       // calling function 5, but only 0 functions exist
+            emit_call(5, 0)       // calling function 5, but only 0 functions exist
         );
         assert!(verify_bytecode_content(&bytecode_data).is_err());
     }

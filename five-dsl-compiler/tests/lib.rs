@@ -353,15 +353,20 @@ fn test_bytecode_uses_optimized_header_v2() {
     );
     assert_eq!(&bytecode[0..4], FIVE_MAGIC);
 
-    let expected_features = FEATURE_FUSED_BRANCH
+    let mut expected_features = FEATURE_FUSED_BRANCH
         | FEATURE_NO_VALIDATION
         | FEATURE_MINIMAL_ERRORS
         | FEATURE_COLD_START_OPT
-        | FEATURE_FUNCTION_METADATA
-        | FEATURE_FUNCTION_NAMES; // Includes function metadata plus name table
+        | FEATURE_FUNCTION_NAMES; // Includes function names metadata table
+
+    #[cfg(feature = "call-metadata")]
+    {
+        expected_features |= FEATURE_FUNCTION_METADATA;
+    }
+
     let features = u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]]);
     assert_eq!(
-        features, { expected_features },
+        features, expected_features,
         "features u32 should match production set (with function names metadata)"
     );
 

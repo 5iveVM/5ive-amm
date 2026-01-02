@@ -35,7 +35,9 @@ fn test_multiple_functions_execution() {
 
     // Call function 0 (test function) - the only public function
     // Compiler orders functions as: 0=test (pub), 1=add (private), 2=multiply (private)
-    let input: &[u8] = &[0]; // Call function index 0 (test function)
+    // Expected: [func_index (VLE), param_count (VLE)]
+    // Function 0 (test) has 0 parameters.
+    let input: &[u8] = &[0, 0]; // func_index=0, param_count=0
 
     println!("Executing bytecode with MitoVM...");
 
@@ -97,9 +99,9 @@ fn test_multiple_functions_execution() {
             // Try alternative input formats to understand the dispatch mechanism
             println!("\n🔄 Trying alternative function dispatch approaches...");
 
-            // Try with function index 2 (test function)
+            // Try with function index 2 (test function) - requires [2, 0]
             println!("Trying function index 2 (test function)...");
-            match MitoVM::execute_direct(&vm_bytecode, &[2], accounts) {
+            match MitoVM::execute_direct(&vm_bytecode, &[2, 0], accounts) {
                 Ok(Some(Value::U64(result))) => {
                     println!("✅ Function 2 (test) succeeded with result: {}", result);
                     return; // Exit successfully if this works
@@ -108,9 +110,9 @@ fn test_multiple_functions_execution() {
                 Err(e2) => println!("Function 2 also failed: {:?}", e2),
             }
 
-            // Try with function index 0 (add function - expects parameters)
+            // Try with function index 0 (add function - expects 2 parameters)
             println!("Trying function index 0 (add function - will fail without params)...");
-            match MitoVM::execute_direct(&vm_bytecode, &[0], accounts) {
+            match MitoVM::execute_direct(&vm_bytecode, &[0, 0], accounts) {
                 Ok(Some(Value::U64(result))) => {
                     println!("✅ Function 0 succeeded with result: {}", result);
                     return; // Exit successfully if this works
@@ -187,8 +189,8 @@ fn test_bytecode_structure() {
         }
     }
 
-    if bytecode.len() >= 6 {
-        let function_count = bytecode[5];
+    if bytecode.len() >= 10 {
+        let function_count = bytecode[9];
         println!("Function count: {}", function_count);
 
         if function_count == 3 {
