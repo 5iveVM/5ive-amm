@@ -206,6 +206,25 @@ async function deployTokenProgram() {
         }
         console.log(`\n${GREEN}✓ All chunks appended.${NC}\n`);
 
+        // 4. Finalize the script upload (discriminator 7)
+        // This marks upload_complete = true, allowing Execute calls to succeed
+        console.log(`${CYAN}▶ Finalizing script upload...${NC}`);
+        const finalizeTx = new Transaction().add(
+            new TransactionInstruction({
+                keys: [
+                    { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
+                    { pubkey: payer.publicKey, isSigner: true, isWritable: false },
+                    { pubkey: vmStatePda, isSigner: false, isWritable: true },
+                ],
+                programId: FIVE_PROGRAM_ID,
+                data: Buffer.from([7]), // FinalizeScript discriminator
+            })
+        );
+
+        const finalizeSig = await connection.sendTransaction(finalizeTx, [payer], { skipPreflight: true });
+        await connection.confirmTransaction(finalizeSig, 'confirmed');
+        console.log(`${GREEN}✓ Script finalized: ${finalizeSig}${NC}\n`);
+
         const tokenScriptAccount = scriptKeypair.publicKey.toBase58();
         const vmStatePdaString = vmStatePda.toBase58();
 
