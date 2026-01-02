@@ -327,6 +327,8 @@ mod system_integration_tests {
         let accounts = [];
 
         // Build bytecode for INIT_ACCOUNT test
+        // Correct Stack Order: account_idx, space, lamports, owner
+        // Push Order: owner, lamports, space, account_idx
         let mut bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
             0x00, 0x00, 0x00, 0x00, // features (4 bytes LE)
@@ -334,21 +336,21 @@ mod system_integration_tests {
             0x00, // total_function_count
         ];
 
-        // Push account index
-        bytecode.push(0x18); // PUSH_U8 opcode
-        bytecode.push(0x01); // account index = 1 (new_account)
-
-        // Push space requirement
-        bytecode.extend_from_slice(&[0x1B]); // PUSH_U64 opcode
-        bytecode.extend_from_slice(&256u64.to_le_bytes()); // space = 256 bytes
+        // Push owner pubkey (use program_id as owner)
+        bytecode.push(0x1E); // PUSH_PUBKEY opcode
+        bytecode.extend_from_slice(&program_id);
 
         // Push lamports
         bytecode.extend_from_slice(&[0x1B]); // PUSH_U64 opcode
         bytecode.extend_from_slice(&1000000u64.to_le_bytes()); // lamports = 1 SOL
 
-        // Push owner pubkey (use program_id as owner)
-        bytecode.push(0x1E); // PUSH_PUBKEY opcode
-        bytecode.extend_from_slice(&program_id);
+        // Push space requirement
+        bytecode.extend_from_slice(&[0x1B]); // PUSH_U64 opcode
+        bytecode.extend_from_slice(&256u64.to_le_bytes()); // space = 256 bytes
+
+        // Push account index
+        bytecode.push(0x18); // PUSH_U8 opcode
+        bytecode.push(0x01); // account index = 1 (new_account)
 
         // INIT_ACCOUNT
         bytecode.push(0x84);
