@@ -471,6 +471,7 @@ pub enum ArgType {
     TwoRegisters,   // Two register indices
     ThreeRegisters, // Three register indices (dest, src1, src2)
     CallExternal,   // account_index (u8) + function_offset (u16) + param_count (u8)
+    CallInternal,   // param_count (u8) + function_address (u16)
     AccountField,   // account_index (u8) + field_offset (VLE)
 }
 
@@ -991,10 +992,10 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: CALL,
         name: "CALL",
-        arg_type: ArgType::FunctionIndex,
+        arg_type: ArgType::CallInternal,
         stack_effect: 0,
         compute_cost: 5,
-    }, // VLE-encoded function index
+    }, // param_count(u8) + function_address(u16)
     OpcodeInfo {
         opcode: CALL_EXTERNAL,
         name: "CALL_EXTERNAL",

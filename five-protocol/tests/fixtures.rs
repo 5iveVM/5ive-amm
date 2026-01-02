@@ -29,8 +29,8 @@ pub fn valid_header() -> Vec<u8> {
 pub fn invalid_call_target() -> Vec<u8> {
     let mut b = BytecodeBuilder::new();
     b.emit_header(1, 2);
-    // Use VLE-encoded function index via emit_call (builder emits correct VLE)
-    b.emit_call(5);
+    // Use 3-byte function address via emit_call
+    b.emit_call(5, 0);
     b.build()
 }
 
@@ -39,7 +39,7 @@ pub fn vle_truncation() -> Vec<u8> {
     let mut b = BytecodeBuilder::new();
     b.emit_header(1, 2);
     // Emit opcode byte directly and then a partial VLE to simulate truncation
-    b.emit_opcode(CALL);
+    b.emit_opcode(five_protocol::opcodes::JUMP);
     // Emit only the first continuation byte to force an incomplete VLE
     b.emit_partial_vle_u32(0x80, 1);
     b.build()

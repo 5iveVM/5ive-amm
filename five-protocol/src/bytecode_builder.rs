@@ -199,10 +199,10 @@ impl BytecodeBuilder {
         self.emit_u8(PUSH_BOOL).emit_u8(if value { 1 } else { 0 })
     }
 
-    /// CALL with function_index (VLE encoded)
+    /// CALL with func_addr (u16) and param_count (u8)
     #[inline]
-    pub fn emit_call(&mut self, function_index: u32) -> &mut Self {
-        self.emit_u8(CALL).emit_vle_u32(function_index)
+    pub fn emit_call(&mut self, func_addr: u16, param_count: u8) -> &mut Self {
+        self.emit_u8(CALL).emit_u8(param_count).emit_u16(func_addr)
     }
 
     /// LOAD_PARAM param_index

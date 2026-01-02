@@ -11,7 +11,7 @@
 // exported behind the "test-fixtures" feature for use in integration tests
 // (e.g., five-solana verifier alignment).
 
-use crate::{BytecodeBuilder, CALL};
+use crate::{BytecodeBuilder, JUMP};
 
 /// Return a valid header bytecode with minimal content: header + HALT
 pub fn valid_header() -> alloc::vec::Vec<u8> {
@@ -25,7 +25,7 @@ pub fn valid_header() -> alloc::vec::Vec<u8> {
 pub fn invalid_call_target() -> alloc::vec::Vec<u8> {
     let mut b = BytecodeBuilder::new();
     b.emit_header(1, 2);
-    b.emit_call(5); // VLE-encoded call to out-of-bounds index
+    b.emit_call(5, 0); // 3-byte call to out-of-bounds address
     b.build()
 }
 
@@ -33,7 +33,7 @@ pub fn invalid_call_target() -> alloc::vec::Vec<u8> {
 pub fn vle_truncation() -> alloc::vec::Vec<u8> {
     let mut b = BytecodeBuilder::new();
     b.emit_header(1, 2);
-    b.emit_opcode(CALL);
+    b.emit_opcode(JUMP);
     // Emit only the first byte of VLE encoding for value 128 (normally 2 bytes: 0x80, 0x01)
     b.emit_partial_vle_u32(128, 1);
     b.build()

@@ -291,6 +291,22 @@ fn parse_instruction(
             arg2 = param_count;
             total_size += 4;
         }
+        ArgType::CallInternal => {
+            if offset + total_size + 2 >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            // Consumes 3 bytes: param_count (u8) + function_address (u16)
+            let param_count = bytecode[offset + total_size] as u32;
+            let addr_bytes = [
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+            ];
+            let func_addr = u16::from_le_bytes(addr_bytes) as u32;
+
+            arg1 = func_addr;
+            arg2 = param_count;
+            total_size += 3;
+        }
         ArgType::AccountField => {
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
