@@ -1,0 +1,11 @@
+[package]
+name = "five-counter-template"
+version = "1.0.0"
+description = "Counter template for testing Five VM state persistence"
+
+[build]
+source = "src/counter.v"
+output = "build/five-counter-template.five"
+
+[test]
+script = "e2e-counter-test.sh"
