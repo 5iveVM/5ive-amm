@@ -24,31 +24,26 @@ pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
             let index = opcode - GET_LOCAL_0;
             let value = ctx.get_local(index)?;
             ctx.push(value)?;
-            // debug_log!("MitoVM: GET_LOCAL_{} (nibble immediate)", index);
         }
         // Nibble immediate SET_LOCAL operations (0xD4-0xD7)
         SET_LOCAL_0..=SET_LOCAL_3 => {
             let index = opcode - SET_LOCAL_0;
             let value = ctx.pop()?;
             ctx.set_local(index, value)?;
-            // debug_log!("MitoVM: SET_LOCAL_{} (nibble immediate)", index);
         }
         // Nibble immediate PUSH constant operations (0xD8-0xDB)
         PUSH_0..=PUSH_3 => {
             let value = (opcode - PUSH_0) as u64;
             ctx.push(ValueRef::U64(value))?;
-            // debug_log!("MitoVM: PUSH_{} (nibble immediate)", value);
         }
         // Nibble immediate LOAD_PARAM operations (0xDC-0xDF)
         LOAD_PARAM_0..=LOAD_PARAM_3 => {
             let index = opcode - LOAD_PARAM_0;
             let value = ctx.parameters()[index as usize];
             if value.is_empty() {
-                // debug_log!("MitoVM: LOAD_PARAM_{} - parameter is empty, returning 0", index);
                 ctx.push(ValueRef::U64(0))?;
             } else {
                 ctx.push(value)?;
-                // debug_log!("MitoVM: LOAD_PARAM_{} (nibble immediate)", index);
             }
         }
         _ => {
@@ -121,7 +116,6 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
         }
         LOAD_PARAM => {
             let compiler_param_index = ctx.fetch_byte()?;
-            // debug_log!(
                 // "MitoVM: LOAD_PARAM compiler requested parameter index: {}",
                 // compiler_param_index
             // );
@@ -135,7 +129,6 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             }
 
             let actual_param_index = compiler_param_index as usize; 
-            // debug_log!(
                 // "MitoVM: LOAD_PARAM idx {} -> storage idx {} (param_len: {})",
                 // compiler_param_index,
                 // actual_param_index as u32,
@@ -168,7 +161,6 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             // Push parameter to stack
             ctx.push(param_value)?;
 
-            // debug_log!("MitoVM: LOAD_PARAM success: p[{}] -> stack (size: {})", 
                       // actual_param_index as u32, ctx.size() as u32);
         }
         STORE_PARAM => {
