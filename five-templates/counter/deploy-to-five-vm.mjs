@@ -25,7 +25,7 @@ const NC = '\x1b[0m';
 
 async function deployCounterProgram() {
     console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}`);
-    console.log(`${CYAN}Counter Template - Five VM Deployment${NC}`);
+    console.log(`${CYAN}Counter Template - Five VM Deployment (Single-Chunk)${NC}`);
     console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}\n`);
 
     try {
@@ -64,7 +64,7 @@ async function deployCounterProgram() {
 
         console.log(`  Bytecode size: ${bytecode.length} bytes`);
 
-        // --- Deployment Logic ---
+        // --- Deployment Logic (SINGLE-CHUNK) ---
 
         // 1. Setup VM State Account
         let vmStatePda;
@@ -114,18 +114,22 @@ async function deployCounterProgram() {
         }
         console.log(`  VM State Owner Verified: ${vmStateInfo.owner.toBase58()}`);
 
-        // 2. Create Script Account & Init
+        // 2. Create Script Account & Deploy in Single Transaction
         const scriptKeypair = Keypair.generate();
         const SCRIPT_HEADER_SIZE = 64;
-        const rentLamports = await connection.getMinimumBalanceForRentExemption(SCRIPT_HEADER_SIZE);
+        const totalSize = SCRIPT_HEADER_SIZE + bytecode.length;
+        const rentLamports = await connection.getMinimumBalanceForRentExemption(totalSize);
 
-        console.log(`${CYAN}▶ Creating Script Account...${NC}`);
-        const initTx = new Transaction().add(
+        console.log(`${CYAN}▶ Deploying Counter Script (Single-Chunk)...${NC}`);
+        console.log(`  Total size: ${totalSize} bytes (header: ${SCRIPT_HEADER_SIZE}, bytecode: ${bytecode.length})`);
+        console.log(`  Rent required: ${rentLamports} lamports`);
+
+        const deployTx = new Transaction().add(
             SystemProgram.createAccount({
                 fromPubkey: payer.publicKey,
                 newAccountPubkey: scriptKeypair.publicKey,
                 lamports: rentLamports,
-                space: SCRIPT_HEADER_SIZE,
+                space: totalSize,
                 programId: FIVE_PROGRAM_ID,
             }),
             new TransactionInstruction({
@@ -136,75 +140,18 @@ async function deployCounterProgram() {
                 ],
                 programId: FIVE_PROGRAM_ID,
                 data: Buffer.concat([
-                    Buffer.from([4]), // InitLargeProgram
-                    Buffer.from(new Uint32Array([bytecode.length]).buffer) // expected_size
+                    Buffer.from([8]), // Deploy discriminator
+                    Buffer.from(new Uint32Array([bytecode.length]).buffer), // Bytecode length (u32 LE)
+                    Buffer.from([0]), // Permissions (0 = no special permissions)
+                    bytecode
                 ]),
             })
         );
 
-        const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
-        await connection.confirmTransaction(initSig, 'confirmed');
-        console.log(`  Script Account: ${scriptKeypair.publicKey.toBase58()} (${initSig})`);
-
-        // Wait for account to be visible
-        await new Promise(r => setTimeout(r, 1000));
-
-        // 3. Append Chunks
-        const CHUNK_SIZE = 400;
-        const chunks = [];
-        for (let i = 0; i < bytecode.length; i += CHUNK_SIZE) {
-            chunks.push(bytecode.slice(i, Math.min(i + CHUNK_SIZE, bytecode.length)));
-        }
-
-        console.log(`${CYAN}▶ Appending ${chunks.length} chunks...${NC}`);
-
-        for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-
-            // Retry getAccountInfo
-            let currentInfo = null;
-            let retries = 5;
-            while (!currentInfo && retries > 0) {
-                currentInfo = await connection.getAccountInfo(scriptKeypair.publicKey, 'confirmed');
-                if (!currentInfo) {
-                    console.log(`  Retrying getAccountInfo... (${retries})`);
-                    await new Promise(r => setTimeout(r, 1000));
-                    retries--;
-                }
-            }
-            if (!currentInfo) throw new Error("Could not fetch script account info");
-
-            const newSize = currentInfo.data.length + chunk.length;
-            const newRentRequired = await connection.getMinimumBalanceForRentExemption(newSize);
-            const additionalRent = Math.max(0, newRentRequired - currentInfo.lamports);
-
-            const appendTx = new Transaction();
-            if (additionalRent > 0) {
-                appendTx.add(SystemProgram.transfer({
-                    fromPubkey: payer.publicKey,
-                    toPubkey: scriptKeypair.publicKey,
-                    lamports: additionalRent,
-                }));
-            }
-
-            appendTx.add(new TransactionInstruction({
-                keys: [
-                    { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
-                    { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-                    { pubkey: vmStatePda, isSigner: false, isWritable: true },
-                ],
-                programId: FIVE_PROGRAM_ID,
-                data: Buffer.concat([
-                    Buffer.from([5]), // AppendBytecode
-                    chunk
-                ]),
-            }));
-
-            const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
-            await connection.confirmTransaction(appendSig, 'confirmed');
-            process.stdout.write('.');
-        }
-        console.log(`\n${GREEN}✓ All chunks appended.${NC}\n`);
+        const deploySig = await connection.sendTransaction(deployTx, [payer, scriptKeypair], { skipPreflight: false });
+        await connection.confirmTransaction(deploySig, 'confirmed');
+        console.log(`${GREEN}✓ Deployment successful: ${deploySig}${NC}`);
+        console.log(`  Script Account: ${scriptKeypair.publicKey.toBase58()}\n`);
 
         const counterScriptAccount = scriptKeypair.publicKey.toBase58();
         const vmStatePdaString = vmStatePda.toBase58();

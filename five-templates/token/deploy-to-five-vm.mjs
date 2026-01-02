@@ -64,6 +64,19 @@ async function deployTokenProgram() {
 
         console.log(`  Bytecode size: ${bytecode.length} bytes`);
 
+        // Helper for robust confirmation
+        const confirmTx = async (signature, description) => {
+            const latestBlockhash = await connection.getLatestBlockhash();
+            const confirmation = await connection.confirmTransaction(
+                { signature, ...latestBlockhash },
+                'confirmed'
+            );
+            if (confirmation.value.err) {
+                throw new Error(`${description} failed: ${JSON.stringify(confirmation.value.err)}`);
+            }
+            return signature;
+        };
+
         // --- Deployment Logic ---
 
         // 1. Setup VM State Account
@@ -96,8 +109,8 @@ async function deployTokenProgram() {
                 })
             );
 
-            const vmSig = await connection.sendTransaction(vmStateTx, [payer, vmStateKeypair], { skipPreflight: false });
-            await connection.confirmTransaction(vmSig, 'confirmed');
+            const vmSig = await connection.sendTransaction(vmStateTx, [payer, vmStateKeypair], { skipPreflight: true });
+            await confirmTx(vmSig, 'VM State Creation');
             console.log(`  VM State: ${vmStateKeypair.publicKey.toBase58()} (${vmSig})`);
             vmStatePda = vmStateKeypair.publicKey;
         }
@@ -117,15 +130,25 @@ async function deployTokenProgram() {
         // 2. Create Script Account & Init
         const scriptKeypair = Keypair.generate();
         const SCRIPT_HEADER_SIZE = 64;
-        const rentLamports = await connection.getMinimumBalanceForRentExemption(SCRIPT_HEADER_SIZE); // Initially just header
+
+        // Calculate actual rent needed for final script size
+        const finalScriptSize = SCRIPT_HEADER_SIZE + bytecode.length;
+        const rentRequired = await connection.getMinimumBalanceForRentExemption(finalScriptSize);
+        // Add conservative buffer to handle reallocation overhead
+        // Solana's safe_realloc may need additional lamports beyond the minimum balance
+        const REALLOCATION_BUFFER = 0.01 * LAMPORTS_PER_SOL;  // 10M lamports (~0.01 SOL)
+        const initialLamports = rentRequired + REALLOCATION_BUFFER;
 
         console.log(`${CYAN}▶ Creating Script Account...${NC}`);
+        console.log(`  Final size: ${finalScriptSize} bytes`);
+        console.log(`  Rent required: ${rentRequired} lamports`);
+        console.log(`  Initial funding: ${initialLamports} lamports (${(initialLamports / LAMPORTS_PER_SOL).toFixed(8)} SOL)`);
         const initTx = new Transaction().add(
             SystemProgram.createAccount({
                 fromPubkey: payer.publicKey,
                 newAccountPubkey: scriptKeypair.publicKey,
-                lamports: rentLamports,
-                space: SCRIPT_HEADER_SIZE,
+                lamports: initialLamports,
+                space: SCRIPT_HEADER_SIZE,  // Start with header size as expected
                 programId: FIVE_PROGRAM_ID,
             }),
             new TransactionInstruction({
@@ -143,7 +166,7 @@ async function deployTokenProgram() {
         );
 
         const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
-        await connection.confirmTransaction(initSig, 'confirmed');
+        await confirmTx(initSig, 'Script Account Init');
         console.log(`  Script Account: ${scriptKeypair.publicKey.toBase58()} (${initSig})`);
 
         // Wait for account to be visible
@@ -158,34 +181,19 @@ async function deployTokenProgram() {
 
         console.log(`${CYAN}▶ Appending ${chunks.length} chunks...${NC}`);
 
+        let currentSize = SCRIPT_HEADER_SIZE;
+
         for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i];
 
-            // Retry getAccountInfo
-            let currentInfo = null;
-            let retries = 5;
-            while (!currentInfo && retries > 0) {
-                currentInfo = await connection.getAccountInfo(scriptKeypair.publicKey, 'confirmed');
-                if (!currentInfo) {
-                    console.log(`  Retrying getAccountInfo... (${retries})`);
-                    await new Promise(r => setTimeout(r, 1000));
-                    retries--;
-                }
-            }
-            if (!currentInfo) throw new Error("Could not fetch script account info");
+            // Calculate size based on LOCAL tracking
+            const newSize = currentSize + chunk.length;
 
-            const newSize = currentInfo.data.length + chunk.length;
-            const newRentRequired = await connection.getMinimumBalanceForRentExemption(newSize);
-            const additionalRent = Math.max(0, newRentRequired - currentInfo.lamports);
+            // Pre-funded, so no need to transfer additional rent
+            // const oldRent = ...
 
             const appendTx = new Transaction();
-            if (additionalRent > 0) {
-                appendTx.add(SystemProgram.transfer({
-                    fromPubkey: payer.publicKey,
-                    toPubkey: scriptKeypair.publicKey,
-                    lamports: additionalRent,
-                }));
-            }
+            // appendTx.add(SystemProgram.transfer({...}));
 
             appendTx.add(new TransactionInstruction({
                 keys: [
@@ -200,9 +208,17 @@ async function deployTokenProgram() {
                 ]),
             }));
 
+            appendTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+            appendTx.feePayer = payer.publicKey;
+            const msg = appendTx.compileMessage();
+            console.log(`DEBUG: Chunk ${i} keys:`, msg.accountKeys.map(k => k.toBase58()));
+
             const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
-            await connection.confirmTransaction(appendSig, 'confirmed');
+            await confirmTx(appendSig, `Chunk ${i} append`);
             process.stdout.write('.');
+
+            // Update current size for next iteration for ACCURATE rent calculation
+            currentSize = newSize;
         }
         console.log(`\n${GREEN}✓ All chunks appended.${NC}\n`);
 
@@ -222,7 +238,7 @@ async function deployTokenProgram() {
         );
 
         const finalizeSig = await connection.sendTransaction(finalizeTx, [payer], { skipPreflight: true });
-        await connection.confirmTransaction(finalizeSig, 'confirmed');
+        await confirmTx(finalizeSig, 'Finalize Script');
         console.log(`${GREEN}✓ Script finalized: ${finalizeSig}${NC}\n`);
 
         const tokenScriptAccount = scriptKeypair.publicKey.toBase58();
