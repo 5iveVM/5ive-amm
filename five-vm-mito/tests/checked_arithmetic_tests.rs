@@ -127,7 +127,6 @@ fn test_mul_checked_overflow() {
 }
 
 #[test]
-#[ignore = "CALL opcode dispatch with optimized headers is not implemented"]
 fn test_checked_arithmetic_in_nested_calls() {
     // Test checked arithmetic within nested function calls
     // Combines Task 2.2 (checked arithmetic) with Task 1.2 (local isolation)
@@ -147,7 +146,7 @@ fn test_checked_arithmetic_in_nested_calls() {
         // Function 1
         let func1_ip = script.len();
         script.push(LOAD_PARAM);
-        script.push(0);
+        script.push(1); // Load first parameter (index 1)
         push_u64_instr(&mut script, 20);
         script.push(SUB_CHECKED);
         script.push(CALL);
@@ -159,7 +158,7 @@ fn test_checked_arithmetic_in_nested_calls() {
         // Function 2
         let func2_ip = script.len();
         script.push(LOAD_PARAM);
-        script.push(0);
+        script.push(1); // Load first parameter (index 1)
         push_u64_instr(&mut script, 2);
         script.push(MUL_CHECKED);
         script.push(RETURN);
@@ -211,4 +210,3 @@ fn test_checked_arithmetic_with_locals() {
         Err(e) => panic!("Should not error: {:?}", e),
     }
 }
-
