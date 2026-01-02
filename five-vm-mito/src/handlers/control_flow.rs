@@ -36,44 +36,23 @@ fn check_condition(ctx: &mut ExecutionManager) -> CompactResult<()> {
 /// Execute control flow opcodes including jumps, conditionals, and program termination.
 /// Handles the 0x00-0x0F opcode range.
 pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
-    // PHASE 1 DEBUGGING: Log entry into handler with current VM state
-    /*
-    debug_log!(
-        "🔍 PHASE1_DEBUG: handle_control_flow() ENTRY - opcode: {}, IP: {}, stack: {}, halted: {}",
-        opcode,
-        ctx.ip() as u32,
-        ctx.size() as u32,
-        ctx.halted() as u8
-    );
-    */
-
-    // PHASE 1 DEBUGGING: Enhanced logging for RETURN_VALUE opcode
-    // if opcode == 0x07 {
-    //     debug_log!("🔍 PHASE1_DEBUG: RETURN_VALUE case about to be matched");
-    //     debug_log!("🔍 PHASE1_DEBUG: Verifying opcode value: {} (expected: 7)", opcode);
-    // }
-
     match opcode {
         HALT => {
-            // debug_log!("MitoVM: HALT encountered");
             ctx.set_halted(true);
         }
         JUMP => {
             let offset = ctx.fetch_u16()? as usize;
             validate_and_jump(ctx, offset)?;
-            // debug_log!("MitoVM: JUMP to offset {}", offset as u16);
         }
         JUMP_IF => {
             let offset = ctx.fetch_u16()? as usize;
             let condition = ctx.pop()?;
             if condition.is_truthy() {
                 validate_and_jump(ctx, offset)?;
-                // debug_log!(
                     // "MitoVM: JUMP_IF to offset {} (condition true)",
                     // offset as u16
                 // );
             } else {
-                // debug_log!("MitoVM: JUMP_IF not taken (condition false)");
             }
         }
         JUMP_IF_NOT => {
@@ -81,33 +60,26 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
             let condition = ctx.pop()?;
             if !condition.is_truthy() {
                 validate_and_jump(ctx, offset)?;
-                // debug_log!(
                     // "MitoVM: JUMP_IF_NOT to offset {} (condition false)",
                     // offset as u16
                 // );
             } else {
-                // debug_log!("MitoVM: JUMP_IF_NOT not taken (condition true)");
             }
         }
         REQUIRE => {
             check_condition(ctx)?;
-            // debug_log!("MitoVM: REQUIRE passed");
         }
         ASSERT => {
             check_condition(ctx)?;
-            // debug_log!("MitoVM: ASSERT passed");
         }
         POP => {
             ctx.pop()?;
-            // debug_log!("MitoVM: POP");
         }
         RETURN => {
-            // debug_log!(
                 // "MitoVM: RETURN encountered - call depth: {}, stack size: {}",
                 // ctx.call_depth() as u32,
                 // ctx.size() as u32
             // );
-            // debug_log!(
                 // "MitoVM: RETURN BEFORE - SP={}, local_base={}, local_count={}, IP={}",
                 // ctx.size() as u32,
                 // ctx.local_base() as u32,
@@ -143,12 +115,10 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 ctx.set_script(frame.bytecode);
                 ctx.restore_parameters(frame.param_start, frame.param_len); // Restore caller's parameters
 
-                // debug_log!(
                     // "MitoVM: RETURN - returning to address: {}, depth: {}, params restored",
                     // ctx.ip() as u32,
                     // ctx.call_depth() as u32
                 // );
-                // debug_log!(
                     // "MitoVM: RETURN AFTER - SP={}, local_base={}, local_count={}, IP={}",
                     // ctx.size() as u32,
                     // ctx.local_base() as u32,
@@ -157,26 +127,20 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 // );
             } else {
                 // Top-level return, halt the script
-                // debug_log!("MitoVM: RETURN from script - halting VM");
                 ctx.set_halted(true);
             }
         }
         RETURN_VALUE => {
             // PHASE 1 DEBUGGING: Confirm we've entered the RETURN_VALUE handler
-            // debug_log!("🔍 PHASE1_DEBUG: *** RETURN_VALUE HANDLER ENTRY CONFIRMED ***");
-            // debug_log!(
                 // "🔍 PHASE1_DEBUG: Successfully matched RETURN_VALUE case in control_flow handler"
             // );
-            // debug_log!("🔍 PHASE1_DEBUG: About to execute RETURN_VALUE logic");
 
-            // debug_log!(
                 // "MitoVM: RETURN_VALUE encountered - call depth: {}, stack size: {}",
                 // ctx.call_depth() as u32,
                 // ctx.size() as u32
             // );
 
             // Enhanced debugging: Log current stack state before return
-            // debug_log!("MitoVM: RETURN_VALUE - current stack contents:");
             // for _i in 0..ctx.size().min(5) {
             //     debug_log!("MitoVM: RETURN_VALUE stack[{}] = value present", _i as u32);
             // }
@@ -191,7 +155,6 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 );
                 return Err(VMErrorCode::StackError);
             } else {
-                // debug_log!(
                     // "MitoVM: RETURN_VALUE - returning top stack value (stack size: {})",
                     // ctx.size() as u32
                 // );
@@ -199,13 +162,11 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
 
             // Check if we're in a function call
             if ctx.call_depth() > 0 {
-                // debug_log!(
                     // "MitoVM: RETURN_VALUE from function - call depth: {}",
                     // ctx.call_depth() as u32
                 // );
 
                 // Enhanced debugging: Log current parameter state before restoration
-                // debug_log!("MitoVM: RETURN_VALUE - current parameter state before restoration:");
                 // for i in 0..8 {
                 //     if !ctx.parameters()[i].is_empty() {
                 //         debug_log!("MitoVM: RETURN_VALUE current parameters[{}] has value", i as u32);
@@ -220,7 +181,6 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
 
                 // CRITICAL FIX: The return value is already on the stack from the function execution
                 // We do NOT need to pop it or modify it - just restore the call frame and let it remain
-                // debug_log!(
                     // "MitoVM: RETURN_VALUE keeping return value on stack during frame restoration"
                 // );
 
@@ -239,16 +199,12 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 }
 
                 // Enhanced debugging: Log frame restoration details
-                // debug_log!("MitoVM: RETURN_VALUE restoring call frame:");
-                // debug_log!(
                 //     "MitoVM: RETURN_VALUE - return address: {}",
                 //     frame.return_address as u32
                 // );
-                // debug_log!(
                 //     "MitoVM: RETURN_VALUE - local count: {}",
                 //     frame.local_count as u32
                 // );
-                // debug_log!("MitoVM: RETURN_VALUE - restoring caller's parameters");
 
                 // Restore previous state safely - CRITICAL: Leave return value on stack untouched
                 ctx.set_ip(frame.return_address);
@@ -261,7 +217,6 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 // for the calling function to use (e.g., SET_LOCAL, arithmetic operations, etc.)
 
                 // Enhanced debugging: Log restored parameter state
-                // debug_log!("MitoVM: RETURN_VALUE - restored parameter state:");
                 // for i in 0..8 {
                 //     if !ctx.parameters()[i].is_empty() {
                 //         debug_log!(
@@ -272,8 +227,6 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 // }
 
                 // Enhanced debugging: Log final stack state after return
-                // debug_log!("MitoVM: RETURN_VALUE - final stack state after restoration:");
-                // debug_log!(
                 //     "MitoVM: RETURN_VALUE - stack size: {}",
                 //     ctx.size() as u32
                 // );
@@ -283,7 +236,6 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 //     debug_log!("MitoVM: RETURN_VALUE - WARNING: stack is empty after return");
                 // }
 
-                // debug_log!(
                 //     "MitoVM: RETURN_VALUE - returning to address: {}, depth: {}, params restored",
                 //     ctx.ip() as u32,
                 //     new_call_depth as u32
@@ -296,31 +248,23 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 // Top-level value capture happens only in the "else" branch below when halting.
             } else {
                 // Top-level return, halt the script
-                // debug_log!("MitoVM: RETURN_VALUE from script - halting VM");
 
                 // CRITICAL FIX: Capture return value before halting
                 // This fixes the stack persistence issue after ExecutionManager refactoring
                 if !ctx.is_empty() {
                     let return_value_ref = ctx.pop()?;
                     ctx.set_return_value(Some(return_value_ref));
-                    // debug_log!("MitoVM: RETURN_VALUE captured");
                 } else {
                     ctx.set_return_value(None);
-                    // debug_log!("MitoVM: RETURN_VALUE - no value on stack");
                 }
 
                 // PHASE 1 DEBUGGING: Track the ctx.set_halted(true) call execution
-                // debug_log!("🔍 PHASE1_DEBUG: About to call ctx.set_halted(true) for top-level RETURN_VALUE");
                 ctx.set_halted(true);
-                // debug_log!(
                     // "🔍 PHASE1_DEBUG: ctx.set_halted(true) completed - VM should be halted now"
                 // );
-                // debug_log!("🔍 PHASE1_DEBUG: Verifying halted state");
             }
 
             // PHASE 1 DEBUGGING: Confirm RETURN_VALUE handler completion
-            // debug_log!("🔍 PHASE1_DEBUG: *** RETURN_VALUE HANDLER COMPLETION ***");
-            // debug_log!("🔍 PHASE1_DEBUG: RETURN_VALUE handler finished successfully");
             /*
             debug_log!(
                 "🔍 PHASE1_DEBUG: Final VM state - IP: {}, stack: {}, halted: {}",

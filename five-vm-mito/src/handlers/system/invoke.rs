@@ -24,7 +24,6 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
     use crate::error_log;
     match opcode {
         INVOKE => {
-            // debug_log!("MitoVM: INVOKE operation"); // Kept for context but commented
 
             // Pop parameters from stack
             let count_val = ctx.pop()?;
@@ -179,7 +178,6 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             })?;
             let program_id = Pubkey::from(program_id_bytes);
 
-            // debug_log!("MitoVM: INVOKE program_id: {}", &program_id);
             debug_log!(
                 "MitoVM: INVOKE instruction_data len: {}",
                 instruction_len as u32

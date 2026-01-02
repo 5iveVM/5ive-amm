@@ -323,35 +323,8 @@ impl MitoVM {
         // Hierarchical opcode dispatch to prevent stack overflow
         // Dispatch based on opcode ranges (16 opcodes per range)
 
-        // PHASE 1 DEBUGGING: Enhanced logging for RETURN_VALUE (0x07) opcode
-        /*
-        if opcode == 0x07 {
-            debug_log!(
-                "🔍 PHASE1_DEBUG: RETURN_VALUE opcode (0x07) detected at IP {}",
-                (ctx.ip() - 1) as u32
-            );
-            debug_log!(
-                "🔍 PHASE1_DEBUG: Opcode range calculation: 0x07 & 0xF0 = {}",
-                (opcode & 0xF0)
-            );
-            debug_log!("🔍 PHASE1_DEBUG: Will dispatch to 0x00 range (control_flow handler)");
-            debug_log!(
-                "🔍 PHASE1_DEBUG: Current stack size before handler: {}",
-                ctx.size() as u32
-            );
-            debug_log!("🔍 PHASE1_DEBUG: Current halted state before handler");
-        }
-        */
-
         match opcode & 0xF0 {
             0x00 => {
-                // PHASE 1 DEBUGGING: Enhanced logging specifically for RETURN_VALUE
-                if opcode == 0x07 {
-                    debug_log!(
-                        "🔍 PHASE1_DEBUG: About to call handle_control_flow() for RETURN_VALUE"
-                    );
-                }
-
                 // TRY CONTROL FLOW FIRST (HALT, JUMP, etc.)
                 let result = handle_control_flow(opcode, ctx);
                 
@@ -361,114 +334,59 @@ impl MitoVM {
                         // FALLBACK: Try stack ops (e.g. PUSH_U64=0x01, POP=0x02 if not in control_flow)
                         handle_stack_ops(opcode, ctx)
                     },
-                    Err(e) => {
-                         debug_log!("MitoVM: CONTROL_FLOW_ERROR: Opcode {} failed", opcode);
-                         Err(e)
-                    }
+                    Err(e) => Err(e)
                 }
             }
             0x10..=0x1F => {
-                // debug_log!(
-                //     "MitoVM: Dispatching to stack_ops handler for opcode {}",
-                //     opcode
-                // );
                 handle_stack_ops(opcode, ctx)
             }
             0x20..=0x2F => {
-                // debug_log!(
-                //     "MitoVM: Dispatching to arithmetic handler for opcode {}",
-                //     opcode
-                // );
                 handle_arithmetic(opcode, ctx)
             }
             0x30..=0x3F => {
-                // debug_log!(
-                //     "MitoVM: Dispatching to logical handler for opcode {}",
-                //     opcode
-                // );
                 handle_logical(opcode, ctx)
             }
             0x40..=0x4F => {
-                // debug_log!(
-                //     "MitoVM: Dispatching to memory handler for opcode {}",
-                //     opcode
-                // );
-                
                 // TRY CONTROL FLOW FIRST (JUMP=0x40, JUMP_IF=0x41 etc might be here)
                 let result = handle_control_flow(opcode, ctx);
-                
+
                 match result {
                     Ok(_) => Ok(()),
                     Err(VMErrorCode::InvalidInstruction) => {
                         // FALLBACK: Memory instructions (STORE/LOAD/STORE_FIELD etc)
                         handle_memory(opcode, ctx)
                     },
-                    Err(e) => {
-                         debug_log!("MitoVM: CONTROL_FLOW_JUMP_ERROR: Opcode {} failed", opcode);
-                         Err(e)
-                    }
+                    Err(e) => Err(e)
                 }
             }
             0x50..=0x5F => {
-                // debug_log!(
-                //     "MitoVM: Dispatching to accounts handler for opcode {}",
-                //     opcode
-                // );
                 handle_accounts(opcode, ctx)
             }
             0x60..=0x6F => {
                 // 🎯 LOGICAL REORGANIZATION: Arrays now at 0x60 (moved from scattered locations)
-                // debug_log!(
-                //     "MitoVM: Dispatching to arrays handler for opcode {}",
-                //     opcode
-                // );
                 handle_arrays(opcode, ctx)
             }
             0x70..=0x7F => {
                 // 🎯 LOGICAL REORGANIZATION: Constraints moved from 0x60 to 0x70
-                // debug_log!(
-                //     "MitoVM: Dispatching to constraints handler for opcode {}",
-                //     opcode
-                // );
                 handle_constraints(opcode, ctx)
             }
             0x80..=0x8F => {
                 // 🎯 LOGICAL REORGANIZATION: System operations moved from 0x70 to 0x80
-                // debug_log!(
-                //     "MitoVM: Dispatching to system handler for opcode {}",
-                //     opcode
-                // );
                 Self::handle_system(opcode, ctx)
             }
             0x90..=0x9F => {
                 // 🎯 LOGICAL REORGANIZATION: Functions moved from 0x80 to 0x90
                 if opcode == CALL_NATIVE {
-                    // debug_log!(
-                    //     "MitoVM: Dispatching to native syscall handler for opcode {}",
-                    //     opcode
-                    // );
                     handle_native_ops(ctx)
                 } else {
-                    // debug_log!(
-                    //     "MitoVM: Dispatching to functions handler for opcode {}",
-                    //     opcode
-                    // );
                     handle_functions(opcode, ctx)
                 }
             }
             0xA0..=0xAF => {
                 // 🎯 LOGICAL REORGANIZATION: Locals moved from 0x90 to 0xA0 + general operations
-                // debug_log!(
-                //     "MitoVM: Dispatching to locals/general handler for opcode {}",
-                //     opcode
-                // );
                 handle_locals(opcode, ctx)
             }
             0xB0..=0xBF => {
-                // debug_log!(
-                //     "MitoVM: Dispatching to registers handler for opcode {}",
-                //     opcode
-                // );
                 handle_registers(opcode, ctx)
             }
             0xC0..=0xCF => {
@@ -533,21 +451,8 @@ impl MitoVM {
                 break;
             }
 
-            {
-                // Removed log
-            }
             let opcode = match ctx.fetch_byte() {
-                Ok(op) => {
-                    // debug_log!(
-                    //     "MitoVM: Fetched opcode {} ({}) at IP {} (script_len: {})",
-                    //     op,
-                    //     op,
-                    //     (ctx.ip() - 1) as u32,
-                    //     ctx.script().len() as u32
-                    // );
-
-                    op
-                }
+                Ok(op) => op,
                 Err(e) => {
                     debug_log!(
                         "MitoVM: Error fetching opcode at IP {}",
@@ -556,13 +461,7 @@ impl MitoVM {
                     return Err(e);
                 }
             };
-            // debug_log!(
-            //     "MitoVM: *** EXECUTING OPCODE {} at ip {} ***",
-            //     opcode,
-            //     (ctx.ip() - 1) as u32
-            // );
 
-            // Debug opcode verification
             #[cfg(feature = "debug-logs")]
             if opcode == LOAD_INPUT {
                 debug_log!(
@@ -570,13 +469,6 @@ impl MitoVM {
                     LOAD_INPUT
                 );
             }
-
-            // Compute unit consumption from protocol opcode table (single source of truth)
-            //let cu_cost = crate::opcodes::opcode_cu_cost(opcode) as u64;
-            //ctx.consume_compute_units(cu_cost);
-
-            // Enhanced debugging: Log stack state before opcode execution
-            //debug_stack_state!(opcode, ctx, "BEFORE");
 
             // Dispatch opcode to appropriate handler
             let result = Self::dispatch_opcode_range(opcode, ctx);
@@ -605,9 +497,6 @@ impl MitoVM {
                 );
                 break;
             }
-
-            // Enhanced debugging: Log stack state after successful opcode execution
-            //debug_stack_state!(opcode, ctx, "AFTER");
         }
 
         // DIAGNOSTIC: Stack state at the END of execution loop
@@ -827,11 +716,6 @@ impl MitoVM {
         input_data: &[u8],
         accounts: &[AccountInfo],
     ) -> Result<Option<Value>> {
-        // UNCONDITIONAL LOG - use error_log which is always compiled in
-        error_log!("MitoVM_ENTRY: script={} input={} accounts={}",
-            script.len() as u32, input_data.len() as u32, accounts.len() as u32);
-
-        // Use error_log which is always compiled in to verify logging works
         error_log!("MitoVM: execute_direct ENTRY - script={} input={} accounts={}",
             script.len() as u32, input_data.len() as u32, accounts.len() as u32);
 

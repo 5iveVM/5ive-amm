@@ -113,13 +113,11 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             // Edge cases: NEG(0) = 0, NEG(i64::MIN) wraps to i64::MIN
             // debug_stack_op!("NEG", ctx);
             let a = pop_u64!(ctx);
-            // debug_log!("MitoVM: NEG input={}", a);
 
             // Two's complement negation with explicit overflow handling
             // Cast to i64 for signed negation, then back to u64 for storage
             let result = (a as i64).wrapping_neg() as u64;
 
-            // debug_log!("MitoVM: NEG result={}", result);
             vm_push_u64!(ctx, result);
         }
         ADD_CHECKED => {
@@ -158,7 +156,6 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 (ValueRef::U128(a_val), ValueRef::U128(b_val)) => a_val == b_val,
                 (left, right) => left == right,
             };
-            // debug_log!("MitoVM: EQ comparison result: {}", result as u8);
             vm_push_bool!(ctx, result);
         }
         GTE => {
@@ -179,7 +176,6 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 (ValueRef::U128(a_val), ValueRef::U128(b_val)) => a_val != b_val,
                 (left, right) => left != right,
             };
-            // debug_log!("MitoVM: NEQ comparison result: {}", result as u8);
             vm_push_bool!(ctx, result);
         }
 
