@@ -4,7 +4,7 @@
 // during CALL_EXTERNAL operations using import verification metadata.
 
 use five_protocol::{opcodes::*, FEATURE_IMPORT_VERIFICATION, FIVE_MAGIC};
-use five_vm_mito::metadata::ImportMetadata;
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, metadata::ImportMetadata};
 
 // Note: We don't need to create AccountInfo structures for these tests
 // We're testing the metadata parsing and verification logic directly

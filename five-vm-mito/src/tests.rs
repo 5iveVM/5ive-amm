@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{MitoVM, Value};
+    use crate::{MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
     /// Test simple field assignment: value = 42
     #[test]
@@ -24,7 +24,7 @@ mod tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         assert!(result.is_ok(), "Execution should succeed");
         assert_eq!(
             result.unwrap(),
@@ -50,7 +50,7 @@ mod tests {
             0x00,
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]).unwrap();
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(result, Some(Value::U64(42)), "Should return 42");
     }
 
@@ -75,7 +75,7 @@ mod tests {
             0x00,
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]).unwrap();
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(result, Some(Value::U64(125)), "100 + 25 should equal 125");
     }
 
@@ -103,7 +103,7 @@ mod tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts).unwrap();
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(result, Some(Value::U64(125)), "Should return 125");
     }
 
@@ -131,7 +131,7 @@ mod tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts).unwrap();
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "Should return true");
     }
 
@@ -150,7 +150,7 @@ mod tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode_gte, &[], &[]).unwrap();
+        let result = MitoVM::execute_direct(&bytecode_gte, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "100 >= 100 should be true");
 
         // Test LTE: 50 <= 100
@@ -165,7 +165,7 @@ mod tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode_lte, &[], &[]).unwrap();
+        let result = MitoVM::execute_direct(&bytecode_lte, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "50 <= 100 should be true");
 
         // Test NEQ: 50 != 100
@@ -180,7 +180,7 @@ mod tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode_neq, &[], &[]).unwrap();
+        let result = MitoVM::execute_direct(&bytecode_neq, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "50 != 100 should be true");
     }
 
@@ -202,7 +202,7 @@ mod tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts).unwrap();
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(
             result,
             Some(Value::U64(84)),
@@ -225,7 +225,7 @@ mod tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode_pass, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode_pass, &[], &[], &FIVE_VM_PROGRAM_ID);
         match &result {
             Ok(_) => println!("REQUIRE with true passed as expected"),
             Err(e) => {
@@ -247,7 +247,7 @@ mod tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode_fail, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode_fail, &[], &[], &FIVE_VM_PROGRAM_ID);
         assert!(result.is_err(), "REQUIRE with false should fail");
     }
 
@@ -269,7 +269,7 @@ mod tests {
 
         println!("Testing LOAD_PARAM with input_data: {:?}", input_data);
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => println!("LOAD_PARAM succeeded: {:?}", value),
             Err(e) => println!("LOAD_PARAM failed: {:?}", e),
@@ -301,7 +301,7 @@ mod tests {
         println!("Bytecode length: {}", bytecode.len());
         println!("Target function offset: 28, actual instruction: LOAD_PARAM 1");
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("CALL parameter transfer succeeded: {:?}", value);
@@ -372,7 +372,7 @@ mod tests {
             println!("Instruction at offset 14: opcode={:02x}", bytecode[14]);
         }
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
 
         match result {
             Ok(value) => {
@@ -395,7 +395,7 @@ mod tests {
 
 #[cfg(test)]
 mod v3_fused_tests {
-    use crate::{MitoVM, Value};
+    use crate::{MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
     #[test]
     fn test_push_zero_and_one() {
@@ -413,7 +413,7 @@ mod v3_fused_tests {
             0x20, // ADD
             0x00, // HALT
         ];
-        let res = MitoVM::execute_direct(&bytecode, &[], &[]).unwrap();
+        let res = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(res, Some(Value::U64(1)));
     }
 
@@ -434,7 +434,7 @@ mod v3_fused_tests {
             0x20, // ADD ([7, 7] -> [14])
             0x00, // HALT
         ];
-        let res = MitoVM::execute_direct(&bytecode, &[], &[]).unwrap();
+        let res = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(res, Some(Value::U64(14)), "DUP followed by ADD: 7 + 7 = 14");
     }
 
@@ -455,7 +455,7 @@ mod v3_fused_tests {
             0x21, // SUB (a=10, b=6, result=10-6=4)
             0x00, // HALT
         ];
-        let res = MitoVM::execute_direct(&bytecode, &[], &[]).unwrap();
+        let res = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(res, Some(Value::U64(4)), "10 - 6 = 4");
     }
 
@@ -481,7 +481,7 @@ mod v3_fused_tests {
             0xD9, // PUSH_1 (nibble immediate: [] -> [1])
             0x00, // HALT
         ];
-        let res = MitoVM::execute_direct(&pass_bc, &[], &[]).unwrap();
+        let res = MitoVM::execute_direct(&pass_bc, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
         assert_eq!(
             res,
             Some(Value::U64(1)),
@@ -508,7 +508,7 @@ mod v3_fused_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 assert_eq!(
@@ -544,7 +544,7 @@ mod v3_fused_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 assert_eq!(
@@ -574,7 +574,7 @@ mod v3_fused_tests {
             0x00,
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(_) => println!("✅ VALIDATE_SUFFICIENT fusion test passed"),
             Err(_) => println!("ℹ️ VALIDATE_SUFFICIENT not yet implemented"),
@@ -600,8 +600,8 @@ mod v3_fused_tests {
             0x00,
         ];
 
-        let debit_result = MitoVM::execute_direct(&debit_bytecode, &[], &[]);
-        let credit_result = MitoVM::execute_direct(&credit_bytecode, &[], &[]);
+        let debit_result = MitoVM::execute_direct(&debit_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let credit_result = MitoVM::execute_direct(&credit_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
 
         match (debit_result, credit_result) {
             (Ok(_), Ok(_)) => println!("✅ TRANSFER_DEBIT/CREDIT fusion tests passed"),
@@ -631,8 +631,8 @@ mod v3_fused_tests {
             0x00,
         ];
 
-        let gt_result = MitoVM::execute_direct(&gt_zero_bytecode, &[], &[]);
-        let lt_result = MitoVM::execute_direct(&lt_zero_bytecode, &[], &[]);
+        let gt_result = MitoVM::execute_direct(&gt_zero_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let lt_result = MitoVM::execute_direct(&lt_zero_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
 
         match (gt_result, lt_result) {
             (Ok(Some(Value::U64(1))), Ok(Some(Value::U64(1)))) => {
@@ -658,8 +658,8 @@ mod v3_fused_tests {
             0x00,
         ];
 
-        let success_result = MitoVM::execute_direct(&success_bytecode, &[], &[]);
-        let error_result = MitoVM::execute_direct(&error_bytecode, &[], &[]);
+        let success_result = MitoVM::execute_direct(&success_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let error_result = MitoVM::execute_direct(&error_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
 
         match success_result {
             Ok(_) => println!("✅ RETURN_SUCCESS fusion test passed"),
@@ -703,7 +703,7 @@ mod v3_fused_tests {
                 0x00,   // HALT
             ];
 
-            let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+            let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
             match result {
                 Ok(_) => println!("✅ {} (0x{:02X}) - IMPLEMENTED", name, opcode),
                 Err(_) => println!("⚠️ {} (0x{:02X}) - NOT IMPLEMENTED", name, opcode),

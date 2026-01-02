@@ -11,7 +11,7 @@
 //! - Error handling and validation chains
 //! - Performance optimization combinations
 
-use five_vm_mito::{MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
 
 #[cfg(test)]
 mod defi_workflow_tests {
@@ -50,7 +50,7 @@ mod defi_workflow_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(_) => println!("✅ Token transfer workflow test passed"),
             Err(e) => println!("ℹ️ Token transfer workflow not fully implemented: {:?}", e),
@@ -91,7 +91,7 @@ mod defi_workflow_tests {
         ];
 
         // Mock pool account
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ Liquidity pool swap test passed: {:?}", value);
@@ -135,7 +135,7 @@ mod smart_contract_pattern_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => println!("✅ Factory pattern test passed: {:?}", value),
             Err(e) => println!("ℹ️ Factory pattern not fully implemented: {:?}", e),
@@ -176,7 +176,7 @@ mod smart_contract_pattern_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ Governance voting test passed: {:?}", value);
@@ -214,7 +214,7 @@ mod cross_program_integration_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => println!("✅ CPI token transfer test passed: {:?}", value),
             Err(e) => println!("ℹ️ CPI token transfer not fully implemented: {:?}", e),
@@ -240,7 +240,7 @@ mod cross_program_integration_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => println!("✅ CPI with PDA signing test passed: {:?}", value),
             Err(e) => println!("ℹ️ CPI with PDA signing not fully implemented: {:?}", e),
@@ -270,7 +270,7 @@ mod error_handling_integration_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => println!("✅ Comprehensive error handling test passed: {:?}", value),
             Err(e) => {
@@ -302,7 +302,7 @@ mod error_handling_integration_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => println!("✅ Validation chain test passed: {:?}", value),
             Err(e) => println!("ℹ️ Validation chain not fully implemented: {:?}", e),
@@ -335,8 +335,8 @@ mod performance_optimization_tests {
             0x00, // HALT
         ];
 
-        let traditional_result = MitoVM::execute_direct(&traditional_bytecode, &[], &[]);
-        let optimized_result = MitoVM::execute_direct(&optimized_bytecode, &[], &[]);
+        let traditional_result = MitoVM::execute_direct(&traditional_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let optimized_result = MitoVM::execute_direct(&optimized_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
 
         match (traditional_result, optimized_result) {
             (Ok(Some(Value::U64(10))), Ok(Some(Value::U64(10)))) => {
@@ -387,8 +387,8 @@ mod performance_optimization_tests {
             0x00, // HALT
         ];
 
-        let stack_result = MitoVM::execute_direct(&stack_bytecode, &[], &[]);
-        let register_result = MitoVM::execute_direct(&register_bytecode, &[], &[]);
+        let stack_result = MitoVM::execute_direct(&stack_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let register_result = MitoVM::execute_direct(&register_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
 
         match (stack_result, register_result) {
             (Ok(Some(Value::U64(900))), Ok(Some(Value::U64(900)))) => {
@@ -431,7 +431,7 @@ mod integration_coverage_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!(

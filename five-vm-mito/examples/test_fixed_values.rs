@@ -1,5 +1,5 @@
 // Test MitoVM with simple arithmetic operations
-use five_vm_mito::{MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
 
 fn main() {
     println!("Testing MitoVM with fixed values...");
@@ -13,7 +13,7 @@ fn main() {
         0x00, // HALT
     ];
 
-    match MitoVM::execute_direct(&bytecode, &[], &[]) {
+    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
         Ok(Some(Value::U64(result))) => {
             println!("✅ Success! 100 + 200 = {}", result);
             assert_eq!(result, 300, "Addition should work correctly");
@@ -35,7 +35,7 @@ fn main() {
         0x00, // HALT
     ];
 
-    match MitoVM::execute_direct(&bytecode2, &[], &[]) {
+    match MitoVM::execute_direct(&bytecode2, &[], &[], &FIVE_VM_PROGRAM_ID) {
         Ok(Some(Value::Bool(result))) => {
             println!("✅ Success! true AND false = {}", result);
             assert!(!result, "Boolean AND should work correctly");

@@ -1,4 +1,4 @@
-use five_vm_mito::MitoVM;
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM};
 
 fn main() {
     // Bytecode from multiple-functions.v
@@ -13,7 +13,7 @@ fn main() {
     let instruction_data = vec![0, 0]; // Call function 0, no params
 
     println!("Executing multiple-functions test...");
-    let result = MitoVM::execute_direct(&bytecode, &instruction_data, &[]);
+    let result = MitoVM::execute_direct(&bytecode, &instruction_data, &[], &FIVE_VM_PROGRAM_ID);
 
     match result {
         Ok(value) => println!("Success! Result: {:?}", value),

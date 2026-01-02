@@ -3,8 +3,7 @@
 //! Comprehensive tests for `INIT_PDA_ACCOUNT` focusing on validation logic,
 //! error conditions, and negative test cases.
 
-use five_vm_mito::{AccountInfo, MitoVM, VMError};
-use five_vm_mito::error::VMErrorCode;
+use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, VMError, error::VMErrorCode};
 use pinocchio::pubkey::Pubkey;
 use solana_sdk::pubkey::Pubkey as SolanaPubkey;
 
@@ -122,7 +121,7 @@ fn test_init_pda_account_success() {
     // The validation logic inside `handle_init_pda_account` verifies `account.key()` matches derived PDA.
     // Since we set `account_key` to the derived PDA, this should PASS.
 
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts);
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
 
     match result {
         Ok(_) => {
@@ -170,7 +169,7 @@ fn test_init_pda_account_failure_address_mismatch() {
     ];
 
     // 4. Execution
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts);
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
 
     // 5. Verification: Should fail with AccountError (address mismatch)
     match result {
@@ -221,7 +220,7 @@ fn test_init_pda_account_failure_invalid_bump() {
         0x00
     ];
 
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts);
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
 
     match result {
         Err(VMError::AccountError) => {
@@ -296,7 +295,7 @@ fn test_init_pda_account_failure_space_limit() {
     let accounts_storage = create_test_accounts(&program_id, &pda_address, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data);
     let accounts = &accounts_storage;
 
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts);
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
 
     match result {
         Err(VMError::InvalidParameter) => {

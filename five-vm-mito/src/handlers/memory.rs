@@ -237,6 +237,59 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 ctx.push(ValueRef::U64(value))?;
             }
         }
+        LOAD_FIELD_PUBKEY => {
+            // Protocol V3: LOAD_FIELD_PUBKEY account_index_u8, offset_vle -> AccountRef/TempRef
+            // Loads a 32-byte pubkey field from an account using lazy loading (AccountRef) when possible
+            // This enables zero-copy field access for pubkey comparisons and operations
+            let account_index = ctx.fetch_byte()?;
+            let field_offset = ctx.fetch_vle_u32()?;
+
+            debug_log!(
+                "MitoVM: LOAD_FIELD_PUBKEY account_index={}, offset={}",
+                account_index,
+                field_offset
+            );
+
+            // Validate account index
+            if (account_index as usize) >= ctx.accounts().len() {
+                return Err(VMErrorCode::InvalidAccountIndex);
+            }
+
+            let account = &ctx.accounts()[account_index as usize];
+            let data = unsafe { account.borrow_data_unchecked() };
+
+            // Validate that 32 bytes are available at the field offset
+            if (field_offset as usize + 32) > data.len() {
+                debug_log!("MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset {} + 32 > len {}", field_offset, data.len());
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+
+            // Use lazy loading with AccountRef for normal offsets (< 64KB)
+            // This defers the 32-byte read until an operation like EQ actually needs the data
+            // The EQ handler knows how to extract 32 bytes from AccountRef for pubkey comparison
+            if field_offset <= u16::MAX as u32 {
+                ctx.push(ValueRef::AccountRef(account_index, field_offset as u16))?;
+                debug_log!(
+                    "MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef({}, {})",
+                    account_index,
+                    field_offset as u16
+                );
+            } else {
+                // Fallback: eager load as TempRef for very large offsets (> 64KB)
+                // This preserves correctness for programs with large field offsets
+                let mut pubkey_bytes = [0u8; 32];
+                pubkey_bytes.copy_from_slice(&data[field_offset as usize..field_offset as usize + 32]);
+
+                let temp_offset = ctx.alloc_temp(32)?;
+                let temp_buf = ctx.get_temp_data_mut(temp_offset, 32)?;
+                temp_buf.copy_from_slice(&pubkey_bytes);
+                ctx.push(ValueRef::TempRef(temp_offset, 32))?;
+                debug_log!(
+                    "MitoVM: LOAD_FIELD_PUBKEY (large offset) pushed TempRef({}, 32)",
+                    temp_offset
+                );
+            }
+        }
         LOAD_INPUT => {
             // LOAD_INPUT: Read raw input data directly (not function parameters)
             let input_len = ctx.instruction_data().len();

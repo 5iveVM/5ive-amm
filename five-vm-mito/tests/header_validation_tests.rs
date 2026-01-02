@@ -3,7 +3,7 @@
 mod support;
 
 use five_protocol::{opcodes::*, Value};
-use five_vm_mito::{MitoVM, VMError};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, VMError};
 use support::script_builder::ScriptBuilder;
 
 fn run_script(build: impl FnOnce(&mut ScriptBuilder)) -> Vec<u8> {
@@ -20,7 +20,7 @@ fn valid_header_executes() {
             .unwrap();
     });
 
-    let result = MitoVM::execute_direct(&script, &[], &[]).unwrap();
+    let result = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
     assert_eq!(result, Some(Value::U64(42)));
 }
 
@@ -35,7 +35,7 @@ fn invalid_magic_fails() {
     });
     script[0..4].copy_from_slice(b"FAKE");
 
-    let err = MitoVM::execute_direct(&script, &[], &[]).unwrap_err();
+    let err = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap_err();
     assert!(matches!(err, VMError::InvalidScript));
 }
 
@@ -56,7 +56,7 @@ fn public_count_exceeds_total_fails() {
     script[8] = 3; // public count (at index 8 in V3 header)
     script[9] = 1; // total count (at index 9 in V3 header)
 
-    let err = MitoVM::execute_direct(&script, &[], &[]).unwrap_err();
+    let err = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap_err();
     assert!(matches!(err, VMError::InvalidScript));
 }
 
@@ -71,6 +71,6 @@ fn total_count_too_large_fails() {
     });
     script[9] = 250; // too many functions for empty body (at index 9 in V3 header)
 
-    let err = MitoVM::execute_direct(&script, &[], &[]).unwrap_err();
+    let err = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap_err();
     assert!(matches!(err, VMError::InvalidScript));
 }

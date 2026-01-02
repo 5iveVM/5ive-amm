@@ -1,4 +1,4 @@
-use five_vm_mito::MitoVM;
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM};
 use pinocchio::account_info::AccountInfo;
 
 #[test]
@@ -38,7 +38,7 @@ fn test_phase1_return_value_debugging() {
     println!("Executing with MitoVM...");
     println!("========================================");
 
-    match MitoVM::execute_direct(&bytecode, &input_data, accounts) {
+    match MitoVM::execute_direct(&bytecode, &input_data, accounts, &FIVE_VM_PROGRAM_ID) {
         Ok(result) => {
             println!("========================================");
             println!("Execution completed successfully!");

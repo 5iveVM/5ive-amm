@@ -174,13 +174,26 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 (ValueRef::AccountRef(_, _), ValueRef::TempRef(_, 32)) => {
                     // Extract data as Pubkey (32 bytes)
                     // We need a helper to read 32 bytes from AccountRef
-                    let pk_b = ctx.extract_pubkey(&b)?;
+                    let pk_b = match ctx.extract_pubkey(&b) {
+                        Ok(pk) => pk,
+                        Err(e) => {
+                            debug_log!("EQ: extract_pubkey failed for b - error code: {}", e as u32);
+                            return Err(e);
+                        }
+                    };
 
                     // Manually read 32 bytes from AccountRef
                     let (acc_idx, offset) = if let ValueRef::AccountRef(idx, off) = a { (idx, off) } else { unreachable!() };
-                    let account = ctx.get_account(acc_idx)?;
+                    let account = match ctx.get_account(acc_idx) {
+                        Ok(acc) => acc,
+                        Err(e) => {
+                            debug_log!("EQ: get_account({}) failed - error code: {}", acc_idx, e as u32);
+                            return Err(e);
+                        }
+                    };
                     let data = unsafe { account.borrow_data_unchecked() };
                     if (offset as usize + 32) > data.len() {
+                        debug_log!("EQ: AccountRef bounds check failed - offset {} + 32 > len {}", offset, data.len());
                         return Err(VMErrorCode::InvalidAccountData);
                     }
                     let mut pk_a = [0u8; 32];

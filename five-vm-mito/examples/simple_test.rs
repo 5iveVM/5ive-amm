@@ -3,7 +3,7 @@
 //! This demonstrates MitoVM execution with valid STKX bytecode
 
 use five_protocol::encoding::VLE;
-use five_vm_mito::{enhanced_opcodes::*, MitoVM};
+use five_vm_mito::{enhanced_opcodes::*, FIVE_VM_PROGRAM_ID, MitoVM};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing MitoVM with simple bytecode...");
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Execute with MitoVM
     println!("🚀 Executing with MitoVM...");
 
-    match MitoVM::execute_direct(&bytecode, &[], &[]) {
+    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
         Ok(result) => {
             println!("✅ Execution successful!");
             match result {

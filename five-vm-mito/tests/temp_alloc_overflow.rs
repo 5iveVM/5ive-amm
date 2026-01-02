@@ -1,5 +1,5 @@
 use five_protocol::opcodes::HALT;
-use five_vm_mito::{ExecutionContext, StackStorage, TEMP_BUFFER_SIZE};
+use five_vm_mito::{ExecutionContext, FIVE_VM_PROGRAM_ID, StackStorage, TEMP_BUFFER_SIZE};
 use pinocchio::pubkey::Pubkey;
 
 #[test]

@@ -12,7 +12,7 @@
 //! - INVOKE (0x80) - Cross-program invocation
 //! - INVOKE_SIGNED (0x81) - Signed cross-program invocation
 
-use five_vm_mito::MitoVM;
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM};
 
 #[cfg(test)]
 mod pda_operations_tests {
@@ -49,7 +49,7 @@ mod pda_operations_tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 // Should return a derived PDA address
@@ -94,7 +94,7 @@ mod pda_operations_tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 // Should return PDA address and bump seed
@@ -127,7 +127,7 @@ mod pda_operations_tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ DERIVE_PDA_PARAMS succeeded: {:?}", value);
@@ -156,7 +156,7 @@ mod system_integration_tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 // Should return clock data structure
@@ -183,7 +183,7 @@ mod system_integration_tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 // Should return rent data structure
@@ -214,7 +214,7 @@ mod system_integration_tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ INIT_ACCOUNT succeeded: {:?}", value);
@@ -244,7 +244,7 @@ mod system_integration_tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ INIT_PDA_ACCOUNT succeeded: {:?}", value);
@@ -279,7 +279,7 @@ mod cross_program_invocation_tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ INVOKE succeeded: {:?}", value);
@@ -310,7 +310,7 @@ mod cross_program_invocation_tests {
         let accounts = [];
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ INVOKE_SIGNED succeeded: {:?}", value);
@@ -358,7 +358,7 @@ mod system_opcode_coverage_tests {
                 0x00,   // HALT
             ];
 
-            let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+            let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
             match result {
                 Ok(_) => println!("✅ {} (0x{:02X}) - IMPLEMENTED", name, opcode),
                 Err(_) => println!("⚠️ {} (0x{:02X}) - NOT IMPLEMENTED", name, opcode),

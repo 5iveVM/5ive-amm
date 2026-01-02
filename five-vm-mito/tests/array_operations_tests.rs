@@ -14,7 +14,7 @@
 //! - PUSH_STRING_LITERAL (0x66) - Push string literal to temp buffer
 //! - PUSH_STRING (0x67) - Push string with length encoding
 
-use five_vm_mito::{MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
 
 /// Helper function to build bytecode with proper Five VM header
 fn build_bytecode(body: &[u8]) -> Vec<u8> {
@@ -42,7 +42,7 @@ mod array_creation_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ CREATE_ARRAY with capacity 5 succeeded: {:?}", value);
@@ -69,7 +69,7 @@ mod array_creation_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!(
@@ -97,7 +97,7 @@ mod array_creation_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ PUSH_ARRAY_LITERAL succeeded: {:?}", value);
@@ -130,7 +130,7 @@ mod array_access_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ ARRAY_INDEX access succeeded: {:?}", value);
@@ -153,7 +153,7 @@ mod array_access_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ ARRAY_GET succeeded: {:?}", value);
@@ -180,7 +180,7 @@ mod array_access_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ ARRAY_LENGTH succeeded: {:?}", value);
@@ -211,7 +211,7 @@ mod array_access_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ ARRAY_SET succeeded: {:?}", value);
@@ -237,7 +237,7 @@ mod string_operations_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ PUSH_STRING basic succeeded: {:?}", value);
@@ -258,7 +258,7 @@ mod string_operations_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ PUSH_STRING_LITERAL succeeded: {:?}", value);
@@ -281,7 +281,7 @@ mod string_operations_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ String as array operation succeeded: {:?}", value);
@@ -309,7 +309,7 @@ mod string_operations_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ String indexing succeeded: {:?}", value);
@@ -339,7 +339,7 @@ mod array_edge_cases_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ Empty array creation succeeded: {:?}", value);
@@ -367,7 +367,7 @@ mod array_edge_cases_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(_) => panic!("Array bounds check should fail for out-of-bounds access"),
             Err(e) => {
@@ -386,7 +386,7 @@ mod array_edge_cases_tests {
             0x00, // HALT
         ]);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ Large array creation succeeded: {:?}", value);
@@ -426,7 +426,7 @@ mod array_coverage_tests {
                 0x00,   // HALT
             ]);
 
-            let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+            let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
             match result {
                 Ok(_) => println!("✅ {} (0x{:02X}) - IMPLEMENTED", name, opcode),
                 Err(_) => println!("⚠️ {} (0x{:02X}) - NOT IMPLEMENTED", name, opcode),

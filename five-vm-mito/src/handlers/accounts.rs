@@ -8,6 +8,7 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
+    error_log,
     pop_u64,
 };
 use core::convert::TryFrom;
@@ -122,15 +123,32 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             let key_bytes = *account.key();
 
             // Store pubkey in temp buffer and return TempRef for zero-copy access
-            let temp_offset = ctx.alloc_temp(32)?;
-            ctx.temp_buffer_mut()[temp_offset as usize..(temp_offset as usize + 32)]
-                .copy_from_slice(&key_bytes);
-            ctx.push(ValueRef::TempRef(temp_offset, 32))?;
-            debug_log!(
-                "MitoVM: GET_KEY account {} -> TempRef({}, 32)",
-                account_idx,
-                temp_offset
-            );
+            match ctx.alloc_temp(32) {
+                Ok(temp_offset) => {
+                    debug_log!(
+                        "MitoVM: GET_KEY account {} allocated temp at offset {}",
+                        account_idx,
+                        temp_offset
+                    );
+                    ctx.temp_buffer_mut()[temp_offset as usize..(temp_offset as usize + 32)]
+                        .copy_from_slice(&key_bytes);
+                    ctx.push(ValueRef::TempRef(temp_offset, 32))?;
+                    debug_log!(
+                        "MitoVM: GET_KEY account {} pushed TempRef({}, 32) to stack (stack_size={})",
+                        account_idx,
+                        temp_offset,
+                        ctx.size() as u32
+                    );
+                }
+                Err(e) => {
+                    error_log!(
+                        "MitoVM: GET_KEY account {} alloc_temp(32) FAILED - error code: {}",
+                        account_idx,
+                        e as u32
+                    );
+                    return Err(e);
+                }
+            }
         }
         GET_DATA => {
             let account_idx = ctx.fetch_byte()?;

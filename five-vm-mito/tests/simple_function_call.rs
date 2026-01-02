@@ -1,7 +1,7 @@
 mod support;
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{AccountInfo, MitoVM, Value};
+use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value};
 use support::script_builder::ScriptBuilder;
 
 fn build_simple_call_script() -> Vec<u8> {
@@ -24,7 +24,7 @@ fn build_simple_call_script() -> Vec<u8> {
 fn test_simple_function_call() {
     let bytecode = build_simple_call_script();
     let accounts: &[AccountInfo] = &[];
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts).unwrap();
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID).unwrap();
     assert_eq!(
         result,
         Some(Value::U64(8)),
@@ -36,7 +36,7 @@ fn test_simple_function_call() {
 fn test_basic_vm_execution() {
     let bytecode = build_simple_call_script();
     let accounts: &[AccountInfo] = &[];
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts);
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
     assert!(
         result.is_ok(),
         "script built via ScriptBuilder should execute"

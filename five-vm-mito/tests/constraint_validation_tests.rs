@@ -12,7 +12,7 @@
 //! - CHECK_PDA (0x74) - Verify account is valid PDA
 //! - CHECK_UNINITIALIZED (0x75) - Verify account is uninitialized
 
-use five_vm_mito::MitoVM;
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM};
 
 #[cfg(test)]
 mod basic_constraint_tests {
@@ -38,7 +38,7 @@ mod basic_constraint_tests {
 
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &[]);
+        let result = MitoVM::execute_direct(&bytecode, &input_data, &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ CHECK_SIGNER with valid signer succeeded: {:?}", value);
@@ -60,7 +60,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(_) => panic!("CHECK_SIGNER should fail for non-signer account"),
             Err(e) => {
@@ -79,7 +79,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!(
@@ -103,7 +103,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(_) => panic!("CHECK_WRITABLE should fail for read-only account"),
             Err(e) => {
@@ -139,7 +139,7 @@ mod basic_constraint_tests {
         // HALT
         bytecode.push(0x00);
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ CHECK_OWNER with correct owner succeeded: {:?}", value);
@@ -160,7 +160,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!(
@@ -184,7 +184,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!(
@@ -223,7 +223,7 @@ mod pda_constraint_tests {
 
         // Mock PDA account (in practice this would be derived from seeds)
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ CHECK_PDA with valid PDA succeeded: {:?}", value);
@@ -256,7 +256,7 @@ mod advanced_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ Multiple constraint checks succeeded: {:?}", value);
@@ -277,7 +277,7 @@ mod advanced_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ CHECK_DEDUPE_TABLE succeeded: {:?}", value);
@@ -298,7 +298,7 @@ mod advanced_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Ok(value) => {
                 println!("✅ CHECK_CACHED succeeded: {:?}", value);
@@ -343,7 +343,7 @@ mod constraint_coverage_tests {
 
             // Minimal account for constraint testing
 
-            let result = MitoVM::execute_direct(&bytecode, &[], &[]);
+            let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
             match result {
                 Ok(_) => println!("✅ {} (0x{:02X}) - IMPLEMENTED", name, opcode),
                 Err(_) => println!("⚠️ {} (0x{:02X}) - NOT IMPLEMENTED", name, opcode),
