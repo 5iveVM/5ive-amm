@@ -19,8 +19,12 @@ impl DslBytecodeGenerator {
         let mut production_features = five_protocol::FEATURE_FUSED_BRANCH
             | five_protocol::FEATURE_NO_VALIDATION
             | five_protocol::FEATURE_MINIMAL_ERRORS
-            | five_protocol::FEATURE_COLD_START_OPT
-            | five_protocol::FEATURE_FUNCTION_METADATA;
+            | five_protocol::FEATURE_COLD_START_OPT;
+
+        #[cfg(feature = "call-metadata")]
+        {
+            production_features |= five_protocol::FEATURE_FUNCTION_METADATA;
+        }
 
         if public_count > 0 && self.include_debug_info {
             production_features |= five_protocol::FEATURE_FUNCTION_NAMES;

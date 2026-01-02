@@ -574,6 +574,34 @@ impl AdvancedBytecodeAnalyzer {
                     }
                 }
             }
+            ArgType::CallInternal => {
+                if self.position + 2 < self.bytecode.len() {
+                    let param_count = self.bytecode[self.position];
+                    let addr_bytes = [
+                        self.bytecode[self.position + 1],
+                        self.bytecode[self.position + 2],
+                    ];
+                    let func_addr = u16::from_le_bytes(addr_bytes);
+
+                    operands.push(OperandInfo {
+                        operand_type: "param_count".to_string(),
+                        raw_value: vec![param_count],
+                        decoded_value: Some(param_count.to_string()),
+                        size: 1,
+                        description: "Parameter count for internal call".to_string(),
+                    });
+
+                    operands.push(OperandInfo {
+                        operand_type: "func_addr".to_string(),
+                        raw_value: vec![self.bytecode[self.position + 1], self.bytecode[self.position + 2]],
+                        decoded_value: Some(format!("addr_{}", func_addr)),
+                        size: 2,
+                        description: "Internal function address".to_string(),
+                    });
+
+                    self.position += 3;
+                }
+            }
         }
 
         // Handle special cases for specific opcodes that have unique operand patterns
