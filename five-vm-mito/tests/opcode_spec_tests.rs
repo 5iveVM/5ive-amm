@@ -248,17 +248,7 @@ fn test_spec_nibble_ops() {
     assert_eq!(res, Some(Value::U64(6)), "Nibble PUSH ops should work correctly");
 }
 
-#[test]
-fn test_spec_pattern_fusion() {
-    // Spec: DUP_ADD (x + x)
-    let bc_dup_add = build_script(|script| {
-        push_u64(script, 21);
-        script.push(DUP_ADD); // 21 + 21 = 42
-        script.push(HALT);
-    });
-    let res = MitoVM::execute_direct(&bc_dup_add, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
-    assert_eq!(res, Some(Value::U64(42)), "DUP_ADD should double the value");
-}
+// Pattern Fusion tests removed as opcodes were reverted
 
 #[test]
 fn test_spec_byte_swap() {

@@ -18,14 +18,12 @@ pub mod option_result;
 pub mod registers;
 pub mod syscalls;
 pub mod system;
-pub mod fusion;
 
 // Re-export handler functions for easy access
 pub use accounts::handle_accounts;
 pub use arithmetic::handle_arithmetic;
 pub use constraints::handle_constraints;
 pub use control_flow::handle_control_flow;
-pub use fusion::handle_fusion_ops;
 pub use logical::handle_logical;
 pub use memory::handle_memory;
 pub use stack_ops::handle_stack_ops;

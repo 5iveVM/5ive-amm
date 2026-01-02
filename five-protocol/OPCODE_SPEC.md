@@ -222,24 +222,11 @@ Highly optimized single-byte instructions for common operations.
 
 ## Pattern Fusion (0xE0-0xEF)
 
-Instructions that combine multiple operations into one to reduce size and execution overhead.
+**REMOVED**: This range was previously used for fusion opcodes but they have been removed from the protocol.
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
-| 0xE0 | `PUSH_ZERO` | None | +1 | Push 0. | Alias for PUSH_0. |
-| 0xE1 | `PUSH_ONE` | None | +1 | Push 1. | Alias for PUSH_1. |
-| 0xE2 | `DUP_ADD` | None | 0 | DUP then ADD. | **Optimization**: Common pattern `x + x`. |
-| 0xE3 | `DUP_SUB` | None | 0 | DUP then SUB. | Optimization. |
-| 0xE4 | `DUP_MUL` | None | 0 | DUP then MUL. | Optimization (squaring). |
-| 0xE5 | `VALIDATE_AMOUNT_NONZERO`| None | -1 | Assert top > 0. | Common check for transfers. |
-| 0xE6 | `VALIDATE_SUFFICIENT` | None | -2 | Assert bal >= amt. | Common check for transfers. |
-| 0xE7 | `EQ_ZERO_JUMP` | `off` | -1 | Jump if top == 0. | Optimization for `PUSH 0, EQ, JUMP_IF`. |
-| 0xE8 | `TRANSFER_DEBIT` | `idx` | -1 | Subtract from balance. | Helper for custom token accounting. |
-| 0xE9 | `TRANSFER_CREDIT` | `idx` | -1 | Add to balance. | Helper for custom token accounting. |
-| 0xEA | `RETURN_SUCCESS` | None | 0 | Push Ok, RETURN. | Common function exit. |
-| 0xEB | `RETURN_ERROR` | None | 0 | Push Err, RETURN. | Common error exit. |
-| 0xEC | `GT_ZERO_JUMP` | `off` | -1 | Jump if top > 0. | Optimization. |
-| 0xED | `LT_ZERO_JUMP` | `off` | -1 | Jump if top < 0. | Optimization. |
+| 0xE0-EF| `RESERVED` | N/A | N/A | Reserved for future use. | - |
 
 ## Advanced/Experimental (0xF0-0xFF)
 
