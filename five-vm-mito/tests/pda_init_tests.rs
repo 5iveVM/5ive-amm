@@ -16,11 +16,6 @@ fn derive_pda_real(seeds: &[&[u8]], program_id: &Pubkey) -> (Pubkey, u8) {
     (Pubkey::from(pda_pubkey.to_bytes()), bump)
 }
 
-// System program ID constant
-const SYSTEM_PROGRAM_ID: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-]; // Solana system program ID: 11111111111111111111111111111112
-
 /// Helper to create a proper test environment with valid accounts
 fn create_test_accounts<'a>(
     program_id: &Pubkey,
@@ -79,38 +74,41 @@ fn test_init_pda_account_success() {
     let accounts = &accounts_storage; // Slice
 
     // 3. Bytecode: Simulate INIT_PDA_ACCOUNT with correct parameters
+    // Stack consumption order (Top to Bottom):
+    // account_idx, space, lamports, owner, seeds_count, seedN...seed1, bump
+    // Therefore Push order (Bottom to Top):
+    // bump, seed1...seedN, seeds_count, owner, lamports, space, account_idx
+
     let bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
         0x00, 0x00,             // Counts
 
-        // Push account_idx (1)
-        0x18, 0x01, // PUSH_U8(1)
-
-        // Push space (100)
-        0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(100)
-
-        // Push lamports (1_000_000)
-        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(1_000_000)
-
-        // Push owner (0 = Current Program)
-        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(0)
-
-        // Push seeds count (2)
-        0x18, 0x02, // PUSH_U8(2)
+        // Push bump
+        0x18, bump, // PUSH_U8(bump)
 
         // Push seed 1: "vault"
         0x67, 0x05, // PUSH_STRING len=5
         b'v', b'a', b'u', b'l', b't',
 
         // Push seed 2: [1, 2, 3]
-        // This needs to be a byte array or constructed.
-        // Let's use PUSH_STRING for bytes: "\x01\x02\x03"
         0x67, 0x03,
         0x01, 0x02, 0x03,
 
-        // Push bump
-        0x18, bump, // PUSH_U8(bump)
+        // Push seeds count (2)
+        0x18, 0x02, // PUSH_U8(2)
+
+        // Push owner (0 = Current Program)
+        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(0)
+
+        // Push lamports (1_000_000)
+        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(1_000_000)
+
+        // Push space (100)
+        0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(100)
+
+        // Push account_idx (1)
+        0x18, 0x01, // PUSH_U8(1)
 
         // Call INIT_PDA_ACCOUNT
         0x85, // INIT_PDA_ACCOUNT
@@ -158,17 +156,14 @@ fn test_init_pda_account_failure_address_mismatch() {
         0x00, 0x00, 0x00, 0x00, // Features
         0x00, 0x00,             // Counts
 
-        0x18, 0x01, // PUSH_U8(1) - account_idx
-        0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Space
-        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // Lamports
-        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Owner
-
-        0x18, 0x02, // Seeds count
-
+        0x18, bump, // Valid bump for seeds
         0x67, 0x05, b'v', b'a', b'u', b'l', b't', // Seed 1
         0x67, 0x03, 0x01, 0x02, 0x03,             // Seed 2
-
-        0x18, bump, // Valid bump for seeds
+        0x18, 0x02, // Seeds count
+        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Owner
+        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // Lamports
+        0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Space
+        0x18, 0x01, // PUSH_U8(1) - account_idx
 
         0x85, // INIT_PDA_ACCOUNT
         0x00
@@ -214,15 +209,13 @@ fn test_init_pda_account_failure_invalid_bump() {
         0x00, 0x00, 0x00, 0x00, // Features
         0x00, 0x00,             // Counts
 
-        0x18, 0x01, // account_idx
-        0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Space
-        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // Lamports
-        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Owner
-
-        0x18, 0x01, // Seeds count (1)
-        0x67, 0x05, b'v', b'a', b'u', b'l', b't', // Seed 1
-
         0x18, wrong_bump, // WRONG bump
+        0x67, 0x05, b'v', b'a', b'u', b'l', b't', // Seed 1
+        0x18, 0x01, // Seeds count (1)
+        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Owner
+        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // Lamports
+        0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Space
+        0x18, 0x01, // account_idx
 
         0x85, // INIT_PDA_ACCOUNT
         0x00
@@ -268,22 +261,35 @@ fn test_init_pda_account_failure_space_limit() {
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
         0x00, 0x00,             // Counts
-
-        0x18, 0x01, // account_idx
     ];
 
+    // Push bump
+    bytecode.push(0x18);
+    bytecode.push(bump);
+
+    // Push seed 1
+    bytecode.extend_from_slice(&[0x67, 0x05, b'v', b'a', b'u', b'l', b't']);
+
+    // Push seeds count
+    bytecode.push(0x18);
+    bytecode.push(0x01);
+
+    // Push owner
+    bytecode.extend_from_slice(&[0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+
+    // Push lamports
+    bytecode.extend_from_slice(&[0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00]);
+
+    // Push Excessive Space
     bytecode.push(0x1B); // PUSH_U64
     bytecode.extend_from_slice(&space_bytes); // Space
 
-    bytecode.extend_from_slice(&[
-        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // Lamports
-        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Owner
-        0x18, 0x01, // Seeds count
-        0x67, 0x05, b'v', b'a', b'u', b'l', b't', // Seed 1
-        0x18, bump, // Bump
-        0x85, // INIT_PDA_ACCOUNT
-        0x00
-    ]);
+    // Push account_idx
+    bytecode.push(0x18);
+    bytecode.push(0x01);
+
+    bytecode.push(0x85); // INIT_PDA_ACCOUNT
+    bytecode.push(0x00);
 
     let mut payer_lamports = 1_000_000_000;
     let mut payer_data = [0u8; 0];
