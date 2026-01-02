@@ -136,7 +136,7 @@ async function deployTokenProgram() {
         const rentRequired = await connection.getMinimumBalanceForRentExemption(finalScriptSize);
         // Add conservative buffer to handle reallocation overhead
         // Solana's safe_realloc may need additional lamports beyond the minimum balance
-        const REALLOCATION_BUFFER = 0.01 * LAMPORTS_PER_SOL;  // 10M lamports (~0.01 SOL)
+        const REALLOCATION_BUFFER = 1.0 * LAMPORTS_PER_SOL;  // Huge buffer
         const initialLamports = rentRequired + REALLOCATION_BUFFER;
 
         console.log(`${CYAN}▶ Creating Script Account...${NC}`);

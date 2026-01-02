@@ -976,6 +976,7 @@ export class FiveSDK {
     // Handle missing metadata gracefully - generate parameters for VLE encoding
     let functionIndex: number;
     let encodedParams: Uint8Array;
+    let actualParamCount: number = 0;
 
     try {
       // Use provided ABI if available, otherwise try to load from chain
@@ -1014,6 +1015,8 @@ export class FiveSDK {
         : scriptMetadata.functions[functionIndex];
 
       // Encode parameters with ABI guidance
+      const paramDefs = (funcDef.parameters || []).filter((p: any) => !(p.isAccount || p.is_account));
+      actualParamCount = paramDefs.length;
       encodedParams = await this.encodeParametersWithABI(
         parameters,
         funcDef,
@@ -1024,6 +1027,7 @@ export class FiveSDK {
         console.log(
           `[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types`,
         );
+        console.log(`[FiveSDK] ABI processing error:`, metadataError);
       }
 
       // GRACEFUL HANDLING: Use VLE encoding without metadata
@@ -1051,6 +1055,7 @@ export class FiveSDK {
         );
       }
 
+      actualParamCount = paramDefs.length;
       encodedParams = await VLEEncoder.encodeExecuteVLE(
         functionIndex,
         paramDefs,
@@ -1136,6 +1141,7 @@ export class FiveSDK {
     const instructionData = this.encodeExecuteInstruction(
       functionIndex,
       encodedParams,
+      actualParamCount,
     );
 
     const result: SerializedExecution = {
@@ -1645,22 +1651,36 @@ export class FiveSDK {
   private static encodeExecuteInstruction(
     functionIndex: number,
     encodedParams: Uint8Array,
+    paramCount: number,
   ): Uint8Array {
-    // Execute instruction: [discriminator(9), function_index(VLE), params]
-    // encodedParams contains: [VLE(paramCount), VLE(param1), ...]
+    // Execute instruction format: [discriminator(9), VLE(func_idx), VLE(param_count), params...]
+    // NOTE: For typed params, encodedParams starts with [VLE(128), VLE(count), typed_params...]
+    // In that case, the sentinel (128) IS the param_count, so we should NOT add another one.
+
+    const TYPED_PARAM_SENTINEL = 128;
+    const isTypedParams = encodedParams.length > 0 && encodedParams[0] === TYPED_PARAM_SENTINEL;
+
     const parts = [];
-    parts.push(new Uint8Array([9])); // Execute discriminator (matches on-chain FIVE program)
-    const functionIndexVLE = FiveSDK.encodeVLENumber(functionIndex);
-    parts.push(functionIndexVLE);
-    parts.push(encodedParams); // Contains: [VLE(paramCount), VLE(param1), ...]
+    parts.push(new Uint8Array([9])); // Execute discriminator
+    parts.push(FiveSDK.encodeVLENumber(functionIndex)); // VLE function index
+
+    if (isTypedParams) {
+      // For typed params, encodedParams already contains [VLE(128), VLE(count), ...]
+      // Don't add paramCount - the sentinel acts as the marker
+      parts.push(encodedParams);
+    } else {
+      // For simple VLE params, add param count then raw params
+      parts.push(FiveSDK.encodeVLENumber(paramCount)); // VLE param count
+      parts.push(encodedParams); // Raw parameter data
+    }
 
     const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
     const result = new Uint8Array(totalLength);
-    let offset = 0;
+    let resultOffset = 0;
 
     for (const part of parts) {
-      result.set(part, offset);
-      offset += part.length;
+      result.set(part, resultOffset);
+      resultOffset += part.length;
     }
     return result;
   }

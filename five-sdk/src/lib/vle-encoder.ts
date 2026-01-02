@@ -184,8 +184,8 @@ export class VLEEncoder {
     }
 
     const parts: Buffer[] = [];
-    parts.push(encodeVleU32(TYPED_PARAM_SENTINEL));
-    parts.push(encodeVleU32(TYPED_PARAM_SENTINEL));
+    parts.push(encodeVleU32(TYPED_PARAM_SENTINEL)); // Signal typed params mode
+    parts.push(encodeVleU32(paramValues.length)); // Actual param count
 
     for (const { param, value } of paramValues) {
       parts.push(this.encodeTypedParam(param, value, encodeVleU32, encodeVleU64));
@@ -220,6 +220,31 @@ export class VLEEncoder {
       const boolValue = value ? 1 : 0;
       const valBytes = encodeVleU32(boolValue);
       return Buffer.concat([Buffer.from([typeId]), valBytes]);
+    }
+
+    // Handle pubkey type - decode base58 to bytes, encode as STRING since VM rejects PUBKEY type
+    // VM's typed param parsing explicitly returns TypeMismatch for PUBKEY type (line 458-459 in utils.rs)
+    // Pubkeys are sent as length-prefixed binary data, same format as STRING
+    if (typeId === TYPE_IDS.pubkey) {
+      let bytes: Buffer;
+      if (typeof value === 'string') {
+        // Base58 decode the pubkey string
+        try {
+          const bs58 = require('bs58');
+          bytes = Buffer.from(bs58.decode(value));
+        } catch {
+          // Fallback: try to decode as base58 using dynamic import
+          // If bs58 is not available, treat as UTF-8 bytes (for testing)
+          bytes = Buffer.from(value, 'utf8');
+        }
+      } else if (value instanceof Uint8Array) {
+        bytes = Buffer.from(value);
+      } else {
+        throw new Error(`Invalid value for pubkey parameter: ${param.name}`);
+      }
+      // Use STRING type ID (11) for encoding since VM handles it properly
+      const lenBytes = encodeVleU32(bytes.length);
+      return Buffer.concat([Buffer.from([TYPE_IDS.string]), lenBytes, bytes]);
     }
 
     // For numbers/bigints (u8...u64, i8...i64)

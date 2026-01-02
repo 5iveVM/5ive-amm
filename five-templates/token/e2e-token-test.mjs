@@ -169,7 +169,8 @@ async function executeTokenFunction(
             {
                 debug: true,
                 vmStateAccount: VM_STATE_PDA.toBase58(),
-                fiveVMProgramId: FIVE_PROGRAM_ID.toBase58()
+                fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
+                abi: tokenABI  // Pass ABI for proper parameter type encoding
             }
         );
 

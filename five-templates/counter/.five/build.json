@@ -1,0 +1,12 @@
+{
+  "artifact_path": "src/counter.fbin",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/src/counter.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-02T10:51:36.123Z",
+  "hash": "c69eb4031a2e733f5483074b1135f3eba11c0bd43003f09afb99e82b9af0420d",
+  "format": "bin",
+  "source_dir": "src"
+}

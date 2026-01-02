@@ -1,18 +1,19 @@
 {
-  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-templates/token/build/five-token-template.five",
+  "artifact_path": "src/token.fbin",
   "compiler_version": "unknown",
   "source_files": [
-    "/Users/amberjackson/Documents/Development/five-org/five-templates/token/src/token.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-templates/token/src/main.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-templates/token/src/types/token_types.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-templates/token/src/token/token_transfer.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-templates/token/src/token/token_mint.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-templates/token/src/token/token_core.v"
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/simple_test.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/src/token.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/src/types/token_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/src/token/token_transfer.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/src/token/token_mint.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/src/token/token_core.v"
   ],
   "target": "vm",
-  "timestamp": "2025-12-31T03:29:29.683Z",
-  "hash": "ba6b593e4ef17f3478ea84c90dccd9982e8bbabdaeb86870811affa8e2af21d6",
-  "format": "five",
+  "timestamp": "2026-01-02T11:16:25.743Z",
+  "hash": "1f43a90bb5bc1c21e8a5f41e5f8a8b575b1bd61c02d359fa214d4c1987af83b0",
+  "format": "bin",
   "entry_point": "src/token.v",
   "source_dir": "src"
 }
