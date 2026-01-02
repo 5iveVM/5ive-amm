@@ -9,6 +9,7 @@ use crate::{
     debug_log,
     error::{CompactResult, VMErrorCode},
     error_log,
+    utils,
 };
 use five_protocol::{opcodes::*, ValueRef};
 
@@ -57,7 +58,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             }
 
             // Write value as u64 (8 bytes) in little-endian format
-            let value_u64 = value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+            let value_u64 = utils::resolve_u64(value, ctx)?;
             let value_bytes = value_u64.to_le_bytes();
 
             // Zero-copy write: direct memory copy
@@ -72,7 +73,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             );
         }
         LOAD => {
-            let _address = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)? as usize;
+            let _address = utils::resolve_u64(ctx.pop()?, ctx)? as usize;
             debug_log!("MitoVM: LOAD address={}", _address as u32);
             return Err(VMErrorCode::InvalidInstruction); // Not implemented in MitoVM
         }
@@ -151,62 +152,48 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 if account.is_writable() { 1u8 } else { 0u8 }
             );
 
-            if (field_offset as usize + 8) > data.len() {
-                debug_log!(
-                    "MitoVM: STORE_FIELD ERROR - offset {} + 8 > data_len {}",
-                    field_offset,
-                    data.len() as u32
-                );
-                return Err(VMErrorCode::InvalidAccountData);
+            // Determine value size and bytes to write
+            match value {
+                ValueRef::U64(v) => {
+                    if (field_offset as usize + 8) > data.len() {
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    data[field_offset as usize..field_offset as usize + 8].copy_from_slice(&v.to_le_bytes());
+                }
+                ValueRef::PubkeyRef(_) | ValueRef::TempRef(_, 32) => {
+                    // 32-byte write (Pubkey)
+                    if (field_offset as usize + 32) > data.len() {
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    let pubkey_bytes = ctx.extract_pubkey(&value)?;
+                    data[field_offset as usize..field_offset as usize + 32].copy_from_slice(&pubkey_bytes);
+                }
+                ValueRef::AccountRef(_, _) => {
+                    // AccountRef copy (u64)
+                    let v = utils::resolve_u64(value, ctx)?;
+                    if (field_offset as usize + 8) > data.len() {
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    data[field_offset as usize..field_offset as usize + 8].copy_from_slice(&v.to_le_bytes());
+                }
+                _ => {
+                    // Fallback to u64 for legacy compatibility, or fail
+                    if let Some(v) = value.as_u64() {
+                        if (field_offset as usize + 8) > data.len() {
+                            return Err(VMErrorCode::InvalidAccountData);
+                        }
+                        data[field_offset as usize..field_offset as usize + 8].copy_from_slice(&v.to_le_bytes());
+                    } else {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                }
             }
-
-            let value_u64 = value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-
-            // Log data before write (first 8 bytes at target offset)
-            let offset = field_offset as usize;
-            debug_log!(
-                "MitoVM: STORE_FIELD BEFORE data[{}..{}]: {} {} {} {} {} {} {} {}",
-                offset as u32,
-                (offset + 8) as u32,
-                data[offset],
-                data[offset + 1],
-                data[offset + 2],
-                data[offset + 3],
-                data[offset + 4],
-                data[offset + 5],
-                data[offset + 6],
-                data[offset + 7]
-            );
-
-            debug_log!(
-                "MitoVM: STORE_FIELD writing value={} to offset={}",
-                value_u64,
-                field_offset
-            );
-
-            data[offset..offset + 8].copy_from_slice(&value_u64.to_le_bytes());
-
-            // Log data after write
-            debug_log!(
-                "MitoVM: STORE_FIELD AFTER data[{}..{}]: {} {} {} {} {} {} {} {}",
-                offset as u32,
-                (offset + 8) as u32,
-                data[offset],
-                data[offset + 1],
-                data[offset + 2],
-                data[offset + 3],
-                data[offset + 4],
-                data[offset + 5],
-                data[offset + 6],
-                data[offset + 7]
-            );
 
             // CRITICAL: Log to error_log to ensure persistence verification is visible
             error_log!(
-                "STORE_FIELD_WRITTEN: idx={} offset={} value={} ptr={}",
+                "STORE_FIELD_WRITTEN: idx={} offset={} ptr={}",
                 account_index,
                 field_offset,
-                value_u64,
                 data_ptr
             );
         }
@@ -226,20 +213,29 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 return Err(VMErrorCode::InvalidAccountIndex);
             }
 
-            let account = &ctx.accounts()[account_index as usize];
-            // SAFETY: Read-only access, no mutable references active
-            let data = unsafe { account.borrow_data_unchecked() };
+            // Optimized lazy loading: push AccountRef instead of reading immediately
+            // This allows the consumer (e.g. EQ, ADD) to decide how many bytes to read
+            // AccountRef takes u16 offset. Check if offset fits.
+            if field_offset <= u16::MAX as u32 {
+                ctx.push(ValueRef::AccountRef(account_index, field_offset as u16))?;
+            } else {
+                // Fallback for large offsets: eager load as u64 (legacy behavior)
+                // This limitation implies fields > 64KB must be u64 or handled differently
+                let account = &ctx.accounts()[account_index as usize];
+                // SAFETY: Read-only access, no mutable references active
+                let data = unsafe { account.borrow_data_unchecked() };
 
-            if (field_offset as usize + 8) > data.len() {
-                return Err(VMErrorCode::InvalidAccountData);
+                if (field_offset as usize + 8) > data.len() {
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
+
+                let value = u64::from_le_bytes(
+                    data[field_offset as usize..field_offset as usize + 8]
+                        .try_into()
+                        .map_err(|_| VMErrorCode::InvalidAccountData)?,
+                );
+                ctx.push(ValueRef::U64(value))?;
             }
-
-            let value = u64::from_le_bytes(
-                data[field_offset as usize..field_offset as usize + 8]
-                    .try_into()
-                    .map_err(|_| VMErrorCode::InvalidAccountData)?,
-            );
-            ctx.push(ValueRef::U64(value))?;
         }
         LOAD_INPUT => {
             // LOAD_INPUT: Read raw input data directly (not function parameters)
