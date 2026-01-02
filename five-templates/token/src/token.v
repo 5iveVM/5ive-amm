@@ -37,8 +37,8 @@ account TokenAccount {
 // Only the authority signer can create mints
 pub init_mint(
     // Initialize the mint account
-    // Explicitly specify authority as the payer for rent
-    mint_account: Mint @mut @init(payer=authority) @signer,
+    // Explicitly specify authority as the payer for rent and space
+    mint_account: Mint @mut @init(payer=authority, space=256) @signer,
     
     // The authority who can mint tokens
     authority: account @signer,
@@ -63,7 +63,7 @@ pub init_mint(
 
 // Initialize a token account for a user - prepares them to hold tokens
 pub init_token_account(
-    token_account: TokenAccount @mut @init(payer=owner) @signer,
+    token_account: TokenAccount @mut @init(payer=owner, space=192) @signer,
     owner: account @signer,
     mint: pubkey
 ) -> pubkey {
@@ -81,7 +81,7 @@ pub init_token_account(
 // Create an Associated Token Account (ATA)
 // Convenience wrapper around init_token_account for parity with SPL Token
 pub create_associated_token_account(
-    ata_account: TokenAccount @mut @init(payer=owner) @signer,
+    ata_account: TokenAccount @mut @init(payer=owner, space=192) @signer,
     owner: account @signer,
     mint: pubkey
 ) -> pubkey {
@@ -92,7 +92,7 @@ pub create_associated_token_account(
 // Seeds: [mint, owner_pubkey]
 // Anyone can create the account, but only at the derived PDA address.
 pub create_deterministic_token_account(
-    ata_account: TokenAccount @mut @init,
+    ata_account: TokenAccount @mut @init(space=192),
     owner: pubkey,
     mint: pubkey
 ) -> pubkey {

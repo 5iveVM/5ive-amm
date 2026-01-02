@@ -320,13 +320,13 @@ async function main() {
     header('STEP 2: Initialize Mint (init_mint)');
 
     // init_mint expects: mint_account (@init @mut @signer), authority (@signer)
-    // Parameters: authority pubkey, decimals, name, symbol, uri
+    // Parameters: freeze_authority (pubkey), decimals, name, symbol, uri
     // The @init constraint will create the mint account via CPI
     let result = await executeTokenFunction(
         connection,
         payer,  // Payer funds the account creation
         'init_mint',
-        [6, "TestToken", "TEST", "https://example.com/token"],
+        [user1.publicKey.toBase58(), 6, "TestToken", "TEST", "https://example.com/token"],
         [
             { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
             { pubkey: mintAccount.publicKey, isWritable: true, isSigner: true },
