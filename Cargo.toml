@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "five-protocol",
+    "five-dsl-compiler",
+    "five-solana",
+    "five-vm-mito",
+    "five-wasm",
+]
+resolver = "2"
