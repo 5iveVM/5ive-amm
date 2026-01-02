@@ -503,21 +503,21 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::U16,
         stack_effect: 0,
         compute_cost: 2,
-    }, // VLE encoded offset
+    }, // Fixed u16 offset
     OpcodeInfo {
         opcode: JUMP_IF,
         name: "JUMP_IF",
         arg_type: ArgType::U16,
         stack_effect: -1,
         compute_cost: 3,
-    }, // VLE encoded offset
+    }, // Fixed u16 offset
     OpcodeInfo {
         opcode: JUMP_IF_NOT,
         name: "JUMP_IF_NOT",
         arg_type: ArgType::U16,
         stack_effect: -1,
         compute_cost: 3,
-    }, // VLE encoded offset
+    }, // Fixed u16 offset
     OpcodeInfo {
         opcode: REQUIRE,
         name: "REQUIRE",
