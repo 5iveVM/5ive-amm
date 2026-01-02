@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const binPath = 'src/counter.bin';
+const binPath = 'src/counter.fbin';
 const abiPath = 'src/counter.abi.json';
 const outPath = 'build/five-counter-template.five';
 

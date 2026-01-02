@@ -119,23 +119,22 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let owner = extract_owner_pubkey(owner_ref, ctx)?;
 
     // Create account via System Program CPI (runtime integration required)
-    // WORKAROUND: We create with 0 space first, then realloc to target space.
-    // This forces pinocchio/runtime to update the AccountInfo data pointer explicitly
-    // during realloc, preventing stale pointers if create_account(CPI) doesn't update them.
+    // WORKAROUND: Create with 0 space first, then realloc to target space.
+    // This pattern helps ensuring ownership transfer is recognized before resizing.
     match ctx.create_account(account_idx, 0, lamports, &owner) {
         Ok(()) => {
             if space > 0 {
-                // Determine new length (space is u64 checked against MAX_ACCOUNT_SIZE which fits in usize)
                 let new_len = space as usize;
-                
-                // Get account again (though reference should be same)
                 let account = ctx.get_account_unchecked(account_idx)?;
                 
-                // Realloc to target space
                 unsafe {
-                    // pinocchio::AccountInfo::resize updates internal state
                     match account.resize(new_len) {
                         Ok(()) => {
+                             // Force touch data to ensure persistence
+                             if new_len > 0 {
+                                 let mut data = account.borrow_mut_data_unchecked();
+                                 data[0] = 0; 
+                             }
                              error_log!("INIT_ACCOUNT: Resize to {} bytes success", new_len);
                         },
                         Err(_) => {

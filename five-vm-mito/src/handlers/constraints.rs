@@ -18,8 +18,8 @@ use pinocchio::pubkey::Pubkey;
 
 // System program ID constant
 const SYSTEM_PROGRAM_ID: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-]; // Solana system program ID: 11111111111111111111111111111112
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+]; // Solana system program ID: 11111111111111111111111111111111
 
 /// Handle constraint operations (0x70-0x7F)
 #[inline(never)]
@@ -79,12 +79,14 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             // Account should be uninitialized (empty data) for @init
             // SAFETY: We only read the data slice; mutable borrows are ruled out by `ExecutionManager`.
             if !unsafe { account.borrow_data_unchecked() }.is_empty() {
+                debug_log!("MitoVM: CHECK_UNINITIALIZED failed - data_len={} (expected 0)", account.data_len());
                 return Err(VMErrorCode::ConstraintViolation);
             }
 
             // Also check that account owner is the System Program for new accounts
             let account_owner = *account.owner();
             if account_owner != Pubkey::from(SYSTEM_PROGRAM_ID) {
+                debug_log!("MitoVM: CHECK_UNINITIALIZED failed - owner mismatch (expected SystemProgram)");
                 return Err(VMErrorCode::ConstraintViolation);
             }
 

@@ -85,12 +85,11 @@ impl LazyAccountValidator {
 
     /// Validate account constraints with bitwise constraint checking
     #[inline]
-    fn validate_account_constraints(&self, account: &AccountInfo) -> CompactResult<()> {
-        // Basic account validation - check account is not uninitialized
-        if account.data_len() == 0 && account.lamports() == 0 {
-            return Err(VMErrorCode::UninitializedAccount);
-        }
-
+    fn validate_account_constraints(&self, _account: &AccountInfo) -> CompactResult<()> {
+        // Basic account validation - removed strict initialization check
+        // Accounts can be uninitialized (e.g. for @init constraints), so we should not
+        // enforce initialization here. Explicit opcodes like CHECK_INITIALIZED handle this.
+        
         // Additional constraints validation can leverage header-provided metadata when available
         Ok(())
     }

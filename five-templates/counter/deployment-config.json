@@ -1,7 +1,7 @@
 {
-  "counterScriptAccount": "J2TfsD6W5BpoCzLTV34U5hoUR2GWmkSLk3fKnBcKhXGU",
+  "counterScriptAccount": "5zBg4dJPkaZQHrNvUb2jbFaXtG3tZ3s8tZbs58RSHCKY",
   "fiveProgramId": "HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg",
-  "vmStatePda": "4Dtcdz4goobS84ku2eyg5n2iUMVkvWbAN8P5Gd2w9fMK",
+  "vmStatePda": "5GTfpmKLT59DAis5MViz4gLTvcRRKURjnvFD8Be2xrUK",
   "rpcUrl": "http://127.0.0.1:8899",
-  "timestamp": "2026-01-02T04:27:52.210Z"
+  "timestamp": "2026-01-02T06:01:20.852Z"
 }

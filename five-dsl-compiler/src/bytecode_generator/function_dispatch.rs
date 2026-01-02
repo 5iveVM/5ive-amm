@@ -151,8 +151,8 @@ impl FunctionDispatcher {
         account_system.process_account_definitions(ast)?;
 
         // Phase 3: Generate function dispatch logic at beginning
-        // LEGACY: Dispatch logic is no longer needed for MitoVM which uses Function Table
-        // self.generate_function_dispatch_logic(emitter, ast, ast_generator, account_system)?;
+        // RESTORED: Dispatch logic is required as MitoVM jumps to start_ip for all functions
+        self.generate_function_dispatch_logic(emitter, ast, ast_generator, account_system)?;
 
         // Phase 4: Generate function bodies
         self.generate_function_bodies(
@@ -165,8 +165,8 @@ impl FunctionDispatcher {
         )?;
 
         // Phase 5: Patch dispatch logic
-        // LEGACY: Not needed
-        // self.patch_dispatch_logic(emitter)?;
+        // RESTORED: Patching required for dispatch logic
+        self.patch_dispatch_logic(emitter)?;
 
         // After generating functions, also generate the constraints block (if present).
         // Constraints often reference instruction parameters and global fields; generating

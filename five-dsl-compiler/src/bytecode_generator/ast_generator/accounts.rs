@@ -231,12 +231,12 @@ impl ASTGenerator {
 
                 // 5. Push Lamports (Calculate using GET_RENT based on space)
                 emitter.emit_opcode(PUSH_U64);
-                emitter.emit_u64(space);
+                emitter.emit_vle_u64(space);
                 emitter.emit_opcode(GET_RENT); // Consumes space, pushes lamports
 
                 // 6. Push Space
                 emitter.emit_opcode(PUSH_U64);
-                emitter.emit_u64(space);
+                emitter.emit_vle_u64(space);
 
                 // 7. Push Account Index (Top of stack)
                 emitter.emit_opcode(PUSH_U8); 
@@ -254,12 +254,12 @@ impl ASTGenerator {
 
                 // 2. Push Lamports (GET_RENT)
                 emitter.emit_opcode(PUSH_U64);
-                emitter.emit_u64(space);
+                emitter.emit_vle_u64(space);
                 emitter.emit_opcode(GET_RENT);
 
                 // 3. Push Space
                 emitter.emit_opcode(PUSH_U64);
-                emitter.emit_u64(space);
+                emitter.emit_vle_u64(space);
 
                 // 4. Push Account Index
                 emitter.emit_opcode(PUSH_U8);

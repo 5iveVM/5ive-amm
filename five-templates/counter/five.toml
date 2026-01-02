@@ -1,4 +1,4 @@
-[package]
+[project]
 name = "five-counter-template"
 version = "1.0.0"
 description = "Counter template for testing Five VM state persistence"

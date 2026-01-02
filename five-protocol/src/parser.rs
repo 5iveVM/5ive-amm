@@ -124,8 +124,8 @@ pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode {
     while offset < bytecode.len() {
         match parse_instruction(bytecode, offset) {
             Ok((inst, size)) => {
-                // Validate CALL targets
-                if inst.opcode == crate::opcodes::CALL && inst.arg1 >= header.total_function_count as u32 {
+                // Validate CALL targets (arg1 is function address/offset)
+                if inst.opcode == crate::opcodes::CALL && inst.arg1 as usize >= bytecode.len() {
                     errors.push(ParseError::CallTargetOutOfBounds);
                 }
                 // Additional validations can be added here
@@ -441,9 +441,9 @@ pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String>
     while offset < bytecode.len() {
         match parse_instruction(bytecode, offset) {
             Ok((inst, size)) => {
-                // Validate CALL targets
+                // Validate CALL targets (arg1 is function address/offset)
                 if inst.opcode == crate::opcodes::CALL
-                    && inst.arg1 >= header.total_function_count as u32
+                    && inst.arg1 as usize >= bytecode.len()
                 {
                     return Err("CALL target out of bounds".to_string());
                 }

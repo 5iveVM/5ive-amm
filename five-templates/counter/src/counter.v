@@ -8,9 +8,9 @@
 
 // Counter account holds the state
 account Counter {
-    owner: pubkey;       // Owner of this counter
+    authority: pubkey;       // Owner of this counter
     count: u64;          // Current count value
-    initialized: bool;   // Whether the counter is initialized
+    initialized: u64;    // Whether the counter is initialized (1 = true, 0 = false)
 }
 
 // ============================================================================
@@ -20,12 +20,12 @@ account Counter {
 // Initialize a new counter account
 // Uses @init constraint to create account via CPI
 pub initialize(
-    counter: Counter @mut @init(payer=owner) @signer,
+    counter: Counter @mut @init(payer=owner, space=56) @signer,
     owner: account @signer
 ) -> pubkey {
-    counter.owner = owner.key;
+    counter.authority = owner.key;
     counter.count = 0;
-    counter.initialized = true;
+    counter.initialized = 1;
 
     return counter.key;
 }
@@ -36,7 +36,7 @@ pub increment(
     owner: account @signer
 ) {
     // Verify ownership
-    require(counter.owner == owner.key);
+    require(counter.authority == owner.key);
     require(counter.initialized);
 
     // Increment the counter
@@ -49,7 +49,7 @@ pub decrement(
     owner: account @signer
 ) {
     // Verify ownership
-    require(counter.owner == owner.key);
+    require(counter.authority == owner.key);
     require(counter.initialized);
 
     // Decrement the counter (with underflow protection)
@@ -65,7 +65,7 @@ pub add_amount(
     amount: u64
 ) {
     // Verify ownership
-    require(counter.owner == owner.key);
+    require(counter.authority == owner.key);
     require(counter.initialized);
 
     // Add amount to counter
@@ -83,7 +83,7 @@ pub reset(
     owner: account @signer
 ) {
     // Verify ownership
-    require(counter.owner == owner.key);
+    require(counter.authority == owner.key);
     require(counter.initialized);
 
     // Reset to zero

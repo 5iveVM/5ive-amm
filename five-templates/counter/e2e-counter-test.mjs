@@ -152,12 +152,42 @@ async function executeCounterFunction(
     try {
         const functionIndex = getFunctionIndex(functionName);
 
-        // Generate the base instruction using Five SDK
+        // Inject global payer at the start of accounts list to satisfy on-chain fee requirements
+        // When fees are enabled (10000 bps on localnet), five-solana expects Payer at index 2.
+        // SDK adds Script (0) and VM State (1). So Payer must be the first custom account.
+        // This also aligns with Compiler's ACCOUNT_INDEX_OFFSET = 2 (Param 0 -> Index 2? No, wait.)
+        // If Payer is at Index 2. Param 0 (Counter) is at Index 3.
+        // Compiler emits 2 for Param 0?
+        // Wait, if Compiler emits 2, it expects Param 0 at Index 2.
+        // If we insert Payer at Index 2, then Param 0 moves to Index 3.
+        // This would break it IF the compiler offset assumes NO Payer.
+        // BUT five-solana strips the Script account if fees are enabled.
+        // So VM sees [VM State, Payer, Counter, User1...].
+        // VM Index 0: VM State.
+        // VM Index 1: Payer.
+        // VM Index 2: Counter.
+        // VM Index 3: User1.
+        // Compiler emits 2 -> Counter. 3 -> User1.
+        // THIS IS CORRECT.
+        const accountsWithPayer = [
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },
+            ...accounts
+        ];
+
+        // Extract pubkey strings from accounts array for SDK
+        const accountPubkeys = accountsWithPayer.map(acc => {
+            const pubkey = acc.pubkey instanceof PublicKey
+                ? acc.pubkey.toBase58()
+                : acc.pubkey.toString();
+            return pubkey;
+        });
+
+        // Generate the instruction using Five SDK with all accounts
         const executeData = await FiveSDK.generateExecuteInstruction(
             COUNTER_SCRIPT_ACCOUNT.toBase58(),
             functionIndex,
             parameters,
-            [],
+            accountPubkeys,  // Pass account pubkeys to SDK!
             connection,
             {
                 debug: true,
@@ -166,23 +196,31 @@ async function executeCounterFunction(
             }
         );
 
-        // Start with the base instruction keys (Script Account, VM State)
-        const ixKeys = executeData.instruction.accounts.map((acc) => ({
-            pubkey: new PublicKey(acc.pubkey),
-            isSigner: acc.isSigner,
-            isWritable: acc.isWritable
-        }));
-
-        // Append function-specific accounts
-        accounts.forEach(acc => {
-            const pubkey = acc.pubkey instanceof PublicKey
-                ? acc.pubkey
-                : new PublicKey(acc.pubkey);
-            ixKeys.push({
-                pubkey: pubkey,
-                isSigner: acc.isSigner ?? false,
-                isWritable: acc.isWritable ?? true
-            });
+        // Use the accounts from SDK, but apply correct signer/writable flags from our accounts array
+        const ixKeys = executeData.instruction.accounts.map((acc, index) => {
+            // First 2 accounts are Script and VM State from SDK
+            if (index < 2) {
+                return {
+                    pubkey: new PublicKey(acc.pubkey),
+                    isSigner: acc.isSigner,
+                    isWritable: acc.isWritable
+                };
+            }
+            // Remaining accounts - use flags from our accounts array
+            const ourAccountIndex = index - 2;
+            if (ourAccountIndex < accountsWithPayer.length) {
+                return {
+                    pubkey: new PublicKey(acc.pubkey),
+                    isSigner: accountsWithPayer[ourAccountIndex].isSigner ?? false,
+                    isWritable: accountsWithPayer[ourAccountIndex].isWritable ?? true
+                };
+            }
+            // Admin account added by SDK
+            return {
+                pubkey: new PublicKey(acc.pubkey),
+                isSigner: acc.isSigner,
+                isWritable: acc.isWritable
+            };
         });
 
         const ix = new TransactionInstruction({
@@ -213,8 +251,8 @@ async function executeCounterFunction(
 
         const success_flag = txDetails?.meta?.err === null;
 
-        if (!success_flag) {
-            console.log(`\n[FAIL] Transaction Logs for [${functionName}]:`);
+        if (!success_flag || functionName === 'initialize') {
+            console.log(`\n[${success_flag ? 'INFO' : 'FAIL'}] Transaction Logs for [${functionName}]:`);
             if (txDetails?.meta?.logMessages) {
                 txDetails.meta.logMessages.forEach(msg => console.log(`  ${msg}`));
             } else {
@@ -284,11 +322,13 @@ async function main() {
     // Fund users
     subheader('Funding users with SOL...');
     for (const user of [user1, user2]) {
-        const sig = await connection.requestAirdrop(user.publicKey, 10 * LAMPORTS_PER_SOL);
+        const sig = await connection.requestAirdrop(user.publicKey, 1000 * LAMPORTS_PER_SOL);
         await connection.confirmTransaction(sig, 'confirmed');
     }
-    info('Funded User1');
-    info('Funded User2');
+    const user1Balance = await connection.getBalance(user1.publicKey);
+    const user2Balance = await connection.getBalance(user2.publicKey);
+    info(`Funded User1: ${(user1Balance / LAMPORTS_PER_SOL).toFixed(2)} SOL`);
+    info(`Funded User2: ${(user2Balance / LAMPORTS_PER_SOL).toFixed(2)} SOL`);
 
     // ========================================================================
     // STEP 1: Generate Counter Account Keypairs
@@ -315,7 +355,6 @@ async function main() {
         'initialize',
         [],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },
             { pubkey: counter1Account.publicKey, isWritable: true, isSigner: true },
             { pubkey: user1.publicKey, isWritable: true, isSigner: true },
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
@@ -346,7 +385,6 @@ async function main() {
         'initialize',
         [],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },
             { pubkey: counter2Account.publicKey, isWritable: true, isSigner: true },
             { pubkey: user2.publicKey, isWritable: true, isSigner: true },
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
@@ -378,7 +416,6 @@ async function main() {
             'increment',
             [],
             [
-                { pubkey: payer.publicKey, isWritable: true, isSigner: true },
                 { pubkey: counter1Account.publicKey, isWritable: true, isSigner: false },
                 { pubkey: user1.publicKey, isWritable: false, isSigner: true }
             ],
@@ -408,7 +445,6 @@ async function main() {
         'add_amount',
         [10],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },
             { pubkey: counter1Account.publicKey, isWritable: true, isSigner: false },
             { pubkey: user1.publicKey, isWritable: false, isSigner: true }
         ],
@@ -467,7 +503,6 @@ async function main() {
             'increment',
             [],
             [
-                { pubkey: payer.publicKey, isWritable: true, isSigner: true },
                 { pubkey: counter2Account.publicKey, isWritable: true, isSigner: false },
                 { pubkey: user2.publicKey, isWritable: false, isSigner: true }
             ],
@@ -497,7 +532,6 @@ async function main() {
         'reset',
         [],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },
             { pubkey: counter2Account.publicKey, isWritable: true, isSigner: false },
             { pubkey: user2.publicKey, isWritable: false, isSigner: true }
         ],

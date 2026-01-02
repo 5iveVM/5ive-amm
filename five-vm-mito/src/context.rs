@@ -25,8 +25,8 @@ use pinocchio::{
 
 // System program ID constant
 const SYSTEM_PROGRAM_ID: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-]; // Solana system program ID: 11111111111111111111111111111112
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+]; // Solana system program ID: 11111111111111111111111111111111
 
 // Shared parameter storage (only one copy, indexed by call frames)
 const SHARED_PARAM_SIZE: usize = MAX_PARAMETERS + 1;
@@ -1031,6 +1031,17 @@ impl<'a> ExecutionContext<'a> {
 
         // Locate the system program account
         let system_program_id = Pubkey::from(SYSTEM_PROGRAM_ID);
+        
+        #[cfg(feature = "debug-logs")]
+        {
+            let sys_bytes = system_program_id.as_ref();
+            crate::debug_log!("CreateAccount: Looking for SystemProgram: {} {} {} {}", sys_bytes[0], sys_bytes[1], sys_bytes[2], sys_bytes[3]);
+            for (i, acc) in self.accounts.iter().enumerate() {
+                let key_bytes = acc.key().as_ref();
+                crate::debug_log!("  Account {}: {} {} {} {}", i, key_bytes[0], key_bytes[1], key_bytes[2], key_bytes[3]);
+            }
+        }
+
         let system_program = self
             .accounts
             .iter()
