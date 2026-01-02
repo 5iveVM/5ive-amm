@@ -1,0 +1,31 @@
+{
+  "name": "five-counter-template",
+  "version": "1.0.0",
+  "description": "Counter template E2E test for Five VM state persistence validation",
+  "type": "module",
+  "scripts": {
+    "build": "node create_artifact.js",
+    "deploy": "node deploy-to-five-vm.mjs",
+    "test": "node e2e-counter-test.mjs",
+    "verify": "node verify-on-chain.mjs",
+    "e2e": "./e2e-counter-test.sh",
+    "e2e:deploy": "./e2e-counter-test.sh --deploy",
+    "e2e:verbose": "./e2e-counter-test.sh --deploy --verbose",
+    "clean": "./e2e-counter-test.sh --clean"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.87.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "five",
+    "solana",
+    "counter",
+    "e2e",
+    "test"
+  ],
+  "author": "Five Protocol",
+  "license": "MIT"
+}
