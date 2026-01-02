@@ -58,8 +58,9 @@ describe("Investor Components", () => {
         </Section>
       );
 
-      const flex = container.querySelector("[class*='flex']");
-      expect(flex).toHaveClass("items-end", "text-right");
+      // The flex container with alignment classes is inside the section
+      const flexContainer = container.querySelector(".flex.flex-col.mb-12");
+      expect(flexContainer).toHaveClass("items-end", "text-right");
     });
   });
 
