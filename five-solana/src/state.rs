@@ -404,7 +404,7 @@ mod tests {
     fn test_header_version_4_permissions() {
         // Test that v4 header properly stores and retrieves permissions
         let owner = Pubkey::from([1u8; 32]);
-        let mut header = ScriptAccountHeader::new(10, owner, 42);
+        let header = ScriptAccountHeader::new(10, owner, 42);
 
         // Default permissions should be 0
         assert_eq!(header.permissions, 0);

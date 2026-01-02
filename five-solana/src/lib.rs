@@ -24,15 +24,10 @@ macro_rules! log_if_debug {
     };
 }
 
-// Temporarily disabled legacy tests during refactoring
+// Test modules
 #[cfg(test)]
 mod tests;
 
-// #[cfg(test)]
-// mod tests_extended;
-
-// #[cfg(test)]
-// mod tests_integration;
 #[cfg(test)]
 mod tests_process_instruction;
 
@@ -46,12 +41,6 @@ mod error;
 pub use error::FIVEError;
 mod instructions;
 mod state;
-
-// #[cfg(test)]
-// mod large_program_tests;
-
-// #[cfg(test)]
-// mod test_polymorphic_integration;
 
 #[cfg(test)]
 mod test_script_header_v3;

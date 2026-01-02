@@ -20,45 +20,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_validate_namespace_prefix() {
-        // Valid prefixes
-        assert!(validate_namespace_prefix(b'!').is_ok());
-        assert!(validate_namespace_prefix(b'@').is_ok());
-        assert!(validate_namespace_prefix(b'#').is_ok());
-        assert!(validate_namespace_prefix(b'$').is_ok());
-        assert!(validate_namespace_prefix(b'%').is_ok());
-
-        // Invalid prefixes
-        assert!(validate_namespace_prefix(b'a').is_err());
-        assert!(validate_namespace_prefix(b'&').is_err());
-        assert!(validate_namespace_prefix(b'*').is_err());
-        assert!(validate_namespace_prefix(0).is_err());
-        assert!(validate_namespace_prefix(255).is_err());
-    }
-
-    #[test]
-    fn test_validate_no_namespace_prefixes() {
-        // Valid inputs (no special chars)
-        assert!(validate_no_namespace_prefixes("mydomain").is_ok());
-        assert!(validate_no_namespace_prefixes("script_v1").is_ok());
-        assert!(validate_no_namespace_prefixes("path/to/script").is_ok());
-        assert!(validate_no_namespace_prefixes("domain123").is_ok());
-        assert!(validate_no_namespace_prefixes("").is_ok());
-
-        // Invalid inputs (contain special chars)
-        assert!(validate_no_namespace_prefixes("my$domain").is_err());
-        assert!(validate_no_namespace_prefixes("script@v1").is_err());
-        assert!(validate_no_namespace_prefixes("path/to#script").is_err());
-        assert!(validate_no_namespace_prefixes("domain!123").is_err());
-        assert!(validate_no_namespace_prefixes("100%valid").is_err());
-        assert!(validate_no_namespace_prefixes("$five").is_err());
-        assert!(validate_no_namespace_prefixes("@myaddr").is_err());
-        assert!(validate_no_namespace_prefixes("#trending").is_err());
-        assert!(validate_no_namespace_prefixes("!urgent").is_err());
-        assert!(validate_no_namespace_prefixes("%special").is_err());
-    }
-
-    #[test]
     fn test_has_permission() {
         let perm_pre = 0x01u8;
         let perm_post = 0x02u8;
@@ -139,42 +100,6 @@ pub fn validate_permissions(permissions: u8) -> ProgramResult {
     // Bits 3-7 must be zero (reserved for future use)
     if permissions & 0xF8 != 0 {
         return Err(ProgramError::InvalidArgument);
-    }
-    Ok(())
-}
-
-// ============================================================================
-// Namespace Prefix Validation
-// ============================================================================
-
-/// Validates that a namespace prefix is one of the allowed special characters
-#[inline(always)]
-#[allow(dead_code)]
-pub fn validate_namespace_prefix(prefix: u8) -> ProgramResult {
-    match prefix {
-        b'!' | b'@' | b'#' | b'$' | b'%' => Ok(()),
-        _ => Err(ProgramError::InvalidArgument),
-    }
-}
-
-/// Validates that input does NOT contain forbidden namespace prefix characters
-/// These characters can ONLY appear as the explicit namespace prefix during registration
-///
-/// **SECURITY**: This prevents seed collision attacks where:
-/// ["ns", "$", "five"] → concat → "ns$five"
-/// ["n", "s$five"]     → concat → "ns$five"  ❌ COLLISION!
-///
-/// By forbidding special chars in all other seed components, collisions are prevented.
-#[inline(always)]
-#[allow(dead_code)]
-pub fn validate_no_namespace_prefixes(input: &str) -> ProgramResult {
-    for c in input.chars() {
-        match c {
-            '!' | '@' | '#' | '$' | '%' => {
-                return Err(ProgramError::InvalidArgument);
-            }
-            _ => {}
-        }
     }
     Ok(())
 }

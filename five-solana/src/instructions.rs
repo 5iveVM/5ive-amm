@@ -1,4 +1,56 @@
-//! FIVE VM instructions for Solana
+//! FIVE VM Instructions for Solana
+//!
+//! This module implements the 7 core instruction types for the FIVE VM on Solana:
+//!
+//! ## Core Instructions
+//!
+//! 1. **Initialize** - One-time setup of the FIVE VM state account
+//!    - Creates the global VM state with fee configuration
+//!    - Sets the program authority (admin key)
+//!    - Must be called before any scripts can be deployed
+//!
+//! 2. **Deploy** - Deploy bytecode to a script account (single-shot)
+//!    - Creates a script account and uploads bytecode in one transaction
+//!    - Verifies bytecode format and content at deploy time
+//!    - Supports permission flags (pre-bytecode, post-bytecode, PDA special chars)
+//!    - Requires admin signature if any permissions are set
+//!
+//! 3. **InitLargeProgram** - Initialize script account for chunked upload
+//!    - For scripts too large to deploy in one transaction
+//!    - Sets up script account with expected total size
+//!    - Optionally writes first chunk immediately
+//!    - Puts script in "upload mode" until finalized
+//!
+//! 4. **AppendBytecode** - Append chunk to large program
+//!    - Adds bytecode chunk to script in upload mode
+//!    - Tracks upload progress (current_len vs expected_size)
+//!    - Owner must sign each append operation
+//!
+//! 5. **FinalizeScript** - Complete large program upload
+//!    - Verifies full bytecode is uploaded (current_len == expected_size)
+//!    - Validates bytecode content and format
+//!    - Extracts metadata (function counts, features, instruction offset)
+//!    - Transitions script from upload mode to executable mode
+//!
+//! 6. **Execute** - Run a deployed script
+//!    - Executes FIVE bytecode using the MitoVM interpreter
+//!    - Supports optional pre/post-execution hooks (if permissions set)
+//!    - Collects execution fees based on VM state configuration
+//!    - Validates script permissions and ownership
+//!
+//! 7. **SetFees** - Update deployment and execution fees (admin only)
+//!    - Sets fees in basis points (BPS) relative to standard tx fee
+//!    - Example: 100 BPS = 1% of 5000 lamports = 50 lamports
+//!    - Only VM authority can modify fees
+//!
+//! ## Permission System
+//!
+//! Scripts can have special permissions set at deploy time:
+//! - `PERMISSION_PRE_BYTECODE` (0x01): Run bytecode before main execution
+//! - `PERMISSION_POST_BYTECODE` (0x02): Run bytecode after main execution
+//! - `PERMISSION_PDA_SPECIAL_CHARS` (0x04): Allow special chars in PDA seeds
+//!
+//! Any non-zero permissions require the admin key to sign the deployment.
 
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, sysvars::Sysvar,
@@ -719,7 +771,7 @@ pub fn append_bytecode(
 
 /// Finalize script upload manually
 pub fn finalize_script_upload(
-    program_id: &Pubkey,
+    _program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
     log_if_debug!(debug, "Finalizing script upload");
