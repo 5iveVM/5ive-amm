@@ -362,8 +362,8 @@ async function main() {
 
     for (const { account, user, name } of tokenAccounts) {
         // init_token_account expects:
-        //   Accounts: token_account (@init @mut @signer)
-        //   Params: owner (pubkey), mint (pubkey)
+        //   Accounts: token_account (@init @mut @signer), owner (@signer)
+        //   Params: mint (pubkey)
         result = await executeTokenFunction(
             connection,
             payer,  // Payer funds the account creation
@@ -376,7 +376,7 @@ async function main() {
                 { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },  // Required for @init CPI
                 { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }  // Rent sysvar for account initialization
             ],
-            [account]  // Only account needs to sign for creation
+            [account, user]  // Both token account and owner must sign (owner is @signer in DSL)
         );
 
         if (result.success) {
