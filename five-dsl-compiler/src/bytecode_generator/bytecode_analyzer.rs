@@ -329,13 +329,43 @@ impl AdvancedBytecodeAnalyzer {
         })
     }
 
+    /// Helper to read VLE encoded value
+    fn read_vle(&mut self) -> Result<(u64, Vec<u8>, usize), VMError> {
+        let mut value = 0u64;
+        let mut size = 0;
+        let mut bytes = Vec::new();
+        let mut shift = 0;
+
+        while self.position < self.bytecode.len() && size < 10 {
+            let byte = self.bytecode[self.position];
+            self.position += 1;
+            size += 1;
+            bytes.push(byte);
+
+            value |= ((byte & 0x7F) as u64) << shift;
+            shift += 7;
+
+            if (byte & 0x80) == 0 {
+                return Ok((value, bytes, size));
+            }
+        }
+
+        // If we reach here, VLE was too long or truncated
+        if size == 0 {
+             Err(VMError::InvalidInstructionPointer)
+        } else {
+             // Return what we have if truncated, or valid result if ended properly
+             Ok((value, bytes, size))
+        }
+    }
+
     /// Decode operands based on ArgType - this provides the intelligence about what follows each opcode
     fn decode_operands(
         &mut self,
         arg_type: five_protocol::opcodes::ArgType,
         opcode: u8,
     ) -> Result<Vec<OperandInfo>, VMError> {
-        use five_protocol::opcodes::ArgType;
+        use five_protocol::opcodes::{ArgType, *};
 
         let mut operands = Vec::new();
 
@@ -357,60 +387,119 @@ impl AdvancedBytecodeAnalyzer {
                 }
             }
             ArgType::U16 => {
-                if self.position + 1 < self.bytecode.len() {
-                    let value = u16::from_le_bytes([
-                        self.bytecode[self.position],
-                        self.bytecode[self.position + 1],
-                    ]);
+                // JUMP family uses fixed u16, PUSH_U16 uses VLE
+                if opcode == JUMP || opcode == JUMP_IF || opcode == JUMP_IF_NOT {
+                    if self.position + 1 < self.bytecode.len() {
+                        let value = u16::from_le_bytes([
+                            self.bytecode[self.position],
+                            self.bytecode[self.position + 1],
+                        ]);
+                        operands.push(OperandInfo {
+                            operand_type: "u16_fixed".to_string(),
+                            raw_value: self.bytecode[self.position..self.position + 2].to_vec(),
+                            decoded_value: Some(value.to_string()),
+                            size: 2,
+                            description: "16-bit unsigned integer (Fixed)".to_string(),
+                        });
+                        self.position += 2;
+                    }
+                } else {
+                    // PUSH_U16 and others use VLE
+                    let (value, bytes, size) = self.read_vle()?;
                     operands.push(OperandInfo {
-                        operand_type: "u16".to_string(),
-                        raw_value: self.bytecode[self.position..self.position + 2].to_vec(),
+                        operand_type: "u16_vle".to_string(),
+                        raw_value: bytes,
                         decoded_value: Some(value.to_string()),
-                        size: 2,
-                        description: "16-bit unsigned integer".to_string(),
+                        size,
+                        description: "16-bit unsigned integer (VLE)".to_string(),
                     });
-                    self.position += 2;
                 }
             }
             ArgType::U32 => {
-                if self.position + 3 < self.bytecode.len() {
-                    let value = u32::from_le_bytes([
-                        self.bytecode[self.position],
-                        self.bytecode[self.position + 1],
-                        self.bytecode[self.position + 2],
-                        self.bytecode[self.position + 3],
-                    ]);
-                    operands.push(OperandInfo {
-                        operand_type: "u32".to_string(),
-                        raw_value: self.bytecode[self.position..self.position + 4].to_vec(),
+                if opcode == STORE {
+                    // STORE uses [account_index_u8, field_offset_u32] (Fixed)
+                    // Protocol metadata says ArgType::U32 but VM reads u8 + u32
+                    if self.position < self.bytecode.len() {
+                         let acc_idx = self.bytecode[self.position];
+                         self.position += 1;
+                         operands.push(OperandInfo {
+                            operand_type: "account_index".to_string(),
+                            raw_value: vec![acc_idx],
+                            decoded_value: Some(acc_idx.to_string()),
+                            size: 1,
+                            description: "Account Index".to_string(),
+                        });
+                    }
+                    if self.position + 3 < self.bytecode.len() {
+                        let value = u32::from_le_bytes([
+                            self.bytecode[self.position],
+                            self.bytecode[self.position + 1],
+                            self.bytecode[self.position + 2],
+                            self.bytecode[self.position + 3],
+                        ]);
+                        operands.push(OperandInfo {
+                            operand_type: "u32_fixed".to_string(),
+                            raw_value: self.bytecode[self.position..self.position + 4].to_vec(),
+                            decoded_value: Some(value.to_string()),
+                            size: 4,
+                            description: "32-bit unsigned integer (Fixed)".to_string(),
+                        });
+                        self.position += 4;
+                    }
+                } else if self.position + 3 < self.bytecode.len() && (opcode == LOAD || opcode == LOAD_GLOBAL || opcode == STORE_GLOBAL) {
+                     // Legacy/Other ops using fixed U32?
+                     // PUSH_U32 uses VLE.
+                     // LOAD_GLOBAL uses ArgType::U16 according to table.
+                     // LOAD uses ArgType::U32. VM says LOAD is not implemented.
+                     // Safe to default to VLE for PUSH_U32, check others.
+                     if opcode == PUSH_U32 {
+                         let (value, bytes, size) = self.read_vle()?;
+                         operands.push(OperandInfo {
+                            operand_type: "u32_vle".to_string(),
+                            raw_value: bytes,
+                            decoded_value: Some(value.to_string()),
+                            size,
+                            description: "32-bit unsigned integer (VLE)".to_string(),
+                        });
+                     } else {
+                         // Default to Fixed for unknown/legacy ops sharing ArgType::U32 if any
+                         let value = u32::from_le_bytes([
+                            self.bytecode[self.position],
+                            self.bytecode[self.position + 1],
+                            self.bytecode[self.position + 2],
+                            self.bytecode[self.position + 3],
+                        ]);
+                        operands.push(OperandInfo {
+                            operand_type: "u32".to_string(),
+                            raw_value: self.bytecode[self.position..self.position + 4].to_vec(),
+                            decoded_value: Some(value.to_string()),
+                            size: 4,
+                            description: "32-bit unsigned integer".to_string(),
+                        });
+                        self.position += 4;
+                     }
+                } else {
+                     // Default VLE for PUSH_U32
+                     let (value, bytes, size) = self.read_vle()?;
+                     operands.push(OperandInfo {
+                        operand_type: "u32_vle".to_string(),
+                        raw_value: bytes,
                         decoded_value: Some(value.to_string()),
-                        size: 4,
-                        description: "32-bit unsigned integer".to_string(),
+                        size,
+                        description: "32-bit unsigned integer (VLE)".to_string(),
                     });
-                    self.position += 4;
                 }
             }
             ArgType::U64 => {
-                if self.position + 7 < self.bytecode.len() {
-                    let value = u64::from_le_bytes([
-                        self.bytecode[self.position],
-                        self.bytecode[self.position + 1],
-                        self.bytecode[self.position + 2],
-                        self.bytecode[self.position + 3],
-                        self.bytecode[self.position + 4],
-                        self.bytecode[self.position + 5],
-                        self.bytecode[self.position + 6],
-                        self.bytecode[self.position + 7],
-                    ]);
-                    operands.push(OperandInfo {
-                        operand_type: "u64".to_string(),
-                        raw_value: self.bytecode[self.position..self.position + 8].to_vec(),
-                        decoded_value: Some(value.to_string()),
-                        size: 8,
-                        description: "64-bit unsigned integer".to_string(),
-                    });
-                    self.position += 8;
-                }
+                // PUSH_U64 / PUSH_I64 use VLE
+                let (value, bytes, size) = self.read_vle()?;
+                operands.push(OperandInfo {
+                    operand_type: "u64_vle".to_string(),
+                    raw_value: bytes,
+                    decoded_value: Some(value.to_string()),
+                    size,
+                    description: "64-bit unsigned integer (VLE)".to_string(),
+                });
             }
             ArgType::ValueType => {
                 // This is for PUSH instructions - they have a type byte followed by the value

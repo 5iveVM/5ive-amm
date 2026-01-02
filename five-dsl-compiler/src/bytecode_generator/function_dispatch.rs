@@ -204,6 +204,10 @@ impl FunctionDispatcher {
                     is_public: true, // __init is always public (entry point)
                     has_return_type: false, // init blocks don't have return types
                 });
+
+                // Cache empty parameters for __init to allow dispatch logic to work
+                self.parameter_cache
+                    .insert("__init".to_string(), Vec::new());
             }
 
             // Add instruction definitions as functions with visibility-based ordering

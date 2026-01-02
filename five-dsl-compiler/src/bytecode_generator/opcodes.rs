@@ -188,9 +188,22 @@ impl OpcodePatterns {
             3 => emitter.emit_opcode(opcodes::PUSH_3),
             _ => {
                 emitter.emit_opcode(opcodes::PUSH_U64);
-                emitter.emit_u64(value);
+                // VM expects VLE encoded value for PUSH_U64
+                emitter.emit_vle_u64(value);
             }
         }
+    }
+
+    /// Emit a PUSH_U32 instruction with a 32-bit value (VLE encoded)
+    pub fn emit_push_u32(emitter: &mut impl OpcodeEmitter, value: u32) {
+        emitter.emit_opcode(opcodes::PUSH_U32);
+        emitter.emit_vle_u32(value);
+    }
+
+    /// Emit a PUSH_U16 instruction with a 16-bit value (VLE encoded)
+    pub fn emit_push_u16(emitter: &mut impl OpcodeEmitter, value: u16) {
+        emitter.emit_opcode(opcodes::PUSH_U16);
+        emitter.emit_vle_u16(value);
     }
 
     /// Emit a PUSH_U128 instruction with a 128-bit value - MITO-style BPF-optimized
@@ -246,21 +259,24 @@ impl OpcodePatterns {
             3 => emitter.emit_opcode(opcodes::PUSH_3),
             _ => {
                 emitter.emit_opcode(opcodes::PUSH_I64);
-                emitter.emit_u64(value as u64);
+                // I64 uses VLE encoded u64
+                emitter.emit_vle_u64(value as u64);
             }
         }
     }
 
-    /// Emit a LOAD_FIELD instruction with field index
-    pub fn emit_load_field(emitter: &mut impl OpcodeEmitter, field_index: u32) {
+    /// Emit a LOAD_FIELD instruction with account index and field index
+    pub fn emit_load_field(emitter: &mut impl OpcodeEmitter, account_index: u8, field_index: u32) {
         emitter.emit_opcode(opcodes::LOAD_FIELD);
-        emitter.emit_u32(field_index);
+        emitter.emit_u8(account_index);
+        emitter.emit_vle_u32(field_index);
     }
 
-    /// Emit a STORE_FIELD instruction with field index
-    pub fn emit_store_field(emitter: &mut impl OpcodeEmitter, field_index: u32) {
+    /// Emit a STORE_FIELD instruction with account index and field index
+    pub fn emit_store_field(emitter: &mut impl OpcodeEmitter, account_index: u8, field_index: u32) {
         emitter.emit_opcode(opcodes::STORE_FIELD);
-        emitter.emit_u32(field_index);
+        emitter.emit_u8(account_index);
+        emitter.emit_vle_u32(field_index);
     }
 
     /// Emit a conditional jump instruction
