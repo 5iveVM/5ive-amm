@@ -462,7 +462,7 @@ impl FiveVMWasm {
                     })
                 }
             }
-            Err(exec_error) => {
+            Err((exec_error, exec_context)) => {
                 // Enhanced error handling with ABI-aware parameter mismatch detection
                 let (status, error_msg) = match &exec_error {
                     VMError::AbiParameterMismatch {
@@ -489,12 +489,11 @@ impl FiveVMWasm {
                     ),
                 };
 
-                // Try to get execution context from failed execution
-                // The MitoVM returns errors without context currently, but this is where we would use it
-                let instruction_pointer = 0; // TODO: Extract from error context when available
+                // Get execution context from failed execution
+                let instruction_pointer = exec_context.instruction_pointer;
                 let compute_units = 0; // Not tracking Solana BPF CUs
                 let final_stack = vec![]; // Stack contents not available in error case
-                let final_memory = vec![];
+                let final_memory = exec_context.memory.to_vec();
 
                 Ok(TestResult {
                     status,
@@ -649,9 +648,27 @@ impl FiveVMWasm {
         &self,
         input_data: &[u8],
         wasm_accounts: &[WasmAccount],
-    ) -> Result<(Option<Value>, five_vm_mito::VMExecutionContext, Vec<WasmAccount>), VMError> {
+    ) -> Result<
+        (
+            Option<Value>,
+            five_vm_mito::VMExecutionContext,
+            Vec<WasmAccount>,
+        ),
+        (five_vm_mito::error::VMError, five_vm_mito::VMExecutionContext),
+    > {
         // Decode VLE instruction data before passing to MitoVM
-        let decoded_input = self.decode_vle_instruction_data(input_data)?;
+        // If decoding fails, return early with empty context
+        let decoded_input = self.decode_vle_instruction_data(input_data).map_err(|e| {
+            (
+                e,
+                five_vm_mito::VMExecutionContext {
+                    instruction_pointer: 0,
+                    halted: false,
+                    error: None,
+                    memory: [0u8; five_protocol::TEMP_BUFFER_SIZE],
+                },
+            )
+        })?;
 
         // Log account information for debugging
         web_sys::console::log_1(
@@ -786,7 +803,7 @@ impl FiveVMWasm {
                     );
                 }
             }
-            Err(vm_error) => {
+            Err((vm_error, _)) => {
                 web_sys::console::log_1(
                     &format!("WASM: MitoVM execution ERROR: {:?}", vm_error).into(),
                 );
