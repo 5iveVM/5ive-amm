@@ -67,12 +67,67 @@ export class VLEEncoder {
   static async encodeExecuteVLE(
     functionIndex: number,
     parameters: ParameterDefinition[] = [],
-    values: ParameterValue = {}
+    values: ParameterValue = {},
+    retry: boolean = true
   ): Promise<Buffer> {
 
     // Load WASM module using shared loader
     if (!wasmModule) {
-      wasmModule = await getWasmModule();
+      try {
+        wasmModule = await getWasmModule();
+
+        // Check if loaded module is valid
+        if (wasmModule && wasmModule.ParameterEncoder) {
+          try {
+            // Health check: Try to encode empty params
+            wasmModule.ParameterEncoder.encode_execute_vle(0, []);
+          } catch (e: any) {
+            console.warn("[VLE] Module validation failed, falling back:", e.message);
+            wasmModule = null; // Force retry with inline loader
+          }
+        } else {
+          wasmModule = null;
+        }
+      } catch (e) {
+        // Silently ignore loader errors and try fallback
+        wasmModule = null;
+      }
+
+      // Fallback: Inline load for Node.js
+      if (!wasmModule && typeof process !== 'undefined') {
+        console.log("[DEBUG VLE] (SRC) Attempting inline WASM load...");
+        try {
+          const fs = await import('fs');
+          const path = await import('path');
+          const url = await import('url');
+
+          const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+          // Assuming running from dist/lib/vle-encoder.js, assets are in ../assets/vm/
+          const bgPath = path.resolve(__dirname, '../assets/vm/five_vm_wasm_bg.js');
+          const wasmPath = path.resolve(__dirname, '../assets/vm/five_vm_wasm_bg.wasm');
+
+          if (fs.existsSync(bgPath) && fs.existsSync(wasmPath)) {
+            console.log("[DEBUG VLE] Found assets at:", bgPath);
+            const bg = await import(bgPath);
+            const bytes = fs.readFileSync(wasmPath);
+            const mod = new WebAssembly.Module(bytes);
+            const instance = new WebAssembly.Instance(mod, { "./five_vm_wasm_bg.js": bg });
+
+            if (bg.__wbg_set_wasm) {
+              bg.__wbg_set_wasm(instance.exports);
+              wasmModule = bg;
+              console.log("[DEBUG VLE] Inline load SUCCESS!");
+            } else {
+              console.error("[DEBUG VLE] bg module missing __wbg_set_wasm export");
+            }
+          } else {
+            console.error("[DEBUG VLE] Assets not found at expected path:", bgPath);
+          }
+        } catch (err) {
+          console.error("[DEBUG VLE] Inline load FAILED:", err);
+          throw err;
+        }
+      }
     }
 
     const filteredParams = parameters.filter(param => !this.isAccountParam(param));
@@ -114,8 +169,18 @@ export class VLEEncoder {
     if (!usesTypedParams) {
       // Use PURE VLE compression - encode only values without type information
       const simpleValues = paramValues.map(({ value }) => value);
-      const encoded = wasmModule.ParameterEncoder.encode_execute_vle(functionIndex, simpleValues);
-      return Buffer.from(encoded);
+      try {
+        const encoded = wasmModule.ParameterEncoder.encode_execute_vle(functionIndex, simpleValues);
+        return Buffer.from(encoded);
+      } catch (e) {
+        console.warn("[VLE] Encode failed via WASM:", e);
+        if (retry) {
+          console.warn("[VLE] Reloading WASM module and retrying...");
+          wasmModule = null; // Force reload
+          return this.encodeExecuteVLE(functionIndex, parameters, values, false);
+        }
+        throw e;
+      }
     }
 
     const parts: Buffer[] = [];
@@ -160,18 +225,18 @@ export class VLEEncoder {
     // For numbers/bigints (u8...u64, i8...i64)
     let valBytes: Buffer;
     if (typeof value === 'bigint') {
-        valBytes = encodeVleU64(value);
+      valBytes = encodeVleU64(value);
     } else {
-        const numberValue = Number(value);
-        if (!Number.isFinite(numberValue)) {
-             throw new Error(`Invalid numeric value for parameter: ${param.name}`);
-        }
-        if (numberValue < 0) {
-             // For simplicity in this fix, assume non-negative for VLE (Five VM uses u64 mostly)
-             // or implement signed VLE if needed. Protocol uses unsigned VLE for params mostly.
-             throw new Error(`Negative values not supported in TS VLE encoder yet: ${param.name}`);
-        }
-        valBytes = encodeVleU64(numberValue);
+      const numberValue = Number(value);
+      if (!Number.isFinite(numberValue)) {
+        throw new Error(`Invalid numeric value for parameter: ${param.name}`);
+      }
+      if (numberValue < 0) {
+        // For simplicity in this fix, assume non-negative for VLE (Five VM uses u64 mostly)
+        // or implement signed VLE if needed. Protocol uses unsigned VLE for params mostly.
+        throw new Error(`Negative values not supported in TS VLE encoder yet: ${param.name}`);
+      }
+      valBytes = encodeVleU64(numberValue);
     }
     return Buffer.concat([Buffer.from([typeId]), valBytes]);
   }

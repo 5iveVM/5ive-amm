@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8899';
-const FIVE_PROGRAM_ID = new PublicKey('9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
+const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';

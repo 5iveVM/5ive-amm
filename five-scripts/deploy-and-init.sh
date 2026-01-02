@@ -82,7 +82,7 @@ if [ "$NETWORK" = "localnet" ]; then
     else
         if [[ -x "$SURFPOOL_WRAPPER" ]] && command -v surfpool >/dev/null 2>&1; then
             echo -e "${BLUE}Starting Surfpool-managed localnet instance...${NC}"
-            FIVE_VALIDATOR=${FIVE_VALIDATOR:-surfpool} "$SURFPOOL_WRAPPER" instance start localnet
+            FIVE_VALIDATOR=${FIVE_VALIDATOR:-surfpool} "$SURFPOOL_WRAPPER" start --no-tui -y
         else
             echo -e "${YELLOW}Local validator not detected. Start one in another terminal:${NC}"
             echo -e "${BLUE}solana-test-validator --reset${NC}"
@@ -135,7 +135,7 @@ if [[ -n "${BUILD_MODE}" ]]; then
         echo -e "${YELLOW}Skipping build (SKIP_BUILD=1)${NC}"
     else
         echo -e "\n${YELLOW}Step 4: Building FIVE program (${BUILD_MODE})...${NC}"
-        ./build-five-solana.sh "${BUILD_MODE}"
+        ./five-scripts/build-five-solana.sh "${BUILD_MODE}"
     fi
 fi
 
