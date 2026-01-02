@@ -183,6 +183,7 @@ async function executeCounterFunction(
         });
 
         // Generate the instruction using Five SDK with all accounts
+        // Include full ABI metadata for proper parameter encoding
         const executeData = await FiveSDK.generateExecuteInstruction(
             COUNTER_SCRIPT_ACCOUNT.toBase58(),
             functionIndex,
@@ -192,7 +193,8 @@ async function executeCounterFunction(
             {
                 debug: true,
                 vmStateAccount: VM_STATE_PDA.toBase58(),
-                fiveVMProgramId: FIVE_PROGRAM_ID.toBase58()
+                fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
+                metadata: counterABI || undefined
             }
         );
 
@@ -473,7 +475,6 @@ async function main() {
         'decrement',
         [],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },
             { pubkey: counter1Account.publicKey, isWritable: true, isSigner: false },
             { pubkey: user1.publicKey, isWritable: false, isSigner: true }
         ],
