@@ -1197,17 +1197,24 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 25,
     },
     OpcodeInfo {
+        opcode: GET_RENT,
+        name: "GET_RENT",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 5,
+    },
+    OpcodeInfo {
         opcode: INIT_ACCOUNT,
         name: "INIT_ACCOUNT",
-        arg_type: ArgType::AccountIndex,
-        stack_effect: 0,
+        arg_type: ArgType::None,
+        stack_effect: -4,
         compute_cost: 15,
     },
     OpcodeInfo {
         opcode: INIT_PDA_ACCOUNT,
         name: "INIT_PDA_ACCOUNT",
-        arg_type: ArgType::AccountIndex,
-        stack_effect: -1,
+        arg_type: ArgType::None,
+        stack_effect: -127,
         compute_cost: 20,
     },
     OpcodeInfo {

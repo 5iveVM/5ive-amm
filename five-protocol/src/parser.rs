@@ -11,6 +11,7 @@ use crate::{FunctionNameEntry, FunctionNameMetadata};
 use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec::Vec;
+use alloc::format;
 
 /// Parsed bytecode result containing header and instructions with validation
 #[derive(Debug, Clone)]
@@ -449,7 +450,7 @@ pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String>
                 instructions.push(inst);
                 offset += size;
             }
-            Err(_) => return Err("Parse error".to_string()),
+            Err(e) => return Err(format!("Parse error at offset {}: {:?}", offset, e)),
         }
     }
 
