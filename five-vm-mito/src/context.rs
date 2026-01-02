@@ -335,10 +335,7 @@ impl<'a> ExecutionContext<'a> {
 
     /// Get mutable reference to temp buffer as fixed-size array for ValueAccessContext
     #[inline]
-    pub fn temp_buffer_64_mut(&mut self) -> Result<&mut [u8; crate::TEMP_BUFFER_SIZE]> {
-        if crate::TEMP_BUFFER_SIZE != 64 {
-            return Err(VMError::MemoryViolation);
-        }
+    pub fn temp_buffer_fixed_mut(&mut self) -> Result<&mut [u8; crate::TEMP_BUFFER_SIZE]> {
         Ok(&mut self.storage.temp_buffer)
     }
 
