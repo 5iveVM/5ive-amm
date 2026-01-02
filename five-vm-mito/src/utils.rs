@@ -65,6 +65,25 @@ impl ValueRefUtils {
     }
 }
 
+/// Helper to resolve a value (including AccountRef) to u64 for legacy arithmetic
+/// This reads 8 bytes from account data if given an AccountRef
+pub fn resolve_u64(value: ValueRef, ctx: &crate::context::ExecutionManager) -> CompactResult<u64> {
+    match value {
+        ValueRef::AccountRef(account_idx, offset) => {
+            let account = ctx.get_account(account_idx)?;
+            let data = unsafe { account.borrow_data_unchecked() };
+            if (offset as usize + 8) > data.len() {
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            let bytes: [u8; 8] = data[offset as usize..offset as usize + 8]
+                .try_into()
+                .map_err(|_| VMErrorCode::InvalidAccountData)?;
+            Ok(u64::from_le_bytes(bytes))
+        }
+        _ => value.as_u64().ok_or(VMErrorCode::TypeMismatch),
+    }
+}
+
 /// Utility functions for bytecode validation
 pub struct BytecodeUtils;
 

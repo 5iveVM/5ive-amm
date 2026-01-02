@@ -69,7 +69,6 @@ pub mod stack;
 pub mod types;
 pub mod utils;
 
-#[cfg(test)]
 mod tests;
 
 // Comprehensive test framework and modules (feature-gated)
@@ -101,14 +100,11 @@ mod test_integration;
 #[cfg(all(test, feature = "test-utils"))]
 mod test_property_based;
 
-#[cfg(test)]
 mod test_polymorphic_arithmetic;
 
-#[cfg(test)]
 mod test_vle_param_decoding;
 
 // Performance benchmarks
-#[cfg(test)]
 mod bench_lazy_validation;
 
 pub use context::{ExecutionContext, ExecutionManager};

@@ -154,7 +154,67 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 (ValueRef::U64(a_val), ValueRef::U128(b_val)) => (a_val as u128) == b_val,
                 (ValueRef::U128(a_val), ValueRef::U64(b_val)) => a_val == (b_val as u128),
                 (ValueRef::U128(a_val), ValueRef::U128(b_val)) => a_val == b_val,
-                
+
+                // AccountRef comparisons (lazy-loaded values vs explicit values)
+                (ValueRef::AccountRef(idx_a, off_a), ValueRef::AccountRef(idx_b, off_b)) => {
+                    // Pointer equality
+                    if idx_a == idx_b && off_a == off_b {
+                        true
+                    } else {
+                        // Data equality - expensive read
+                        // Assume 8-byte comparison for consistency with u64 default
+                        let val_a = crate::utils::resolve_u64(a, ctx)?;
+                        let val_b = crate::utils::resolve_u64(b, ctx)?;
+                        val_a == val_b
+                    }
+                },
+
+                // AccountRef vs PubkeyRef/TempRef (32-byte comparison)
+                (ValueRef::AccountRef(_, _), ValueRef::PubkeyRef(_)) |
+                (ValueRef::AccountRef(_, _), ValueRef::TempRef(_, 32)) => {
+                    // Extract data as Pubkey (32 bytes)
+                    // We need a helper to read 32 bytes from AccountRef
+                    let pk_b = ctx.extract_pubkey(&b)?;
+
+                    // Manually read 32 bytes from AccountRef
+                    let (acc_idx, offset) = if let ValueRef::AccountRef(idx, off) = a { (idx, off) } else { unreachable!() };
+                    let account = ctx.get_account(acc_idx)?;
+                    let data = unsafe { account.borrow_data_unchecked() };
+                    if (offset as usize + 32) > data.len() {
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    let mut pk_a = [0u8; 32];
+                    pk_a.copy_from_slice(&data[offset as usize..offset as usize + 32]);
+
+                    pk_a == pk_b
+                },
+
+                (ValueRef::PubkeyRef(_), ValueRef::AccountRef(_, _)) |
+                (ValueRef::TempRef(_, 32), ValueRef::AccountRef(_, _)) => {
+                    let pk_a = ctx.extract_pubkey(&a)?;
+
+                    let (acc_idx, offset) = if let ValueRef::AccountRef(idx, off) = b { (idx, off) } else { unreachable!() };
+                    let account = ctx.get_account(acc_idx)?;
+                    let data = unsafe { account.borrow_data_unchecked() };
+                    if (offset as usize + 32) > data.len() {
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    let mut pk_b = [0u8; 32];
+                    pk_b.copy_from_slice(&data[offset as usize..offset as usize + 32]);
+
+                    pk_a == pk_b
+                },
+
+                // AccountRef vs u64
+                (ValueRef::AccountRef(_, _), ValueRef::U64(b_val)) => {
+                    let a_val = crate::utils::resolve_u64(a, ctx)?;
+                    a_val == b_val
+                },
+                (ValueRef::U64(a_val), ValueRef::AccountRef(_, _)) => {
+                    let b_val = crate::utils::resolve_u64(b, ctx)?;
+                    a_val == b_val
+                },
+
                 // Handle Pubkey comparison (TempRef or PubkeyRef) by value
                 (ValueRef::TempRef(_, _), ValueRef::TempRef(_, _)) |
                 (ValueRef::TempRef(_, _), ValueRef::PubkeyRef(_)) |
@@ -188,13 +248,46 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 (ValueRef::U64(a_val), ValueRef::U128(b_val)) => (a_val as u128) != b_val,
                 (ValueRef::U128(a_val), ValueRef::U64(b_val)) => a_val != (b_val as u128),
                 (ValueRef::U128(a_val), ValueRef::U128(b_val)) => a_val != b_val,
-                
+
+                // AccountRef comparisons
+                (ValueRef::AccountRef(_, _), ValueRef::PubkeyRef(_)) |
+                (ValueRef::AccountRef(_, _), ValueRef::TempRef(_, 32)) => {
+                    let pk_b = ctx.extract_pubkey(&b)?;
+                    let (acc_idx, offset) = if let ValueRef::AccountRef(idx, off) = a { (idx, off) } else { unreachable!() };
+                    let account = ctx.get_account(acc_idx)?;
+                    let data = unsafe { account.borrow_data_unchecked() };
+                    if (offset as usize + 32) > data.len() {
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    let mut pk_a = [0u8; 32];
+                    pk_a.copy_from_slice(&data[offset as usize..offset as usize + 32]);
+                    pk_a != pk_b
+                },
+                (ValueRef::PubkeyRef(_), ValueRef::AccountRef(_, _)) |
+                (ValueRef::TempRef(_, 32), ValueRef::AccountRef(_, _)) => {
+                    let pk_a = ctx.extract_pubkey(&a)?;
+                    let (acc_idx, offset) = if let ValueRef::AccountRef(idx, off) = b { (idx, off) } else { unreachable!() };
+                    let account = ctx.get_account(acc_idx)?;
+                    let data = unsafe { account.borrow_data_unchecked() };
+                    if (offset as usize + 32) > data.len() {
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    let mut pk_b = [0u8; 32];
+                    pk_b.copy_from_slice(&data[offset as usize..offset as usize + 32]);
+                    pk_a != pk_b
+                },
+
+                (ValueRef::AccountRef(_, _), _) | (_, ValueRef::AccountRef(_, _)) => {
+                     let a_val = crate::utils::resolve_u64(a, ctx)?;
+                     let b_val = crate::utils::resolve_u64(b, ctx)?;
+                     a_val != b_val
+                },
+
                 // Handle Pubkey comparison (TempRef or PubkeyRef) by value
                 (ValueRef::TempRef(_, _), ValueRef::TempRef(_, _)) |
                 (ValueRef::TempRef(_, _), ValueRef::PubkeyRef(_)) |
                 (ValueRef::PubkeyRef(_), ValueRef::TempRef(_, _)) |
                 (ValueRef::PubkeyRef(_), ValueRef::PubkeyRef(_)) => {
-                     // Try to extract as pubkeys
                      if let (Ok(pk_a), Ok(pk_b)) = (ctx.extract_pubkey(&a), ctx.extract_pubkey(&b)) {
                          pk_a != pk_b
                      } else {

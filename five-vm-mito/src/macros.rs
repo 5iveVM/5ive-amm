@@ -22,17 +22,7 @@
 #[macro_export]
 macro_rules! pop_u64 {
     ($ctx:expr) => {
-        match $ctx.pop()? {
-            five_protocol::ValueRef::U64(val) => val,
-            five_protocol::ValueRef::U128(val) => {
-                if val <= u64::MAX as u128 {
-                    val as u64
-                } else {
-                    return Err($crate::error::VMErrorCode::NumericOverflow.into());
-                }
-            }
-            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
-        }
+        $crate::utils::resolve_u64($ctx.pop()?, $ctx)?
     };
 }
 
@@ -315,6 +305,14 @@ macro_rules! polymorphic_binary_op {
         let a = $ctx.pop()?;
 
         match (a, b) {
+            // AccountRef support - read 8 bytes as u64
+            (five_protocol::ValueRef::AccountRef(_, _), _) | (_, five_protocol::ValueRef::AccountRef(_, _)) => {
+                let a_val = $crate::utils::resolve_u64(a, $ctx)?;
+                let b_val = $crate::utils::resolve_u64(b, $ctx)?;
+                let result = a_val.$op(b_val);
+                debug_log!("Result (AccountRef->u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
             // Fast path: u64 × u64 (unchanged performance)
             (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U64(b_val)) => {
                 let result = a_val.$op(b_val);
@@ -383,6 +381,17 @@ macro_rules! polymorphic_binary_op_checked {
         let a = $ctx.pop()?;
 
         match (a, b) {
+            // AccountRef support
+            (five_protocol::ValueRef::AccountRef(_, _), _) | (_, five_protocol::ValueRef::AccountRef(_, _)) => {
+                let a_val = $crate::utils::resolve_u64(a, $ctx)?;
+                let b_val = $crate::utils::resolve_u64(b, $ctx)?;
+                if b_val == 0 {
+                    return Err($crate::error::VMErrorCode::DivisionByZero.into());
+                }
+                let result = a_val.$op(b_val);
+                debug_log!("Result (AccountRef->u64): {}", result);
+                vm_push_u64!($ctx, result);
+            }
             // Fast path: u64 × u64 with zero check
             (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U64(b_val)) => {
                 if b_val == 0 {
@@ -478,6 +487,18 @@ macro_rules! polymorphic_binary_op_checked_overflow {
         let a = $ctx.pop()?;
 
         match (a, b) {
+            // AccountRef support
+            (five_protocol::ValueRef::AccountRef(_, _), _) | (_, five_protocol::ValueRef::AccountRef(_, _)) => {
+                let a_val = $crate::utils::resolve_u64(a, $ctx)?;
+                let b_val = $crate::utils::resolve_u64(b, $ctx)?;
+                match a_val.$op(b_val) {
+                    Some(result) => {
+                        debug_log!("Result (AccountRef->u64): {}", result);
+                        vm_push_u64!($ctx, result);
+                    }
+                    None => return Err($crate::error::VMErrorCode::ArithmeticOverflow.into()),
+                }
+            }
             // Fast path: u64 × u64 with overflow check
             (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U64(b_val)) => {
                 match a_val.$op(b_val) {
@@ -612,6 +633,12 @@ macro_rules! polymorphic_comparison_op {
         let a = $ctx.pop()?;
 
         let result = match (a, b) {
+            // AccountRef support
+            (five_protocol::ValueRef::AccountRef(_, _), _) | (_, five_protocol::ValueRef::AccountRef(_, _)) => {
+                let a_val = $crate::utils::resolve_u64(a, $ctx)?;
+                let b_val = $crate::utils::resolve_u64(b, $ctx)?;
+                a_val $op b_val
+            },
             // Fast path: u64 × u64
             (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U64(b_val)) => {
                 a_val $op b_val
