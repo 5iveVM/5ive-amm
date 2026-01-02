@@ -1,0 +1,66 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "initialize",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "counter",
+          "param_type": "Counter",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "init",
+            "signer"
+          ]
+        },
+        {
+          "name": "payer",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "increment",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "counter",
+          "param_type": "Counter",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "get_count",
+      "index": 2,
+      "parameters": [
+        {
+          "name": "counter",
+          "param_type": "Counter",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64",
+      "is_public": true,
+      "bytecode_offset": 0
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

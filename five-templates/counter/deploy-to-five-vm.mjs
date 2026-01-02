@@ -135,8 +135,8 @@ async function deployCounterProgram() {
             new TransactionInstruction({
                 keys: [
                     { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
-                    { pubkey: payer.publicKey, isSigner: true, isWritable: true },
                     { pubkey: vmStatePda, isSigner: false, isWritable: true },
+                    { pubkey: payer.publicKey, isSigner: true, isWritable: true },
                 ],
                 programId: FIVE_PROGRAM_ID,
                 data: Buffer.concat([

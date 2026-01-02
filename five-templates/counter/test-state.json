@@ -1,0 +1,26 @@
+{
+  "config": {
+    "rpcUrl": "http://127.0.0.1:8899",
+    "programId": "HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg",
+    "vmStatePda": "4Dtcdz4goobS84ku2eyg5n2iUMVkvWbAN8P5Gd2w9fMK",
+    "counterScriptAccount": "J2TfsD6W5BpoCzLTV34U5hoUR2GWmkSLk3fKnBcKhXGU"
+  },
+  "accounts": {
+    "counter1": "Ef5dBhfNXXbxGfvtMtZut2Hb9Avkx64qqgcyZEQZxEDT",
+    "counter2": "GWWEGk7CtKJPz4qTxEu4GVCzL8CD7BPiD6Nd5kGPTTrU",
+    "user1": "6kqe6K3DyHGTR24PoDeACVxx72P9aNEoVHPuioQqFjaS",
+    "user2": "C8PivMTbrDkW5iEX7gtyGeKFFYCPU58V58mR1Sh9WQsc",
+    "payer": "EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt"
+  },
+  "expected": {
+    "counter1Count": 12,
+    "counter2Count": 0
+  },
+  "results": {
+    "totalTests": 13,
+    "passed": 0,
+    "failed": 13,
+    "totalComputeUnits": 13711,
+    "allPassed": false
+  }
+}
