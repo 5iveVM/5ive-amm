@@ -56,7 +56,7 @@ fn emit_signer_check<T: OpcodeEmitter>(
     account_idx: u8,
 ) -> Result<(), VMError> {
     emitter.emit_opcode(CHECK_SIGNER);
-    emitter.emit_vle_u64(account_idx as u64); 
+    emitter.emit_u8(account_idx); 
     Ok(())
 }
 
@@ -66,7 +66,7 @@ fn emit_writable_check<T: OpcodeEmitter>(
     account_idx: u8,
 ) -> Result<(), VMError> {
     emitter.emit_opcode(CHECK_WRITABLE);
-    emitter.emit_vle_u64(account_idx as u64);
+    emitter.emit_u8(account_idx);
     Ok(())
 }
 

@@ -1,0 +1,61 @@
+ℹ️  Loaded deployment-config.json overrides
+ℹ️  Mint Account: BHpa6ZmvUt7vnFebMeiLRvaTHqfbmRDNcXz4QR2Qtvjf
+[BytecodeCompiler] Initialized
+[ParameterEncoder] Initialized
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AcP5fGQKbeo7Y2QyXJ8pnih4SZu7KzFAPWPSaCw99XPF',
+  function: 0,
+  parameterCount: 7,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+using deprecated parameters for `initSync()`; pass a single object instead
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: eQHHm7afiuvc4H4jvP6ba7qMqviJZHRE6XEpwfNtRJH (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] Generated execution instruction: {
+  function: 0,
+  functionIndex: 0,
+  parameterBytes: 81,
+  dataSize: 84,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ init_mint failed: Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Provided owner is not allowed: 14 log messages:
+Program GtAcucurNAXH9JgEqCCi6XXU1FU6YoM1fpknUCJDCXA4 invoke [1]
+Program log: FIVE Optimized: Processing instruction with no_allocator
+Program log: Program ID: [235, 250, 205, 46, 248, 205, 245, 158, 107, 97, 121, 83, 46, 184, 97, 143, 201, 2, 213, 223, 87, 124, 86, 205, 41, 178, 157, 51, 96, 28, 239, 157]
+Program log: Accounts provided: 8
+Program log: Instruction data length: 84
+Program log: Instruction discriminator: 9
+Program log: FIVEInstruction::try_from - data length: 84
+Program log: FIVEInstruction::try_from - discriminator: 9
+Program log: FIVEInstruction::try_from - Execute instruction (9)
+Program log: Processing Execute instruction with 83 bytes of params
+Program log: Executing script with MitoVM
+Program log: Instruction failed with error code: 77309411328
+Program GtAcucurNAXH9JgEqCCi6XXU1FU6YoM1fpknUCJDCXA4 consumed 5847 of 200000 compute units
+Program GtAcucurNAXH9JgEqCCi6XXU1FU6YoM1fpknUCJDCXA4 failed: Provided owner is not allowed. 
+Logs: 
+[
+  "Program log: Instruction data length: 84",
+  "Program log: Instruction discriminator: 9",
+  "Program log: FIVEInstruction::try_from - data length: 84",
+  "Program log: FIVEInstruction::try_from - discriminator: 9",
+  "Program log: FIVEInstruction::try_from - Execute instruction (9)",
+  "Program log: Processing Execute instruction with 83 bytes of params",
+  "Program log: Executing script with MitoVM",
+  "Program log: Instruction failed with error code: 77309411328",
+  "Program GtAcucurNAXH9JgEqCCi6XXU1FU6YoM1fpknUCJDCXA4 consumed 5847 of 200000 compute units",
+  "Program GtAcucurNAXH9JgEqCCi6XXU1FU6YoM1fpknUCJDCXA4 failed: Provided owner is not allowed"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.

@@ -1,0 +1,112 @@
+Streaming transaction logs mentioning DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8. Confirmed commitment
+Transaction executed in slot 390831590:
+  Signature: SXwLHgnmXiGH61HJFbcGpjHhstRTX59yErSnptUgZSPUDuykSUx8T2p3xxEZMZwyGAj6XUqTcYtZQYRFXGeyTww
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 2754 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: invalid instruction data
+Transaction executed in slot 390831591:
+  Signature: 3L2bSPrnMmugcqphvckTKnijHpYSLd4BrN6hz42pGCf74Pdsiu6cajU8uhLYpzCD6GV7VEJbnh4cE9fA3phqJCmc
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 6206 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: invalid instruction data
+Transaction executed in slot 390831592:
+  Signature: 5vS2jmkwK9ySPURJLiXPoe3xxMDWwEjHaQHsnMEKQntJX9La1ahah5KChLE7bYnfUwJfFrZU7cmTYm5xGpQSQeqe
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 6206 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: invalid instruction data
+Transaction executed in slot 390831593:
+  Signature: 3tZjXe2XCHn3eFxKWYPn6E5Lf2XqPxJXoS3k1GFWVhhBFLZmS6Y3bvosRJTWwFHpSzyKXCyvGKX8QdJ5aKAXCfVR
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 6206 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: invalid instruction data
+Transaction executed in slot 390831594:
+  Signature: sSD9P3y4fPGFFjwTWFk8GG69JL1LbVBnsBTgvJ2KYWMs1vd1tyBpPo6Ze6sFExpoS7bU6JfMbskfUWYNaNDXuQu
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 3133 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232e
+Transaction executed in slot 390831595:
+  Signature: 3NuohnZK7Rar169hRxvJr9rhXBEn2tarqCJLToj7X2B4korwg6xz9v4sBvRmLLCFpf1w5fe8o1hZiTSMgxF4iExn
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 3133 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232e
+Transaction executed in slot 390831596:
+  Signature: T5YZnfjnMfGadus1mwacF8AfWvSbNGroAgVkgGu5oH8sArHiuMfgoyodprEu8ecirbUY1A6cNYDM5AoHpfoKqYN
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 3133 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232e
+Transaction executed in slot 390831597:
+  Signature: 34HXPvbvFEBui4rNGZWH4ELMd39HPvyYNmq7M98tbGhBcvNMv9QGr4nRRszrLCYEg3X3yq2WKMt3GBeE4QUuzeMA
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 3907 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232b
+Transaction executed in slot 390831598:
+  Signature: Q7z6JY32xVCFVeLo6YZQjrHdzq1zeeXrUyxRaQEZ9FMKAyQ7Dpi3414PAPmK2TaTrN3uyiiZu1LffyZg35Eb2FR
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 4662 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232b
+Transaction executed in slot 390831599:
+  Signature: sz1wKXavVZq1FBWJ7Jc5P2ZdwXyzk2yv6WKjxvyNkBcv5kei3NkRHSwUZ8itZSe1KAoJbnKNM35nCqof1fUqG5M
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 4632 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232e
+Transaction executed in slot 390831600:
+  Signature: 5iEj5DFhyck58eSGUUBANcxFcidqngwx1RkoBhFz5dTMNDFp1W5cxhB81JjjCgwwpMYdGWUVVcmZeZgGPzaivrQw
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 4603 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232b
+Transaction executed in slot 390831601:
+  Signature: 2xWjzFfP94gemMMB3bEAin39QTzv9JziRXVvYcUEM6XWnYus76HHZhd1ShB3WhJ99WTNykXKTThD1zaARpRPUonA
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 5335 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232b
+Transaction executed in slot 390831603:
+  Signature: 52oUVPwvDB4Dfa3yXagDkTryddiz7ZetPTDQmCSogHDy6EbiXrn47nZwjSHo5HYuys8Cuj2qNQ8v8qwLzurBA89S
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 4983 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232e
+Transaction executed in slot 390831604:
+  Signature: 2Nb9XTbwRQggbKi64rRvbJhZuxToo9tH9YkgrEMgHZJpgrG7DnomZq8WeHpgEpPMDZvchV7CthPky9oJrgFD64mc
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 5340 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232e
+Transaction executed in slot 390831605:
+  Signature: 3ZCUWCmnL4suuissxLqSAQBkKpna4xvAKsFdSpCSwf1BfEAzdyBBeb7iqvRApRcsePE2ge2fV5C5X4wuzNCBxfg6
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 6328 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: custom program error: 0x232e

@@ -1,0 +1,106 @@
+Streaming transaction logs mentioning DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8. Confirmed commitment
+Transaction executed in slot 390831373:
+  Signature: 2NDjMCKwcrC9sKsGoeXUpo7NDTgTJwq5rNh6e5Bqch5dJwEQYNJ8FxXUAnheD87vhKb49N1QxjnBCtnyZPfYkP9w
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 120 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831374:
+  Signature: 3TLwuHcQkZAiqtdRtYqiMrr6cxHJwzp8i1W8npSkRGJhof9u65itRkNMpqsgtpLmUNy8xiVjtwAw3GygjqumCpR7
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 120 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831376:
+  Signature: 2rWLTFkEsNiNjTm7ykHBQSgETRtU513L2CXEstb5WTdofcn9r5R48Ww9riGQvDcwvQnEqeaEh7sb6zFt91HLR722
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 120 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831377:
+  Signature: hvceJCRjJTV1mzvaH81BzumBjLnBV8JBNaaQfx2hHywKcAjYzZCeZ5idtwQUeAXVfkuN8tSqPbU454LziufJRe4
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 120 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831378:
+  Signature: 59giKTKRwUgcrBDGwryg4vQ6RveLMPUhcUDSnYGkVpJhfDbXk61iDCqVgg3TwGzMAM7RP29xsxHwGJ7PG97Wzp7S
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 114 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831379:
+  Signature: CQJvmnSGFW5AvBVea3xCLmKJaxUXuqzvpacEZVUfqcwEEo16MUUT5JacGEKWHr3GHttejSpMW6BxP8wKZokxJae
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 114 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831380:
+  Signature: 5fXSsU6rvNM1f5xd2ivzxgUSgko6Gxt7BTW99okiyEn8HcNZrEtS5tHtgYLp3EQg8C29Uc1qDiUAXiySrMH7yak8
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 114 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831381:
+  Signature: 3dGxv1vurnc1dYDESHDEm6DjNzBPB1eRxHHVWEPsEn2LqmTvoN1ooFbhA9HU841pPoqaRUyiGJu5rogCqSsMVaZ6
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 114 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831383:
+  Signature: ch5FYGDz8ARaeWH8gmT4FfXiuS4wgKG7PWoESmfxZyZqBMFEetgKQo2uUHQgneSjcWwgdqJ4i1cYqcfS4YJXSAY
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 104 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831384:
+  Signature: 5T8JVjSEJeVury4JPuTpPPpytWKiVniD49RMuFJox9QAyGPUsM1DmD7PL7h8EQxYAsVvBUdQfKSEy11VeFk7m3Rx
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 114 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831385:
+  Signature: 3ahbt1RkZxyDXjU33ZeQtrThnsXpJccQ9RiAJFL2jmScz8fXjcZx93MYG2BBitdghV58iYjNsBHHKDH8sd27UsX2
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 104 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831386:
+  Signature: 3N3mU7F4DuX76AKWSTYkzEXhkb7QESWHmpnaxzTZrR9ThWXEJ9R133fFY9QTjJcvqwampXk8mfd7G21KNqTBwvyS
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 114 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831388:
+  Signature: iHNiHLEUgxskQxqqkgnE8SifVeAcnLoceFAyCHGwZmk2h61vFPLmixxheh5KGpFjicPjUG9hLibrxBby77JP2hK
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 114 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831389:
+  Signature: 44Y15tNL7qafT3UBVrD5b6rTskXKFtdjY18k86uxbhkmhqqHStQwLFsUrJPrGjr2cx58Gg3S1WRuE9pPa9EzfTnE
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 114 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
+Transaction executed in slot 390831390:
+  Signature: 63XN1nDUL7rLmDSeKWHeeAqYGA4s43VN8VxNZX8x9PJHztWNNRcWJ3fhmfuKUEZiSSJTmPrfuM2pvQ28jDnWAQQw
+  Status: Ok
+  Log Messages:
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 invoke [1]
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 consumed 104 of 200000 compute units
+    Program DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8 failed: Provided owner is not allowed
