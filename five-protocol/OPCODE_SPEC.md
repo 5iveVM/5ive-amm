@@ -1,15 +1,48 @@
-# Five VM Opcode Specification
+---
+rfc: 1
+title: Five VM Opcode Specification
+author: Five Team
+status: Living
+type: Standards Track
+created: 2024-08-01
+---
 
-This document specifies the opcodes for the Five VM, their arguments, stack effects, and the rationale for their existence.
+# RFC-1: Five VM Opcode Specification
 
-## Control Flow Operations (0x00-0x0F)
+## Abstract
+
+This document defines the instruction set architecture (ISA) for the Five Virtual Machine (VM). It specifies the opcodes, their binary encoding, argument types, stack effects, and operational semantics. The Five VM is a stack-based virtual machine optimized for the Solana blockchain, focusing on efficiency, compactness, and safety.
+
+## Motivation
+
+To build a robust and efficient smart contract layer on Solana, a clearly defined and optimized instruction set is required. This specification aims to provide a single source of truth for the Five VM's capabilities, enabling:
+
+1.  **Interoperability**: Ensuring compilers, debuggers, and VMs (Mito, Wasm) all adhere to the same behavior.
+2.  **Optimization**: Providing a basis for performance improvements and binary size reduction (VLE, pattern fusion).
+3.  **Security**: Clearly defining the constraints and safety guarantees of each operation.
+
+## Specification
+
+The Five VM uses a byte-oriented instruction stream. Instructions consist of a 1-byte opcode followed by variable-length arguments.
+
+### Data Types
+- **U8**: 8-bit unsigned integer (1 byte).
+- **U16**: 16-bit unsigned integer (2 bytes, little-endian).
+- **U32**: 32-bit unsigned integer (4 bytes, little-endian).
+- **U64**: 64-bit unsigned integer (8 bytes, little-endian).
+- **VLE**: Variable Length Encoding (1-9 bytes) for integers to save space.
+- **Pubkey**: 32-byte Solana public key.
+
+### Opcode Tables
+
+#### 1. Control Flow Operations (0x00-0x0F)
 
 These opcodes control the execution flow of the program.
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
 | 0x00 | `HALT` | None | 0 | Stops execution immediately. | Essential for terminating programs cleanly or stopping execution after a specific branch. |
-| 0x01 | `JUMP` | `offset` (U16) | 0 | Unconditional jump to a relative offset. | enables loops and unconditional branching logic. |
+| 0x01 | `JUMP` | `offset` (U16) | 0 | Unconditional jump to a relative offset. | Enabled loops and unconditional branching logic. |
 | 0x02 | `JUMP_IF` | `offset` (U16) | -1 | Jump if top of stack is true. | Basic conditional branching construct (if/else). |
 | 0x03 | `JUMP_IF_NOT` | `offset` (U16) | -1 | Jump if top of stack is false. | Often more efficient for "unless" logic or guard clauses. |
 | 0x04 | `REQUIRE` | None | -1 | Traps if top of stack is false. | Critical for assertions and security checks (e.g., `require(isAdmin)`). Fails transaction on false. |
@@ -17,9 +50,9 @@ These opcodes control the execution flow of the program.
 | 0x06 | `RETURN` | None | 0 | Returns from the current function. | Standard function return mechanism. |
 | 0x07 | `RETURN_VALUE` | None | -1 | Returns from function with a value. | Allows functions to return data to their caller. |
 | 0x08 | `NOP` | None | 0 | No Operation. | Useful for padding, debugging, or placeholders during compilation. |
-| 0x09 | `BR_EQ_U8` | `value` (U8), `offset` (U16) | -1 | Jump if top (U8) == `value`. | **Optimization**: Fuses `PUSH_U8`, `EQ`, `JUMP_IF` into one instruction. highly common in state machines and enum matching. |
+| 0x09 | `BR_EQ_U8` | `value` (U8), `offset` (U16) | -1 | Jump if top (U8) == `value`. | **Optimization**: Fuses `PUSH_U8`, `EQ`, `JUMP_IF` into one instruction. Highly common in state machines and enum matching. |
 
-## Stack Operations (0x10-0x1F)
+#### 2. Stack Operations (0x10-0x1F)
 
 These opcodes manipulate the value stack.
 
@@ -42,7 +75,7 @@ These opcodes manipulate the value stack.
 | 0x1E | `PUSH_PUBKEY` | `value` (32B) | +1 | Pushes a Pubkey literal. | Essential for hardcoding program IDs or authority keys. |
 | 0x1F | `PUSH_U128` | `value` (16B) | +1 | Pushes a U128 constant. | Support for large numbers (e.g., high precision math). |
 
-## Arithmetic Operations (0x20-0x2F)
+#### 3. Arithmetic Operations (0x20-0x2F)
 
 Standard arithmetic on U64/I64 values.
 
@@ -64,7 +97,7 @@ Standard arithmetic on U64/I64 values.
 | 0x2D | `SUB_CHECKED` | None | -1 | Checked Subtraction. | **Safety**: Errors on underflow. Crucial for financial math. |
 | 0x2E | `MUL_CHECKED` | None | -1 | Checked Multiplication. | **Safety**: Errors on overflow. Crucial for financial math. |
 
-## Logical & Bitwise Operations (0x30-0x3F)
+#### 4. Logical & Bitwise Operations (0x30-0x3F)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
@@ -85,7 +118,7 @@ Standard arithmetic on U64/I64 values.
 | 0x3E | `BYTE_SWAP_32` | None | 0 | Swap bytes in U32. | Endianness conversion. |
 | 0x3F | `BYTE_SWAP_64` | None | 0 | Swap bytes in U64. | Endianness conversion. |
 
-## Memory Operations (0x40-0x4F)
+#### 5. Memory Operations (0x40-0x4F)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
@@ -99,7 +132,7 @@ Standard arithmetic on U64/I64 values.
 | 0x47 | `LOAD_EXTERNAL_FIELD` | None | -1 | Load field from external account. | Reading state from other programs/accounts dynamically. |
 | 0x48 | `LOAD_FIELD_PUBKEY` | `acct_idx`, `offset` | +1 | Load Pubkey from account data. | Specialized zero-copy load for 32-byte keys. |
 
-## Account Operations (0x50-0x5F)
+#### 6. Account Operations (0x50-0x5F)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
@@ -115,35 +148,35 @@ Standard arithmetic on U64/I64 values.
 | 0x59 | `TRANSFER` | None | -3 | Transfer SOL. | Moving funds (from, to, amount). |
 | 0x5A | `TRANSFER_SIGNED` | None | -3 | Transfer SOL with seeds. | Moving funds from a PDA. |
 
-## Array & String Operations (0x60-0x6F)
+#### 7. Array & String Operations (0x60-0x6F)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
 | 0x60 | `CREATE_ARRAY` | `capacity` (U8) | +1 | Allocate new array. | Dynamic data structures. |
 | 0x61 | `PUSH_ARRAY_LITERAL` | `len` (U8) | +1 | Push array from bytecode. | Constant arrays. |
-| 0x62 | `ARRAY_INDEX` | None | -1 | Get item at index. | accessing elements. |
+| 0x62 | `ARRAY_INDEX` | None | -1 | Get item at index. | Accessing elements. |
 | 0x63 | `ARRAY_LENGTH` | None | 0 | Get length. | Iterating or bounds checking. |
 | 0x64 | `ARRAY_SET` | None | -3 | Set item at index. | Modifying arrays. |
 | 0x65 | `ARRAY_GET` | None | -1 | Get item (alias/variant). | Accessing elements. |
 | 0x66 | `PUSH_STRING_LITERAL` | `len` (U8) | +1 | Push string from bytecode. | Constant strings. |
 | 0x67 | `PUSH_STRING` | `len` (VLE) | +1 | Push long string. | Large text data. |
 
-## Constraint Operations (0x70-0x7F)
+#### 8. Constraint Operations (0x70-0x7F)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
-| 0x70 | `CHECK_SIGNER` | `acct_idx` | 0 | Assert account is signer. | **Security**: Authentication checks. |
-| 0x71 | `CHECK_WRITABLE` | `acct_idx` | 0 | Assert account is writable. | **Security**: Ensuring mutation is allowed. |
+| 0x70 | `CHECK_SIGNER` | `acct_idx` (U8) | 0 | Assert account is signer. | **Security**: Authentication checks. |
+| 0x71 | `CHECK_WRITABLE` | `acct_idx` (U8) | 0 | Assert account is writable. | **Security**: Ensuring mutation is allowed. |
 | 0x72 | `CHECK_OWNER` | `acct_idx` | -1 | Assert account owner. | **Security**: verifying program ownership. |
-| 0x73 | `CHECK_INITIALIZED` | `acct_idx` | 0 | Assert account has data. | Preventing overwrites or use of uninit accounts. |
+| 0x73 | `CHECK_INITIALIZED` | `acct_idx` (U8) | 0 | Assert account has data. | Preventing overwrites or use of uninit accounts. |
 | 0x74 | `CHECK_PDA` | `acct_idx` | -1 | Assert account is PDA. | **Security**: Verifying address derivation. |
-| 0x75 | `CHECK_UNINITIALIZED` | `acct_idx` | 0 | Assert account empty. | Ensuring safe new account creation. |
+| 0x75 | `CHECK_UNINITIALIZED` | `acct_idx` (U8) | 0 | Assert account empty. | Ensuring safe new account creation. |
 | 0x76 | `CHECK_DEDUPE_TABLE` | None | -1 | Verify uniqueness. | Advanced validation patterns. |
 | 0x77 | `CHECK_CACHED` | None | -1 | Check cache. | Performance optimization for repeated checks. |
 | 0x78 | `CHECK_COMPLEXITY_GROUP` | None | -1 | Validate complexity. | Resource management. |
 | 0x79 | `CHECK_DEDUPE_MASK` | None | -1 | Verify via bitmask. | Efficient batch uniqueness checks. |
 
-## System Operations (0x80-0x8F)
+#### 9. System Operations (0x80-0x8F)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
@@ -158,7 +191,7 @@ Standard arithmetic on U64/I64 values.
 | 0x88 | `DERIVE_PDA_PARAMS` | None | Dynamic | Derive with explicit params. | Flexible derivation. |
 | 0x89 | `FIND_PDA_PARAMS` | None | Dynamic | Find with explicit params. | Flexible finding. |
 
-## Function Transport (0x90-0x9F)
+#### 10. Function Transport (0x90-0x9F)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
@@ -168,7 +201,7 @@ Standard arithmetic on U64/I64 values.
 | 0x93 | `PREPARE_CALL` | None | 0 | Setup call stack. | Call overhead management. |
 | 0x94 | `FINISH_CALL` | None | 0 | Teardown call stack. | Call overhead management. |
 
-## Local Variables (0xA0-0xAF)
+#### 11. Local Variables (0xA0-0xAF)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
@@ -186,7 +219,7 @@ Standard arithmetic on U64/I64 values.
 | 0xAB | `GET_SIGNER_KEY` | None | +1 | Get signer pubkey. | Auth utility. |
 | 0xAF | `CAST` | `type` (U8) | 0 | Type cast value. | Type system safety/conversion. |
 
-## Register Operations (0xB0-0xBF)
+#### 12. Register Operations (0xB0-0xBF)
 
 Hybrid VM optimizations to reduce stack traffic.
 
@@ -209,7 +242,7 @@ Hybrid VM optimizations to reduce stack traffic.
 | 0xBE | `COPY_REG` | `dest`, `src` | 0 | Copy register. | Fast local data movement. |
 | 0xBF | `CLEAR_REG` | `reg` | 0 | Zero register. | Cleanup. |
 
-## Nibble/Compressed Operations (0xD0-0xDF)
+#### 13. Nibble/Compressed Operations (0xD0-0xDF)
 
 Highly optimized single-byte instructions for common operations.
 
@@ -220,15 +253,7 @@ Highly optimized single-byte instructions for common operations.
 | 0xD8-DB| `PUSH_0..3` | None | +1 | Push 0, 1, 2, or 3. | **Compression**: Replaces `PUSH_U64 + val` (2-9 bytes) with 1 byte. Huge savings for counters/indices. |
 | 0xDC-DF| `LOAD_PARAM_0..3`| None | +1 | Load param 0-3. | **Compression**: 50% savings for argument access. |
 
-## Pattern Fusion (0xE0-0xEF)
-
-**REMOVED**: This range was previously used for fusion opcodes but they have been removed from the protocol.
-
-| Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
-|:---:|:---|:---|:---:|:---|:---|
-| 0xE0-EF| `RESERVED` | N/A | N/A | Reserved for future use. | - |
-
-## Advanced/Experimental (0xF0-0xFF)
+#### 14. Advanced/Experimental (0xF0-0xFF)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
@@ -248,3 +273,26 @@ Highly optimized single-byte instructions for common operations.
 | 0xFD | `OPTIONAL_IS_NONE`| None | 0 | Check if none. | Conditional logic. |
 | 0xFE | `RESULT_IS_OK` | None | 0 | Check if ok. | Conditional logic. |
 | 0xFF | `RESULT_IS_ERR` | None | 0 | Check if err. | Conditional logic. |
+
+## Rationale
+
+The design of the Five VM opcode set balances several competing requirements:
+
+1.  **Compactness**: Instructions like `JUMP_IF`, `REQUIRE`, and the nibble operations (0xD0-0xDF) are designed to minimize binary size, which translates to lower deployment costs on Solana.
+2.  **Solana Alignment**: Account operations map directly to Solana's account model, efficiently using CPIs and local state management.
+3.  **Safety**: Checked arithmetic and explicit constraint opcodes (`CHECK_SIGNER`, `CHECK_WRITABLE`) allow for robust security assertions.
+4.  **Performance**: Zero-copy operations (`LOAD_FIELD`) and register operations reduce the overhead of memory copying and stack manipulation.
+
+## Backwards Compatibility
+
+This specification represents version 1 of the ISA. Future additions (e.g., in the 0xE0-0xEF range) must maintain backward compatibility with existing binaries. Breaking changes will require a new version of the VM.
+
+## Security Considerations
+
+-   **Resource Limits**: All operations are assigned a compute unit cost to prevent denial-of-service attacks.
+-   **Validation**: Loaders and constraints (like `CHECK_SIGNER`) must be strictly enforced.
+-   **Isolation**: The VM ensures that programs cannot access memory or accounts outside their authorized scope.
+
+## Copyright
+
+Copyright (c) 2024 Five Team.

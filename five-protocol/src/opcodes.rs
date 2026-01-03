@@ -8,13 +8,13 @@
 //! **10 redundant opcodes have been REMOVED** to minimize on-chain binary size and prepare for V3 optimizations:
 //!
 //! ## Removed Constraint Immediates (use VLE variants):
-//! - `CHECK_SIGNER_IMM` (0x65) → use `CHECK_SIGNER` + VLE account_index
-//! - `CHECK_WRITABLE_IMM` (0x66) → use `CHECK_WRITABLE` + VLE account_index
+//! - `CHECK_SIGNER_IMM` (0x65) → use `CHECK_SIGNER` + u8 account_index
+//! - `CHECK_WRITABLE_IMM` (0x66) → use `CHECK_WRITABLE` + u8 account_index
 //! - `CHECK_OWNER_IMM` (0x67) → use `CHECK_OWNER` + VLE account_index + pubkey
-//! - `CHECK_INITIALIZED_IMM` (0x68) → use `CHECK_INITIALIZED` + VLE account_index
+//! - `CHECK_INITIALIZED_IMM` (0x68) → use `CHECK_INITIALIZED` + u8 account_index
 //! - `CHECK_PDA_IMM` (0x69) → use `CHECK_PDA` + VLE account_index
 //! - `CHECK_BATCH_IMM` (0x6A) → use multiple individual constraint checks
-//! - `CHECK_UNINITIALIZED_IMM` (0x6B) → use `CHECK_UNINITIALIZED` + VLE account_index
+//! - `CHECK_UNINITIALIZED_IMM` (0x6B) → use `CHECK_UNINITIALIZED` + u8 account_index
 //!
 //! ## Removed Redundant Array Operations:
 //! - `READ_DATA` (0xA2) → use `GET_DATA` (0x56) for account data access
@@ -1150,14 +1150,14 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: CHECK_SIGNER,
         name: "CHECK_SIGNER",
-        arg_type: ArgType::AccountIndex,
+        arg_type: ArgType::U8,
         stack_effect: 0,
         compute_cost: 2,
     },
     OpcodeInfo {
         opcode: CHECK_WRITABLE,
         name: "CHECK_WRITABLE",
-        arg_type: ArgType::AccountIndex,
+        arg_type: ArgType::U8,
         stack_effect: 0,
         compute_cost: 2,
     },
@@ -1171,7 +1171,7 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: CHECK_INITIALIZED,
         name: "CHECK_INITIALIZED",
-        arg_type: ArgType::AccountIndex,
+        arg_type: ArgType::U8,
         stack_effect: 0,
         compute_cost: 2,
     },
@@ -1185,7 +1185,7 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: CHECK_UNINITIALIZED,
         name: "CHECK_UNINITIALIZED",
-        arg_type: ArgType::AccountIndex,
+        arg_type: ArgType::U8,
         stack_effect: 0,
         compute_cost: 2,
     },
