@@ -103,18 +103,37 @@ pub fn handle_logical(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<(
         }
         SHIFT_RIGHT_ARITH => {
             let shift_amount = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let value = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+            let value = ctx.pop()?;
+
             // Limit shift amount to prevent undefined behavior
             let safe_shift = (shift_amount % 64) as u32;
-            // Arithmetic right shift preserves sign bit
-            let result = ((value as i64) >> safe_shift) as u64;
-            debug_log!(
-                "MitoVM: SHIFT_RIGHT_ARITH {} >> {} = {}",
-                value,
-                safe_shift,
-                result
-            );
-            ctx.push(ValueRef::U64(result))?;
+
+            // Handle both U64 and I64 types for arithmetic shift
+            match value {
+                ValueRef::U64(v) => {
+                    // Arithmetic right shift on U64 interpreted as I64 preserves sign bit
+                    let result = ((v as i64) >> safe_shift) as u64;
+                    debug_log!(
+                        "MitoVM: SHIFT_RIGHT_ARITH(U64) {} >> {} = {}",
+                        v,
+                        safe_shift,
+                        result
+                    );
+                    ctx.push(ValueRef::U64(result))?;
+                }
+                ValueRef::I64(v) => {
+                    // Direct arithmetic right shift on I64
+                    let result = v >> safe_shift;
+                    debug_log!(
+                        "MitoVM: SHIFT_RIGHT_ARITH(I64) {} >> {} = {}",
+                        v,
+                        safe_shift,
+                        result
+                    );
+                    ctx.push(ValueRef::I64(result))?;
+                }
+                _ => return Err(VMErrorCode::TypeMismatch),
+            }
         }
 
         // ===== ROTATE OPERATIONS =====
