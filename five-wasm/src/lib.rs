@@ -563,71 +563,17 @@ impl FiveVMWasm {
     /// Get VM constants for JavaScript
     #[wasm_bindgen]
     pub fn get_constants() -> JsValue {
+        let mut opcodes_map = serde_json::Map::new();
+
+        for info in five_protocol::opcodes::OPCODE_TABLE {
+            opcodes_map.insert(info.name.to_string(), serde_json::Value::Number(serde_json::Number::from(info.opcode)));
+        }
+
         let constants = serde_json::json!({
             "MAX_SCRIPT_SIZE": MAX_SCRIPT_SIZE,
             "MAX_COMPUTE_UNITS": MAX_COMPUTE_UNITS,
             "FIVE_MAGIC": FIVE_MAGIC,
-            "opcodes": {
-                "PUSH_U64": opcodes::PUSH_U64,
-                "PUSH_U8": opcodes::PUSH_U8,
-                "PUSH_I64": opcodes::PUSH_I64,
-                "PUSH_BOOL": opcodes::PUSH_BOOL,
-                "PUSH_PUBKEY": opcodes::PUSH_PUBKEY,
-                "POP": opcodes::POP,
-                "DUP": opcodes::DUP,
-                "DUP2": opcodes::DUP2,
-                "SWAP": opcodes::SWAP,
-                "ADD": opcodes::ADD,
-                "SUB": opcodes::SUB,
-                "MUL": opcodes::MUL,
-                "DIV": opcodes::DIV,
-                "MOD": opcodes::MOD,
-                "GT": opcodes::GT,
-                "LT": opcodes::LT,
-                "EQ": opcodes::EQ,
-                "GTE": opcodes::GTE,
-                "LTE": opcodes::LTE,
-                "NEQ": opcodes::NEQ,
-                "AND": opcodes::AND,
-                "OR": opcodes::OR,
-                "NOT": opcodes::NOT,
-                "STORE": opcodes::STORE,
-                "LOAD": opcodes::LOAD,
-                "STORE_FIELD": opcodes::STORE_FIELD,
-                "LOAD_FIELD": opcodes::LOAD_FIELD,
-                "LOAD_INPUT": opcodes::LOAD_INPUT,
-                "LOAD_INPUT": opcodes::LOAD_INPUT,
-                "INVOKE": opcodes::INVOKE,
-                "INVOKE_SIGNED": opcodes::INVOKE_SIGNED,
-                "GET_CLOCK": opcodes::GET_CLOCK,
-                "RETURN": opcodes::RETURN,
-                "STORE": opcodes::STORE,
-                "CREATE_ACCOUNT": opcodes::CREATE_ACCOUNT,
-                "LOAD_ACCOUNT": opcodes::LOAD_ACCOUNT,
-                "SAVE_ACCOUNT": opcodes::SAVE_ACCOUNT,
-                "DERIVE_PDA": opcodes::DERIVE_PDA,
-                "TRANSFER": opcodes::TRANSFER,
-                "TRANSFER_SIGNED": opcodes::TRANSFER_SIGNED,
-                "GET_KEY": opcodes::GET_KEY,
-                "FIND_PDA": opcodes::FIND_PDA,
-                "GET_SIGNER_KEY": opcodes::GET_SIGNER_KEY,
-                "HALT": opcodes::HALT,
-                "JUMP": opcodes::JUMP,
-                "JUMP_IF": opcodes::JUMP_IF,
-                "REQUIRE": opcodes::REQUIRE,
-                "CHECK_SIGNER": opcodes::CHECK_SIGNER,
-                "CHECK_WRITABLE": opcodes::CHECK_WRITABLE,
-                "CHECK_OWNER": opcodes::CHECK_OWNER,
-                "CHECK_INITIALIZED": opcodes::CHECK_INITIALIZED,
-                "CHECK_PDA": opcodes::CHECK_PDA,
-                "CREATE_ACCOUNT": opcodes::CREATE_ACCOUNT,
-                "EMIT_EVENT": opcodes::EMIT_EVENT,
-                "LOG_DATA": opcodes::LOG_DATA,
-                "CREATE_ARRAY": opcodes::CREATE_ARRAY,
-                "ARRAY_GET": opcodes::ARRAY_GET,
-                "ARRAY_SET": opcodes::ARRAY_SET,
-                "ARRAY_LENGTH": opcodes::ARRAY_LENGTH
-            },
+            "opcodes": opcodes_map,
             "types": {
                 "U64": types::U64,
                 "BOOL": types::BOOL,
@@ -1660,80 +1606,74 @@ impl BytecodeAnalyzer {
 
 /// Helper function to get opcode name
 fn opcode_to_name(opcode: u8) -> &'static str {
-    match opcode {
-        x if x == opcodes::HALT => "HALT",
-        x if x == opcodes::PUSH_U64 => "PUSH_U64",
-        x if x == opcodes::PUSH_U8 => "PUSH_U8",
-        x if x == opcodes::PUSH_I64 => "PUSH_I64",
-        x if x == opcodes::PUSH_BOOL => "PUSH_BOOL",
-        x if x == opcodes::PUSH_PUBKEY => "PUSH_PUBKEY",
-        x if x == opcodes::POP => "POP",
-        x if x == opcodes::DUP => "DUP",
-        x if x == opcodes::DUP2 => "DUP2",
-        x if x == opcodes::SWAP => "SWAP",
-        x if x == opcodes::ADD => "ADD",
-        x if x == opcodes::SUB => "SUB",
-        x if x == opcodes::MUL => "MUL",
-        x if x == opcodes::DIV => "DIV",
-        x if x == opcodes::MOD => "MOD",
-        x if x == opcodes::GT => "GT",
-        x if x == opcodes::LT => "LT",
-        x if x == opcodes::EQ => "EQ",
-        x if x == opcodes::GTE => "GTE",
-        x if x == opcodes::LTE => "LTE",
-        x if x == opcodes::NEQ => "NEQ",
-        x if x == opcodes::AND => "AND",
-        x if x == opcodes::OR => "OR",
-        x if x == opcodes::NOT => "NOT",
-        x if x == opcodes::STORE => "STORE",
-        x if x == opcodes::LOAD => "LOAD",
-        x if x == opcodes::STORE_FIELD => "STORE_FIELD",
-        x if x == opcodes::LOAD_FIELD => "LOAD_FIELD",
-        x if x == opcodes::LOAD_INPUT => "LOAD_INPUT",
-        x if x == opcodes::LOAD_INPUT => "LOAD_INPUT",
-        x if x == opcodes::INVOKE => "INVOKE",
-        x if x == opcodes::INVOKE_SIGNED => "INVOKE_SIGNED",
-        x if x == opcodes::GET_CLOCK => "GET_CLOCK",
-        x if x == opcodes::RETURN => "RETURN",
-        x if x == opcodes::STORE => "STORE",
-        x if x == opcodes::CREATE_ACCOUNT => "CREATE_ACCOUNT",
-        x if x == opcodes::LOAD_ACCOUNT => "LOAD_ACCOUNT",
-        x if x == opcodes::SAVE_ACCOUNT => "SAVE_ACCOUNT",
-        x if x == opcodes::DERIVE_PDA => "DERIVE_PDA",
-        x if x == opcodes::TRANSFER => "TRANSFER",
-        x if x == opcodes::TRANSFER_SIGNED => "TRANSFER_SIGNED",
-        x if x == opcodes::GET_KEY => "GET_KEY",
-        x if x == opcodes::FIND_PDA => "FIND_PDA",
-        x if x == opcodes::GET_SIGNER_KEY => "GET_SIGNER_KEY",
-        x if x == opcodes::JUMP => "JUMP",
-        x if x == opcodes::JUMP_IF => "JUMP_IF",
-        x if x == opcodes::REQUIRE => "REQUIRE",
-        x if x == opcodes::CHECK_SIGNER => "CHECK_SIGNER",
-        x if x == opcodes::CHECK_WRITABLE => "CHECK_WRITABLE",
-        x if x == opcodes::CHECK_OWNER => "CHECK_OWNER",
-        x if x == opcodes::CHECK_INITIALIZED => "CHECK_INITIALIZED",
-        x if x == opcodes::CHECK_PDA => "CHECK_PDA",
-        x if x == opcodes::CREATE_ACCOUNT => "CREATE_ACCOUNT",
-        x if x == opcodes::EMIT_EVENT => "EMIT_EVENT",
-        x if x == opcodes::LOG_DATA => "LOG_DATA",
-        x if x == opcodes::CREATE_ARRAY => "CREATE_ARRAY",
-        x if x == opcodes::ARRAY_GET => "ARRAY_GET",
-        x if x == opcodes::ARRAY_SET => "ARRAY_SET",
-        x if x == opcodes::ARRAY_LENGTH => "ARRAY_LENGTH",
-        _ => "UNKNOWN",
-    }
+    five_protocol::opcodes::opcode_name(opcode)
 }
 
 /// Helper function to get instruction size
-fn get_instruction_size(opcode: u8, _bytes: &[u8]) -> usize {
-    match opcode {
-        x if x == opcodes::PUSH_U64 => 10,    // 1(opcode) + 8(value)
-        x if x == opcodes::PUSH_U8 => 2,      // 1(opcode) + 1(value)
-        x if x == opcodes::PUSH_I64 => 10,    // 1(opcode) + 8(value)
-        x if x == opcodes::PUSH_BOOL => 2,    // 1(opcode) + 1(value)
-        x if x == opcodes::PUSH_PUBKEY => 33, // 1(opcode) + 32(value)
-        x if x == opcodes::JUMP || x == opcodes::JUMP_IF => 5, // 1(opcode) + 4(offset)
-        _ => 1,                               // Default size for unknown opcodes
+fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
+    use five_protocol::opcodes::{get_opcode_info, ArgType};
+
+    // Attempt to get from protocol table first
+    if let Some(info) = get_opcode_info(opcode) {
+        match info.arg_type {
+            ArgType::None => 1,
+            ArgType::U8 => 2,
+            ArgType::U16 => {
+                // Check if it's VLE or Fixed. Protocol ArgType doesn't distinguish fully yet,
+                // but JUMP uses fixed u16. PUSH_U16 uses VLE.
+                // We rely on checking specific opcodes or peeking VLE.
+                // However, most args in protocol are VLE if variable.
+                // For now, let's keep it simple and handle known VLE types.
+                if opcode == five_protocol::opcodes::JUMP || opcode == five_protocol::opcodes::JUMP_IF || opcode == five_protocol::opcodes::JUMP_IF_NOT {
+                    3 // 1 + 2 bytes fixed
+                } else if opcode == five_protocol::opcodes::PUSH_U16 {
+                     // 1 + VLE
+                     if bytes.len() > 1 {
+                         VLE::encoded_size_from_bytes(&bytes[1..]) + 1
+                     } else {
+                         2 // Incomplete, assume min
+                     }
+                } else {
+                    2 // Default for others
+                }
+            },
+            ArgType::U32 => {
+                 if opcode == five_protocol::opcodes::STORE || opcode == five_protocol::opcodes::LOAD {
+                     // These use fixed u32 in spec? "offset (U32)".
+                     // Wait, spec says "STORE offset (U32)".
+                     // Protocol says ArgType::U32.
+                     // If fixed: 1 + 4 = 5.
+                     5
+                 } else {
+                     // Assume VLE for PUSH_U32
+                     if bytes.len() > 1 {
+                         VLE::encoded_size_from_bytes(&bytes[1..]) + 1
+                     } else {
+                         2
+                     }
+                 }
+            },
+            ArgType::U64 => {
+                 // Assume VLE for PUSH_U64/I64
+                 if bytes.len() > 1 {
+                     VLE::encoded_size_from_bytes(&bytes[1..]) + 1
+                 } else {
+                     2
+                 }
+            },
+            ArgType::AccountField => {
+                // u8 + VLE
+                if bytes.len() > 2 {
+                     VLE::encoded_size_from_bytes(&bytes[2..]) + 2
+                } else {
+                     3
+                }
+            }
+            // Add more cases as needed based on ArgType
+            _ => 1
+        }
+    } else {
+        1
     }
 }
 

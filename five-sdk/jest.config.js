@@ -7,6 +7,14 @@ export default {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
+      isolatedModules: true,
+      tsconfig: {
+        target: 'es2020',
+        module: 'es2020', // Explicitly set module to supports import.meta
+        moduleResolution: 'node',
+        esModuleInterop: true,
+        strict: false
+      }
     }],
   },
   extensionsToTreatAsEsm: ['.ts'],
