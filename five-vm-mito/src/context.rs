@@ -64,6 +64,7 @@ pub struct ExecutionContext<'a> {
     // --- Execution state ---
     pub halted: bool,
     pub return_value: Option<ValueRef>,
+    pub current_opcode: Option<u8>,
 
     // --- Compute tracking (minimal for ultra-lightweight VM) ---
     pub compute_units_consumed: u64,
@@ -146,6 +147,7 @@ impl<'a> ExecutionContext<'a> {
             param_len: 0,
             halted: false,
             return_value: None,
+            current_opcode: None,
             compute_units_consumed: 0,
             input_ptr: 0,
             local_count: 0,
@@ -583,6 +585,16 @@ impl<'a> ExecutionContext<'a> {
     #[inline(always)]
     pub fn set_return_value(&mut self, value: Option<ValueRef>) {
         self.return_value = value;
+    }
+
+    #[inline(always)]
+    pub fn current_opcode(&self) -> Option<u8> {
+        self.current_opcode
+    }
+
+    #[inline(always)]
+    pub fn set_current_opcode(&mut self, opcode: u8) {
+        self.current_opcode = Some(opcode);
     }
 
     // --- Compute unit tracking ---

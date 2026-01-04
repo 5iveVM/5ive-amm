@@ -38,6 +38,7 @@ pub struct VMExecutionContext {
     pub halted: bool,
     pub error: Option<VMError>,
     pub memory: [u8; crate::TEMP_BUFFER_SIZE],
+    pub failed_opcode: Option<u8>,
 }
 
 /// Ultra-lightweight virtual machine optimized for Solana's execution environment.
@@ -461,6 +462,9 @@ impl MitoVM {
                 }
             };
 
+            // Set current opcode in context for error reporting
+            ctx.set_current_opcode(opcode);
+
             #[cfg(feature = "debug-logs")]
             if opcode == LOAD_INPUT {
                 debug_log!(
@@ -783,6 +787,7 @@ impl MitoVM {
                             halted: false,
                             error: Some(VMError::from(e)),
                             memory: [0u8; crate::TEMP_BUFFER_SIZE],
+                            failed_opcode: None,
                         },
                     )
                 },
@@ -850,6 +855,7 @@ impl MitoVM {
                     halted: final_halted,
                     error: None,
                     memory,
+                    failed_opcode: None,
                 };
                 Ok((result, success_context))
             }
@@ -870,6 +876,7 @@ impl MitoVM {
                 // Capture execution context even on error
                 let final_ip = ctx.ip();
                 let final_halted = ctx.halted();
+                let failed_opcode = ctx.current_opcode();
                 let mut memory = [0u8; crate::TEMP_BUFFER_SIZE];
                 memory.copy_from_slice(ctx.temp_buffer());
                 let error_context = VMExecutionContext {
@@ -877,6 +884,7 @@ impl MitoVM {
                     halted: final_halted,
                     error: Some(e.clone()),
                     memory,
+                    failed_opcode,
                 };
 
                 Err((e, error_context))
