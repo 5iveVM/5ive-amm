@@ -52,8 +52,9 @@ pub mod performance;
 // Module merging for multi-file compilation
 pub mod module_merger;
 
-// Account indices in bytecode are offset by script + VM state accounts.
-pub const ACCOUNT_INDEX_OFFSET: u8 = 2;
+// Account indices in bytecode are offset by VM state account.
+// Script account is handled separately and not passed to MitoVM.
+pub const ACCOUNT_INDEX_OFFSET: u8 = 1;
 
 // CALL opcode emission and patching (public for testing)
 pub mod call;
