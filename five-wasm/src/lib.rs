@@ -494,6 +494,8 @@ impl FiveVMWasm {
                 let compute_units = 0; // Not tracking Solana BPF CUs
                 let final_stack = vec![]; // Stack contents not available in error case
                 let final_memory = exec_context.memory.to_vec();
+                let stopped_at_opcode = exec_context.failed_opcode;
+                let stopped_at_opcode_name = stopped_at_opcode.map(|op| opcode_to_name(op).to_string());
 
                 Ok(TestResult {
                     status,
@@ -505,8 +507,8 @@ impl FiveVMWasm {
                     final_accounts: vec![],
                     error_message: Some(error_msg),
                     execution_context: Some(format!("MitoVM execution error: {:#?}", exec_error)), // Use {:#?} for detailed debug output
-                    stopped_at_opcode: None, // TODO: Get from MitoVM context
-                    stopped_at_opcode_name: None,
+                    stopped_at_opcode,
+                    stopped_at_opcode_name,
                 })
             }
         }
@@ -612,6 +614,7 @@ impl FiveVMWasm {
                     halted: false,
                     error: None,
                     memory: [0u8; five_protocol::TEMP_BUFFER_SIZE],
+                    failed_opcode: None,
                 },
             )
         })?;
