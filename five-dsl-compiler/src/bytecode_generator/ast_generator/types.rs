@@ -5,7 +5,7 @@
 
 use super::super::account_system::AccountSystem;
 use super::super::types::*;
-use crate::ast::TypeNode;
+use crate::ast::{InstructionParameter, TypeNode};
 use crate::type_checker::InterfaceInfo;
 use std::collections::HashMap;
 
@@ -75,6 +75,9 @@ pub struct ASTGenerator {
 
     /// Current function context (None if not in a function, Some(name) if in a function)
     pub(super) current_function_context: Option<String>,
+
+    /// Current function parameters for payer resolution in @init constraints
+    pub(crate) current_function_parameters: Option<Vec<InstructionParameter>>,
 
     /// Current function return type for tuple return handling
     pub(super) current_function_return_type: Option<TypeNode>,

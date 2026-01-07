@@ -25,6 +25,7 @@ impl ASTGenerator {
             field_counter: 0,
             account_system: None,
             current_function_context: None,
+            current_function_parameters: None,
             current_function_return_type: None,
             jump_patches: Vec::new(),
             br_eq_u8_patches: Vec::new(),
@@ -80,6 +81,7 @@ impl ASTGenerator {
         self.loop_stack.clear();
         self.field_counter = 0;
         self.account_system = None;
+        self.current_function_parameters = None;
         self.jump_patches.clear();
         self.br_eq_u8_patches.clear();
         self.function_patches.clear();

@@ -207,8 +207,8 @@ impl ASTGenerator {
         match &init_config.seeds {
             Some(seeds) => {
                 // PDA account creation with seeds
-                // Stack required: [bump, seeds..., count, owner, lamports, space, account_idx] (Top)
-                // Note: VM pops account_idx first, then space, then lamports...
+                // Stack required: [bump, seeds..., count, owner, lamports, payer_idx, space, account_idx] (Top)
+                // Note: VM pops account_idx first, then space, then payer_idx, then lamports...
 
                 // 1. Push Bump (Bottom of stack frame for this op)
                 if let Some(bump_var) = &init_config.bump {
@@ -237,20 +237,29 @@ impl ASTGenerator {
                 emitter.emit_vle_u64(space);
                 emitter.emit_opcode(GET_RENT); // Consumes space, pushes lamports
 
-                // 6. Push Space
+                // 6. Push Payer Index
+                let payer_idx = if let Some(ref payer_name) = init_config.payer {
+                    self.resolve_payer_account_index(payer_name)?
+                } else {
+                    self.find_first_signer_account_index()?
+                };
+                emitter.emit_opcode(PUSH_U8);
+                emitter.emit_u8(payer_idx);
+
+                // 7. Push Space
                 emitter.emit_opcode(PUSH_U64);
                 emitter.emit_vle_u64(space);
 
-                // 7. Push Account Index (Top of stack)
-                emitter.emit_opcode(PUSH_U8); 
+                // 8. Push Account Index (Top of stack)
+                emitter.emit_opcode(PUSH_U8);
                 emitter.emit_u8(account_index);
 
-                // 8. Emit Opcode
+                // 9. Emit Opcode
                 emitter.emit_opcode(INIT_PDA_ACCOUNT);
             }
             None => {
                 // Regular account creation (not PDA)
-                // Stack: [owner, lamports, space, account_idx] (Top)
+                // Stack: [owner, lamports, payer_idx, space, account_idx] (Top)
 
                 // 1. Push Owner (0 -> Current Program ID)
                 emitter.emit_opcode(PUSH_0);
@@ -260,11 +269,20 @@ impl ASTGenerator {
                 emitter.emit_vle_u64(space);
                 emitter.emit_opcode(GET_RENT);
 
-                // 3. Push Space
+                // 3. Push Payer Index
+                let payer_idx = if let Some(ref payer_name) = init_config.payer {
+                    self.resolve_payer_account_index(payer_name)?
+                } else {
+                    self.find_first_signer_account_index()?
+                };
+                emitter.emit_opcode(PUSH_U8);
+                emitter.emit_u8(payer_idx);
+
+                // 4. Push Space
                 emitter.emit_opcode(PUSH_U64);
                 emitter.emit_vle_u64(space);
 
-                // 4. Push Account Index
+                // 5. Push Account Index
                 emitter.emit_opcode(PUSH_U8);
                 emitter.emit_u8(account_index);
 
@@ -273,5 +291,42 @@ impl ASTGenerator {
         }
 
         Ok(())
+    }
+
+    /// Resolve payer parameter name to account index
+    fn resolve_payer_account_index(&self, payer_name: &str) -> Result<u8, VMError> {
+        let params = self.current_function_parameters.as_ref()
+            .ok_or(VMError::InvalidScript)?;
+
+        for (idx, param) in params.iter().enumerate() {
+            if param.name == payer_name {
+                // Verify this is an account type
+                if !matches!(param.param_type,
+                    crate::ast::TypeNode::Account | crate::ast::TypeNode::Named(_)) {
+                    return Err(VMError::TypeMismatch);
+                }
+
+                // Account indices start at offset based on fixed accounts (script, vm_state)
+                let account_idx = (idx + 2) as u8; // +2 for script and vm_state accounts
+                return Ok(account_idx);
+            }
+        }
+
+        Err(VMError::InvalidScript) // Payer not found
+    }
+
+    /// Find first signer for default payer (when payer= not specified)
+    fn find_first_signer_account_index(&self) -> Result<u8, VMError> {
+        let params = self.current_function_parameters.as_ref()
+            .ok_or(VMError::InvalidScript)?;
+
+        for (idx, param) in params.iter().enumerate() {
+            if param.attributes.iter().any(|a| a.name == "signer") {
+                let account_idx = (idx + 2) as u8;
+                return Ok(account_idx);
+            }
+        }
+
+        Err(VMError::ConstraintViolation) // No signer found
     }
 }

@@ -751,6 +751,9 @@ impl FunctionDispatcher {
         // Set the function context for proper init block handling
         ast_generator.set_function_context(Some(function_name.to_string()));
 
+        // Set function parameters for payer resolution in @init constraints
+        ast_generator.current_function_parameters = Some(parameters.to_vec());
+
         // Add function parameters to the main AST generator's symbol table
         let mut data_param_counter: u8 = 0;
         let mut account_param_counter: u32 = 0;
@@ -839,6 +842,7 @@ impl FunctionDispatcher {
 
         // Clear function context to avoid leaking to other functions
         ast_generator.set_function_context(None);
+        ast_generator.current_function_parameters = None;
         ast_generator.set_precomputed_allocations(HashMap::new()); // Clear/Reset allocations
 
         // End function scope analysis
