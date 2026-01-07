@@ -208,7 +208,8 @@ async function executeCounterFunction(
             // Admin/payer account added by SDK for fee collection
             // Mark as signer since payer signs the transaction
             const pubkeyStr = typeof acc.pubkey === 'string' ? acc.pubkey : acc.pubkey.toBase58();
-            const isAdminAccount = pubkeyStr === payer.publicKey.toBase58();
+            const payerStr = payer.publicKey.toBase58();
+            const isAdminAccount = pubkeyStr === payerStr;
             return {
                 pubkey: new PublicKey(acc.pubkey),
                 isSigner: isAdminAccount ? true : acc.isSigner,  // Payer must be a signer for fee collection
@@ -349,8 +350,9 @@ async function main() {
         [],
         [
             { pubkey: counter1Account.publicKey, isWritable: true, isSigner: true },
-            { pubkey: user1.publicKey, isWritable: true, isSigner: true }
-            // SystemProgram and SYSVAR_RENT are handled implicitly by @init constraint
+            { pubkey: user1.publicKey, isWritable: false, isSigner: true },  // Payer is signer but not writable
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
+            { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
         ],
         [user1, counter1Account]
     );
@@ -378,8 +380,9 @@ async function main() {
         [],
         [
             { pubkey: counter2Account.publicKey, isWritable: true, isSigner: true },
-            { pubkey: user2.publicKey, isWritable: true, isSigner: true }
-            // SystemProgram and SYSVAR_RENT are handled implicitly by @init constraint
+            { pubkey: user2.publicKey, isWritable: false, isSigner: true },  // Payer is signer but not writable
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
+            { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
         ],
         [user2, counter2Account]
     );
