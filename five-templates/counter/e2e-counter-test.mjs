@@ -217,6 +217,17 @@ async function executeCounterFunction(
             };
         });
 
+        // Debug: log account layout
+        if (functionName === 'increment' || functionName === 'initialize') {
+            console.log(`\n[ACCOUNT_LAYOUT] ${functionName}:`);
+            ixKeys.forEach((key, i) => {
+                const isFunc = i >= 2 && i - 2 < functionAccounts.length;
+                const paramIdx = isFunc ? i - 2 : -1;
+                console.log(`  [${i}] ${key.pubkey.toBase58().slice(0, 8)}... signer=${key.isSigner} writable=${key.isWritable}${isFunc ? ` (param${paramIdx})` : ''}`);
+            });
+            console.log('');
+        }
+
         const ix = new TransactionInstruction({
             programId: new PublicKey(executeData.instruction.programId),
             keys: ixKeys,
@@ -350,7 +361,7 @@ async function main() {
         [],
         [
             { pubkey: counter1Account.publicKey, isWritable: true, isSigner: true },
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true },  // Payer is signer but not writable
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },  // Payer for account creation must be writable
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
             { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
         ],
@@ -380,7 +391,7 @@ async function main() {
         [],
         [
             { pubkey: counter2Account.publicKey, isWritable: true, isSigner: true },
-            { pubkey: user2.publicKey, isWritable: false, isSigner: true },  // Payer is signer but not writable
+            { pubkey: user2.publicKey, isWritable: true, isSigner: true },  // Payer for account creation must be writable
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
             { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
         ],
