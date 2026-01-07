@@ -164,6 +164,34 @@ impl TypeCheckerContext {
                 if !is_valid_account {
                     return Err(VMError::ConstraintViolation);
                 }
+
+                // NEW: Validate payer if specified
+                if let Some(ref init_config) = param.init_config {
+                    if let Some(ref payer_name) = init_config.payer {
+                        // Find payer in parameters
+                        let payer_param = parameters.iter().find(|p| p.name == *payer_name);
+
+                        match payer_param {
+                            None => {
+                                eprintln!("@init payer '{}' not found in function parameters", payer_name);
+                                return Err(VMError::InvalidScript);
+                            }
+                            Some(payer) => {
+                                // Validate payer is account type
+                                if !matches!(payer.param_type, crate::ast::TypeNode::Account | crate::ast::TypeNode::Named(_)) {
+                                    eprintln!("@init payer '{}' must be an account type", payer_name);
+                                    return Err(VMError::TypeMismatch);
+                                }
+
+                                // Validate payer has @signer
+                                if !payer.attributes.iter().any(|a| a.name == "signer") {
+                                    eprintln!("@init payer '{}' must have @signer constraint", payer_name);
+                                    return Err(VMError::ConstraintViolation);
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // For account parameters, store them as Account type so field access works
