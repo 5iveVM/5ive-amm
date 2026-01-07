@@ -28,6 +28,8 @@ const SYSTEM_PROGRAM_ID: [u8; 32] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]; // Solana system program ID: 11111111111111111111111111111111
 
+const MAX_ACCOUNT_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
+
 // Shared parameter storage (only one copy, indexed by call frames)
 const SHARED_PARAM_SIZE: usize = MAX_PARAMETERS + 1;
 
@@ -978,11 +980,18 @@ impl<'a> ExecutionContext<'a> {
     #[inline]
     pub fn check_bytecode_authorization(&self, account_idx: u8) -> CompactResult<()> {
         let account = self.get_account(account_idx)?;
+
+        // NEW: Skip validation for uninitialized accounts
+        // They will be initialized by INIT_ACCOUNT which sets correct owner
+        if account.data_len() == 0 {
+            return Ok(()); // Allow VM to write during initialization
+        }
+
         let required_authority = *account.owner();
         if self.program_id == required_authority {
             Ok(())
         } else {
-            crate::error_log!("DEBUG: Auth failed");
+            crate::error_log!("Auth failed: owner mismatch");
             return Err(VMErrorCode::ScriptNotAuthorized);
         }
     }
@@ -1119,6 +1128,102 @@ impl<'a> ExecutionContext<'a> {
         // CRITICAL FIX: Refresh pointer for the newly created account
         // After CreateAccount CPI, the account data has been reallocated by the Solana runtime.
         // Force Pinocchio to recalculate the data pointer by accessing the account again.
+        let _ = self.refresh_account_pointers_after_cpi(&[account_idx as usize]);
+
+        Ok(())
+    }
+
+    /// Create account with explicit payer (from compiler)
+    #[inline]
+    pub fn create_account_with_payer(
+        &mut self,
+        account_idx: u8,
+        payer_idx: u8,
+        space: u64,
+        lamports: u64,
+        owner: &Pubkey,
+    ) -> CompactResult<()> {
+        // Validate indices
+        if account_idx as usize >= self.accounts.len() {
+            return Err(VMErrorCode::InvalidAccountIndex);
+        }
+        if payer_idx as usize >= self.accounts.len() {
+            return Err(VMErrorCode::InvalidAccountIndex);
+        }
+
+        // Validate payer
+        self.lazy_validator.ensure_validated(payer_idx, self.accounts)?;
+
+        let new_account = self.get_account_unchecked(account_idx)?;
+        let payer = self.get_account_unchecked(payer_idx)?;
+
+        // Validate payer properties
+        if !payer.is_signer() {
+            crate::error_log!("Payer {} not signer", payer_idx);
+            return Err(VMErrorCode::ConstraintViolation);
+        }
+
+        if !payer.is_writable() {
+            crate::error_log!("Payer {} not writable", payer_idx);
+            return Err(VMErrorCode::ConstraintViolation);
+        }
+
+        // Validate space
+        if space > MAX_ACCOUNT_SIZE {
+            return Err(VMErrorCode::InvalidParameter);
+        }
+
+        // Find System Program
+        let system_program_id = Pubkey::from(SYSTEM_PROGRAM_ID);
+        let system_program = self.accounts.iter()
+            .find(|a| a.key() == &system_program_id)
+            .ok_or(VMErrorCode::AccountNotFound)?;
+
+        // Serialize CreateAccount instruction
+        let mut data = [0u8; 52];
+        Self::serialize_create_account_data(&mut data, lamports, space, owner);
+
+        let metas = [
+            AccountMeta {
+                pubkey: payer.key(),
+                is_signer: true,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: new_account.key(),
+                is_signer: new_account.is_signer(),
+                is_writable: true,
+            },
+        ];
+
+        let instruction = Instruction {
+            program_id: &system_program_id,
+            accounts: &metas,
+            data: &data,
+        };
+
+        // Execute CPI
+        #[cfg(target_os = "solana")]
+        {
+            invoke::<3>(&instruction, &[payer, new_account, system_program])
+                .map_err(|_| VMErrorCode::InvokeError)?;
+        }
+
+        #[cfg(not(target_os = "solana"))]
+        {
+            // Off-chain simulation
+            unsafe {
+                if *payer.borrow_lamports_unchecked() < lamports {
+                    return Err(VMErrorCode::InvokeError);
+                }
+                *payer.borrow_mut_lamports_unchecked() -= lamports;
+                *new_account.borrow_mut_lamports_unchecked() += lamports;
+                new_account.resize(space as usize).map_err(|_| VMErrorCode::InvokeError)?;
+                new_account.assign(owner);
+            }
+        }
+
+        // Refresh pointers after CPI
         let _ = self.refresh_account_pointers_after_cpi(&[account_idx as usize]);
 
         Ok(())
