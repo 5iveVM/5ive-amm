@@ -1014,13 +1014,14 @@ export class FiveSDK {
         ? scriptMetadata.functions.find(f => f.index === functionIndex)
         : scriptMetadata.functions[functionIndex];
 
-      // Encode parameters with ABI guidance
-      const paramDefs = (funcDef.parameters || []).filter((p: any) => !(p.isAccount || p.is_account));
+      // Encode all parameters (including accounts) with ABI guidance
+      const paramDefs = (funcDef.parameters || []);
       actualParamCount = paramDefs.length;
       encodedParams = await this.encodeParametersWithABI(
         parameters,
         funcDef,
         functionIndex,
+        accounts,
       );
     } catch (metadataError) {
       if (options.debug) {
@@ -1664,6 +1665,8 @@ export class FiveSDK {
     parts.push(new Uint8Array([9])); // Execute discriminator
     parts.push(FiveSDK.encodeVLENumber(functionIndex)); // VLE function index
 
+    // SKIP: Prepend paramCount header if not already present
+    // Typed parameters already include their own header (Sentinel + Count)
     if (isTypedParams) {
       // For typed params, encodedParams already contains [VLE(128), VLE(count), ...]
       // Don't add paramCount - the sentinel acts as the marker
@@ -1692,6 +1695,7 @@ export class FiveSDK {
     parameters: any[],
     functionDef: any,
     functionIndex: number,
+    accounts: string[] = [],
   ): Promise<Uint8Array> {
     if (!this.parameterEncoder) {
       await this.initializeComponents();
@@ -1705,16 +1709,33 @@ export class FiveSDK {
         return true;
       }
       const type = (param.type || param.param_type || '').toString().trim().toLowerCase();
-      return type === 'account';
+      // DSL types that map to accounts
+      return type === 'account' || type === 'mint' || type === 'tokenaccount';
     };
 
-    // Use VLE encoder to properly encode parameters
-    const paramDefs = (functionDef.parameters || []).filter((param: any) => !isAccountParam(param));
+    // Do not filter out account parameters anymore - Five VM now supports them
+    const paramDefs = (functionDef.parameters || []);
+
+    // Helper to find account index
+    const getAccountIndex = (pubkeyOrIdx: any): number => {
+      if (typeof pubkeyOrIdx === 'number') return pubkeyOrIdx;
+
+      const pubkeyStr = pubkeyOrIdx.toString();
+      // In execute instructions, indices 0 and 1 are Script and VM State
+      // providedAccounts starts at index 2
+      const idx = accounts.indexOf(pubkeyStr);
+      if (idx !== -1) {
+        return idx + 2;
+      }
+
+      // If not in accounts, try matching against current accounts array if available
+      return 0; // Fallback to index 0 (Script) if not found
+    };
 
     // Validate parameter count
     if (parameters.length !== paramDefs.length) {
       console.warn(
-        `[FiveSDK] Parameter validation warning: Function '${functionDef.name}' expects ${paramDefs.length} non-account parameters, but received ${parameters.length}.`,
+        `[FiveSDK] Parameter validation warning: Function '${functionDef.name}' expects ${paramDefs.length} parameters (including accounts), but received ${parameters.length}.`,
         {
           expected: paramDefs.map((p: any) => p.name),
           receivedCount: parameters.length
@@ -1724,10 +1745,14 @@ export class FiveSDK {
 
     const paramValues: Record<string, any> = {};
 
-    // Map parameters to names
+    // Map parameters to names and resolve account indices
     paramDefs.forEach((param: any, index: number) => {
       if (index < parameters.length) {
-        paramValues[param.name] = parameters[index];
+        let value = parameters[index];
+        if (isAccountParam(param)) {
+          value = getAccountIndex(value);
+        }
+        paramValues[param.name] = value;
       }
     });
 

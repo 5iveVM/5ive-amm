@@ -10,8 +10,17 @@
 #   ./e2e-token-test.sh [options]
 #
 # Examples:
-#   ./e2e-token-test.sh                    # Build and test only
-#   ./e2e-token-test.sh --deploy           # Build, deploy, and test
+#   ./e2e-token-test.sh                    # Run the targeted init_mint test first
+echo "Running targeted init_mint debugging test..."
+node test_init_mint.mjs
+if [ $? -ne 0 ]; then
+    echo "❌ test_init_mint.mjs failed"
+    # Don't exit yet, let's see logs
+fi
+
+# Run the E2E test
+echo "Running E2E tests..."
+node e2e-token-test.mjs --deploy           # Build, deploy, and test
 #   ./e2e-token-test.sh --deploy --verbose # Verbose output
 #   ./e2e-token-test.sh --clean            # Clean build artifacts
 #
@@ -52,9 +61,9 @@ SKIP_BUILD=false
 RPC_URL="http://127.0.0.1:8899"
 RPC_URL="http://127.0.0.1:8899"
 SHOW_HELP=false
-VM_STATE_PDA="5GTfpmKLT59DAis5MViz4gLTvcRRKURjnvFD8Be2xrUK"
-export VM_STATE_PDA
-FIVE_PROGRAM_ID="HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+# VM_STATE_PDA removed to allow dynamic generation
+# export VM_STATE_PDA
+FIVE_PROGRAM_ID="7siQQQ9vQgJ58NWUtFnXpZcmE7JEWf4eRUktGKr4RJCC"
 export FIVE_PROGRAM_ID
 
 # Counters & Status
@@ -502,6 +511,9 @@ main() {
 
     if [ "$DEPLOY" = true ]; then
         deploy_to_localnet
+        
+        print_step "Running Targeted Init Mint Debug Test..."
+        node test_init_mint.mjs || echo "DEBUG TEST FAILED (Continuing...)"
     fi
 
     run_e2e_test

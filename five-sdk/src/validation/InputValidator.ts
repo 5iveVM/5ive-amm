@@ -88,14 +88,14 @@ export class ValidationError extends FiveSDKError {
  * Comprehensive input validator for Five SDK
  */
 export class InputValidator {
-  constructor(private config: ValidationConfig = DEFAULT_VALIDATION_CONFIG) {}
+  constructor(private config: ValidationConfig = DEFAULT_VALIDATION_CONFIG) { }
 
   /**
    * Validate source code input
    */
   validateSourceCode(source: string, context: string = 'source'): void {
     this.validateString(source, context, this.config.maxSourceSize);
-    
+
     // Validate encoding (must be valid UTF-8)
     try {
       new TextEncoder().encode(source);
@@ -113,7 +113,7 @@ export class InputValidator {
    */
   validateBytecode(bytecode: Uint8Array, context: string = 'bytecode'): void {
     this.validateBuffer(bytecode, context, this.config.maxBytecodeSize);
-    
+
     // Basic bytecode structure validation
     if (bytecode.length < 8) {
       throw new ValidationError(
@@ -130,7 +130,7 @@ export class InputValidator {
    */
   validateFilePath(path: string, context: string = 'filePath'): void {
     this.validateString(path, context, this.config.maxPathLength);
-    
+
     // Check for path traversal attacks
     if (path.includes('..') || path.includes('~') || path.startsWith('/')) {
       throw new ValidationError(
@@ -140,7 +140,7 @@ export class InputValidator {
         path
       );
     }
-    
+
     // Validate allowed paths
     const isAllowed = this.config.allowedPaths.some(pattern => pattern.test(path));
     if (!isAllowed) {
@@ -151,7 +151,7 @@ export class InputValidator {
         path
       );
     }
-    
+
     // Validate file extension
     const extension = path.substring(path.lastIndexOf('.'));
     if (extension && !this.config.allowedExtensions.includes(extension)) {
@@ -176,7 +176,7 @@ export class InputValidator {
         typeof parameters
       );
     }
-    
+
     if (parameters.length > this.config.maxParameters) {
       throw new ValidationError(
         `Too many parameters: ${parameters.length} (max ${this.config.maxParameters})`,
@@ -185,7 +185,7 @@ export class InputValidator {
         parameters.length
       );
     }
-    
+
     parameters.forEach((param, index) => {
       this.validateParameter(param, `${context}[${index}]`);
     });
@@ -198,37 +198,44 @@ export class InputValidator {
     if (parameter === null || parameter === undefined) {
       return; // Allow null/undefined parameters
     }
-    
+
     const type = typeof parameter;
-    
+
     switch (type) {
       case 'string':
         this.validateString(parameter, context, this.config.maxParameterSize);
         break;
-        
+
       case 'number':
         this.validateNumberPrivate(parameter, context);
         break;
-        
+
       case 'boolean':
         // Boolean is always valid
         break;
-        
+
       case 'object':
         if (Array.isArray(parameter)) {
           this.validateArray(parameter, context);
         } else if (parameter instanceof Uint8Array) {
           this.validateBuffer(parameter, context, this.config.maxParameterSize);
+        } else if (
+          typeof (parameter as any).toBuffer === 'function' ||
+          typeof (parameter as any).toBytes === 'function' ||
+          typeof (parameter as any).toBase58 === 'function'
+        ) {
+          // Allow Solana PublicKey or similar objects
+          return;
         } else {
           throw new ValidationError(
-            `Unsupported parameter type: ${type}`,
+            `Unsupported parameter type: ${type} (${parameter?.constructor?.name || 'unknown'})`,
             ValidationErrorType.TYPE_MISMATCH,
             context,
             type
           );
         }
         break;
-        
+
       default:
         throw new ValidationError(
           `Unsupported parameter type: ${type}`,
@@ -251,7 +258,7 @@ export class InputValidator {
         typeof accounts
       );
     }
-    
+
     if (accounts.length > this.config.maxAccounts) {
       throw new ValidationError(
         `Too many accounts: ${accounts.length} (max ${this.config.maxAccounts})`,
@@ -260,7 +267,7 @@ export class InputValidator {
         accounts.length
       );
     }
-    
+
     accounts.forEach((account, index) => {
       this.validateBase58Address(account, `${context}[${index}]`);
     });
@@ -271,7 +278,7 @@ export class InputValidator {
    */
   validateBase58Address(address: string, context: string = 'address'): void {
     this.validateString(address, context, 100); // Solana addresses are ~44 chars
-    
+
     // Solana address length validation (typically 32-44 characters)
     if (address.length < 32 || address.length > 44) {
       throw new ValidationError(
@@ -281,7 +288,7 @@ export class InputValidator {
         address.length
       );
     }
-    
+
     // Basic Base58 format validation (after length check)
     const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
     if (!base58Regex.test(address)) {
@@ -310,7 +317,7 @@ export class InputValidator {
       }
     } else if (typeof functionRef === 'string') {
       this.validateString(functionRef, context, 256);
-      
+
       // Function name validation (alphanumeric + underscore)
       const functionNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
       if (!functionNameRegex.test(functionRef)) {
@@ -338,7 +345,7 @@ export class InputValidator {
     if (options === null || options === undefined) {
       return; // Options are optional
     }
-    
+
     if (typeof options !== 'object' || Array.isArray(options)) {
       throw new ValidationError(
         `Options must be an object`,
@@ -347,7 +354,7 @@ export class InputValidator {
         typeof options
       );
     }
-    
+
     // Validate specific option fields
     if ('debug' in options && options.debug !== undefined && typeof options.debug !== 'boolean') {
       throw new ValidationError(
@@ -357,11 +364,11 @@ export class InputValidator {
         typeof options.debug
       );
     }
-    
+
     if ('computeUnitLimit' in options && options.computeUnitLimit !== undefined) {
       this.validateNumberPrivate(options.computeUnitLimit, `${context}.computeUnitLimit`);
     }
-    
+
     if ('maxSize' in options && options.maxSize !== undefined) {
       this.validateNumberPrivate(options.maxSize, `${context}.maxSize`);
     }
@@ -381,7 +388,7 @@ export class InputValidator {
         typeof value
       );
     }
-    
+
     if (value.length > maxLength) {
       throw new ValidationError(
         `String too long: ${value.length} characters (max ${maxLength})`,
@@ -398,7 +405,7 @@ export class InputValidator {
   validateNumber(value: number, context: string = 'number'): void {
     this.validateNumberPrivate(value, context);
   }
-  
+
   /**
    * Validate number input (private implementation)
    */
@@ -411,7 +418,7 @@ export class InputValidator {
         typeof value
       );
     }
-    
+
     if (!Number.isFinite(value)) {
       throw new ValidationError(
         `Number must be finite: ${value}`,
@@ -434,7 +441,7 @@ export class InputValidator {
         (buffer as any)?.constructor?.name || typeof buffer
       );
     }
-    
+
     if (buffer.length > maxSize) {
       throw new ValidationError(
         `Buffer too large: ${buffer.length} bytes (max ${maxSize})`,
@@ -457,7 +464,7 @@ export class InputValidator {
         array.length
       );
     }
-    
+
     array.forEach((item, index) => {
       this.validateParameter(item, `${context}[${index}]`);
     });
@@ -474,26 +481,26 @@ export class InputValidator {
       /vbscript:/i,
       /onload=/i,
       /onerror=/i,
-      
+
       // File system access patterns
       /\.\.\/\.\.\//,
       /\/etc\/passwd/i,
       /\/proc\//i,
       /\\windows\\system32/i,
-      
+
       // Network access patterns
       /fetch\(/i,
       /XMLHttpRequest/i,
       /require\(/i,
       /import\(/i,
-      
+
       // Dangerous functions
       /eval\(/i,
       /Function\(/i,
       /setTimeout\(/i,
       /setInterval\(/i,
     ];
-    
+
     return maliciousPatterns.some(pattern => pattern.test(source));
   }
 }
@@ -509,7 +516,7 @@ export const validator = new InputValidator();
 export function validateInput(validationFn: (args: any[]) => void) {
   return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value;
-    
+
     descriptor.value = function (...args: any[]) {
       validationFn(args);
       return method.apply(this, args);

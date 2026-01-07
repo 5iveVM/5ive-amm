@@ -149,9 +149,12 @@ impl ASTGenerator {
         param: &InstructionParameter,
         index: usize,
     ) -> Result<(), VMError> {
+        println!("@@@ INIT_SEQUENCE_CHECK: param='{}', is_init={}, index={}", param.name, param.is_init, index);
         if !param.is_init {
+            println!("@@@ INIT_SEQUENCE_SKIP: is_init=false for param '{}'", param.name);
             return Ok(());
         }
+        println!("@@@ INIT_SEQUENCE_PROCEED: Generating initialization for param '{}'", param.name);
 
         // Get the init configuration
         let init_config = param.init_config.as_ref().ok_or(VMError::InvalidScript)?;

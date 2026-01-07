@@ -327,13 +327,13 @@ async function main() {
         connection,
         payer,  // Payer funds the account creation
         'init_mint',
-        [user1.publicKey.toBase58(), 6, "TestToken", "TEST", "https://example.com/token"],
+        [mintAccount.publicKey, user1.publicKey, user1.publicKey, 6, "TestToken", "TEST", "https://example.com/token"],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-            { pubkey: mintAccount.publicKey, isWritable: true, isSigner: true },
-            { pubkey: user1.publicKey, isWritable: true, isSigner: true },
+            { pubkey: mintAccount.publicKey, isWritable: true, isSigner: true }, // Account 0: mint_account
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },      // Account 1: authority
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },      // Common Payer (for fees/rent)
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },  // Required for @init CPI
-            { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }  // Rent sysvar for account initialization
+            { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }        // Rent sysvar
         ],
         [user1, mintAccount]  // Both must sign: user1 as authority, mintAccount for creation
     );
@@ -369,11 +369,11 @@ async function main() {
             connection,
             payer,  // Payer funds the account creation
             'init_token_account',
-            [mintAccount.publicKey.toBase58()],  // mint (Param 2 -> Param 0 in VLE)
+            [account.publicKey, user.publicKey, mintAccount.publicKey],  // All 3 parameters (including accounts)
             [
-                { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-                { pubkey: account.publicKey, isWritable: true, isSigner: true },
-                { pubkey: user.publicKey, isWritable: true, isSigner: true }, // Owner (and Payer for funding)
+                { pubkey: account.publicKey, isWritable: true, isSigner: true }, // Account 0: token_account
+                { pubkey: user.publicKey, isWritable: true, isSigner: true },    // Account 1: owner
+                { pubkey: payer.publicKey, isWritable: true, isSigner: true },   // Common Payer (for fees/rent)
                 { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },  // Required for @init CPI
                 { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }  // Rent sysvar for account initialization
             ],
@@ -407,12 +407,12 @@ async function main() {
             connection,
             payer,
             'mint_to',
-            [op.amount],
+            [mintAccount.publicKey, op.account.publicKey, user1.publicKey, op.amount],
             [
-                { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-                { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },
-                { pubkey: op.account.publicKey, isWritable: true, isSigner: false },
-                { pubkey: user1.publicKey, isWritable: false, isSigner: true }
+                { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },   // Account 0: mint_state
+                { pubkey: op.account.publicKey, isWritable: true, isSigner: false },    // Account 1: destination_account
+                { pubkey: user1.publicKey, isWritable: false, isSigner: true },         // Account 2: mint_authority
+                { pubkey: payer.publicKey, isWritable: true, isSigner: true }           // Common Payer
             ],
             [user1]  // Authority signs
         );
@@ -437,12 +437,12 @@ async function main() {
         connection,
         payer,
         'transfer',
-        [100],
+        [user2TokenAccount.publicKey, user3TokenAccount.publicKey, user2.publicKey, 100],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-            { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user2.publicKey, isWritable: false, isSigner: true }
+            { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: source_account
+            { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: destination_account
+            { pubkey: user2.publicKey, isWritable: false, isSigner: true },             // Account 2: owner
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
         ],
         [user2]  // Owner of source account signs
     );
@@ -467,11 +467,11 @@ async function main() {
         connection,
         payer,
         'approve',
-        [user2.publicKey.toBase58(), 150],
+        [user3TokenAccount.publicKey, user3.publicKey, user2.publicKey, 150],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-            { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user3.publicKey, isWritable: false, isSigner: true }
+            { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: token_account
+            { pubkey: user3.publicKey, isWritable: false, isSigner: true },             // Account 1: owner
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
         ],
         [user3]  // Account owner signs
     );
@@ -491,12 +491,12 @@ async function main() {
         connection,
         payer,
         'transfer_from',
-        [50],
+        [user3TokenAccount.publicKey, user1TokenAccount.publicKey, user2.publicKey, 50],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-            { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user1TokenAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user2.publicKey, isWritable: false, isSigner: true }
+            { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: source_account
+            { pubkey: user1TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: destination_account
+            { pubkey: user2.publicKey, isWritable: false, isSigner: true },             // Account 2: authority (delegate)
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
         ],
         [user2]  // Delegate signs
     );
@@ -520,11 +520,11 @@ async function main() {
         connection,
         payer,
         'revoke',
-        [],
+        [user3TokenAccount.publicKey, user3.publicKey],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-            { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user3.publicKey, isWritable: false, isSigner: true }
+            { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: token_account
+            { pubkey: user3.publicKey, isWritable: false, isSigner: true },             // Account 1: owner
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
         ],
         [user3]  // Account owner signs
     );
@@ -548,12 +548,12 @@ async function main() {
         connection,
         payer,
         'burn',
-        [100],
+        [mintAccount.publicKey, user1TokenAccount.publicKey, user1.publicKey, 100],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-            { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user1TokenAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true }
+            { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },       // Account 0: mint_state
+            { pubkey: user1TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: token_account
+            { pubkey: user1.publicKey, isWritable: false, isSigner: true },             // Account 2: owner
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
         ],
         [user1]  // Account owner signs
     );
@@ -577,12 +577,12 @@ async function main() {
         connection,
         payer,
         'freeze_account',
-        [],
+        [mintAccount.publicKey, user2TokenAccount.publicKey, user1.publicKey],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-            { pubkey: mintAccount.publicKey, isWritable: false, isSigner: false },
-            { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true }
+            { pubkey: mintAccount.publicKey, isWritable: false, isSigner: false },       // Account 0: mint_state
+            { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: token_account
+            { pubkey: user1.publicKey, isWritable: false, isSigner: true },             // Account 2: freeze_authority
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
         ],
         [user1]  // Freeze authority signs
     );
@@ -602,12 +602,12 @@ async function main() {
         connection,
         payer,
         'thaw_account',
-        [],
+        [mintAccount.publicKey, user2TokenAccount.publicKey, user1.publicKey],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-            { pubkey: mintAccount.publicKey, isWritable: false, isSigner: false },
-            { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true }
+            { pubkey: mintAccount.publicKey, isWritable: false, isSigner: false },       // Account 0: mint_state
+            { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: token_account
+            { pubkey: user1.publicKey, isWritable: false, isSigner: true },             // Account 2: freeze_authority
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
         ],
         [user1]  // Freeze authority signs
     );
@@ -631,11 +631,11 @@ async function main() {
         connection,
         payer,
         'disable_mint',
-        [],
+        [mintAccount.publicKey, user1.publicKey],
         [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }, // Fee Payer & Admin
-            { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true }
+            { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },       // Account 0: mint_state
+            { pubkey: user1.publicKey, isWritable: false, isSigner: true },             // Account 1: authority
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
         ],
         [user1]  // Authority signs
     );

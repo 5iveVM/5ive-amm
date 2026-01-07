@@ -1632,7 +1632,11 @@ fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
                 } else if opcode == five_protocol::opcodes::PUSH_U16 {
                      // 1 + VLE
                      if bytes.len() > 1 {
-                         VLE::encoded_size_from_bytes(&bytes[1..]) + 1
+                         if let Some((value, size)) = VLE::decode_u16(&bytes[1..]) {
+                             size + 1
+                         } else {
+                             2 // Incomplete, assume min
+                         }
                      } else {
                          2 // Incomplete, assume min
                      }
@@ -1650,7 +1654,11 @@ fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
                  } else {
                      // Assume VLE for PUSH_U32
                      if bytes.len() > 1 {
-                         VLE::encoded_size_from_bytes(&bytes[1..]) + 1
+                         if let Some((value, size)) = VLE::decode_u32(&bytes[1..]) {
+                             size + 1
+                         } else {
+                             2
+                         }
                      } else {
                          2
                      }
@@ -1659,7 +1667,11 @@ fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
             ArgType::U64 => {
                  // Assume VLE for PUSH_U64/I64
                  if bytes.len() > 1 {
-                     VLE::encoded_size_from_bytes(&bytes[1..]) + 1
+                     if let Some((value, size)) = VLE::decode_u64(&bytes[1..]) {
+                         size + 1
+                     } else {
+                         2
+                     }
                  } else {
                      2
                  }
@@ -1667,7 +1679,11 @@ fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
             ArgType::AccountField => {
                 // u8 + VLE
                 if bytes.len() > 2 {
-                     VLE::encoded_size_from_bytes(&bytes[2..]) + 2
+                     if let Some((value, size)) = VLE::decode_u32(&bytes[2..]) {
+                         size + 2
+                     } else {
+                         3
+                     }
                 } else {
                      3
                 }

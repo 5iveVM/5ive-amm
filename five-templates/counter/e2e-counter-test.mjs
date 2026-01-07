@@ -152,30 +152,16 @@ async function executeCounterFunction(
     try {
         const functionIndex = getFunctionIndex(functionName);
 
-        // Inject global payer at the start of accounts list to satisfy on-chain fee requirements
-        // When fees are enabled (10000 bps on localnet), five-solana expects Payer at index 2.
-        // SDK adds Script (0) and VM State (1). So Payer must be the first custom account.
-        // This also aligns with Compiler's ACCOUNT_INDEX_OFFSET = 2 (Param 0 -> Index 2? No, wait.)
-        // If Payer is at Index 2. Param 0 (Counter) is at Index 3.
-        // Compiler emits 2 for Param 0?
-        // Wait, if Compiler emits 2, it expects Param 0 at Index 2.
-        // If we insert Payer at Index 2, then Param 0 moves to Index 3.
-        // This would break it IF the compiler offset assumes NO Payer.
-        // BUT five-solana strips the Script account if fees are enabled.
-        // So VM sees [VM State, Payer, Counter, User1...].
-        // VM Index 0: VM State.
-        // VM Index 1: Payer.
-        // VM Index 2: Counter.
-        // VM Index 3: User1.
-        // Compiler emits 2 -> Counter. 3 -> User1.
-        // THIS IS CORRECT.
-        const accountsWithPayer = [
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },
-            ...accounts
-        ];
+        // Pass function parameters directly without injecting payer as a parameter
+        // ACCOUNT_INDEX_OFFSET = 1, so:
+        // - MitoVM receives [VM State, param0, param1, ...]
+        // - param0 maps to account index 0 + 1 = 1
+        // - param1 maps to account index 1 + 1 = 2
+        // Payer is not a function parameter, but the SDK handles it separately as adminAccount.
+        const functionAccounts = accounts;
 
         // Extract pubkey strings from accounts array for SDK
-        const accountPubkeys = accountsWithPayer.map(acc => {
+        const accountPubkeys = functionAccounts.map(acc => {
             const pubkey = acc.pubkey instanceof PublicKey
                 ? acc.pubkey.toBase58()
                 : acc.pubkey.toString();
@@ -184,6 +170,7 @@ async function executeCounterFunction(
 
         // Generate the instruction using Five SDK with all accounts
         // Include full ABI metadata for proper parameter encoding
+        // Pass payer as adminAccount for fee collection (SDK handles it separately from function parameters)
         const executeData = await FiveSDK.generateExecuteInstruction(
             COUNTER_SCRIPT_ACCOUNT.toBase58(),
             functionIndex,
@@ -194,7 +181,8 @@ async function executeCounterFunction(
                 debug: true,
                 vmStateAccount: VM_STATE_PDA.toBase58(),
                 fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
-                metadata: counterABI || undefined
+                metadata: counterABI || undefined,
+                adminAccount: payer.publicKey.toBase58()  // Payer as admin for fee collection
             }
         );
 
@@ -210,17 +198,20 @@ async function executeCounterFunction(
             }
             // Remaining accounts - use flags from our accounts array
             const ourAccountIndex = index - 2;
-            if (ourAccountIndex < accountsWithPayer.length) {
+            if (ourAccountIndex < functionAccounts.length) {
                 return {
                     pubkey: new PublicKey(acc.pubkey),
-                    isSigner: accountsWithPayer[ourAccountIndex].isSigner ?? false,
-                    isWritable: accountsWithPayer[ourAccountIndex].isWritable ?? true
+                    isSigner: functionAccounts[ourAccountIndex].isSigner ?? false,
+                    isWritable: functionAccounts[ourAccountIndex].isWritable ?? true
                 };
             }
-            // Admin account added by SDK
+            // Admin/payer account added by SDK for fee collection
+            // Mark as signer since payer signs the transaction
+            const pubkeyStr = typeof acc.pubkey === 'string' ? acc.pubkey : acc.pubkey.toBase58();
+            const isAdminAccount = pubkeyStr === payer.publicKey.toBase58();
             return {
                 pubkey: new PublicKey(acc.pubkey),
-                isSigner: acc.isSigner,
+                isSigner: isAdminAccount ? true : acc.isSigner,  // Payer must be a signer for fee collection
                 isWritable: acc.isWritable
             };
         });
@@ -358,9 +349,8 @@ async function main() {
         [],
         [
             { pubkey: counter1Account.publicKey, isWritable: true, isSigner: true },
-            { pubkey: user1.publicKey, isWritable: true, isSigner: true },
-            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
-            { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true }
+            // SystemProgram and SYSVAR_RENT are handled implicitly by @init constraint
         ],
         [user1, counter1Account]
     );
@@ -388,9 +378,8 @@ async function main() {
         [],
         [
             { pubkey: counter2Account.publicKey, isWritable: true, isSigner: true },
-            { pubkey: user2.publicKey, isWritable: true, isSigner: true },
-            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
-            { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
+            { pubkey: user2.publicKey, isWritable: true, isSigner: true }
+            // SystemProgram and SYSVAR_RENT are handled implicitly by @init constraint
         ],
         [user2, counter2Account]
     );

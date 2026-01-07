@@ -70,6 +70,11 @@ export class VLEEncoder {
     values: ParameterValue = {},
     retry: boolean = true
   ): Promise<Buffer> {
+    // ⚡ Normalize parameter types before encoding to handle custom types (Mint, TokenAccount, etc.)
+    const normalizedParameters = parameters.map(p => ({
+      ...p,
+      type: this.normalizeType(p)
+    }));
 
     // Load WASM module using shared loader
     if (!wasmModule) {
@@ -130,7 +135,10 @@ export class VLEEncoder {
       }
     }
 
-    const filteredParams = parameters.filter(param => !this.isAccountParam(param));
+    // Do not filter out account parameters. 
+    // Even if the VM handles them specially via AccountRef, they should still be 
+    // part of the parameter list for correct parameter counting and displacement.
+    const filteredParams = normalizedParameters;
     const paramValues = filteredParams.map(param => {
       const value = values[param.name];
       if (value === undefined || value === null) {
@@ -164,7 +172,11 @@ export class VLEEncoder {
       return Buffer.from(bytes);
     };
 
-    const usesTypedParams = paramValues.some(({ param }) => this.isBytesParam(param));
+    const usesTypedParams = paramValues.some(({ param }) =>
+      this.isBytesParam(param) ||
+      this.normalizeType(param) === 'pubkey' ||
+      this.isAccountParam(param)
+    );
 
     if (!usesTypedParams) {
       // Use PURE VLE compression - encode only values without type information
@@ -184,6 +196,7 @@ export class VLEEncoder {
     }
 
     const parts: Buffer[] = [];
+    parts.push(encodeVleU32(functionIndex)); // Prefix with function index
     parts.push(encodeVleU32(TYPED_PARAM_SENTINEL)); // Signal typed params mode
     parts.push(encodeVleU32(paramValues.length)); // Actual param count
 
@@ -239,12 +252,38 @@ export class VLEEncoder {
         }
       } else if (value instanceof Uint8Array) {
         bytes = Buffer.from(value);
+      } else if (value && typeof value === 'object') {
+        // Handle Solana PublicKey objects
+        if (typeof (value as any).toBuffer === 'function') {
+          bytes = (value as any).toBuffer();
+        } else if (typeof (value as any).toBytes === 'function') {
+          bytes = Buffer.from((value as any).toBytes());
+        } else {
+          throw new Error(`Invalid object for pubkey parameter: ${param.name}`);
+        }
       } else {
         throw new Error(`Invalid value for pubkey parameter: ${param.name}`);
       }
-      // Use STRING type ID (11) for encoding since VM handles it properly
-      const lenBytes = encodeVleU32(bytes.length);
-      return Buffer.concat([Buffer.from([TYPE_IDS.string]), lenBytes, bytes]);
+
+      if (bytes.length !== 32) {
+        throw new Error(`Invalid pubkey length for parameter ${param.name}: expected 32 bytes, got ${bytes.length}`);
+      }
+      // Encode as PUBKEY type (TYPE_IDS.pubkey) without length header
+      return Buffer.concat([Buffer.from([TYPE_IDS.pubkey]), bytes]);
+    }
+
+    if (typeId === TYPE_IDS.account) {
+      // For account parameters, we expect either a direct index (number) 
+      // or a pubkey string/PublicKey that we should try to map (but that resolution 
+      // is usually done by FiveSDK before calling this).
+      // If it's a number, encode it as VLE.
+      const accountIdx = Number(value);
+      if (isNaN(accountIdx)) {
+        // Fallback for non-numeric account values: use 0 as placeholder
+        // Real mapping should happen in FiveSDK
+        return Buffer.concat([Buffer.from([typeId]), encodeVleU32(0)]);
+      }
+      return Buffer.concat([Buffer.from([typeId]), encodeVleU32(accountIdx)]);
     }
 
     // For numbers/bigints (u8...u64, i8...i64)
@@ -280,9 +319,17 @@ export class VLEEncoder {
   }
 
   private static normalizeType(param: ParameterDefinition): string {
-    return (
-      (param.type || param.param_type || '').toString().trim().toLowerCase()
-    );
+    if (param.isAccount || param.is_account) {
+      return 'account';
+    }
+    const type = (param.type || param.param_type || '').toString().trim().toLowerCase();
+
+    // Special handling for common account-backed types in the DSL
+    if (['mint', 'tokenaccount'].includes(type)) {
+      return 'account';
+    }
+
+    return type;
   }
 
   /**

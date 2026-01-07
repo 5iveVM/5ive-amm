@@ -868,29 +868,13 @@ impl ASTGenerator {
                             account_name, field_info.field_type
                         );
 
-                        // PRIORITY FIX: Check if this is a built-in account property first
-                        if let Some(account_system) = &self.account_system {
-                            if account_system.is_builtin_account_property(field) {
-                                #[cfg(debug_assertions)]
-                                println!(
-                                    "AST Generator: Using built-in property access for '{}.{}'",
-                                    account_name, field
-                                );
-                                return account_system.generate_builtin_account_property_access(
-                                    emitter,
-                                    account_name,
-                                    field,
-                                    &self.local_symbol_table,
-                                );
-                            }
-                        }
-
                         // Handle custom account fields using AccountSystem
                         let account_type = &field_info.field_type;
 
                         // Check if the field is optional and if it is a pubkey
                         let mut is_optional = false;
                         let mut is_pubkey = false;
+                        let mut field_found_in_registry = false;
 
                         if let Some(account_system) = &self.account_system {
                             let namespace_suffix = format!("::{}", account_type);
@@ -909,6 +893,27 @@ impl ASTGenerator {
                                 {
                                     is_optional = struct_field_info.is_optional;
                                     is_pubkey = struct_field_info.field_type == "pubkey";
+                                    field_found_in_registry = true;
+                                }
+                            }
+                        }
+
+                        // PRIORITY FIX: Check if this is a built-in account property
+                        // BUT only if it is NOT a user-defined field (shadowing support)
+                        if !field_found_in_registry {
+                            if let Some(account_system) = &self.account_system {
+                                if account_system.is_builtin_account_property(field) {
+                                    #[cfg(debug_assertions)]
+                                    println!(
+                                        "AST Generator: Using built-in property access for '{}.{}'",
+                                        account_name, field
+                                    );
+                                    return account_system.generate_builtin_account_property_access(
+                                        emitter,
+                                        account_name,
+                                        field,
+                                        &self.local_symbol_table,
+                                    );
                                 }
                             }
                         }
@@ -980,18 +985,41 @@ impl ASTGenerator {
                 self.field_counter = 0;
 
                 // Process function parameters and add them to the local symbol table
+                // FIX: Maintain separate counters for account indices and data parameter indices
+                // MitoVM/Solana entrypoint splits arguments into Accounts and Data.
+                // Accounts are accessed via account ID, Data arguments via LOAD_PARAM.
+                let mut account_param_counter: u32 = 0;
+                let mut data_param_counter: u32 = 0;
+
                 for (index, param) in parameters.iter().enumerate() {
                     // Generate @init account creation sequence if needed
                     self.generate_init_account_sequence(emitter, param, index)?;
 
+                    // Determine if this is an account parameter or data parameter
+                    let is_account = super::account_utils::is_account_parameter(
+                        &param.param_type,
+                        &param.attributes,
+                        self.account_system.as_ref().map(|sys| sys.get_account_registry())
+                    );
+
+                    let offset = if is_account {
+                        let off = account_param_counter;
+                        account_param_counter += 1;
+                        off
+                    } else {
+                        let off = data_param_counter;
+                        data_param_counter += 1;
+                        off
+                    };
+
                     let field_info = FieldInfo {
-						offset: index as u32,
-						field_type: self.type_node_to_string(&param.param_type),
-						// Implicit mutability: @init implies mutable, or explicit @mut
-						is_mutable: param.is_init || param.attributes.iter().any(|a| a.name == "mut"),
-						is_optional: param.is_optional,
-						is_parameter: true, // Mark as parameter to generate LOAD_PARAM instead of GET_LOCAL
-					};
+                        offset,
+                        field_type: self.type_node_to_string(&param.param_type),
+                        // Implicit mutability: @init implies mutable, or explicit @mut
+                        is_mutable: param.is_init || param.attributes.iter().any(|a| a.name == "mut"),
+                        is_optional: param.is_optional,
+                        is_parameter: true, // Mark as parameter to generate LOAD_PARAM instead of GET_LOCAL
+                    };
                     self.local_symbol_table
                         .insert(param.name.clone(), field_info);
                 }

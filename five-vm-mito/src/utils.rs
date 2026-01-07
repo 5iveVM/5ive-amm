@@ -455,8 +455,23 @@ pub fn parse_vle_parameters_unified(
                                 params[i + 1] = ValueRef::U64(val as u64);
                             }
                         }
-                        t if t == types::PUBKEY || t == types::ACCOUNT => {
-                            return Err(VMErrorCode::TypeMismatch);
+                        t if t == types::PUBKEY => {
+                            if offset + 32 > input_data.len() {
+                                return Err(VMErrorCode::InvalidInstructionPointer);
+                            }
+
+                            let temp_offset = ctx.alloc_temp(32)?;
+                            ctx.temp_buffer_mut()[temp_offset as usize..temp_offset as usize + 32]
+                                .copy_from_slice(&input_data[offset..offset + 32]);
+                            offset += 32;
+
+                            params[i + 1] = ValueRef::TempRef(temp_offset, 32);
+                        }
+                        t if t == types::ACCOUNT => {
+                            let (idx, consumed) = five_protocol::VLE::decode_u32(&input_data[offset..])
+                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+                            offset += consumed;
+                            params[i + 1] = ValueRef::AccountRef(idx as u8, 0);
                         }
                         _ => {
                             return Err(VMErrorCode::TypeMismatch);

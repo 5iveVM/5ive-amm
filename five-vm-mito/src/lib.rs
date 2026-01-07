@@ -136,8 +136,9 @@ pub const FIVE_VM_PROGRAM_ID: [u8; 32] = [
 pub const STACK_SIZE: usize = 32;
 
 /// Enhanced local variables per script
-/// Reduced from 12 to 8 to fix stack overflow
-pub const MAX_LOCALS: usize = 8;
+/// Maximum number of local variables allowed globally
+/// Reduced to 32 to fit within SBF 4KB stack limit (was 128, caused overflow)
+pub const MAX_LOCALS: usize = 32;
 
 /// Maximum function parameters (limited by parameter array size)
 pub const MAX_PARAMETERS: usize = 7;
@@ -169,6 +170,7 @@ pub mod enhanced_opcodes {
 #[cfg(feature = "debug-logs")]
 macro_rules! debug_log {
     ($($arg:tt)*) => {
+
         pinocchio_log::log!($($arg)*);
     };
 }
@@ -180,16 +182,16 @@ macro_rules! debug_log {
 
 pub(crate) use debug_log;
 
-#[cfg(feature = "debug-logs")]
+// #[cfg(feature = "debug-logs")]
 macro_rules! error_log {
     ($($arg:tt)*) => {
         pinocchio_log::log!($($arg)*);
     };
 }
 
-#[cfg(not(feature = "debug-logs"))]
-macro_rules! error_log {
-    ($($arg:tt)*) => {};
-}
+// #[cfg(not(feature = "debug-logs"))]
+// macro_rules! error_log {
+//     ($($arg:tt)*) => {};
+// }
 
 pub(crate) use error_log;

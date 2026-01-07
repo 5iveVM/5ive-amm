@@ -982,6 +982,7 @@ impl<'a> ExecutionContext<'a> {
         if self.program_id == required_authority {
             Ok(())
         } else {
+            crate::error_log!("DEBUG: Auth failed");
             return Err(VMErrorCode::ScriptNotAuthorized);
         }
     }
@@ -1061,6 +1062,15 @@ impl<'a> ExecutionContext<'a> {
         let mut data = [0u8; 52];
         Self::serialize_create_account_data(&mut data, lamports, space, owner);
 
+
+        // Check keys before meta construction
+        {
+            let pk = payer.key().as_ref();
+            let nk = new_account.key().as_ref();
+            crate::error_log!("CreateAccount: payer.key={} {} {} {} new_account.key={} {} {} {}", 
+               pk[0], pk[1], pk[2], pk[3], nk[0], nk[1], nk[2], nk[3]);
+        }
+
         let metas = [
             AccountMeta {
                 pubkey: payer.key(),
@@ -1073,6 +1083,13 @@ impl<'a> ExecutionContext<'a> {
                 is_writable: new_account.is_writable(),
             },
         ];
+        
+        {
+            let mp0 = metas[0].pubkey.as_ref();
+            let mp1 = metas[1].pubkey.as_ref();
+            crate::error_log!("CreateAccount: Meta[0]={} {} {} {} Meta[1]={} {} {} {}", 
+               mp0[0], mp0[1], mp0[2], mp0[3], mp1[0], mp1[1], mp1[2], mp1[3]);
+        }
 
         let instruction = Instruction {
             program_id: &system_program_id,

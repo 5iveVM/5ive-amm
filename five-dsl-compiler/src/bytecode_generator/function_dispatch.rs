@@ -763,14 +763,12 @@ impl FunctionDispatcher {
                 let off = account_param_counter;
                 account_param_counter += 1;
                 // Account param: Offset is the Account Index (relative to User Accounts)
-                // We assume User Accounts start at 0 relative to what AccountSystem expects.
-                // Note: AccountSystem often uses absolute index if provided, but here we provide logic index.
-                // If AccountSystem adds system offset later, we good.
                 (off, false)
             } else {
+                let off = data_param_counter;
                 data_param_counter += 1;
-                // Data param: Offset is the LOAD_PARAM index (1-based)
-                (data_param_counter as u32, true)
+                // Data param: Offset is the LOAD_PARAM index (0-based)
+                (off as u32, true)
             };
 
             let field_info = super::types::FieldInfo {

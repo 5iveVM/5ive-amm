@@ -1,3 +1,4 @@
+
 // FIVE VM implementation using Pinocchio for maximum performance
 //
 // This implementation leverages Pinocchio's zero-copy deserialization
@@ -69,6 +70,10 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
+    pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@");
+    pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START");
+    pinocchio::log::sol_log_64(0, 0, 0, 0, instruction_data[0] as u64);
+
     log_if_debug!(
         debug,
         "FIVE Optimized: Processing instruction with no_allocator"
@@ -157,11 +162,9 @@ pub fn process_instruction(
             instructions::deploy(program_id, accounts, bytecode, permissions)
         }
         FIVEInstruction::Execute { params } => {
-            log_if_debug!(
-                debug,
-                "Processing Execute instruction with {} bytes of params",
-                params.len()
-            );
+            pinocchio::log::sol_log("FIVE VM: EXECUTE START");
+            pinocchio::log::sol_log_64(0, 0, 0, 0, params.len() as u64);
+            pinocchio::log::sol_log_64(0, 0, 0, 0, accounts.len() as u64);
             instructions::execute(program_id, accounts, params)
         }
         FIVEInstruction::FinalizeScript => {

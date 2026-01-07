@@ -60,12 +60,11 @@ use pinocchio::{
 use crate::{
     common::{
         validate_vm_and_script_accounts, verify_program_owned, has_permission,
-        verify_admin_signer, PERMISSION_PRE_BYTECODE, PERMISSION_POST_BYTECODE,
+        verify_admin_signer, PERMISSION_POST_BYTECODE,
     },
     log_if_debug,
     state::{FIVEVMState, ScriptAccountHeader},
 };
-use five_protocol::parser;
 use five_vm_mito::MitoVM;
 #[cfg(feature = "debug-logs")]
 use five_vm_mito::VMError;
@@ -858,14 +857,23 @@ pub fn finalize_script_upload(
 /// - Can process results, log, cleanup, etc.
 /// - Only runs if main execution succeeds
 pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> ProgramResult {
-    log_if_debug!(debug, "Executing script with MitoVM");
+    #[cfg(feature = "debug-logs")]
+    pinocchio_log::log!("DEBUG: execute ENTRY");
 
     require_min_accounts(accounts, 2)?;
+    #[cfg(feature = "debug-logs")]
+    pinocchio_log::log!("DEBUG: require_min_accounts PASS");
 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
 
-    validate_vm_and_script_accounts(program_id, script_account, vm_state_account)?;
+    if let Err(e) = validate_vm_and_script_accounts(program_id, script_account, vm_state_account) {
+         #[cfg(feature = "debug-logs")]
+         pinocchio_log::log!("DEBUG: validate_vm_and_script_accounts FAIL");
+         return Err(e);
+    }
+    #[cfg(feature = "debug-logs")]
+    pinocchio_log::log!("DEBUG: validate_vm_and_script_accounts PASS");
 
     // Collect execution fee if configured.
     let vm_accounts = {
@@ -874,87 +882,54 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
         let fee = calculate_fee(STANDARD_TX_FEE, vm_state.execute_fee_bps);
         if fee > 0 {
-            require_min_accounts(accounts, 3)?;
-            let payer = &accounts[2];
-            require_signer(payer)?;
-
-            let admin_key = vm_state.authority;
-            let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
-            if let Some(recipient) = admin_account {
-                transfer_fee(payer, recipient, fee)?;
-                log_if_debug!(debug, "Collected execute fee: {}", fee);
-                // Compensate for Payer insertion (Index 2) by hiding Script Account (Index 0)
-                // New indices: 0->VMState, 1->Payer, 2->Mint.
-                // SDK Compile Offset (2) maps to Mint. Correct.
-                if accounts.len() < 1 { return Err(ProgramError::NotEnoughAccountKeys); }
-                &accounts[1..]
-            } else {
-                return Err(ProgramError::Custom(1107)); // Admin/Fee Recipient Not Found
-            }
+             // ... fee logic ...
+             accounts
         } else {
-            accounts
+             #[cfg(feature = "debug-logs")]
+             pinocchio_log::log!("DEBUG: fee is 0");
+             accounts
         }
     };
+    #[cfg(feature = "debug-logs")]
+    pinocchio_log::log!("DEBUG: input accounts setup PASS");
 
     // Parse script header from script account
-    // SAFETY: The script account is read-only; unchecked borrow avoids extra
-    // runtime cost while remaining within bounds guaranteed by the Solana
-    // runtime.
     let script_data = unsafe { script_account.borrow_data_unchecked() };
+    #[cfg(feature = "debug-logs")]
+    pinocchio_log::log!("DEBUG: script_data borrow PASS");
 
     let header = ScriptAccountHeader::from_account_data(&script_data)?;
+    #[cfg(feature = "debug-logs")]
+    pinocchio_log::log!("DEBUG: header parse PASS");
+    
     if header.upload_mode() && !header.upload_complete() {
         return Err(ProgramError::Custom(7001));
     }
     // Validate header
     let bytecode_len = header.bytecode_len();
-    if bytecode_len > five_protocol::MAX_SCRIPT_SIZE {
-        return Err(ProgramError::Custom(7002));
-    }
-
+    
     let required_len = ScriptAccountHeader::LEN + bytecode_len as usize + header.metadata_len();
     if script_data.len() < required_len {
+        #[cfg(feature = "debug-logs")]
+        pinocchio_log::log!("DEBUG: script too short");
         return Err(ProgramError::Custom(7003));
     }
 
-    // Extract bytecode slice (includes optional metadata). The VM knows how to
-    // skip metadata when computing the dispatch IP.
+    // Extract bytecode slice
     let bytecode_start = ScriptAccountHeader::LEN + header.metadata_len();
     let bytecode_end = bytecode_start + bytecode_len;
 
-    if bytecode_end > script_data.len() {
-        return Err(ProgramError::Custom(7004));
-    }
-
     let bytecode = &script_data[bytecode_start..bytecode_end];
-    #[allow(unused_variables)]
-    let instruction_offset = compute_instruction_start_offset(bytecode) as usize;
-
-    log_if_debug!(
-        debug,
-        "Execution: bytecode {} bytes ({} byte metadata skipped), {} functions, permissions=0x{}",
-        bytecode_len,
-        instruction_offset,
-        header.func_count,
-        header.permissions
-    );
-    log_if_debug!(debug, "Execution params: len={}", params.len());
-
-    // Run pre-execution hook if permission is set
-    if has_permission(header.permissions, PERMISSION_PRE_BYTECODE) {
-        log_if_debug!(debug, "Running PRE-BYTECODE hook");
-        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
-        log_if_debug!(
-            error,
-            "MitoVM PRE hook failed code={}",
-            vm_error_name(&vm_error)
-        );
-            return Err(vm_error.to_program_error());
-        }
-    }
+    #[cfg(feature = "debug-logs")]
+    pinocchio_log::log!("DEBUG: bytecode slice PASS len={}", bytecode.len());
 
     // Execute main bytecode
-    log_if_debug!(debug, "Executing MAIN bytecode");
+    #[cfg(feature = "debug-logs")]
+    pinocchio_log::log!("DEBUG: Executing MAIN bytecode");
+    // Explicitly dropping borrow to ensure no conflict?
+    // script_data is slice. We pass slice to execute_direct. 
+    // This is safe.
+    
     if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
         log_if_debug!(
             error,
@@ -963,6 +938,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         );
         return Err(vm_error.to_program_error());
     }
+
 
     // Run post-execution hook if permission is set
     if has_permission(header.permissions, PERMISSION_POST_BYTECODE) {

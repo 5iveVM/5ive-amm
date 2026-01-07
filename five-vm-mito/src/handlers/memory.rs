@@ -78,10 +78,12 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             return Err(VMErrorCode::InvalidInstruction); // Not implemented in MitoVM
         }
         STORE_FIELD => {
+            error_log!("DEBUG: STORE_FIELD start (Top of block)");
             // Protocol V3: STORE_FIELD account_index_u8, offset_vle
             let account_index = ctx.fetch_byte()?;
             let field_offset = ctx.fetch_vle_u32()?;
             let value = ctx.pop()?;
+            error_log!("DEBUG: Popped value (type_id={})", value.type_id());
 
             // Use error_log to ensure visibility (always compiled)
             error_log!(
@@ -112,6 +114,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             ctx.check_bytecode_authorization(account_index)?;
 
             let account = ctx.get_account(account_index)?;
+            error_log!("DEBUG: Got account key");
 
             // CRITICAL: Check if account is writable BEFORE attempting to write
             // pinocchio's borrow_mut_data_unchecked() does NOT check is_writable!
@@ -165,7 +168,11 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                     if (field_offset as usize + 32) > data.len() {
                         return Err(VMErrorCode::InvalidAccountData);
                     }
-                    let pubkey_bytes = ctx.extract_pubkey(&value)?;
+                    let pubkey_bytes = ctx.extract_pubkey(&value).map_err(|e| {
+                        error_log!("DEBUG: extract_pubkey failed");
+                        e
+                    })?;
+                    error_log!("DEBUG: Extracted pubkey");
                     data[field_offset as usize..field_offset as usize + 32].copy_from_slice(&pubkey_bytes);
                 }
                 ValueRef::AccountRef(_, _) => {

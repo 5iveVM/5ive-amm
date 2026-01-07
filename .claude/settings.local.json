@@ -5,7 +5,24 @@
       "Bash(timeout 120 npm test)",
       "Bash(npm run build:*)",
       "Bash(node e2e-counter-test.mjs:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(for i in {1..30})",
+      "Bash(do)",
+      "Bash(echo:*)",
+      "Bash(if solana cluster-version --url http://127.0.0.1:8899)",
+      "Bash(then)",
+      "Bash(break)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(solana cluster-version:*)",
+      "Bash(cat:*)",
+      "Bash(export FIVE_PROGRAM_ID=\"HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg\")",
+      "Bash(export RPC_URL=\"http://127.0.0.1:8899\")",
+      "Bash(export VM_STATE_PDA=\"ErAR2V7HiASpZonjFpLK36dNt2Akk2zJoWveRxFbS3xX\")",
+      "Bash(cargo run:*)",
+      "Bash(five --help:*)",
+      "Bash(five deploy:*)",
+      "Bash(file:*)"
     ]
   }
 }
