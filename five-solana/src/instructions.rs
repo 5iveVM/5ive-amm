@@ -883,15 +883,15 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         let fee = calculate_fee(STANDARD_TX_FEE, vm_state.execute_fee_bps);
         if fee > 0 {
              // ... fee logic ...
-             accounts
+             &accounts[1..]  // Skip Script account, start from VM State
         } else {
              #[cfg(feature = "debug-logs")]
              pinocchio_log::log!("DEBUG: fee is 0");
-             accounts
+             &accounts[1..]  // Skip Script account, start from VM State
         }
     };
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: input accounts setup PASS");
+    pinocchio_log::log!("DEBUG: input accounts setup PASS - passing {} accounts to VM", vm_accounts.len() as u32);
 
     // Parse script header from script account
     let script_data = unsafe { script_account.borrow_data_unchecked() };
@@ -901,13 +901,13 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let header = ScriptAccountHeader::from_account_data(&script_data)?;
     #[cfg(feature = "debug-logs")]
     pinocchio_log::log!("DEBUG: header parse PASS");
-    
+
     if header.upload_mode() && !header.upload_complete() {
         return Err(ProgramError::Custom(7001));
     }
     // Validate header
     let bytecode_len = header.bytecode_len();
-    
+
     let required_len = ScriptAccountHeader::LEN + bytecode_len as usize + header.metadata_len();
     if script_data.len() < required_len {
         #[cfg(feature = "debug-logs")]
@@ -925,11 +925,10 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     // Execute main bytecode
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: Executing MAIN bytecode");
-    // Explicitly dropping borrow to ensure no conflict?
-    // script_data is slice. We pass slice to execute_direct. 
-    // This is safe.
-    
+    pinocchio_log::log!("DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]");
+    // MitoVM expects accounts WITHOUT the Script account, only [VM State, param0, param1, ...]
+    // This aligns with ACCOUNT_INDEX_OFFSET = 1 in the compiler
+
     if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
         log_if_debug!(
             error,
