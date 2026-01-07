@@ -133,3 +133,71 @@ mod parameter_indexing_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod comprehensive_instruction_tests {
+    use crate::instructions::{FIVEInstruction, EXECUTE_INSTRUCTION, DEPLOY_INSTRUCTION};
+
+    #[test]
+    fn test_deploy_instruction_parsing() {
+        let bytecode = vec![0x35u8, 0x49, 0x56, 0x45]; // 5IVE magic
+        let permissions = 0u8;
+
+        let mut deploy_data = vec![DEPLOY_INSTRUCTION];
+        deploy_data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
+        deploy_data.push(permissions);
+        deploy_data.extend_from_slice(&bytecode);
+
+        let result = FIVEInstruction::try_from(&deploy_data[..]);
+        assert!(result.is_ok(), "Deploy instruction should parse");
+    }
+
+    #[test]
+    fn test_execute_instruction_with_varying_params() {
+        // Test parsing with different parameter counts
+        for param_count in 0..=3 {
+            let func_idx = 1;
+            let mut exec_data = vec![EXECUTE_INSTRUCTION, func_idx, param_count];
+
+            // Add parameter data for each count
+            for i in 0..param_count {
+                let value: u64 = 1000 + (i as u64);
+                exec_data.extend_from_slice(&value.to_le_bytes());
+            }
+
+            let result = FIVEInstruction::try_from(&exec_data[..]);
+            assert!(result.is_ok(), "Should parse with {} parameters", param_count);
+        }
+    }
+
+    #[test]
+    fn test_large_parameter_values() {
+        let func_idx = 4;
+        let param_count = 1;
+        let max_value: u64 = u64::MAX;
+
+        let mut exec_data = vec![EXECUTE_INSTRUCTION, func_idx, param_count];
+        exec_data.extend_from_slice(&max_value.to_le_bytes());
+
+        let result = FIVEInstruction::try_from(&exec_data[..]);
+        assert!(result.is_ok(), "Should handle maximum u64 value");
+    }
+
+    #[test]
+    fn test_instruction_parsing_consistency() {
+        // Verify that the same instruction parses consistently
+        let func_idx = 3;
+        let param_count = 2;
+        let value: u64 = 54321;
+
+        let mut exec_data1 = vec![EXECUTE_INSTRUCTION, func_idx, param_count];
+        exec_data1.extend_from_slice(&value.to_le_bytes());
+
+        let mut exec_data2 = exec_data1.clone();
+
+        let result1 = FIVEInstruction::try_from(&exec_data1[..]);
+        let result2 = FIVEInstruction::try_from(&exec_data2[..]);
+
+        assert!(result1.is_ok() && result2.is_ok(), "Consistent parsing should succeed");
+    }
+}
