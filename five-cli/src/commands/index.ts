@@ -13,11 +13,9 @@ import { compileCommand } from './compile.js';
 import { executeCommand } from './execute.js';
 import { initCommand } from './init.js';
 import { analyzeCommand } from './analyze.js';
-import { optimizeCommand } from './optimize.js';
 import { fmtCommand } from './fmt.js';
 import { deployCommand } from './deploy.js';
 import { deployAndExecuteCommand } from './deploy-and-execute.js';
-// onchainCommand removed - replaced by config-driven deploy/execute
 import { testCommand } from './test.js';
 import { versionCommand } from './version.js';
 import { configCommand } from './config.js';
@@ -44,10 +42,8 @@ export const commands: CommandDefinition[] = [
   initCommand,
   testCommand,
   analyzeCommand,
-  optimizeCommand,
   fmtCommand,
   versionCommand
-  // onchainCommand removed - replaced by config-driven deploy/execute
 ];
 
 /**
@@ -85,7 +81,6 @@ export function getCommandsByCategory(): Record<string, CommandDefinition[]> {
     'Support': [donateCommand],
     'Configuration': [configCommand],
     'Utility': [versionCommand, helpCommand],
-    // 'Legacy': [onchainCommand] - removed
   };
 }
 
@@ -158,9 +153,7 @@ export {
   configCommand,
   initCommand,
   analyzeCommand,
-  optimizeCommand,
   fmtCommand,
   testCommand,
   versionCommand
-  // onchainCommand removed
 };
