@@ -1097,7 +1097,24 @@ impl<'a> ExecutionContext<'a> {
             data: &data,
         };
 
-        invoke::<3>(&instruction, &[payer, new_account, system_program]).map_err(|_| VMErrorCode::InvokeError)?;
+        #[cfg(target_os = "solana")]
+        {
+            invoke::<3>(&instruction, &[payer, new_account, system_program]).map_err(|_| VMErrorCode::InvokeError)?;
+        }
+
+        #[cfg(not(target_os = "solana"))]
+        {
+            // Simulate CreateAccount for off-chain tests
+            unsafe {
+                if *payer.borrow_lamports_unchecked() < lamports {
+                     return Err(VMErrorCode::InvokeError);
+                }
+                *payer.borrow_mut_lamports_unchecked() -= lamports;
+                *new_account.borrow_mut_lamports_unchecked() += lamports;
+                new_account.resize(space as usize).map_err(|_| VMErrorCode::InvokeError)?;
+                new_account.assign(owner);
+            }
+        }
 
         // CRITICAL FIX: Refresh pointer for the newly created account
         // After CreateAccount CPI, the account data has been reallocated by the Solana runtime.
@@ -1164,26 +1181,43 @@ impl<'a> ExecutionContext<'a> {
             data: &data,
         };
 
-        // Convert seeds and bump into Signer representation
-        const MAX_SEEDS: usize = 8;
-        let binding = [bump]; // Move binding declaration outside to ensure lifetime
-        let mut seed_vec: Vec<Seed, MAX_SEEDS> = Vec::new();
-        for s in seeds.iter() {
+        #[cfg(target_os = "solana")]
+        {
+            // Convert seeds and bump into Signer representation
+            const MAX_SEEDS: usize = 8;
+            let binding = [bump]; // Move binding declaration outside to ensure lifetime
+            let mut seed_vec: Vec<Seed, MAX_SEEDS> = Vec::new();
+            for s in seeds.iter() {
+                seed_vec
+                    .push(Seed::from(*s))
+                    .map_err(|_| VMErrorCode::TooManySeeds)?;
+            }
             seed_vec
-                .push(Seed::from(*s))
+                .push(Seed::from(&binding))
                 .map_err(|_| VMErrorCode::TooManySeeds)?;
-        }
-        seed_vec
-            .push(Seed::from(&binding))
-            .map_err(|_| VMErrorCode::TooManySeeds)?;
-        let signer = Signer::from(seed_vec.as_slice());
+            let signer = Signer::from(seed_vec.as_slice());
 
-        invoke_signed::<3>(
-            &instruction,
-            &[payer, new_account, system_program],
-            &[signer],
-        )
-        .map_err(|_| VMErrorCode::InvokeError)?;
+            invoke_signed::<3>(
+                &instruction,
+                &[payer, new_account, system_program],
+                &[signer],
+            )
+            .map_err(|_| VMErrorCode::InvokeError)?;
+        }
+
+        #[cfg(not(target_os = "solana"))]
+        {
+            // Simulate CreateAccount for off-chain tests
+            unsafe {
+                if *payer.borrow_lamports_unchecked() < lamports {
+                     return Err(VMErrorCode::InvokeError);
+                }
+                *payer.borrow_mut_lamports_unchecked() -= lamports;
+                *new_account.borrow_mut_lamports_unchecked() += lamports;
+                new_account.resize(space as usize).map_err(|_| VMErrorCode::InvokeError)?;
+                new_account.assign(owner);
+            }
+        }
 
         // CRITICAL FIX: Refresh pointer for the newly created PDA account
         // Same as create_account - after CreateAccount CPI, the account data is reallocated.

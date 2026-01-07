@@ -224,6 +224,12 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             // This allows the consumer (e.g. EQ, ADD) to decide how many bytes to read
             // AccountRef takes u16 offset. Check if offset fits.
             if field_offset <= u16::MAX as u32 {
+                // Eager bounds check: even if lazy, we verify the data *exists*
+                // This preserves the "Fail Fast" property and matches legacy behavior
+                let account = &ctx.accounts()[account_index as usize];
+                if (field_offset as usize + 8) > account.data_len() {
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
                 ctx.push(ValueRef::AccountRef(account_index, field_offset as u16))?;
             } else {
                 // Fallback for large offsets: eager load as u64 (legacy behavior)

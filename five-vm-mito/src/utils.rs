@@ -80,6 +80,9 @@ pub fn resolve_u64(value: ValueRef, ctx: &crate::context::ExecutionManager) -> C
                 .map_err(|_| VMErrorCode::InvalidAccountData)?;
             Ok(u64::from_le_bytes(bytes))
         }
+        ValueRef::U128(v) => {
+            u64::try_from(v).map_err(|_| VMErrorCode::NumericOverflow)
+        }
         _ => value.as_u64().ok_or(VMErrorCode::TypeMismatch),
     }
 }
@@ -612,6 +615,27 @@ pub fn value_ref_to_seed_bytes(
             let account = ctx.get_account(account_index)?;
             Vec::from_slice(account.key().as_ref()).map_err(|_| VMErrorCode::MemoryError)
         }
+        ValueRef::StringRef(offset) => {
+            debug_log!(
+                "MitoVM: value_ref_to_seed_bytes - StringRef offset: {}",
+                offset
+            );
+            // String is stored in temp buffer: [length, type, bytes...]
+            let start = offset as usize;
+            if start + 2 > ctx.storage.temp_buffer.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            
+            let len = ctx.storage.temp_buffer[start] as usize;
+            let data_start = start + 2;
+            let data_end = data_start + len;
+            
+            if data_end > ctx.storage.temp_buffer.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            
+            Vec::from_slice(&ctx.storage.temp_buffer[data_start..data_end]).map_err(|_| VMErrorCode::MemoryError)
+        }
         ValueRef::Empty => {
             debug_log!("MitoVM: value_ref_to_seed_bytes - Empty value");
             Ok(Vec::new())
@@ -622,7 +646,6 @@ pub fn value_ref_to_seed_bytes(
         | ValueRef::ResultRef(_, _)
         | ValueRef::PubkeyRef(_)
         | ValueRef::ArrayRef(_)
-        | ValueRef::StringRef(_)
         | ValueRef::HeapString(_)
         | ValueRef::HeapArray(_) => {
             debug_log!("MitoVM: value_ref_to_seed_bytes - Complex reference type not supported for simple conversion");

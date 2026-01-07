@@ -14,7 +14,9 @@ use crate::{
 };
 use five_protocol::{opcodes::*, ValueRef};
 use heapless::Vec;
-use pinocchio::pubkey::{create_program_address, Pubkey};
+use pinocchio::pubkey::Pubkey;
+#[cfg(target_os = "solana")]
+use pinocchio::pubkey::create_program_address;
 
 const MAX_ACCOUNT_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
 
@@ -185,11 +187,14 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let seeds_count = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
 
     // Validate parameters
+    // Validate parameters
     if account_idx >= ctx.accounts().len() as u8 {
         return Err(VMErrorCode::InvalidAccountIndex);
     }
 
+    debug_log!("INIT_PDA_ACCOUNT: Checking space. input={}, limit={}", space, MAX_ACCOUNT_SIZE);
     if space > MAX_ACCOUNT_SIZE {
+        debug_log!("INIT_PDA_ACCOUNT: Space limit exceeded! {} > {}", space, MAX_ACCOUNT_SIZE);
         return Err(VMErrorCode::InvalidParameter);
     }
 
@@ -234,13 +239,47 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     )?;
 
     // Validate that the created account address matches the derived PDA
-    let account = ctx.get_account(account_idx)?;
-    let expected_pda = create_program_address(seed_refs.as_slice(), &Pubkey::from(owner))
-        .map_err(|_| VMErrorCode::InvokeError)?;
+    {
+        // Construct full seeds list including bump for validation
+        let binding = [bump];
+        let mut validation_seeds: Vec<&[u8], {MAX_SEEDS + 1}> = Vec::new();
+        for s in seed_refs.iter() {
+           validation_seeds.push(*s).unwrap();
+        }
+        validation_seeds.push(&binding).unwrap();
 
-    if account.key() != &expected_pda {
-        error_log!("INIT_PDA_ACCOUNT: Account address mismatch! Expected PDA but got different address");
-        return Err(VMErrorCode::AccountError);
+        let account = ctx.get_account(account_idx)?;
+        
+        #[cfg(target_os = "solana")]
+        {
+             let expected_pda = create_program_address(validation_seeds.as_slice(), &Pubkey::from(owner))
+                 .map_err(|_| VMErrorCode::InvokeError)?;
+             
+             if account.key() != &expected_pda {
+                 error_log!("INIT_PDA_ACCOUNT: Account address mismatch! Expected PDA but got different address");
+                 return Err(VMErrorCode::AccountError);
+             }
+        }
+
+        #[cfg(not(target_os = "solana"))]
+        {
+             use solana_nostd_sha256::hashv;
+             // Manual PDA derivation: hash(seeds... + bump + program_id + "ProgramDerivedAddress")
+             let mut hasher_seeds: Vec<&[u8], {MAX_SEEDS + 3}> = Vec::new();
+             for s in validation_seeds.iter() {
+                 hasher_seeds.push(*s).unwrap();
+             }
+             hasher_seeds.push(owner.as_ref()).unwrap();
+             hasher_seeds.push(b"ProgramDerivedAddress").unwrap();
+             
+             let hash = hashv(&hasher_seeds);
+             let expected_pda = Pubkey::from(hash);
+             
+             if account.key() != &expected_pda {
+                  error_log!("INIT_PDA_ACCOUNT: Account address mismatch! Computed PDA does not match account key");
+                  return Err(VMErrorCode::AccountError);
+             }
+        }
     }
 
     debug_log!("MitoVM: INIT_PDA_ACCOUNT completed for account {} with {} seeds, bump {}, space {}, lamports {}",

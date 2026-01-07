@@ -23,8 +23,11 @@ fn create_test_accounts<'a>(
     data: &'a mut [u8],
     payer_lamports: &'a mut u64,
     payer_data: &'a mut [u8],
-) -> [AccountInfo; 2] {
+    system_lamports: &'a mut u64,
+    system_data: &'a mut [u8],
+) -> [AccountInfo; 3] { // Now returns 3 accounts
     let payer_key = Pubkey::from([1u8; 32]);
+    let system_program_key = Pubkey::from([0u8; 32]); // System Program ID (all zeros for test/mock usually, or standard ID)
 
     // Account 0: Payer (Signer, Writable)
     let payer = AccountInfo::new(
@@ -41,18 +44,28 @@ fn create_test_accounts<'a>(
     // Account 1: New Account (Signer, Writable) - to be initialized
     let new_account = AccountInfo::new(
         account_key,
-        true, // is_signer (required for init)
+        true, // is_signer
         true, // is_writable
         lamports,
         data,
-        program_id, // Initially owned by program? Or system program?
-        // Actually, uninitialized accounts usually owned by System Program
-        // checking `handle_init_account` impl: checks account_idx range only.
+        program_id,
         false,
         0,
     );
 
-    [payer, new_account]
+    // Account 2: System Program (Executable)
+    let system_program = AccountInfo::new(
+        &system_program_key,
+        false, // is_signer
+        false, // is_writable
+        system_lamports,
+        system_data,
+        &system_program_key,
+        true, // executable
+        0,
+    );
+
+    [payer, new_account, system_program]
 }
 
 #[test]
@@ -69,59 +82,44 @@ fn test_init_pda_account_success() {
     let mut data = [0u8; 0];
     let mut payer_lamports = 1_000_000_000;
     let mut payer_data = [0u8; 0];
-    let accounts_storage = create_test_accounts(&program_id, &pda_address, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data);
+    let mut sys_lamports = 0u64;
+    let mut sys_data = [0u8; 0];
+    let accounts_storage = create_test_accounts(&program_id, &pda_address, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
     let accounts = &accounts_storage; // Slice
 
     // 3. Bytecode: Simulate INIT_PDA_ACCOUNT with correct parameters
-    // Stack consumption order (Top to Bottom):
-    // account_idx, space, lamports, owner, seeds_count, seedN...seed1, bump
-    // Therefore Push order (Bottom to Top):
-    // bump, seed1...seedN, seeds_count, owner, lamports, space, account_idx
+    let bytecode_utils_vle_0 = encode_vle(0);
+    let bytecode_utils_vle_1m = encode_vle(1_000_000);
+    let bytecode_utils_vle_100 = encode_vle(100);
 
-    let bytecode = vec![
+    let mut bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
         0x00, 0x00,             // Counts
-
-        // Push bump
-        0x18, bump, // PUSH_U8(bump)
-
-        // Push seed 1: "vault"
-        0x67, 0x05, // PUSH_STRING len=5
-        b'v', b'a', b'u', b'l', b't',
-
-        // Push seed 2: [1, 2, 3]
-        0x67, 0x03,
-        0x01, 0x02, 0x03,
-
-        // Push seeds count (2)
-        0x18, 0x02, // PUSH_U8(2)
-
-        // Push owner (0 = Current Program)
-        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(0)
-
-        // Push lamports (1_000_000)
-        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(1_000_000)
-
-        // Push space (100)
-        0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(100)
-
-        // Push account_idx (1)
-        0x18, 0x01, // PUSH_U8(1)
-
-        // Call INIT_PDA_ACCOUNT
-        0x85, // INIT_PDA_ACCOUNT
-
-        0x00 // HALT
     ];
 
-    // 4. Execution
-    // Note: The context.rs implementation of `create_pda_account` mocks the CPI via `invoke_signed`.
-    // In test environment (host), `invoke_signed` does nothing/succeeds.
-    // The validation logic inside `handle_init_pda_account` verifies `account.key()` matches derived PDA.
-    // Since we set `account_key` to the derived PDA, this should PASS.
+    // Push bump
+    bytecode.push(0x18); bytecode.push(bump);
+    // Push seed 1: "vault"
+    bytecode.extend_from_slice(&[0x67, 0x05, b'v', b'a', b'u', b'l', b't']);
+    // Push seed 2: [1, 2, 3]
+    bytecode.extend_from_slice(&[0x67, 0x03, 0x01, 0x02, 0x03]);
+    // Push seeds count (2)
+    bytecode.push(0x18); bytecode.push(0x02);
+    // Push owner (0)
+    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_0);
+    // Push lamports (1_000_000)
+    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_1m);
+    // Push space (100)
+    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_100);
+    // Push account_idx (1)
+    bytecode.push(0x18); bytecode.push(0x01);
+    // Call INIT_PDA_ACCOUNT
+    bytecode.push(0x85);
+    bytecode.push(0x00);
 
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
+    // 4. Execution
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &program_id);
 
     match result {
         Ok(_) => {
@@ -146,30 +144,44 @@ fn test_init_pda_account_failure_address_mismatch() {
     let mut data = [0u8; 0];
     let mut payer_lamports = 1_000_000_000;
     let mut payer_data = [0u8; 0];
-    let accounts_storage = create_test_accounts(&program_id, &wrong_key, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data);
+    let mut sys_lamports = 0u64;
+    let mut sys_data = [0u8; 0];
+    let accounts_storage = create_test_accounts(&program_id, &wrong_key, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
     let accounts = &accounts_storage;
 
     // 3. Bytecode: Same as success case, but account #1 key doesn't match
-    let bytecode = vec![
+    let bytecode_utils_vle_0 = encode_vle(0);
+    let bytecode_utils_vle_1m = encode_vle(1_000_000);
+    let bytecode_utils_vle_100 = encode_vle(100);
+
+    let mut bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
         0x00, 0x00,             // Counts
-
-        0x18, bump, // Valid bump for seeds
-        0x67, 0x05, b'v', b'a', b'u', b'l', b't', // Seed 1
-        0x67, 0x03, 0x01, 0x02, 0x03,             // Seed 2
-        0x18, 0x02, // Seeds count
-        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Owner
-        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // Lamports
-        0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Space
-        0x18, 0x01, // PUSH_U8(1) - account_idx
-
-        0x85, // INIT_PDA_ACCOUNT
-        0x00
     ];
 
+    // Push bump
+    bytecode.push(0x18); bytecode.push(bump);
+    // Push seed 1
+    bytecode.extend_from_slice(&[0x67, 0x05, b'v', b'a', b'u', b'l', b't']);
+    // Push seed 2
+    bytecode.extend_from_slice(&[0x67, 0x03, 0x01, 0x02, 0x03]);
+    // Push seeds count
+    bytecode.push(0x18); bytecode.push(0x02);
+    // Push owner
+    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_0);
+    // Push lamports
+    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_1m);
+    // Push space
+    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_100);
+    // Push account_idx
+    bytecode.push(0x18); bytecode.push(0x01);
+    
+    bytecode.push(0x85); // INIT_PDA_ACCOUNT
+    bytecode.push(0x00);
+
     // 4. Execution
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &program_id);
 
     // 5. Verification: Should fail with AccountError (address mismatch)
     match result {
@@ -197,30 +209,43 @@ fn test_init_pda_account_failure_invalid_bump() {
     let mut data = [0u8; 0];
     let mut payer_lamports = 1_000_000_000;
     let mut payer_data = [0u8; 0];
-    let accounts_storage = create_test_accounts(&program_id, &pda_address, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data);
+    let mut sys_lamports = 0u64;
+    let mut sys_data = [0u8; 0];
+    let accounts_storage = create_test_accounts(&program_id, &pda_address, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
     let accounts = &accounts_storage;
 
     // Bytecode with WRONG bump
     let wrong_bump = valid_bump.wrapping_add(1);
 
-    let bytecode = vec![
+    let bytecode_utils_vle_0 = encode_vle(0);
+    let bytecode_utils_vle_1m = encode_vle(1_000_000);
+    let bytecode_utils_vle_100 = encode_vle(100);
+
+    let mut bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
         0x00, 0x00,             // Counts
-
-        0x18, wrong_bump, // WRONG bump
-        0x67, 0x05, b'v', b'a', b'u', b'l', b't', // Seed 1
-        0x18, 0x01, // Seeds count (1)
-        0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Owner
-        0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, // Lamports
-        0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Space
-        0x18, 0x01, // account_idx
-
-        0x85, // INIT_PDA_ACCOUNT
-        0x00
     ];
 
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
+    // Push bump
+    bytecode.push(0x18); bytecode.push(wrong_bump);
+    // Push seed 1
+    bytecode.extend_from_slice(&[0x67, 0x05, b'v', b'a', b'u', b'l', b't']);
+    // Push seeds count (1)
+    bytecode.push(0x18); bytecode.push(0x01);
+    // Push owner
+    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_0);
+    // Push lamports
+    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_1m);
+    // Push space
+    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_100);
+    // Push account_idx
+    bytecode.push(0x18); bytecode.push(0x01);
+
+    bytecode.push(0x85); // INIT_PDA_ACCOUNT
+    bytecode.push(0x00);
+
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &program_id);
 
     match result {
         Err(VMError::AccountError) => {
@@ -240,6 +265,22 @@ fn test_init_pda_account_failure_invalid_bump() {
     }
 }
 
+fn encode_vle(mut value: u64) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    loop {
+        let mut byte = (value & 0x7F) as u8;
+        value >>= 7;
+        if value != 0 {
+            byte |= 0x80;
+        }
+        bytes.push(byte);
+        if value == 0 {
+            break;
+        }
+    }
+    bytes
+}
+
 #[test]
 fn test_init_pda_account_failure_space_limit() {
     // 1. Setup
@@ -253,9 +294,6 @@ fn test_init_pda_account_failure_space_limit() {
     // Bytecode with EXCESSIVE space (11MB)
     let excessive_space = 11 * 1024 * 1024u64;
 
-    // Manual PUSH_U64 serialization for 11MB
-    let space_bytes = excessive_space.to_le_bytes();
-
     let mut bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
@@ -266,23 +304,25 @@ fn test_init_pda_account_failure_space_limit() {
     bytecode.push(0x18);
     bytecode.push(bump);
 
-    // Push seed 1
+    // Push seed 1 ("vault")
     bytecode.extend_from_slice(&[0x67, 0x05, b'v', b'a', b'u', b'l', b't']);
 
     // Push seeds count
     bytecode.push(0x18);
     bytecode.push(0x01);
 
-    // Push owner
-    bytecode.extend_from_slice(&[0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    // Push owner (0) - VLE(0) is 0x00
+    bytecode.push(0x1B); // PUSH_U64
+    bytecode.push(0x00);
 
-    // Push lamports
-    bytecode.extend_from_slice(&[0x1B, 0x40, 0x42, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    // Push lamports (1_000_000)
+    bytecode.push(0x1B); // PUSH_U64
+    bytecode.extend_from_slice(&encode_vle(1_000_000));
 
     // Push Excessive Space
     bytecode.push(0x1B); // PUSH_U64
-    bytecode.extend_from_slice(&space_bytes); // Space
-
+    bytecode.extend_from_slice(&encode_vle(excessive_space)); 
+    
     // Push account_idx
     bytecode.push(0x18);
     bytecode.push(0x01);
@@ -292,10 +332,12 @@ fn test_init_pda_account_failure_space_limit() {
 
     let mut payer_lamports = 1_000_000_000;
     let mut payer_data = [0u8; 0];
-    let accounts_storage = create_test_accounts(&program_id, &pda_address, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data);
+    let mut sys_lamports = 0u64;
+    let mut sys_data = [0u8; 0];
+    let accounts_storage = create_test_accounts(&program_id, &pda_address, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
     let accounts = &accounts_storage;
 
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
+    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &program_id);
 
     match result {
         Err(VMError::InvalidParameter) => {
