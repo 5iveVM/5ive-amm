@@ -10,8 +10,9 @@
 //!
 //! # Quick Start
 //!
-//! ```rust,no_run
-//! use five_vm_mito::{MitoVM, Value};
+//! ```rust
+//! use five_vm_mito::{MitoVM, Value, Pubkey};
+//! use five_vm_mito::opcodes::{PUSH_U8, ADD, RETURN_VALUE};
 //!
 //! // Create bytecode that adds two numbers
 //! // FIVE header (10 bytes): magic(4) + features(4) + public_count(1) + total_count(1)
@@ -20,22 +21,23 @@
 //!     0x00, 0x00, 0x00, 0x00, // features
 //!     0x01,                   // public_count
 //!     0x01,                   // total_count
-//!     0x11, 10,               // PUSH_U8 10
-//!     0x11, 5,                // PUSH_U8 5
-//!     0x20,                   // ADD
-//!     0x07                    // RETURN_VALUE
+//!     PUSH_U8, 10,            // PUSH_U8 10
+//!     PUSH_U8, 5,             // PUSH_U8 5
+//!     ADD,                    // ADD
+//!     RETURN_VALUE            // RETURN_VALUE
 //! ];
 //!
 //! // Execute with no input data or accounts
-//! let result = MitoVM::execute_direct(bytecode, &[], &[])?;
-//! assert_eq!(result, Some(Value::U8(15)));
+//! let result = MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default())?;
+//! assert_eq!(result, Some(Value::U64(15)));
 //! # Ok::<(), five_vm_mito::VMError>(())
 //! ```
 //!
 //! # Function Calls
 //!
-//! ```rust,no_run
-//! use five_vm_mito::MitoVM;
+//! ```rust
+//! use five_vm_mito::{MitoVM, Pubkey};
+//! use five_vm_mito::opcodes::{PUSH_U8, MUL, RETURN_VALUE};
 //!
 //! // Bytecode with function header and simple function
 //! // FIVE header: magic(4) + features(4) + public_count(1) + total_count(1) = 10 bytes
@@ -45,14 +47,15 @@
 //!     0x01,                   // public function count: 1
 //!     0x01,                   // total function count: 1
 //!     // Main function: multiply by 2
-//!     0x11, 2,                // PUSH_U8 2
-//!     0x22,                   // MUL
-//!     0x07                    // RETURN_VALUE
+//!     PUSH_U8, 2,             // PUSH_U8 2
+//!     MUL,                    // MUL
+//!     RETURN_VALUE            // RETURN_VALUE
 //! ];
 //!
 //! // Call with parameter: function 0, value 21
-//! let input_data = &[0x00, 21]; // function index 0, parameter 21
-//! let result = MitoVM::execute_direct(bytecode, input_data, &[])?;
+//! // Input format: [func_index (VLE), param_count (VLE), param1 (VLE)...]
+//! let input_data = &[0x00, 0x01, 21]; // function index 0, 1 param, parameter value 21
+//! let result = MitoVM::execute_direct(bytecode, input_data, &[], &Pubkey::default())?;
 //! assert_eq!(result, Some(five_vm_mito::Value::U64(42)));
 //! # Ok::<(), five_vm_mito::VMError>(())
 //! ```

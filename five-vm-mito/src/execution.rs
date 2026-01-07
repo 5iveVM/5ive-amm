@@ -48,6 +48,7 @@ pub struct VMExecutionContext {
 /// ```rust,no_run
 /// use five_vm_mito::{MitoVM, Value};
 /// use pinocchio::account_info::AccountInfo;
+/// use pinocchio::pubkey::Pubkey;
 ///
 /// // Execute simple arithmetic: push 10, push 5, add them
 /// // FIVE header (10 bytes): magic(4) + features(4) + public_count(1) + total_count(1)
@@ -62,7 +63,7 @@ pub struct VMExecutionContext {
 ///     0x07                    // RETURN_VALUE
 /// ];
 ///
-/// let result = MitoVM::execute_direct(bytecode, &[], &[])?;
+/// let result = MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default())?;
 /// assert_eq!(result, Some(Value::U8(15)));
 /// # Ok::<(), five_vm_mito::VMError>(())
 /// ```
