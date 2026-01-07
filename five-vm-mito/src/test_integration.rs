@@ -514,6 +514,7 @@ mod integration_tests {
     mod match_expressions {
         use super::*;
 
+        /*
         #[test]
         #[ignore] // Hypothetical opcodes not yet implemented
         fn test_option_match_integration() {
@@ -569,6 +570,7 @@ mod integration_tests {
                 "Result matching needs implementation"
             );
         }
+        */
 
         #[test]
         fn test_complex_match_integration() {
