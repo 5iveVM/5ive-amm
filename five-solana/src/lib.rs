@@ -58,6 +58,9 @@ mod test_call_external_constraints;
 #[cfg(test)]
 mod test_deploy_verification;
 
+#[cfg(test)]
+mod test_parameter_indexing;
+
 use instructions::FIVEInstruction;
 
 // Use the optimized Pinocchio entrypoint (no allocator) for minimal CU
