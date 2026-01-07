@@ -21,11 +21,15 @@ fn test_alloc_temp_overflow() {
         0,
     );
 
-    // Allocation larger than the buffer should fail
-    assert!(ctx.alloc_temp((TEMP_BUFFER_SIZE + 1) as u8).is_err());
+    // TEMP_BUFFER_SIZE is 256
+    // We cannot allocate 256 bytes in one go because alloc_temp takes u8 (max 255)
+    
+    // 1. Allocate first chunk (255 bytes) - should succeed
+    ctx.alloc_temp(255).expect("should allocate first chunk");
 
-    // Allocate entire buffer and ensure further allocation fails
-    ctx.alloc_temp(TEMP_BUFFER_SIZE as u8)
-        .expect("should allocate full buffer");
+    // 2. Allocate remaining 1 byte - should succeed
+    ctx.alloc_temp(1).expect("should allocate remaining byte");
+
+    // 3. Attempt to allocate 1 more byte - should fail (overflow)
     assert!(ctx.alloc_temp(1).is_err());
 }
