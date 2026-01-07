@@ -782,13 +782,20 @@ impl FunctionDispatcher {
                 is_parameter,       // Set correctly based on type
             };
             ast_generator.add_parameter_to_symbol_table(param.name.clone(), field_info);
-
-            // CRITICAL FIX: Generate @init account creation sequence if needed
-            // This was missing in the dispatcher path, causing @init to be ignored
-            ast_generator.generate_init_account_sequence(emitter, param, index)?;
         }
 
-        // Generate function body using the main AST generator (ensures function patches are recorded properly)
+        // Record function start position (including init sequences)
+        let function_offset = emitter.get_position();
+        self.update_function_offset(&function_name, function_offset)?;
+        
+        // Add function start label for jumps
+        ast_generator.record_function_position(emitter, function_name.to_string());
+
+        // Generate account initialization sequences AFTER adding all parameters to the symbol table.
+        // This ensures that seeds for one account can reference other account parameters.
+        for (index, param) in parameters.iter().enumerate() {
+            ast_generator.generate_init_account_sequence(emitter, param, index)?;
+        }
 
         // Inject @requires(condition) checks
         for param in parameters {
