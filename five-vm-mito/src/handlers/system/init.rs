@@ -57,7 +57,7 @@ pub fn handle_init_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
 
 /// Handle INIT_ACCOUNT opcode - Create regular account via System Program
 ///
-/// Stack layout: [account_idx, space, lamports, owner_pubkey]
+/// Stack layout: [account_idx, space, payer_idx, lamports, owner_pubkey]
 ///
 /// This creates a new account owned by the specified program with the given space and lamports.
 /// The account must not already be initialized (checked by CHECK_UNINITIALIZED).
@@ -65,21 +65,24 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Pop parameters from stack
     let account_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
     let space = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+    let payer_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
     let lamports = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
     let owner_ref = ctx.pop()?;
 
     error_log!(
-        "INIT_ACCOUNT: account_idx={} space={} lamports={} num_accounts={}",
+        "INIT_ACCOUNT: account_idx={} space={} payer_idx={} lamports={} num_accounts={}",
         account_idx,
         space,
+        payer_idx,
         lamports,
         ctx.accounts().len() as u32
     );
 
     debug_log!(
-        "MitoVM: INIT_ACCOUNT starting - account_idx={}, space={}, lamports={}, num_accounts={}",
+        "MitoVM: INIT_ACCOUNT starting - account_idx={}, space={}, payer_idx={}, lamports={}, num_accounts={}",
         account_idx,
         space,
+        payer_idx,
         lamports,
         ctx.accounts().len() as u32
     );
@@ -125,9 +128,9 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Solana's runtime doesn't allow modifying account data/metadata after
     // ownership transfer within the same instruction. This caused
     // "ExternalAccountDataModified" errors.
-    match ctx.create_account(account_idx, space, lamports, &owner) {
+    match ctx.create_account_with_payer(account_idx, payer_idx, space, lamports, &owner) {
         Ok(()) => {
-            error_log!("INIT_ACCOUNT: SUCCESS - created account {} with {} bytes", account_idx, space);
+            error_log!("INIT_ACCOUNT: SUCCESS with payer {} - created account {} with {} bytes", payer_idx, account_idx, space);
         }
         Err(e) => {
             error_log!("INIT_ACCOUNT: FAILED - account {}", account_idx);
@@ -174,7 +177,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
 /// Handle INIT_PDA_ACCOUNT opcode - Create PDA account via System Program
 ///
-/// Stack layout: [account_idx, space, lamports, owner_pubkey, seeds_count, seed1, seed2, ..., bump]
+/// Stack layout: [account_idx, space, payer_idx, lamports, owner_pubkey, seeds_count, seed1, seed2, ..., bump]
 ///
 /// This creates a new Program Derived Address account using the provided seeds and bump.
 /// The PDA address is deterministically derived and the account is created with the specified parameters.
@@ -182,6 +185,7 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Pop basic parameters
     let account_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
     let space = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+    let payer_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
     let lamports = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
     let owner_ref = ctx.pop()?;
     let seeds_count = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
