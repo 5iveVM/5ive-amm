@@ -19,10 +19,10 @@ mod deploy_verification_tests {
 
     #[test]
     fn test_verify_invalid_call_out_of_bounds() {
-        // Create bytecode with CALL pointing to function address > total_count (invalid)
+        // Create bytecode with CALL pointing to function address > bytecode length (invalid)
         let bytecode_data = bytecode!(
-            emit_header(0, 0), // total_count = 0
-            emit_call(5, 0)       // calling function 5, but only 0 functions exist
+            emit_header(0, 0), 
+            emit_call(200, 0)       // calling address 200, which is outside bytecode len (~14)
         );
         assert!(verify_bytecode_content(&bytecode_data).is_err());
     }

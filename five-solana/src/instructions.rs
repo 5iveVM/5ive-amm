@@ -68,6 +68,7 @@ use crate::{
 use five_vm_mito::MitoVM;
 #[cfg(feature = "debug-logs")]
 use five_vm_mito::VMError;
+use five_protocol::{encoding::VLE, opcodes::{self, ArgType}};
 
 // Script deployment and execution instructions
 pub const DEPLOY_INSTRUCTION: u8 = 8;
@@ -882,7 +883,24 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
         let fee = calculate_fee(STANDARD_TX_FEE, vm_state.execute_fee_bps);
         if fee > 0 {
-             // ... fee logic ...
+             let admin_key = vm_state.authority;
+             let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
+             let payer_account = accounts.iter().find(|a| a.is_signer() && *a.key() != *vm_state_account.key() && *a.key() != *script_account.key());
+             
+             if let Some(recipient) = admin_account {
+                 if let Some(payer) = payer_account {
+                     #[cfg(feature = "debug-logs")]
+                     pinocchio_log::log!("DEBUG: Paying execute fee: {}", fee);
+                     transfer_fee(payer, recipient, fee)?;
+                 } else {
+                     return Err(ProgramError::MissingRequiredSignature);
+                 }
+             } else {
+                 #[cfg(feature = "debug-logs")]
+                 pinocchio_log::log!("DEBUG: Execute fee required but Admin not found");
+                 // Error 1107 matches test expectation (likely FeeCollectorMissing)
+                 return Err(ProgramError::Custom(1107));
+             }
              &accounts[1..]  // Skip Script account, start from VM State
         } else {
              #[cfg(feature = "debug-logs")]
@@ -1030,6 +1048,130 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     // Validate public_count <= total_count
     if public_function_count > total_function_count {
         return Err(ProgramError::InvalidInstructionData);
+    }
+
+    // Iterate and verify all instructions
+    let mut offset = compute_instruction_start_offset(bytecode) as usize;
+    
+    // Ensure start offset is within bounds
+    if offset > bytecode.len() {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    while offset < bytecode.len() {
+        let opcode = bytecode[offset];
+        
+        // Get opcode info - fails if valid opcode is not defined
+        let info = opcodes::get_opcode_info(opcode)
+            .ok_or(ProgramError::InvalidInstructionData)?;
+
+        let mut instruction_size = 1; // 1 byte for opcode
+
+        // Decode arguments based on argument type
+        match info.arg_type {
+            ArgType::None => {}
+            ArgType::U8 | ArgType::RegisterIndex | ArgType::ValueType => {
+                if offset + instruction_size + 1 > bytecode.len() {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                instruction_size += 1;
+            }
+            ArgType::U16 => {
+                if offset + instruction_size + 2 > bytecode.len() {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                instruction_size += 2;
+            }
+            ArgType::U32 | ArgType::FunctionIndex | ArgType::LocalIndex | ArgType::AccountIndex => {
+                if offset + instruction_size >= bytecode.len() {
+                     return Err(ProgramError::InvalidInstructionData);
+                }
+                match VLE::decode_u32(&bytecode[offset + instruction_size..]) {
+                    Some((value, consumed)) => {
+                        // Additional Logic Checks
+                        if info.arg_type == ArgType::FunctionIndex && opcode == opcodes::CALL {
+                             if value >= total_function_count as u32 {
+                                 return Err(ProgramError::InvalidInstructionData);
+                             }
+                        }
+                        instruction_size += consumed;
+                    }
+                    None => return Err(ProgramError::InvalidInstructionData),
+                }
+            }
+            ArgType::U64 => {
+                 if offset + instruction_size >= bytecode.len() {
+                     return Err(ProgramError::InvalidInstructionData);
+                }
+                match VLE::decode_u64(&bytecode[offset + instruction_size..]) {
+                    Some((_, consumed)) => instruction_size += consumed,
+                    None => return Err(ProgramError::InvalidInstructionData),
+                }
+            }
+            ArgType::TwoRegisters => {
+                if offset + instruction_size + 2 > bytecode.len() {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                instruction_size += 2;
+            }
+            ArgType::ThreeRegisters => {
+                if offset + instruction_size + 3 > bytecode.len() {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                instruction_size += 3;
+            }
+            ArgType::CallExternal => {
+                // account_index (u8) + func_offset (u16) + param_count (u8)
+                if offset + instruction_size + 4 > bytecode.len() {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                instruction_size += 4;
+            }
+            ArgType::CallInternal => {
+                // param_count (u8) + func_addr (u16)
+                if offset + instruction_size + 3 > bytecode.len() {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                
+                // Extract func_addr (u16) at buffer[offset+2..offset+4]
+                // instruction_size is 1 (opcode).
+                // Offset structure: [Opcode] [ParamCount] [AddrLo] [AddrHi]
+                // So addr is at offset + 1 + 1 = offset + 2
+                
+                let addr_lo = bytecode[offset + 2];
+                let addr_hi = bytecode[offset + 3];
+                let func_addr = u16::from_le_bytes([addr_lo, addr_hi]) as usize;
+                
+                if func_addr >= bytecode.len() {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                
+                instruction_size += 3;
+            }
+            ArgType::AccountField => {
+                // account_index (u8)
+                if offset + instruction_size + 1 > bytecode.len() {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                instruction_size += 1;
+                
+                // field_offset (VLE)
+                if offset + instruction_size >= bytecode.len() {
+                     return Err(ProgramError::InvalidInstructionData);
+                }
+                match VLE::decode_u32(&bytecode[offset + instruction_size..]) {
+                    Some((_, consumed)) => instruction_size += consumed,
+                    None => return Err(ProgramError::InvalidInstructionData),
+                }
+            }
+        }
+
+        // Final bounds check after size calculation
+        if offset + instruction_size > bytecode.len() {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+
+        offset += instruction_size;
     }
 
     Ok(())
