@@ -321,11 +321,18 @@ impl DslParser {
                         leading_attributes.push(Attribute { name: "init".to_string(), args: vec![] });
                         self.advance();
 
-                        // Parse optional (payer=name, space=256) syntax using shared helper
-                        let (payer_name, explicit_space) = self.parse_init_arguments()?;
+                        // Parse optional (payer=name, space=256, seeds=[...], bump=name) syntax using shared helper
+                        let (payer_name, explicit_space, explicit_seeds, explicit_bump) = self.parse_init_arguments()?;
 
-                        // Check for optional [seeds] syntax
-                        if matches!(self.current_token, Token::LeftBracket) {
+                        // Check for optional [seeds] syntax (legacy or standalone)
+                        if explicit_seeds.is_some() {
+                             init_config = Some(crate::ast::InitConfig {
+                                seeds: explicit_seeds,
+                                bump: explicit_bump,
+                                space: explicit_space,
+                                payer: payer_name,
+                            });
+                        } else if matches!(self.current_token, Token::LeftBracket) {
                             self.advance(); // consume '['
 
                             let mut seeds = Vec::new();
@@ -444,11 +451,18 @@ impl DslParser {
                         trailing_attributes.push(Attribute { name: "init".to_string(), args: vec![] });
                         self.advance(); // consume @init token
 
-                        // Parse optional (payer=name, space=256) syntax using shared helper
-                        let (payer_name, explicit_space) = self.parse_init_arguments()?;
+                        // Parse optional (payer=name, space=256, seeds=[...], bump=name) syntax using shared helper
+                        let (payer_name, explicit_space, explicit_seeds, explicit_bump) = self.parse_init_arguments()?;
 
                         // Check for optional [seeds] syntax
-                        if matches!(self.current_token, Token::LeftBracket) {
+                        if explicit_seeds.is_some() {
+                            init_config = Some(crate::ast::InitConfig {
+                                seeds: explicit_seeds,
+                                bump: explicit_bump,
+                                space: explicit_space,
+                                payer: payer_name,
+                            });
+                        } else if matches!(self.current_token, Token::LeftBracket) {
                             self.advance(); // consume '['
 
                             let mut seeds = Vec::new();
@@ -704,12 +718,14 @@ impl DslParser {
 
     /// Parse @init arguments: @init(payer=authority, space=256)
     /// Returns (payer: Option<String>, space: Option<u64>)
-    fn parse_init_arguments(&mut self) -> Result<(Option<String>, Option<u64>), VMError> {
+    fn parse_init_arguments(&mut self) -> Result<(Option<String>, Option<u64>, Option<Vec<AstNode>>, Option<String>), VMError> {
         let mut payer: Option<String> = None;
         let mut space: Option<u64> = None;
+        let mut seeds: Option<Vec<AstNode>> = None;
+        let mut bump: Option<String> = None;
         
         if !matches!(self.current_token, Token::LeftParen) {
-            return Ok((None, None));
+            return Ok((None, None, None, None));
         }
         self.advance(); // consume '('
         
@@ -751,7 +767,40 @@ impl DslParser {
                         _ => return Err(self.parse_error("space size as number")),
                     };
                 }
-                _ => return Err(self.parse_error("'payer' or 'space' in @init()")),
+                "seeds" => {
+                    if !matches!(self.current_token, Token::LeftBracket) {
+                        return Err(self.parse_error("'[' for seed list"));
+                    }
+                    self.advance(); // consume '['
+
+                    let mut seed_list = Vec::new();
+                    while !matches!(self.current_token, Token::RightBracket | Token::Eof) {
+                        seed_list.push(self.parse_expression()?);
+
+                        if matches!(self.current_token, Token::Comma) {
+                            self.advance();
+                        } else if !matches!(self.current_token, Token::RightBracket) {
+                            return Err(self.parse_error("',' or ']' in seed list"));
+                        }
+                    }
+
+                    if !matches!(self.current_token, Token::RightBracket) {
+                        return Err(self.parse_error("']' to close seed list"));
+                    }
+                    self.advance(); // consume ']'
+                    seeds = Some(seed_list);
+                }
+                "bump" => {
+                    bump = match &self.current_token {
+                        Token::Identifier(name) => {
+                            let n = name.clone();
+                            self.advance();
+                            Some(n)
+                        }
+                        _ => return Err(self.parse_error("bump variable name")),
+                    };
+                }
+                _ => return Err(self.parse_error("'payer', 'space', 'seeds' or 'bump' in @init()")),
             }
             
             // Handle comma separator
@@ -767,7 +816,7 @@ impl DslParser {
         }
         self.advance(); // consume ')'
         
-        Ok((payer, space))
+        Ok((payer, space, seeds, bump))
     }
 
     fn unexpected_token(&self) -> VMError {
