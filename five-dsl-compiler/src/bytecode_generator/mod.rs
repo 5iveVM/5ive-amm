@@ -54,7 +54,8 @@ pub mod module_merger;
 
 // Account indices in bytecode are offset by VM state account.
 // Script account is handled separately and not passed to MitoVM.
-pub const ACCOUNT_INDEX_OFFSET: u8 = 1;
+// OFFSET 2: 0=ProgramID, 1=VMState, 2=First User Account
+pub const ACCOUNT_INDEX_OFFSET: u8 = 2;
 
 // CALL opcode emission and patching (public for testing)
 pub mod call;
