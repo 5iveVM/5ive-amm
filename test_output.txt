@@ -1,0 +1,1830 @@
+warning: unused import: `heapless::Vec`
+  --> five-vm-mito/src/context.rs:18:5
+   |
+18 | use heapless::Vec;
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `Seed`
+  --> five-vm-mito/src/context.rs:21:45
+   |
+21 |     instruction::{AccountMeta, Instruction, Seed, Signer},
+   |                                             ^^^^
+
+warning: unused imports: `ExecutionContext`, `Pubkey`, `Result`, and `StackStorage`
+   --> five-vm-mito/src/test_polymorphic_arithmetic.rs:6:13
+    |
+6   | use crate::{ExecutionContext, Pubkey, Result, StackStorage};
+    |             ^^^^^^^^^^^^^^^^  ^^^^^^  ^^^^^^  ^^^^^^^^^^^^
+    |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+   --> five-vm-mito/src/lib.rs:103:1
+    |
+103 | mod test_polymorphic_arithmetic;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ValueRef` and `opcodes::*`
+   --> five-vm-mito/src/test_polymorphic_arithmetic.rs:7:21
+    |
+7   | use five_protocol::{opcodes::*, ValueRef};
+    |                     ^^^^^^^^^^  ^^^^^^^^
+    |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+   --> five-vm-mito/src/lib.rs:103:1
+    |
+103 | mod test_polymorphic_arithmetic;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `system_program`
+    --> five-vm-mito/src/context.rs:1055:13
+     |
+1055 |         let system_program = self
+     |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_system_program`
+     |
+     = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `instruction`
+    --> five-vm-mito/src/context.rs:1094:13
+     |
+1094 |         let instruction = Instruction {
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_instruction`
+
+warning: unused variable: `system_program`
+    --> five-vm-mito/src/context.rs:1155:13
+     |
+1155 |         let system_program = self
+     |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_system_program`
+
+warning: unused variable: `instruction`
+    --> five-vm-mito/src/context.rs:1178:13
+     |
+1178 |         let instruction = Instruction {
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_instruction`
+
+warning: unused variable: `seeds`
+    --> five-vm-mito/src/context.rs:1131:9
+     |
+1131 |         seeds: &[&[u8]],
+     |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_seeds`
+
+warning: unused variable: `bump`
+    --> five-vm-mito/src/context.rs:1132:9
+     |
+1132 |         bump: u8,
+     |         ^^^^ help: if this is intentional, prefix it with an underscore: `_bump`
+
+warning: `five-vm-mito` (lib) generated 10 warnings (run `cargo fix --lib -p five-vm-mito` to apply 4 suggestions)
+warning: methods `emit_u128` and `get_bytecode` are never used
+  --> five-dsl-compiler/src/bytecode_generator/ast_generator/tests.rs:21:8
+   |
+13 | impl MockEmitter {
+   | ---------------- methods in this implementation
+...
+21 |     fn emit_u128(&mut self, value: u128) {
+   |        ^^^^^^^^^
+...
+26 |     fn get_bytecode(&self) -> &[u8] {
+   |        ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: unused import: `Pubkey`
+  --> five-wasm/src/lib.rs:15:36
+   |
+15 | use five_vm_mito::{error::VMError, Pubkey, FIVE_VM_PROGRAM_ID};
+   |                                    ^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `Deserialize`
+    --> five-wasm/src/lib.rs:3146:32
+     |
+3146 |         use serde::{Serialize, Deserialize};
+     |                                ^^^^^^^^^^^
+
+warning: unused variable: `value`
+    --> five-wasm/src/lib.rs:1635:39
+     |
+1635 |                          if let Some((value, size)) = VLE::decode_u16(&bytes[1..]) {
+     |                                       ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+     |
+     = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `value`
+    --> five-wasm/src/lib.rs:1657:39
+     |
+1657 |                          if let Some((value, size)) = VLE::decode_u32(&bytes[1..]) {
+     |                                       ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: unused variable: `value`
+    --> five-wasm/src/lib.rs:1670:35
+     |
+1670 |                      if let Some((value, size)) = VLE::decode_u64(&bytes[1..]) {
+     |                                   ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: unused variable: `value`
+    --> five-wasm/src/lib.rs:1682:35
+     |
+1682 |                      if let Some((value, size)) = VLE::decode_u32(&bytes[2..]) {
+     |                                   ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: variable does not need to be mutable
+    --> five-wasm/src/lib.rs:2781:13
+     |
+2781 |         let mut metrics_format = if options.metrics_format.is_empty() {
+     |             ----^^^^^^^^^^^^^^
+     |             |
+     |             help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+    --> five-wasm/src/lib.rs:3426:26
+     |
+3426 |                      let mut compiler_error = five_dsl_compiler::error::CompilerError::new(
+     |                          ----^^^^^^^^^^^^^^
+     |                          |
+     |                          help: remove this `mut`
+
+warning: function `convert_compiler_error_to_wasm` is never used
+    --> five-wasm/src/lib.rs:4688:4
+     |
+4688 | fn convert_compiler_error_to_wasm(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` on by default
+
+warning: function `metrics_format_label` is never used
+    --> five-wasm/src/lib.rs:4741:4
+     |
+4741 | fn metrics_format_label(format: &ExportFormat) -> &'static str {
+     |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: `five-dsl-compiler` (lib test) generated 1 warning
+warning: `five-vm-wasm` (lib test) generated 10 warnings (run `cargo fix --lib -p five-vm-wasm --tests` to apply 4 suggestions)
+warning: constant `PERMISSION_PRE_BYTECODE` is never used
+  --> five-solana/src/common.rs:88:11
+   |
+88 | pub const PERMISSION_PRE_BYTECODE: u8 = 0x01;         // Bit 0
+   |           ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: variable does not need to be mutable
+   --> five-solana/src/test_parameter_indexing.rs:196:13
+    |
+196 |         let mut exec_data2 = exec_data1.clone();
+    |             ----^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: `five` (lib) generated 1 warning
+warning: `five` (lib test) generated 1 warning (run `cargo fix --lib -p five --tests` to apply 1 suggestion)
+warning: field `secret` is never read
+  --> five-solana/examples/generate_admin_key.rs:64:5
+   |
+63 | struct AdminKeyPair {
+   |        ------------ field in this struct
+64 |     secret: [u8; 32],
+   |     ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: unused variable: `bytecode`
+  --> five-dsl-compiler/tests/test_constraint_snapshot.rs:30:9
+   |
+30 |     let bytecode = generator.generate(&ast).expect("Should generate bytecode");
+   |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bytecode`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused import: `FEATURE_FUNCTION_METADATA`
+ --> five-dsl-compiler/tests/lib.rs:7:36
+  |
+7 |     Value, FEATURE_COLD_START_OPT, FEATURE_FUNCTION_METADATA, FEATURE_FUNCTION_NAMES,
+  |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/tests/lib.rs:412:13
+    |
+412 |             is_public,
+    |             ^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/tests/lib.rs:428:13
+    |
+428 |             is_public,
+    |             ^^^^^^^^^
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+    --> five-dsl-compiler/tests/lib.rs:1122:13
+     |
+1122 |             is_public: _,
+     |             ^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> five-dsl-compiler/tests/lib.rs:356:9
+    |
+356 |     let mut expected_features = FEATURE_FUSED_BRANCH
+    |         ----^^^^^^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: `five` (example "generate_admin_key") generated 1 warning
+warning: `five-dsl-compiler` (test "test_constraint_snapshot") generated 1 warning
+warning: `five-dsl-compiler` (test "lib") generated 5 warnings (run `cargo fix --test "lib"` to apply 2 suggestions)
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+  --> five-dsl-compiler/tests/test_visibility_system.rs:58:13
+   |
+58 |             is_public,
+   |             ^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/tests/test_visibility_system.rs:102:13
+    |
+102 |             is_public,
+    |             ^^^^^^^^^
+
+warning: `five-dsl-compiler` (test "test_visibility_system") generated 2 warnings
+warning: unused import: `FIVE_VM_PROGRAM_ID`
+ --> five-vm-mito/tests/temp_value_roundtrip.rs:1:38
+  |
+1 | use five_vm_mito::{ExecutionContext, FIVE_VM_PROGRAM_ID, StackStorage, ValueRef};
+  |                                      ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `five-vm-mito` (test "temp_value_roundtrip") generated 1 warning (run `cargo fix --test "temp_value_roundtrip"` to apply 1 suggestion)
+warning: unused imports: `FIVE_VM_PROGRAM_ID` and `error::VMErrorCode`
+ --> five-vm-mito/tests/pda_init_tests.rs:6:33
+  |
+6 | use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, VMError, error::VMErrorCode};
+  |                                 ^^^^^^^^^^^^^^^^^^                   ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `five-vm-mito` (test "pda_init_tests") generated 1 warning (run `cargo fix --test "pda_init_tests"` to apply 1 suggestion)
+warning: unused import: `FIVE_VM_PROGRAM_ID`
+ --> five-vm-mito/tests/call_external_verification_tests.rs:7:20
+  |
+7 | use five_vm_mito::{FIVE_VM_PROGRAM_ID, metadata::ImportMetadata};
+  |                    ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `FIVE_VM_PROGRAM_ID`
+ --> five-vm-mito/tests/typed_params_tests.rs:4:51
+  |
+4 | use five_vm_mito::{AccountInfo, ExecutionContext, FIVE_VM_PROGRAM_ID, Pubkey, StackStorage, TEMP_BUFFER_SIZE, utils:...
+  |                                                   ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `five-vm-mito` (test "call_external_verification_tests") generated 1 warning (run `cargo fix --test "call_external_verification_tests"` to apply 1 suggestion)
+warning: `five-vm-mito` (test "typed_params_tests") generated 1 warning (run `cargo fix --test "typed_params_tests"` to apply 1 suggestion)
+warning: unused import: `FIVE_VM_PROGRAM_ID`
+ --> five-vm-mito/tests/value_ref_resolution.rs:2:71
+  |
+2 | use five_vm_mito::{error::VMErrorCode, AccountInfo, ExecutionContext, FIVE_VM_PROGRAM_ID, MitoVM, Pubkey, StackStora...
+  |                                                                       ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `five-vm-mito` (test "value_ref_resolution") generated 1 warning (run `cargo fix --test "value_ref_resolution"` to apply 1 suggestion)
+warning: `five-vm-mito` (lib test) generated 7 warnings (7 duplicates)
+warning: unused import: `FIVE_VM_PROGRAM_ID`
+ --> five-vm-mito/tests/minimal_option_test.rs:4:38
+  |
+4 | use five_vm_mito::{ExecutionContext, FIVE_VM_PROGRAM_ID, StackStorage, ValueRef};
+  |                                      ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `FIVE_VM_PROGRAM_ID`
+ --> five-vm-mito/tests/temp_alloc_overflow.rs:2:38
+  |
+2 | use five_vm_mito::{ExecutionContext, FIVE_VM_PROGRAM_ID, StackStorage, TEMP_BUFFER_SIZE};
+  |                                      ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `five-vm-mito` (test "minimal_option_test") generated 1 warning (run `cargo fix --test "minimal_option_test"` to apply 1 suggestion)
+warning: `five-vm-mito` (test "temp_alloc_overflow") generated 1 warning (run `cargo fix --test "temp_alloc_overflow"` to apply 1 suggestion)
+warning: unused import: `CALL`
+  --> five-protocol/tests/fixtures.rs:11:62
+   |
+11 | use five_protocol::{parser::parse_bytecode, BytecodeBuilder, CALL};
+   |                                                              ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `OpcodeInfo`
+ --> five-protocol/tests/opcode_consistency.rs:3:40
+  |
+3 |     use five_protocol::opcodes::{self, OpcodeInfo, OPCODE_TABLE, get_opcode_info};
+  |                                        ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `five-protocol` (test "fixtures") generated 1 warning (run `cargo fix --test "fixtures"` to apply 1 suggestion)
+warning: `five-protocol` (test "opcode_consistency") generated 1 warning (run `cargo fix --test "opcode_consistency"` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.19s
+     Running unittests src/lib.rs (target/debug/deps/five-6b43dd3421ca1b34)
+
+running 71 tests
+test common::tests::test_has_permission ... ok
+test common::tests::test_validate_permissions ... ok
+test state::tests::test_header_version_4_creation ... ok
+test common::tests::test_admin_key_validation ... ok
+test state::tests::test_namespace_registry_expiration ... ok
+test state::tests::test_namespace_registry_script_count ... ok
+test test_call_external::call_external_tests::test_call_external_basic ... ok
+test test_call_external::call_external_tests::test_call_external_instruction_format ... ok
+test test_call_external::call_external_tests::test_call_external_error_handling ... ok
+test test_call_external::call_external_tests::test_call_external_with_parameters ... ok
+test test_call_external_constraints::call_external_constraint_tests::test_all_constraint_types_enforced_in_bytecode ... ok
+test test_call_external_constraints::call_external_constraint_tests::test_constraint_enforcement_is_automatic ... ok
+test test_call_external_constraints::call_external_constraint_tests::test_constraint_enforcement_levels ... ok
+test test_call_external_constraints::call_external_constraint_tests::test_constraint_violation_in_external_function ... ok
+test test_call_external_constraints::call_external_constraint_tests::test_constraints_are_self_enforcing_in_bytecode ... ok
+test state::tests::header_roundtrip ... ok
+test state::tests::test_header_version_4_permissions ... ok
+test state::tests::namespace_registry_roundtrip ... ok
+test state::tests::test_header_permissions_preserved_in_roundtrip ... ok
+test test_call_external_constraints::call_external_constraint_tests::test_external_function_constraints_embedded_in_bytecode ... ok
+test test_call_external_public_functions::public_function_invocation_tests::test_call_external_instruction_format ... ok
+test test_call_external_public_functions::public_function_invocation_tests::test_call_external_parameter_passing ... ok
+test test_call_external_public_functions::public_function_invocation_tests::test_call_external_public_function_invocation ... ok
+test test_call_external_public_functions::public_function_invocation_tests::test_call_external_vs_cpi_overhead ... ok
+test test_call_external_public_functions::public_function_invocation_tests::test_function_offset_calculation ... ok
+test test_call_external_public_functions::public_function_invocation_tests::test_public_function_discovery ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_arithmetic_operations ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_header_too_small ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_incomplete_call ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_incomplete_instruction ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_invalid_call_out_of_bounds ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_invalid_opcode ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_local_operations ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_push_u64_boundary ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_valid_bytecode_with_call ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_valid_minimal_bytecode ... ok
+test test_parameter_indexing::comprehensive_instruction_tests::test_deploy_instruction_parsing ... ok
+test test_parameter_indexing::comprehensive_instruction_tests::test_execute_instruction_with_varying_params ... ok
+test test_parameter_indexing::comprehensive_instruction_tests::test_instruction_parsing_consistency ... ok
+test test_parameter_indexing::comprehensive_instruction_tests::test_large_parameter_values ... ok
+test test_parameter_indexing::parameter_indexing_tests::test_add_amount_parameter_format ... ok
+test test_parameter_indexing::parameter_indexing_tests::test_execute_instruction_multiple_parameters ... ok
+test test_parameter_indexing::parameter_indexing_tests::test_execute_instruction_with_parameters ... ok
+test test_parameter_indexing::parameter_indexing_tests::test_no_parameters_execution ... ok
+test test_parameter_indexing::parameter_indexing_tests::test_parameter_data_preservation ... ok
+test test_parameter_indexing::parameter_indexing_tests::test_parameter_serialization_format ... ok
+test test_script_header_v3::script_header_v3_tests::test_deploy_instruction_format ... ok
+test test_script_header_v3::script_header_v3_tests::test_deploy_time_verification_matches_parser ... ok
+test test_script_header_v3::script_header_v3_tests::test_execute_instruction_format ... ok
+test test_script_header_v3::script_header_v3_tests::test_script_header_v3_creation ... ok
+test test_script_header_v3::script_header_v3_tests::test_verifier_alignment_with_golden_fixtures ... ok
+test test_utils::tests::test_archive_pda_deterministic ... ok
+test test_utils::tests::test_archive_pda_different_versions ... ok
+test test_utils::tests::test_namespace_pda_different_domains ... ok
+test test_utils::tests::test_namespace_pda_different_prefixes ... ok
+test test_deploy_verification::deploy_verification_tests::test_verify_empty_function_test_bytecode ... ok
+test tests::tests::test_adapter_key_conversion ... ok
+test tests::tests::test_instruction_deserialization ... ok
+test tests::tests::test_invalid_instruction ... ok
+test test_utils::tests::test_vm_state_pda_different_programs ... ok
+test test_utils::tests::test_vm_state_pda_deterministic ... ok
+test tests::tests::test_state_serialization ... ok
+test tests_process_instruction::tests::test_deploy_instruction_bounds ... ok
+test tests_process_instruction::tests::test_execute_fee_requires_admin_account ... ok
+test tests_process_instruction::tests::test_execute_instruction_empty_input ... ok
+test tests_process_instruction::tests::test_initialize_sets_default_fees ... ok
+test tests_process_instruction::tests::test_instruction_parsing ... ok
+test tests_process_instruction::tests::test_invalid_instructions ... ok
+test tests_process_instruction::tests::test_set_fees_updates_state ... ok
+test tests_process_instruction::tests::test_execute_transfers_fee_to_admin ... ok
+test tests_process_instruction::tests::test_execute_charges_full_fee ... ok
+
+test result: ok. 71 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/five_dsl_compiler-74e34e290fe6b34b)
+
+running 265 tests
+test ast::conversions::tests::test_expression_to_astnode_conversion ... ok
+test ast::conversions::tests::test_statement_to_astnode_conversion ... ok
+test bytecode_generator::account_system::tests::test_account_type_detection ... ok
+test bytecode_generator::account_system::tests::test_account_system_creation ... ok
+test bytecode_generator::account_system::tests::test_account_definition_processing ... ok
+test bytecode_generator::account_system::tests::test_builtin_property_detection ... ok
+test bytecode_generator::account_system::tests::test_type_size_calculation ... ok
+test bytecode_generator::account_utils::tests::test_account_attributes ... ok
+test bytecode_generator::account_utils::tests::test_account_parameter_detection ... ok
+test bytecode_generator::account_utils::tests::test_built_in_account_types ... ok
+test bytecode_generator::account_utils::tests::test_custom_account_types ... ok
+test bytecode_generator::account_utils::tests::test_non_account_types ... ok
+test bytecode_generator::abi_generator::tests::test_account_parameter_filtering ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_external_import_case_sensitivity ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_call_external_unknown_function_defaults_to_zero ... ok
+test bytecode_generator::abi_generator::tests::test_simple_abi_generation ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_call_external_emission_format ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_external_import_empty_functions ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_external_import_overwrite ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_external_import_reset ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_external_import_struct_clone ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_get_external_import_details ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_complex_module ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_empty_function ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_empty_string ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_just_separator ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_empty_module ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_multiple_separators ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_single_char ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_underscore_names ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_unqualified ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_parse_qualified_name_valid ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_register_external_import_multiple ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_register_external_import_basic ... ok
+test bytecode_generator::ast_generator::external_call_tests::test_unqualified_call_not_external ... ok
+test bytecode_generator::ast_generator::tests::test_builtin_method_emission ... ok
+test bytecode_generator::ast_generator::tests::test_error_handling_invalid_script ... ok
+test bytecode_generator::ast_generator::tests::test_call_deduplication_safety ... ok
+test bytecode_generator::ast_generator::tests::test_binary_expression_generation ... ok
+test bytecode_generator::ast_generator::tests::test_constant_folding ... ok
+test bytecode_generator::ast_generator::tests::test_function_parameter_handling ... ok
+test bytecode_generator::ast_generator::tests::test_jump_patching ... ok
+test bytecode_generator::ast_generator::tests::test_if_statement_generation ... ok
+test bytecode_generator::ast_generator::tests::test_resource_tracking ... ok
+test bytecode_generator::ast_generator::tests::test_local_variable_generation ... ok
+test bytecode_generator::ast_generator::tests::test_symbol_table_operations ... ok
+test bytecode_generator::ast_generator::tests::test_type_node_conversion ... ok
+test bytecode_generator::ast_generator::utilities::tests::test_ast_generator_creation ... ok
+test bytecode_generator::ast_generator::tests::test_v2_preview_local_variables ... ok
+test bytecode_generator::ast_generator::utilities::tests::test_simple_expression_detection ... ok
+test bytecode_generator::ast_generator::utilities::tests::test_type_inference ... ok
+test bytecode_generator::ast_generator::utilities::tests::test_type_node_to_string ... ok
+test bytecode_generator::bytecode_analyzer::tests::test_analyzer_creation ... ok
+test bytecode_generator::bytecode_analyzer::tests::test_instruction_categorization ... ok
+test bytecode_generator::bytecode_analyzer::tests::test_value_type_decoding ... ok
+test bytecode_generator::bytecode_analyzer::tests::test_empty_bytecode_analysis ... ok
+test bytecode_generator::compression::tests::test_segment_manager ... ok
+test bytecode_generator::compression::tests::test_string_pool ... ok
+test bytecode_generator::compression::tests::test_pattern_compressor ... ok
+test bytecode_generator::constraint_optimizer::tests::test_constraint_complexity_calculation ... ok
+test bytecode_generator::compression::tests::test_vle_encoding ... ok
+test bytecode_generator::constraint_optimizer::tests::test_constraint_deduplication_analysis ... ok
+test bytecode_generator::function_dispatch::tests::test_callable_functions_detection ... ok
+test bytecode_generator::function_dispatch::tests::test_function_dispatcher_creation ... ok
+test bytecode_generator::function_dispatch::tests::test_import_table_initialization ... ok
+test bytecode_generator::function_dispatch::tests::test_import_table_multiple_entries ... ok
+test bytecode_generator::function_dispatch::tests::test_import_table_populated_on_import ... ok
+test bytecode_generator::function_dispatch::tests::test_import_table_pda_seeds ... ok
+test bytecode_generator::function_dispatch::tests::test_function_info_collection ... ok
+test bytecode_generator::import_table::tests::test_add_import_by_address ... ok
+test bytecode_generator::function_dispatch::tests::test_account_parameter_detection ... ok
+test bytecode_generator::import_table::tests::test_add_import_by_address_multiple ... ok
+test bytecode_generator::import_table::tests::test_add_import_by_seeds ... ok
+test bytecode_generator::import_table::tests::test_duplicate_imports_allowed ... ok
+test bytecode_generator::import_table::tests::test_default_creates_empty_table ... ok
+test bytecode_generator::import_table::tests::test_empty_import_table ... ok
+test bytecode_generator::import_table::tests::test_long_seed_value ... ok
+test bytecode_generator::import_table::tests::test_max_seeds ... ok
+test bytecode_generator::import_table::tests::test_serialize_address_import ... ok
+test bytecode_generator::import_table::tests::test_serialize_roundtrip ... ok
+test bytecode_generator::import_table::tests::test_multiple_mixed_imports ... ok
+test bytecode_generator::module_merger::tests::test_add_module ... ok
+test bytecode_generator::import_table::tests::test_serialize_pda_seeds_import ... ok
+test bytecode_generator::import_table::tests::test_long_function_name ... ok
+test bytecode_generator::module_merger::tests::test_merge_empty_modules ... ok
+test bytecode_generator::module_merger::tests::test_merge_with_public_functions ... ok
+test bytecode_generator::module_merger::tests::test_merge_without_main_ast_fails ... ok
+test bytecode_generator::module_merger::tests::test_merge_private_functions_excluded ... ok
+test bytecode_generator::module_merger::tests::test_merge_internal_functions_included ... ok
+test bytecode_generator::module_merger::tests::test_merge_multiple_modules ... ok
+test bytecode_generator::module_merger::tests::test_merger_creation ... ok
+test bytecode_generator::module_merger::tests::test_set_main_ast ... ok
+test bytecode_generator::performance::tests::test_bulk_operation_optimizer ... ok
+test bytecode_generator::performance::tests::test_bulk_pattern_detection ... ok
+test bytecode_generator::performance::tests::test_performance_optimizer_creation ... ok
+test bytecode_generator::module_merger::tests::test_register_rename ... ok
+test bytecode_generator::performance::tests::test_performance_report ... ok
+test bytecode_generator::performance::tests::test_zerocopy_optimizer ... ok
+test bytecode_generator::scope_analyzer::tests::test_nested_scope_analysis ... ok
+test bytecode_generator::scope_analyzer::tests::test_basic_scope_analysis ... ok
+test bytecode_generator::scope_analyzer::tests::test_register_allocation_optimization ... ok
+test bytecode_parser::tests::test_parse_call_with_name ... ok
+test bytecode_parser::tests::test_parse_call_with_name_ref ... ok
+test compiler::error_handling::tests::test_convert_vm_error_type_mismatch ... ok
+test compiler::error_handling::tests::test_convert_vm_error_undefined_identifier ... ok
+test compiler::error_handling::tests::test_convert_and_collect_error ... ok
+test compiler::error_handling::tests::test_position_to_line_col_first_line ... ok
+test compiler::error_handling::tests::test_position_to_line_col_multiple_lines ... ok
+test compiler::error_handling::tests::test_position_to_line_col_end_of_file ... ok
+test compiler::pipeline::tests::test_compilation_config_builder ... ok
+test compiler::pipeline::tests::test_compilation_config_defaults ... ok
+test compiler::macros::tests::test_init_compilation_context ... ok
+test ast::registry::tests::test_registry_validates ... ok
+test ast::registry::tests::test_registry_loads ... ok
+test ast::registry::tests::test_get_by_category ... ok
+test compiler::pipeline::tests::test_parse_optimization_level ... ok
+test compiler::pipeline::tests::test_generate_bytecode_with_log_and_interfaces ... ok
+test compiler::pipeline::tests::test_empty_source_compilation ... ok
+test compiler::pipeline::tests::test_bytecode_generation_with_interface_registry ... ok
+test compiler::pipeline::tests::test_abi_generation ... ok
+test compiler::pipeline::tests::test_interface_error_handling ... ok
+test compiler::pipeline::tests::test_interface_preprocessing_with_interface ... ok
+test compiler::pipeline::tests::test_interface_registry_empty_program ... ok
+test compiler::pipeline::tests::test_pipeline_creation ... ok
+test compiler::pipeline::tests::test_pipeline_metrics_finalization ... ok
+test compiler::pipeline::tests::test_zero_allocation_source_access ... ok
+test config::project_config::tests::test_default_values ... ok
+test config::project_config::tests::test_load_basic_config ... ok
+test config::project_config::tests::test_load_multi_file_config ... ok
+test config::project_config::tests::test_load_with_optimizations ... ok
+test config::project_config::tests::test_validate_multi_file_without_entry_point ... ok
+test config::workspace::tests::test_link_type_default ... ok
+test config::workspace::tests::test_lock_file ... ok
+test config::workspace::tests::test_package_dependency_parse ... ok
+test config::workspace::tests::test_workspace_config_parse ... ok
+test compiler::tests::bytecode_matches_with_and_without_log ... ok
+test error::context::tests::test_context_extraction ... ok
+test error::context::tests::test_empty_source ... ok
+test error::context::tests::test_error_span_extraction ... ok
+test error::context::tests::test_line_out_of_range ... ok
+test error::context::tests::test_underline_creation ... ok
+test error::formatting::tests::test_lsp_formatter ... ok
+test error::formatting::tests::test_json_formatter ... ok
+test error::formatting::tests::test_terminal_formatter ... ok
+test error::integration::tests::test_error_collector ... ok
+test compiler::tests::test_compile_empty_source ... ok
+test error::integration::tests::test_parse_error_creation ... ok
+test error::registry::tests::test_category_parsing ... ok
+test error::registry::tests::test_default_registry ... ok
+test error::registry::tests::test_error_code_parsing ... ok
+test error::registry::tests::test_error_registry ... ok
+test error::registry::tests::test_message_rendering ... ok
+test error::registry::tests::test_toml_config_loading ... ok
+test error::suggestions::tests::test_code_fix ... ok
+test error::suggestions::tests::test_missing_semicolon_rule ... ok
+test error::suggestions::tests::test_suggestion_creation ... ok
+test error::suggestions::tests::test_suggestion_engine ... ok
+test error::suggestions::tests::test_type_mismatch_rule ... ok
+test error::templates::codegen_errors::tests::test_codegen_template_registration ... ok
+test error::templates::codegen_errors::tests::test_compute_unit_warning ... ok
+test error::templates::codegen_errors::tests::test_memory_access_template ... ok
+test error::templates::codegen_errors::tests::test_optimization_failure_template ... ok
+test error::templates::codegen_errors::tests::test_stack_overflow_suggestions ... ok
+test error::templates::parse_errors::tests::test_expected_token_template ... ok
+test error::templates::parse_errors::tests::test_parse_template_registration ... ok
+test error::templates::parse_errors::tests::test_unexpected_token_suggestions ... ok
+test error::templates::tests::test_conditional_template ... ok
+test error::templates::tests::test_placeholder_extraction ... ok
+test error::templates::tests::test_simple_template ... ok
+test error::templates::tests::test_template_manager ... ok
+test error::templates::type_errors::tests::test_boolean_context_suggestion ... ok
+test error::templates::type_errors::tests::test_string_conversion_suggestion ... ok
+test compiler::tests::test_compile_to_five_file ... ok
+test error::templates::type_errors::tests::test_type_inference_template ... ok
+test error::templates::type_errors::tests::test_type_mismatch_suggestions ... ok
+test error::templates::type_errors::tests::test_type_template_registration ... ok
+test error::tests::test_error_system_initialization ... ok
+test error::tests::test_config_loading ... ok
+test error::types::tests::test_error_builder ... ok
+test error::types::tests::test_error_code_display ... ok
+test error::types::tests::test_error_context ... ok
+test error::types::tests::test_source_location ... ok
+test five_file::tests::test_field_count_limit ... ok
+test five_file::tests::test_five_file_roundtrip ... ok
+test five_file::tests::test_function_count_limit ... ok
+test five_file::tests::test_load_io_error ... ok
+test five_file::tests::test_save_io_error ... ok
+test five_file::tests::test_unknown_type_errors ... ok
+test import_discovery::tests::test_discover_functions ... ok
+test import_discovery::tests::test_generate_interface_declaration ... ok
+test interface_registry::tests::test_interface_preprocessing ... ok
+test interface_registry::tests::test_interface_registry_basic ... ok
+test interface_registry::tests::test_interface_with_serializer_and_discriminator_bytes ... ok
+test interface_serializer::tests::anchor_borsh_serialization_with_discriminator_bytes ... ok
+test error::tests::test_global_error_system_access ... ok
+test interface_serializer::tests::bincode_serializes_discriminator_and_args ... ok
+test interface_serializer::tests::borsh_serializes_discriminator_and_args ... ok
+test interface_serializer::tests::borsh_serializes_string_from_table ... ok
+test compiler::tests::test_compile_with_config_builder ... ok
+test interface_serializer::tests::spl_token_mint_to_serialization_matches_layout ... ok
+test metrics::tests::test_metrics_export_csv ... ok
+test metrics::tests::test_metrics_export_json ... ok
+test module_resolver::tests::test_cycle_detection ... ok
+test module_resolver::tests::test_import_target_detection ... ok
+test module_resolver::tests::test_module_graph_topological_sort ... ok
+test module_resolver::tests::test_valid_solana_pubkey_detection ... ok
+test parser::tests::parse_struct_type_with_mut_and_optional_fields ... ok
+test metrics::tests::test_metrics_export_toml ... ok
+test test_modular_generator::tests::test_all_modules_accessible ... ok
+test test_modular_generator::tests::test_emit_function_name_metadata ... ok
+test test_modular_generator::tests::test_generator_reset ... ok
+test test_modular_generator::tests::test_magic_bytes_emission ... ok
+test test_modular_generator::tests::test_modular_generator_creation ... ok
+test test_modular_generator::tests::test_opcode_emission ... ok
+test test_modular_generator::tests::test_type_definitions_available ... ok
+test test_modular_generator::tests::test_simple_ast_compilation ... ok
+test tokenizer::tests::test_at_init_empty_seeds_error ... ok
+test tokenizer::tests::test_at_init_missing_closing_bracket_message ... ok
+test tokenizer::tests::test_at_init_missing_comma_message ... ok
+test tokenizer::tests::test_at_init_trailing_comma_error_message ... ok
+test tokenizer::tests::test_at_init_unterminated_seeds_error ... ok
+test tokenizer::tests::test_at_init_with_mixed_seeds ... ok
+test tokenizer::tests::test_at_init_with_string_seeds ... ok
+test tokenizer::tests::test_bitshift_operators ... ok
+test tokenizer::tests::test_bitwise_operators ... ok
+test tokenizer::tests::test_distinguishes_logical_from_bitwise ... ok
+test tokenizer::tests::test_simple_at_init ... ok
+test type_checker::module_scope::tests::test_add_module ... ok
+test type_checker::module_scope::tests::test_get_all_imports ... ok
+test type_checker::module_scope::tests::test_get_module_table ... ok
+test type_checker::module_scope::tests::test_insert_and_lookup_symbols ... ok
+test type_checker::module_scope::tests::test_module_scope_creation ... ok
+test type_checker::module_scope::tests::test_module_symbol_table_creation ... ok
+test type_checker::module_scope::tests::test_no_import_no_access ... ok
+test type_checker::module_scope::tests::test_on_chain_callable_internal ... ok
+test type_checker::module_scope::tests::test_on_chain_callable_public ... ok
+test type_checker::module_scope::tests::test_register_import ... ok
+test type_checker::module_scope::tests::test_resolve_symbol_imported ... ok
+test type_checker::module_scope::tests::test_resolve_symbol_local ... ok
+test type_checker::module_scope::tests::test_visibility_enforcement_internal ... ok
+test type_checker::module_scope::tests::test_visibility_enforcement_private ... ok
+test type_checker::type_helpers::tests::test_factory_methods ... ok
+test type_checker::module_scope::tests::test_visibility_enforcement_public ... ok
+test type_checker::type_helpers::tests::test_is_account_type ... ok
+test type_checker::type_helpers::tests::test_is_bool ... ok
+test type_checker::type_helpers::tests::test_is_builtin_account_property ... ok
+test type_checker::type_helpers::tests::test_is_numeric ... ok
+test type_checker::type_helpers::tests::test_is_numeric_type_name ... ok
+test type_checker::type_helpers::tests::test_is_pubkey ... ok
+test type_checker::type_helpers::tests::test_is_option ... ok
+test type_checker::type_helpers::tests::test_is_result ... ok
+test type_checker::type_helpers::tests::test_is_string ... ok
+test type_checker::type_helpers::tests::test_is_unknown_placeholder ... ok
+test type_checker::type_helpers::tests::test_numeric_type_meta ... ok
+test type_checker::type_helpers::tests::test_option_inner ... ok
+test type_checker::type_helpers::tests::test_result_ok_type ... ok
+test type_checker::type_safe_checker::tests::test_type_safe_checker_methods_exist ... ok
+test type_checker::type_safe_example::tests::test_type_safe_pattern ... ok
+test workspace_resolver::tests::test_workspace_discovery_no_workspace ... ok
+test metrics::tests::test_metrics_collector_basic ... ok
+test compiler::tests::test_compile_with_metrics ... ok
+test error::integration::tests::test_formatter_switching ... ok
+test error::integration::tests::test_error_system_initialization ... ok
+test compiler::tests::test_backward_compatibility_apis ... ok
+test compiler::tests::test_compile_with_different_modes ... ok
+
+test result: ok. 265 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running unittests src/bin/compile_script.rs (target/debug/deps/compile_script-3338c59a6e03960b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/debug_compile.rs (target/debug/deps/debug_compile-93d88e64ec8d8cc9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/dump_opcodes.rs (target/debug/deps/dump_opcodes-fa23cebb06310402)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/dump_tokens.rs (target/debug/deps/dump_tokens-7c6b2083d573c477)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/enhanced_error_cli.rs (target/debug/deps/enhanced_error_cli-f896cc147b3e5cae)
+
+running 1 test
+test tests::test_cli_compilation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/bin/extract_abi.rs (target/debug/deps/extract_abi-f6f3e83f1f66bf66)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/five.rs (target/debug/deps/five-1c0fc3097beb8ab7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/generate_ast.rs (target/debug/deps/generate_ast-8806f985805bc8d7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/generate_grammar.rs (target/debug/deps/generate_grammar-67cb74e6b8b8515e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/import_discovery_demo.rs (target/debug/deps/import_discovery_demo-e109ef828cd27fc9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/metrics_cli.rs (target/debug/deps/metrics_cli-cdeb1670fe80503b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/standalone_demo.rs (target/debug/deps/standalone_demo-13fddd7ebb8bf569)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/test_bytecode.rs (target/debug/deps/test_bytecode-f40c952aa5f47a93)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/abi_limits.rs (target/debug/deps/abi_limits-baa0c988e1226bba)
+
+running 2 tests
+test serialize_abi_errors_on_too_many_functions ... ok
+test serialize_abi_errors_on_too_many_fields ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/golden_bytecode.rs (target/debug/deps/golden_bytecode-a3394097f5bfda22)
+
+running 5 tests
+test golden_array_create_and_length ... ok
+test golden_derive_pda_emitted ... ok
+test golden_arithmetic_mul_then_add ... ok
+test golden_require_emitted ... ok
+test golden_division_left_associative ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/lib.rs (target/debug/deps/lib-41b600aad9cdc5f7)
+
+running 67 tests
+test test_basic_instruction_definition_failing ... ok
+test test_account_attributes_failing ... ok
+test test_account_validation_failing ... ok
+test test_complex_parameter_types_failing ... ok
+test test_array_types_rust_and_ts_style_failing ... ok
+test test_comprehensive_error_handling_integration ... ok
+test test_comprehensive_tokenizer ... ok
+test test_comprehensive_bytecode_generation ... ok
+test test_custom_error_enum_definition ... ok
+test test_dsl_bytecode_generator_simple_assignment ... ok
+test test_dsl_compiler_end_to_end ... ok
+test test_dsl_compiler_invalid_syntax ... ok
+test test_cpi_rejects_local_variable_as_account ... ok
+test test_dsl_parser_vault_structure ... ok
+test test_dsl_tokenizer_simple_vault ... ok
+test test_dsl_type_checker_invalid_array_access ... ok
+test test_dsl_type_checker_valid_array_access ... ok
+test test_dsl_type_checker_valid_assignment ... ok
+test test_error_enum_struct_variant_parsing ... ok
+test test_error_enum_tuple_variant_parsing ... ok
+test test_error_propagation_operator ... ok
+test test_event_definition_failing ... ok
+test test_event_with_complex_types_failing ... ok
+test test_field_definition_typescript_style_failing ... ok
+test test_field_definition_with_type_annotation_failing ... ok
+test test_generic_type_option_result_failing ... ok
+test test_if_statement_parsing ... ok
+test test_import_parsing ... ok
+test test_bytecode_uses_optimized_header_v2 ... ok
+test test_import_verification_bytecode_generation_pda ... ok
+test test_cpi_rejects_expression_as_account ... ok
+test test_cpi_parameter_count_validation ... ok
+test test_infer_type_invalid_enum_variant ... ok
+test test_instruction_definition_with_generic_return_type_failing ... ok
+test test_instruction_with_optional_params ... ok
+test test_invalid_enum_variant_access ... ok
+test test_lamports_field_access_parsing ... ok
+test test_lamports_field_access_rejected_for_non_accounts ... ok
+test test_left_associativity_division_correct ... ok
+test test_match_expression_parsing ... ok
+test test_match_expression_with_guard ... ok
+test test_multiple_events_and_emit_statements_failing ... ok
+test test_multiple_instruction_definitions_failing ... ok
+test test_multiplication_precedence_over_addition_correct ... ok
+test test_nested_control_flow ... ok
+test test_cpi_no_accounts_pure_data ... ok
+test test_option_type_parsing ... ok
+test test_optional_parameters_failing ... ok
+test test_parser_preserves_visibility_and_ordering ... ok
+test test_pda_constraints_failing ... ok
+test test_result_type_parsing ... ok
+test test_return_statement_parsing ... ok
+test test_rust_style_let_with_type_annotation_failing ... ok
+test test_simple_instruction_definition ... ok
+test test_cpi_interface_spl_token_mint_to ... ok
+test test_tokenizer_checked_arithmetic_tokens ... ok
+test test_type_checker_error_propagation_requires_result ... ok
+test test_cpi_duplicate_account_indices ... ok
+test test_dsl_compiler_type_error ... ok
+test test_vm_can_execute_compiler_bytecode ... ok
+test test_import_verification_bytecode_generation_address ... ok
+test test_import_verification_end_to_end_address ... ok
+test test_import_verification_prevents_attack ... ok
+test test_no_imports_no_verification_flag ... ok
+test test_symbol_table_simple ... ok
+test test_violation_fix_signer_function_rejected ... ok
+test test_violation_fix_undefined_identifiers_rejected ... ok
+
+test result: ok. 67 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/multi_file_tests.rs (target/debug/deps/multi_file_tests-e8a0f6d15d7f37a6)
+
+running 7 tests
+test test_auto_discovery_circular_dependency_error ... ok
+test test_auto_discovery_missing_module_error ... ok
+test test_discover_modules_simple ... ok
+test test_discover_modules_nested_path ... ok
+test test_compile_modules_explicit_mode ... ok
+test test_call_external_generation_via_auto_discovery ... ok
+test test_auto_discovery_simple_compilation ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/test_account_system.rs (target/debug/deps/test_account_system-214181aee64c209d)
+
+running 24 tests
+test test_builtin_data_access ... ok
+test test_field_access_missing_account_parameter ... ok
+test test_account_system_creation ... ok
+test test_builtin_owner_access ... ok
+test test_builtin_properties_recognized ... ok
+test test_builtin_lamports_access ... ok
+test test_builtin_key_access ... ok
+test test_account_field_offset_calculation ... ok
+test test_field_access_unregistered_account_type ... ok
+test test_field_access_with_multiple_accounts ... ok
+test test_generate_optional_field_access ... ok
+test test_generate_simple_field_access ... ok
+test test_get_account_registry ... ok
+test test_get_account_registry_mut ... ok
+test test_get_field_info_nonexistent_account ... ok
+test test_get_field_info_nonexistent_field ... ok
+test test_get_field_info_success ... ok
+test test_is_account_type ... ok
+test test_multiple_account_definitions ... ok
+test test_mutable_vs_immutable_fields ... ok
+test test_optional_field_handling ... ok
+test test_validate_registered_account_type ... ok
+test test_process_simple_account_definition ... ok
+test test_zerocopy_configuration ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_attribute_macros.rs (target/debug/deps/test_attribute_macros-a949ed8009b96c46)
+
+running 2 tests
+test test_attribute_macros_multiple_attributes ... ok
+test test_attribute_macros_requires_desugaring ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/test_bytecode_snapshots.rs (target/debug/deps/test_bytecode_snapshots-6c5c20ac56f405d2)
+
+running 39 tests
+test test_bitwise_operations_with_literals ... ok
+test test_bitwise_not_bytecode ... ok
+test test_arithmetic_shift_right_bytecode ... ok
+test test_bitwise_or_bytecode ... ok
+test test_bitwise_not_with_and ... ok
+test test_bitwise_and_bytecode ... ok
+test test_arithmetic_bytecode ... ok
+test test_bitwise_and_precedence_over_or ... ok
+test test_bytecode_minimum_size ... ok
+test test_bitwise_xor_bytecode ... ok
+test test_bytecode_deterministic ... ok
+test test_chained_bitwise_operations ... ok
+test test_chained_shift_operations ... ok
+test test_comparison_bytecode ... ok
+test test_clear_bit_pattern ... ok
+test test_compound_bitwise_or_assignment ... ok
+test test_compound_bitwise_and_assignment ... ok
+test test_complex_program_bytecode_structure ... ok
+test test_compound_right_shift_assignment ... ok
+test test_function_call_bytecode ... ok
+test test_extract_byte_pattern ... ok
+test test_compound_bitwise_xor_assignment ... ok
+test test_header_magic_bytes ... ok
+test test_compound_shift_assignment ... ok
+test test_function_with_parameters_bytecode ... ok
+test test_header_function_counts ... ok
+test test_header_version ... ok
+test test_mixed_arithmetic_and_bitwise ... ok
+test test_rotate_right_bytecode ... ok
+test test_rotate_left_bytecode ... ok
+test test_set_bit_pattern ... ok
+test test_shift_large_amount ... ok
+test test_shift_left_bytecode ... ok
+test test_shift_precedence_over_additive ... ok
+test test_shift_right_bytecode ... ok
+test test_shift_zero_amount ... ok
+test test_simple_return_bytecode ... ok
+test test_variable_assignment_bytecode ... ok
+test test_xor_vs_or_precedence ... ok
+
+test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/test_call_patching.rs (target/debug/deps/test_call_patching-8a9637d40f3a6a93)
+
+running 16 tests
+test test_emit_call_basic ... ok
+test test_emit_multiple_calls ... ok
+test test_call_site_tracker_creation ... ok
+test test_backward_reference ... ok
+test test_forward_reference_single_call ... ok
+test test_mixed_forward_backward_references ... ok
+test test_forward_reference_multiple_calls_to_same_function ... ok
+test test_many_functions_patching ... ok
+test test_nested_call_chain ... ok
+test test_patch_address_too_large ... ok
+test test_patch_with_missing_function ... ok
+test test_realistic_multi_function_program ... ok
+test test_record_function_position ... ok
+test test_record_patch_at_position ... ok
+test test_recursive_function_call ... ok
+test test_reset_clears_state ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_compiler_features.rs (target/debug/deps/test_compiler_features-7d8a57800eb1bbb1)
+
+running 15 tests
+test test_arithmetic_operations_compilation ... ok
+test test_comparison_expression_compilation ... ok
+test test_function_with_multiple_parameters ... ok
+test test_function_with_single_parameter ... ok
+test test_function_with_no_parameters ... ok
+test test_account_parameter_handling ... ok
+test test_let_statement_compilation ... ok
+test test_if_statement_compilation ... ok
+test test_multiple_function_definitions ... ok
+test test_multiple_state_variables ... ok
+test test_nested_function_calls_compilation ... ok
+test test_parameter_type_consistency ... ok
+test test_return_type_inference ... ok
+test test_simple_state_update ... ok
+test test_state_initialization_block ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/test_compression.rs (target/debug/deps/test_compression-2ea20209cfd653f7)
+
+running 32 tests
+test test_chunk_manager_create_segments_small ... ok
+test test_compression_optimizer_creation ... ok
+test test_chunk_manager_create_segments_large ... ok
+test test_chunk_manager_creation ... ok
+test test_chunk_manager_should_enable_segmenting ... ok
+test test_compression_optimizer_configure ... ok
+test test_compression_optimizer_compress_small ... ok
+test test_compression_optimizer_compress_bytecode ... ok
+test test_compression_optimizer_get_pattern_compressor ... ok
+test test_compression_optimizer_get_segment_manager ... ok
+test test_compression_optimizer_get_string_pool ... ok
+test test_compression_optimizer_get_string_pool_mut ... ok
+test test_compression_pipeline_small_bytecode ... ok
+test test_compression_with_all_optimizations ... ok
+test test_compression_with_no_optimizations ... ok
+test test_compression_pipeline_with_patterns ... ok
+test test_pattern_compressor_compress_with_patterns ... ok
+test test_pattern_compressor_analyze_patterns ... ok
+test test_pattern_compressor_compression_ratio ... ok
+test test_pattern_compressor_compression_ratio_expansion ... ok
+test test_pattern_compressor_creation ... ok
+test test_string_pool_creation ... ok
+test test_string_pool_deduplication ... ok
+test test_string_pool_get_string ... ok
+test test_string_pool_empty_string ... ok
+test test_string_pool_interleaved_operations ... ok
+test test_string_pool_intern_single ... ok
+test test_string_pool_long_string ... ok
+test test_string_pool_multiple_strings ... ok
+test test_string_pool_with_optimizer ... ok
+test test_vle_config_custom ... ok
+test test_vle_config_default ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_constraint_snapshot.rs (target/debug/deps/test_constraint_snapshot-75c5d36249a53b2c)
+
+running 1 test
+test test_constraint_bytecode_optimality_and_ordering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/test_constraints.rs (target/debug/deps/test_constraints-99c6dbb97167c0c4)
+
+running 6 tests
+test test_constraints_has_invalid_non_account ... ok
+test test_constraints_has_invalid_target_missing ... ok
+test test_constraints_signer_invalid_type ... ok
+test test_constraints_signer_valid ... ok
+test test_constraints_has_valid_single ... ok
+test test_constraints_has_valid_multiple ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_function_dispatch.rs (target/debug/deps/test_function_dispatch-e82c56ea56049b30)
+
+running 18 tests
+test test_all_private_functions ... ok
+test test_function_index_lookup_by_name ... ok
+test test_function_index_lookup_nonexistent ... ok
+test test_collect_function_info_single_private ... ok
+test test_collect_info_clears_previous_state ... ok
+test test_collect_function_info_single_public ... ok
+test test_function_parameter_counts ... ok
+test test_all_public_functions ... ok
+test test_has_callable_functions_empty_program ... ok
+test test_function_with_same_name_different_visibility ... ok
+test test_has_callable_functions_with_init_block ... ok
+test test_has_callable_functions_with_private_function ... ok
+test test_has_callable_functions_with_public_function ... ok
+test test_init_block_as_function_0 ... ok
+test test_init_block_with_mixed_functions ... ok
+test test_single_function_no_params_no_return ... ok
+test test_public_functions_ordered_first ... ok
+test test_many_functions_ordering_preserved ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/test_grammar_validation.rs (target/debug/deps/test_grammar_validation-c438994291763c4f)
+
+running 19 tests
+test test_function_call_fields ... ok
+test test_expression_type_coverage ... ok
+test test_definition_type_coverage ... ok
+test test_binary_expression_fields ... ok
+test test_all_field_definitions_are_valid ... ok
+test test_grammar_rules_are_well_formed ... ok
+test test_fields_have_documentation ... ok
+test test_category_distribution ... ok
+test test_grammar_rules_exist_for_key_nodes ... ok
+test test_if_statement_fields ... ok
+test test_node_categories_are_consistent ... ok
+test test_no_duplicate_node_names ... ok
+test test_node_registry_has_48_nodes ... ok
+test test_node_registry_categories_are_organized ... ok
+test test_nodes_have_documentation ... ok
+test test_required_definition_nodes_exist ... ok
+test test_required_expression_nodes_exist ... ok
+test test_required_statement_nodes_exist ... ok
+test test_statement_type_coverage ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/test_multi_module_compilation.rs (target/debug/deps/test_multi_module_compilation-a1baffd53d184de2)
+
+running 14 tests
+test test_module_scope_with_public_functions ... ok
+test test_module_scope_with_internal_functions ... ok
+test test_module_scope_visibility_barrier_private ... ok
+test test_internal_functions_are_not_on_chain_callable ... ok
+test test_module_merger_basic ... ok
+test test_module_merger_respects_visibility ... ok
+test test_backward_compatibility_flat_namespace ... ok
+test test_module_merger_multiple_modules ... ok
+test test_module_scope_without_import_no_access ... ok
+test test_multi_module_cross_module_resolution ... ok
+test test_multi_module_symbol_table_integration ... ok
+test test_namespace_collision_prevention ... ok
+test test_public_functions_are_on_chain_callable ... ok
+test test_parse_and_merge_multi_module ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_parameter_indexing.rs (target/debug/deps/test_parameter_indexing-51f715225106e531)
+
+running 5 tests
+test test_account_parameter_indexing_preserved ... ok
+test test_single_data_param_bytecode_generation ... ok
+test test_data_parameter_indexing_single_value_param ... ok
+test test_parameter_offset_calculation_consistency ... ok
+test test_data_parameter_indexing_multiple_value_params ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/test_scope_analyzer.rs (target/debug/deps/test_scope_analyzer-002e44f23d2084f4)
+
+running 26 tests
+test test_begin_end_function_cycle ... ok
+test test_analyze_simple_program ... ok
+test test_analyze_program_with_nested_blocks ... ok
+test test_begin_function ... ok
+test test_analyze_program_with_parameters ... ok
+test test_declare_variable_without_function ... ok
+test test_declare_variable ... ok
+test test_analyze_program_with_multiple_functions ... ok
+test test_end_function ... ok
+test test_end_function_without_begin ... ok
+test test_enter_scope ... ok
+test test_exit_scope ... ok
+test test_exit_scope_at_root_level ... ok
+test test_get_all_analyses ... ok
+test test_get_nonexistent_function_analysis ... ok
+test test_if_else_scope_pattern ... ok
+test test_instruction_counter_increments ... ok
+test test_get_function_analysis ... ok
+test test_loop_scope_pattern ... ok
+test test_multiple_variables ... ok
+test test_nested_scopes ... ok
+test test_scope_analyzer_creation ... ok
+test test_use_undeclared_variable ... ok
+test test_use_variable ... ok
+test test_variable_scope_at_different_levels ... ok
+test test_variable_shadowing_different_scopes ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_type_checker_multi_module.rs (target/debug/deps/test_type_checker_multi_module-1c36de7ddba3403b)
+
+running 19 tests
+test test_add_to_module_scope_without_scope ... ok
+test test_add_to_module_scope ... ok
+test test_cross_module_symbol_resolution ... ok
+test test_is_on_chain_callable_symbol_internal ... ok
+test test_is_on_chain_callable_symbol_public ... ok
+test test_is_on_chain_callable_symbol_without_module_scope ... ok
+test test_is_on_chain_callable_symbol_private ... ok
+test test_module_scope_with_local_symbol_table_fallback ... ok
+test test_resolve_with_module_scope_fallback_to_local_symbol_table ... ok
+test test_multiple_modules_with_visibility ... ok
+test test_resolve_with_module_scope_local ... ok
+test test_resolve_without_module_scope ... ok
+test test_set_current_module ... ok
+test test_set_current_module_without_scope ... ok
+test test_type_checker_context_creation ... ok
+test test_type_checker_context_with_symbol_table ... ok
+test test_type_checker_with_module_scope ... ok
+test test_unresolved_symbol ... ok
+test test_visibility_enforcement_in_imports ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_type_safe_ast.rs (target/debug/deps/test_type_safe_ast-e16c31ed688897e4)
+
+running 23 tests
+test test_array_literal_expression ... ok
+test test_assignment_statement ... ok
+test test_astnode_still_works_with_pattern_matching ... ok
+test test_can_mix_old_and_new_ast_types ... ok
+test test_binary_expression_construction_and_conversion ... ok
+test test_definition_enum_completeness ... ok
+test test_expression_roundtrip_conversion ... ok
+test test_expression_enum_completeness ... ok
+test test_field_access_expression ... ok
+test test_field_definition_construction ... ok
+test test_function_call_expression ... ok
+test test_if_statement_construction ... ok
+test test_instruction_definition_construction ... ok
+test test_let_statement_construction_and_conversion ... ok
+test test_require_statement ... ok
+test test_return_statement ... ok
+test test_statement_enum_completeness ... ok
+test test_statement_roundtrip_conversion ... ok
+test test_unary_expression_construction_and_conversion ... ok
+test test_while_loop_statement ... ok
+test test_node_registry_field_definitions ... ok
+test test_node_registry_has_all_nodes ... ok
+test test_node_registry_categories ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/test_visibility_system.rs (target/debug/deps/test_visibility_system-53e500f99fbd429a)
+
+running 11 tests
+test test_parse_public_account ... ok
+test test_no_public_functions_parser_behavior ... ok
+test test_parse_internal_function ... ok
+test test_parse_public_event ... ok
+test test_parse_public_and_internal_functions_mixed ... ok
+test test_visibility_consistency_across_types ... ok
+test test_parse_public_field ... ok
+test test_parse_public_function ... ok
+test test_visibility_enum_properties ... ok
+test test_visibility_documentation_example ... ok
+test test_visibility_for_multi_file_import_semantics ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/five_protocol-7595a52e32aacf93)
+
+running 30 tests
+test bytecode_builder::tests::test_header_emission ... ok
+test bytecode_builder::tests::test_partial_vle_encoding ... ok
+test bytecode_builder::tests::test_chaining ... ok
+test bytecode_builder::tests::test_basic_bytecode_generation ... ok
+test bytecode_builder::tests::test_patching ... ok
+test bytecode_builder::tests::test_u64_emission ... ok
+test bytecode_builder::tests::test_push_u64_instruction ... ok
+test bytecode_builder::tests::test_vle_encoding_large ... ok
+test bytecode_builder::tests::test_vle_encoding_small ... ok
+test encoding::tests::test_encoded_size ... ok
+test encoding::tests::test_vle_i64_encoding ... ok
+test encoding::tests::test_vle_u16_encoding ... ok
+test encoding::tests::test_vle_u32_encoding ... ok
+test encoding::tests::test_vle_u64_encoding ... ok
+test parser::tests::test_instruction_bounds ... ok
+test parser::tests::test_parse_invalid_magic ... ok
+test parser::tests::test_parse_optimized_bytecode_invalid_magic ... ok
+test parser::tests::test_parse_optimized_bytecode_too_short ... ok
+test parser::tests::test_parse_optimized_bytecode_with_function_names ... ok
+test parser::tests::test_parse_optimized_bytecode_without_function_names ... ok
+test parser::tests::test_parse_valid_header ... ok
+test tests::test_call_protocol ... ok
+test tests::test_call_stack ... ok
+test tests::test_function_table ... ok
+test tests::test_instruction_encoding ... ok
+test tests::test_jump_table ... ok
+test tests::test_opcode_definitions ... ok
+test tests::test_opcode_lookup ... ok
+test tests::test_value_conversions ... ok
+test tests::test_valueref_u128_serialization ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fixtures.rs (target/debug/deps/fixtures-2f1d5bdb8a236780)
+
+running 3 tests
+test tests::parser_accepts_valid_header ... ok
+test tests::parser_rejects_invalid_call_target ... ok
+test tests::parser_rejects_vle_truncation ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/opcode_consistency.rs (target/debug/deps/opcode_consistency-fb19e15551aa97ad)
+
+running 3 tests
+test tests::test_opcode_ranges ... ok
+test tests::test_protocol_constants_match_table ... ok
+test tests::test_opcode_table_integrity ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/opcode_tests.rs (target/debug/deps/opcode_tests-011f435e9d74b9be)
+
+running 3 tests
+test test_opcode_constants_match_table ... ok
+test test_opcode_lookups ... ok
+test test_opcode_table_integrity ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/value_deserialize.rs (target/debug/deps/value_deserialize-e1bf87d012719cc4)
+
+running 1 test
+test truncated_buffers_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/value_tests.rs (target/debug/deps/value_tests-7f3bca43693f3e5b)
+
+running 4 tests
+test test_valueref_buffer_too_small ... ok
+test test_valueref_immediate_helpers ... ok
+test test_valueref_kiss_option_result ... ok
+test test_valueref_serialization_roundtrip ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/five_vm_mito-f9eb37a497274967)
+
+running 63 tests
+test context::tests::invoke_instruction_propagates_error ... ignored, CPI invoke succeeds in test environment
+test context::tests::invoke_signed_instruction_propagates_error ... ignored, CPI invoke_signed succeeds in test environment
+test handlers::arrays::tests::test_temp_buffer_size_constraint_validation ... ok
+test execution::tests::parse_optimized_header_minimum_size ... ok
+test execution::tests::parse_optimized_header_with_valid_bytes ... ok
+test execution::tests::parse_optimized_header_success ... ok
+test handlers::arrays::tests::test_bounds_checking_core_logic ... ok
+test handlers::system::init::tests::test_extract_owner_pubkey_temp_ref ... ok
+test handlers::system::init::tests::test_value_ref_to_seed_bytes_input_ref ... ok
+test handlers::system::init::tests::test_value_ref_to_seed_bytes_input_ref_length_out_of_bounds ... ok
+test handlers::system::init::tests::test_value_ref_to_seed_bytes_input_ref_offset ... ok
+test handlers::system::init::tests::test_value_ref_to_seed_bytes_input_ref_offset_out_of_bounds ... ok
+test handlers::system::init::tests::test_value_ref_to_seed_bytes_temp_ref ... ok
+test handlers::system::init::tests::test_value_ref_to_seed_bytes_u64 ... ok
+test handlers::system::init::tests::test_value_ref_to_seed_bytes_u8 ... ok
+test lazy_validation::tests::test_bitwise_constraint_validation ... ok
+test lazy_validation::tests::test_bounds_checking ... ok
+test lazy_validation::tests::test_lazy_validator_creation ... ok
+test lazy_validation::tests::test_reset_functionality ... ok
+test lazy_validation::tests::test_validation_stats ... ok
+test lazy_validation::tests::test_validation_tracking ... ok
+test macros::tests::test_binary_op_macro ... ok
+test macros::tests::test_pop_push_macros ... ok
+test metadata::tests::test_empty_metadata ... ok
+test metadata::tests::test_metadata_offset ... ok
+test metadata::tests::test_multiple_mixed_imports ... ok
+test metadata::tests::test_offset_beyond_bytecode ... ok
+test metadata::tests::test_pda_seeds_import ... ok
+test metadata::tests::test_single_address_import ... ok
+test bench_lazy_validation::tests::test_single_benchmark ... ok
+test test_polymorphic_arithmetic::test_arithmetic_edge_cases ... ok
+test test_polymorphic_arithmetic::test_division_by_zero_mixed ... ok
+test test_polymorphic_arithmetic::test_mixed_arithmetic_promotion ... ok
+test test_polymorphic_arithmetic::test_mixed_division ... ok
+test test_polymorphic_arithmetic::test_mixed_comparisons ... ok
+test test_polymorphic_arithmetic::test_type_mismatch_errors ... ok
+test test_polymorphic_arithmetic::test_u128_arithmetic ... ok
+test test_polymorphic_arithmetic::test_u128_to_u64_narrowing ... ok
+test test_polymorphic_arithmetic::test_u64_arithmetic_fast_path ... ok
+test test_vle_param_decoding::tests::test_vle_decode_u64_parameter ... ok
+test tests::tests::test_arithmetic ... ok
+test tests::tests::test_basic_push ... ok
+test tests::tests::test_call_parameter_transfer ... ok
+test tests::tests::test_field_operations ... ok
+test tests::tests::test_comparisons ... ok
+test tests::tests::test_load_param_debug ... ok
+test tests::tests::test_function_call_debug ... ok
+test tests::tests::test_new_comparisons ... ok
+test tests::tests::test_require_validation ... ok
+test tests::tests::test_simple_addition ... ok
+test tests::tests::test_simple_assignment ... ok
+test tests::v3_fused_tests::test_conditional_jump_fusions ... ok
+test tests::v3_fused_tests::test_dup_add ... ok
+test tests::v3_fused_tests::test_dup_mul_fusion ... ok
+test tests::v3_fused_tests::test_dup_sub_fusion ... ok
+test tests::v3_fused_tests::test_push_zero_and_one ... ok
+test tests::v3_fused_tests::test_return_fusion_patterns ... ok
+test tests::v3_fused_tests::test_swap_sub ... ok
+test tests::v3_fused_tests::test_transfer_debit_credit_fusion ... ok
+test tests::v3_fused_tests::test_pattern_fusion_coverage ... ok
+test tests::v3_fused_tests::test_validate_sufficient_fusion ... ok
+test tests::v3_fused_tests::test_validate_amount_nonzero_and_eq_zero_jump ... ok
+test bench_lazy_validation::tests::test_benchmark_suite ... ok
+
+test result: ok. 61 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/account_system_tests.rs (target/debug/deps/account_system_tests-6f5e80088a59e9f4)
+
+running 8 tests
+test constraint_validation::test_arithmetic_operations ... ok
+test constraint_validation::test_comparison_operations ... ok
+test logical_operations::test_not_operation ... ok
+test logical_operations::test_and_operation ... ok
+test constraint_validation::test_basic_vm_execution ... ok
+test logical_operations::test_or_operation ... ok
+test stack_operations::test_stack_basic_ops ... ok
+test stack_operations::test_swap_operation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_operations_tests.rs (target/debug/deps/array_operations_tests-462e651b510ca2e3)
+
+running 15 tests
+test array_access_tests::test_array_get_operation ... ok
+test array_access_tests::test_array_set_operation ... ok
+test array_access_tests::test_array_length ... ok
+test array_creation_tests::test_array_with_initial_elements ... ok
+test array_coverage_tests::test_array_operations_coverage ... ok
+test array_access_tests::test_array_index_access ... ok
+test array_creation_tests::test_push_array_literal ... ok
+test array_creation_tests::test_create_array_basic ... ok
+test array_edge_cases_tests::test_array_bounds_checking ... ok
+test array_edge_cases_tests::test_empty_array ... ok
+test array_edge_cases_tests::test_large_array ... ok
+test string_operations_tests::test_push_string_literal ... ok
+test string_operations_tests::test_push_string_basic ... ok
+test string_operations_tests::test_string_as_array ... ok
+test string_operations_tests::test_string_indexing ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/basic_option_test.rs (target/debug/deps/basic_option_test-96e52e306ce72fb5)
+
+running 2 tests
+test test_basic_option_creation ... ok
+test test_basic_result_creation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/call_external_verification_tests.rs (target/debug/deps/call_external_verification_tests-00b6fdd2d4bfeb24)
+
+running 6 tests
+test test_call_external_backward_compatibility_no_metadata ... ok
+test test_call_external_import_verification_with_valid_address ... ok
+test test_call_external_import_verification_with_wrong_address ... ok
+test test_call_external_verification_skipped_with_pda_no_callback ... ok
+test test_import_metadata_bounds_checking ... ok
+test test_import_metadata_multiple_imports ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/checked_arithmetic_tests.rs (target/debug/deps/checked_arithmetic_tests-279c5927e7a3b4cd)
+
+running 8 tests
+test test_add_checked_success ... ok
+test test_mul_checked_overflow ... ok
+test test_add_checked_overflow ... ok
+test test_mul_checked_success ... ok
+test test_checked_arithmetic_with_locals ... ok
+test test_checked_arithmetic_in_nested_calls ... ok
+test test_sub_checked_success ... ok
+test test_sub_checked_underflow ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/clock_data_structure_test.rs (target/debug/deps/clock_data_structure_test-e12e3a4e7afe323e)
+
+running 2 tests
+test test_get_clock_data_format_specification ... ok
+test test_get_clock_complete_data_structure ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/comprehensive_vm_tests.rs (target/debug/deps/comprehensive_vm_tests-7ea92c091ae2b760)
+
+running 16 tests
+test boolean_operations::test_and_true ... ok
+test boolean_operations::test_not_operation ... ok
+test boolean_operations::test_or_true ... ok
+test boolean_operations::test_and_false ... ok
+test comparison_operations::test_equality_true ... ok
+test comparison_operations::test_greater_than_true ... ok
+test comparison_operations::test_less_than_true ... ok
+test comparison_operations::test_equality_false ... ok
+test core_operations::test_arithmetic_add_basic ... ok
+test core_operations::test_arithmetic_divide ... ok
+test core_operations::test_arithmetic_multiply ... ok
+test core_operations::test_arithmetic_subtract ... ok
+test stack_manipulation::test_dup_operation ... ok
+test stack_manipulation::test_pop_operation ... ok
+test type_operations::test_u8_operations ... ok
+test stack_manipulation::test_swap_operation ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/constraint_validation_tests.rs (target/debug/deps/constraint_validation_tests-055dfedebc152685)
+
+running 12 tests
+test advanced_constraint_tests::test_check_dedupe_table ... ok
+test advanced_constraint_tests::test_check_cached ... ok
+test basic_constraint_tests::test_check_initialized_valid ... ok
+test basic_constraint_tests::test_check_owner_valid ... ok
+test advanced_constraint_tests::test_constraint_combinations ... ok
+test basic_constraint_tests::test_check_signer_invalid ... ok
+test basic_constraint_tests::test_check_signer_valid ... ok
+test basic_constraint_tests::test_check_uninitialized_valid ... ok
+test basic_constraint_tests::test_check_writable_invalid ... ok
+test basic_constraint_tests::test_check_writable_valid ... ok
+test pda_constraint_tests::test_check_pda_valid ... ok
+test constraint_coverage_tests::test_constraint_operations_coverage ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/debug_multiply.rs (target/debug/deps/debug_multiply-3371fc7a74f4ea60)
+
+running 2 tests
+test test_multiply_debug ... ok
+test test_add_debug ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/enhanced_pda_cpi_tests.rs (target/debug/deps/enhanced_pda_cpi_tests-de2b00369621d0c8)
+
+running 6 tests
+test enhanced_pda_tests::test_find_pda_with_comprehensive_setup ... ok
+test enhanced_cpi_tests::test_invoke_with_proper_instruction_setup ... ok
+test enhanced_cpi_tests::test_invoke_signed_with_pda_setup ... ok
+test enhanced_pda_tests::test_derive_pda_with_proper_setup ... ok
+test system_integration_tests::test_init_account_with_system_program ... ok
+test system_integration_tests::test_opcode_coverage_summary ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/function_calling_tests.rs (target/debug/deps/function_calling_tests-361186115158add7)
+
+running 14 tests
+test basic_function_calls::test_function_with_parameters ... ok
+test basic_function_calls::test_function_call_stack_management ... ok
+test error_handling::test_call_depth_limit ... ok
+test basic_function_calls::test_simple_function_call ... ok
+test basic_function_calls::test_nested_function_calls ... ok
+test error_handling::test_invalid_function_index ... ok
+test error_handling::test_function_visibility_enforcement ... ok
+test local_variables::test_local_variable_scope ... ok
+test local_variables::test_local_variable_storage ... ok
+test parameter_handling::test_load_param_basic ... ok
+test parameter_handling::test_param_bounds_checking ... ok
+test parameter_handling::test_parameter_types ... ok
+test return_handling::test_early_return ... ok
+test return_handling::test_return_value_propagation ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/header_validation_tests.rs (target/debug/deps/header_validation_tests-5e1023fc226a55f9)
+
+running 4 tests
+test public_count_exceeds_total_fails ... ok
+test invalid_magic_fails ... ok
+test total_count_too_large_fails ... ok
+test valid_header_executes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_pda_cpi_tests.rs (target/debug/deps/integration_pda_cpi_tests-cb7b89d960b17188)
+
+running 7 tests
+test test_clock_access_integration ... ok
+test test_arithmetic_baseline_integration ... ok
+test test_complex_pda_workflow_integration ... ok
+test test_integration_summary ... ok
+test test_multiple_functions_integration ... ok
+test test_pda_derivation_integration ... ok
+test test_pda_multiple_seeds_integration ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_tests.rs (target/debug/deps/integration_tests-174d9c971a32804d)
+
+running 12 tests
+test cross_program_integration_tests::test_cpi_with_pda_signing ... ok
+test defi_workflow_tests::test_token_transfer_workflow ... ok
+test defi_workflow_tests::test_liquidity_pool_swap ... ok
+test error_handling_integration_tests::test_validation_chain ... ok
+test error_handling_integration_tests::test_comprehensive_error_handling ... ok
+test integration_coverage_tests::test_production_readiness_scenario ... ok
+test integration_coverage_tests::test_comprehensive_opcode_integration ... ok
+test cross_program_integration_tests::test_cpi_token_transfer ... ok
+test performance_optimization_tests::test_pattern_fusion_optimization ... ok
+test smart_contract_pattern_tests::test_factory_pattern ... ok
+test performance_optimization_tests::test_register_optimization ... ok
+test smart_contract_pattern_tests::test_governance_voting ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/local_base_tracking_tests.rs (target/debug/deps/local_base_tracking_tests-1a69fc156dd7a42f)
+
+running 5 tests
+test test_parameter_window_isolation ... ok
+test test_multiple_locals_per_frame ... ok
+test test_local_base_restoration_after_return ... ok
+test test_local_base_isolation_two_levels ... ok
+test test_local_base_four_level_nesting ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/memory_oob_tests.rs (target/debug/deps/memory_oob_tests-45de822cfcd6765a)
+
+running 2 tests
+test load_external_field_out_of_bounds ... ok
+test load_field_out_of_bounds ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/memory_operations_tests.rs (target/debug/deps/memory_operations_tests-720783877bd2da65)
+
+running 12 tests
+test basic_memory_tests::test_load_input_data ... ok
+test basic_memory_tests::test_store_and_load_basic ... ok
+test field_operations_tests::test_load_field_basic ... ok
+test field_operations_tests::test_load_field_built_in_properties ... ok
+test field_operations_tests::test_store_field_basic ... ok
+test field_operations_tests::test_store_load_field_sequence ... ok
+test global_state_tests::test_global_state_persistence ... ok
+test global_state_tests::test_load_global_basic ... ok
+test global_state_tests::test_store_global_basic ... ok
+test zero_copy_optimization_tests::test_field_access_bounds_checking ... ok
+test zero_copy_optimization_tests::test_zero_copy_field_access ... ok
+test memory_coverage_tests::test_memory_operations_coverage ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/minimal_option_test.rs (target/debug/deps/minimal_option_test-27e9c3b1187da893)
+
+running 6 tests
+test test_execution_context_temp_buffer_methods ... ok
+test test_temp_buffer_reset_allows_reuse ... ok
+test test_temp_buffer_exhaustion ... ok
+test test_valueref_option_helpers ... ok
+test test_opcodes_are_defined ... ok
+test test_valueref_result_helpers ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/multiple_function_call.rs (target/debug/deps/multiple_function_call-8cb1f24ee2715c9c)
+
+running 1 test
+test test_multiple_function_calls ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/no_alloc.rs (target/debug/deps/no_alloc-a383e2ad765df7e6)
+     Running tests/opcode_spec_tests.rs (target/debug/deps/opcode_spec_tests-209fc01aed82908d)
+
+running 7 tests
+test test_spec_bitwise_operations ... ok
+test test_spec_bitwise_shifts ... ok
+test test_spec_byte_swap ... ok
+test test_spec_control_flow_jump_if ... ok
+test test_spec_control_flow_jumps ... ok
+test test_spec_nibble_ops ... ok
+test test_spec_stack_ops_complex ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/option_result_tests.rs (target/debug/deps/option_result_tests-78e27b47bdbf1807)
+
+running 11 tests
+test test_option_none_creation_and_check ... ok
+test test_multiple_options_temp_buffer_usage ... ok
+test test_option_result_type_integration ... ok
+test test_option_some_is_some_check ... ok
+test test_option_some_creation_and_unwrap ... ok
+test test_option_unwrap_none_errors ... ok
+test test_result_err_creation_and_check ... ok
+test test_result_get_error_code ... ok
+test test_result_ok_creation_and_unwrap ... ok
+test test_result_ok_is_ok_check ... ok
+test test_result_unwrap_err_errors ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/parameter_indexing_tests.rs (target/debug/deps/parameter_indexing_tests-4cdd1886caae6718)
+
+running 6 tests
+test parameter_indexing::test_add_amount_pattern ... ok
+test parameter_indexing::test_parameter_consistency_across_calls ... ok
+test parameter_indexing::test_multiple_parameters_1_based_indexing ... ok
+test parameter_indexing::test_load_param_1_based_indexing ... ok
+test parameter_indexing::test_parameter_not_affected_by_function_index ... ok
+test parameter_indexing::test_single_parameter_add ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pda_cpi_unit_tests.rs (target/debug/deps/pda_cpi_unit_tests-318459de3f78b819)
+
+running 12 tests
+test account_initialization_tests::test_init_account_parameter_validation ... ok
+test account_initialization_tests::test_init_account_invalid_space ... ok
+test cpi_parameter_validation_tests::test_invoke_missing_instruction_data ... ok
+test account_initialization_tests::test_init_pda_account_seed_validation ... ok
+test cpi_parameter_validation_tests::test_invoke_signed_missing_signers ... ok
+test cpi_parameter_validation_tests::test_invoke_with_instruction_parameters ... ok
+test error_handling_tests::test_invalid_account_index_handling ... ok
+test error_handling_tests::test_comprehensive_opcode_coverage ... ok
+test pda_parameter_validation_tests::test_derive_pda_empty_seeds ... ok
+test pda_parameter_validation_tests::test_derive_pda_max_seeds ... ok
+test pda_parameter_validation_tests::test_derive_pda_too_many_seeds ... ok
+test pda_parameter_validation_tests::test_find_pda_parameter_validation ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pda_init_tests.rs (target/debug/deps/pda_init_tests-3a18df09785a7f5c)
+
+running 4 tests
+test test_init_pda_account_failure_invalid_bump ... ok
+test test_init_pda_account_failure_address_mismatch ... ok
+test test_init_pda_account_failure_space_limit ... ok
+test test_init_pda_account_success ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pda_operations_tests.rs (target/debug/deps/pda_operations_tests-f6f4d8c2f6c061cb)
+
+running 11 tests
+test pda_derivation::test_derive_pda_basic ... ok
+test pda_derivation::test_derive_pda_deterministic ... ok
+test pda_derivation::test_derive_pda_with_pubkey_seed ... ok
+test pda_integration::test_pda_account_creation ... ok
+test pda_security::test_pda_program_id_validation ... ok
+test pda_integration::test_pda_access_patterns ... ok
+test pda_security::test_pda_seed_validation ... ok
+test pda_validation::test_find_pda_vs_derive_pda ... ok
+test pda_integration::test_pda_bump_management ... ok
+test pda_validation::test_pda_seed_encoding ... ok
+test test_derive_pda_real ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/performance_tests.rs (target/debug/deps/performance_tests-df35df1b18f0e17b)
+
+running 4 tests
+test test_execution_context_lazy_validation ... ok
+test test_real_world_access_patterns ... ok
+test test_lazy_validation_performance ... ok
+test test_bitwise_constraint_performance ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/phase1_debug_test.rs (target/debug/deps/phase1_debug_test-8ed19de7df0b0ece)
+
+running 1 test
+test test_phase1_return_value_debugging ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/register_operations_tests.rs (target/debug/deps/register_operations_tests-38267def5fa2d180)
+
+running 18 tests
+test register_arithmetic_tests::test_div_reg ... ok
+test register_arithmetic_tests::test_mul_reg ... ok
+test register_arithmetic_tests::test_add_reg ... ok
+test register_comparison_tests::test_eq_reg ... ok
+test register_comparison_tests::test_gt_reg ... ok
+test register_arithmetic_tests::test_sub_reg ... ok
+test register_comparison_tests::test_lt_reg ... ok
+test register_load_tests::test_load_reg_bool ... ok
+test register_load_tests::test_load_reg_pubkey ... ok
+test register_load_tests::test_load_reg_u32 ... ok
+test register_coverage_tests::test_register_operations_coverage ... ok
+test register_load_tests::test_load_reg_u64 ... ok
+test register_load_tests::test_load_reg_u8 ... ok
+test register_performance_tests::test_register_complex_calculation ... ok
+test register_performance_tests::test_register_vs_stack_performance ... ok
+test register_stack_bridge_tests::test_clear_reg ... ok
+test register_stack_bridge_tests::test_copy_reg ... ok
+test register_stack_bridge_tests::test_pop_reg ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/script_builder_smoke.rs (target/debug/deps/script_builder_smoke-40f3bc8ce18395c4)
+
+running 8 tests
+test detects_unknown_call_target ... ok
+test enforces_public_function_requirement ... ok
+test exercise_function_builder_methods ... ok
+test exercise_with_features_method ... ok
+test exercise_build_script_and_features ... ok
+test exposes_visibility_enum ... ok
+test rejects_duplicate_names ... ok
+test builder_patches_call_addresses ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/simple_function_call.rs (target/debug/deps/simple_function_call-1915072643863f76)
+
+running 2 tests
+test test_basic_vm_execution ... ok
+test test_simple_function_call ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/system_operations_tests.rs (target/debug/deps/system_operations_tests-42a7cbb7d9c88e20)
+
+running 10 tests
+test cross_program_invocation_tests::test_invoke_basic ... ok
+test pda_operations_tests::test_derive_pda_basic ... ok
+test cross_program_invocation_tests::test_invoke_signed ... ok
+test pda_operations_tests::test_find_pda_with_bump ... ok
+test system_integration_tests::test_get_rent_sysvar ... ok
+test system_integration_tests::test_get_clock_sysvar ... ok
+test system_integration_tests::test_init_account_operation ... ok
+test pda_operations_tests::test_pda_params_operations ... ok
+test system_integration_tests::test_init_pda_account_operation ... ok
+test system_opcode_coverage_tests::test_system_operations_coverage ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/temp_alloc_overflow.rs (target/debug/deps/temp_alloc_overflow-cd5462db13297c01)
+
+running 1 test
+test test_alloc_temp_overflow ... FAILED
+
+failures:
+
+---- test_alloc_temp_overflow stdout ----
+
+thread 'test_alloc_temp_overflow' panicked at five-vm-mito/tests/temp_alloc_overflow.rs:25:5:
+assertion failed: ctx.alloc_temp((TEMP_BUFFER_SIZE + 1) as u8).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    test_alloc_temp_overflow
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p five-vm-mito --test temp_alloc_overflow`

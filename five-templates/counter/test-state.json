@@ -1,15 +1,15 @@
 {
   "config": {
     "rpcUrl": "http://127.0.0.1:8899",
-    "programId": "HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg",
-    "vmStatePda": "5r9ocvmA6b2xjo96R5pU4ioLnJQH5Gy9CAhDZcPNeb1h",
-    "counterScriptAccount": "5rAT55UWSFMAgFpCGCg57u9qbLdwjoiYhjDFSXMEfMvs"
+    "programId": "5N22jdHEx5G2wvTtuN8P5mFKxE2P9TxoUsZcm8RAnUM5",
+    "vmStatePda": "5GTfpmKLT59DAis5MViz4gLTvcRRKURjnvFD8Be2xrUK",
+    "counterScriptAccount": "7czZB3nwHkyZagbBUHqmMonaHCbCunkeWo8K5sB4Hu8G"
   },
   "accounts": {
-    "counter1": "AbVR8s9n7aG5K6QzKWF77M95gNhbrB3LgM53TvhiMGdD",
-    "counter2": "EwSQmC6uTKdz6hqD8Q5agkz74yLkJUr3fUPasmPxwi58",
-    "user1": "GxBu2erPFtm5L1N4G8GaNeRDBMPEgGFA1h6R6w18XsWC",
-    "user2": "HV9TcdS4Wna6wXspRHaPJGmXm83CUhY9UQR97a3wNpic",
+    "counter1": "9hbaYurVZyswW6iaEuR9h9tpYMJcBHtDyPua45fPrQiU",
+    "counter2": "8HGHSMp2JaaRz3vC6cGFMJDNvXwPxAHdFvD4rexDd5Cr",
+    "user1": "5YV9N83to7T4Dh629aTuALzQVAJA6EeEhenoEJMoikhq",
+    "user2": "8YyYRMFs26SE1ZRNsokUw86SKovHJhmXmPhRwwseBxEm",
     "payer": "EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt"
   },
   "expected": {
@@ -18,9 +18,9 @@
   },
   "results": {
     "totalTests": 13,
-    "passed": 12,
-    "failed": 1,
-    "totalComputeUnits": 105660,
+    "passed": 0,
+    "failed": 13,
+    "totalComputeUnits": 8037,
     "allPassed": false
   }
 }

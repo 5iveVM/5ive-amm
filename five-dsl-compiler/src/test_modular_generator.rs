@@ -184,7 +184,7 @@ mod tests {
         assert!(true);
 
         // Other modules - just test they can be referenced
-        let _constraint_optimizer = ConstraintOptimizer::new();
+
         let _scope_analyzer = ScopeAnalyzer::new();
         let _function_dispatcher = FunctionDispatcher::new();
 

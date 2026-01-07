@@ -19,8 +19,9 @@ account Counter {
 
 // Initialize a new counter account
 // Uses @init constraint to create account via CPI
+// Counter is a PDA derived from ["counter", owner.key]
 pub initialize(
-    counter: Counter @mut @init(payer=owner, space=56) @signer,
+    counter: Counter @mut @init(payer=owner, space=56, seeds=["counter", owner.key]),
     owner: account @signer
 ) -> pubkey {
     counter.authority = owner.key;

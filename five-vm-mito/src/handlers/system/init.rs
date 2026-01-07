@@ -224,6 +224,13 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Extract owner pubkey
     let owner = extract_owner_pubkey(owner_ref, ctx)?;
+    
+    // Log the owner for debugging
+    let owner_bytes = owner.as_ref();
+    error_log!(
+        "INIT_PDA_ACCOUNT: owner={} {} {} {}",
+        owner_bytes[0], owner_bytes[1], owner_bytes[2], owner_bytes[3]
+    );
 
     // Create PDA account via System Program CPI (runtime integration required)
     // Convert seeds to slice references without heap allocation

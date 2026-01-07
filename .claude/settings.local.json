@@ -23,7 +23,9 @@
       "Bash(five --help:*)",
       "Bash(five deploy:*)",
       "Bash(file:*)",
-      "Bash(xxd:*)"
+      "Bash(xxd:*)",
+      "Bash(solana account:*)",
+      "Bash(cargo build:*)"
     ]
   }
 }

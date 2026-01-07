@@ -1067,48 +1067,79 @@ impl<'a> ExecutionContext<'a> {
             .find(|a| a.key() == &system_program_id)
             .ok_or(VMErrorCode::AccountNotFound)?;
 
-        // Build instruction data for SystemProgram::CreateAccount
-        let mut data = [0u8; 52];
-        Self::serialize_create_account_data(&mut data, lamports, space, owner);
-
-
-        // Check keys before meta construction
-        {
-            let pk = payer.key().as_ref();
-            let nk = new_account.key().as_ref();
-            crate::error_log!("CreateAccount: payer.key={} {} {} {} new_account.key={} {} {} {}", 
-               pk[0], pk[1], pk[2], pk[3], nk[0], nk[1], nk[2], nk[3]);
-        }
-
-        let metas = [
-            AccountMeta {
-                pubkey: payer.key(),
-                is_signer: payer.is_signer(),
-                is_writable: payer.is_writable(),
-            },
-            AccountMeta {
-                pubkey: new_account.key(),
-                is_signer: new_account.is_signer(),
-                is_writable: new_account.is_writable(),
-            },
-        ];
-        
-        {
-            let mp0 = metas[0].pubkey.as_ref();
-            let mp1 = metas[1].pubkey.as_ref();
-            crate::error_log!("CreateAccount: Meta[0]={} {} {} {} Meta[1]={} {} {} {}", 
-               mp0[0], mp0[1], mp0[2], mp0[3], mp1[0], mp1[1], mp1[2], mp1[3]);
-        }
-
-        let instruction = Instruction {
-            program_id: &system_program_id,
-            accounts: &metas,
-            data: &data,
-        };
-
+        // Use Transfer+Allocate+Assign pattern (same as create_account_with_payer)
         #[cfg(target_os = "solana")]
         {
-            invoke::<3>(&instruction, &[payer, new_account, system_program]).map_err(|_| VMErrorCode::InvokeError)?;
+            // Step 1: Transfer
+            let mut transfer_data = [0u8; 12];
+            transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes());
+            transfer_data[4..12].copy_from_slice(&lamports.to_le_bytes());
+
+            let transfer_metas = [
+                AccountMeta {
+                    pubkey: payer.key(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                AccountMeta {
+                    pubkey: new_account.key(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+            ];
+
+            let transfer_instruction = Instruction {
+                program_id: &system_program_id,
+                accounts: &transfer_metas,
+                data: &transfer_data,
+            };
+
+            invoke::<3>(&transfer_instruction, &[payer, new_account, system_program])
+                .map_err(|_| VMErrorCode::InvokeError)?;
+
+            // Step 2: Allocate
+            let mut allocate_data = [0u8; 12];
+            allocate_data[0..4].copy_from_slice(&8u32.to_le_bytes());
+            allocate_data[4..12].copy_from_slice(&space.to_le_bytes());
+
+            let allocate_metas = [
+                AccountMeta {
+                    pubkey: new_account.key(),
+                    is_signer: new_account.is_signer(),
+                    is_writable: true,
+                },
+            ];
+
+            let allocate_instruction = Instruction {
+                program_id: &system_program_id,
+                accounts: &allocate_metas,
+                data: &allocate_data,
+            };
+
+            invoke::<2>(&allocate_instruction, &[new_account, system_program])
+                .map_err(|_| VMErrorCode::InvokeError)?;
+
+            // Step 3: Assign
+            let mut assign_data = [0u8; 36];
+            assign_data[0..4].copy_from_slice(&1u32.to_le_bytes());
+            assign_data[4..36].copy_from_slice(owner.as_ref());
+
+            let assign_metas = [
+                AccountMeta {
+                    pubkey: new_account.key(),
+                    is_signer: new_account.is_signer(),
+                    is_writable: true,
+                },
+            ];
+
+            let assign_instruction = Instruction {
+                program_id: &system_program_id,
+                accounts: &assign_metas,
+                data: &assign_data,
+            };
+
+            invoke::<2>(&assign_instruction, &[new_account, system_program])
+                .map_err(|_| VMErrorCode::InvokeError)?;
         }
 
         #[cfg(not(target_os = "solana"))]
@@ -1134,6 +1165,7 @@ impl<'a> ExecutionContext<'a> {
     }
 
     /// Create account with explicit payer (from compiler)
+    /// Uses Transfer + Allocate + Assign pattern required for CPI account creation
     #[inline]
     pub fn create_account_with_payer(
         &mut self,
@@ -1179,39 +1211,90 @@ impl<'a> ExecutionContext<'a> {
             .find(|a| a.key() == &system_program_id)
             .ok_or(VMErrorCode::AccountNotFound)?;
 
-        // Serialize CreateAccount instruction
-        let mut data = [0u8; 52];
-        Self::serialize_create_account_data(&mut data, lamports, space, owner);
-
-        let metas = [
-            AccountMeta {
-                pubkey: payer.key(),
-                is_signer: true,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: new_account.key(),
-                is_signer: new_account.is_signer(),
-                is_writable: true,
-            },
-        ];
-
-        let instruction = Instruction {
-            program_id: &system_program_id,
-            accounts: &metas,
-            data: &data,
-        };
-
-        // Execute CPI
+        // CRITICAL: System Program CPI restrictions require Transfer+Allocate+Assign pattern
+        // Step 1: Transfer lamports from payer to new account
         #[cfg(target_os = "solana")]
         {
-            invoke::<3>(&instruction, &[payer, new_account, system_program])
+            let mut transfer_data = [0u8; 12];
+            transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes()); // Transfer discriminator
+            transfer_data[4..12].copy_from_slice(&lamports.to_le_bytes());
+
+            let transfer_metas = [
+                AccountMeta {
+                    pubkey: payer.key(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                AccountMeta {
+                    pubkey: new_account.key(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+            ];
+
+            let transfer_instruction = Instruction {
+                program_id: &system_program_id,
+                accounts: &transfer_metas,
+                data: &transfer_data,
+            };
+
+            invoke::<3>(&transfer_instruction, &[payer, new_account, system_program])
                 .map_err(|_| VMErrorCode::InvokeError)?;
         }
 
+        // Step 2: Allocate space for the account
+        #[cfg(target_os = "solana")]
+        {
+            let mut allocate_data = [0u8; 12];
+            allocate_data[0..4].copy_from_slice(&8u32.to_le_bytes()); // Allocate discriminator
+            allocate_data[4..12].copy_from_slice(&space.to_le_bytes());
+
+            let allocate_metas = [
+                AccountMeta {
+                    pubkey: new_account.key(),
+                    is_signer: new_account.is_signer(),
+                    is_writable: true,
+                },
+            ];
+
+            let allocate_instruction = Instruction {
+                program_id: &system_program_id,
+                accounts: &allocate_metas,
+                data: &allocate_data,
+            };
+
+            invoke::<2>(&allocate_instruction, &[new_account, system_program])
+                .map_err(|_| VMErrorCode::InvokeError)?;
+        }
+
+        // Step 3: Assign ownership to the target program
+        #[cfg(target_os = "solana")]
+        {
+            let mut assign_data = [0u8; 36];
+            assign_data[0..4].copy_from_slice(&1u32.to_le_bytes()); // Assign discriminator
+            assign_data[4..36].copy_from_slice(owner.as_ref());
+
+            let assign_metas = [
+                AccountMeta {
+                    pubkey: new_account.key(),
+                    is_signer: new_account.is_signer(),
+                    is_writable: true,
+                },
+            ];
+
+            let assign_instruction = Instruction {
+                program_id: &system_program_id,
+                accounts: &assign_metas,
+                data: &assign_data,
+            };
+
+            invoke::<2>(&assign_instruction, &[new_account, system_program])
+                .map_err(|_| VMErrorCode::InvokeError)?;
+        }
+
+        // Off-chain simulation
         #[cfg(not(target_os = "solana"))]
         {
-            // Off-chain simulation
             unsafe {
                 if *payer.borrow_lamports_unchecked() < lamports {
                     return Err(VMErrorCode::InvokeError);
@@ -1263,7 +1346,16 @@ impl<'a> ExecutionContext<'a> {
             .find(|a| a.key() == &system_program_id)
             .ok_or(VMErrorCode::AccountNotFound)?;
 
-        // Instruction data identical to create_account
+        // Use CreateAccount with invoke_signed for PDAs
+        // The owner should be the Five VM program (self.program_id), not the System Program
+        
+        // Log owner for debugging
+        let owner_bytes = owner.as_ref();
+        crate::error_log!(
+            "create_pda_account: owner={} {} {} {}",
+            owner_bytes[0], owner_bytes[1], owner_bytes[2], owner_bytes[3]
+        );
+        
         let mut data = [0u8; 52];
         Self::serialize_create_account_data(&mut data, lamports, space, owner);
 
@@ -1275,8 +1367,8 @@ impl<'a> ExecutionContext<'a> {
             },
             AccountMeta {
                 pubkey: new_account.key(),
-                is_signer: new_account.is_signer(),
-                is_writable: new_account.is_writable(),
+                is_signer: true, // PDA must be marked as signer for CreateAccount
+                is_writable: true,
             },
         ];
 
@@ -1290,7 +1382,7 @@ impl<'a> ExecutionContext<'a> {
         {
             // Convert seeds and bump into Signer representation
             const MAX_SEEDS: usize = 8;
-            let binding = [bump]; // Move binding declaration outside to ensure lifetime
+            let binding = [bump];
             let mut seed_vec: Vec<Seed, MAX_SEEDS> = Vec::new();
             for s in seeds.iter() {
                 seed_vec

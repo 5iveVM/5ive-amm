@@ -136,52 +136,116 @@ STORE_FIELD writes initialize flag
 
 ---
 
-## Test Results & Issues
+## Test Results & Debugging
 
 ### Current Status
 
 **Compilation**: ✅ Fully compiles with no errors
-**Tests**: ❌ 0/13 passing (all initialization tests fail)
+**Tests**: ❌ 0/13 passing (all initialization tests fail with "Provided owner is not allowed")
 
-### Root Cause: Payer Account Not Writable
+### Root Cause Investigation (Updated)
 
-The counter template tests specify:
-```javascript
-{ pubkey: owner, isWritable: true, isSigner: true }  // Owner account
-```
+**Initial Hypothesis (INCORRECT)**: Payer account not writable
+- Investigation showed SDK correctly passes `isWritable: true` for payer accounts
+- The writable flag issue mentioned in original handoff was not the root cause
 
-But instruction layout shows:
-```
-[3] owner... signer=true writable=false  // ← Should be writable!
-```
+**Actual Issue**: System Program CPI restrictions for account creation
 
-**Issue**: Five SDK is overriding the `isWritable` flag for function parameter accounts.
+The error "Provided owner is not allowed" (System Program error code 4) occurs during the CreateAccount CPI. After extensive debugging, the issue is related to how Solana's System Program handles account creation via CPI.
 
-### What Should Happen
+### Debugging Approaches Tried
 
-1. Owner account must be marked `isWritable: true` in instruction
-2. VM's `create_account_with_payer()` validates payer is writable
-3. System Program CPI transfers lamports from payer account
-4. Account initialized with correct owner
+#### Approach 1: CreateAccount + Assign Pattern
+**Theory**: System Program restricts custom owners in CreateAccount CPI, so create with System Program owner then assign.
+**Implementation**: Modified `create_account_with_payer`, `create_account`, and `create_pda_account` to:
+1. Create account owned by System Program
+2. Use Assign instruction to transfer ownership to Five VM
+
+**Result**: ❌ Failed - System Program doesn't allow creating System-owned accounts via CPI (security restriction)
+
+#### Approach 2: Transfer + Allocate + Assign Pattern  
+**Theory**: Use separate System Program instructions to build up the account.
+**Implementation**:
+1. Transfer lamports from payer to new account
+2. Allocate space for the account
+3. Assign ownership to Five VM program
+
+**Result**: ❌ Failed - This pattern is invalid for Solana:
+- Transfer to uninitialized accounts doesn't work
+- Allocate requires the account to already exist
+- Pattern documented in `transfer_allocate_assign_investigation.md`
+
+#### Approach 3: PDA-Based Initialization (Current)
+**Theory**: System Program allows custom owners for PDAs when using `invoke_signed`.
+**Implementation**:
+- Updated counter template to use PDA-based initialization with `seeds=["counter", owner.key]`
+- Removed `@signer` attribute from counter parameter (PDAs can't be signers)
+- Modified E2E test to derive PDA addresses using `PublicKey.findProgramAddressSync()`
+- Reverted VM to use CreateAccount with `invoke_signed` for PDAs
+
+**Result**: ❌ Still failing with same error
+**Status**: Current approach, requires further investigation
+
+### Current Symptoms
+
+- **Error**: "Provided owner is not allowed" (System Program error 4)
+- **Compute Units**: 747 CU consumed (very early failure)
+- **Debug Logs**: No logs from `create_pda_account` or `INIT_PDA_ACCOUNT` handler appearing
+- **VM Execution**: Reaches execution but fails before account creation logic
+
+### Hypotheses for Continued Failure
+
+1. **Bytecode Issue**: Compiler may not be correctly emitting `INIT_PDA_ACCOUNT` opcode with proper parameters
+2. **Parameter Parsing**: VM may be failing to parse parameters before reaching account creation
+3. **Early Validation**: Some validation is failing before the CPI is attempted
+4. **Owner Mismatch**: The owner pubkey being passed may not match the Five VM program ID
+
+### Files Modified During Debugging
+
+**Counter Template**:
+- `five-templates/counter/src/counter.v`: Added PDA seeds, removed @signer
+- `five-templates/counter/e2e-counter-test.mjs`: Changed to PDA derivation
+
+**VM**:
+- `five-vm-mito/src/context.rs`: Multiple iterations of account creation logic
+- `five-vm-mito/src/handlers/system/init.rs`: Added debug logging
 
 ### Investigation Needed
 
-1. **Check Five SDK**: Why is `isWritable` flag being overridden in `generateExecuteInstruction()`?
-2. **Verify Account Flags**: Ensure owner account gets correct writable flag
-3. **Debug Instruction**: Add logging to see actual instruction passed to Five VM program
+1. **Verify Bytecode Generation**: Check that compiler correctly emits `INIT_PDA_ACCOUNT` with all parameters
+2. **Add Early Logging**: Add logs at the very start of `handle_init_pda_account` to confirm it's being called
+3. **Check program_id**: Verify `ctx.program_id` is correctly set to Five VM program ID
+4. **Inspect Transaction**: Use `solana confirm -v <signature>` for detailed transaction logs
+5. **Simplify Test**: Create minimal reproduction without Five SDK to isolate the issue
 
 ### Debugging Steps
 
 ```bash
-# Check SDK instruction building logic
-grep -n "isWritable" five-sdk/dist/FiveSDK.js
+# Check if INIT_PDA_ACCOUNT opcode is being emitted
+cd five-templates/counter
+npm run build
+# Inspect build/five-counter-template.five for bytecode
 
-# Look for flag override in instruction generation
-grep -n "function_param\|parameter.*writable" five-sdk/src/*.ts
+# Add logging to VM handler
+# Edit five-vm-mito/src/handlers/system/init.rs
+# Add error_log! at start of handle_init_pda_account
 
-# Run test with verbose logging
-npm test 2>&1 | grep -A 5 "ACCOUNT_LAYOUT\|isWritable"
+# Rebuild and redeploy
+cargo build-sbf --manifest-path five-solana/Cargo.toml
+solana program deploy target/deploy/five.so --url http://127.0.0.1:8899
+
+# Run test and check logs
+cd five-templates/counter
+npm test 2>&1 | grep -E "(INIT_PDA|Program log|create_pda)"
+
+# Inspect failed transaction
+# Get signature from test output, then:
+solana confirm -v <SIGNATURE> --url http://127.0.0.1:8899
 ```
+
+### Time Spent on Debugging
+
+Approximately 2 hours across three different approaches. Detailed walkthrough available in `walkthrough.md`.
 
 ---
 

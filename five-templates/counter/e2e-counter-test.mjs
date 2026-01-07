@@ -337,17 +337,25 @@ async function main() {
     info(`Funded User2: ${(user2Balance / LAMPORTS_PER_SOL).toFixed(2)} SOL`);
 
     // ========================================================================
-    // STEP 1: Generate Counter Account Keypairs
+    // STEP 1: Derive Counter Account PDAs
     // ========================================================================
 
-    header('STEP 1: Generating Counter Account Keypairs');
+    header('STEP 1: Deriving Counter Account PDAs');
 
-    const counter1Account = Keypair.generate();
-    const counter2Account = Keypair.generate();
+    // Derive counter PDAs from owner pubkeys + "counter" seed
+    const [counter1Account, counter1Bump] = PublicKey.findProgramAddressSync(
+        [Buffer.from('counter'), user1.publicKey.toBuffer()],
+        FIVE_PROGRAM_ID
+    );
 
-    success('Generated keypairs for counter accounts');
-    info(`Counter1 Account: ${counter1Account.publicKey.toBase58()}`);
-    info(`Counter2 Account: ${counter2Account.publicKey.toBase58()}`);
+    const [counter2Account, counter2Bump] = PublicKey.findProgramAddressSync(
+        [Buffer.from('counter'), user2.publicKey.toBuffer()],
+        FIVE_PROGRAM_ID
+    );
+
+    success('Derived PDA addresses for counter accounts');
+    info(`Counter1 PDA: ${counter1Account.toBase58()} (bump: ${counter1Bump})`);
+    info(`Counter2 PDA: ${counter2Account.toBase58()} (bump: ${counter2Bump})`);
 
     // ========================================================================
     // STEP 2: Initialize Counter1 for User1
@@ -361,12 +369,12 @@ async function main() {
         'initialize',
         [],
         [
-            { pubkey: counter1Account.publicKey, isWritable: true, isSigner: true },
+            { pubkey: counter1Account, isWritable: true, isSigner: false },
             { pubkey: user1.publicKey, isWritable: true, isSigner: true },  // Payer for account creation must be writable
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
             { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
         ],
-        [user1, counter1Account]
+        [user1]
     );
 
     testResults.push(result);
@@ -391,12 +399,12 @@ async function main() {
         'initialize',
         [],
         [
-            { pubkey: counter2Account.publicKey, isWritable: true, isSigner: true },
+            { pubkey: counter2Account, isWritable: true, isSigner: false },
             { pubkey: user2.publicKey, isWritable: true, isSigner: true },  // Payer for account creation must be writable
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
             { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
         ],
-        [user2, counter2Account]
+        [user2]
     );
 
     testResults.push(result);
@@ -422,7 +430,7 @@ async function main() {
             'increment',
             [],
             [
-                { pubkey: counter1Account.publicKey, isWritable: true, isSigner: false },
+                { pubkey: counter1Account, isWritable: true, isSigner: false },
                 { pubkey: user1.publicKey, isWritable: false, isSigner: true }
             ],
             [user1]
@@ -508,7 +516,7 @@ async function main() {
             'increment',
             [],
             [
-                { pubkey: counter2Account.publicKey, isWritable: true, isSigner: false },
+                { pubkey: counter2Account, isWritable: true, isSigner: false },
                 { pubkey: user2.publicKey, isWritable: false, isSigner: true }
             ],
             [user2]
@@ -537,7 +545,7 @@ async function main() {
         'reset',
         [],
         [
-            { pubkey: counter2Account.publicKey, isWritable: true, isSigner: false },
+            { pubkey: counter2Account, isWritable: true, isSigner: false },
             { pubkey: user2.publicKey, isWritable: false, isSigner: true }
         ],
         [user2]
@@ -579,8 +587,8 @@ async function main() {
             counterScriptAccount: COUNTER_SCRIPT_ACCOUNT.toBase58()
         },
         accounts: {
-            counter1: counter1Account.publicKey.toBase58(),
-            counter2: counter2Account.publicKey.toBase58(),
+            counter1: counter1Account.toBase58(),
+            counter2: counter2Account.toBase58(),
             user1: user1.publicKey.toBase58(),
             user2: user2.publicKey.toBase58(),
             payer: payer.publicKey.toBase58()

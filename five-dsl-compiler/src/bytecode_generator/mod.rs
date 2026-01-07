@@ -14,7 +14,7 @@ pub mod opcodes;
 pub mod abi_generator;
 
 // Constraint optimization for account validation
-pub mod constraint_optimizer;
+
 
 // Scope analysis for local variable optimization
 pub mod scope_analyzer;
@@ -73,7 +73,7 @@ pub use ast_generator::*;
 pub use bytecode_analyzer::*;
 pub use call::*;
 pub use compression::*;
-pub use constraint_optimizer::*;
+
 pub use disassembler::*;
 pub use function_dispatch::*;
 pub use import_table::*;

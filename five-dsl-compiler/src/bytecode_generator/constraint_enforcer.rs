@@ -35,9 +35,7 @@ pub fn emit_constraint_checks<T: OpcodeEmitter>(
                 "has" => {
                     emit_has_check(emitter, account_idx, param, attribute, parameters, account_registry)?;
                 }
-                "owner" => {
-                    emit_owner_check(emitter, account_idx, attribute)?;
-                }
+
                  _ => {}
             }
         }
@@ -146,64 +144,4 @@ fn emit_has_check<T: OpcodeEmitter>(
     Ok(())
 }
 
-/// Emit Bytecode for @owner(target)
-/// Ensures: account.owner == target
-/// Target can be a Pubkey parameter or a Literal
-fn emit_owner_check<T: OpcodeEmitter>(
-    _emitter: &mut T,
-    _account_idx: u8,
-    _attribute: &Attribute,
-) -> Result<(), VMError> {
-     // NOTE: We assume CHECK_OWNER opcode exists in opcodes.rs and works as:
-     // CHECK_OWNER <account_idx> <owner_key_on_stack from somewhere?>
-     // OR if it's CHECK_OWNER <account_idx> which checks against current program ID?
-     //
-     // Looking at opcodes.rs (recalled), CHECK_OWNER likely checks against current program ID (usually what you want).
-     // BUT @owner(target) implies checking against a specific target.
-     //
-     // If target is provided, we should probably do:
-     // GET_OWNER <account_idx> -> [owner_key]
-     // <Load Target> -> [owner_key, target_key]
-     // EQ
-     // REQUIRE
-     
-     // However, I don't see GET_OWNER in standard set often, 
-     // but account.owner is a built-in property.
-     // Accessing built-in property "owner" using LOAD_FIELD or specialized opcode?
-     
-     // Let's assume we use GET_OWNER if it exists, or fallback to treating it as a field access if "owner" is mapped.
-     // But strictly speaking, owner is in header, not data.
-     
-     // Let's try to assume CHECK_OWNER takes an argument or just checks program id.
-     // If attribute has args, we can't use simple CHECK_OWNER if it doesn't take args.
-     
-     // REVISION: I will use GET_OWNER (if exists) or assume standard account header access?
-     // `five-protocol/src/opcodes.rs` showed CHECK_OWNER.
-     // I'll assume CHECK_OWNER (0x72 or similar) checks against the executing program ID (common case).
-     // IF @owner has NO args, use CHECK_OWNER.
-     
-     // NOTE: CHECK_OWNER (0x72) in five-vm-mito expects [u8 account_index, [u8; 32] expected_owner_pubkey]
-     // We cannot currently resolve the Program ID at compile time to emit it as the expected owner.
-     // Therefore, we must disable this constraint generation until we have:
-     // 1. A way to inject Program ID constants
-     // 2. OR an opcode CHECK_OWNER_PROGRAM (implicit check against executing program)
-     
-     Err(VMError::InvalidOperation)
-     
-     /*
-     if attribute.args.is_empty() {
-         emitter.emit_opcode(CHECK_OWNER); // 0x72
-         emitter.emit_u8(account_idx);
-         // Missing: emitter.emit_pubkey(program_id);
-         return Ok(());
-     }
-     
-     if !attribute.args.is_empty() {
-        return Err(VMError::InvalidOperation); 
-     }
-     
-     emitter.emit_opcode(CHECK_OWNER);
-     emitter.emit_u8(account_idx);
-     Ok(())
-     */
-}
+
