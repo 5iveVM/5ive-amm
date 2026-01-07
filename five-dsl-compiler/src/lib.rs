@@ -9,6 +9,7 @@ pub mod bytecode_generator;
 pub mod bytecode_parser;
 pub mod compiler;
 pub mod config;
+pub mod disassembler;
 pub mod error;
 pub mod five_file;
 pub mod import_discovery;
