@@ -61,8 +61,14 @@ async function deploy() {
             }
         );
 
+        // Fetch recent blockhash
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
         // Send transaction
-        const tx = new Transaction()
+        const tx = new Transaction({
+            recentBlockhash: blockhash,
+            feePayer: payer.publicKey
+        })
             .add(createIx);
 
         if (deployIx.instruction) {
