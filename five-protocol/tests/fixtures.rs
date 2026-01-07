@@ -25,12 +25,12 @@ pub fn valid_header() -> Vec<u8> {
     b.build()
 }
 
-/// Generate an invalid CALL target (CALL to function index 5 while total functions = 2)
+/// Generate an invalid CALL target (CALL to offset 100 which is out of bounds)
 pub fn invalid_call_target() -> Vec<u8> {
     let mut b = BytecodeBuilder::new();
     b.emit_header(1, 2);
-    // Use 3-byte function address via emit_call
-    b.emit_call(5, 0);
+    // Use valid param count but out-of-bounds offset (100)
+    b.emit_call(100, 0);
     b.build()
 }
 
