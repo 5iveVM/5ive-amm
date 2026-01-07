@@ -181,7 +181,8 @@ async function executeCounterFunction(
                 debug: true,
                 vmStateAccount: VM_STATE_PDA.toBase58(),
                 fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
-                metadata: counterABI || undefined,
+                // Note: Don't pass ABI here - test uses separate parameters/accounts arrays
+                // which doesn't match SDK's expectation of all params in parameters array
                 adminAccount: payer.publicKey.toBase58()  // Payer as admin for fee collection
             }
         );
