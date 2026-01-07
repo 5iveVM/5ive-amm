@@ -758,17 +758,17 @@ impl FunctionDispatcher {
         for (index, param) in parameters.iter().enumerate() {
             let param_type = self.type_node_to_string(&param.param_type);
             let is_account = account_system.is_account_type(&param_type);
-            
+
             let (offset, is_parameter) = if is_account {
                 let off = account_param_counter;
                 account_param_counter += 1;
                 // Account param: Offset is the Account Index (relative to User Accounts)
                 (off, false)
             } else {
-                let off = data_param_counter;
+                let off = (data_param_counter + 1) as u32;  // 1-based for LOAD_PARAM VM indexing
                 data_param_counter += 1;
-                // Data param: Offset is the LOAD_PARAM index (0-based)
-                (off as u32, true)
+                // Data param: Offset is the LOAD_PARAM index (1-based for VM compatibility)
+                (off, true)
             };
 
             let field_info = super::types::FieldInfo {
