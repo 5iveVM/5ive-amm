@@ -21,11 +21,11 @@ pub fn valid_header() -> alloc::vec::Vec<u8> {
     b.build()
 }
 
-/// Return invalid CALL target bytecode: CALL to function index 5 (total functions = 2)
+/// Return invalid CALL target bytecode: CALL to address 200 (outside bytecode bounds)
 pub fn invalid_call_target() -> alloc::vec::Vec<u8> {
     let mut b = BytecodeBuilder::new();
     b.emit_header(1, 2);
-    b.emit_call(5, 0); // 3-byte call to out-of-bounds address
+    b.emit_call(200, 0); // 3-byte call to out-of-bounds address
     b.build()
 }
 
