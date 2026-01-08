@@ -53,9 +53,11 @@ pub mod performance;
 pub mod module_merger;
 
 // Account indices in bytecode are offset by VM state account.
-// Script account is handled separately and not passed to MitoVM.
-// OFFSET 2: 0=ProgramID, 1=VMState, 2=First User Account
-pub const ACCOUNT_INDEX_OFFSET: u8 = 2;
+// Script account is stripped by five-solana (&accounts[1..]).
+// VM View: Index 0=VM State, 1=param0, 2=param1
+// Formula: account_index = param_index + ACCOUNT_INDEX_OFFSET
+// CRITICAL: Must be 1 (see tests/test_account_index_offset.rs)
+pub const ACCOUNT_INDEX_OFFSET: u8 = 1;
 
 // CALL opcode emission and patching (public for testing)
 pub mod call;
