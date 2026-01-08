@@ -562,6 +562,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: DUP2,
+        name: "DUP2",
+        arg_type: ArgType::None,
+        stack_effect: 2,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: SWAP,
         name: "SWAP",
         arg_type: ArgType::None,
@@ -571,6 +578,27 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: PICK,
         name: "PICK",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: ROT,
+        name: "ROT",
+        arg_type: ArgType::None,
+        stack_effect: 0,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: DROP,
+        name: "DROP",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: OVER,
+        name: "OVER",
         arg_type: ArgType::None,
         stack_effect: 1,
         compute_cost: 1,
@@ -904,6 +932,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: ROTATE_LEFT,
+        name: "ROTATE_LEFT",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: ROTATE_RIGHT,
         name: "ROTATE_RIGHT",
         arg_type: ArgType::None,
@@ -1067,6 +1102,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::None,
         stack_effect: 1,
         compute_cost: 8,
+    },
+    OpcodeInfo {
+        opcode: FIND_PDA,
+        name: "FIND_PDA",
+        arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 20,
     },
     // Account operations
     OpcodeInfo {

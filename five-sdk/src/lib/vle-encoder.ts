@@ -68,7 +68,8 @@ export class VLEEncoder {
     functionIndex: number,
     parameters: ParameterDefinition[] = [],
     values: ParameterValue = {},
-    retry: boolean = true
+    retry: boolean = true,
+    options: any = {}
   ): Promise<Buffer> {
     // ⚡ Normalize parameter types before encoding to handle custom types (Mint, TokenAccount, etc.)
     const normalizedParameters = parameters.map(p => ({
@@ -172,11 +173,24 @@ export class VLEEncoder {
       return Buffer.from(bytes);
     };
 
-    const usesTypedParams = paramValues.some(({ param }) =>
-      this.isBytesParam(param) ||
-      this.normalizeType(param) === 'pubkey' ||
-      this.isAccountParam(param)
-    );
+    const usesTypedParams = paramValues.some(({ param }) => {
+      const type = this.normalizeType(param);
+      const isTyped = this.isBytesParam(param) ||
+        type === 'pubkey' ||
+        this.isAccountParam(param);
+
+      return isTyped;
+    });
+
+    if (options && (options as any).debug) {
+      console.log(`[VLE] usesTypedParams: ${usesTypedParams}`);
+      console.log(`[VLE] Parameters:`, paramValues.map(p => ({
+        name: p.param.name,
+        type: p.param.type || (p.param as any).param_type,
+        normalized: this.normalizeType(p.param),
+        isAccount: this.isAccountParam(p.param)
+      })));
+    }
 
     if (!usesTypedParams) {
       // Use PURE VLE compression - encode only values without type information
@@ -189,22 +203,35 @@ export class VLEEncoder {
         if (retry) {
           console.warn("[VLE] Reloading WASM module and retrying...");
           wasmModule = null; // Force reload
-          return this.encodeExecuteVLE(functionIndex, parameters, values, false);
+          return this.encodeExecuteVLE(functionIndex, parameters, values, false, options);
         }
         throw e;
       }
     }
 
     const parts: Buffer[] = [];
-    parts.push(encodeVleU32(functionIndex)); // Prefix with function index
+    // IMPORTANT: functionIndex is NOT included here.
+    // FiveSDK.ts's encodeExecuteInstruction will prepended discriminator(9) and functionIndex.
+
+    // For typed params, we prepend the sentinel and the actual count.
+    // FiveSDK.ts expects this format to detect typed mode.
     parts.push(encodeVleU32(TYPED_PARAM_SENTINEL)); // Signal typed params mode
-    parts.push(encodeVleU32(paramValues.length)); // Actual param count
+    parts.push(encodeVleU32(normalizedParameters.length)); // Actual param count
 
     for (const { param, value } of paramValues) {
       parts.push(this.encodeTypedParam(param, value, encodeVleU32, encodeVleU64));
     }
 
-    return Buffer.concat(parts);
+    const finalBuffer = Buffer.concat(parts);
+    if (options.debug) {
+      console.log(`[VLE] Protocol buffer generated:`, {
+        usesTypedParams,
+        length: finalBuffer.length,
+        hex: finalBuffer.toString('hex')
+      });
+    }
+
+    return finalBuffer;
   }
 
   private static encodeTypedParam(

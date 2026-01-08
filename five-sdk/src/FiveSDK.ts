@@ -1022,6 +1022,7 @@ export class FiveSDK {
         funcDef,
         functionIndex,
         accounts,
+        options,
       );
     } catch (metadataError) {
       if (options.debug) {
@@ -1061,6 +1062,8 @@ export class FiveSDK {
         functionIndex,
         paramDefs,
         paramValues,
+        true,
+        options,
       );
 
       if (options.debug) {
@@ -1696,6 +1699,7 @@ export class FiveSDK {
     functionDef: any,
     functionIndex: number,
     accounts: string[] = [],
+    options: any = {},
   ): Promise<Uint8Array> {
     if (!this.parameterEncoder) {
       await this.initializeComponents();
@@ -1725,7 +1729,7 @@ export class FiveSDK {
       // providedAccounts starts at index 2
       const idx = accounts.indexOf(pubkeyStr);
       if (idx !== -1) {
-        return idx + 2;
+        return idx + 1;
       }
 
       // If not in accounts, try matching against current accounts array if available
@@ -1761,6 +1765,8 @@ export class FiveSDK {
       functionIndex,
       paramDefs,
       paramValues,
+      true,
+      options,
     );
     return encoded;
   }
