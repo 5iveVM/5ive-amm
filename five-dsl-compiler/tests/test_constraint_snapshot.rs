@@ -49,7 +49,7 @@ fn test_constraint_bytecode_optimality_and_ordering() {
     let mut found_vault_mut = false;
     let mut found_vault_has_owner = false;
     let mut found_vault_has_mint = false;
-    
+
     // Scan for `owner` constraints (param index 1)
     let mut found_owner_signer = false;
 
@@ -58,24 +58,27 @@ fn test_constraint_bytecode_optimality_and_ordering() {
     while i < instructions.len() {
         match &instructions[i] {
             Instruction::CheckWritable { account_index, .. } => {
-                if *account_index == 2 {
+                // vault is param 0, with ACCOUNT_INDEX_OFFSET=1, so account_index=1
+                if *account_index == 1 {
                     found_vault_mut = true;
                 }
             },
             Instruction::CheckSigner { account_index, .. } => {
-                if *account_index == 3 {
+                // owner is param 1, with ACCOUNT_INDEX_OFFSET=1, so account_index=2
+                if *account_index == 2 {
                     found_owner_signer = true;
                 }
             },
             Instruction::LoadField { account_index, field_offset, .. } => {
                 // Detected a @has check start.
-                if *account_index == 2 { // vault (param 0 + 2 offset)
+                // vault is param 0, with ACCOUNT_INDEX_OFFSET=1, so account_index=1
+                if *account_index == 1 {
                     // Next instructions should be loading the target key, then EQ, then REQUIRE
                     // For `owner` field (offset 0 likely, as it's first)
                     // For `mint` field (offset 32 likely, as it's second)
                     if *field_offset == 0 {
                          // Expect check against owner param (index 1)
-                         // We can't verify exact target load easily without complex matching, 
+                         // We can't verify exact target load easily without complex matching,
                          // but we can verify the structure: LOAD_FIELD -> GET_KEY/LOCAL -> EQ -> REQUIRE
                          if verify_check_pattern(&instructions, i) {
                              found_vault_has_owner = true;
