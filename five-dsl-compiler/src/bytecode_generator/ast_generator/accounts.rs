@@ -215,9 +215,30 @@ impl ASTGenerator {
                     // Generate code to load the bump variable
                     self.generate_ast_node(emitter, &AstNode::Identifier(bump_var.clone()))?;
                 } else {
-                    // Default bump (should ideally be canonical 255/254, pushing 254 for safety)
+                    // Dynamic bump derivation: Calculate canonical bump using FIND_PDA
+                    // We need to push seeds first for FIND_PDA
+                    for seed in seeds {
+                        self.generate_ast_node(emitter, seed)?;
+                    }
+
+                    // Push seeds count
                     emitter.emit_opcode(PUSH_U8);
-                    emitter.emit_u8(254);
+                    emitter.emit_u8(seeds.len() as u8);
+
+                    // Push Five VM program ID as current program (0 -> Program ID in VM)
+                    // This relies on extract_pubkey handling PUSH_0 (U64(0)) correctly
+                    emitter.emit_opcode(PUSH_0);
+
+                    // Emit FIND_PDA (0x87) -> Pushes (pda_pubkey, bump) Tuple
+                    emitter.emit_opcode(FIND_PDA);
+
+                    // Unpack Tuple -> Stack: [pda_pubkey, bump] (Top)
+                    emitter.emit_opcode(UNPACK_TUPLE);
+
+                    // We only need the bump for INIT_PDA_ACCOUNT
+                    // Stack: [pda_pubkey, bump]
+                    emitter.emit_opcode(SWAP); // Stack: [bump, pda_pubkey]
+                    emitter.emit_opcode(DROP); // Stack: [bump]
                 }
 
                 // 2. Push Seeds
@@ -306,8 +327,8 @@ impl ASTGenerator {
                     return Err(VMError::TypeMismatch);
                 }
 
-                // Account indices start at offset based on fixed accounts (script, vm_state)
-                let account_idx = (idx + 2) as u8; // +2 for script and vm_state accounts
+                // Account indices use centralized ACCOUNT_INDEX_OFFSET constant
+                let account_idx = super::super::account_utils::account_index_from_param_index(idx as u8);
                 return Ok(account_idx);
             }
         }
@@ -322,7 +343,7 @@ impl ASTGenerator {
 
         for (idx, param) in params.iter().enumerate() {
             if param.attributes.iter().any(|a| a.name == "signer") {
-                let account_idx = (idx + 2) as u8;
+                let account_idx = super::super::account_utils::account_index_from_param_index(idx as u8);
                 return Ok(account_idx);
             }
         }
