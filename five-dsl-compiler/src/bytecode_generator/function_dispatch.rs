@@ -501,25 +501,22 @@ impl FunctionDispatcher {
             
             // Load parameters for the call (skipping param 0 which is func index)
             // Parameters 1..N are the actual function arguments
-            // FIX: Only load DATA parameters. Skip ACCOUNT parameters (they are global).
+            // CRITICAL FIX: Load ALL parameters with unified sequential indexing
+            // The VM's params array is contiguous: [func_idx, param1, param2, ...]
+            // All parameters (account AND data) must be passed to maintain correct indices.
             let parameters = self.parameter_cache.get(&function.name)
                 .ok_or(VMError::InvalidScript)?;
             
-            let mut data_param_count = 0;
-            for param in parameters {
-                let param_type_str = self.type_node_to_string(&param.param_type);
-                let is_account = account_system.is_account_type(&param_type_str);
-                
-                if !is_account {
-                    data_param_count += 1;
-                    emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
-                    emitter.emit_u8(data_param_count); // 1-based data index
-                }
+            let param_count = parameters.len() as u8;
+            for (i, _param) in parameters.iter().enumerate() {
+                // Use unified 1-based indexing: param[i] -> LOAD_PARAM (i+1)
+                emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
+                emitter.emit_u8((i + 1) as u8);
             }
 
-            // Emit CALL instruction
+            // Emit CALL instruction with TOTAL param count (all params, not just data)
             emitter.emit_opcode(five_protocol::opcodes::CALL);
-            emitter.emit_u8(data_param_count); // Number of args (Data only)
+            emitter.emit_u8(param_count); // Number of args (ALL params)
             
             // Record where the CALL's function offset is, so we can patch it 
             // once the actual function bodies are generated later.
@@ -755,23 +752,30 @@ impl FunctionDispatcher {
         ast_generator.current_function_parameters = Some(parameters.to_vec());
 
         // Add function parameters to the main AST generator's symbol table
-        let mut data_param_counter: u8 = 0;
-        let mut account_param_counter: u32 = 0;
+        // CRITICAL FIX: Dual indexing strategy for VM's separate arrays:
+        // - accounts[] array: accessed by STORE_FIELD, GET_KEY - uses 0-based account-only index
+        // - params[] array: accessed by LOAD_PARAM - uses 1-based unified index
+        //
+        // For account params: offset = account position (0-based among accounts only)
+        // For data params: offset = position in params array (1-based, matching VLE)
 
+        let mut account_counter: u32 = 0;
+        
         for (index, param) in parameters.iter().enumerate() {
             let param_type = self.type_node_to_string(&param.param_type);
             let is_account = account_system.is_account_type(&param_type);
 
             let (offset, is_parameter) = if is_account {
-                let off = account_param_counter;
-                account_param_counter += 1;
-                // Account param: Offset is the Account Index (relative to User Accounts)
-                (off, false)
+                // Account parameters: offset is 0-based account index (for STORE_FIELD, GET_KEY)
+                // account_index_from_param_offset will add ACCOUNT_INDEX_OFFSET
+                let acc_off = account_counter;
+                account_counter += 1;
+                (acc_off, false)
             } else {
-                let off = (data_param_counter + 1) as u32;  // 1-based for LOAD_PARAM VM indexing
-                data_param_counter += 1;
-                // Data param: Offset is the LOAD_PARAM index (1-based for VM compatibility)
-                (off, true)
+                // Data parameters: offset is 1-based unified index (for LOAD_PARAM)
+                // This matches the VM's params[] array where params[n] = nth param (1-indexed)
+                let data_off = (index + 1) as u32;
+                (data_off, true)
             };
 
             let field_info = super::types::FieldInfo {
@@ -779,7 +783,7 @@ impl FunctionDispatcher {
                 field_type: param_type,
                 is_mutable: false,  // Function parameters are immutable by default
                 is_optional: false, // Function parameters are required by default
-                is_parameter,       // Set correctly based on type
+                is_parameter,       // Account params use account access, data params use LOAD_PARAM
             };
             ast_generator.add_parameter_to_symbol_table(param.name.clone(), field_info);
         }

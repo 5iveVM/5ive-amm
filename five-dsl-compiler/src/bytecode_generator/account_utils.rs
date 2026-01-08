@@ -9,7 +9,10 @@ use crate::ast::{Attribute, TypeNode};
 
 /// Map a 0-based parameter index to the absolute account index used on-chain.
 pub fn account_index_from_param_index(param_index: u8) -> u8 {
-    param_index.saturating_add(super::ACCOUNT_INDEX_OFFSET)
+    let offset = super::ACCOUNT_INDEX_OFFSET;
+    let result = param_index.saturating_add(offset);
+    println!("DEBUG: account_index_from_param_index({}) with offset {} -> {}", param_index, offset, result);
+    result
 }
 
 /// Map a parameter offset stored in symbol tables (0-based) to an account index.
