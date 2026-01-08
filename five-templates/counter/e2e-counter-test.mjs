@@ -357,6 +357,8 @@ async function main() {
     info(`Counter1 PDA: ${counter1Account.toBase58()} (bump: ${counter1Bump})`);
     info(`Counter2 PDA: ${counter2Account.toBase58()} (bump: ${counter2Bump})`);
 
+
+
     // ========================================================================
     // STEP 2: Initialize Counter1 for User1
     // ========================================================================
@@ -372,7 +374,7 @@ async function main() {
             { pubkey: counter1Account, isWritable: true, isSigner: false },
             { pubkey: user1.publicKey, isWritable: true, isSigner: true },  // Payer for account creation must be writable
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
-            { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true }
         ],
         [user1]
     );
@@ -391,7 +393,7 @@ async function main() {
     // STEP 3: Initialize Counter2 for User2
     // ========================================================================
 
-    header('STEP 3: Initialize Counter2 (User2)');
+
 
     result = await executeCounterFunction(
         connection,
@@ -431,7 +433,8 @@ async function main() {
             [],
             [
                 { pubkey: counter1Account, isWritable: true, isSigner: false },
-                { pubkey: user1.publicKey, isWritable: false, isSigner: true }
+                { pubkey: user1.publicKey, isWritable: true, isSigner: true },
+                { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }
             ],
             [user1]
         );
@@ -459,8 +462,9 @@ async function main() {
         'add_amount',
         [10],
         [
-            { pubkey: counter1Account.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true }
+            { pubkey: counter1Account, isWritable: true, isSigner: false },
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }
         ],
         [user1]
     );
@@ -487,8 +491,9 @@ async function main() {
         'decrement',
         [],
         [
-            { pubkey: counter1Account.publicKey, isWritable: true, isSigner: false },
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true }
+            { pubkey: counter1Account, isWritable: true, isSigner: false },
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }
         ],
         [user1]
     );
@@ -517,7 +522,8 @@ async function main() {
             [],
             [
                 { pubkey: counter2Account, isWritable: true, isSigner: false },
-                { pubkey: user2.publicKey, isWritable: false, isSigner: true }
+                { pubkey: user2.publicKey, isWritable: true, isSigner: true },
+                { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }
             ],
             [user2]
         );
@@ -546,7 +552,8 @@ async function main() {
         [],
         [
             { pubkey: counter2Account, isWritable: true, isSigner: false },
-            { pubkey: user2.publicKey, isWritable: false, isSigner: true }
+            { pubkey: user2.publicKey, isWritable: true, isSigner: true },
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }
         ],
         [user2]
     );

@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8899';
-const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
+const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || 'HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k');
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -137,6 +137,7 @@ async function deployCounterProgram() {
                     { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
                     { pubkey: vmStatePda, isSigner: false, isWritable: true },
                     { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+                    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
                 ],
                 programId: FIVE_PROGRAM_ID,
                 data: Buffer.concat([
