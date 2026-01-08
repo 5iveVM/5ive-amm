@@ -302,7 +302,7 @@ fn calculate_fee(amount: u64, bps: u32) -> u64 {
 
 /// Transfer fee from payer to recipient
 fn transfer_fee(payer: &AccountInfo, recipient: &AccountInfo, amount: u64, system_program: Option<&AccountInfo>) -> ProgramResult {
-    if amount == 0 {
+    if amount == 0 || payer.key() == recipient.key() {
         return Ok(());
     }
 
@@ -924,7 +924,9 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         if fee > 0 {
              let admin_key = vm_state.authority;
              let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
-             let payer_account = accounts.iter().find(|a| a.is_signer() && *a.key() != *vm_state_account.key() && *a.key() != *script_account.key());
+             let payer_account = accounts.iter()
+                 .filter(|a| a.is_signer() && *a.key() != *vm_state_account.key() && *a.key() != *script_account.key())
+                 .max_by_key(|a| a.lamports());
              
              if let Some(recipient) = admin_account {
                  if let Some(payer) = payer_account {
