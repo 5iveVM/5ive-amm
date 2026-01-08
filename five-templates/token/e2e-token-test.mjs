@@ -39,7 +39,7 @@ let RPC_URL = 'http://127.0.0.1:8899';
 const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
 
 // Localnet deployment (updated 2025-12-28)
-let FIVE_PROGRAM_ID = new PublicKey('9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
+let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || 'HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k');
 let VM_STATE_PDA = new PublicKey('DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
 let TOKEN_SCRIPT_ACCOUNT = new PublicKey('GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
 
@@ -87,8 +87,25 @@ let functionIndices = {};  // Map function names to indices
 function loadTokenABI() {
     const buildPath = path.join(__dirname, 'build', 'five-token-template.five');
     try {
-        const fiveFile = JSON.parse(fs.readFileSync(buildPath, 'utf-8'));
-        tokenABI = fiveFile.abi;
+        let fiveFile;
+        if (fs.existsSync(buildPath)) {
+            const content = fs.readFileSync(buildPath, 'utf-8');
+            try {
+                fiveFile = JSON.parse(content);
+                tokenABI = fiveFile.abi || fiveFile; // Handle both direct ABI and .five JSON
+            } catch (e) {
+                // If .five is not JSON, try .abi.json
+                const abiJsonPath = path.join(__dirname, 'build', 'five-token-template.abi.json');
+                if (fs.existsSync(abiJsonPath)) {
+                    tokenABI = JSON.parse(fs.readFileSync(abiJsonPath, 'utf-8'));
+                } else {
+                    throw e;
+                }
+            }
+        } else {
+            const abiJsonPath = path.join(__dirname, 'build', 'five-token-template.abi.json');
+            tokenABI = JSON.parse(fs.readFileSync(abiJsonPath, 'utf-8'));
+        }
         const functionCount = Array.isArray(tokenABI?.functions)
             ? tokenABI.functions.length
             : Object.keys(tokenABI?.functions || {}).length;
@@ -143,7 +160,7 @@ function loadKeypair(kpPath) {
  * @param connection - Solana connection
  * @param payer - Keypair that pays for the transaction
  * @param functionName - Name of the function to call
- * @param parameters - Function parameters (values)
+ * @param parameters - Function parameters (high-level values: PublicKey, number, string)
  * @param accounts - Array of account objects: { pubkey: PublicKey, isWritable: bool, isSigner: bool }
  * @param signers - Array of Keypair objects that must sign the transaction
  */
@@ -152,50 +169,56 @@ async function executeTokenFunction(
     payer,
     functionName,
     parameters = [],
-    accounts = [],
+    accounts = [], // Array of { pubkey, isWritable, isSigner }
     signers = []
 ) {
     try {
-        // Get function index from ABI (workaround for SDK bug that defaults to index 0)
-        const functionIndex = getFunctionIndex(functionName);
+        // Prepare account strings for SDK resolution
+        const accountPubkeys = accounts.map(a => a.pubkey.toBase58());
 
-        // Generate the base instruction using Five SDK (without accounts - we add them manually)
+        // Generate the real instruction using SDK with ABI guidance
         const executeData = await FiveSDK.generateExecuteInstruction(
             TOKEN_SCRIPT_ACCOUNT.toBase58(),
-            functionIndex,  // Pass index instead of name to avoid SDK bug
+            functionName,
             parameters,
-            [],  // Empty - we append accounts manually like the DEX test
+            accountPubkeys,
             connection,
             {
                 debug: true,
                 vmStateAccount: VM_STATE_PDA.toBase58(),
                 fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
-                abi: tokenABI  // Pass ABI for proper parameter type encoding
+                abi: tokenABI
             }
         );
 
-        // Start with the base instruction keys (Script Account, VM State)
-        const ixKeys = executeData.instruction.accounts.map((acc) => ({
+        // Build the full keys list for Solana TransactionInstruction
+        // Start with accounts returned by SDK (Script, VMState, and provided user accounts)
+        const ixKeys = executeData.instruction.accounts.map(acc => ({
             pubkey: new PublicKey(acc.pubkey),
             isSigner: acc.isSigner,
             isWritable: acc.isWritable
         }));
 
-        // Append function-specific accounts with explicit flags
-        // This follows the DEX test pattern where accounts are objects with pubkey/isSigner/isWritable
-        accounts.forEach(acc => {
-            const pubkey = acc.pubkey instanceof PublicKey
-                ? acc.pubkey
-                : new PublicKey(acc.pubkey);
-            ixKeys.push({
-                pubkey: pubkey,
-                isSigner: acc.isSigner ?? false,
-                isWritable: acc.isWritable ?? true
-            });
-        });
+        // Add auxiliary accounts required for fees and system calls (if not already present)
+        const auxAccounts = [
+            { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }
+        ];
+
+        for (const aux of auxAccounts) {
+            const existingIdx = ixKeys.findIndex(k => k.pubkey.equals(aux.pubkey));
+            if (existingIdx === -1) {
+                ixKeys.push(aux);
+            } else {
+                // Elevate flags if already present as user account
+                ixKeys[existingIdx].isSigner = ixKeys[existingIdx].isSigner || aux.isSigner;
+                ixKeys[existingIdx].isWritable = ixKeys[existingIdx].isWritable || aux.isWritable;
+            }
+        }
 
         const ix = new TransactionInstruction({
-            programId: new PublicKey(executeData.instruction.programId),
+            programId: FIVE_PROGRAM_ID,
             keys: ixKeys,
             data: Buffer.from(executeData.instruction.data, 'base64')
         });
@@ -210,36 +233,26 @@ async function executeTokenFunction(
 
         await connection.confirmTransaction(sig, 'confirmed');
 
-        // Fetch transaction details for compute units
         const txDetails = await connection.getTransaction(sig, {
             maxSupportedTransactionVersion: 0
         });
 
-        let computeUnits = 1400000;
-        if (txDetails?.meta?.computeUnitsConsumed) {
-            computeUnits = txDetails.meta.computeUnitsConsumed;
-        }
-
         const success_flag = txDetails?.meta?.err === null;
-
         if (!success_flag) {
             console.log(`\n❌ Transaction Logs for [${functionName}]:`);
-            if (txDetails?.meta?.logMessages) {
-                txDetails.meta.logMessages.forEach(msg => console.log(`  ${msg}`));
-            } else {
-                console.log("  No logs available");
-            }
-            console.log(""); // Newline
+            txDetails?.meta?.logMessages?.forEach(msg => console.log(`  ${msg}`));
+            console.log("");
         }
 
         return {
             success: success_flag,
             functionName,
             signature: sig,
-            computeUnits,
+            computeUnits: txDetails?.meta?.computeUnitsConsumed || 0,
             error: success_flag ? null : JSON.stringify(txDetails?.meta?.err)
         };
     } catch (e) {
+        console.error(`[executeTokenFunction] Error:`, e);
         return {
             success: false,
             functionName,
@@ -411,8 +424,9 @@ async function main() {
             [
                 { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },   // Account 0: mint_state
                 { pubkey: op.account.publicKey, isWritable: true, isSigner: false },    // Account 1: destination_account
-                { pubkey: user1.publicKey, isWritable: false, isSigner: true },         // Account 2: mint_authority
-                { pubkey: payer.publicKey, isWritable: true, isSigner: true }           // Common Payer
+                { pubkey: user1.publicKey, isWritable: true, isSigner: true },         // Account 2: mint_authority
+                { pubkey: payer.publicKey, isWritable: true, isSigner: true },          // Common Payer
+                { pubkey: SystemProgram.programId, isWritable: false, isSigner: false } // System Program (for fees)
             ],
             [user1]  // Authority signs
         );
@@ -441,8 +455,9 @@ async function main() {
         [
             { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: source_account
             { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: destination_account
-            { pubkey: user2.publicKey, isWritable: false, isSigner: true },             // Account 2: owner
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
+            { pubkey: user2.publicKey, isWritable: true, isSigner: true },             // Account 2: owner
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user2]  // Owner of source account signs
     );
@@ -470,8 +485,9 @@ async function main() {
         [user3TokenAccount.publicKey, user3.publicKey, user2.publicKey, 150],
         [
             { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: token_account
-            { pubkey: user3.publicKey, isWritable: false, isSigner: true },             // Account 1: owner
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
+            { pubkey: user3.publicKey, isWritable: true, isSigner: true },             // Account 1: owner
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user3]  // Account owner signs
     );
@@ -495,8 +511,9 @@ async function main() {
         [
             { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: source_account
             { pubkey: user1TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: destination_account
-            { pubkey: user2.publicKey, isWritable: false, isSigner: true },             // Account 2: authority (delegate)
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
+            { pubkey: user2.publicKey, isWritable: true, isSigner: true },             // Account 2: authority (delegate)
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user2]  // Delegate signs
     );
@@ -523,8 +540,9 @@ async function main() {
         [user3TokenAccount.publicKey, user3.publicKey],
         [
             { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: token_account
-            { pubkey: user3.publicKey, isWritable: false, isSigner: true },             // Account 1: owner
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
+            { pubkey: user3.publicKey, isWritable: true, isSigner: true },             // Account 1: owner
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user3]  // Account owner signs
     );
@@ -552,8 +570,9 @@ async function main() {
         [
             { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },       // Account 0: mint_state
             { pubkey: user1TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: token_account
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true },             // Account 2: owner
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },             // Account 2: owner
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user1]  // Account owner signs
     );
@@ -581,8 +600,9 @@ async function main() {
         [
             { pubkey: mintAccount.publicKey, isWritable: false, isSigner: false },       // Account 0: mint_state
             { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: token_account
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true },             // Account 2: freeze_authority
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },             // Account 2: freeze_authority
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user1]  // Freeze authority signs
     );
@@ -606,8 +626,9 @@ async function main() {
         [
             { pubkey: mintAccount.publicKey, isWritable: false, isSigner: false },       // Account 0: mint_state
             { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: token_account
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true },             // Account 2: freeze_authority
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },             // Account 2: freeze_authority
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user1]  // Freeze authority signs
     );
@@ -634,8 +655,9 @@ async function main() {
         [mintAccount.publicKey, user1.publicKey],
         [
             { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },       // Account 0: mint_state
-            { pubkey: user1.publicKey, isWritable: false, isSigner: true },             // Account 1: authority
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true }               // Common Payer
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },             // Account 1: authority
+            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user1]  // Authority signs
     );

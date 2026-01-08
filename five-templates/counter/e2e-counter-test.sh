@@ -245,36 +245,36 @@ build_template() {
     fi
 
     print_step "Source: $SOURCE_FILE"
-    print_step "Building with Five CLI..."
+    print_step "Building with local debug_compile..."
 
-    cd "$PROJECT_ROOT"
-
-    if [ "$VERBOSE" = true ]; then
-        if ../../target/debug/debug_compile "$SOURCE_FILE" && node create_artifact.js; then
-            print_success "Build completed"
+    # 1. Compile with local debug_compile to get .bin and .abi.json
+    cd "$PROJECT_ROOT/../../five-dsl-compiler"
+    if cargo run -q --bin debug_compile -- "$PROJECT_ROOT/src/counter.v"; then
+        print_success "Compilation successful"
+        
+        # 2. Prepare files for create_artifact.js
+        cd "$PROJECT_ROOT"
+        cp src/counter.bin src/counter.fbin
+        # src/counter.abi.json is already created by debug_compile in the same dir as .v
+        
+        # 3. Create the .five artifact
+        if node create_artifact.js; then
+            print_success "Artifact created"
             BUILD_SUCCESSFUL=true
+            
+            # Show summary
+            BYTECODE_SIZE=$(ls -lh "$COMPILED_FILE" 2>/dev/null | awk '{print $5}' || echo "0")
+            print_info "Artifact: $COMPILED_FILE ($BYTECODE_SIZE)"
         else
-            print_error "Build failed"
+            print_error "Artifact creation failed"
             exit 1
         fi
     else
-        if ../../target/debug/debug_compile "$SOURCE_FILE" > /tmp/five-build.log 2>&1 && node create_artifact.js >> /tmp/five-build.log 2>&1; then
-            print_success "Build completed"
-            BUILD_SUCCESSFUL=true
-
-            # Show summary
-            BYTECODE_SIZE=$(ls -lh "$COMPILED_FILE" 2>/dev/null | awk '{print $5}' || echo "unknown")
-            print_info "Artifact: $COMPILED_FILE ($BYTECODE_SIZE)"
-        else
-            print_error "Build failed"
-            if [ "$VERBOSE" = true ]; then
-                cat /tmp/five-build.log
-            else
-                print_info "Run with --verbose for details"
-            fi
-            exit 1
-        fi
+        print_error "Compilation failed"
+        exit 1
     fi
+    
+    cd "$PROJECT_ROOT"
 }
 
 ##############################################################################
