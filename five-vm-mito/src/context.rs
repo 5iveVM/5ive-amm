@@ -933,6 +933,7 @@ impl<'a> ExecutionContext<'a> {
                     Err(VMErrorCode::MemoryError)
                 }
             }
+            ValueRef::U64(0) => Ok(self.program_id),
             _ => Err(VMErrorCode::TypeMismatch),
         }
     }
@@ -1321,6 +1322,7 @@ impl<'a> ExecutionContext<'a> {
         space: u64,
         lamports: u64,
         owner: &Pubkey,
+        payer_idx: u8,
     ) -> CompactResult<()> {
         // Validate accounts lazily first, then access unchecked
         self.lazy_validator.ensure_validated(0, self.accounts)?;
@@ -1329,15 +1331,19 @@ impl<'a> ExecutionContext<'a> {
 
         let new_account = self.get_account_unchecked(account_idx)?;
 
-        // Find a valid payer (signer, writable, not the new account)
-        let mut payer = self.get_account_unchecked(0)?;
-        for i in 0..self.accounts.len() {
-             let acc = self.get_account_unchecked(i as u8)?;
-             if acc.is_signer() && acc.is_writable() && acc.key() != new_account.key() {
-                 payer = acc;
-                 break;
-             }
+        // Debug: Log payer_idx before validation
+        crate::error_log!("create_pda_account: payer_idx={} num_accounts={}", payer_idx as u32, self.accounts.len() as u32);
+
+        // Validate payer_idx
+        if payer_idx as usize >= self.accounts.len() {
+            crate::error_log!("create_pda_account: INVALID payer_idx {} >= num_accounts {}", payer_idx as u32, self.accounts.len() as u32);
+            return Err(VMErrorCode::InvalidAccountIndex);
         }
+
+        let payer = self.get_account_unchecked(payer_idx)?;
+
+        // Debug: Log payer account details
+        crate::error_log!("create_pda_account: Got payer account at idx {}", payer_idx as u32);
 
         let system_program_id = Pubkey::from(SYSTEM_PROGRAM_ID);
         let system_program = self
@@ -1380,6 +1386,7 @@ impl<'a> ExecutionContext<'a> {
 
         #[cfg(target_os = "solana")]
         {
+            crate::error_log!("create_pda_account: Executing SOLANA path (CPI)");
             // Convert seeds and bump into Signer representation
             const MAX_SEEDS: usize = 8;
             let binding = [bump];
@@ -1394,16 +1401,21 @@ impl<'a> ExecutionContext<'a> {
                 .map_err(|_| VMErrorCode::TooManySeeds)?;
             let signer = Signer::from(seed_vec.as_slice());
 
+            crate::error_log!("create_pda_account: invoking system_instruction::create_account");
             invoke_signed::<3>(
                 &instruction,
                 &[payer, new_account, system_program],
                 &[signer],
             )
-            .map_err(|_| VMErrorCode::InvokeError)?;
+            .map_err(|e| {
+                crate::error_log!("create_pda_account: invoke_signed FAILED");
+                VMErrorCode::InvokeError
+            })?;
         }
 
         #[cfg(not(target_os = "solana"))]
         {
+            crate::error_log!("create_pda_account: Executing SIMULATION path (Direct Lamport mod)");
             // Simulate CreateAccount for off-chain tests
             unsafe {
                 if *payer.borrow_lamports_unchecked() < lamports {

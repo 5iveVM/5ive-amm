@@ -247,6 +247,7 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
         space,
         lamports,
         &owner,
+        payer_idx,
     )?;
 
     // Validate that the created account address matches the derived PDA
