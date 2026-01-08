@@ -1,18 +1,18 @@
 {
   "config": {
     "rpcUrl": "http://127.0.0.1:8899",
-    "programId": "9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH",
-    "vmStatePda": "DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys"
+    "programId": "HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k",
+    "vmStatePda": "BDSWCHg6aA5hVvjwts12B3uMWVV3q8UH3qU7FMUD7JX2"
   },
   "accounts": {
-    "mint": "5kfdGcsu6TEkk1rBqg3reBsHUDFS6MtNxPUk7rGQorv",
-    "user1": "2C2kmFovNpR3dHQCZxy8bbk9rAUyhrw58FaC4HwZ6TuZ",
-    "user2": "AMkp3tPXLnJSVWB9nPKHAqavMwyH3imwxomLoKRAvDzB",
-    "user3": "9Vc4ytciTpk5RjPPX28diqU9aXF6zc33Mhm75isRnDGE",
+    "mint": "4FW5Dua33HAGDaDE3eo45LVbYLtpN1niwqkw64qLio5B",
+    "user1": "CuMkaBokhroJiP5SzMgJDDtDTuVs3ck4PcEkvWBQ58hK",
+    "user2": "8iEeYmzP1B3Z7TVuLNxQzXGk2nSJrBP3ExDXV5mFTkSP",
+    "user3": "5BtXZoQViTamnhadXfQT45oqo8YQSofqqC25kCaXMK66",
     "payer": "EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt",
-    "user1TokenAccount": "9vumEuTZAnWECPU7Ef8e25HE5XLizrTS1JkUaPSYBxY1",
-    "user2TokenAccount": "14bkvfocqsn3LSt6wkMcYJztbw9bDGAPmCRxajxJZMQP",
-    "user3TokenAccount": "DAdbxEZQK5Pqw6RuCj3S73bkEeqt1pN1bBmGBBDz52b2"
+    "user1TokenAccount": "HiFQqAxJgzVZrPLAErJSSbuiYLjTzReg1G4BkL4RJNjp",
+    "user2TokenAccount": "8KDdnMi9W1DgDL9nv1THoAUnWE4JbQbGW4338hHYtbvy",
+    "user3TokenAccount": "8UH8ao1Agdqvfm1wpADHvAcg1QZC4W8yqoqSBP3hzooT"
   },
   "expected": {
     "mintSupply": 1900,
