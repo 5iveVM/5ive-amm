@@ -308,6 +308,42 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 }
             }
         }
+        UNPACK_TUPLE => {
+            // UNPACK_TUPLE - Unpack tuple elements onto stack
+            let tuple_ref = ctx.pop()?;
+            match tuple_ref {
+                ValueRef::TupleRef(offset, size) => {
+                    let mut current_offset = offset as usize;
+                    let end_offset = current_offset + size as usize;
+                    
+                    // First pass: validate and collect elements to avoid multiple borrows
+                    // We can't push while reading because pushing might realloc temp buffer (unlikely for stack but possible for context state)
+                    // Actually, ctx.push doesn't touch temp buffer usually, but let's be safe
+                    
+                    // Simple iteration: read and push. ValueRef is Copy? Yes.
+                    while current_offset < end_offset {
+                        // Scope the immutable borrow
+                        let (val, len) = {
+                            let temp = ctx.temp_buffer();
+                            if current_offset >= temp.len() {
+                                return Err(VMErrorCode::MemoryViolation);
+                            }
+                            let val = ValueRef::deserialize_from(&temp[current_offset..])
+                                .map_err(|_| VMErrorCode::ProtocolError)?;
+                            (val, val.serialized_size())
+                        };
+                        current_offset += len;
+                        
+                        // Push to stack (copies the ValueRef)
+                        ctx.push(val)?;
+                    }
+                }
+                _ => {
+                    debug_log!("MitoVM: UNPACK_TUPLE expected TupleRef");
+                    return Err(VMErrorCode::TypeMismatch);
+                }
+            }
+        }
         _ => {
             debug_log!("MitoVM: Option/Result opcode {} not implemented", opcode);
             return Err(VMErrorCode::InvalidInstruction);

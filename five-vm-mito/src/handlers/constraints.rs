@@ -24,13 +24,17 @@ const SYSTEM_PROGRAM_ID: [u8; 32] = [
 /// Handle constraint operations (0x70-0x7F)
 #[inline(never)]
 pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: handle_constraints opcode: {}", opcode);
+    debug_log!("MitoVM: CHECK_SIGNER constant: {}", CHECK_SIGNER);
     match opcode {
         // ===== CONSTRAINT VALIDATION OPERATIONS (0x70-0x7F) =====
         // Core account constraint checking operations
         CHECK_SIGNER => {
             let account_idx = ctx.fetch_byte()?; // Fetch account_idx directly from bytecode
+            debug_log!("MitoVM: CHECK_SIGNER checking account {}", account_idx);
             let account = ctx.get_account(account_idx)?;
             if !account.is_signer() {
+                debug_log!("MitoVM: CHECK_SIGNER failed - account {} is not signer", account_idx);
                 return Err(VMErrorCode::ConstraintViolation);
             }
             debug_log!("MitoVM: CHECK_SIGNER passed for account {}", account_idx);
@@ -157,7 +161,10 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             }
         }
 
-        _ => return Err(VMErrorCode::InvalidInstruction),
+        _ => {
+            debug_log!("MitoVM: Unknown constraint opcode: {}", opcode);
+            return Err(VMErrorCode::InvalidInstruction);
+        },
     }
     Ok(())
 }
