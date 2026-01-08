@@ -11,7 +11,9 @@ pub fn emit_constraint_checks<T: OpcodeEmitter>(
     parameters: &[InstructionParameter],
     account_registry: &AccountRegistry,
 ) -> Result<(), VMError> {
-    
+    // Emit CHECK_SIGNER for @init payer parameters first
+    emit_init_payer_checks(emitter, parameters)?;
+
     for (param_index, param) in parameters.iter().enumerate() {
         // Skip non-account parameters for most checks
         let is_account = is_account_param(param);
@@ -40,7 +42,32 @@ pub fn emit_constraint_checks<T: OpcodeEmitter>(
             }
         }
     }
-    
+
+    Ok(())
+}
+
+/// Emit CHECK_SIGNER for @init payer parameters
+/// This ensures the payer account has signed the transaction
+fn emit_init_payer_checks<T: OpcodeEmitter>(
+    emitter: &mut T,
+    parameters: &[InstructionParameter],
+) -> Result<(), VMError> {
+    for param in parameters.iter() {
+        if let Some(ref init_config) = param.init_config {
+            if let Some(ref payer_name) = init_config.payer {
+                // Find the payer parameter index
+                let payer_param_index = parameters.iter()
+                    .position(|p| p.name == *payer_name)
+                    .ok_or(VMError::InvalidScript)?;
+
+                let payer_account_idx = account_index_from_param_index(payer_param_index as u8);
+
+                // Emit CHECK_SIGNER for the payer
+                emitter.emit_opcode(CHECK_SIGNER);
+                emitter.emit_u8(payer_account_idx);
+            }
+        }
+    }
     Ok(())
 }
 
