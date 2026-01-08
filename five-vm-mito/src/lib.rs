@@ -173,7 +173,6 @@ pub mod enhanced_opcodes {
 #[cfg(feature = "debug-logs")]
 macro_rules! debug_log {
     ($($arg:tt)*) => {
-
         pinocchio_log::log!($($arg)*);
     };
 }
@@ -185,16 +184,16 @@ macro_rules! debug_log {
 
 pub(crate) use debug_log;
 
-// #[cfg(feature = "debug-logs")]
+#[cfg(feature = "debug-logs")]
 macro_rules! error_log {
     ($($arg:tt)*) => {
         pinocchio_log::log!($($arg)*);
     };
 }
 
-// #[cfg(not(feature = "debug-logs"))]
-// macro_rules! error_log {
-//     ($($arg:tt)*) => {};
-// }
+#[cfg(not(feature = "debug-logs"))]
+macro_rules! error_log {
+    ($($arg:tt)*) => {};
+}
 
 pub(crate) use error_log;

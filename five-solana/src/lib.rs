@@ -59,7 +59,10 @@ mod test_call_external_constraints;
 mod test_deploy_verification;
 
 #[cfg(test)]
-mod test_parameter_indexing;
+pub mod test_parameter_indexing;
+
+#[cfg(test)]
+pub mod test_opcode;
 
 use instructions::FIVEInstruction;
 
@@ -73,9 +76,12 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@");
-    pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START");
-    pinocchio::log::sol_log_64(0, 0, 0, 0, instruction_data[0] as u64);
+    #[cfg(feature = "debug-logs")]
+    {
+        pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@");
+        pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START");
+        pinocchio::log::sol_log_64(0, 0, 0, 0, instruction_data[0] as u64);
+    }
 
     log_if_debug!(
         debug,
@@ -165,9 +171,12 @@ pub fn process_instruction(
             instructions::deploy(program_id, accounts, bytecode, permissions)
         }
         FIVEInstruction::Execute { params } => {
-            pinocchio::log::sol_log("FIVE VM: EXECUTE START");
-            pinocchio::log::sol_log_64(0, 0, 0, 0, params.len() as u64);
-            pinocchio::log::sol_log_64(0, 0, 0, 0, accounts.len() as u64);
+            #[cfg(feature = "debug-logs")]
+            {
+                pinocchio::log::sol_log("FIVE VM: EXECUTE START");
+                pinocchio::log::sol_log_64(0, 0, 0, 0, params.len() as u64);
+                pinocchio::log::sol_log_64(0, 0, 0, 0, accounts.len() as u64);
+            }
             instructions::execute(program_id, accounts, params)
         }
         FIVEInstruction::FinalizeScript => {
