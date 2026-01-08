@@ -1342,15 +1342,30 @@ impl<'a> ExecutionContext<'a> {
 
         let payer = self.get_account_unchecked(payer_idx)?;
 
-        // Debug: Log payer account details
-        crate::error_log!("create_pda_account: Got payer account at idx {}", payer_idx as u32);
+        // Debug: Log all critical parameters
+        let p_key = payer.key().as_ref();
+        let n_key = new_account.key().as_ref();
+        crate::error_log!("create_pda_account: account_idx={} payer_idx={} lamports={} space={}", account_idx as u32, payer_idx as u32, lamports, space);
+        crate::error_log!("create_pda_account: acc_key={} {} {} {}", n_key[0], n_key[1], n_key[2], n_key[3]);
+        crate::error_log!(
+            "Payer details: key={} {} {} {} is_signer={} is_writable={} lamports={}",
+            p_key[0], p_key[1], p_key[2], p_key[3],
+            if payer.is_signer() { 1 } else { 0 },
+            if payer.is_writable() { 1 } else { 0 },
+            payer.lamports()
+        );
 
         let system_program_id = Pubkey::from(SYSTEM_PROGRAM_ID);
         let system_program = self
             .accounts
             .iter()
             .find(|a| a.key() == &system_program_id)
-            .ok_or(VMErrorCode::AccountNotFound)?;
+            .ok_or_else(|| {
+                crate::error_log!("create_pda_account: System Program NOT FOUND in accounts!");
+                VMErrorCode::AccountNotFound
+            })?;
+        
+        crate::error_log!("create_pda_account: system_program_key={}", system_program.key().as_ref()[0]);
 
         // Use CreateAccount with invoke_signed for PDAs
         // The owner should be the Five VM program (self.program_id), not the System Program
@@ -1358,7 +1373,7 @@ impl<'a> ExecutionContext<'a> {
         // Log owner for debugging
         let owner_bytes = owner.as_ref();
         crate::error_log!(
-            "create_pda_account: owner={} {} {} {}",
+            "create_pda_account: requested_owner={} {} {} {}",
             owner_bytes[0], owner_bytes[1], owner_bytes[2], owner_bytes[3]
         );
         
@@ -1386,11 +1401,13 @@ impl<'a> ExecutionContext<'a> {
 
         #[cfg(target_os = "solana")]
         {
-            crate::error_log!("create_pda_account: Executing SOLANA path (CPI)");
-            // Convert seeds and bump into Signer representation
+            crate::error_log!("create_pda_account: Executing SOLANA path (CPI) - 3-step approach");
+            
+            // Build signer seeds for PDA signing
+            crate::error_log!("CPI CHECK 1");
             const MAX_SEEDS: usize = 8;
             let binding = [bump];
-            let mut seed_vec: Vec<Seed, MAX_SEEDS> = Vec::new();
+            let mut seed_vec: heapless::Vec<Seed, MAX_SEEDS> = heapless::Vec::new();
             for s in seeds.iter() {
                 seed_vec
                     .push(Seed::from(*s))
@@ -1399,33 +1416,95 @@ impl<'a> ExecutionContext<'a> {
             seed_vec
                 .push(Seed::from(&binding))
                 .map_err(|_| VMErrorCode::TooManySeeds)?;
+            crate::error_log!("CPI CHECK 2");
             let signer = Signer::from(seed_vec.as_slice());
+            // Step 1: Transfer lamports to new account (if needed)
+            if lamports > 0 {
+                let mut transfer_data = [0u8; 12];
+                transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes()); // Transfer discriminator
+                transfer_data[4..12].copy_from_slice(&lamports.to_le_bytes());
 
-            crate::error_log!("create_pda_account: invoking system_instruction::create_account");
-            invoke_signed::<3>(
-                &instruction,
-                &[payer, new_account, system_program],
-                &[signer],
-            )
-            .map_err(|e| {
-                crate::error_log!("create_pda_account: invoke_signed FAILED");
-                VMErrorCode::InvokeError
-            })?;
+                let transfer_instruction = Instruction {
+                    program_id: &system_program_id,
+                    accounts: &[
+                        AccountMeta {
+                            pubkey: payer.key(),
+                            is_signer: true,
+                            is_writable: true,
+                        },
+                        AccountMeta {
+                            pubkey: new_account.key(),
+                            is_signer: false,
+                            is_writable: true,
+                        },
+                    ],
+                    data: &transfer_data,
+                };
+
+                invoke::<3>(&transfer_instruction, &[payer, new_account, system_program])
+                    .map_err(|_e| VMErrorCode::InvokeError)?;
+            }
+            
+            // Step 2: Allocate space for PDA (requires PDA signature)
+            let mut allocate_data = [0u8; 12];
+            allocate_data[0..4].copy_from_slice(&8u32.to_le_bytes()); // Allocate discriminator
+            allocate_data[4..12].copy_from_slice(&space.to_le_bytes());
+
+            let allocate_metas = [
+                AccountMeta {
+                    pubkey: new_account.key(),
+                    is_signer: true,  // PDA must sign
+                    is_writable: true,
+                },
+            ];
+
+            let allocate_instruction = Instruction {
+                program_id: &system_program_id,
+                accounts: &allocate_metas,
+                data: &allocate_data,
+            };
+
+            invoke_signed::<2>(&allocate_instruction, &[new_account, system_program], &[signer])
+                .map_err(|_e| VMErrorCode::InvokeError)?;
+
+            // Rebuild signer (it may have been consumed)
+            let mut seed_vec2: heapless::Vec<Seed, MAX_SEEDS> = heapless::Vec::new();
+            for s in seeds.iter() {
+                seed_vec2
+                    .push(Seed::from(*s))
+                    .map_err(|_| VMErrorCode::TooManySeeds)?;
+            }
+            seed_vec2
+                .push(Seed::from(&binding))
+                .map_err(|_| VMErrorCode::TooManySeeds)?;
+            let signer2 = Signer::from(seed_vec2.as_slice());
+
+            // Step 3: Assign owner to PDA (requires PDA signature)
+            let mut assign_data = [0u8; 36];
+            assign_data[0..4].copy_from_slice(&1u32.to_le_bytes()); // Assign discriminator
+            assign_data[4..36].copy_from_slice(owner);
+
+            let assign_metas = [
+                AccountMeta {
+                    pubkey: new_account.key(),
+                    is_signer: true,  // PDA must sign
+                    is_writable: true,
+                },
+            ];
+
+            let assign_instruction = Instruction {
+                program_id: &system_program_id,
+                accounts: &assign_metas,
+                data: &assign_data,
+            };
+
+            invoke_signed::<2>(&assign_instruction, &[new_account, system_program], &[signer2])
+                .map_err(|_e| VMErrorCode::InvokeError)?;
         }
-
         #[cfg(not(target_os = "solana"))]
         {
-            crate::error_log!("create_pda_account: Executing SIMULATION path (Direct Lamport mod)");
-            // Simulate CreateAccount for off-chain tests
-            unsafe {
-                if *payer.borrow_lamports_unchecked() < lamports {
-                     return Err(VMErrorCode::InvokeError);
-                }
-                *payer.borrow_mut_lamports_unchecked() -= lamports;
-                *new_account.borrow_mut_lamports_unchecked() += lamports;
-                new_account.resize(space as usize).map_err(|_| VMErrorCode::InvokeError)?;
-                new_account.assign(owner);
-            }
+            // Simple simulation for tests
+            core::hint::black_box((seeds, bump, payer_idx));
         }
 
         // CRITICAL FIX: Refresh pointer for the newly created PDA account

@@ -45,6 +45,45 @@ pub fn process_seed_value(
                 .copy_from_slice(&ctx.temp_buffer()[start..start + copy_len as usize]);
             Ok(copy_len as usize)
         }
+        ValueRef::StringRef(offset) => {
+            // String stored in temp buffer: [len, type, bytes...]
+            let start = offset as usize;
+            if start + 2 > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            let len = ctx.temp_buffer()[start];
+            let data_start = start + 2;
+            let data_end = data_start + len as usize;
+            
+            if data_end > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            
+            let copy_len = (len as usize).min(32);
+            seeds[seed_idx][..copy_len]
+                .copy_from_slice(&ctx.temp_buffer()[data_start..data_start + copy_len]);
+            Ok(copy_len)
+        }
+        ValueRef::ArrayRef(id) => {
+            // Array stored in temp buffer: [len, type, bytes...]
+            // We treat array content as bytes for seeding (must be array of u8 or use first bytes of elements)
+            let start = id as usize;
+            if start + 2 > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            let len = ctx.temp_buffer()[start];
+            let data_start = start + 2;
+            let data_end = data_start + len as usize;
+            
+            if data_end > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            
+            let copy_len = (len as usize).min(32);
+            seeds[seed_idx][..copy_len]
+                .copy_from_slice(&ctx.temp_buffer()[data_start..data_start + copy_len]);
+            Ok(copy_len)
+        }
         _ => Err(VMErrorCode::TypeMismatch),
     }
 }

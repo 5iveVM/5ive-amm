@@ -462,6 +462,13 @@ impl MitoVM {
                     return Err(e);
                 }
             };
+            
+            #[cfg(feature = "debug-logs")]
+            debug_log!(
+                "MitoVM: EXEC LOOP - Opcode: {} at IP: {}", 
+                opcode, 
+                current_ip
+            );
 
             // Set current opcode in context for error reporting
             ctx.set_current_opcode(opcode);

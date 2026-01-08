@@ -54,7 +54,7 @@
 
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, sysvars::Sysvar,
-    ProgramResult,
+    ProgramResult, msg,
 };
 
 use crate::{
@@ -301,7 +301,7 @@ fn calculate_fee(amount: u64, bps: u32) -> u64 {
 }
 
 /// Transfer fee from payer to recipient
-fn transfer_fee(payer: &AccountInfo, recipient: &AccountInfo, amount: u64) -> ProgramResult {
+fn transfer_fee(payer: &AccountInfo, recipient: &AccountInfo, amount: u64, system_program: Option<&AccountInfo>) -> ProgramResult {
     if amount == 0 {
         return Ok(());
     }
@@ -310,13 +310,50 @@ fn transfer_fee(payer: &AccountInfo, recipient: &AccountInfo, amount: u64) -> Pr
         return Err(ProgramError::InsufficientFunds);
     }
 
-    *payer.try_borrow_mut_lamports()? -= amount;
+    // Check if payer is a system account
+    let system_program_id = [0u8; 32];
+    if payer.owner() == &system_program_id {
+        // Must use CPI
+        let system_program = system_program.ok_or(ProgramError::MissingRequiredSignature)?; // Just borrow error code
+        
+        // Manual instruction construction for Transfer (discriminator 2)
+        let mut data = [0u8; 12];
+        data[0] = 2; // Transfer discriminator (u32 little endian: 2, 0, 0, 0)
+        let amount_bytes = amount.to_le_bytes();
+        data[4..12].copy_from_slice(&amount_bytes);
 
-    // Use checked_add to prevent overflow in recipient lamports
-    let new_recipient_lamports = recipient.lamports()
-        .checked_add(amount)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
-    *recipient.try_borrow_mut_lamports()? = new_recipient_lamports;
+        let instruction = pinocchio::instruction::Instruction {
+            program_id: system_program.key(),
+            accounts: &[
+                pinocchio::instruction::AccountMeta {
+                    pubkey: payer.key(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                pinocchio::instruction::AccountMeta {
+                    pubkey: recipient.key(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+            ],
+            data: &data,
+        };
+
+        pinocchio::program::invoke(&instruction, &[payer, recipient, system_program])?;
+    } else {
+        // Program-owned account (direct modification)
+        // Verify we own it
+        // Note: We don't check program_id here as we might be in a different context, 
+        // but generally only owned accounts can be modified.
+        
+        *payer.try_borrow_mut_lamports()? -= amount;
+
+        // Use checked_add to prevent overflow in recipient lamports
+        let new_recipient_lamports = recipient.lamports()
+            .checked_add(amount)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        *recipient.try_borrow_mut_lamports()? = new_recipient_lamports;
+    }
 
     Ok(())
 }
@@ -474,7 +511,8 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
                 let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
                 
                 if let Some(recipient) = admin_account {
-                    transfer_fee(owner, recipient, fee)?;
+                    let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
+                    transfer_fee(owner, recipient, fee, system_program)?;
                     log_if_debug!(debug, "Collected deploy fee: {}", fee);
                 } else {
                     // If fee is required but admin not present, fail
@@ -728,7 +766,8 @@ pub fn append_bytecode(
 
                     if let Some(recipient) = admin_account {
                         log_if_debug!(debug, "Paying deploy fee: {}", fee);
-                        transfer_fee(owner, recipient, fee)?;
+                        let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
+                        transfer_fee(owner, recipient, fee, system_program)?;
                         log_if_debug!(debug, "Collected deploy fee: {}", fee);
                     } else {
                         log_if_debug!(error, "Deploy fee required but Admin not found");
@@ -891,7 +930,8 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
                  if let Some(payer) = payer_account {
                      #[cfg(feature = "debug-logs")]
                      pinocchio_log::log!("DEBUG: Paying execute fee: {}", fee);
-                     transfer_fee(payer, recipient, fee)?;
+                     let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
+                     transfer_fee(payer, recipient, fee, system_program)?;
                  } else {
                      return Err(ProgramError::MissingRequiredSignature);
                  }
@@ -1060,10 +1100,15 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
 
     while offset < bytecode.len() {
         let opcode = bytecode[offset];
-        
+        // msg!("FIVE: Verify opcode");
+
         // Get opcode info - fails if valid opcode is not defined
-        let info = opcodes::get_opcode_info(opcode)
-            .ok_or(ProgramError::InvalidInstructionData)?;
+        let info = match opcodes::get_opcode_info(opcode) {
+            Some(i) => i,
+            None => {
+                return Err(ProgramError::Custom(opcode as u32));
+            }
+        };
 
         let mut instruction_size = 1; // 1 byte for opcode
 
@@ -1071,10 +1116,28 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
         match info.arg_type {
             ArgType::None => {}
             ArgType::U8 | ArgType::RegisterIndex | ArgType::ValueType => {
+                // Bounds check for the argument byte
                 if offset + instruction_size + 1 > bytecode.len() {
+                    msg!("FIVE: invalid U8 arg bounds");
                     return Err(ProgramError::InvalidInstructionData);
                 }
-                instruction_size += 1;
+
+                // Special handling for PUSH_STRING_LITERAL: consume string bytes
+                // Note: There is a mismatch between five-protocol constant (0x66) and bytecode (0x67)
+                // We perform the check for both to be safe, but 0x67 is what the compiler currently emits.
+                if opcode == 0x67 || opcode == opcodes::PUSH_STRING_LITERAL {
+                    let str_len = bytecode[offset + instruction_size];
+                    // opcode (1) + len_byte (1) + string_bytes (str_len)
+                    let total_len = instruction_size + 1 + (str_len as usize);
+                    
+                    if offset + total_len > bytecode.len() {
+                        msg!("FIVE: PUSH_STRING bounds fail");
+                        return Err(ProgramError::InvalidInstructionData);
+                    }
+                    instruction_size = total_len;
+                } else {
+                    instruction_size += 1;
+                }
             }
             ArgType::U16 => {
                 if offset + instruction_size + 2 > bytecode.len() {
