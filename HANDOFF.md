@@ -1,24 +1,282 @@
 # Five Mono - Project Handoff
 
-## Status Summary (Jan 7, 2026 - Updated)
+## Status Summary (Jan 8, 2026 - UPDATED)
 
-**MAJOR FIX APPLIED**: ACCOUNT_INDEX_OFFSET bug identified and fixed. This was causing all constraint checks to target wrong account indices (offset was 2, should be 1).
+**MAJOR FIX: Program ID Mismatch Resolved** ✅
+
+The token template E2E tests were failing with `InvalidInstructionData` due to a **program ID mismatch**:
+- Token template script account was owned by old program: `HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k`
+- Test was trying to use different deployed program
+- **Solution**: Deployed fresh FIVE program to `2omevavVoz2J4JJLim2wLizVauAWCwYFSgnuf1PFeenU` with debug logging enabled
 
 **Current Status**:
-- ✅ ACCOUNT_INDEX_OFFSET fixed (1, not 2)
-- ✅ Hardcoded offsets eliminated
-- ✅ @init payer constraint validation added
-- ✅ 11 new regression and integration tests added
-- ✅ Compiler tests passing
-- ❌ Counter e2e tests: Constraint checks now working, but CPI failing with "ExternalAccountLamportSpend"
+- ✅ Fresh FIVE program deployed with debug-logs enabled
+- ✅ Token template bytecode fully deployed (1009 bytes)
+- ✅ init_mint test now reaches VM execution phase
+- ✅ Comprehensive deployment script created
+- ⚠️ Token template logic needs further debugging (currently failing at VM execution level)
 
-**Implementation Status**:
-- ✅ Compiler: ACCOUNT_INDEX_OFFSET fixed, constraint validation added
-- ✅ VM: INIT_ACCOUNT/INIT_PDA_ACCOUNT handlers implemented, payer_idx parameter added
-- ✅ Opcodes: Correctly emitting 0x84 (INIT_ACCOUNT) and 0x85 (INIT_PDA_ACCOUNT)
-- ⚠️ Tests: Constraint checks passing, but CPI account funding issue remains
+**Key Achievement**: init_mint test is now executing the Five VM and running token contract logic - no longer blocked at program/deployment layer.
 
-**Current Issue**: CPI failing with "ExternalAccountLamportSpend" - payer account access or writable flag issue during account creation
+---
+
+## Session Summary (Jan 8, 2026) - Program ID Mismatch Debug & Fix
+
+### Problem Identified
+The token template init_mint test was failing with:
+```
+Program failed: invalid instruction data
+DEBUG: validate_vm_and_script_accounts FAIL
+```
+
+The script account `7QPeEYYHjSfswpcZptUvTidfE9V8fFpeYcgY8nexamiG` was owned by program `HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k`, but the test had deployment-config.json configured with different programs.
+
+### Root Cause
+When the Solana program changed at any point, the old program's accounts on localnet weren't updated. The script account remained linked to the old program, but new tests tried to use a new program ID.
+
+### Solution Implemented
+
+#### 1. Enabled Debug Logging
+- Rebuilt five-solana with `--features debug-logs`
+- Added enhanced logging to `verify_program_owned()` in `five-solana/src/common.rs`
+- Logs now show expected vs actual owner pubkeys
+
+#### 2. Deployed Fresh Program
+```bash
+# Generated new keypair
+solana-keygen new --no-passphrase -o fresh-program-keypair.json
+# New program ID: 2omevavVoz2J4JJLim2wLizVauAWCwYFSgnuf1PFeenU
+
+# Built with debug logs
+cargo build -p five --release --features debug-logs
+
+# Deployed to fresh address
+solana program deploy target/deploy/five.so \
+  --program-id ./fresh-program-keypair.json \
+  --url http://127.0.0.1:8899
+```
+
+#### 3. Created Comprehensive Deployment Script
+Wrote `/five-templates/token/deploy-token.mjs` that:
+- **Step 1**: Creates and initializes VM state account
+- **Step 2**: Sets deployment fees to 0 (avoids large fee charges)
+- **Step 3**: Loads pre-compiled token bytecode from build directory
+- **Step 4**: Creates script account with correct size (64-byte header + 1009-byte bytecode)
+- **Step 5**: Uses proper large program flow:
+  - `InitLargeProgram` - Marks account for chunked upload
+  - `AppendBytecode` - Uploads bytecode in chunks (respects 1232-byte tx limit)
+  - `FinalizeScript` - Finalizes and validates
+- **Step 6**: Updates deployment-config.json with all addresses
+
+Key implementation details:
+```javascript
+// Script account size must include header
+const SCRIPT_HEADER_SIZE = 64;
+const scriptAccountSize = SCRIPT_HEADER_SIZE + bytecode.length;
+
+// Bytecode must be chunked to fit transaction size
+const MAX_CHUNK_SIZE = 700; // Leaves room for Solana overhead
+
+// All instruction accounts must be in correct order with correct flags
+const initLargeIx = new TransactionInstruction({
+  programId: FIVE_PROGRAM_ID,
+  keys: [
+    { pubkey: scriptPubkey, isSigner: false, isWritable: true },
+    { pubkey: payer.publicKey, isSigner: true, isWritable: false },
+    { pubkey: vmStatePubkey, isSigner: false, isWritable: true } // Must be writable!
+  ],
+  // ...
+});
+```
+
+### Deployment Status
+✅ **Successfully Deployed**:
+- Five VM Program: `2omevavVoz2J4JJLim2wLizVauAWCwYFSgnuf1PFeenU`
+- VM State Account: `ESujuoG3pLXBgD5kshFmHTg6YHcmkSp1YsWRJ1FCdesP`
+- Token Script Account: `FkG7NNrP6rCsW9h6aqeiZiyxUL3nEn3wK2UM8gscJuWu`
+- Config updated: `/five-templates/token/deployment-config.json`
+
+### Test Results
+The init_mint test now **successfully executes** the FIVE VM:
+- ✅ Program entrypoint reached
+- ✅ Debug logs enabled and showing detailed execution
+- ✅ VM execution loop running
+- ✅ Parameter parsing successful
+- ✅ System program CPI invocations working
+- ⚠️ Token contract logic still needs debugging (likely at STORE_FIELD operations)
+
+### Key Files Modified/Created
+1. **five-solana/src/common.rs** - Enhanced logging in `verify_program_owned()`
+2. **five-templates/token/deploy-token.mjs** - NEW comprehensive deployment script
+3. **five-templates/token/deployment-config.json** - Updated with new addresses
+
+### Files to Clean Up (After restart)
+These can be deleted after fresh deployment:
+- `fresh-program-keypair.json` (used for one-time deployment)
+- `create_script_account.mjs` (failed earlier attempt)
+- All test ledger snapshots in `/five-templates/token/test-ledger/`
+
+---
+
+## How to Continue from Here
+
+### Setup for Next Session
+
+**1. Start Fresh Validator**
+```bash
+# Kill existing validator
+killall solana-test-validator
+
+# Start fresh localnet with clean state
+solana-test-validator --quiet &
+
+# Wait for startup
+sleep 5
+
+# Verify running
+solana cluster-version --url http://127.0.0.1:8899
+# Should output: 3.0.6 (or current version)
+```
+
+**2. Rebuild & Deploy Everything**
+```bash
+cd /Users/amberjackson/Documents/Development/five-org/five-mono
+
+# Clean build to avoid stale artifacts
+cargo clean
+
+# Build compiler and protocol
+cargo build -p five-protocol -p five-dsl-compiler --release
+
+# Build SDK (if wasm changes)
+cd five-sdk && npm run build && cd ..
+
+# Build Solana program WITH DEBUG LOGS
+cargo build -p five --release --features debug-logs
+
+# Deploy program (will get new address, update deployment-config.json)
+solana program deploy target/deploy/five.so --url http://127.0.0.1:8899
+# Copy new program ID to deployment-config.json
+
+# Redeploy token template
+cd five-templates/token
+rm -f deployment-config.json
+node deploy-token.mjs
+
+# Test
+node test_init_mint.mjs
+```
+
+**3. Key Configuration File**
+Location: `/five-templates/token/deployment-config.json`
+```json
+{
+  "tokenScriptAccount": "...",     // Generated by deploy-token.mjs
+  "fiveProgramId": "...",          // From `solana program deploy`
+  "vmStatePda": "...",             // Generated by deploy-token.mjs
+  "rpcUrl": "http://127.0.0.1:8899",
+  "timestamp": "..."
+}
+```
+
+### Environment Details
+
+**Program Specifications**:
+- Solana Version: 1.18+
+- Five Program: Built with `--features debug-logs` for detailed execution traces
+- Token Template: 1009 bytes bytecode, requires 1073 bytes total (64-byte header + bytecode)
+
+**Localnet Network**:
+- RPC: http://127.0.0.1:8899
+- Commitment: confirmed
+- Payer: ~/.config/solana/id.json
+
+**Key Executables**:
+- Validator: `solana-test-validator`
+- Deploy tool: `solana program deploy`
+- Node test runner: `node test_init_mint.mjs`
+
+### Debugging Commands
+
+**Check Program Deployment**
+```bash
+solana program show 2omevavVoz2J4JJLim2wLizVauAWCwYFSgnuf1PFeenU \
+  --url http://127.0.0.1:8899
+# Should show: Executable, Data len > 0
+```
+
+**View Token Template Logs**
+```bash
+node test_init_mint.mjs 2>&1 | grep "Program log:"
+# Look for:
+# - "FIVE ENTRYPOINT REACHED" - program entry works
+# - "Parsed VLE parameters" - parameter parsing works
+# - "MitoVM: EXEC LOOP" or "opcode" lines - execution is running
+# - "STORE_FIELD" operations - state updates
+```
+
+**Trace Specific Instruction**
+```bash
+node test_init_mint.mjs 2>&1 | grep -E "STORE_FIELD|LOAD_FIELD|INVOKE|GET_CLOCK"
+# Shows which operations are executing in token contract
+```
+
+**Check Account Ownership**
+```bash
+solana account FkG7NNrP6rCsW9h6aqeiZiyxUL3nEn3wK2UM8gscJuWu \
+  --url http://127.0.0.1:8899
+# Verify: Owner matches 2omevavVoz2J4JJLim2wLizVauAWCwYFSgnuf1PFeenU
+```
+
+### Common Issues & Solutions
+
+**Issue: "Provided owner is not allowed"**
+- Cause: Script account owned by old program
+- Fix: Redeploy token template with `node deploy-token.mjs`
+
+**Issue: "Transaction too large"**
+- Cause: Instruction data exceeds 1232 bytes
+- Fix: Already handled by deploy-token.mjs chunking, but watch MAX_CHUNK_SIZE
+
+**Issue: "insufficient account keys"**
+- Cause: Missing required accounts in instruction
+- Fix: Check account order and flags in deploy-token.mjs
+
+**Issue: Empty logs during test**
+- Cause: debug-logs feature not enabled or program not redeployed
+- Fix: Rebuild with `--features debug-logs` and redeploy
+
+### Next Debugging Steps
+
+1. **Analyze Current Failure**
+   - Run: `node test_init_mint.mjs 2>&1 | tail -100`
+   - Look for error message and program logs
+   - Current blocking point: Likely STORE_FIELD or constraint check
+
+2. **Enable More Specific Logging**
+   - Edit token.v to add debug output
+   - Add logs to handlers/memory.rs for STORE_FIELD
+   - Rebuild and retest
+
+3. **Test Token Operations**
+   - Once init_mint passes, test other operations
+   - Check state persistence
+   - Verify account data modifications
+
+### Important Notes for Next Agent
+
+- **Debug logging is ON** - All execution traces visible in test output
+- **Fresh deployment required** - If starting new session, follow "Rebuild & Deploy Everything" section
+- **Program ID will change** - Each new solana-test-validator instance requires redeployment
+- **Keep deploy-token.mjs handy** - Use it to redeploy quickly if needed
+- **Test output is verbose** - Redirect to file for analysis: `node test_init_mint.mjs > test_output.txt 2>&1`
+
+### Commits from This Session
+
+**Jan 8, 2026**:
+- Enhanced `five-solana/src/common.rs` with detailed ownership checking logs
+- Created `/five-templates/token/deploy-token.mjs` - comprehensive deployment script
+- Updated `/five-templates/token/deployment-config.json` with new addresses
 
 ---
 
