@@ -1,16 +1,79 @@
 # Five Mono - Project Handoff
 
-## Status Summary
+## Status Summary (Jan 7, 2026 - Updated)
 
-The Five DSL `@init` constraint implementation is **structurally complete** with all compiler and VM support in place. Opcode desync has been **resolved**. Current blocker: Account ownership validation prevents creating uninitialized PDA accounts.
+**MAJOR FIX APPLIED**: ACCOUNT_INDEX_OFFSET bug identified and fixed. This was causing all constraint checks to target wrong account indices (offset was 2, should be 1).
+
+**Current Status**:
+- ✅ ACCOUNT_INDEX_OFFSET fixed (1, not 2)
+- ✅ Hardcoded offsets eliminated
+- ✅ @init payer constraint validation added
+- ✅ 11 new regression and integration tests added
+- ✅ Compiler tests passing
+- ❌ Counter e2e tests: Constraint checks now working, but CPI failing with "ExternalAccountLamportSpend"
 
 **Implementation Status**:
-- ✅ Compiler: Parser & function dispatch fixes applied
-- ✅ VM: INIT_ACCOUNT/INIT_PDA_ACCOUNT handlers implemented
+- ✅ Compiler: ACCOUNT_INDEX_OFFSET fixed, constraint validation added
+- ✅ VM: INIT_ACCOUNT/INIT_PDA_ACCOUNT handlers implemented, payer_idx parameter added
 - ✅ Opcodes: Correctly emitting 0x84 (INIT_ACCOUNT) and 0x85 (INIT_PDA_ACCOUNT)
-- ❌ Tests: Failing at account ownership validation stage
+- ⚠️ Tests: Constraint checks passing, but CPI account funding issue remains
 
-**Current Issue**: IllegalOwner error when attempting to create uninitialized PDA accounts
+**Current Issue**: CPI failing with "ExternalAccountLamportSpend" - payer account access or writable flag issue during account creation
+
+---
+
+## Recent Fixes (Jan 7, 2026)
+
+### 1. Fixed ACCOUNT_INDEX_OFFSET Bug (Commits: 7e78cc2, 43d963d)
+
+**Problem**: ACCOUNT_INDEX_OFFSET was 2 instead of 1, causing all constraint checks to target wrong accounts.
+
+**Root Cause**: VM receives `&accounts[1..]` (Script account stripped), so:
+- param0 is at VM index 1 (not 2)
+- param1 is at VM index 2 (not 3)
+- Correct formula: `account_index = param_index + 1`
+
+**Fix Applied**:
+- Changed ACCOUNT_INDEX_OFFSET from 2 → 1 in `five-dsl-compiler/src/bytecode_generator/mod.rs`
+- Replaced hardcoded `(idx + 2)` with `account_index_from_param_index()` in `accounts.rs` (2 locations)
+
+**Impact**: Constraint checks (CHECK_SIGNER, CHECK_WRITABLE) now target correct accounts
+
+### 2. Added @init Payer Constraint Validation (Commit: d8c21c7)
+
+**Problem**: Type checker validated payer exists, but never emitted CHECK_SIGNER opcode for @init payer.
+
+**Fix Applied**:
+- New function `emit_init_payer_checks()` in `constraint_enforcer.rs`
+- Emits CHECK_SIGNER for @init payer before other constraints
+- Called first from `emit_constraint_checks()`
+
+**Impact**: Payer accounts now validated as signers at runtime
+
+### 3. Fixed create_pda_account Payer Handling (Commit: 1198e3f)
+
+**Problem**: `create_pda_account()` searched for any signer/writable account instead of using specified payer.
+
+**Fix Applied**:
+- Modified function signature: `create_pda_account(..., payer_idx: u8)`
+- Uses explicit payer from @init constraint (passed via stack)
+- Validates payer_idx before accessing account
+
+**Impact**: Ensures correct payer account is used for CPI
+
+### 4. Added Comprehensive Tests (Commits: 25e1ffe, 8f51054, 14ed51b)
+
+**Regression Tests** (`test_account_index_offset.rs`):
+- Prevent OFFSET from ever regressing to 2
+- Verify param-to-account mapping (param0→1, param1→2, etc.)
+
+**Integration Tests** (`test_init_constraint_bytecode.rs`):
+- Validate CHECK_SIGNER emitted for @init payers
+- Verify correct account indices in bytecode
+- Test param order and multiple init accounts
+
+**Snapshot Test Update** (`test_constraint_snapshot.rs`):
+- Updated account index expectations for new OFFSET=1
 
 ---
 
@@ -565,3 +628,120 @@ The @init constraint implementation is **structurally complete and compiling**. 
 4. Re-run E2E tests
 
 All core compilation and VM functionality is implemented and ready. The fix is isolated to account constraint handling.
+
+---
+
+## Current Blocker: ExternalAccountLamportSpend Error (Jan 7, 2026)
+
+### Symptoms
+
+Counter e2e tests fail with "instruction spent from the balance of an account it does not own" during CPI for account creation.
+
+**Error signature**:
+```
+Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: instruction spent from the balance of an account it does not own
+```
+
+**Progress**:
+- ✅ Constraint checks (CHECK_SIGNER) now work correctly
+- ✅ INIT_PDA_ACCOUNT opcode reaches handler
+- ✅ PDA derivation succeeds
+- ✅ Stack is properly constructed
+- ❌ CPI invoke_signed fails when trying to transfer lamports
+
+### Investigation Points
+
+**Log Evidence**:
+- `INIT_PDA_ACCOUNT: Checking space. input=56` ✅
+- `create_pda_account: owner=...` ✅
+- `create_pda_account: Executing SOLANA path (CPI)` ✅
+- `create_pda_account: invoking system_instruction::create_account` ✅
+- **Then fails with ExternalAccountLamportSpend** ❌
+
+### Likely Causes
+
+1. **Payer not marked as writable** in transaction (e2e test issue)
+2. **Payer account index incorrect** (despite fixes, may have residual offset issue)
+3. **CPI instruction metadata incorrect** (wrong account signers/writable flags)
+4. **Insufficient lamports in payer** (unlikely, payer has balance)
+
+### Next Steps for Next Agent
+
+**1. Add Debug Logging** (in context.rs:create_pda_account):
+```rust
+// Log payer account details before CPI
+error_log!("create_pda_account: payer_idx={}", payer_idx);
+error_log!("create_pda_account: payer is_signer={} is_writable={}",
+    payer.is_signer() as u8,
+    payer.is_writable() as u8);
+error_log!("create_pda_account: payer lamports={}",
+    payer.get_lamports());
+```
+
+**2. Verify E2E Test**:
+- Check that payer account is properly constructed with `isWritable: true`
+- In e2e-counter-test.mjs around line 203-206, verify function account writable flags
+
+**3. Test Minimal Case**:
+```bash
+# Create test with single payer account initialization
+# Check if simpler case succeeds
+```
+
+**4. Inspect CPI Instruction**:
+- Verify AccountMeta in metas array has correct is_signer/is_writable flags
+- Check that payer appears in correct position in instruction accounts
+
+**5. Check Payer Account State**:
+- Verify payer is indeed a signer in the transaction
+- Verify payer account is in the instruction accounts list
+- Verify payer hasn't been used for other rent/transfers in same instruction
+
+### Key Files to Check
+
+1. **five-vm-mito/src/context.rs** (lines 1310-1420)
+   - `create_pda_account()` - where CPI is invoked
+   - Check payer account access and writable flag
+
+2. **five-templates/counter/e2e-counter-test.mjs** (lines 190-220)
+   - Account layout construction
+   - Verify payer account writable flag is set
+
+3. **five-solana/src/instructions.rs** (lines 860-910)
+   - Check if account validation is interfering with uninitialized accounts
+
+### Commits Summary
+
+**This Session (Jan 7)**:
+- `7e78cc2` - Fix: ACCOUNT_INDEX_OFFSET must be 1, not 2
+- `43d963d` - Refactor: Replace hardcoded +2 offsets with centralized helper
+- `d8c21c7` - Feature: Add CHECK_SIGNER emission for @init payer parameters
+- `25e1ffe` - Test: Add regression tests for ACCOUNT_INDEX_OFFSET
+- `8f51054` - Test: Add integration tests for @init constraint bytecode
+- `14ed51b` - Fix: Update test_constraint_snapshot account indices for OFFSET=1
+- `1198e3f` - Fix: Pass payer_idx to create_pda_account instead of searching
+
+### Environment State
+
+**Deployed Components**:
+- Five Program: HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k
+- VM State PDA: BDSWCHg6aA5hVvjwts12B3uMWVV3q8UH3qU7FMUD7JX2
+- Counter Script: H4RvoTFKR7H7E8vNUu2Jq7utj5rWH6PaAqb8XACNJMR4
+
+**Test Status**:
+- Compiler tests: ✅ All passing (new regression/integration tests included)
+- Counter e2e: ❌ All 13 tests failing at initialization with ExternalAccountLamportSpend
+
+**Test Command**:
+```bash
+cd /Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter
+npm run build
+FIVE_PROGRAM_ID="HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k" npm run deploy
+node e2e-counter-test.mjs
+```
+
+### Key Constants
+
+- `ACCOUNT_INDEX_OFFSET`: 1 (fixed from 2)
+- `MAX_ACCOUNT_SIZE`: 10 MB
+- `MAX_SEEDS`: 8 (for PDA derivation)
