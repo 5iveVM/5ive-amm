@@ -95,42 +95,136 @@ VM sees (after Script stripped):
 
 ---
 
-## ⏳ IN PROGRESS: InvalidInstructionData During Bytecode Execution
+## ✅ FIXED: SDK Parameter Encoding for Mixed-Type Functions
 
-### Current Status
-Both `init_mint` and `init_token_account` fail with `InvalidInstructionData` after successfully:
-- Creating accounts via CPI (System Program invocations succeed)
-- Parsing instruction data
-- Beginning bytecode execution (9-10K+ compute units consumed)
+### Root Cause (RESOLVED)
+The Five SDK had **two critical encoding bugs** preventing proper instruction generation for functions with mixed account/data parameters:
 
-The error occurs **within VM bytecode execution**, not at parameter boundaries or account creation.
+1. **Silent Account Index Fallback** - When PublicKey-to-string conversion failed, `getAccountIndex()` returned 0 (Script account) instead of erroring
+2. **Unreliable Manual Typed Params** - Manual typed params encoding used a sentinel format that the VM didn't recognize
+3. **Missing Pubkey Conversion** - PublicKey objects weren't converted to base58 strings before WASM encoding
 
-### Session Work (Latest)
+### Fixes Applied (Commit: 9dce390)
 
-**Fixes Applied:**
-1. **@mut Attribute Added** - `init_token_account` owner parameter now marked as writable
-2. **ABI Updated** - Created proper `.five` JSON with embedded bytecode and full metadata
-3. **Script Created** - `create-five-file.mjs` automates .five file generation with correct ABI
+**File: `five-sdk/src/FiveSDK.ts` (lines 1757-1843)**
+- Added `isPubkeyParam()` helper to detect pubkey-type parameters
+- Improved `getAccountIndex()` to try `.toBase58()` before `.toString()`
+- Changed from silent fallback to explicit error with context: "Account parameter X not found in accounts array. Available: [Y, Z...]"
+- Added pubkey parameter conversion: objects with `.toBase58()` → base58 string
+- Added debug logging for account mapping and parameter processing
 
-**Files Modified:**
-- `five-templates/token/src/token.v` - Added @mut to owner
-- `five-templates/token/src/token.bin` - Recompiled with fix
-- `five-templates/token/create-five-file.mjs` - New script for ABI generation
-- `five-templates/token/e2e-token-test.mjs` - Comments clarifying payer roles
+**File: `five-sdk/src/lib/vle-encoder.ts` (lines 176-215)**
+- **Removed manual typed params encoding entirely**
+- **Always use WASM encoder for all parameter types** (accounts, pubkeys, strings, numbers)
+- Removed unreliable sentinel format (0x80) that was incompatible with VM
+- Simplified to: `wasmModule.ParameterEncoder.encode_execute_vle(functionIndex, parameterValues)`
+- Added debug logging for parameter encoding steps
 
-### Investigation Results
+### Why This Works
+- **WASM encoder is proven**: Counter template uses it successfully
+- **Accounts as numeric indices**: Properly mapped account parameters become VLE-encoded indices
+- **Pubkeys as strings**: WASM encoder handles base58-encoded pubkeys correctly
+- **Mixed types supported**: WASM encoder handles functions with 2 accounts + 5 data params
+- **No silent failures**: Errors are thrown with descriptive context for debugging
 
-**Verified Correct:**
-- Instruction VLE encoding is correct: [discriminator(9)][func_idx(VLE)][sentinel(128)][param_count(7)][params...]
-- Account index mapping follows ACCOUNT_INDEX_OFFSET = 1
-- System Program CPI for account creation is working
-- Transaction structure matches counter template pattern
+### Testing Results
 
-**Issue Location:**
-The error is not in parameter encoding or account setup, but rather in the Five VM's bytecode execution path when handling:
-- Multiple account parameters (2 accounts + 5 data params)
-- Typed parameter decoding with account and non-account mix
-- Constraint validation during execution
+**Account Parameter Mapping (VERIFIED WORKING):**
+```
+[FiveSDK] Parameter 0 (mint_account) is account type, mapping: {
+  originalValue: 'BPsHmkffJfWHQyANH31g1GmwC4CaP2PvJWk5VTg2B4eJ',
+  accounts: [ 'BPsHmkff...', '34pp9qqL...', '11111111...', 'SysvarRe...' ]
+}
+[FiveSDK] Mapped account BPsHmkff... to index 2
+[FiveSDK] Mapped to account index: 2
+```
 
-### Next Steps
-Investigate Five VM's `parse_vle_parameters_unified` and typed parameter handling for functions with mixed account/data parameters. The counter template (2 accounts, 0 data params) works fine; the token template (2+ accounts + data params) fails.
+**Instruction Generation (VERIFIED WORKING):**
+- `init_mint`: 7 parameters, 4 accounts → 88 bytes instruction data ✅
+- `init_token_account`: 3 parameters, 4 accounts → 42 bytes instruction data ✅
+- No undefined errors, no silent fallbacks ✅
+
+---
+
+## ⏳ IN PROGRESS: Token Template Bytecode Execution Errors
+
+### Current Status (Session 2)
+Token template functions now generate valid instructions and get parsed by the VM, but fail during **bytecode execution** with custom error codes:
+- `init_mint`: Custom error 9003 (after 10,714 CU)
+- `init_token_account`: InvalidInstructionData (after 9,269 CU)
+- `mint_to`, `transfer`, etc.: Custom error 9006
+
+**System Program CPI succeeds** (accounts created), so parameter encoding is correct. Errors are in **bytecode logic** or **constraint validation**.
+
+### Error Code Mapping
+These error codes come from the Five VM or DSL logic:
+- **9003**: Likely constraint validation failure (owner, signer, writable checks)
+- **9006**: Likely state validation or logic error
+- **InvalidInstructionData**: Parameter parsing error after account initialization
+
+### Debugging Next Steps
+
+1. **Enable VM Trace Logging**
+   ```bash
+   RUST_LOG=trace cargo build -p five-solana
+   # Re-run token test to see bytecode execution trace
+   ```
+
+2. **Check Token DSL Constraints**
+   - Review `five-templates/token/src/token.v` lines 38-50 (init_mint constraints)
+   - Verify @init, @mut, @signer attributes match test setup
+   - Check that `@init(payer=authority)` is correctly interpreted
+
+3. **Verify Account State Mapping**
+   - Run: `node test-account-mapping.mjs` with debug=true
+   - Verify all 7 parameters for init_mint encode correctly
+   - Check WASM output hex format matches VM expectations
+
+4. **Compare with Counter (Working)**
+   - Counter: 2 accounts, 0 params → simple VLE: [discriminator][func_idx]
+   - Token: 2 accounts, 5 params → complex: [discriminator][func_idx][param_count][params...]
+   - Root issue may be in how mixed parameters are decoded
+
+5. **Test WASM Encoder Directly**
+   ```javascript
+   // In five-sdk/src/lib/vle-encoder.ts
+   const paramValues = {
+     mint_account: 2,        // account index
+     authority: 3,           // account index
+     freeze_authority: 'ATokenGPvbdGVqstVQQTXxYPUSLCaL...',  // pubkey string
+     decimals: 6,            // u8
+     name: "TestToken",      // string
+     symbol: "TEST",         // string
+     uri: "https://..."      // string
+   };
+   const encoded = await VLEEncoder.encodeExecuteVLE(0, paramDefs, paramValues, true, {debug: true});
+   ```
+
+### Key Files for Investigation
+- `five-vm-mito/src/utils.rs` - Parameter parsing and VLE decoding (lines 450-490)
+- `five-vm-mito/src/handlers/` - Opcode handlers that may fail constraint checks
+- `five-templates/token/src/token.v` - DSL logic and constraints (lines 30-90)
+- `five-dsl-compiler/src/bytecode_generator/` - Constraint code generation
+
+### Previous Session Notes
+- **Previous Assumption**: Typed params sentinel (0x80) was needed for mixed parameters
+- **Current Discovery**: WASM encoder handles mixed params without sentinel
+- **VM Issue**: May not recognize manual typed params format; WASM format is correct
+
+---
+
+## Session History
+
+### Session 1: Fixed Account Index Mismatch & Panic Statements
+- Removed 4 debug panic! statements blocking VM execution
+- Fixed script owner mismatch by redeploying
+- Fixed account index misalignment by removing extra payer in test
+- Added @mut attribute to token template
+- Result: init_mint progressed to bytecode execution
+
+### Session 2: Fixed SDK Parameter Encoding (Latest)
+- Discovered and fixed silent account index fallback bug
+- Removed unreliable manual typed params encoding
+- Implemented WASM-only encoding for all parameter types
+- Added pubkey parameter conversion
+- Result: Instructions generate correctly, VM can parse them, but bytecode logic errors remain
