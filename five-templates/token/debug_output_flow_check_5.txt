@@ -1,0 +1,556 @@
+Running targeted init_mint debugging test...
+ℹ️  Mint Account: 5PceFyAwQqvdSSMonTiynW9vHZCVhz5TmWyXQKaZP6bD
+[BytecodeCompiler] Initialized
+[ParameterEncoder] Initialized
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 0,
+  parameterCount: 7,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+using deprecated parameters for `initSync()`; pass a single object instead
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 0,
+  functionIndex: 0,
+  parameterBytes: 81,
+  dataSize: 84,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ init_mint failed: Simulation failed. 
+Message: Transaction simulation failed: This program may not be used for executing instructions. 
+Logs: 
+[]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+❌ test_init_mint.mjs failed
+Running E2E tests...
+
+================================================================================
+🎭 Token Template E2E Test - 3 User Story with Five SDK
+================================================================================
+ℹ️  Loaded Token ABI: 14 functions
+ℹ️  Payer: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+ℹ️  Payer Balance: 9975.89 SOL
+
+================================================================================
+SETUP: Creating 3 Users
+================================================================================
+ℹ️  User1 (Authority): 2C2kmFovNpR3dHQCZxy8bbk9rAUyhrw58FaC4HwZ6TuZ
+ℹ️  User2 (Holder):    AMkp3tPXLnJSVWB9nPKHAqavMwyH3imwxomLoKRAvDzB
+ℹ️  User3 (Holder):    9Vc4ytciTpk5RjPPX28diqU9aXF6zc33Mhm75isRnDGE
+
+── Funding users with SOL...
+ℹ️  Funded User1
+ℹ️  Funded User2
+ℹ️  Funded User3
+
+================================================================================
+STEP 1: Generating Account Keypairs
+================================================================================
+✅ Generated keypairs for token accounts
+ℹ️  Mint Account:  5kfdGcsu6TEkk1rBqg3reBsHUDFS6MtNxPUk7rGQorv
+ℹ️  User1 Account: 9vumEuTZAnWECPU7Ef8e25HE5XLizrTS1JkUaPSYBxY1
+ℹ️  User2 Account: 14bkvfocqsn3LSt6wkMcYJztbw9bDGAPmCRxajxJZMQP
+ℹ️  User3 Account: DAdbxEZQK5Pqw6RuCj3S73bkEeqt1pN1bBmGBBDz52b2
+
+================================================================================
+STEP 2: Initialize Mint (init_mint)
+================================================================================
+[BytecodeCompiler] Initialized
+[ParameterEncoder] Initialized
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 0,
+  parameterCount: 7,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+using deprecated parameters for `initSync()`; pass a single object instead
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 0,
+  functionIndex: 0,
+  parameterBytes: 87,
+  dataSize: 90,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ init_mint failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 3G6tqH8uAaCXDfBxJ2LY8PVcyXhsB51zMz4vXUiAnqx3ZnfKd7B4pLjbQQBFHZJYfiyqLq9nXfGvxCYoEU1uETuF using the Solana Explorer or CLI tools.
+
+================================================================================
+STEP 3: Initialize Token Accounts (init_token_account)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 1,
+  parameterCount: 3,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 41,
+  dataSize: 44,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ init_token_account (User1) failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 2hUV8Kqb3NDCw6Woj8gBoVkz4s7189ZnAJ1ZAprNBHESPDZ4TDdUaK85uQdz37T7JfeVn6HTiF8pAuCiynBbsnQC using the Solana Explorer or CLI tools.
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 1,
+  parameterCount: 3,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 41,
+  dataSize: 44,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ init_token_account (User2) failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 3aZNidA9sA6Uva3YMf2xYBZtwhSY7xywM6RcgBxwmFpFcZjcCYtLLo9YyeCh6g3yw8buPfygENv8d7a7UkBpGHEB using the Solana Explorer or CLI tools.
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 1,
+  parameterCount: 3,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 41,
+  dataSize: 44,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ init_token_account (User3) failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 51QCQyZwzkMeYxXwgqN2PE9tNKBZGg8gxWEYnsZcGXKaqaEBZFmW1ZSb2hdb5gQDPQZoyrjRFmQWaZSoMaAmphBf using the Solana Explorer or CLI tools.
+
+================================================================================
+STEP 4: Mint Tokens (mint_to)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 2,
+  parameterCount: 4,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 2,
+  functionIndex: 2,
+  parameterBytes: 13,
+  dataSize: 16,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ mint_to User1 (1000) failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature TGdgkZtYKoZ98tZFPLiZdGEcWJVPbabq9ukimLghAkaL6UXTmFq6meVyYLyQiaACCuSDgfmX815uDNSCUGT9zsu using the Solana Explorer or CLI tools.
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 2,
+  parameterCount: 4,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 2,
+  functionIndex: 2,
+  parameterBytes: 13,
+  dataSize: 16,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ mint_to User2 (500) failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 4oYC6DkBqNoovZSeGXU8RjBzKCAJdRDYDKFzhnjMeJ67q1ZYUXoRMwYV49obEFrS48vGd89aQSbTW6BcXjokm7du using the Solana Explorer or CLI tools.
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 2,
+  parameterCount: 4,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 2,
+  functionIndex: 2,
+  parameterBytes: 13,
+  dataSize: 16,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ mint_to User3 (500) failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 5rg3HzqkQ6RHXbw1GHPrwPC8R3AMmnTCF2v6Zh85zkBzMCu2RBPsjJaKEspvVVtoCMzDHmigKfc1xZWsbTDPi3gY using the Solana Explorer or CLI tools.
+
+================================================================================
+STEP 5: Transfer Tokens (transfer)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 3,
+  parameterCount: 4,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 3,
+  functionIndex: 3,
+  parameterBytes: 12,
+  dataSize: 15,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ transfer 100 from User2 to User3 failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 2DxBNXEfKcC2cwaTP671NouB5pP6Gr5s4espK4oHvPkw9xaDiJ2mAxSdZL1sY2QL7JUWQFZa6YfJMHXyyeG3bpiB using the Solana Explorer or CLI tools.
+
+================================================================================
+STEP 6: Approve Delegate (approve)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 5,
+  parameterCount: 4,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 5,
+  functionIndex: 5,
+  parameterBytes: 44,
+  dataSize: 47,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ approve User2 as delegate for 150 tokens failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 3qHcvipQPtekqxc9NboJY3oEBipyKW9DCM6Ksvy9W1U6gQuYqpgWmT92y64hyawrH423zwAy2KvYtBs5jsz8XwKc using the Solana Explorer or CLI tools.
+
+── Transfer as Delegate (transfer_from)
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 4,
+  parameterCount: 4,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 4,
+  functionIndex: 4,
+  parameterBytes: 12,
+  dataSize: 15,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ transfer_from 50 from User3 to User1 via delegation failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 4XUJWBGJDiECms3X7V2YThUuQvVqwTQaSmdMNyZuv8eSeqoDyrZCZLgCSUE3pvYaKCUkSaeS8z56vjFP3b49t5Gx using the Solana Explorer or CLI tools.
+
+================================================================================
+STEP 7: Revoke Delegation (revoke)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 6,
+  parameterCount: 2,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 6,
+  functionIndex: 6,
+  parameterBytes: 8,
+  dataSize: 11,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ revoke User2 delegation failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature oFQohHaaWV34JnViHJjBkJyMsTX1aE1p3fhSzrBWRevHCevcTFTrnefuxW3SFDBFxdre5HqXt7cD7pUWV3uKf4s using the Solana Explorer or CLI tools.
+
+================================================================================
+STEP 8: Burn Tokens (burn)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 7,
+  parameterCount: 4,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 7,
+  functionIndex: 7,
+  parameterBytes: 12,
+  dataSize: 15,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ burn 100 tokens failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 5VxsvcCxASqbAKNFyfkL5tRUBD9Byup5whK21i19A9GeQyyXn4EgLb8tW2mqHi9sHPa5wSAKxdjCTp49tgWLTaHW using the Solana Explorer or CLI tools.
+
+================================================================================
+STEP 9: Freeze Account (freeze_account)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 8,
+  parameterCount: 3,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 8,
+  functionIndex: 8,
+  parameterBytes: 10,
+  dataSize: 13,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ freeze User2 account failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 4FqJFgpYvNuJYGSvVm3VLsERYewmt9QJs9JBPyhacTLJn2xrMBGKA94HCnhMcd6AsQAEasE1jxB2toDQB9U3tmq1 using the Solana Explorer or CLI tools.
+
+── Thaw Account (thaw_account)
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 9,
+  parameterCount: 3,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 9,
+  functionIndex: 9,
+  parameterBytes: 10,
+  dataSize: 13,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ thaw User2 account failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 5NEetohV6A2WKtsNQRztzdCVK3EinfCXoBCCeVvYtPRMLLQT4t2Dq8bvPzaUm9fpWPd7q5c2wvLQbDTwqhAv98kQ using the Solana Explorer or CLI tools.
+
+================================================================================
+STEP 10: Disable Authorities
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ',
+  function: 12,
+  parameterCount: 2,
+  accountCount: 0
+}
+[FiveSDK] Using provided ABI with 14 functions
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys (override: yes)
+[FiveSDK] VM State account not found at DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys
+[FiveSDK] Generated execution instruction: {
+  function: 12,
+  functionIndex: 12,
+  parameterBytes: 8,
+  dataSize: 11,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+❌ disable_mint failed: Transaction was not confirmed in 30.00 seconds. It is unknown if it succeeded or failed. Check signature 3GbxkuraHwBxUpAYMkaAb8zbAHjXsPvpUTLjtxg5gJwg26ZcFsWN1qHf8kPcVPCJCtMDEn9sYkB7YCXjXuQNVPSq using the Solana Explorer or CLI tools.
+
+================================================================================
+📊 Test Execution Complete
+================================================================================
+ℹ️  All token operations executed with Five SDK ABI encoding
+✅ Test state saved to test-state.json
+
+[0;35m========================================[0m
+[0;35mToken Template E2E Test Runner[0m
+[0;35m========================================[0m
+
+Configuration:
+  Project Root:   /Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token
+  Source:         /Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/src/token.v
+  Build Output:   /Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/build/five-token-template.five
+  RPC URL:        http://127.0.0.1:8899
+  Deploy:         true
+
+
+[0;35m========================================[0m
+[0;35mChecking Prerequisites[0m
+[0;35m========================================[0m
+
+[0;36m▶ Checking Five CLI...[0m
+[0;32m✓ Five CLI installed: 1.0.3[0m
+[0;36m▶ Checking Solana CLI...[0m
+[0;32m✓ Solana CLI installed: solana-cli 3.0.0 (src:b6c96e84; feat:128318206, client:Agave)[0m
+[0;36m▶ Checking Node.js...[0m
+[0;32m✓ Node.js installed: v22.15.1[0m
+[0;36m▶ Checking @solana/web3.js...[0m
+[0;32m✓ @solana/web3.js installed[0m
+[0;36m▶ Checking RPC connection...[0m
+[0;32m✓ Connected to localnet (slot: 390845085)[0m
+
+[0;35m========================================[0m
+[0;35mBuilding Token Template[0m
+[0;35m========================================[0m
+
+[0;36m▶ Source: /Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/src/token.v[0m
+[0;36m▶ Building with Five CLI...[0m
+[0;31m✗ Build failed[0m
+[0;34mℹ Run with --verbose for details[0m

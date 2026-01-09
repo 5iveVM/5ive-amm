@@ -11,16 +11,7 @@
 #
 # Examples:
 #   ./e2e-token-test.sh                    # Run the targeted init_mint test first
-echo "Running targeted init_mint debugging test..."
-node test_init_mint.mjs
-if [ $? -ne 0 ]; then
-    echo "❌ test_init_mint.mjs failed"
-    # Don't exit yet, let's see logs
-fi
 
-# Run the E2E test
-echo "Running E2E tests..."
-node e2e-token-test.mjs --deploy           # Build, deploy, and test
 #   ./e2e-token-test.sh --deploy --verbose # Verbose output
 #   ./e2e-token-test.sh --clean            # Clean build artifacts
 #
@@ -63,7 +54,7 @@ RPC_URL="http://127.0.0.1:8899"
 SHOW_HELP=false
 # VM_STATE_PDA removed to allow dynamic generation
 # export VM_STATE_PDA
-FIVE_PROGRAM_ID="7siQQQ9vQgJ58NWUtFnXpZcmE7JEWf4eRUktGKr4RJCC"
+FIVE_PROGRAM_ID="DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8"
 export FIVE_PROGRAM_ID
 
 # Counters & Status
@@ -489,6 +480,9 @@ main() {
     [ "$DEPLOY" = true ] && echo "  Deploy:         true"
     [ "$SKIP_BUILD" = true ] && echo "  Skip Build:     true"
     echo ""
+
+    # Ensure we are in the project root
+    cd "$PROJECT_ROOT"
 
     # Execute pipeline
     check_prerequisites

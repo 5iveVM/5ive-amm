@@ -1,0 +1,1048 @@
+ℹ️  Loaded deployment-config.json overrides
+
+================================================================================
+🎭 Token Template E2E Test - 3 User Story with Five SDK
+================================================================================
+ℹ️  Loaded Token ABI: 14 functions
+ℹ️  Payer: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+ℹ️  Payer Balance: 9980.86 SOL
+
+================================================================================
+SETUP: Creating 3 Users
+================================================================================
+ℹ️  User1 (Authority): A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w
+ℹ️  User2 (Holder):    2DC7shWc48G1ZppDkmGszUvDVSyHBMHyKKgSR9NB6JQ9
+ℹ️  User3 (Holder):    69J8Zfh7JhGn1ywLteYnXmKLeivziMj2LJg9Ese4ET63
+
+── Funding users with SOL...
+ℹ️  Funded User1
+ℹ️  Funded User2
+ℹ️  Funded User3
+
+================================================================================
+STEP 1: Generating Account Keypairs
+================================================================================
+✅ Generated keypairs for token accounts
+ℹ️  Mint Account:  9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy
+ℹ️  User1 Account: 8wZjHekUu7Jw5xA1W5cZa4MFsfKd9yoF1dTi1vjZKMUF
+ℹ️  User2 Account: AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4
+ℹ️  User3 Account: 8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe
+
+================================================================================
+STEP 2: Initialize Mint (init_mint)
+================================================================================
+[BytecodeCompiler] Initialized
+[ParameterEncoder] Initialized
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'init_mint',
+  parameterCount: 7,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+using deprecated parameters for `initSync()`; pass a single object instead
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'mint_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'freeze_authority',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  },
+  { name: 'decimals', type: 'u8', normalized: 'u8', isAccount: false },
+  {
+    name: 'name',
+    type: 'string',
+    normalized: 'string',
+    isAccount: false
+  },
+  {
+    name: 'symbol',
+    type: 'string',
+    normalized: 'string',
+    isAccount: false
+  },
+  {
+    name: 'uri',
+    type: 'string',
+    normalized: 'string',
+    isAccount: false
+  }
+]
+[VLE] Protocol buffer generated: {
+  usesTypedParams: true,
+  length: 86,
+  hex: '8001070c020c030a8635310560f1885e0a1ad3da50bcb4954fe1bc33ea14efa281331f374dca5a3801060b0954657374546f6b656e0b04544553540b1968747470733a2f2f6578616d706c652e636f6d2f746f6b656e'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'mint_account': pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=true, writable=true
+[FiveSDK] ABI Metadata for param 'authority': pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=true
+[FiveSDK] Instruction Account [2]: pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=SysvarRent111111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'init_mint',
+  functionIndex: 0,
+  parameterBytes: 86,
+  dataSize: 88,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [init_mint]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program 11111111111111111111111111111111 invoke [2]
+  Program 11111111111111111111111111111111 success
+  Program 11111111111111111111111111111111 invoke [2]
+  Program 11111111111111111111111111111111 success
+  Program 11111111111111111111111111111111 invoke [2]
+  Program 11111111111111111111111111111111 success
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 10709 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: invalid instruction data
+
+❌ init_mint failed: {"InstructionError":[0,"InvalidInstructionData"]}
+
+================================================================================
+STEP 3: Initialize Token Accounts (init_token_account)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'init_token_account',
+  parameterCount: 3,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'token_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  }
+]
+[VLE] Protocol buffer generated: {
+  usesTypedParams: true,
+  length: 40,
+  hex: '8001030c020c030a82f9d7fb7c1208cf96f89e335cf419f3e75b8ca70167784a790b0e72c17d4df6'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'token_account': pubkey=8wZjHekUu7Jw5xA1W5cZa4MFsfKd9yoF1dTi1vjZKMUF, signer=true, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=8wZjHekUu7Jw5xA1W5cZa4MFsfKd9yoF1dTi1vjZKMUF, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=SysvarRent111111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'init_token_account',
+  functionIndex: 1,
+  parameterBytes: 40,
+  dataSize: 42,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [init_token_account]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 3893 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232b
+
+❌ init_token_account (User1) failed: {"InstructionError":[0,{"Custom":9003}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'init_token_account',
+  parameterCount: 3,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'token_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  }
+]
+[VLE] Protocol buffer generated: {
+  usesTypedParams: true,
+  length: 40,
+  hex: '8001030c020c030a82f9d7fb7c1208cf96f89e335cf419f3e75b8ca70167784a790b0e72c17d4df6'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'token_account': pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=true, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=2DC7shWc48G1ZppDkmGszUvDVSyHBMHyKKgSR9NB6JQ9, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=2DC7shWc48G1ZppDkmGszUvDVSyHBMHyKKgSR9NB6JQ9, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=SysvarRent111111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'init_token_account',
+  functionIndex: 1,
+  parameterBytes: 40,
+  dataSize: 42,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [init_token_account]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 3893 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232b
+
+❌ init_token_account (User2) failed: {"InstructionError":[0,{"Custom":9003}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'init_token_account',
+  parameterCount: 3,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'token_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  }
+]
+[VLE] Protocol buffer generated: {
+  usesTypedParams: true,
+  length: 40,
+  hex: '8001030c020c030a82f9d7fb7c1208cf96f89e335cf419f3e75b8ca70167784a790b0e72c17d4df6'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'token_account': pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=true, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=69J8Zfh7JhGn1ywLteYnXmKLeivziMj2LJg9Ese4ET63, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=69J8Zfh7JhGn1ywLteYnXmKLeivziMj2LJg9Ese4ET63, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=SysvarRent111111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'init_token_account',
+  functionIndex: 1,
+  parameterBytes: 40,
+  dataSize: 42,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [init_token_account]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 3893 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232b
+
+❌ init_token_account (User3) failed: {"InstructionError":[0,{"Custom":9003}]}
+
+================================================================================
+STEP 4: Mint Tokens (mint_to)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'mint_to',
+  parameterCount: 4,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 12, hex: '8001040c020c030c0404e807' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=8wZjHekUu7Jw5xA1W5cZa4MFsfKd9yoF1dTi1vjZKMUF, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'mint_authority': pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=8wZjHekUu7Jw5xA1W5cZa4MFsfKd9yoF1dTi1vjZKMUF, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [5]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'mint_to',
+  functionIndex: 2,
+  parameterBytes: 12,
+  dataSize: 14,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [mint_to]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 3657 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ mint_to User1 (1000) failed: {"InstructionError":[0,{"Custom":9006}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'mint_to',
+  parameterCount: 4,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 12, hex: '8001040c020c030c0404f403' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'mint_authority': pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [5]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'mint_to',
+  functionIndex: 2,
+  parameterBytes: 12,
+  dataSize: 14,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [mint_to]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 3657 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ mint_to User2 (500) failed: {"InstructionError":[0,{"Custom":9006}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'mint_to',
+  parameterCount: 4,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 12, hex: '8001040c020c030c0404f403' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'mint_authority': pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [5]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'mint_to',
+  functionIndex: 2,
+  parameterBytes: 12,
+  dataSize: 14,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [mint_to]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 3657 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ mint_to User3 (500) failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 5: Transfer Tokens (transfer)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'transfer',
+  parameterCount: 4,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 11, hex: '8001040c020c030c040464' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=2DC7shWc48G1ZppDkmGszUvDVSyHBMHyKKgSR9NB6JQ9, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=2DC7shWc48G1ZppDkmGszUvDVSyHBMHyKKgSR9NB6JQ9, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [5]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'transfer',
+  functionIndex: 3,
+  parameterBytes: 11,
+  dataSize: 13,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [transfer]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 4002 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ transfer 100 from User2 to User3 failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 6: Approve Delegate (approve)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'approve',
+  parameterCount: 4,
+  accountCount: 4
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'delegate',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] Protocol buffer generated: {
+  usesTypedParams: true,
+  length: 43,
+  hex: '8001040c020c030a11fb3a776f95da7c857d9580e898a39c3ecabeccd963c4660cc5c329b099452a049601'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=69J8Zfh7JhGn1ywLteYnXmKLeivziMj2LJg9Ese4ET63, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=69J8Zfh7JhGn1ywLteYnXmKLeivziMj2LJg9Ese4ET63, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'approve',
+  functionIndex: 5,
+  parameterBytes: 43,
+  dataSize: 45,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [approve]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 4727 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ approve User2 as delegate for 150 tokens failed: {"InstructionError":[0,{"Custom":9006}]}
+
+── Transfer as Delegate (transfer_from)
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'transfer_from',
+  parameterCount: 4,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 11, hex: '8001040c020c030c040432' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=8wZjHekUu7Jw5xA1W5cZa4MFsfKd9yoF1dTi1vjZKMUF, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'authority': pubkey=2DC7shWc48G1ZppDkmGszUvDVSyHBMHyKKgSR9NB6JQ9, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=8wZjHekUu7Jw5xA1W5cZa4MFsfKd9yoF1dTi1vjZKMUF, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=2DC7shWc48G1ZppDkmGszUvDVSyHBMHyKKgSR9NB6JQ9, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [5]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'transfer_from',
+  functionIndex: 4,
+  parameterBytes: 11,
+  dataSize: 13,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [transfer_from]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 4367 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ transfer_from 50 from User3 to User1 via delegation failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 7: Revoke Delegation (revoke)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'revoke',
+  parameterCount: 2,
+  accountCount: 4
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 7, hex: '8001020c020c03' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=69J8Zfh7JhGn1ywLteYnXmKLeivziMj2LJg9Ese4ET63, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=8jNKmLTUfhhbGvhxq3YPpkGZXjs3iEMgDAyWLHkR2xYe, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=69J8Zfh7JhGn1ywLteYnXmKLeivziMj2LJg9Ese4ET63, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'revoke',
+  functionIndex: 6,
+  parameterBytes: 7,
+  dataSize: 9,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [revoke]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 4585 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ revoke User2 delegation failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 8: Burn Tokens (burn)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'burn',
+  parameterCount: 4,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 11, hex: '8001040c020c030c040464' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=8wZjHekUu7Jw5xA1W5cZa4MFsfKd9yoF1dTi1vjZKMUF, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=8wZjHekUu7Jw5xA1W5cZa4MFsfKd9yoF1dTi1vjZKMUF, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [5]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'burn',
+  functionIndex: 7,
+  parameterBytes: 11,
+  dataSize: 13,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [burn]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 5462 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ burn 100 tokens failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 9: Freeze Account (freeze_account)
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'freeze_account',
+  parameterCount: 3,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'account_to_freeze',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'freeze_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 9, hex: '8001030c020c030c04' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=false
+[FiveSDK] ABI Metadata for param 'account_to_freeze': pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'freeze_authority': pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=false (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [5]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'freeze_account',
+  functionIndex: 8,
+  parameterBytes: 9,
+  dataSize: 11,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [freeze_account]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 5588 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ freeze User2 account failed: {"InstructionError":[0,{"Custom":9006}]}
+
+── Thaw Account (thaw_account)
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'thaw_account',
+  parameterCount: 3,
+  accountCount: 5
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'account_to_thaw',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'freeze_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 9, hex: '8001030c020c030c04' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=false
+[FiveSDK] ABI Metadata for param 'account_to_thaw': pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'freeze_authority': pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=false (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=AzGNA232VNPGovZoEZbeoqLSVzwSumMEXWsZyL29nGJ4, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [5]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [6]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'thaw_account',
+  functionIndex: 9,
+  parameterBytes: 9,
+  dataSize: 11,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+❌ Transaction Logs for [thaw_account]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 5953 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+❌ thaw User2 account failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 10: Disable Authorities
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: '5aS7cFzZ6cX35h3XL2ksWHU1kMFnSRX6bi8UedisK785',
+  function: 'disable_mint',
+  parameterCount: 2,
+  accountCount: 4
+}
+[FiveSDK] Using provided ABI with 14 functions
+[VLE] usesTypedParams: true
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'current_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  }
+]
+[VLE] Protocol buffer generated: { usesTypedParams: true, length: 7, hex: '8001020c020c03' }
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DaaqcMtgSynnRkBoVhkFXi3DRvH4NazjwtWUXNwKKF8X (override: yes)
+[FiveSDK] Resolved admin (fee recipient) from on-chain state: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'current_authority': pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=9pGxtyiewXANr21MFyiRE9TaFf3esniuyhQMmATp1ogy, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=A2tg7RJPo8JtxnDfDxFaNJiiK2N4xr3FBUWU6y9orq2w, signer=true, writable=false (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 'disable_mint',
+  functionIndex: 12,
+  parameterBytes: 7,
+  dataSize: 9,
+  estimatedCU: 5000,
+  adminAccount: undefined
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+[executeTokenFunction] Error: { InstructionError: [ 0, { Custom: 9006 } ] }
+❌ disable_mint failed: undefined
+
+================================================================================
+📊 Test Execution Complete
+================================================================================
+ℹ️  All token operations executed with Five SDK ABI encoding
+✅ Test state saved to test-state.json
