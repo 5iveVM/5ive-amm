@@ -1,0 +1,158 @@
+   Compiling five-vm-mito v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-mono/five-vm-mito)
+warning: unused import: `CALL`
+  --> five-protocol/tests/fixtures.rs:11:62
+   |
+11 | use five_protocol::{parser::parse_bytecode, BytecodeBuilder, CALL};
+   |                                                              ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `OpcodeInfo`
+ --> five-protocol/tests/opcode_consistency.rs:3:40
+  |
+3 |     use five_protocol::opcodes::{self, OpcodeInfo, OPCODE_TABLE, get_opcode_info};
+  |                                        ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `five-protocol` (test "fixtures") generated 1 warning (run `cargo fix --test "fixtures"` to apply 1 suggestion)
+warning: `five-protocol` (test "opcode_consistency") generated 1 warning (run `cargo fix --test "opcode_consistency"` to apply 1 suggestion)
+error[E0412]: cannot find type `Pubkey` in this scope
+   --> five-vm-mito/src/utils.rs:749:71
+    |
+749 | pub fn derive_pda_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> Pubkey {
+    |                                                                       ^^^^^^ not found in this scope
+    |
+help: consider importing one of these type aliases
+    |
+6   + use crate::Pubkey;
+    |
+6   + use pinocchio::pubkey::Pubkey;
+    |
+
+error[E0433]: failed to resolve: use of undeclared type `Pubkey`
+   --> five-vm-mito/src/utils.rs:759:5
+    |
+759 |     Pubkey::from(hash)
+    |     ^^^^^^ use of undeclared type `Pubkey`
+    |
+help: consider importing one of these type aliases
+    |
+6   + use crate::Pubkey;
+    |
+6   + use pinocchio::pubkey::Pubkey;
+    |
+
+error[E0412]: cannot find type `Pubkey` in this scope
+   --> five-vm-mito/src/utils.rs:763:82
+    |
+763 | pub fn find_program_address_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> (Pubkey, u8) {
+    |                                                                                  ^^^^^^ not found in this scope
+    |
+help: consider importing one of these type aliases
+    |
+6   + use crate::Pubkey;
+    |
+6   + use pinocchio::pubkey::Pubkey;
+    |
+
+warning: unused import: `heapless::Vec`
+  --> five-vm-mito/src/context.rs:18:5
+   |
+18 | use heapless::Vec;
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `Seed`
+  --> five-vm-mito/src/context.rs:21:45
+   |
+21 |     instruction::{AccountMeta, Instruction, Seed, Signer},
+   |                                             ^^^^
+
+warning: unused import: `pinocchio::pubkey::Pubkey`
+  --> five-vm-mito/src/handlers/system/init.rs:17:5
+   |
+17 | use pinocchio::pubkey::Pubkey;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `create_program_address` and `find_program_address`
+  --> five-vm-mito/src/handlers/system/pda.rs:13:25
+   |
+13 | use pinocchio::pubkey::{create_program_address, find_program_address, Pubkey};
+   |                         ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ExecutionContext`, `Pubkey`, `Result`, and `StackStorage`
+   --> five-vm-mito/src/test_polymorphic_arithmetic.rs:6:13
+    |
+6   | use crate::{ExecutionContext, Pubkey, Result, StackStorage};
+    |             ^^^^^^^^^^^^^^^^  ^^^^^^  ^^^^^^  ^^^^^^^^^^^^
+    |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+   --> five-vm-mito/src/lib.rs:106:1
+    |
+106 | mod test_polymorphic_arithmetic;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ValueRef` and `opcodes::*`
+   --> five-vm-mito/src/test_polymorphic_arithmetic.rs:7:21
+    |
+7   | use five_protocol::{opcodes::*, ValueRef};
+    |                     ^^^^^^^^^^  ^^^^^^^^
+    |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+   --> five-vm-mito/src/lib.rs:106:1
+    |
+106 | mod test_polymorphic_arithmetic;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> five-vm-mito/src/handlers/system/pda.rs:152:20
+    |
+152 |                 Ok(pda_pubkey) => {
+    |                    ^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `[u8]`
+    = note: all local variables must have a statically known size
+    = help: unsized locals are gated as an unstable feature
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> five-vm-mito/src/handlers/system/pda.rs:152:17
+    |
+152 |                 Ok(pda_pubkey) => {
+    |                 ^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `[u8]`
+note: required by a bound in `Ok`
+   --> /Users/amberjackson/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:528:17
+    |
+528 | pub enum Result<T, E> {
+    |                 ^ required by this bound in `Ok`
+...
+532 |     Ok(#[stable(feature = "rust1", since = "1.0.0")] T),
+    |     -- required by a bound in this tuple variant
+
+warning: unused variable: `system_program`
+    --> five-vm-mito/src/context.rs:1065:13
+     |
+1065 |         let system_program = self
+     |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_system_program`
+     |
+     = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `system_program`
+    --> five-vm-mito/src/context.rs:1211:13
+     |
+1211 |         let system_program = self.accounts.iter()
+     |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_system_program`
+
+warning: unused variable: `instruction`
+    --> five-vm-mito/src/context.rs:1396:13
+     |
+1396 |         let instruction = Instruction {
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_instruction`
+
+Some errors have detailed explanations: E0277, E0412, E0433.
+For more information about an error, try `rustc --explain E0277`.
+warning: `five-vm-mito` (lib) generated 9 warnings
+error: could not compile `five-vm-mito` (lib) due to 5 previous errors; 9 warnings emitted

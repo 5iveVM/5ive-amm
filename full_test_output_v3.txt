@@ -1,0 +1,151 @@
+warning: unused import: `heapless::Vec`
+  --> five-vm-mito/src/context.rs:18:5
+   |
+18 | use heapless::Vec;
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `Seed`
+  --> five-vm-mito/src/context.rs:21:45
+   |
+21 |     instruction::{AccountMeta, Instruction, Seed, Signer},
+   |                                             ^^^^
+
+warning: unused imports: `ExecutionContext`, `Pubkey`, `Result`, and `StackStorage`
+   --> five-vm-mito/src/test_polymorphic_arithmetic.rs:6:13
+    |
+6   | use crate::{ExecutionContext, Pubkey, Result, StackStorage};
+    |             ^^^^^^^^^^^^^^^^  ^^^^^^  ^^^^^^  ^^^^^^^^^^^^
+    |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+   --> five-vm-mito/src/lib.rs:106:1
+    |
+106 | mod test_polymorphic_arithmetic;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ValueRef` and `opcodes::*`
+   --> five-vm-mito/src/test_polymorphic_arithmetic.rs:7:21
+    |
+7   | use five_protocol::{opcodes::*, ValueRef};
+    |                     ^^^^^^^^^^  ^^^^^^^^
+    |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+   --> five-vm-mito/src/lib.rs:106:1
+    |
+106 | mod test_polymorphic_arithmetic;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `system_program`
+    --> five-vm-mito/src/context.rs:1065:13
+     |
+1065 |         let system_program = self
+     |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_system_program`
+     |
+     = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `system_program`
+    --> five-vm-mito/src/context.rs:1211:13
+     |
+1211 |         let system_program = self.accounts.iter()
+     |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_system_program`
+
+warning: unused variable: `instruction`
+    --> five-vm-mito/src/context.rs:1396:13
+     |
+1396 |         let instruction = Instruction {
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_instruction`
+
+warning: `five-vm-mito` (lib) generated 7 warnings (run `cargo fix --lib -p five-vm-mito` to apply 4 suggestions)
+warning: unused variable: `account_system`
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:426:9
+    |
+426 |         account_system: &AccountSystem, // Add account_system parameter
+    |         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_account_system`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `five-dsl-compiler` (lib) generated 1 warning
+   Compiling solana-program-runtime v1.18.26
+   Compiling five-dsl-compiler v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-mono/five-dsl-compiler)
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+  --> five-dsl-compiler/tests/test_visibility_system.rs:58:13
+   |
+58 |             is_public,
+   |             ^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/tests/test_visibility_system.rs:102:13
+    |
+102 |             is_public,
+    |             ^^^^^^^^^
+
+warning: `five-dsl-compiler` (test "test_visibility_system") generated 2 warnings
+   Compiling five v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-mono/five-solana)
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/tests/lib.rs:412:13
+    |
+412 |             is_public,
+    |             ^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/tests/lib.rs:428:13
+    |
+428 |             is_public,
+    |             ^^^^^^^^^
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+    --> five-dsl-compiler/tests/lib.rs:1122:13
+     |
+1122 |             is_public: _,
+     |             ^^^^^^^^^^^^
+
+warning: `five-dsl-compiler` (test "lib") generated 3 warnings
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `solana_program`
+   --> five-solana/src/upgrade.rs:191:13
+    |
+191 |         use solana_program::pubkey::Pubkey as SolanaPubkey;
+    |             ^^^^^^^^^^^^^^ use of unresolved module or unlinked crate `solana_program`
+    |
+    = help: if you wanted to use a crate named `solana_program`, use `cargo add solana_program` to add it to your `Cargo.toml`
+
+error[E0609]: no field `0` on type `&[u8; 32]`
+   --> five-solana/src/upgrade.rs:192:53
+    |
+192 |         let prog_id = SolanaPubkey::from(program_id.0);
+    |                                                     ^ unknown field
+    |
+help: instead of using tuple indexing, use array indexing
+    |
+192 -         let prog_id = SolanaPubkey::from(program_id.0);
+192 +         let prog_id = SolanaPubkey::from(program_id[0]);
+    |
+
+Some errors have detailed explanations: E0433, E0609.
+For more information about an error, try `rustc --explain E0433`.
+error: could not compile `five` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error[E0599]: no function or associated item named `new_unique` found for array `[u8; 32]` in the current scope
+   --> five-solana/src/upgrade.rs:282:34
+    |
+282 |         let program_id = Pubkey::new_unique();
+    |                                  ^^^^^^^^^^ function or associated item not found in `[u8; 32]`
+
+warning: variable does not need to be mutable
+   --> five-solana/src/test_parameter_indexing.rs:196:13
+    |
+196 |         let mut exec_data2 = exec_data1.clone();
+    |             ----^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+Some errors have detailed explanations: E0599, E0609.
+For more information about an error, try `rustc --explain E0599`.
+warning: `five` (lib test) generated 1 warning
+error: could not compile `five` (lib test) due to 2 previous errors; 1 warning emitted

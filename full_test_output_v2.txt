@@ -1,0 +1,191 @@
+warning: unused import: `heapless::Vec`
+  --> five-vm-mito/src/context.rs:18:5
+   |
+18 | use heapless::Vec;
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `Seed`
+  --> five-vm-mito/src/context.rs:21:45
+   |
+21 |     instruction::{AccountMeta, Instruction, Seed, Signer},
+   |                                             ^^^^
+
+warning: unused imports: `ExecutionContext`, `Pubkey`, `Result`, and `StackStorage`
+   --> five-vm-mito/src/test_polymorphic_arithmetic.rs:6:13
+    |
+6   | use crate::{ExecutionContext, Pubkey, Result, StackStorage};
+    |             ^^^^^^^^^^^^^^^^  ^^^^^^  ^^^^^^  ^^^^^^^^^^^^
+    |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+   --> five-vm-mito/src/lib.rs:106:1
+    |
+106 | mod test_polymorphic_arithmetic;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ValueRef` and `opcodes::*`
+   --> five-vm-mito/src/test_polymorphic_arithmetic.rs:7:21
+    |
+7   | use five_protocol::{opcodes::*, ValueRef};
+    |                     ^^^^^^^^^^  ^^^^^^^^
+    |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+   --> five-vm-mito/src/lib.rs:106:1
+    |
+106 | mod test_polymorphic_arithmetic;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `system_program`
+    --> five-vm-mito/src/context.rs:1065:13
+     |
+1065 |         let system_program = self
+     |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_system_program`
+     |
+     = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `system_program`
+    --> five-vm-mito/src/context.rs:1211:13
+     |
+1211 |         let system_program = self.accounts.iter()
+     |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_system_program`
+
+warning: unused variable: `instruction`
+    --> five-vm-mito/src/context.rs:1396:13
+     |
+1396 |         let instruction = Instruction {
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_instruction`
+
+warning: `five-vm-mito` (lib) generated 7 warnings (run `cargo fix --lib -p five-vm-mito` to apply 4 suggestions)
+warning: unused variable: `account_system`
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:426:9
+    |
+426 |         account_system: &AccountSystem, // Add account_system parameter
+    |         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_account_system`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `five-dsl-compiler` (lib) generated 1 warning
+   Compiling solana-metrics v1.18.26
+   Compiling solana-measure v1.18.26
+   Compiling pinocchio v0.9.2 (/Users/amberjackson/Documents/Development/five-org/five-mono/third_party/pinocchio)
+   Compiling five v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-mono/five-solana)
+   Compiling five-dsl-compiler v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-mono/five-dsl-compiler)
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+  --> five-dsl-compiler/tests/test_visibility_system.rs:58:13
+   |
+58 |             is_public,
+   |             ^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/tests/test_visibility_system.rs:102:13
+    |
+102 |             is_public,
+    |             ^^^^^^^^^
+
+warning: `five-dsl-compiler` (test "test_visibility_system") generated 2 warnings
+error[E0080]: evaluation of constant value failed
+   --> five-solana/src/upgrade.rs:119:23
+    |
+119 | #[derive(Clone, Copy, Pod, Zeroable)]
+    |                       ^^^ evaluation panicked: derive(Pod) was applied to a type with padding
+
+error[E0277]: the trait bound `bool: Pod` is not satisfied
+  --> five-solana/src/upgrade.rs:27:23
+   |
+27 |     pub is_immutable: bool,
+   |                       ^^^^ the trait `Pod` is not implemented for `bool`
+   |
+   = help: the following other types implement trait `Pod`:
+             ()
+             FIVEVMState
+             ManuallyDrop<T>
+             NamespaceRegistry
+             Option<T>
+             PhantomData<T>
+             PhantomPinned
+             ScriptAccountHeader
+           and 60 others
+note: required by a bound in `upgrade::_::{closure#0}::check::assert_impl`
+  --> five-solana/src/upgrade.rs:15:23
+   |
+15 | #[derive(Clone, Copy, Pod, Zeroable)]
+   |                       ^^^ required by this bound in `assert_impl`
+   = note: this error originates in the derive macro `Pod` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> five-solana/src/upgrade.rs:36:32
+   |
+36 |         if self.bytecode_len > five_vm_mito::MAX_SCRIPT_SIZE {
+   |            -----------------   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u32`, found `usize`
+   |            |
+   |            expected because this is `u32`
+   |
+help: you can convert a `usize` to a `u32` and panic if the converted value doesn't fit
+   |
+36 |         if self.bytecode_len > five_vm_mito::MAX_SCRIPT_SIZE.try_into().unwrap() {
+   |                                                             ++++++++++++++++++++
+
+error[E0277]: the trait bound `bool: Pod` is not satisfied
+   --> five-solana/src/upgrade.rs:125:20
+    |
+125 |     pub is_active: bool,
+    |                    ^^^^ the trait `Pod` is not implemented for `bool`
+    |
+    = help: the following other types implement trait `Pod`:
+              ()
+              FIVEVMState
+              ManuallyDrop<T>
+              NamespaceRegistry
+              Option<T>
+              PhantomData<T>
+              PhantomPinned
+              ScriptAccountHeader
+            and 60 others
+note: required by a bound in `upgrade::_::{closure#0}::check::assert_impl`
+   --> five-solana/src/upgrade.rs:119:23
+    |
+119 | #[derive(Clone, Copy, Pod, Zeroable)]
+    |                       ^^^ required by this bound in `assert_impl`
+    = note: this error originates in the derive macro `Pod` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> five-solana/src/upgrade.rs:183:9
+    |
+183 |         &script_id.to_le_bytes(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected an array with a size of 7, found one with a size of 8
+
+error[E0599]: no function or associated item named `find_program_address` found for array `[u8; 32]` in the current scope
+   --> five-solana/src/upgrade.rs:187:40
+    |
+187 |     let (archive_pda, _bump) = Pubkey::find_program_address(seeds, program_id);
+    |                                        ^^^^^^^^^^^^^^^^^^^^ function or associated item not found in `[u8; 32]`
+
+Some errors have detailed explanations: E0080, E0277, E0308, E0599.
+For more information about an error, try `rustc --explain E0080`.
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/tests/lib.rs:412:13
+    |
+412 |             is_public,
+    |             ^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+   --> five-dsl-compiler/tests/lib.rs:428:13
+    |
+428 |             is_public,
+    |             ^^^^^^^^^
+
+warning: use of deprecated field `five_dsl_compiler::AstNode::InstructionDefinition::is_public`: use visibility field instead
+    --> five-dsl-compiler/tests/lib.rs:1122:13
+     |
+1122 |             is_public: _,
+     |             ^^^^^^^^^^^^
+
+error: could not compile `five` (lib) due to 6 previous errors
+warning: build failed, waiting for other jobs to finish...
+warning: `five-dsl-compiler` (test "lib") generated 3 warnings
+warning: `five-dsl-compiler` (lib test) generated 1 warning (1 duplicate)

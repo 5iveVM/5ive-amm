@@ -146,15 +146,55 @@ The Five SDK had **two critical encoding bugs** preventing proper instruction ge
 
 ---
 
-## ⏳ IN PROGRESS: Token Template Bytecode Execution Errors
+## 🔧 BEING FIXED: Stale Account Pointers After INIT_ACCOUNT (Session 3)
 
-### Current Status (Session 2)
-Token template functions now generate valid instructions and get parsed by the VM, but fail during **bytecode execution** with custom error codes:
-- `init_mint`: Custom error 9003 (after 10,714 CU)
-- `init_token_account`: InvalidInstructionData (after 9,269 CU)
-- `mint_to`, `transfer`, etc.: Custom error 9006
+### Root Cause (IDENTIFIED & FIXED)
+Token template functions create accounts with INIT_ACCOUNT CPI, but subsequent STORE_FIELD operations fail because **Pinocchio's cached account data pointers become stale** after account reallocation by Solana runtime.
 
-**System Program CPI succeeds** (accounts created), so parameter encoding is correct. Errors are in **bytecode logic** or **constraint validation**.
+**The Problem:**
+1. INIT_ACCOUNT calls System Program CPI to create account
+2. Solana runtime reallocates account data at new memory address
+3. VM calls `refresh_after_cpi()` on AccountInfo
+4. **BUT**: Pinocchio's internal pointer cache is NOT refreshed
+5. Next STORE_FIELD uses stale `borrow_mut_data_unchecked()` result
+6. Bounds checks fail → Error 9006 (InvalidAccountData) or 9003 (ConstraintViolation)
+
+**Error Code Mapping:**
+- Error 9003 (ConstraintViolation): When constraint checks use stale pointers
+- Error 9006 (InvalidAccountData): When STORE_FIELD/LOAD_FIELD bounds checks fail with stale length
+- InvalidInstructionData: Parameter parsing fails after INIT_ACCOUNT CPI
+
+### Solution Applied (Session 3)
+Added `account.refresh_after_cpi()` call immediately before data access in ALL memory handlers:
+
+**Files Modified:**
+1. `five-vm-mito/src/handlers/memory.rs` (4 locations):
+   - Line 56: STORE opcode handler (before `borrow_mut_data_unchecked()`)
+   - Line 157: STORE_FIELD opcode handler (before data access)
+   - Line 302: LOAD_FIELD opcode handler (before bounds check)
+   - Line 352: LOAD_FIELD_PUBKEY opcode handler (before data access)
+
+**Changes:**
+```rust
+// Before data access in STORE/STORE_FIELD/LOAD_FIELD/LOAD_FIELD_PUBKEY:
+let account = ctx.get_account(account_index)?;
+
+// CRITICAL FIX: Force refresh of account pointers before data access.
+// After INIT_ACCOUNT/INIT_PDA_ACCOUNT CPI, Pinocchio's cached data pointers become stale.
+account.refresh_after_cpi();
+
+let data = unsafe { account.borrow_mut_data_unchecked() };
+```
+
+### Compilation Status
+- ✅ Five VM (`five-vm-mito`): Built successfully
+- ✅ Solana Program (`five-solana`): Built successfully in release mode
+- ✅ Binary Location: `target/deploy/five.so` (501 KB)
+
+### Deployment Status (Session 3)
+- ⏳ Deployment to localnet encountered network timeout
+- Next step: Retry deployment and re-test token template
+- All code changes committed and ready for deployment
 
 ### Error Code Mapping
 These error codes come from the Five VM or DSL logic:

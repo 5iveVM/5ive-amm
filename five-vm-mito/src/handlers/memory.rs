@@ -50,6 +50,11 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             // Write directly to account data at field offset
             // SAFETY: The account is verified by index and no other borrows exist,
             // granting exclusive mutable access to its data.
+
+            // CRITICAL FIX: Force refresh of account pointers before data access.
+            // After INIT_ACCOUNT CPI, Pinocchio's cached data pointers become stale.
+            account.refresh_after_cpi();
+
             let account_data = unsafe { account.borrow_mut_data_unchecked() };
 
             // Validate field offset bounds
@@ -147,6 +152,12 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             );
 
             // SAFETY: Account is verified by index and writable, granting exclusive mutable access
+
+            // CRITICAL FIX: Force refresh of account pointers before data access.
+            // After INIT_ACCOUNT/INIT_PDA_ACCOUNT CPI, Pinocchio's cached data pointers become stale.
+            // This refresh ensures we have the correct pointer to the reallocated account data.
+            // See: https://github.com/anza-xyz/pinocchio/issues/...
+            account.refresh_after_cpi();
 
             let data = unsafe { account.borrow_mut_data_unchecked() };
 
@@ -290,6 +301,11 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 // Eager bounds check: even if lazy, we verify the data *exists*
                 // This preserves the "Fail Fast" property and matches legacy behavior
                 let account = &ctx.accounts()[account_index as usize];
+
+                // CRITICAL FIX: Force refresh of account pointers before bounds check.
+                // After INIT_ACCOUNT CPI, Pinocchio's cached data length may be stale.
+                account.refresh_after_cpi();
+
                 if (field_offset as usize + 8) > account.data_len() {
                     return Err(VMErrorCode::InvalidAccountData);
                 }
@@ -332,6 +348,11 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             }
 
             let account = &ctx.accounts()[account_index as usize];
+
+            // CRITICAL FIX: Force refresh of account pointers before data access.
+            // Same issue as STORE_FIELD: after INIT_ACCOUNT CPI, Pinocchio's cached pointers are stale.
+            account.refresh_after_cpi();
+
             let data = unsafe { account.borrow_data_unchecked() };
 
             // Validate that 32 bytes are available at the field offset

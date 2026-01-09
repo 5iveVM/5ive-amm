@@ -5,14 +5,14 @@
     "vmStatePda": "96RYmsWbeMKAW7hdE1KJ6J8afV6ECV49NU6U2RiMSvgA"
   },
   "accounts": {
-    "mint": "Eu4rdhKhTc1R5iCTu3hwesaDQUopQv1W8kcwAkmS5zj7",
-    "user1": "5F6Z4LQiWdChKQ9MmhauEFADjpmkMs9vGAuSG4XrCoTb",
-    "user2": "4xLTXSR11iPUrXmCGvT1KVZkGFNebVdUaoeLzuUqmu23",
-    "user3": "7vv29Yc6iiBVdAx1SxcvW8f2ttUY2kpFqCBBTn6TKegA",
+    "mint": "AEZ6Y3HMu5qT6hCT69BciJfoDYz4QT8uVhomsvx8AFyr",
+    "user1": "3AVqSVb3A8CvfFVG8vx9na9hzEZYo3dPTegYt5WaaXoj",
+    "user2": "FrNtcEzHmAXHgULRiLim6Ks8cXHckypEBMhtwU9hg66s",
+    "user3": "hmHiSuFmeJjZDPM79hfnSM1FDLWtWfdZjjAe5BBvH8n",
     "payer": "EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt",
-    "user1TokenAccount": "13gvJZm7AXgY3RSAqpFaSMU591MB4FAjtk3dSQPeDqku",
-    "user2TokenAccount": "2XiG6nDfMD2f8koUgzQGPV5RTtg3yUsZEhSV4Tu4KkGY",
-    "user3TokenAccount": "4T83fyBdwMarm34GYTEhbRXH1HgngY8rSzLoxMDvpZic"
+    "user1TokenAccount": "B66tRsC3AVd9Rm5WvJ3a3jZkHbEnsiwFvgrAvh4finDt",
+    "user2TokenAccount": "GNYfcPY9K3PKdTEeBtQjfKzB3bC7o33cX8CnB2d4zyFM",
+    "user3TokenAccount": "HmFNujzEXXCCkx2sL3oJqd45uHtWRCnbjcyRvBXmGvZ3"
   },
   "expected": {
     "mintSupply": 1900,
