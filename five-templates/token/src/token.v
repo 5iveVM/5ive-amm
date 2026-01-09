@@ -23,7 +23,7 @@ account TokenAccount {
 
 pub init_mint(
     mint_account: Mint @mut @init(payer=authority, space=256) @signer,
-    authority: account @signer,
+    authority: account @mut @signer,
     freeze_authority: pubkey,
     decimals: u8,
     name: string,
@@ -43,7 +43,7 @@ pub init_mint(
 
 pub init_token_account(
     token_account: TokenAccount @mut @init(payer=owner, space=192) @signer,
-    owner: account @signer,
+    owner: account @mut @signer,
     mint: pubkey
 ) -> pubkey {
     token_account.owner = owner.key;
