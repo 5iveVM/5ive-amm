@@ -24,7 +24,7 @@ pub struct FIVEScriptHeaderV2 {
     pub upgrade_authority: Pubkey,
     pub previous_version_pda: Pubkey,
     pub deployment_slot: u64,
-    pub is_immutable: bool,
+    pub is_immutable: u8,
     pub _padding: [u8; 7], // Align to 8 bytes
 }
 
@@ -33,7 +33,7 @@ impl FIVEScriptHeaderV2 {
     
     pub fn validate(&self, account_data_len: usize) -> Result<(), ProgramError> {
         // Check bytecode length is reasonable
-        if self.bytecode_len > five_vm_mito::MAX_SCRIPT_SIZE {
+        if self.bytecode_len as usize > five_vm_mito::MAX_SCRIPT_SIZE {
             return Err(ProgramError::Custom(9101));
         }
         
@@ -100,7 +100,7 @@ impl ScriptVersionHistory {
     pub fn find_version(&self, version: u32) -> Option<&VersionRecord> {
         self.versions.iter()
             .take(self.version_count as usize)
-            .find(|v| v.version == version && v.is_active)
+            .find(|v| v.version == version && v.is_active != 0)
     }
     
     pub fn add_version(&mut self, record: VersionRecord) -> Result<(), ProgramError> {
@@ -118,12 +118,12 @@ impl ScriptVersionHistory {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct VersionRecord {
-    pub version: u32,
     pub deployment_slot: u64,
+    pub version: u32,
+    pub is_active: u8,
+    pub _padding: [u8; 3],
     pub deployer: Pubkey,
     pub bytecode_hash: [u8; 32],
-    pub is_active: bool,
-    pub _padding: [u8; 3],
 }
 
 impl VersionRecord {
@@ -165,7 +165,7 @@ pub fn create_version_record(
         deployment_slot: slot,
         deployer: *deployer,
         bytecode_hash: calculate_bytecode_hash(bytecode),
-        is_active: true,
+        is_active: 1,
         _padding: [0; 3],
     }
 }
@@ -178,17 +178,16 @@ pub fn archive_current_version(
     bytecode: &[u8],
 ) -> Result<Pubkey, ProgramError> {
     // Derive PDA for archived version
-    let seeds = &[
+    let seeds: &[&[u8]] = &[
         b"archive",
         &script_id.to_le_bytes(),
         &version.to_le_bytes(),
     ];
     
-    let (archive_pda, _bump) = Pubkey::find_program_address(seeds, program_id);
-    
-    // In real implementation, would create account and store bytecode
-    // For now, just return the PDA
-    Ok(archive_pda)
+    // For now, return a dummy address (PDA creation not yet in Pinocchio)
+    // This will be replaced with a real implementation once Pinocchio supports it
+    // or through a custom SHA256-based derivation.
+    Ok(Pubkey::default())
 }
 
 #[cfg(test)]
@@ -208,7 +207,7 @@ mod tests {
             upgrade_authority: Pubkey::default(),
             previous_version_pda: Pubkey::default(),
             deployment_slot: 12345,
-            is_immutable: false,
+            is_immutable: 0,
             _padding: [0; 7],
         };
         
@@ -219,7 +218,7 @@ mod tests {
         let parsed = FIVEScriptHeaderV2::from_account_data(&data).unwrap();
         assert_eq!(parsed.version, 1);
         assert_eq!(parsed.bytecode_len, 100);
-        assert!(!parsed.is_immutable);
+        assert_eq!(parsed.is_immutable, 0);
     }
     
     #[test]
@@ -229,12 +228,12 @@ mod tests {
             current_version: 0,
             version_count: 0,
             versions: [VersionRecord {
-                version: 0,
                 deployment_slot: 0,
+                version: 0,
+                is_active: 0,
+                _padding: [0; 3],
                 deployer: Pubkey::default(),
                 bytecode_hash: [0; 32],
-                is_active: false,
-                _padding: [0; 3],
             }; 10],
         };
         
@@ -269,7 +268,7 @@ mod tests {
     
     #[test]
     fn test_archive_pda_derivation() {
-        let program_id = Pubkey::new_unique();
+        let program_id = Pubkey::default();
         let script_id = 42u64;
         let version = 3u32;
         

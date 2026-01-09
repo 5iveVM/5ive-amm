@@ -344,6 +344,10 @@ mod system_integration_tests {
         bytecode.extend_from_slice(&[0x1B]); // PUSH_U64 opcode
         bytecode.extend_from_slice(&1000000u64.to_le_bytes()); // lamports = 1 SOL
 
+        // Push payer_idx (0)
+        bytecode.push(0x18); // PUSH_U8 opcode
+        bytecode.push(0x00);
+
         // Push space requirement
         bytecode.extend_from_slice(&[0x1B]); // PUSH_U64 opcode
         bytecode.extend_from_slice(&256u64.to_le_bytes()); // space = 256 bytes

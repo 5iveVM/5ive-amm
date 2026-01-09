@@ -132,6 +132,12 @@ pub fn verify_program_owned(account: &AccountInfo, program_id: &Pubkey) -> Progr
     // SAFETY: The Solana runtime guarantees that the account's owner pointer is
     // valid for the lifetime of this instruction. We only read the value.
     if account.owner() != program_id {
+        #[cfg(feature = "debug-logs")]
+        {
+            pinocchio::log::sol_log("DEBUG: verify_program_owned FAILED");
+            pinocchio::log::sol_log("Account owner mismatch - script/state account not owned by program");
+            panic!("PANIC_TRACE: verify_program_owned FAILED - Owner mismatch");
+        }
         return Err(ProgramError::IllegalOwner);
     }
     Ok(())

@@ -187,7 +187,15 @@ pub(crate) use debug_log;
 // Always enable error logging for critical failures
 macro_rules! error_log {
     ($($arg:tt)*) => {
-        pinocchio_log::log!($($arg)*);
+        #[cfg(target_os = "solana")]
+        unsafe {
+            // Very hacky formatting for no_std
+            pinocchio::log::sol_log("VM ERROR:");
+            // We can't easily format! in no_std without alloc, so just log a marker
+            // Ideally we would use pinocchio_log if available
+            #[cfg(feature = "debug-logs")]
+            pinocchio_log::log!($($arg)*);
+        }
     };
 }
 

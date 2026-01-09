@@ -1,0 +1,29 @@
+five-vm-mito/src/context.rs:8:5: warning: unused import: `lazy_validation::LazyAccountValidator`
+five-vm-mito/src/execution.rs:23:5: warning: unused import: `heapless::String as HString`
+five-vm-mito/src/handlers/accounts.rs:10:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/arithmetic.rs:47:28: warning: unused imports: `Result` and `VMError`
+five-vm-mito/src/handlers/constraints.rs:11:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/control_flow.rs:10:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/logical.rs:9:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/memory.rs:10:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/stack_ops.rs:11:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/arrays.rs:36:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/functions.rs:8:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/locals.rs:10:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/option_result.rs:9:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/registers.rs:10:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/syscalls.rs:31:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/system/init.rs:12:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/system/invoke.rs:10:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/system/native.rs:9:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/system/pda.rs:10:28: warning: unused import: `Result`
+five-vm-mito/src/handlers/system/sysvars.rs:13:28: warning: unused import: `Result`
+five-vm-mito/src/utils.rs:6:35: warning: unused import: `Result`
+five-vm-mito/src/handlers/system/invoke.rs:174:85: warning: unused variable: `e`: help: if this is intentional, prefix it with an underscore: `_e`
+five-vm-mito/src/handlers/system/pda.rs:145:21: warning: unused variable: `e`: help: if this is intentional, prefix it with an underscore: `_e`
+warning: `five-vm-mito` (lib) generated 23 warnings (run `cargo fix --lib -p five-vm-mito` to apply 21 suggestions)
+   Compiling five-vm-mito v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-vm-mito)
+five-vm-mito/src/macros.rs:31:32: error[E0308]: mismatched types: expected `VMError`, found `VMErrorCode`
+five-vm-mito/src/macros.rs:34:29: error[E0308]: mismatched types: expected `VMError`, found `VMErrorCode`
+warning: `five-vm-mito` (lib test) generated 23 warnings (23 duplicates)
+error: could not compile `five-vm-mito` (lib test) due to 2 previous errors; 23 warnings emitted

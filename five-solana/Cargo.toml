@@ -29,9 +29,9 @@ solana-program = "1.18.0"
 five-protocol = { path = "../five-protocol", features = ["test-fixtures"] }
 
 [features]
-default = []
+default = ["debug-logs"]
 # Enable debug logging (disabled in production)
-debug-logs = ["pinocchio-log", "five-vm-mito/debug-logs"]
+debug-logs = ["pinocchio-log", "five-vm-mito/debug-logs", "five-vm-mito/trace-execution"]
 # Use test-sbf feature when running tests
 test-sbf = []
 # Production builds with minimal dependencies

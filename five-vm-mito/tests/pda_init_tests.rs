@@ -110,6 +110,8 @@ fn test_init_pda_account_success() {
     bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_0);
     // Push lamports (1_000_000)
     bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_1m);
+    // Push payer_idx (0)
+    bytecode.push(0x18); bytecode.push(0x00);
     // Push space (100)
     bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_100);
     // Push account_idx (1)
@@ -172,6 +174,8 @@ fn test_init_pda_account_failure_address_mismatch() {
     bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_0);
     // Push lamports
     bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_1m);
+    // Push payer_idx (0)
+    bytecode.push(0x18); bytecode.push(0x00);
     // Push space
     bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_100);
     // Push account_idx
@@ -237,6 +241,8 @@ fn test_init_pda_account_failure_invalid_bump() {
     bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_0);
     // Push lamports
     bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_1m);
+    // Push payer_idx (0)
+    bytecode.push(0x18); bytecode.push(0x00);
     // Push space
     bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_100);
     // Push account_idx
@@ -318,6 +324,10 @@ fn test_init_pda_account_failure_space_limit() {
     // Push lamports (1_000_000)
     bytecode.push(0x1B); // PUSH_U64
     bytecode.extend_from_slice(&encode_vle(1_000_000));
+
+    // Push payer_idx (0)
+    bytecode.push(0x18);
+    bytecode.push(0x00);
 
     // Push Excessive Space
     bytecode.push(0x1B); // PUSH_U64

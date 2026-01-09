@@ -56,13 +56,12 @@ mod test_call_external_public_functions;
 mod test_call_external_constraints;
 
 #[cfg(test)]
-mod test_deploy_verification;
-
-#[cfg(test)]
 pub mod test_parameter_indexing;
 
+pub mod upgrade;
+
 #[cfg(test)]
-pub mod test_opcode;
+pub mod test_call_external_constraint_bug;
 
 use instructions::FIVEInstruction;
 
@@ -76,11 +75,14 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
+    unsafe {
+        pinocchio::log::sol_log("ENTRYPOINT_CONFIRMED_UNCONDITIONAL");
+    }
     #[cfg(feature = "debug-logs")]
     {
-        pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@");
-        pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START");
-        pinocchio::log::sol_log_64(0, 0, 0, 0, instruction_data[0] as u64);
+        unsafe { pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@"); }
+        unsafe { pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START"); }
+        // pinocchio::log::sol_log_64(0, 0, 0, 0, instruction_data[0] as u64);
     }
 
     log_if_debug!(

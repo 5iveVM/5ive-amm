@@ -27,7 +27,7 @@ fn test_constraint_bytecode_optimality_and_ordering() {
     let mut parser = DslParser::new(tokens);
     let ast = parser.parse().expect("Should parse");
     let mut generator = DslBytecodeGenerator::new();
-    let bytecode = generator.generate(&ast).expect("Should generate bytecode");
+    let _bytecode = generator.generate(&ast).expect("Should generate bytecode");
 
     // Get structured disassembly
     let instructions = generator.get_structured_disassembly();

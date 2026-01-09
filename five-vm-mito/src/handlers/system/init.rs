@@ -275,17 +275,7 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
         #[cfg(not(target_os = "solana"))]
         {
-             use solana_nostd_sha256::hashv;
-             // Manual PDA derivation: hash(seeds... + bump + program_id + "ProgramDerivedAddress")
-             let mut hasher_seeds: Vec<&[u8], {MAX_SEEDS + 3}> = Vec::new();
-             for s in validation_seeds.iter() {
-                 hasher_seeds.push(*s).unwrap();
-             }
-             hasher_seeds.push(owner.as_ref()).unwrap();
-             hasher_seeds.push(b"ProgramDerivedAddress").unwrap();
-             
-             let hash = hashv(&hasher_seeds);
-             let expected_pda = Pubkey::from(hash);
+             let expected_pda = crate::utils::derive_pda_offchain(validation_seeds.as_slice(), &owner);
              
              if account.key() != &expected_pda {
                   error_log!("INIT_PDA_ACCOUNT: Account address mismatch! Computed PDA does not match account key");

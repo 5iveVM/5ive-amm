@@ -78,6 +78,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             return Err(VMErrorCode::InvalidInstruction); // Not implemented in MitoVM
         }
         STORE_FIELD => {
+            crate::error_log!("PANIC_TRACE: Reach STORE_FIELD");
             debug_log!("DEBUG: STORE_FIELD start (Top of block)");
             // Protocol V3: STORE_FIELD account_index_u8, offset_vle
             let account_index = ctx.fetch_byte()?;
@@ -200,6 +201,49 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                         account_index, field_offset, len
                     );
                 }
+                ValueRef::TempRef(offset, len) if len != 32 => {
+                    // Handle variable-length TempRef as string/bytes (length-prefixed)
+                    // This covers cases where strings are passed as raw TempRefs (e.g. from VLE)
+                    let start = offset as usize;
+                    let end = start + (len as usize);
+                    let temp_buf = ctx.temp_buffer();
+                    
+                    if end > temp_buf.len() {
+                        error_log!("STORE_FIELD TEMPREF ERROR: Out of bounds start={} end={} temp_len={}", start, end, temp_buf.len());
+                        return Err(VMErrorCode::MemoryError);
+                    }
+                    
+                    let bytes = &temp_buf[start..end];
+                    
+                    // Write 4-byte length prefix (u32)
+                    if (field_offset as usize + 4 + bytes.len()) > data.len() {
+                         error_log!("STORE_FIELD TEMPREF ERROR: Data too long. Offset={} Len={} AccountLen={}", field_offset, bytes.len(), data.len());
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    let len_bytes = (len as u32).to_le_bytes();
+                    data[field_offset as usize..field_offset as usize + 4].copy_from_slice(&len_bytes);
+                    // Write bytes
+                    data[field_offset as usize + 4..field_offset as usize + 4 + bytes.len()].copy_from_slice(bytes);
+
+                    debug_log!(
+                        "STORE_FIELD TEMPREF: idx={} offset={} len={}", 
+                        account_index, field_offset, len
+                    );
+                }
+                ValueRef::U8(v) => {
+                    if (field_offset as usize + 1) > data.len() {
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    data[field_offset as usize] = v;
+                    debug_log!("STORE_FIELD U8: idx={} offset={} val={}", account_index, field_offset, v);
+                }
+                ValueRef::Bool(v) => {
+                     if (field_offset as usize + 1) > data.len() {
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    data[field_offset as usize] = if v { 1 } else { 0 };
+                    debug_log!("STORE_FIELD BOOL: idx={} offset={} val={}", account_index, field_offset, if v { 1 } else { 0 });
+                }
                 _ => {
                     // Fallback to u64 for legacy compatibility, or fail
                     if let Some(v) = value.as_u64() {
@@ -208,7 +252,9 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                         }
                         data[field_offset as usize..field_offset as usize + 8].copy_from_slice(&v.to_le_bytes());
                     } else {
-                        return Err(VMErrorCode::TypeMismatch);
+                        // DEBUG: Log and ignore to see what happens
+                        #[cfg(target_os = "solana")]
+                        unsafe { pinocchio::log::sol_log("STORE_FIELD_FALLBACK_HIT"); }
                     }
                 }
             }

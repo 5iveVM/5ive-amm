@@ -458,9 +458,13 @@ impl FunctionDispatcher {
             emitter.emit_u16(0xFFFF); // Placeholder offset to Call Block
         }
         
+        println!("DEBUG: Finished Checks Loop. Position: {}", emitter.get_position());
+
         // If no match found (and not init), halt or error
         // Default behavior: just halt/return if no function matches
         emitter.emit_opcode(five_protocol::opcodes::HALT);
+
+        println!("DEBUG: Emitting Call Blocks. Position: {}", emitter.get_position());
 
         // 2. Generate Call Blocks
         // Each block jumps directly to the function (not CALL, to avoid call depth issues)
@@ -470,6 +474,7 @@ impl FunctionDispatcher {
             
             // Patch the JUMP_IF to point here (start of Call Block)
             let call_block_start = emitter.get_position();
+            println!("DEBUG: Patching {} at {} to point to Call Block at {}", name, patch_pos, call_block_start);
             emitter.patch_u16(patch_pos, call_block_start as u16);
 
             // For functions with parameters, we need to move them from the input parameters

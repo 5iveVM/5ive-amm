@@ -17,15 +17,6 @@ impl MockEmitter {
             position: 0,
         }
     }
-
-    fn emit_u128(&mut self, value: u128) {
-        self.bytecode.extend_from_slice(&value.to_le_bytes());
-        self.position += 16;
-    }
-
-    fn get_bytecode(&self) -> &[u8] {
-        &self.bytecode
-    }
 }
 
 impl super::super::OpcodeEmitter for MockEmitter {

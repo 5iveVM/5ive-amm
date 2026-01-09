@@ -463,12 +463,17 @@ impl MitoVM {
                 }
             };
             
-            #[cfg(feature = "debug-logs")]
-            debug_log!(
-                "MitoVM: EXEC LOOP - Opcode: {} at IP: {}", 
-                opcode, 
-                current_ip
-            );
+            #[cfg(feature = "trace-execution")]
+            {
+               debug_log!(
+                   "MitoVM: EXEC LOOP - Opcode: {} at IP: {}", 
+                   opcode, 
+                   current_ip
+               );
+               if opcode == 0 { // Just to make sure it's reachable and we panic
+                   panic!("PANIC_TRACE_ENABLED");
+               }
+            }
 
             // Set current opcode in context for error reporting
             ctx.set_current_opcode(opcode);
@@ -489,6 +494,7 @@ impl MitoVM {
                 // Enhanced error context with full VM state
                 stack_error_context!(opcode, ctx, "EXECUTION_FAILED", 0, ctx.size());
                 error_log!("MitoVM: ERROR_DETAILS: error_occurred at current_ip: {}", current_ip as u64);
+                error_log!("OPCODE FAILED: {}", opcode as u64);
                 error_log!("Stack size: {}", ctx.size() as u64);
                 return Err(e);
             }
