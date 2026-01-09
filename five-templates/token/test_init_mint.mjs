@@ -76,7 +76,7 @@ async function executeTokenFunction(connection, payer, functionName, parameters 
             TOKEN_SCRIPT_ACCOUNT.toBase58(),
             functionIndex,
             parameters,
-            [],
+            accounts.map(a => a.pubkey.toBase58()),
             connection,
             {
                 debug: true,
@@ -92,19 +92,17 @@ async function executeTokenFunction(connection, payer, functionName, parameters 
             isWritable: acc.isWritable
         }));
 
-        accounts.forEach(acc => {
-            ixKeys.push({
-                pubkey: new PublicKey(acc.pubkey),
-                isSigner: acc.isSigner ?? false,
-                isWritable: acc.isWritable ?? true
-            });
-        });
-
         const ix = new TransactionInstruction({
             programId: new PublicKey(executeData.instruction.programId),
             keys: ixKeys,
             data: Buffer.from(executeData.instruction.data, 'base64')
         });
+
+        console.log("Transaction Keys:");
+        const keyLog = ixKeys.map((k, i) => `  [${i}] ${k.pubkey.toBase58()} (Signer: ${k.isSigner})`).join('\n');
+        console.log(keyLog);
+        fs.writeFileSync('debug_keys.txt', keyLog);
+
 
         const tx = new Transaction().add(ix);
         const allSigners = [payer, ...signers];
@@ -139,6 +137,9 @@ async function main() {
     const sig = await connection.requestAirdrop(user1.publicKey, 1 * LAMPORTS_PER_SOL);
     await connection.confirmTransaction(sig, 'confirmed');
 
+    const balance = await connection.getBalance(user1.publicKey);
+    info(`User1 Balance: ${balance / LAMPORTS_PER_SOL} SOL`);
+
     const mintAccount = Keypair.generate();
 
     info(`Mint Account: ${mintAccount.publicKey.toBase58()}`);
@@ -150,7 +151,6 @@ async function main() {
         [mintAccount.publicKey, user1.publicKey, user1.publicKey, 6, "TestToken", "TEST", "https://example.com"],
         [
             { pubkey: mintAccount.publicKey, isWritable: true, isSigner: true },
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },
             { pubkey: user1.publicKey, isWritable: true, isSigner: true },
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
             { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
