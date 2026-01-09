@@ -78,15 +78,15 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             return Err(VMErrorCode::InvalidInstruction); // Not implemented in MitoVM
         }
         STORE_FIELD => {
-            error_log!("DEBUG: STORE_FIELD start (Top of block)");
+            debug_log!("DEBUG: STORE_FIELD start (Top of block)");
             // Protocol V3: STORE_FIELD account_index_u8, offset_vle
             let account_index = ctx.fetch_byte()?;
             let field_offset = ctx.fetch_vle_u32()?;
             let value = ctx.pop()?;
-            error_log!("DEBUG: Popped value (type_id={})", value.type_id());
+            debug_log!("DEBUG: Popped value (type_id={})", value.type_id());
 
-            // Use error_log to ensure visibility (always compiled)
-            error_log!(
+            // Use debug_log to reduce noise
+            debug_log!(
                 "STORE_FIELD: acct={} offset={} num_accounts={}",
                 account_index,
                 field_offset,
@@ -114,7 +114,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             ctx.check_bytecode_authorization(account_index)?;
 
             let account = ctx.get_account(account_index)?;
-            error_log!("DEBUG: Got account key");
+            debug_log!("DEBUG: Got account key");
 
             // CRITICAL: Check if account is writable BEFORE attempting to write
             // pinocchio's borrow_mut_data_unchecked() does NOT check is_writable!
@@ -128,7 +128,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
 
             // CRITICAL DEBUG: Log pointer to verify we are writing to the correct location
             let data_ptr = unsafe { account.borrow_data_unchecked().as_ptr() as usize };
-            error_log!(
+            debug_log!(
                 "STORE_FIELD_PTR: idx={} ptr={} offset={}",
                 account_index,
                 data_ptr,
@@ -172,7 +172,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                         error_log!("DEBUG: extract_pubkey failed");
                         e
                     })?;
-                    error_log!("DEBUG: Extracted pubkey");
+                    debug_log!("DEBUG: Extracted pubkey");
                     data[field_offset as usize..field_offset as usize + 32].copy_from_slice(&pubkey_bytes);
                 }
                 ValueRef::AccountRef(_, _) => {
@@ -182,6 +182,23 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                         return Err(VMErrorCode::InvalidAccountData);
                     }
                     data[field_offset as usize..field_offset as usize + 8].copy_from_slice(&v.to_le_bytes());
+                }
+                ValueRef::StringRef(_) => {
+                    let (len, bytes) = ctx.extract_string_slice(&value)?;
+                    // Write 4-byte length prefix (u32)
+                    if (field_offset as usize + 4 + bytes.len()) > data.len() {
+                        error_log!("STORE_FIELD STRING ERROR: Data too long. Offset={} Len={} AccountLen={}", field_offset, bytes.len(), data.len());
+                        return Err(VMErrorCode::InvalidAccountData);
+                    }
+                    let len_bytes = len.to_le_bytes();
+                    data[field_offset as usize..field_offset as usize + 4].copy_from_slice(&len_bytes);
+                    // Write string bytes
+                    data[field_offset as usize + 4..field_offset as usize + 4 + bytes.len()].copy_from_slice(bytes);
+                    
+                    debug_log!(
+                        "STORE_FIELD STRING: idx={} offset={} len={}", 
+                        account_index, field_offset, len
+                    );
                 }
                 _ => {
                     // Fallback to u64 for legacy compatibility, or fail
@@ -197,7 +214,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             }
 
             // CRITICAL: Log to error_log to ensure persistence verification is visible
-            error_log!(
+            debug_log!(
                 "STORE_FIELD_WRITTEN: idx={} offset={} ptr={}",
                 account_index,
                 field_offset,

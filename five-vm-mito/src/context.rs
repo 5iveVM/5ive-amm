@@ -997,6 +997,36 @@ impl<'a> ExecutionContext<'a> {
         }
     }
 
+    #[inline]
+    pub fn extract_string_slice(&self, value_ref: &ValueRef) -> CompactResult<(u32, &[u8])> {
+        match value_ref {
+            ValueRef::StringRef(offset) => {
+                let start = *offset as usize;
+                let temp_buf = self.temp_buffer();
+                
+                if start >= temp_buf.len() {
+                     crate::error_log!("EXTRACT_STRING ERROR: Offset out of bounds. offset={} temp_len={}", start, temp_buf.len());
+                     return Err(VMErrorCode::MemoryError);
+                }
+                
+                // Utils stores: [len: u8][type/pad: u8][bytes...]
+                let len = temp_buf[start] as usize;
+                // Skip length byte (1) and padding byte (1) -> Data starts at start + 2
+                let data_start = start + 2;
+                let data_end = data_start + len;
+                
+                if data_end > temp_buf.len() {
+                    crate::error_log!("EXTRACT_STRING ERROR: String end out of bounds. start={} end={} len={} temp_len={}", data_start, data_end, len, temp_buf.len());
+                    return Err(VMErrorCode::MemoryError);
+                }
+                
+                Ok((len as u32, &temp_buf[data_start..data_end]))
+            }
+            ValueRef::U64(0) => Ok((0, &[])), // Empty string optimization
+            _ => Err(VMErrorCode::TypeMismatch),
+        }
+    }
+
     // --- Account creation stubs (2 occurrences) - minimal for compilation ---
 
     /// Serialize CreateAccount instruction data into the provided buffer.
