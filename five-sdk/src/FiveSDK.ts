@@ -977,6 +977,7 @@ export class FiveSDK {
     let functionIndex: number;
     let encodedParams: Uint8Array;
     let actualParamCount: number = 0;
+    let funcDef: any = null;
 
     try {
       // Use provided ABI if available, otherwise try to load from chain
@@ -1010,8 +1011,8 @@ export class FiveSDK {
           : FiveSDK.resolveFunctionIndex(scriptMetadata, functionName);
 
       // Get function definition - handle array format
-      const funcDef = Array.isArray(scriptMetadata.functions)
-        ? scriptMetadata.functions.find(f => f.index === functionIndex)
+      funcDef = Array.isArray(scriptMetadata.functions)
+        ? scriptMetadata.functions.find((f: any) => f.index === functionIndex)
         : scriptMetadata.functions[functionIndex];
 
       // Encode all parameters (including accounts) with ABI guidance
@@ -1122,23 +1123,71 @@ export class FiveSDK {
       }
     }
 
+    // Resolve proper account attributes (signer/writable) using ABI if available
     const instructionAccounts = [
       { pubkey: scriptAccount, isSigner: false, isWritable: false },
       { pubkey: vmState, isSigner: false, isWritable: true }, // VM state (required!)
-      ...accounts.map((acc, index) => ({
-        pubkey: acc,
-        isSigner: index === 0 && adminAccount ? true : false, // First account is payer (signer) if fees enabled (and admin exists)
-        isWritable: true, // Conservative default - consumer can override
-      })),
     ];
+
+    // Build map of pubkey strings to their metadata from ABI
+    const abiAccountMetadata = new Map<string, { isSigner: boolean; isWritable: boolean }>();
+
+    if (funcDef && funcDef.parameters) {
+      funcDef.parameters.forEach((param: any, paramIndex: number) => {
+        if (param.is_account || param.isAccount) {
+          const value = parameters[paramIndex];
+          const pubkey = value?.toString();
+          if (pubkey) {
+            const attributes = param.attributes || [];
+            const isSigner = attributes.includes('signer');
+            const isWritable = attributes.includes('mut') || attributes.includes('init');
+
+            if (options.debug) {
+              console.log(`[FiveSDK] ABI Metadata for param '${param.name}': pubkey=${pubkey}, signer=${isSigner}, writable=${isWritable}`);
+            }
+
+            const existing = abiAccountMetadata.get(pubkey) || { isSigner: false, isWritable: false };
+            abiAccountMetadata.set(pubkey, {
+              isSigner: existing.isSigner || isSigner,
+              isWritable: existing.isWritable || isWritable
+            });
+          }
+        }
+      });
+    }
+
+    // Add user provided accounts with metadata merged from ABI
+    const userInstructionAccounts = accounts.map((acc, index) => {
+      const metadata = abiAccountMetadata.get(acc);
+      const isSigner = metadata ? metadata.isSigner : (index === 0 && adminAccount ? true : false);
+      const isWritable = metadata ? metadata.isWritable : true;
+
+      if (options.debug) {
+        console.log(`[FiveSDK] Instruction Account [${instructionAccounts.length + index}]: pubkey=${acc}, signer=${isSigner}, writable=${isWritable} (via ${metadata ? 'ABI' : 'Fallback'})`);
+      }
+
+      return {
+        pubkey: acc,
+        isSigner,
+        isWritable
+      };
+    });
+
+    instructionAccounts.push(...userInstructionAccounts);
 
     // Add admin account if resolved (required for fee collection)
     if (adminAccount) {
-      instructionAccounts.push({
-        pubkey: adminAccount,
-        isSigner: false,
-        isWritable: true,
-      });
+      // Ensure admin isn't already added. If it is, ensure it's writable
+      const existingAdminIdx = instructionAccounts.findIndex(a => a.pubkey === adminAccount);
+      if (existingAdminIdx === -1) {
+        instructionAccounts.push({
+          pubkey: adminAccount,
+          isSigner: false,
+          isWritable: true,
+        });
+      } else {
+        instructionAccounts[existingAdminIdx].isWritable = true;
+      }
     }
 
     // Encode execution instruction data
@@ -1724,16 +1773,30 @@ export class FiveSDK {
     const getAccountIndex = (pubkeyOrIdx: any): number => {
       if (typeof pubkeyOrIdx === 'number') return pubkeyOrIdx;
 
-      const pubkeyStr = pubkeyOrIdx.toString();
+      // Handle PublicKey objects - try multiple conversion methods
+      let pubkeyStr: string;
+      if (typeof pubkeyOrIdx === 'string') {
+        pubkeyStr = pubkeyOrIdx;
+      } else if (pubkeyOrIdx && typeof pubkeyOrIdx.toBase58 === 'function') {
+        pubkeyStr = pubkeyOrIdx.toBase58();
+      } else if (pubkeyOrIdx && typeof pubkeyOrIdx.toString === 'function') {
+        pubkeyStr = pubkeyOrIdx.toString();
+      } else {
+        throw new Error(`Invalid account parameter: cannot convert to pubkey string: ${JSON.stringify(pubkeyOrIdx)}`);
+      }
+
       // In execute instructions, indices 0 and 1 are Script and VM State
       // providedAccounts starts at index 2
       const idx = accounts.indexOf(pubkeyStr);
       if (idx !== -1) {
-        return idx + 1;
+        if (options.debug) {
+          console.log(`[FiveSDK] Mapped account ${pubkeyStr.slice(0, 8)}... to index ${idx + 2}`);
+        }
+        return idx + 2;
       }
 
-      // If not in accounts, try matching against current accounts array if available
-      return 0; // Fallback to index 0 (Script) if not found
+      // CRITICAL: Don't silently fall back to 0 - this causes VM errors
+      throw new Error(`Account parameter ${pubkeyStr.slice(0, 8)}... not found in accounts array. Available accounts: ${accounts.map((a: string) => a.slice(0, 8) + '...').join(', ')}`);
     };
 
     // Validate parameter count
@@ -1754,7 +1817,16 @@ export class FiveSDK {
       if (index < parameters.length) {
         let value = parameters[index];
         if (isAccountParam(param)) {
+          if (options.debug) {
+            console.log(`[FiveSDK] Parameter ${index} (${param.name}) is account type, mapping:`, {
+              originalValue: value?.toString?.() || value,
+              accounts: accounts.map((a: string) => a.slice(0, 8) + '...')
+            });
+          }
           value = getAccountIndex(value);
+          if (options.debug) {
+            console.log(`[FiveSDK] Mapped to account index: ${value}`);
+          }
         }
         paramValues[param.name] = value;
       }

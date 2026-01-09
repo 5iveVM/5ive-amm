@@ -219,7 +219,7 @@ export class VLEEncoder {
     parts.push(encodeVleU32(normalizedParameters.length)); // Actual param count
 
     for (const { param, value } of paramValues) {
-      parts.push(this.encodeTypedParam(param, value, encodeVleU32, encodeVleU64));
+      parts.push(this.encodeTypedParam(param, value, encodeVleU32, encodeVleU64, options));
     }
 
     const finalBuffer = Buffer.concat(parts);
@@ -239,6 +239,7 @@ export class VLEEncoder {
     value: any,
     encodeVleU32: (value: number) => Buffer,
     encodeVleU64: (value: number | bigint) => Buffer,
+    options?: any,
   ): Buffer {
     const typeName = this.normalizeType(param);
     const typeId = this.getTypeId(typeName);
@@ -300,15 +301,17 @@ export class VLEEncoder {
     }
 
     if (typeId === TYPE_IDS.account) {
-      // For account parameters, we expect either a direct index (number) 
-      // or a pubkey string/PublicKey that we should try to map (but that resolution 
-      // is usually done by FiveSDK before calling this).
-      // If it's a number, encode it as VLE.
+      // For account parameters, we expect the FiveSDK to have already mapped
+      // PublicKey objects to account indices. At this point, value should be numeric.
       const accountIdx = Number(value);
       if (isNaN(accountIdx)) {
-        // Fallback for non-numeric account values: use 0 as placeholder
-        // Real mapping should happen in FiveSDK
-        return Buffer.concat([Buffer.from([typeId]), encodeVleU32(0)]);
+        throw new Error(`Invalid account index for parameter ${param.name}: expected number, got ${typeof value} (${value}). Account mapping should have been done by FiveSDK.`);
+      }
+      if (accountIdx < 0) {
+        throw new Error(`Invalid account index for parameter ${param.name}: negative index ${accountIdx}`);
+      }
+      if ((options as any)?.debug) {
+        console.log(`[VLE] Encoding account parameter ${param.name} as index ${accountIdx}`);
       }
       return Buffer.concat([Buffer.from([typeId]), encodeVleU32(accountIdx)]);
     }
