@@ -173,17 +173,7 @@ export class VLEEncoder {
       return Buffer.from(bytes);
     };
 
-    const usesTypedParams = paramValues.some(({ param }) => {
-      const type = this.normalizeType(param);
-      const isTyped = this.isBytesParam(param) ||
-        type === 'pubkey' ||
-        this.isAccountParam(param);
-
-      return isTyped;
-    });
-
     if (options && (options as any).debug) {
-      console.log(`[VLE] usesTypedParams: ${usesTypedParams}`);
       console.log(`[VLE] Parameters:`, paramValues.map(p => ({
         name: p.param.name,
         type: p.param.type || (p.param as any).param_type,
@@ -192,46 +182,27 @@ export class VLEEncoder {
       })));
     }
 
-    if (!usesTypedParams) {
-      // Use PURE VLE compression - encode only values without type information
-      const simpleValues = paramValues.map(({ value }) => value);
-      try {
-        const encoded = wasmModule.ParameterEncoder.encode_execute_vle(functionIndex, simpleValues);
-        return Buffer.from(encoded);
-      } catch (e) {
-        console.warn("[VLE] Encode failed via WASM:", e);
-        if (retry) {
-          console.warn("[VLE] Reloading WASM module and retrying...");
-          wasmModule = null; // Force reload
-          return this.encodeExecuteVLE(functionIndex, parameters, values, false, options);
-        }
-        throw e;
+    // Always use WASM encoder for all parameter types (accounts, pubkeys, strings, etc.)
+    // The WASM encoder handles mixed-type parameters correctly via VLE encoding
+    // This avoids the complexity and unreliability of manual typed params handling
+    const simpleValues = paramValues.map(({ value }) => value);
+
+    try {
+      const encoded = wasmModule.ParameterEncoder.encode_execute_vle(functionIndex, simpleValues);
+      if (options && (options as any).debug) {
+        const buf = Buffer.from(encoded);
+        console.log(`[VLE] WASM encoded ${simpleValues.length} parameters: ${buf.length} bytes`);
       }
+      return Buffer.from(encoded);
+    } catch (e) {
+      console.warn("[VLE] Encode failed via WASM:", e);
+      if (retry) {
+        console.warn("[VLE] Reloading WASM module and retrying...");
+        wasmModule = null; // Force reload
+        return this.encodeExecuteVLE(functionIndex, parameters, values, false, options);
+      }
+      throw e;
     }
-
-    const parts: Buffer[] = [];
-    // IMPORTANT: functionIndex is NOT included here.
-    // FiveSDK.ts's encodeExecuteInstruction will prepended discriminator(9) and functionIndex.
-
-    // For typed params, we prepend the sentinel and the actual count.
-    // FiveSDK.ts expects this format to detect typed mode.
-    parts.push(encodeVleU32(TYPED_PARAM_SENTINEL)); // Signal typed params mode
-    parts.push(encodeVleU32(normalizedParameters.length)); // Actual param count
-
-    for (const { param, value } of paramValues) {
-      parts.push(this.encodeTypedParam(param, value, encodeVleU32, encodeVleU64, options));
-    }
-
-    const finalBuffer = Buffer.concat(parts);
-    if (options.debug) {
-      console.log(`[VLE] Protocol buffer generated:`, {
-        usesTypedParams,
-        length: finalBuffer.length,
-        hex: finalBuffer.toString('hex')
-      });
-    }
-
-    return finalBuffer;
   }
 
   private static encodeTypedParam(

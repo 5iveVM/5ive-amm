@@ -1766,6 +1766,14 @@ export class FiveSDK {
       return type === 'account' || type === 'mint' || type === 'tokenaccount';
     };
 
+    const isPubkeyParam = (param: any): boolean => {
+      if (!param) {
+        return false;
+      }
+      const type = (param.type || param.param_type || '').toString().trim().toLowerCase();
+      return type === 'pubkey';
+    };
+
     // Do not filter out account parameters anymore - Five VM now supports them
     const paramDefs = (functionDef.parameters || []);
 
@@ -1812,7 +1820,7 @@ export class FiveSDK {
 
     const paramValues: Record<string, any> = {};
 
-    // Map parameters to names and resolve account indices
+    // Map parameters to names and resolve account indices / pubkey conversions
     paramDefs.forEach((param: any, index: number) => {
       if (index < parameters.length) {
         let value = parameters[index];
@@ -1826,6 +1834,11 @@ export class FiveSDK {
           value = getAccountIndex(value);
           if (options.debug) {
             console.log(`[FiveSDK] Mapped to account index: ${value}`);
+          }
+        } else if (isPubkeyParam(param)) {
+          // Convert PublicKey objects to base58 strings for WASM encoder
+          if (value && typeof value === 'object' && typeof value.toBase58 === 'function') {
+            value = value.toBase58();
           }
         }
         paramValues[param.name] = value;
