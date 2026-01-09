@@ -39,7 +39,7 @@ let RPC_URL = 'http://127.0.0.1:8899';
 const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
 
 // Localnet deployment (updated 2025-12-28)
-let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || 'HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k');
+let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || 'DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8');
 let VM_STATE_PDA = new PublicKey('DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
 let TOKEN_SCRIPT_ACCOUNT = new PublicKey('GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
 
@@ -336,15 +336,15 @@ async function main() {
     // init_mint expects: mint_account (@init @mut @signer), authority (@signer)
     // Parameters: freeze_authority (pubkey), decimals, name, symbol, uri
     // The @init constraint will create the mint account via CPI
+    // Note: authority acts as payer per @init(payer=authority) constraint
     let result = await executeTokenFunction(
         connection,
-        payer,  // Payer funds the account creation
+        payer,  // Payer for transaction fees (separate from account creation payer)
         'init_mint',
         [mintAccount.publicKey, user1.publicKey, user1.publicKey, 6, "TestToken", "TEST", "https://example.com/token"],
         [
             { pubkey: mintAccount.publicKey, isWritable: true, isSigner: true }, // Account 0: mint_account
-            { pubkey: user1.publicKey, isWritable: true, isSigner: true },      // Account 1: authority
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },      // Common Payer (for fees/rent)
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },      // Account 1: authority (also pays for account)
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },  // Required for @init CPI
             { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }        // Rent sysvar
         ],
@@ -378,15 +378,15 @@ async function main() {
         // init_token_account expects:
         //   Accounts: token_account (@init @mut @signer), owner (@signer)
         //   Params: mint (pubkey)
+        // Note: owner acts as payer per @init(payer=owner) constraint
         result = await executeTokenFunction(
             connection,
-            payer,  // Payer funds the account creation
+            payer,  // Payer for transaction fees (separate from account creation payer)
             'init_token_account',
             [account.publicKey, user.publicKey, mintAccount.publicKey],  // All 3 parameters (including accounts)
             [
                 { pubkey: account.publicKey, isWritable: true, isSigner: true }, // Account 0: token_account
-                { pubkey: user.publicKey, isWritable: true, isSigner: true },    // Account 1: owner
-                { pubkey: payer.publicKey, isWritable: true, isSigner: true },   // Common Payer (for fees/rent)
+                { pubkey: user.publicKey, isWritable: true, isSigner: true },    // Account 1: owner (also pays for account)
                 { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },  // Required for @init CPI
                 { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }  // Rent sysvar for account initialization
             ],
@@ -425,7 +425,6 @@ async function main() {
                 { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },   // Account 0: mint_state
                 { pubkey: op.account.publicKey, isWritable: true, isSigner: false },    // Account 1: destination_account
                 { pubkey: user1.publicKey, isWritable: true, isSigner: true },         // Account 2: mint_authority
-                { pubkey: payer.publicKey, isWritable: true, isSigner: true },          // Common Payer
                 { pubkey: SystemProgram.programId, isWritable: false, isSigner: false } // System Program (for fees)
             ],
             [user1]  // Authority signs
@@ -456,7 +455,6 @@ async function main() {
             { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: source_account
             { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: destination_account
             { pubkey: user2.publicKey, isWritable: true, isSigner: true },             // Account 2: owner
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user2]  // Owner of source account signs
@@ -486,7 +484,6 @@ async function main() {
         [
             { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: token_account
             { pubkey: user3.publicKey, isWritable: true, isSigner: true },             // Account 1: owner
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user3]  // Account owner signs
@@ -512,7 +509,6 @@ async function main() {
             { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: source_account
             { pubkey: user1TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: destination_account
             { pubkey: user2.publicKey, isWritable: true, isSigner: true },             // Account 2: authority (delegate)
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user2]  // Delegate signs
@@ -541,7 +537,6 @@ async function main() {
         [
             { pubkey: user3TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 0: token_account
             { pubkey: user3.publicKey, isWritable: true, isSigner: true },             // Account 1: owner
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user3]  // Account owner signs
@@ -571,7 +566,6 @@ async function main() {
             { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },       // Account 0: mint_state
             { pubkey: user1TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: token_account
             { pubkey: user1.publicKey, isWritable: true, isSigner: true },             // Account 2: owner
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user1]  // Account owner signs
@@ -601,7 +595,6 @@ async function main() {
             { pubkey: mintAccount.publicKey, isWritable: false, isSigner: false },       // Account 0: mint_state
             { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: token_account
             { pubkey: user1.publicKey, isWritable: true, isSigner: true },             // Account 2: freeze_authority
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user1]  // Freeze authority signs
@@ -627,7 +620,6 @@ async function main() {
             { pubkey: mintAccount.publicKey, isWritable: false, isSigner: false },       // Account 0: mint_state
             { pubkey: user2TokenAccount.publicKey, isWritable: true, isSigner: false }, // Account 1: token_account
             { pubkey: user1.publicKey, isWritable: true, isSigner: true },             // Account 2: freeze_authority
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user1]  // Freeze authority signs
@@ -656,7 +648,6 @@ async function main() {
         [
             { pubkey: mintAccount.publicKey, isWritable: true, isSigner: false },       // Account 0: mint_state
             { pubkey: user1.publicKey, isWritable: true, isSigner: true },             // Account 1: authority
-            { pubkey: payer.publicKey, isWritable: true, isSigner: true },              // Common Payer
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false }     // System Program (for fees)
         ],
         [user1]  // Authority signs
