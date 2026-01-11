@@ -11,6 +11,9 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "five-gen-types": "./dist/bin/gen-types.js"
+  },
   "keywords": [
     "five",
     "vm",
@@ -29,6 +32,7 @@
     "build": "tsc && npm run copy-assets",
     "copy-assets": "mkdir -p dist/assets/vm && cp src/assets/wasm/* dist/assets/vm/",
     "test": "node examples/basic-usage.js",
+    "gen-types": "tsc && node dist/bin/gen-types.js",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
@@ -40,5 +44,8 @@
     "jest": "^29.7.0",
     "ts-jest": "^29.4.6",
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "borsh": "^0.7.0"
   }
 }

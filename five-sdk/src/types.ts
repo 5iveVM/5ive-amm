@@ -428,3 +428,20 @@ export interface FunctionNameEntry {
   index: number;
   function_index?: number;
 }
+
+// ==================== Provider & Wallet Types ====================
+
+export interface Provider {
+  connection: any; // Connection from @solana/web3.js
+  publicKey?: { toBase58(): string };
+  sendAndConfirm?: (
+    tx: any, // Transaction | VersionedTransaction
+    signers?: any[],
+    options?: any
+  ) => Promise<string>;
+  simulate?: (
+    tx: any,
+    signers?: any[],
+    options?: any
+  ) => Promise<any>;
+}

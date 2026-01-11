@@ -20,6 +20,10 @@ export * from './wasm/compiler.js';
 export * from './wasm/loader.js';
 export * from './testing/index.js';
 
+// ==================== FiveProgram High-Level API ====================
+
+export * from './program/index.js';
+
 // ==================== Constants ====================
 
 export { FIVE_VM_PROGRAM_ID } from './types.js';

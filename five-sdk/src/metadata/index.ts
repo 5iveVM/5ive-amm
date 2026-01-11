@@ -77,10 +77,16 @@ export interface FunctionDefinition {
   parameters: ParameterDefinition[];
   /** Return type */
   returnType?: string;
+  /** Return type (snake_case from compiled ABI) */
+  return_type?: string | null;
   /** Function visibility */
   visibility: 'public' | 'private';
+  /** Function visibility (snake_case from compiled ABI) */
+  is_public?: boolean;
   /** Documentation */
   docs?: string;
+  /** Bytecode offset (from compiled ABI) */
+  bytecode_offset?: number;
 }
 
 /**
@@ -91,6 +97,12 @@ export interface ParameterDefinition {
   name: string;
   /** Parameter type */
   type: string;
+  /** Parameter type (snake_case from compiled ABI) */
+  param_type?: string;
+  /** Whether this is an account parameter */
+  is_account?: boolean;
+  /** Account attributes (e.g., "mut", "signer", "init") */
+  attributes?: string[];
   /** Whether parameter is optional */
   optional?: boolean;
   /** Parameter documentation */
