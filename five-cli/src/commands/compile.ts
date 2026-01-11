@@ -11,7 +11,7 @@ import { glob } from 'glob';
 import ora from 'ora';
 
 import { CommandDefinition, CommandContext, CLIOptions, ProjectConfig } from '../types.js';
-import { CompilationOptions, FiveSDK } from 'five-sdk';
+import { CompilationOptions, FiveSDK, TypeGenerator } from 'five-sdk';
 import { computeHash, loadProjectConfig, writeBuildManifest } from '../project/ProjectLoader.js';
 import { success as uiSuccess, error as uiError, section } from '../utils/cli-ui.js';
 
@@ -638,6 +638,22 @@ async function compileSingleFile(
         logger.info(`Build manifest written to ${manifestPath}`);
       }
     }
+
+    // Auto-generate Types
+    if (result.metadata || result.abi) {
+      try {
+        const abi = result.metadata || result.abi;
+        const generator = new TypeGenerator(abi);
+        const typeDefs = generator.generate();
+        // Generate .d.ts path: replace extension with .d.ts
+        // If output is .five or .bin, strip and add .d.ts
+        const typeFile = outputFile.replace(/(\.five|\.bin|\.fbin)$/, '') + '.d.ts';
+        await writeFile(typeFile, typeDefs);
+        if (context.options.verbose) logger.info(`Types generated at ${typeFile}`);
+      } catch (err) {
+        logger.warn(`Failed to generate types: ${err}`);
+      }
+    }
   }
 
   // Perform bytecode analysis if requested
@@ -798,6 +814,22 @@ async function compileMultiProject(
       await writeFile(metricsPath, result.metricsReport.exported);
       if (context.options.verbose) {
         logger.info(`Metrics written to ${metricsPath} (${result.metricsReport.format})`);
+      }
+    }
+
+    // Auto-generate Types
+    if (result.metadata || result.abi) {
+      try {
+        const abi = result.metadata || result.abi;
+        const generator = new TypeGenerator(abi);
+        const typeDefs = generator.generate();
+        // Generate .d.ts path: replace extension with .d.ts
+        // If output is .five or .bin, strip and add .d.ts
+        const typeFile = outputFile.replace(/(\.five|\.bin|\.fbin)$/, '') + '.d.ts';
+        await writeFile(typeFile, typeDefs);
+        if (context.options.verbose) logger.info(`Types generated at ${typeFile}`);
+      } catch (err) {
+        logger.warn(`Failed to generate types: ${err}`);
       }
     }
 
