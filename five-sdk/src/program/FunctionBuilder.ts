@@ -321,6 +321,37 @@ export class FunctionBuilder {
       { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }
     >();
 
+    // First pass: identify if there's an @init constraint and find the payer
+    let hasInit = false;
+    let payerPubkey: string | undefined;
+    for (const param of this.functionDef.parameters) {
+      if (param.is_account) {
+        const attributes = param.attributes || [];
+        if (attributes.includes('init')) {
+          hasInit = true;
+          if (this.options.debug) {
+            console.log(`[FunctionBuilder] Detected @init constraint on parameter: ${param.name}`);
+          }
+          // Find the payer - typically the @signer in an @init context
+          // Check if there's another account marked @signer for the payer
+          for (const payerParam of this.functionDef.parameters) {
+            if (
+              payerParam.is_account &&
+              payerParam !== param &&
+              (payerParam.attributes || []).includes('signer')
+            ) {
+              payerPubkey = this.accountsMap.get(payerParam.name);
+              if (this.options.debug) {
+                console.log(`[FunctionBuilder] Found payer for @init: ${payerParam.name} = ${payerPubkey}`);
+              }
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+
     // Build metadata for function parameters
     for (const param of this.functionDef.parameters) {
       if (param.is_account) {
@@ -328,11 +359,22 @@ export class FunctionBuilder {
         if (!pubkey) continue;
 
         const attributes = param.attributes || [];
-        metadata.set(pubkey, {
+        const isWritable =
+          attributes.includes('mut') ||
+          attributes.includes('init') ||
+          // If this is the payer for @init, it must be writable
+          (hasInit && pubkey === payerPubkey);
+
+        const entry = {
           isSigner: attributes.includes('signer'),
-          isWritable:
-            attributes.includes('mut') || attributes.includes('init'),
-        });
+          isWritable,
+        };
+
+        if (this.options.debug) {
+          console.log(`[FunctionBuilder] Account metadata for ${param.name}: pubkey=${pubkey}, isSigner=${entry.isSigner}, isWritable=${entry.isWritable}, isPayer=${hasInit && pubkey === payerPubkey}`);
+        }
+
+        metadata.set(pubkey, entry);
       }
     }
 

@@ -151,16 +151,14 @@ async function executeCounterFunction(
 ) {
     try {
         const functionIndex = getFunctionIndex(functionName);
-
-        // Pass function parameters directly without injecting payer as a parameter
-        // ACCOUNT_INDEX_OFFSET = 1, so:
-        // - MitoVM receives [VM State, param0, param1, ...]
-        // - param0 maps to account index 0 + 1 = 1
-        // - param1 maps to account index 1 + 1 = 2
-        // Payer is not a function parameter, but the SDK handles it separately as adminAccount.
         const functionAccounts = accounts;
 
-        // Extract pubkey strings from accounts array for SDK
+        // Get function definition from ABI to merge account and data parameters in correct order
+        const functionDef = Array.isArray(counterABI.functions)
+            ? counterABI.functions.find(f => f.index === functionIndex)
+            : counterABI.functions[functionIndex];
+
+        // Extract pubkey strings from accounts array
         const accountPubkeys = functionAccounts.map(acc => {
             const pubkey = acc.pubkey instanceof PublicKey
                 ? acc.pubkey.toBase58()
@@ -168,22 +166,43 @@ async function executeCounterFunction(
             return pubkey;
         });
 
-        // Generate the instruction using Five SDK with all accounts
-        // Include full ABI metadata for proper parameter encoding
-        // Pass payer as adminAccount for fee collection (SDK handles it separately from function parameters)
+        // Merge account and data parameters in correct order based on ABI
+        const mergedParams = [];
+        let accountIdx = 0;
+        let dataIdx = 0;
+
+        if (functionDef && functionDef.parameters) {
+            for (const param of functionDef.parameters) {
+                if (param.is_account || param.isAccount) {
+                    // Account parameter - use from accountPubkeys
+                    if (accountIdx < accountPubkeys.length) {
+                        mergedParams.push(accountPubkeys[accountIdx++]);
+                    }
+                } else {
+                    // Data parameter - use from parameters array
+                    if (dataIdx < parameters.length) {
+                        mergedParams.push(parameters[dataIdx++]);
+                    }
+                }
+            }
+        } else {
+            // Fallback if no function def
+            mergedParams.push(...accountPubkeys, ...parameters);
+        }
+
+        // Generate instruction with proper parameter encoding and ABI metadata
         const executeData = await FiveSDK.generateExecuteInstruction(
             COUNTER_SCRIPT_ACCOUNT.toBase58(),
             functionIndex,
-            parameters,
-            accountPubkeys,  // Pass account pubkeys to SDK!
+            mergedParams,       // All parameters (accounts + data) in correct order
+            accountPubkeys,     // Account list for SDK
             connection,
             {
                 debug: true,
                 vmStateAccount: VM_STATE_PDA.toBase58(),
                 fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
-                // Note: Don't pass ABI here - test uses separate parameters/accounts arrays
-                // which doesn't match SDK's expectation of all params in parameters array
-                adminAccount: payer.publicKey.toBase58()  // Payer as admin for fee collection
+                scriptMetadata: counterABI,  // Pass ABI so SDK knows which params are accounts
+                adminAccount: payer.publicKey.toBase58()
             }
         );
 
@@ -372,9 +391,9 @@ async function main() {
         [],
         [
             { pubkey: counter1Account, isWritable: true, isSigner: false },
-            { pubkey: user1.publicKey, isWritable: true, isSigner: true },  // Payer for account creation must be writable
+            { pubkey: user1.publicKey, isWritable: true, isSigner: true },  // Payer for account creation
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
-            { pubkey: user1.publicKey, isWritable: true, isSigner: true }
+            { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
         ],
         [user1]
     );
@@ -402,7 +421,7 @@ async function main() {
         [],
         [
             { pubkey: counter2Account, isWritable: true, isSigner: false },
-            { pubkey: user2.publicKey, isWritable: true, isSigner: true },  // Payer for account creation must be writable
+            { pubkey: user2.publicKey, isWritable: true, isSigner: true },  // Payer for account creation
             { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
             { pubkey: SYSVAR_RENT_PUBKEY, isWritable: false, isSigner: false }
         ],

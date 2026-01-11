@@ -1133,6 +1133,37 @@ export class FiveSDK {
     const abiAccountMetadata = new Map<string, { isSigner: boolean; isWritable: boolean }>();
 
     if (funcDef && funcDef.parameters) {
+      // First pass: detect if there's an @init constraint and find the payer
+      let hasInit = false;
+      let payerPubkey: string | undefined;
+      for (let i = 0; i < funcDef.parameters.length; i++) {
+        const param = funcDef.parameters[i];
+        if (param.is_account || param.isAccount) {
+          const attributes = param.attributes || [];
+          if (attributes.includes('init')) {
+            hasInit = true;
+            // Find the payer - typically the @signer in an @init context
+            for (let j = 0; j < funcDef.parameters.length; j++) {
+              const payerParam = funcDef.parameters[j];
+              if (
+                i !== j &&
+                (payerParam.is_account || payerParam.isAccount) &&
+                (payerParam.attributes || []).includes('signer')
+              ) {
+                const payerValue = parameters[j];
+                payerPubkey = payerValue?.toString();
+                if (options.debug) {
+                  console.log(`[FiveSDK] Detected @init on '${param.name}', found payer: ${payerParam.name} = ${payerPubkey}`);
+                }
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+
+      // Second pass: build metadata
       funcDef.parameters.forEach((param: any, paramIndex: number) => {
         if (param.is_account || param.isAccount) {
           const value = parameters[paramIndex];
@@ -1140,7 +1171,10 @@ export class FiveSDK {
           if (pubkey) {
             const attributes = param.attributes || [];
             const isSigner = attributes.includes('signer');
-            const isWritable = attributes.includes('mut') || attributes.includes('init');
+            const isWritable = attributes.includes('mut') ||
+                              attributes.includes('init') ||
+                              // If this is the payer for @init, it must be writable
+                              (hasInit && pubkey === payerPubkey);
 
             if (options.debug) {
               console.log(`[FiveSDK] ABI Metadata for param '${param.name}': pubkey=${pubkey}, signer=${isSigner}, writable=${isWritable}`);
