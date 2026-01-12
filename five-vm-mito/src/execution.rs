@@ -463,6 +463,7 @@ impl MitoVM {
                 }
             };
             
+            /*
             #[cfg(feature = "trace-execution")]
             {
                debug_log!(
@@ -474,6 +475,7 @@ impl MitoVM {
                    panic!("PANIC_TRACE_ENABLED");
                }
             }
+            */
 
             // Set current opcode in context for error reporting
             ctx.set_current_opcode(opcode);

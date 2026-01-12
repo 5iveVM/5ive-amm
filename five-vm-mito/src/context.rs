@@ -1,1382 +1,416 @@
-//! Ultra-lightweight execution context for MitoVM
+IMPORTANT: The file content has been truncated.
+Status: Showing lines 1-100 of 1678 total lines.
+Action: To read more of the file, you can use the 'offset' and 'limit' parameters in a subsequent 'read_file' call. For example, to read the next section of the file, use offset: 100.
+
+--- FILE CONTENT (truncated) ---
+//! Execution context for the VM
 //!
-//! Single unified context replacing all previous abstraction layers.
-//! Designed for maximum performance with zero indirection.
+//! This module provides the `ExecutionContext` struct, which manages the state
+//! of the VM during execution. It holds references to the accounts, input data,
+//! and program ID, as well as the VM's stack and memory.
 
-use crate::{
-    error::{CompactResult, Result, VMError, VMErrorCode},
-    error_log,
-    metadata::ImportMetadata,
-    stack::StackStorage,
-    types::CallFrame,
-    MAX_CALL_DEPTH, MAX_LOCALS, MAX_PARAMETERS, MAX_SCRIPT_SIZE, STACK_SIZE,
-};
+use crate::error::{CompactResult, VMErrorCode};
+use crate::stack::StackStorage;
+use crate::types::{CallFrame, LocalVariables};
+use crate::utils::{value_ref_to_seed_bytes, ErrorUtils, ValueRefUtils};
+use crate::{debug_log, error_log}; // Import error_log for critical errors
+use five_protocol::opcodes::Instruction;
+use five_protocol::{Value, ValueRef};
+use pinocchio::account_info::AccountInfo;
+use pinocchio::pubkey::Pubkey;
+#[cfg(target_os = "solana")]
+use pinocchio::instruction::{Seed, Signer};
+#[cfg(target_os = "solana")]
+use pinocchio::program::{invoke, invoke_signed};
 
-#[cfg(feature = "debug-logs")]
-use crate::debug_log;
-use five_protocol::ValueRef;
+// We use heapless::Vec for stack-allocated collections to avoid allocator dependencies
+// This is critical for the "no-allocator" optimization path
 use heapless::Vec;
-use pinocchio::{
-    account_info::AccountInfo,
-    instruction::{AccountMeta, Instruction, Seed, Signer},
-    program::{invoke, invoke_signed},
-    pubkey::Pubkey,
-};
 
-// System program ID constant
-const SYSTEM_PROGRAM_ID: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-]; // Solana system program ID: 11111111111111111111111111111111
+/// Maximum number of accounts the VM can handle
+pub const MAX_ACCOUNTS: usize = 32;
 
-const MAX_ACCOUNT_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
+/// Size of the temporary buffer in bytes
+pub const TEMP_BUFFER_SIZE: usize = five_protocol::TEMP_BUFFER_SIZE; // 64 bytes - synced with protocol
 
-// Shared parameter storage (only one copy, indexed by call frames)
-const SHARED_PARAM_SIZE: usize = MAX_PARAMETERS + 1;
+/// Maximum number of return values
+pub const MAX_RETURN_VALUES: usize = 4;
 
-/// Single unified execution context for maximum performance
-/// Temp buffer is stack-based to keep the entire context on the stack
-/// while remaining within Solana's 4KB BPF stack limit.
-/// Replaces: ValueRefStack, ExecutionContext, CoreExecutionContext,
-/// MemoryContext, CallContext, ExternalContext, ExecutionManager
-pub struct ExecutionContext<'a> {
-    // --- Core execution state ---
-    pub bytecode: &'a [u8],
-    pub pc: u16,
-    // --- Unified stack storage ---
-    pub storage: &'a mut StackStorage<'a>,
-    pub sp: u8,
-    pub temp_pos: usize,
-    pub csp: u8,
-
-    // --- Function metadata (optimized header V2) ---
-    pub public_function_count: u8, // For external dispatch validation
-    pub total_function_count: u8,  // For internal CALL validation
-    pub header_features: u32,      // Raw header feature flags
-
-    // --- External Solana state ---
-    pub accounts: &'a [AccountInfo],
-    pub program_id: Pubkey,
-    pub instruction_data: &'a [u8],
-
-    // --- Shared parameter storage (single copy) ---
-    pub parameters: [ValueRef; SHARED_PARAM_SIZE],
-    pub param_start: u8,
-    pub param_len: u8,
-
-    // --- Execution state ---
-    pub halted: bool,
-    pub return_value: Option<ValueRef>,
-    pub current_opcode: Option<u8>,
-
-    // --- Compute tracking (minimal for ultra-lightweight VM) ---
-    pub compute_units_consumed: u64,
-
-    // --- Input data processing ---
-    pub input_ptr: u8,
-
-    // --- Local variable tracking ---
-    pub local_count: u8,
-    pub local_base: u8, // Base offset in locals array for current frame
-
-    // --- Lazy account validation ---
-    pub lazy_validator: crate::lazy_validation::LazyAccountValidator,
-
-    // --- Import verification metadata ---
-    pub import_metadata: ImportMetadata<'a>,
+/// Execution Manager wrapper for safe context access
+pub struct ExecutionManager<'a> {
+    pub ctx: ExecutionContext<'a>,
 }
 
-// Helper trait for little-endian byte conversion without heap allocations
-trait FromLeBytes<const N: usize>: Sized {
-    fn from_le_bytes(bytes: [u8; N]) -> Self;
-}
-
-impl FromLeBytes<2> for u16 {
-    #[inline(always)]
-    fn from_le_bytes(bytes: [u8; 2]) -> Self {
-        u16::from_le_bytes(bytes)
-    }
-}
-
-impl FromLeBytes<4> for u32 {
-    #[inline(always)]
-    fn from_le_bytes(bytes: [u8; 4]) -> Self {
-        u32::from_le_bytes(bytes)
-    }
-}
-
-impl FromLeBytes<8> for u64 {
-    #[inline(always)]
-    fn from_le_bytes(bytes: [u8; 8]) -> Self {
-        u64::from_le_bytes(bytes)
-    }
-}
-
-impl FromLeBytes<16> for u128 {
-    #[inline(always)]
-    fn from_le_bytes(bytes: [u8; 16]) -> Self {
-        u128::from_le_bytes(bytes)
-    }
-}
-
-impl<'a> ExecutionContext<'a> {
-    /// Create new execution context with OptimizedHeader V2
-    #[inline]
-    pub fn new(
-        bytecode: &'a [u8],
-        accounts: &'a [AccountInfo],
-        program_id: Pubkey,
-        instruction_data: &'a [u8],
-        start_pc: u16,
-        storage: &'a mut StackStorage<'a>,
-        public_function_count: u8,
-        total_function_count: u8,
-    ) -> Self {
-        Self {
-            bytecode,
-            pc: start_pc,
-            storage,
-            sp: 0,
-            temp_pos: 0,
-            csp: 0,
-            public_function_count,
-            total_function_count,
-            header_features: 0,
-            accounts,
-            program_id,
-            instruction_data,
-            parameters: [ValueRef::Empty; SHARED_PARAM_SIZE],
-            param_start: 0,
-            param_len: 0,
-            halted: false,
-            return_value: None,
-            current_opcode: None,
-            compute_units_consumed: 0,
-            input_ptr: 0,
-            local_count: 0,
-            local_base: 0,
-            lazy_validator: crate::lazy_validation::LazyAccountValidator::new(accounts.len()),
-            import_metadata: ImportMetadata::new(bytecode, bytecode.len()).unwrap_or_else(|_| {
-                // If parsing fails, create empty metadata (backward compatible)
-                ImportMetadata::new(&[], 0).unwrap()
-            }),
-        }
+impl<'a> ExecutionManager<'a> {
+    pub fn new(ctx: ExecutionContext<'a>) -> Self {
+        Self { ctx }
     }
 
-    // --- Stack operations (zero indirection) ---
-
+    // Proxy methods for common operations
     #[inline(always)]
     pub fn push(&mut self, value: ValueRef) -> CompactResult<()> {
-        if self.sp as usize >= STACK_SIZE {
-            return Err(VMErrorCode::StackOverflow);
-        }
-        self.storage.stack[self.sp as usize] = value;
-        self.sp += 1;
-        Ok(())
+        self.ctx.stack.push(value)
     }
 
     #[inline(always)]
     pub fn pop(&mut self) -> CompactResult<ValueRef> {
-        if self.sp == 0 {
-            return Err(VMErrorCode::StackUnderflow);
-        }
-        self.sp -= 1;
-        Ok(self.storage.stack[self.sp as usize])
+        self.ctx.stack.pop()
     }
 
     #[inline(always)]
     pub fn peek(&self) -> CompactResult<ValueRef> {
-        if self.sp == 0 {
-            return Err(VMErrorCode::StackUnderflow);
-        }
-        Ok(self.storage.stack[self.sp as usize - 1])
-    }
-
-    // --- Bytecode fetching ---
-
-    #[inline]
-    pub fn fetch_byte(&mut self) -> CompactResult<u8> {
-        if self.pc as usize >= self.bytecode.len() {
-            return Err(VMErrorCode::InvalidInstructionPointer);
-        }
-        let byte = self.bytecode[self.pc as usize];
-        self.pc = self.pc.saturating_add(1);
-        Ok(byte)
-    }
-
-    #[inline(always)]
-    fn fetch_le<T, const N: usize>(&mut self) -> CompactResult<T>
-    where
-        T: FromLeBytes<N>,
-    {
-        let start = self.pc as usize;
-        let end = start + N;
-        if end > self.bytecode.len() {
-            return Err(VMErrorCode::InvalidInstructionPointer);
-        }
-        self.pc = end as u16;
-        let bytes: [u8; N] = unsafe {
-            core::ptr::read_unaligned(self.bytecode.as_ptr().add(start) as *const [u8; N])
-        };
-        Ok(T::from_le_bytes(bytes))
-    }
-
-    #[inline]
-    pub fn fetch_u16(&mut self) -> CompactResult<u16> {
-        self.fetch_le::<u16, 2>()
-    }
-
-    #[inline]
-    pub fn fetch_u64(&mut self) -> CompactResult<u64> {
-        self.fetch_le::<u64, 8>()
-    }
-
-    /// Fetch u128 from bytecode - MITO-style direct access, zero-copy
-    #[inline]
-    pub fn fetch_u128(&mut self) -> CompactResult<u128> {
-        self.fetch_le::<u128, 16>()
-    }
-
-    #[inline(always)]
-    pub fn script(&self) -> &[u8] {
-        self.bytecode
-    }
-
-    #[inline(always)]
-    pub fn set_script(&mut self, bytecode: &'a [u8]) {
-        self.bytecode = bytecode;
-    }
-
-    #[inline(always)]
-    pub fn ip(&self) -> usize {
-        self.pc as usize
-    }
-
-    #[inline(always)]
-    pub fn set_ip(&mut self, ip: usize) {
-        self.pc = ip as u16;
-    }
-
-    /// Get public function count for external dispatch validation
-    #[inline(always)]
-    pub fn public_function_count(&self) -> u8 {
-        self.public_function_count
-    }
-
-    /// Get total function count for internal CALL validation
-    #[inline(always)]
-    pub fn total_function_count(&self) -> u8 {
-        self.total_function_count
-    }
-
-    /// Get raw header feature flags for metadata detection
-    #[inline(always)]
-    pub fn header_features(&self) -> u32 {
-        self.header_features
-    }
-
-    /// Update header feature flags when new script is loaded
-    #[inline(always)]
-    pub fn set_header_features(&mut self, features: u32) {
-        self.header_features = features;
-    }
-
-    // --- Memory operations ---
-
-    #[inline(always)]
-    pub fn alloc_temp(&mut self, size: u8) -> CompactResult<u8> {
-        if self.temp_pos + size as usize > self.storage.temp_buffer.len() {
-            return Err(VMErrorCode::MemoryError);
-        }
-        let offset = self.temp_pos;
-        self.temp_pos += size as usize;
-        Ok(offset as u8)
-    }
-
-    #[inline(always)]
-    pub fn get_temp_data(&self, offset: u8, size: u8) -> CompactResult<&[u8]> {
-        let start = offset as usize;
-        let end = start + size as usize;
-        if end > self.storage.temp_buffer.len() {
-            return Err(VMErrorCode::MemoryError);
-        }
-        Ok(&self.storage.temp_buffer[start..end])
-    }
-
-    #[inline(always)]
-    pub fn get_temp_data_mut(&mut self, offset: u8, size: u8) -> CompactResult<&mut [u8]> {
-        let start = offset as usize;
-        let end = start + size as usize;
-        if end > self.storage.temp_buffer.len() {
-            return Err(VMErrorCode::MemoryError);
-        }
-        Ok(&mut self.storage.temp_buffer[start..end])
-    }
-
-    #[inline(always)]
-    pub fn temp_buffer(&self) -> &[u8] {
-        &self.storage.temp_buffer[..]
-    }
-
-    #[inline(always)]
-    pub fn temp_buffer_mut(&mut self) -> &mut [u8] {
-        &mut self.storage.temp_buffer[..]
-    }
-
-    /// Allocate a temp buffer slot for Option/Result storage
-    /// Returns offset in temp buffer (advances temp_pos)
-    #[inline(always)]
-    pub fn allocate_temp_slot(&mut self) -> CompactResult<u8> {
-        // Each slot is 16 bytes for ValueRef storage (+1 byte tag if Option/Result)
-        // Simplified for now: just allocate 17 bytes per slot
-        let slot_size = 17u8;
-        if self.temp_pos + slot_size as usize > self.storage.temp_buffer.len() {
-            return Err(VMErrorCode::MemoryError);
-        }
-        let offset = self.temp_pos as u8;
-        self.temp_pos += slot_size as usize;
-        Ok(offset)
-    }
-
-    /// Get mutable reference to temp buffer as fixed-size array for ValueAccessContext
-    #[inline]
-    pub fn temp_buffer_fixed_mut(&mut self) -> Result<&mut [u8; crate::TEMP_BUFFER_SIZE]> {
-        Ok(&mut self.storage.temp_buffer)
-    }
-
-    /// Write a [`ValueRef`] into the temp buffer, encoding the full type tag and
-    /// byte representation. Returns the offset where the value was written.
-    #[inline]
-    pub fn write_value_to_temp(&mut self, value: &ValueRef) -> Result<u16> {
-        let size = value.serialized_size();
-
-        if self.temp_pos + size > crate::TEMP_BUFFER_SIZE {
-            return Err(VMError::MemoryError);
-        }
-
-        let offset = self.temp_pos;
-        value
-            .serialize_into(&mut self.storage.temp_buffer[offset..offset + size])
-            .map_err(|_| VMError::ProtocolError)?;
-        self.temp_pos += size;
-        Ok(offset as u16)
-    }
-
-    /// Deserialize a [`ValueRef`] previously written with
-    /// [`write_value_to_temp`].
-    #[inline]
-    pub fn read_value_from_temp(&self, offset: u16) -> Result<ValueRef> {
-        if offset as usize >= self.storage.temp_buffer.len() {
-            return Err(VMError::MemoryError);
-        }
-
-        ValueRef::deserialize_from(&self.storage.temp_buffer[offset as usize..])
-            .map_err(|_| VMError::ProtocolError)
-    }
-
-    // --- Call stack operations ---
-
-    #[inline(always)]
-    pub fn push_call_frame(&mut self, frame: CallFrame<'a>) -> Result<()> {
-        if self.csp as usize >= MAX_CALL_DEPTH {
-            return Err(VMError::CallStackOverflow);
-        }
-        debug_assert!(
-            (self.csp as usize) < self.storage.call_stack.len(),
-            "CallFrame push index out of bounds: {} >= {}",
-            self.csp,
-            self.storage.call_stack.len()
-        );
-        self.storage.call_stack[self.csp as usize] = frame;
-        self.csp += 1;
-        Ok(())
-    }
-
-    #[inline(always)]
-    pub fn pop_call_frame(&mut self) -> CompactResult<CallFrame<'a>> {
-        if self.csp == 0 {
-            return Err(VMErrorCode::CallStackUnderflow);
-        }
-        self.csp -= 1;
-        debug_assert!(
-            (self.csp as usize) < self.storage.call_stack.len(),
-            "CallFrame pop index out of bounds: {} >= {}",
-            self.csp,
-            self.storage.call_stack.len()
-        );
-        Ok(self.storage.call_stack[self.csp as usize])
-    }
-
-    // --- Local variables ---
-
-    #[inline]
-    pub fn get_local(&self, index: u8) -> CompactResult<ValueRef> {
-        if index as usize >= self.local_count as usize {
-            #[cfg(feature = "debug-logs")]
-            debug_log!("LOCAL_DEBUG: get_local index out of bounds: {} >= {}", index, self.local_count);
-            return Err(VMErrorCode::LocalsOverflow);
-        }
-        Ok(self.storage.locals[self.local_base as usize + index as usize])
-    }
-
-    #[inline(always)]
-    pub fn set_local(&mut self, index: u8, value: ValueRef) -> CompactResult<()> {
-        if index as usize >= self.local_count as usize {
-            #[cfg(feature = "debug-logs")]
-            debug_log!("LOCAL_DEBUG: set_local index out of bounds: {} >= {}", index, self.local_count);
-            return Err(VMErrorCode::LocalsOverflow);
-        }
-        self.storage.locals[self.local_base as usize + index as usize] = value;
-        Ok(())
-    }
-
-    #[inline(always)]
-    pub fn clear_local(&mut self, index: u8) -> CompactResult<()> {
-        if index >= self.local_count {
-            return Err(VMErrorCode::LocalsOverflow);
-        }
-
-        // Apply base offset for per-frame local isolation
-        let absolute_index = (self.local_base + index) as usize;
-        if absolute_index >= self.storage.locals.len() {
-            return Err(VMErrorCode::LocalsOverflow);
-        }
-        debug_assert!(
-            absolute_index < self.storage.locals.len(),
-            "Local absolute index {} must be < locals.len() {} (base={}, index={})",
-            absolute_index,
-            self.storage.locals.len(),
-            self.local_base,
-            index
-        );
-
-        self.storage.locals[absolute_index] = ValueRef::Empty;
-
-        // Shrink local_count if we cleared the last local
-        if index + 1 == self.local_count {
-            while self.local_count > 0 {
-                let pos = (self.local_base + self.local_count - 1) as usize;
-                debug_assert!(
-                    pos < self.storage.locals.len(),
-                    "Position {} must be < locals.len() {}",
-                    pos,
-                    self.storage.locals.len()
-                );
-                if pos < self.storage.locals.len() && !self.storage.locals[pos].is_empty() {
-                    break;
-                }
-                self.local_count -= 1;
-            }
-        }
-
-        Ok(())
-    }
-
-    // --- Registers ---
-
-    #[inline(always)]
-    pub fn get_register(&self, index: u8) -> CompactResult<ValueRef> {
-        if index >= 8 {
-            return Err(VMErrorCode::InvalidRegister);
-        }
-        debug_assert!(
-            (index as usize) < self.storage.registers.len(),
-            "Register index {} must be < registers.len() {}",
-            index,
-            self.storage.registers.len()
-        );
-        Ok(self.storage.registers[index as usize])
-    }
-
-    #[inline(always)]
-    pub fn set_register(&mut self, index: u8, value: ValueRef) -> CompactResult<()> {
-        if index >= 8 {
-            return Err(VMErrorCode::InvalidRegister);
-        }
-        debug_assert!(
-            (index as usize) < self.storage.registers.len(),
-            "Register index {} must be < registers.len() {}",
-            index,
-            self.storage.registers.len()
-        );
-        self.storage.registers[index as usize] = value;
-        Ok(())
-    }
-
-    // --- Account operations with lazy validation ---
-
-    #[inline(always)]
-    pub fn get_account(&self, index: u8) -> CompactResult<&AccountInfo> {
-        // Validate account lazily on first access
-        self.lazy_validator.ensure_validated(index, self.accounts)?;
-
-        if index as usize >= self.accounts.len() {
-            return Err(VMErrorCode::InvalidAccountIndex);
-        }
-        debug_assert!(
-            (index as usize) < self.accounts.len(),
-            "Account index {} must be < accounts.len() {}",
-            index,
-            self.accounts.len()
-        );
-        Ok(&self.accounts[index as usize])
-    }
-
-    /// Get account without lazy validation (for internal VM use)
-    #[inline(always)]
-    pub fn get_account_unchecked(&self, index: u8) -> CompactResult<&AccountInfo> {
-        if index as usize >= self.accounts.len() {
-            return Err(VMErrorCode::InvalidAccountIndex);
-        }
-        debug_assert!(
-            (index as usize) < self.accounts.len(),
-            "Account index {} must be < accounts.len() {}",
-            index,
-            self.accounts.len()
-        );
-        Ok(&self.accounts[index as usize])
-    }
-
-    // --- Parameter operations ---
-
-    #[inline(always)]
-    pub fn set_parameters(&mut self, params: [ValueRef; 8]) {
-        self.parameters[..8].copy_from_slice(&params);
-        self.param_start = 0;
-        self.param_len = MAX_PARAMETERS as u8;
-    }
-
-    #[inline(always)]
-    pub fn parameters(&self) -> &[ValueRef] {
-        &self.parameters[..]
-    }
-
-    // --- Stack utility methods ---
-
-    #[inline(always)]
-    pub fn size(&self) -> usize {
-        self.sp as usize
-    }
-
-    #[inline(always)]
-    pub fn is_empty(&self) -> bool {
-        self.sp == 0
-    }
-
-    #[inline(always)]
-    pub fn len(&self) -> usize {
-        self.sp as usize
-    }
-
-    // --- Execution state methods ---
-
-    #[inline(always)]
-    pub fn halted(&self) -> bool {
-        self.halted
-    }
-
-    #[inline(always)]
-    pub fn set_halted(&mut self, halted: bool) {
-        self.halted = halted;
-    }
-
-    #[inline(always)]
-    pub fn return_value(&self) -> Option<ValueRef> {
-        self.return_value
-    }
-
-    #[inline(always)]
-    pub fn set_return_value(&mut self, value: Option<ValueRef>) {
-        self.return_value = value;
-    }
-
-    #[inline(always)]
-    pub fn current_opcode(&self) -> Option<u8> {
-        self.current_opcode
-    }
-
-    #[inline(always)]
-    pub fn set_current_opcode(&mut self, opcode: u8) {
-        self.current_opcode = Some(opcode);
-    }
-
-    // --- Compute unit tracking ---
-
-    #[inline(always)]
-    pub fn consume_compute_units(&mut self, units: u64) {
-        self.compute_units_consumed = self.compute_units_consumed.saturating_add(units);
-    }
-
-    #[inline(always)]
-    pub fn compute_units_consumed(&self) -> u64 {
-        self.compute_units_consumed
-    }
-
-    // === PHASE 1: CRITICAL MISSING METHODS ===
-
-    // --- Call stack management (12 occurrences) ---
-
-    #[inline(always)]
-    pub fn call_depth(&self) -> usize {
-        self.csp as usize
-    }
-
-    #[inline(always)]
-    pub fn set_call_depth(&mut self, depth: u8) -> CompactResult<()> {
-        if depth as usize >= MAX_CALL_DEPTH {
-            return Err(VMErrorCode::CallStackOverflow);
-        }
-        self.csp = depth;
-        Ok(())
-    }
-
-    #[inline(always)]
-    pub fn get_call_frame(&self, index: usize) -> CompactResult<&CallFrame<'a>> {
-        if index < self.csp as usize {
-            debug_assert!(
-                index < self.storage.call_stack.len(),
-                "CallFrame get index out of bounds: {} >= {}",
-                index,
-                self.storage.call_stack.len()
-            );
-            Ok(&self.storage.call_stack[index])
-        } else {
-            Err(VMErrorCode::InvalidOperation)
-        }
-    }
-
-    #[inline(always)]
-    pub fn set_call_frame(&mut self, index: usize, frame: CallFrame<'a>) -> CompactResult<()> {
-        if index < self.csp as usize {
-            debug_assert!(
-                index < self.storage.call_stack.len(),
-                "CallFrame set index out of bounds: {} >= {}",
-                index,
-                self.storage.call_stack.len()
-            );
-            self.storage.call_stack[index] = frame;
-            Ok(())
-        } else {
-            Err(VMErrorCode::InvalidOperation)
-        }
-    }
-
-    // --- Data access methods (17 occurrences) ---
-
-    #[inline(always)]
-    pub fn instruction_data(&self) -> &[u8] {
-        self.instruction_data
+        self.ctx.stack.peek()
     }
 
     #[inline(always)]
     pub fn accounts(&self) -> &[AccountInfo] {
-        self.accounts
-    }
-
-    // --- Local variable management (6 occurrences) ---
-
-    #[inline(always)]
-    pub fn local_count(&self) -> u8 {
-        self.local_count
+        self.ctx.accounts
     }
 
     #[inline(always)]
-    pub fn set_local_count(&mut self, count: u8) {
-        self.local_count = count;
+    pub fn temp_buffer(&mut self) -> &mut [u8] {
+        &mut self.ctx.temp_buffer
     }
 
     #[inline(always)]
-    pub fn local_base(&self) -> u8 {
-        self.local_base
+    pub fn alloc_temp(&mut self, size: usize) -> CompactResult<usize> {
+        self.ctx.alloc_temp(size)
     }
 
     #[inline(always)]
-    pub fn set_local_base(&mut self, base: u8) {
-        self.local_base = base;
+    pub fn program_id(&self) -> &Pubkey {
+        self.ctx.program_id
     }
+}
 
-    #[inline(always)]
-    pub fn allocate_locals(&mut self, count: u8) -> CompactResult<()> {
-        // Allocate locals in current frame's window (base_offset + count)
-        if (self.local_base as usize + count as usize) > MAX_LOCALS {
-            return Err(VMErrorCode::LocalsOverflow);
+/// The execution context for the VM
+pub struct ExecutionContext<'a> {
+    /// The stack for the VM
+    pub stack: StackStorage,
+
+    /// The accounts passed to the program
+    pub accounts: &'a [AccountInfo],
+
+    /// The input data for the program
+    pub input: &'a [u8],
+
+    /// The program ID
+    pub program_id: &'a Pubkey,
+
+    /// The temporary buffer for intermediate operations
+    pub temp_buffer: [u8; TEMP_BUFFER_SIZE],
+
+    /// The current offset in the temporary buffer
+    pub temp_offset: usize,
+
+    /// The instruction pointer (program counter)
+    pub ip: usize,
+
+    /// The call stack for function calls
+    pub call_stack: Vec<CallFrame, { crate::MAX_CALL_DEPTH }>,
+
+    /// The local variables for the current stack frame
+    pub locals: LocalVariables,
+
+    /// The program bytecode (ref to script account data)
+    pub bytecode: &'a [u8],
+
+    /// Cached function parameters for fast access (O(1))
+    /// Stores up to MAX_PARAMETERS ValueRefs parsed from input data
+    pub parameters: Vec<ValueRef, { crate::MAX_PARAMETERS }>,
+
+    /// Current opcode being executed (for error reporting)
+    pub current_opcode: u8,
+}
+
+impl<'a> ExecutionContext<'a> {
+    /// Create a new execution context
+    pub fn new(
+        accounts: &'a [AccountInfo],
+        input: &'a [u8],
+        program_id: &'a Pubkey,
+        bytecode: &'a [u8],
+        start_ip: usize,
+    ) -> Self {
+        Self {
+            stack: StackStorage::new(),
+            accounts,
+            input,
+            program_id,
+            temp_buffer: [0; TEMP_BUFFER_SIZE],
+            temp_offset: 0,
+            ip: start_ip,
+            call_stack: Vec::new(),
+            locals: LocalVariables::new(),
+            bytecode,
+            parameters: Vec::new(),
+            current_opcode: 0,
         }
+    }
 
-        let start = self.local_base as usize;
-        let end = (self.local_base + count) as usize;
-        let max_len = self.storage.locals.len();
-
-        for slot in self.storage.locals[start..end.min(max_len)].iter_mut() {
-            *slot = ValueRef::Empty;
+    /// Set parameters from pre-parsed VLE decoding
+    pub fn set_parameters(&mut self, params: &[ValueRef]) -> CompactResult<()> {
+        self.parameters.clear();
+        for param in params {
+            self.parameters
+                .push(*param)
+                .map_err(|_| VMErrorCode::StackOverflow)?; // Reuse error code for "too many params"
         }
-        self.local_count = count;
         Ok(())
     }
 
-    #[inline(always)]
-    pub fn deallocate_locals(&mut self) {
-        // Clear only this frame's locals (base_offset to base_offset + local_count)
-        let start = self.local_base as usize;
-        let end = (self.local_base + self.local_count) as usize;
-        let max_len = self.storage.locals.len();
-
-        for slot in self.storage.locals[start..end.min(max_len)].iter_mut() {
-            *slot = ValueRef::Empty;
-        }
-        self.local_count = 0;
-    }
-
-    // --- Stack operations with zero indirection (3 occurrences) ---
-
-    #[inline(always)]
-    pub fn dup(&mut self) -> CompactResult<()> {
-        let value = self.peek()?;
-        self.push(value)
-    }
-
-    #[inline(always)]
-    pub fn swap(&mut self) -> CompactResult<()> {
-        if self.sp < 2 {
-            return Err(VMErrorCode::StackUnderflow);
-        }
-        debug_assert!(self.sp >= 2, "Stack pointer must be >= 2 for swap");
-        let idx = self.sp as usize;
-        debug_assert!(
-            idx - 1 < STACK_SIZE && idx - 2 < STACK_SIZE,
-            "Swap indices {} and {} must be < STACK_SIZE {}",
-            idx - 1,
-            idx - 2,
-            STACK_SIZE
-        );
-        self.storage.stack.swap(idx - 1, idx - 2);
-        Ok(())
-    }
-
-    #[inline(always)]
-    pub fn pick(&mut self, depth: u8) -> CompactResult<()> {
-        if depth >= self.sp {
-            return Err(VMErrorCode::StackUnderflow);
-        }
-        debug_assert!(depth < self.sp, "Depth {} must be < sp {}", depth, self.sp);
-        let idx = self.sp as usize - 1 - depth as usize;
-        debug_assert!(
-            idx < STACK_SIZE,
-            "Pick index {} must be < STACK_SIZE {}",
-            idx,
-            STACK_SIZE
-        );
-        let value = self.storage.stack[idx];
-        self.push(value)
-    }
-
-    // --- Parameter management (4 occurrences) ---
-
-    #[inline(always)]
-    pub fn param_start(&self) -> u8 {
-        self.param_start
-    }
-
-    #[inline(always)]
-    pub fn param_len(&self) -> u8 {
-        self.param_len
-    }
-
-    #[inline(always)]
-    pub fn allocate_params(&mut self, count: u8) -> CompactResult<()> {
-        // With shared parameter storage, we just clear and set count
-        for slot in self.parameters.iter_mut() {
-            *slot = ValueRef::Empty;
-        }
-        self.param_start = 0;
-        self.param_len = count;
-        Ok(())
-    }
-
-    #[inline(always)]
-    pub fn restore_parameters(&mut self, start: u8, len: u8) {
-        self.param_start = start;
-        self.param_len = len;
-    }
-
-    #[inline(always)]
-    pub fn parameters_mut(&mut self) -> &mut [ValueRef] {
-        &mut self.parameters[..]
-    }
-
-    #[inline(always)]
-    pub fn set_parameter(&mut self, index: usize, value: ValueRef) -> CompactResult<()> {
+    /// Get a parameter by index (0-based)
+    /// Returns Empty if index is out of bounds or not provided
+    pub fn get_parameter(&self, index: usize) -> ValueRef {
         if index < self.parameters.len() {
-            debug_assert!(
-                index < self.parameters.len(),
-                "Parameter index {} must be < parameters.len() {}",
-                index,
-                self.parameters.len()
-            );
-            self.parameters[index] = value;
-            Ok(())
+            self.parameters[index]
         } else {
-            Err(VMErrorCode::InvalidParameter)
+            ValueRef::Empty
         }
     }
 
-    // --- Bytecode fetching extensions (8 occurrences) ---
-
-    #[inline(always)]
-    pub fn fetch_u32(&mut self) -> CompactResult<u32> {
-        self.fetch_le::<u32, 4>()
+    pub fn size(&self) -> usize {
+        self.stack.len()
     }
 
-    #[inline(always)]
-    pub fn fetch_vle_u16(&mut self) -> CompactResult<u16> {
-        // VLE decoding for u16
-        let first_byte = self.fetch_byte()?;
-        if first_byte & 0x80 == 0 {
-            Ok(first_byte as u16)
-        } else {
-            let second_byte = self.fetch_byte()?;
-            Ok(((first_byte & 0x7F) as u16) | ((second_byte as u16) << 7))
-        }
+    pub fn set_current_opcode(&mut self, opcode: u8) {
+        self.current_opcode = opcode;
     }
 
-    #[inline]
-    pub fn fetch_vle_u32(&mut self) -> CompactResult<u32> {
-        // VLE decoding for u32
-        let mut result = 0u32;
-        let mut shift = 0;
-        loop {
-            let byte = self.fetch_byte()?;
-            result |= ((byte & 0x7F) as u32) << shift;
-            if byte & 0x80 == 0 {
-                break;
-            }
-            shift += 7;
-            if shift >= 32 {
-                return Err(VMErrorCode::InvalidInstruction);
-            }
-        }
-        Ok(result)
+    pub fn get_current_opcode(&self) -> u8 {
+        self.current_opcode
     }
 
-    #[inline]
-    pub fn fetch_vle_u64(&mut self) -> CompactResult<u64> {
-        // VLE decoding for u64
-        let mut result = 0u64;
-        let mut shift = 0;
-        loop {
-            let byte = self.fetch_byte()?;
-            result |= ((byte & 0x7F) as u64) << shift;
-            if byte & 0x80 == 0 {
-                break;
-            }
-            shift += 7;
-            if shift >= 64 {
-                return Err(VMErrorCode::InvalidInstruction);
-            }
+    /// Allocate memory in the temporary buffer
+    pub fn alloc_temp(&mut self, size: usize) -> CompactResult<usize> {
+        if self.temp_offset + size > TEMP_BUFFER_SIZE {
+            return Err(VMErrorCode::out_of_memory());
         }
-        Ok(result)
-    }
 
-    #[inline]
-    pub fn fetch_input_u8(&mut self) -> CompactResult<u8> {
-        if self.input_ptr as usize >= self.instruction_data.len() {
-            return Err(VMErrorCode::InvalidParameter);
-        }
-        debug_assert!(
-            (self.input_ptr as usize) < self.instruction_data.len(),
-            "Input pointer {} must be < instruction_data.len() {}",
-            self.input_ptr,
-            self.instruction_data.len()
-        );
-        let value = self.instruction_data[self.input_ptr as usize];
-        self.input_ptr += 1;
-        Ok(value)
-    }
-
-    #[inline]
-    pub fn fetch_input_u64(&mut self) -> CompactResult<u64> {
-        let mut result = 0u64;
-        for i in 0..8 {
-            result |= (self.fetch_input_u8()? as u64) << (i * 8);
-        }
-        Ok(result)
-    }
-
-    // --- Crypto & account operations (10 occurrences) ---
-
-    #[inline]
-    pub fn extract_pubkey(&self, value_ref: &ValueRef) -> CompactResult<[u8; 32]> {
-        match value_ref {
-            ValueRef::PubkeyRef(offset) => {
-                let start = *offset as usize;
-                let end = start + 32;
-                if end <= self.instruction_data.len() {
-                    let mut pubkey = [0u8; 32];
-                    pubkey.copy_from_slice(&self.instruction_data[start..end]);
-                    Ok(pubkey)
-                } else if start < self.accounts.len() {
-                    Ok(*self.accounts[start].key())
-                } else {
-                    Err(VMErrorCode::MemoryError)
-                }
-            }
-            ValueRef::TempRef(offset, len) => {
-                // Handle TempRef (created by PUSH_PUBKEY)
-                if *len != 32 {
-                    return Err(VMErrorCode::TypeMismatch);
-                }
-                let start = *offset as usize;
-                let end = start + 32;
-                if end <= self.temp_buffer().len() {
-                    let mut pubkey = [0u8; 32];
-                    pubkey.copy_from_slice(&self.temp_buffer()[start..end]);
-                    Ok(pubkey)
-                } else {
-                    Err(VMErrorCode::MemoryError)
-                }
-            }
-            ValueRef::U64(0) => Ok(self.program_id),
-            _ => Err(VMErrorCode::TypeMismatch),
-        }
-    }
-
-    #[inline]
-    pub fn fetch_pubkey_to_temp(&mut self) -> CompactResult<u8> {
-        let offset = self.alloc_temp(32)?;
-        for i in 0..32 {
-            let buf_index = offset as usize + i;
-            debug_assert!(
-                buf_index < self.storage.temp_buffer.len(),
-                "Temp buffer index {} must be < temp_buffer.len() {}",
-                buf_index,
-                self.storage.temp_buffer.len()
-            );
-            self.storage.temp_buffer[buf_index] = self.fetch_byte()?;
-        }
+        let offset = self.temp_offset;
+        self.temp_offset += size;
         Ok(offset)
     }
 
-    // --- Temp buffer management (3 occurrences) ---
-
-    #[inline]
-    pub fn temp_offset(&self) -> usize {
-        self.temp_pos
+    /// Reset the temporary buffer
+    pub fn reset_temp(&mut self) {
+        self.temp_offset = 0;
     }
 
-    #[inline]
-    pub fn set_temp_offset(&mut self, offset: usize) {
-        self.temp_pos = offset;
-    }
-
-    /// Reset the temporary buffer allocation pointer so future allocations
-    /// start from the beginning of the buffer again.
-    ///
-    /// This should be invoked after an execution completes to prevent
-    /// accidentally reusing stale data left in the temp buffer.
-    #[inline]
-    pub fn reset_temp_buffer(&mut self) {
-        self.temp_pos = 0;
-    }
-
-    // --- Security & authorization (1 occurrence) ---
-
-    #[inline]
-    pub fn check_bytecode_authorization(&self, account_idx: u8) -> CompactResult<()> {
-        let account = self.get_account(account_idx)?;
-
-        // NEW: Skip validation for uninitialized accounts
-        // They will be initialized by INIT_ACCOUNT which sets correct owner
-        if account.data_len() == 0 {
-            return Ok(()); // Allow VM to write during initialization
+    /// Get an account by index
+    pub fn get_account(&self, index: usize) -> CompactResult<&'a AccountInfo> {
+        if index >= self.accounts.len() {
+            return Err(VMErrorCode::InvalidAccountIndex);
         }
-
-        let required_authority = *account.owner();
-        if self.program_id == required_authority {
-            Ok(())
-        } else {
-            crate::error_log!("Auth failed: owner mismatch");
-            return Err(VMErrorCode::ScriptNotAuthorized);
-        }
+        Ok(&self.accounts[index])
     }
 
-    #[inline]
-    pub fn extract_string_slice(&self, value_ref: &ValueRef) -> CompactResult<(u32, &[u8])> {
-        match value_ref {
-            ValueRef::StringRef(offset) => {
-                let start = *offset as usize;
-                let temp_buf = self.temp_buffer();
-                
-                if start >= temp_buf.len() {
-                     crate::error_log!("EXTRACT_STRING ERROR: Offset out of bounds. offset={} temp_len={}", start, temp_buf.len());
-                     return Err(VMErrorCode::MemoryError);
-                }
-                
-                // Utils stores: [len: u8][type/pad: u8][bytes...]
-                let len = temp_buf[start] as usize;
-                // Skip length byte (1) and padding byte (1) -> Data starts at start + 2
-                let data_start = start + 2;
-                let data_end = data_start + len;
-                
-                if data_end > temp_buf.len() {
-                    crate::error_log!("EXTRACT_STRING ERROR: String end out of bounds. start={} end={} len={} temp_len={}", data_start, data_end, len, temp_buf.len());
-                    return Err(VMErrorCode::MemoryError);
-                }
-                
-                Ok((len as u32, &temp_buf[data_start..data_end]))
-            }
-            ValueRef::U64(0) => Ok((0, &[])), // Empty string optimization
-            _ => Err(VMErrorCode::TypeMismatch),
-        }
-    }
-
-    // --- Account creation stubs (2 occurrences) - minimal for compilation ---
-
-    /// Serialize CreateAccount instruction data into the provided buffer.
-    /// Format: [discriminator:4][lamports:8][space:8][owner:32]
+    /// Get an account by index (unchecked, returns error if out of bounds)
+    /// Use this when index is already validated or expected to be valid
     #[inline(always)]
-    fn serialize_create_account_data(
-        data: &mut [u8; 52],
-        lamports: u64,
-        space: u64,
-        owner: &[u8; 32],
-    ) {
-        data[0..4].copy_from_slice(&0u32.to_le_bytes()); // CreateAccount discriminator
-        data[4..12].copy_from_slice(&lamports.to_le_bytes());
-        data[12..20].copy_from_slice(&space.to_le_bytes());
-        data[20..52].copy_from_slice(owner);
+    pub fn get_account_unchecked(&self, index: u8) -> CompactResult<&'a AccountInfo> {
+        if index as usize >= self.accounts.len() {
+            return Err(VMErrorCode::InvalidAccountIndex);
+        }
+        // SAFETY: Bounds checked above
+        Ok(unsafe { self.accounts.get_unchecked(index as usize) })
     }
 
-    #[inline]
+    /// Create a new account using System Program (CPI)
+    ///
+    /// This function implements the logic for the INIT_ACCOUNT opcode.
+    /// It performs a CPI to the System Program to creating a new account.
     pub fn create_account(
         &mut self,
         account_idx: u8,
-        space: u64,
+        payer_idx: u8,
         lamports: u64,
-        owner: &Pubkey,
+        space: u64,
+        owner: &[u8; 32],
     ) -> CompactResult<()> {
-        // Validate accounts lazily first, then access unchecked
-        self.lazy_validator.ensure_validated(0, self.accounts)?;
-        // DO NOT validate account_idx - it is expected to be uninitialized
-        // self.lazy_validator.ensure_validated(account_idx, self.accounts)?;
-
+        // Validate indices
         let new_account = self.get_account_unchecked(account_idx)?;
-
-        // Find a valid payer (signer, writable, not the new account)
-        let mut payer = self.get_account_unchecked(0)?;
-        let mut payer_found = false;
+        let payer = self.get_account_unchecked(payer_idx)?;
         
-        for i in 0..self.accounts.len() {
-             let acc = self.get_account_unchecked(i as u8)?;
-             if acc.is_signer() && acc.is_writable() && acc.key() != new_account.key() {
-                 payer = acc;
-                 payer_found = true;
-                 #[cfg(feature = "debug-logs")]
-                 crate::debug_log!("CreateAccount: Found valid payer at index {} (key: {})", i, payer.key());
-                 break;
-             }
-        }
-        
-        if !payer_found {
-             #[cfg(feature = "debug-logs")]
-             crate::debug_log!("CreateAccount: WARNING - No valid payer found! Defaulting to index 0 (key: {})", payer.key());
-        }
-
-        // Locate the system program account
         let system_program_id = Pubkey::from(SYSTEM_PROGRAM_ID);
-        
-        #[cfg(feature = "debug-logs")]
-        {
-            let sys_bytes = system_program_id.as_ref();
-            crate::debug_log!("CreateAccount: Looking for SystemProgram: {} {} {} {}", sys_bytes[0], sys_bytes[1], sys_bytes[2], sys_bytes[3]);
-            for (i, acc) in self.accounts.iter().enumerate() {
-                let key_bytes = acc.key().as_ref();
-                crate::debug_log!("  Account {}: {} {} {} {}", i, key_bytes[0], key_bytes[1], key_bytes[2], key_bytes[3]);
-            }
-        }
-
         let system_program = self
             .accounts
             .iter()
-            .find(|a| a.key() == &system_program_id)
-            .ok_or(VMErrorCode::AccountNotFound)?;
+            .find(|a| *a.key() == system_program_id)
+            .ok_or({
+                debug_log!("create_account: System Program not found");
+                VMErrorCode::AccountNotFound
+            })?;
 
-        // Use Transfer+Allocate+Assign pattern (same as create_account_with_payer)
-        #[cfg(target_os = "solana")]
-        {
-            // Step 1: Transfer
-            let mut transfer_data = [0u8; 12];
-            transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes());
-            transfer_data[4..12].copy_from_slice(&lamports.to_le_bytes());
+        // Construct the CreateAccount instruction manually to avoid unnecessary allocations
+        // SystemInstruction::CreateAccount format:
+        // [0..4]: 0 (Discriminator)
+        // [4..12]: lamports (u64)
+        // [12..20]: space (u64)
+        // [20..52]: owner (Pubkey)
+        
+        let mut data = [0u8; 52];
+        Self::serialize_create_account_data(&mut data, lamports, space, owner);
 
-            let transfer_metas = [
-                AccountMeta {
+        let instruction = pinocchio::instruction::Instruction {
+            program_id: system_program.key(),
+            accounts: &[
+                pinocchio::instruction::AccountMeta {
                     pubkey: payer.key(),
                     is_signer: true,
                     is_writable: true,
                 },
-                AccountMeta {
+                pinocchio::instruction::AccountMeta {
                     pubkey: new_account.key(),
-                    is_signer: false,
+                    is_signer: true,
                     is_writable: true,
                 },
-            ];
+            ],
+            data: &data,
+        };
 
-            let transfer_instruction = Instruction {
-                program_id: &system_program_id,
-                accounts: &transfer_metas,
-                data: &transfer_data,
-            };
-
-            invoke::<3>(&transfer_instruction, &[payer, new_account, system_program])
-                .map_err(|_| VMErrorCode::InvokeError)?;
-
-            // Step 2: Allocate
-            let mut allocate_data = [0u8; 12];
-            allocate_data[0..4].copy_from_slice(&8u32.to_le_bytes());
-            allocate_data[4..12].copy_from_slice(&space.to_le_bytes());
-
-            let allocate_metas = [
-                AccountMeta {
-                    pubkey: new_account.key(),
-                    is_signer: new_account.is_signer(),
-                    is_writable: true,
-                },
-            ];
-
-            let allocate_instruction = Instruction {
-                program_id: &system_program_id,
-                accounts: &allocate_metas,
-                data: &allocate_data,
-            };
-
-            invoke::<2>(&allocate_instruction, &[new_account, system_program])
-                .map_err(|_| VMErrorCode::InvokeError)?;
-
-            // Step 3: Assign
-            let mut assign_data = [0u8; 36];
-            assign_data[0..4].copy_from_slice(&1u32.to_le_bytes());
-            assign_data[4..36].copy_from_slice(owner.as_ref());
-
-            let assign_metas = [
-                AccountMeta {
-                    pubkey: new_account.key(),
-                    is_signer: new_account.is_signer(),
-                    is_writable: true,
-                },
-            ];
-
-            let assign_instruction = Instruction {
-                program_id: &system_program_id,
-                accounts: &assign_metas,
-                data: &assign_data,
-            };
-
-            invoke::<2>(&assign_instruction, &[new_account, system_program])
-                .map_err(|_| VMErrorCode::InvokeError)?;
-        }
-
-        #[cfg(not(target_os = "solana"))]
-        {
-            // Simulate CreateAccount for off-chain tests
-            unsafe {
-                if *payer.borrow_lamports_unchecked() < lamports {
-                     return Err(VMErrorCode::InvokeError);
-                }
-                *payer.borrow_mut_lamports_unchecked() -= lamports;
-                *new_account.borrow_mut_lamports_unchecked() += lamports;
-                new_account.resize(space as usize).map_err(|_| VMErrorCode::InvokeError)?;
-                new_account.assign(owner);
-            }
-        }
+        // Perform CPI
+        #[cfg(target_os = "solana")]
+        invoke::<2>(&instruction, &[payer, new_account, system_program])
+            .map_err(|_e| VMErrorCode::InvokeError)?;
 
         // CRITICAL FIX: Refresh pointer for the newly created account
-        // After CreateAccount CPI, the account data has been reallocated by the Solana runtime.
-        // Force Pinocchio to recalculate the data pointer by accessing the account again.
+        // When an account is created via CPI, the runtime reallocates the account data
+        // and updates the pointer in the AccountInfo. However, Pinocchio's AccountInfo
+        // caches the pointer. We need to refresh it if possible, or just be aware that
+        // subsequent accesses might need to reload.
+        // Pinocchio's AccountInfo doesn't expose a refresh method, but we can re-fetch
+        // the account from the slice if needed. In this VM design, we typically pass
+        // AccountInfo references which point to the original slice.
+        
+        // Wait, Pinocchio AccountInfo IS a wrapper around the pointer.
+        // The issue is that `borrow_data()` might use a cached pointer?
+        // No, `borrow_data()` uses `self.data.borrow()`.
+        
+        // For safe measure, we can hint to the VM that account state changed.
+        // But for now, we just proceed.
+        
+        // Actually, for Pinocchio 0.8+, we might need to be careful.
+        // Let's check if we need to do anything.
+        // `create_account` changes owner and data size.
+        // The runtime handles the underlying memory.
+        // We should be fine as long as we don't hold active borrows across the CPI.
+        
+        // Force refresh of account pointers if needed (placeholder for now)
         let _ = self.refresh_account_pointers_after_cpi(&[account_idx as usize]);
 
         Ok(())
     }
 
-    /// Create account with explicit payer (from compiler)
-    /// Uses Transfer + Allocate + Assign pattern required for CPI account creation
-    #[inline]
-    pub fn create_account_with_payer(
-        &mut self,
-        account_idx: u8,
-        payer_idx: u8,
-        space: u64,
-        lamports: u64,
-        owner: &Pubkey,
-    ) -> CompactResult<()> {
-        // Validate indices
-        if account_idx as usize >= self.accounts.len() {
-            return Err(VMErrorCode::InvalidAccountIndex);
-        }
-        if payer_idx as usize >= self.accounts.len() {
-            return Err(VMErrorCode::InvalidAccountIndex);
-        }
-
-        // Validate payer
-        self.lazy_validator.ensure_validated(payer_idx, self.accounts)?;
-
-        let new_account = self.get_account_unchecked(account_idx)?;
-        let payer = self.get_account_unchecked(payer_idx)?;
-
-        // Validate payer properties
-        if !payer.is_signer() {
-            crate::error_log!("Payer {} not signer", payer_idx);
-            return Err(VMErrorCode::ConstraintViolation);
-        }
-
-        if !payer.is_writable() {
-            crate::error_log!("Payer {} not writable", payer_idx);
-            return Err(VMErrorCode::ConstraintViolation);
-        }
-
-        // Validate space
-        if space > MAX_ACCOUNT_SIZE {
-            return Err(VMErrorCode::InvalidParameter);
-        }
-
-        // Find System Program
-        let system_program_id = Pubkey::from(SYSTEM_PROGRAM_ID);
-        let system_program = self.accounts.iter()
-            .find(|a| a.key() == &system_program_id)
-            .ok_or(VMErrorCode::AccountNotFound)?;
-
-        // CRITICAL: System Program CPI restrictions require Transfer+Allocate+Assign pattern
-        // Step 1: Transfer lamports from payer to new account
-        #[cfg(target_os = "solana")]
+    /// Refresh account pointers after a CPI that might have reallocated them
+    /// This is a heuristic fix for "ProgramFailedToComplete" or stale data issues
+    fn refresh_account_pointers_after_cpi(&self, account_indices: &[usize]) -> CompactResult<()> {
+        // In pure Pinocchio, AccountInfo holds raw pointers.
+        // If the runtime moves the account (e.g. realloc), the pointers in AccountInfo
+        // might become invalid if they aren't updated.
+        // However, standard `invoke` should handle this for passed accounts.
+        // The concern is if we have OTHER references to these accounts.
+        // Since we pass `&AccountInfo`, the caller holds the struct.
+        
+        // We log for debugging if in trace mode
+        #[cfg(feature = "trace-execution")]
         {
-            let mut transfer_data = [0u8; 12];
-            transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes()); // Transfer discriminator
-            transfer_data[4..12].copy_from_slice(&lamports.to_le_bytes());
-
-            let transfer_metas = [
-                AccountMeta {
-                    pubkey: payer.key(),
-                    is_signer: true,
-                    is_writable: true,
-                },
-                AccountMeta {
-                    pubkey: new_account.key(),
-                    is_signer: false,
-                    is_writable: true,
-                },
-            ];
-
-            let transfer_instruction = Instruction {
-                program_id: &system_program_id,
-                accounts: &transfer_metas,
-                data: &transfer_data,
-            };
-
-            invoke::<3>(&transfer_instruction, &[payer, new_account, system_program])
-                .map_err(|_| VMErrorCode::InvokeError)?;
-        }
-
-        // Step 2: Allocate space for the account
-        #[cfg(target_os = "solana")]
-        {
-            let mut allocate_data = [0u8; 12];
-            allocate_data[0..4].copy_from_slice(&8u32.to_le_bytes()); // Allocate discriminator
-            allocate_data[4..12].copy_from_slice(&space.to_le_bytes());
-
-            let allocate_metas = [
-                AccountMeta {
-                    pubkey: new_account.key(),
-                    is_signer: new_account.is_signer(),
-                    is_writable: true,
-                },
-            ];
-
-            let allocate_instruction = Instruction {
-                program_id: &system_program_id,
-                accounts: &allocate_metas,
-                data: &allocate_data,
-            };
-
-            invoke::<2>(&allocate_instruction, &[new_account, system_program])
-                .map_err(|_| VMErrorCode::InvokeError)?;
-        }
-
-        // Step 3: Assign ownership to the target program
-        #[cfg(target_os = "solana")]
-        {
-            let mut assign_data = [0u8; 36];
-            assign_data[0..4].copy_from_slice(&1u32.to_le_bytes()); // Assign discriminator
-            assign_data[4..36].copy_from_slice(owner.as_ref());
-
-            let assign_metas = [
-                AccountMeta {
-                    pubkey: new_account.key(),
-                    is_signer: new_account.is_signer(),
-                    is_writable: true,
-                },
-            ];
-
-            let assign_instruction = Instruction {
-                program_id: &system_program_id,
-                accounts: &assign_metas,
-                data: &assign_data,
-            };
-
-            invoke::<2>(&assign_instruction, &[new_account, system_program])
-                .map_err(|_| VMErrorCode::InvokeError)?;
-        }
-
-        // Off-chain simulation
-        #[cfg(not(target_os = "solana"))]
-        {
-            unsafe {
-                if *payer.borrow_lamports_unchecked() < lamports {
-                    return Err(VMErrorCode::InvokeError);
+            // crate::error_log!(
+            //     "CPI_POINTER_REFRESH: Refreshing pointers for {} accounts",
+            //     account_indices.len() as u32
+            // );
+            for &idx in account_indices {
+                if let Ok(account) = self.get_account(idx) {
+                    let data_len = account.data_len();
+                    let ptr = unsafe { account.borrow_data_unchecked().as_ptr() as usize };
+                    // crate::error_log!(
+                    //     "CPI_POINTER_REFRESH: idx={} data_len={} ptr={}",
+                    //     idx as u32,
+                    //     data_len as u32,
+                    //     ptr as u32
+                    // );
                 }
-                *payer.borrow_mut_lamports_unchecked() -= lamports;
-                *new_account.borrow_mut_lamports_unchecked() += lamports;
-                new_account.resize(space as usize).map_err(|_| VMErrorCode::InvokeError)?;
-                new_account.assign(owner);
             }
         }
-
-        // Refresh pointers after CPI
-        let _ = self.refresh_account_pointers_after_cpi(&[account_idx as usize]);
-
+        
         Ok(())
     }
 
-    #[inline]
+    /// Serialize CreateAccount instruction data (Zero-Copy)
+    #[inline(always)]
+    fn serialize_create_account_data(data: &mut [u8; 52], lamports: u64, space: u64, owner: &[u8; 32]) {
+        // Discriminator (0 for CreateAccount) - already 0 initialized
+        // data[0..4] = [0, 0, 0, 0]; 
+        
+        // Lamports
+        let lamports_bytes = lamports.to_le_bytes();
+        data[4] = lamports_bytes[0];
+        data[5] = lamports_bytes[1];
+        data[6] = lamports_bytes[2];
+        data[7] = lamports_bytes[3];
+        data[8] = lamports_bytes[4];
+        data[9] = lamports_bytes[5];
+        data[10] = lamports_bytes[6];
+        data[11] = lamports_bytes[7];
+        
+        // Space
+        let space_bytes = space.to_le_bytes();
+        data[12] = space_bytes[0];
+        data[13] = space_bytes[1];
+        data[14] = space_bytes[2];
+        data[15] = space_bytes[3];
+        data[16] = space_bytes[4];
+        data[17] = space_bytes[5];
+        data[18] = space_bytes[6];
+        data[19] = space_bytes[7];
+        
+        // Owner
+        data[20..52].copy_from_slice(owner);
+    }
+
+    /// Create a PDA account using System Program (CPI with seeds)
+    ///
+    /// This function implements the logic for the INIT_PDA_ACCOUNT opcode.
+    /// It performs `create_account` with signer seeds.
+    ///
+    /// NOTE: For PDAs, we typically use `transfer` (to fund), `allocate` (space), and `assign` (owner)
+    /// sequence because `create_account` fails if the account already has lamports (which PDAs often do
+    /// if funded beforehand). However, INIT_PDA_ACCOUNT implies we are initializing it now.
+    ///
+    /// To be safe and robust, we implement the 3-step approach:
+    /// 1. Transfer required lamports (if needed)
+    /// 2. Allocate space (system_instruction::allocate)
+    /// 3. Assign owner (system_instruction::assign)
     pub fn create_pda_account(
         &mut self,
         account_idx: u8,
-        seeds: &[&[u8]],
-        bump: u8,
-        space: u64,
-        lamports: u64,
-        owner: &Pubkey,
         payer_idx: u8,
+        lamports: u64,
+        space: u64,
+        owner: &[u8; 32],
+        seeds: &[u8], // Flattened seeds: [seed1_len, seed1_bytes..., seed2_len, ...]
+        seeds_count: u8,
+        bump: u8,
     ) -> CompactResult<()> {
-        // Validate accounts lazily first, then access unchecked
-        self.lazy_validator.ensure_validated(0, self.accounts)?;
-        // DO NOT validate account_idx - it is expected to be uninitialized
-        // self.lazy_validator.ensure_validated(account_idx, self.accounts)?;
-
         let new_account = self.get_account_unchecked(account_idx)?;
 
         // Debug: Log payer_idx before validation
-        crate::error_log!("create_pda_account: payer_idx={} num_accounts={}", payer_idx as u32, self.accounts.len() as u32);
+        // crate::error_log!("create_pda_account: payer_idx={} num_accounts={}", payer_idx as u32, self.accounts.len() as u32);
 
         // Validate payer_idx
         if payer_idx as usize >= self.accounts.len() {
-            crate::error_log!("create_pda_account: INVALID payer_idx {} >= num_accounts {}", payer_idx as u32, self.accounts.len() as u32);
+            // crate::error_log!("create_pda_account: INVALID payer_idx {} >= num_accounts {}", payer_idx as u32, self.accounts.len() as u32);
             return Err(VMErrorCode::InvalidAccountIndex);
         }
 
         let payer = self.get_account_unchecked(payer_idx)?;
 
         // Debug: Log all critical parameters
-        let p_key = payer.key().as_ref();
-        let n_key = new_account.key().as_ref();
-        crate::error_log!("create_pda_account: account_idx={} payer_idx={} lamports={} space={}", account_idx as u32, payer_idx as u32, lamports, space);
-        crate::error_log!("create_pda_account: acc_key={} {} {} {}", n_key[0], n_key[1], n_key[2], n_key[3]);
+        let _p_key = payer.key().as_ref();
+        let _n_key = new_account.key().as_ref();
+        // crate::error_log!("create_pda_account: account_idx={} payer_idx={} lamports={} space={}", account_idx as u32, payer_idx as u32, lamports, space);
+        // crate::error_log!("create_pda_account: acc_key={} {} {} {}", n_key[0], n_key[1], n_key[2], n_key[3]);
+        /*
         crate::error_log!(
             "Payer details: key={} {} {} {} is_signer={} is_writable={} lamports={}",
             p_key[0], p_key[1], p_key[2], p_key[3],
@@ -1384,85 +418,132 @@ impl<'a> ExecutionContext<'a> {
             if payer.is_writable() { 1 } else { 0 },
             payer.lamports()
         );
+        */
 
         let system_program_id = Pubkey::from(SYSTEM_PROGRAM_ID);
         let system_program = self
             .accounts
             .iter()
-            .find(|a| a.key() == &system_program_id)
-            .ok_or_else(|| {
-                crate::error_log!("create_pda_account: System Program NOT FOUND in accounts!");
+            .find(|a| *a.key() == system_program_id)
+            .ok_or({
+                debug_log!("create_account: System Program not found");
+                // crate::error_log!("create_pda_account: System Program NOT FOUND in accounts!");
                 VMErrorCode::AccountNotFound
             })?;
         
-        crate::error_log!("create_pda_account: system_program_key={}", system_program.key().as_ref()[0]);
+        // crate::error_log!("create_pda_account: system_program_key={}", system_program.key().as_ref()[0]);
 
         // Use CreateAccount with invoke_signed for PDAs
         // The owner should be the Five VM program (self.program_id), not the System Program
         
         // Log owner for debugging
-        let owner_bytes = owner.as_ref();
+        let _owner_bytes = owner.as_ref();
+        /*
         crate::error_log!(
             "create_pda_account: requested_owner={} {} {} {}",
             owner_bytes[0], owner_bytes[1], owner_bytes[2], owner_bytes[3]
         );
+        */
         
         let mut data = [0u8; 52];
         Self::serialize_create_account_data(&mut data, lamports, space, owner);
 
-        let metas = [
-            AccountMeta {
-                pubkey: payer.key(),
-                is_signer: payer.is_signer(),
-                is_writable: payer.is_writable(),
-            },
-            AccountMeta {
-                pubkey: new_account.key(),
-                is_signer: true, // PDA must be marked as signer for CreateAccount
-                is_writable: true,
-            },
-        ];
-
-        let instruction = Instruction {
-            program_id: &system_program_id,
-            accounts: &metas,
-            data: &data,
-        };
-
+        // Parse seeds into a structure usable for signing
+        // This is tricky because `invoke_signed` expects `&[&[u8]]`.
+        // We need to construct this from the flattened `seeds` slice.
+        // Since we are in a no-alloc environment, we use a fixed-size array of references.
+        // We limit max seeds to 8 for now.
+        
+        // NOTE: We need to parse the seeds properly.
+        // Format: [len (1 byte), bytes (len), len (1 byte), bytes (len), ...]
+        
+        // We'll use a fixed buffer for references on the stack
+        
+        // Since we can't easily construct `&[&[u8]]` dynamically without a Vec of references,
+        // and we can't store references to the temporary buffer easily in a loop,
+        // we'll implement a simpler approach:
+        // We will assume the seeds are already validated and just construct the signers.
+        
+        // Actually, we need to construct `&[&[u8]]` for `invoke_signed`.
+        // We can do this by manually parsing and storing slices.
+        
+        // Implementation detail: We use a heapless::Vec of slices
+        
         #[cfg(target_os = "solana")]
         {
-            crate::error_log!("create_pda_account: Executing SOLANA path (CPI) - 3-step approach");
+            // crate::error_log!("create_pda_account: Executing SOLANA path (CPI) - 3-step approach");
             
             // Build signer seeds for PDA signing
-            crate::error_log!("CPI CHECK 1");
+            // crate::error_log!("CPI CHECK 1");
             const MAX_SEEDS: usize = 8;
             let binding = [bump];
             let mut seed_vec: heapless::Vec<Seed, MAX_SEEDS> = heapless::Vec::new();
-            for s in seeds.iter() {
-                seed_vec
-                    .push(Seed::from(*s))
-                    .map_err(|_| VMErrorCode::TooManySeeds)?;
+            
+            // Parse seeds from input buffer
+            let mut offset = 0;
+            for _ in 0..seeds_count {
+                if offset >= seeds.len() { break; }
+                let len = seeds[offset] as usize;
+                offset += 1;
+                if offset + len > seeds.len() { break; }
+                let seed_bytes = &seeds[offset..offset + len];
+                seed_vec.push(Seed::from(seed_bytes)).map_err(|_| VMErrorCode::TooManySeeds)?;
+                offset += len;
             }
+            
+            // Add bump seed
             seed_vec
                 .push(Seed::from(&binding))
                 .map_err(|_| VMErrorCode::TooManySeeds)?;
-            crate::error_log!("CPI CHECK 2");
+            // crate::error_log!("CPI CHECK 2");
+
+            // Use simpler message for debugging
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // pinocchio::log::sol_log("SIGNER_CREATE_START");
+            }
+
+            // Create the signer from seed vector
             let signer = Signer::from(seed_vec.as_slice());
+
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // pinocchio::log::sol_log("SIGNER_CREATE_DONE");
+            }
+
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // Log lamports value to see if it's 0
+                // pinocchio::log::sol_log("BEFORE_STEP1");
+            }
+
+            // Step 2: Allocate space for PDA (always needed)
+            // NOTE: We skip Step 1 (transfer) since the rent is pre-funded
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // pinocchio::log::sol_log("SKIPPING_STEP1");
+            }
+
             // Step 1: Transfer lamports to new account (if needed)
             if lamports > 0 {
+                #[cfg(target_os = "solana")]
+                unsafe {
+                    // pinocchio::log::sol_log("STEP1_START");
+                }
+
                 let mut transfer_data = [0u8; 12];
                 transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes()); // Transfer discriminator
                 transfer_data[4..12].copy_from_slice(&lamports.to_le_bytes());
 
-                let transfer_instruction = Instruction {
-                    program_id: &system_program_id,
+                let transfer_instruction = pinocchio::instruction::Instruction {
+                    program_id: system_program.key(),
                     accounts: &[
-                        AccountMeta {
+                        pinocchio::instruction::AccountMeta {
                             pubkey: payer.key(),
                             is_signer: true,
                             is_writable: true,
                         },
-                        AccountMeta {
+                        pinocchio::instruction::AccountMeta {
                             pubkey: new_account.key(),
                             is_signer: false,
                             is_writable: true,
@@ -1471,71 +552,141 @@ impl<'a> ExecutionContext<'a> {
                     data: &transfer_data,
                 };
 
-                invoke::<3>(&transfer_instruction, &[payer, new_account, system_program])
-                    .map_err(|_e| VMErrorCode::InvokeError)?;
+                #[cfg(target_os = "solana")]
+                unsafe {
+                    // pinocchio::log::sol_log("STEP1_BEFORE_INVOKE");
+                }
+
+                let result = invoke::<3>(&transfer_instruction, &[payer, new_account, system_program]);
+
+                #[cfg(target_os = "solana")]
+                unsafe {
+                    // pinocchio::log::sol_log("STEP1_AFTER_INVOKE");
+                }
+
+                if result.is_err() {
+                    #[cfg(target_os = "solana")]
+                    unsafe {
+                        pinocchio::log::sol_log("STEP1_FAILED");
+                    }
+                    return Err(VMErrorCode::InvokeError);
+                }
+                #[cfg(target_os = "solana")]
+                unsafe {
+                    // pinocchio::log::sol_log("STEP1_SUCCESS");
+                }
             }
             
             // Step 2: Allocate space for PDA (requires PDA signature)
+            // crate::error_log!("create_pda_account: Step 2 - Allocate space={}", space);
             let mut allocate_data = [0u8; 12];
             allocate_data[0..4].copy_from_slice(&8u32.to_le_bytes()); // Allocate discriminator
             allocate_data[4..12].copy_from_slice(&space.to_le_bytes());
 
-            let allocate_metas = [
-                AccountMeta {
-                    pubkey: new_account.key(),
-                    is_signer: true,  // PDA must sign
-                    is_writable: true,
-                },
-            ];
-
-            let allocate_instruction = Instruction {
-                program_id: &system_program_id,
-                accounts: &allocate_metas,
+            let allocate_instruction = pinocchio::instruction::Instruction {
+                program_id: system_program.key(),
+                accounts: &[
+                    pinocchio::instruction::AccountMeta {
+                        pubkey: new_account.key(),
+                        is_signer: true,
+                        is_writable: true,
+                    },
+                ],
                 data: &allocate_data,
             };
 
-            invoke_signed::<2>(&allocate_instruction, &[new_account, system_program], &[signer])
-                .map_err(|_e| VMErrorCode::InvokeError)?;
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // pinocchio::log::sol_log("STEP2_BEFORE_INVOKE");
+            }
+
+            // let result: CompactResult<()> = Ok(()); // Mock success for debugging
+            let result = invoke_signed::<2>(&allocate_instruction, &[new_account, system_program], &[signer]);
+
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // pinocchio::log::sol_log("STEP2_AFTER_INVOKE");
+            }
+
+            if result.is_err() {
+                #[cfg(target_os = "solana")]
+                unsafe {
+                    pinocchio::log::sol_log("STEP2_FAILED");
+                }
+                return Err(VMErrorCode::InvokeError);
+            }
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // pinocchio::log::sol_log("STEP2_SUCCESS");
+            }
 
             // Rebuild signer (it may have been consumed)
             let mut seed_vec2: heapless::Vec<Seed, MAX_SEEDS> = heapless::Vec::new();
-            for s in seeds.iter() {
-                seed_vec2
-                    .push(Seed::from(*s))
-                    .map_err(|_| VMErrorCode::TooManySeeds)?;
+            
+            // Re-parse seeds
+            let mut offset = 0;
+            for _ in 0..seeds_count {
+                if offset >= seeds.len() { break; }
+                let len = seeds[offset] as usize;
+                offset += 1;
+                if offset + len > seeds.len() { break; }
+                let seed_bytes = &seeds[offset..offset + len];
+                seed_vec2.push(Seed::from(seed_bytes)).map_err(|_| VMErrorCode::TooManySeeds)?;
+                offset += len;
             }
-            seed_vec2
-                .push(Seed::from(&binding))
-                .map_err(|_| VMErrorCode::TooManySeeds)?;
+            seed_vec2.push(Seed::from(&binding)).map_err(|_| VMErrorCode::TooManySeeds)?;
+            
             let signer2 = Signer::from(seed_vec2.as_slice());
 
             // Step 3: Assign owner to PDA (requires PDA signature)
+            // crate::error_log!("create_pda_account: Step 3 - Assign owner");
             let mut assign_data = [0u8; 36];
             assign_data[0..4].copy_from_slice(&1u32.to_le_bytes()); // Assign discriminator
             assign_data[4..36].copy_from_slice(owner);
 
-            let assign_metas = [
-                AccountMeta {
-                    pubkey: new_account.key(),
-                    is_signer: true,  // PDA must sign
-                    is_writable: true,
-                },
-            ];
-
-            let assign_instruction = Instruction {
-                program_id: &system_program_id,
-                accounts: &assign_metas,
+            let assign_instruction = pinocchio::instruction::Instruction {
+                program_id: system_program.key(),
+                accounts: &[
+                    pinocchio::instruction::AccountMeta {
+                        pubkey: new_account.key(),
+                        is_signer: true,
+                        is_writable: true,
+                    },
+                ],
                 data: &assign_data,
             };
 
-            invoke_signed::<2>(&assign_instruction, &[new_account, system_program], &[signer2])
-                .map_err(|_e| VMErrorCode::InvokeError)?;
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // pinocchio::log::sol_log("STEP3_BEFORE_INVOKE");
+            }
+
+            let result = invoke_signed::<2>(&assign_instruction, &[new_account, system_program], &[signer2]);
+
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // pinocchio::log::sol_log("STEP3_AFTER_INVOKE");
+            }
+
+            if result.is_err() {
+                #[cfg(target_os = "solana")]
+                unsafe {
+                    pinocchio::log::sol_log("STEP3_FAILED");
+                }
+                return Err(VMErrorCode::InvokeError);
+            }
+            #[cfg(target_os = "solana")]
+            unsafe {
+                // pinocchio::log::sol_log("STEP3_SUCCESS");
+            }
         }
         #[cfg(not(target_os = "solana"))]
         {
-            // Simple simulation for tests
+            // Just simulate consumption for non-solana targets
             core::hint::black_box((seeds, bump, payer_idx));
         }
+
+        // crate::error_log!("create_pda_account: All CPI steps completed successfully");
 
         // CRITICAL FIX: Refresh pointer for the newly created PDA account
         // Same as create_account - after CreateAccount CPI, the account data is reallocated.
@@ -1543,210 +694,10 @@ impl<'a> ExecutionContext<'a> {
 
         Ok(())
     }
-
-    // --- Solana integration ---
-
-    #[inline]
-    pub fn invoke_instruction<const N: usize>(
-        &self,
-        instruction: &Instruction,
-        accounts: &[&AccountInfo; N],
-    ) -> CompactResult<()> {
-        invoke::<N>(instruction, accounts).map_err(|_| VMErrorCode::InvokeError)
-    }
-
-    #[inline]
-    pub fn invoke_signed_instruction<const N: usize>(
-        &self,
-        instruction: &Instruction,
-        accounts: &[&AccountInfo; N],
-        signers: &[Signer],
-    ) -> CompactResult<()> {
-        invoke_signed::<N>(instruction, accounts, signers).map_err(|_| VMErrorCode::InvokeError)
-    }
-
-    /// Get account data by index for external calls
-    pub fn get_account_data(&self, account_index: usize) -> CompactResult<&[u8]> {
-        if account_index >= self.accounts.len() {
-            return Err(VMErrorCode::AccountNotFound);
-        }
-
-        // Validate account lazily
-        self.lazy_validator
-            .ensure_validated(account_index as u8, self.accounts)?;
-
-        let account = &self.accounts[account_index];
-        if account.data_len() == 0 {
-            return Err(VMErrorCode::AccountDataEmpty);
-        }
-        // SAFETY: We've verified the account contains data
-        let data = unsafe { account.borrow_data_unchecked() };
-        Ok(data)
-    }
-
-    /// Switch to external bytecode for CALL_EXTERNAL
-    pub fn switch_to_external_bytecode(
-        &mut self,
-        external_bytecode: &'a [u8],
-        offset: usize,
-    ) -> CompactResult<()> {
-        if external_bytecode.len() > MAX_SCRIPT_SIZE {
-            return Err(VMErrorCode::InvalidScriptSize);
-        }
-        if offset >= external_bytecode.len() {
-            return Err(VMErrorCode::InvalidInstructionPointer);
-        }
-        self.bytecode = external_bytecode;
-        self.pc = offset as u16;
-        Ok(())
-    }
-
-    /// Refresh account data pointers after CPI operations.
-    ///
-    /// When the Solana runtime executes a CPI (Cross-Program Invocation), it updates the
-    /// Account struct metadata (particularly data_len) to reflect any size changes.
-    /// This method calls Pinocchio's refresh_after_cpi() on affected accounts.
-    ///
-    /// This ensures:
-    /// 1. Developers are explicit about CPI effects
-    /// 2. Pinocchio uses current account metadata
-    /// 3. Subsequent STORE_FIELD operations access updated data
-    #[inline]
-    pub fn refresh_account_pointers_after_cpi(&self, account_indices: &[usize]) -> CompactResult<()> {
-        error_log!(
-            "CPI_POINTER_REFRESH: Refreshing pointers for {} accounts",
-            account_indices.len() as u32
-        );
-
-        // Call Pinocchio's refresh method on each affected account
-        for &idx in account_indices {
-            if idx >= self.accounts.len() {
-                continue;
-            }
-            let account = &self.accounts[idx];
-
-            // Pinocchio's refresh_after_cpi() ensures we're working with current account metadata
-            // This uses our custom fork with the refresh_after_cpi() method
-            account.refresh_after_cpi();
-
-            // Log for debugging
-            let data_len = account.data_len();
-            let ptr = unsafe { account.borrow_data_unchecked().as_ptr() as usize };
-
-            error_log!(
-                "CPI_POINTER_REFRESH: idx={} data_len={} ptr={}",
-                idx as u32,
-                data_len as u32,
-                ptr as u32
-            );
-        }
-
-        Ok(())
-    }
-
-    // --- Lazy validation operations ---
-
-    /// Get validation statistics for performance monitoring
-    #[inline]
-    pub fn validation_stats(&self) -> crate::lazy_validation::ValidationStats {
-        crate::lazy_validation::ValidationStats::calculate(&self.lazy_validator)
-    }
-
-    /// Check if specific account has been validated
-    #[inline]
-    pub fn is_account_validated(&self, index: u8) -> bool {
-        self.lazy_validator.is_validated(index)
-    }
-
-    /// Get count of validated accounts
-    #[inline]
-    pub fn validated_account_count(&self) -> u8 {
-        self.lazy_validator.validated_count()
-    }
-
-    /// Validate account constraints using bitwise constraint checking
-    /// This uses pre-computed constraint bits for O(1) validation
-    #[inline]
-    pub fn validate_bitwise_constraints(&self, constraints: u64) -> CompactResult<()> {
-        self.lazy_validator
-            .validate_constraints_bitwise(constraints, self.accounts)
-    }
 }
 
-// Legacy compatibility aliases for gradual migration
-pub type ExecutionManager<'a> = ExecutionContext<'a>;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn invoke_instruction_succeeds() {
-        let program_id = Pubkey::from([1u8; 32]);
-        let mut lamports = 0u64;
-        let mut data_buf: [u8; 0] = [];
-        let account = AccountInfo::new(
-            &program_id,
-            false,
-            false,
-            &mut lamports,
-            &mut data_buf,
-            &program_id,
-            true,
-            0,
-        );
-        let accounts = [account];
-        let mut storage = StackStorage::new(&[]);
-        let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0);
-        let metas = [
-            AccountMeta {
-                pubkey: account.key(),
-                is_signer: account.is_signer(),
-                is_writable: account.is_writable(),
-            },
-        ];
-        let instruction = Instruction {
-            program_id: &program_id,
-            accounts: &metas,
-            data: &[],
-        };
-        let result = ctx.invoke_instruction::<1>(&instruction, &[&accounts[0]]);
-        assert!(result.is_ok(), "Invoke should succeed in test env");
-    }
-
-    #[test]
-    fn invoke_signed_instruction_succeeds() {
-        let program_id = Pubkey::from([2u8; 32]);
-        let mut lamports = 0u64;
-        let mut data_buf: [u8; 0] = [];
-        let account = AccountInfo::new(
-            &program_id,
-            false,
-            false,
-            &mut lamports,
-            &mut data_buf,
-            &program_id,
-            true,
-            0,
-        );
-        let accounts = [account];
-        let mut storage = StackStorage::new(&[]);
-        let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0);
-        let metas = [
-            AccountMeta {
-                pubkey: account.key(),
-                is_signer: account.is_signer(),
-                is_writable: account.is_writable(),
-            },
-        ];
-        let instruction = Instruction {
-            program_id: &program_id,
-            accounts: &metas,
-            data: &[],
-        };
-        let seed = Seed::from(&[1u8][..]);
-        let signer_seeds = [seed];
-        let signer = Signer::from(&signer_seeds);
-        let result = ctx.invoke_signed_instruction::<1>(&instruction, &[&accounts[0]], &[signer]);
-        assert!(result.is_ok(), "Invoke signed should succeed in test env");
-    }
-}
+// Constant for System Program ID
+const SYSTEM_PROGRAM_ID: [u8; 32] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];

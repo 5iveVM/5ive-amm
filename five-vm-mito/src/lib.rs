@@ -173,7 +173,9 @@ pub mod enhanced_opcodes {
 #[cfg(feature = "debug-logs")]
 macro_rules! debug_log {
     ($($arg:tt)*) => {
-        pinocchio_log::log!($($arg)*);
+        unsafe {
+            pinocchio_log::log!($($arg)*);
+        }
     };
 }
 
@@ -189,10 +191,7 @@ macro_rules! error_log {
     ($($arg:tt)*) => {
         #[cfg(target_os = "solana")]
         unsafe {
-            // Very hacky formatting for no_std
             pinocchio::log::sol_log("VM ERROR:");
-            // We can't easily format! in no_std without alloc, so just log a marker
-            // Ideally we would use pinocchio_log if available
             #[cfg(feature = "debug-logs")]
             pinocchio_log::log!($($arg)*);
         }
