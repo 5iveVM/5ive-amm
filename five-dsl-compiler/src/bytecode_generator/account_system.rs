@@ -445,8 +445,8 @@ impl AccountSystem {
                     "u64" | "i64" => Ok(8),
                     "bool" => Ok(1),
                     "pubkey" => Ok(32),
-                    "string" => Ok(32), // Default string size
-                    _ => Ok(8),         // Default to 64-bit
+                    // "string" fallback removed - require TypeNode::Sized
+                    _ => Err(VMError::TypeMismatch),
                 }
             }
             TypeNode::Sized { base_type, size } => match base_type.as_str() {
@@ -455,9 +455,13 @@ impl AccountSystem {
             },
             TypeNode::Array { element_type, size } => {
                 let element_size = self.calculate_type_size(element_type)?;
-                Ok(element_size * (size.unwrap_or(1) as u32))
+                let array_size = size.ok_or_else(|| {
+                    println!("ERROR: Array type missing size specification");
+                    VMError::TypeMismatch
+                })?;
+                Ok(element_size * (array_size as u32))
             }
-            _ => Ok(8), // Default size
+            _ => Err(VMError::TypeMismatch),
         }
     }
 

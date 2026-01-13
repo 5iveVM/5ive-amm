@@ -88,33 +88,18 @@ impl ASTGenerator {
             println!("AST Generator: WARNING - No AccountSystem available");
         }
 
-        // Fallback to legacy heuristic if AccountSystem is not available
-        // This maintains backward compatibility during transition
-        println!("DSL Compiler WARNING: AccountSystem not available, using legacy heuristic for field '{}' in account '{}'",
-            field_name, account_name);
+        // No fallback heuristic - AccountSystem is required for proper field offset resolution.
+        // The old hardcoded heuristic returned incorrect offsets that varied by account type:
+        // - TokenAccount.owner is at offset 0, but heuristic said 40
+        // - TokenAccount.delegate is at offset 81, but heuristic said 72
+        // These silent bugs caused functions to read/write wrong account fields at runtime.
+        // Now all account types must be properly registered in AccountSystem for correct offsets.
+        println!("DSL Compiler ERROR: Cannot resolve field offset without AccountSystem");
+        println!("  Account: '{}'", account_name);
+        println!("  Field: '{}'", field_name);
+        println!("  Fix: Ensure the account type is defined in your Five script");
 
-        match field_name {
-            // Standard u64 fields (8 bytes each)
-            "count" | "amount" | "balance" | "value" => Ok(0),
-            "total" | "supply" | "max_supply" => Ok(8),
-            "fee" | "rate" | "timestamp" => Ok(16),
-            "nonce" | "sequence" | "version" => Ok(24),
-
-            // Boolean fields (1 byte each, but aligned to 8-byte boundaries)
-            "is_active" | "is_frozen" | "has_authority" => Ok(32),
-            "is_mutable" | "is_initialized" => Ok(33),
-
-            // Pubkey fields (32 bytes each)
-            "authority" | "owner" | "mint" => Ok(40),
-            "delegate" | "close_authority" => Ok(72),
-
-            // Unknown field - return specific error
-            _ => {
-                println!("DSL Compiler ERROR: Unknown field '{}' for account '{}' and no AccountSystem available",
-                    field_name, account_name);
-                Err(VMError::UndefinedAccountField)
-            }
-        }
+        Err(VMError::UndefinedAccountField)
     }
 
     /// Helper to extract account type name from TypeNode
@@ -177,9 +162,7 @@ impl ASTGenerator {
             
             println!("AST Generator: Auto-calculating space for account type '{}' (@init)", type_name);
             
-            let mut calculated_size = 1024; // Default fallback (increased from 32 to 1024 for safety)
-            
-            if let Some(account_system) = &self.account_system {
+            let calculated_size = if let Some(account_system) = &self.account_system {
                 let registry = account_system.get_account_registry();
                 // Lookup with namespace support
                 let namespace_suffix = format!("::{}", type_name);
@@ -188,17 +171,18 @@ impl ASTGenerator {
                         registry.account_types.iter()
                             .find(|(k, _)| k.ends_with(&namespace_suffix))
                             .map(|(_, v)| v)
-                    });
+                    })
+                    .ok_or_else(|| {
+                        println!("AST Generator: ERROR - Account type '{}' not found in registry", type_name);
+                        VMError::UndefinedAccountField
+                    })?;
                 
-                if let Some(info) = account_info {
-                    calculated_size = info.total_size as u64; // Just fields size
-                    println!("AST Generator: Found account definition, size={}, total required={}", info.total_size, calculated_size);
-                } else {
-                    println!("AST Generator: WARNING - Account type '{}' not found in registry, using default size {}", type_name, calculated_size);
-                }
+                println!("AST Generator: Found account definition, size={}, total required={}", account_info.total_size, account_info.total_size as u64);
+                account_info.total_size as u64
             } else {
-                println!("AST Generator: WARNING - AccountSystem not available for space calculation");
-            }
+                println!("AST Generator: ERROR - AccountSystem not available for space calculation");
+                return Err(VMError::InvalidScript);
+            };
             
             calculated_size
         };

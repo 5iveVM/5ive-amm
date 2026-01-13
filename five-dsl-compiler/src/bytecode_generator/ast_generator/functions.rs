@@ -286,8 +286,13 @@ impl ASTGenerator {
                         emitter.emit_opcode(CALL_EXTERNAL);
                         emitter.emit_u8(ext_import.account_index);
                         
-                        // Get function offset (default to 0 if not found)
-                        let func_offset = ext_import.functions.get(func_name).copied().unwrap_or(0);
+                        // Get function offset (error if not found)
+                        let func_offset = ext_import.functions.get(func_name)
+                            .copied()
+                            .ok_or_else(|| {
+                                println!("DEBUG: Function '{}' not found in external interface", func_name);
+                                VMError::InvalidScript
+                            })?;
                         println!("DEBUG: Function '{}' offset: {}", func_name, func_offset);
                         // Reverting to u16 to match the VM's expectation
                         emitter.emit_u16(func_offset);
@@ -592,7 +597,16 @@ impl ASTGenerator {
              }
              (TypeNode::Primitive(name), _) if name == "u64" => {
                  // Generate code to put u64 value on stack
-                  if let AstNode::Literal(val) = arg { let v = val.as_i64().map(|i| i as u64).or(val.as_u64()).unwrap_or(0); emitter.emit_opcode(PUSH_U64); emitter.emit_vle_u64(v); } else { self.generate_ast_node(emitter, arg)?; }
+                  if let AstNode::Literal(val) = arg {
+                        let v = val.as_i64()
+                            .map(|i| i as u64)
+                            .or(val.as_u64())
+                            .ok_or(VMError::TypeMismatch)?;
+                        emitter.emit_opcode(PUSH_U64);
+                        emitter.emit_vle_u64(v);
+                    } else {
+                        self.generate_ast_node(emitter, arg)?;
+                    }
                  
                  // We need to split this u64 into 8 u8s on the stack.
                  // Using temp local strategy

@@ -139,9 +139,18 @@ impl ASTGenerator {
                         let acc_type = &self.local_symbol_table.get(account_name).unwrap().field_type;
                         let field_type = if let Some(sys) = &self.account_system {
                             if let Some(reg) = sys.get_account_registry().account_types.get(acc_type) {
-                                reg.fields.get(&bulk_group[k].2).map(|f| f.field_type.clone()).unwrap_or("u64".to_string())
-                            } else { "u64".to_string() }
-                        } else { "u64".to_string() }; // Fallback
+                                reg.fields.get(&bulk_group[k].2)
+                                    .map(|f| f.field_type.clone())
+                                    .ok_or_else(|| {
+                                        println!("ERROR: Field '{}' not found in account registry", bulk_group[k].2);
+                                        VMError::UndefinedAccountField
+                                    })?
+                            } else {
+                                return Err(VMError::UndefinedAccountField);
+                            }
+                        } else {
+                            return Err(VMError::InvalidScript);
+                        };
 
                         // Allocation logic (simplified from mod.rs)
                         let offset = self.field_counter;

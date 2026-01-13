@@ -121,7 +121,7 @@ impl ASTGenerator {
                 } else if let Some(field_info) = self.global_symbol_table.get(name) {
                     Ok(field_info.field_type.clone())
                 } else {
-                    Ok("unknown".to_string())
+                    Err(VMError::TypeMismatch)
                 }
             }
             AstNode::FunctionCall { name, .. } => {
