@@ -96,8 +96,74 @@ export class FiveSDK {
     }
   }
 
+  /**
+   * Poll for transaction confirmation with extended timeout
+   * Handles cases where the validator is slow to include transactions
+   */
+  private static async pollForConfirmation(
+    connection: any,
+    signature: string,
+    commitment: string = "confirmed",
+    timeoutMs: number = 120000,
+    debug: boolean = false
+  ): Promise<{
+    success: boolean;
+    err?: any;
+    error?: string;
+  }> {
+    const startTime = Date.now();
+    const pollIntervalMs = 1000; // Poll every 1 second
 
+    if (debug) {
+      console.log(`[FiveSDK] Starting confirmation poll with ${timeoutMs}ms timeout`);
+    }
 
+    while (Date.now() - startTime < timeoutMs) {
+      try {
+        const confirmationStatus = await connection.getSignatureStatus(signature);
+
+        if (debug && (Date.now() - startTime) % 10000 < 1000) {
+          console.log(`[FiveSDK] Confirmation status: ${JSON.stringify(confirmationStatus.value)}`);
+        }
+
+        if (confirmationStatus.value) {
+          // Transaction found in the blockchain
+          if (confirmationStatus.value.confirmationStatus === commitment ||
+              confirmationStatus.value.confirmations >= 1) {
+            if (debug) {
+              console.log(
+                `[FiveSDK] Transaction confirmed after ${Date.now() - startTime}ms`
+              );
+            }
+            return {
+              success: true,
+              err: confirmationStatus.value.err,
+            };
+          }
+        }
+
+        // Wait before polling again
+        await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+      } catch (error) {
+        if (debug) {
+          console.log(`[FiveSDK] Polling error: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        // Continue polling despite errors
+        await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+      }
+    }
+
+    // Timeout reached
+    const elapsed = Date.now() - startTime;
+    if (debug) {
+      console.log(`[FiveSDK] Confirmation polling timeout after ${elapsed}ms`);
+    }
+
+    return {
+      success: false,
+      error: `Transaction confirmation timeout after ${elapsed}ms. Signature: ${signature}`,
+    };
+  }
 
 
   // ==================== Static Factory Methods ====================
@@ -1708,19 +1774,20 @@ export class FiveSDK {
     // - Permissions: 0x00 (1 byte)
     // - Bytecode: actual bytecode bytes
 
-    const lengthBytes = new Uint8Array(4);
-    const lengthView = new DataView(lengthBytes.buffer);
-    lengthView.setUint32(0, bytecode.length, true); // little-endian
+    // IMPORTANT: Use Buffer.writeUInt32LE() for proper u32 LE encoding
+    // DataView with Buffer.allocUnsafe().buffer doesn't work correctly in Node.js
+    const lengthBuffer = Buffer.allocUnsafe(4);
+    lengthBuffer.writeUInt32LE(bytecode.length, 0);
 
     const result = new Uint8Array(1 + 4 + 1 + bytecode.length);
     result[0] = 8; // Deploy discriminator (matches on-chain FIVE program)
-    result.set(lengthBytes, 1); // u32 LE length at bytes 1-4
+    result.set(new Uint8Array(lengthBuffer), 1); // u32 LE length at bytes 1-4
     result[5] = permissions; // permissions byte at byte 5
     result.set(bytecode, 6); // bytecode starts at byte 6
 
     console.log(`[FiveSDK] Deploy instruction encoded:`, {
       discriminator: result[0],
-      lengthBytes: Array.from(lengthBytes),
+      lengthBytes: Array.from(new Uint8Array(lengthBuffer)),
       permissions: result[5],
       bytecodeLength: bytecode.length,
       totalInstructionLength: result.length,
@@ -1854,20 +1921,40 @@ export class FiveSDK {
 
     const paramValues: Record<string, any> = {};
 
-    // Map parameters to names and resolve account indices / pubkey conversions
+    // Map parameters to names
     paramDefs.forEach((param: any, index: number) => {
       if (index < parameters.length) {
         let value = parameters[index];
         if (isAccountParam(param)) {
-          if (options.debug) {
-            console.log(`[FiveSDK] Parameter ${index} (${param.name}) is account type, mapping:`, {
-              originalValue: value?.toString?.() || value,
-              accounts: accounts.map((a: string) => a.slice(0, 8) + '...')
-            });
+          // Convert PublicKey objects to base58 strings first
+          let accountPubkey: string | null = null;
+          if (value && typeof value === 'object' && typeof value.toBase58 === 'function') {
+            accountPubkey = value.toBase58();
+          } else if (typeof value === 'string') {
+            accountPubkey = value;
+          } else if (typeof value === 'number') {
+            // If already an index, get the pubkey from accounts array
+            if (value >= 0 && value < accounts.length) {
+              accountPubkey = accounts[value];
+            } else {
+              throw new Error(`Account index ${value} out of bounds. Available accounts: ${accounts.length}`);
+            }
           }
-          value = getAccountIndex(value);
-          if (options.debug) {
-            console.log(`[FiveSDK] Mapped to account index: ${value}`);
+
+          // Find the account index in the accounts array
+          if (accountPubkey) {
+            const accountIndex = accounts.indexOf(accountPubkey);
+            if (accountIndex >= 0) {
+              // Pass the account index (not the pubkey string)
+              // The VLEEncoder will wrap it with metadata so WASM knows it's an account
+              // Add +2 offset to account for script account and VM state PDA that come first in transaction
+              value = accountIndex + 2;
+              if (options.debug) {
+                console.log(`[FiveSDK] Parameter ${index} (${param.name}) is account type, mapped to transaction index: ${value}`);
+              }
+            } else {
+              throw new Error(`Account ${accountPubkey} not found in accounts array`);
+            }
           }
         } else if (isPubkeyParam(param)) {
           // Convert PublicKey objects to base58 strings for WASM encoder
@@ -4129,18 +4216,43 @@ export class FiveSDK {
         console.log(`\n📦 Serialized Size: ${tx.serialize().length} bytes`);
       }
 
-      const signature = await connection.sendRawTransaction(tx.serialize(), {
+      const txSerialized = tx.serialize();
+      if (options.debug) {
+        console.log(`[FiveSDK] Transaction serialized: ${txSerialized.length} bytes`);
+      }
+
+      const signature = await connection.sendRawTransaction(txSerialized, {
         skipPreflight: true,
         preflightCommitment: "confirmed",
         maxRetries: options.maxRetries || 3,
       });
 
-      const confirmation = await connection.confirmTransaction(
+      if (options.debug) {
+        console.log(`[FiveSDK] sendRawTransaction completed, returned signature: ${signature}`);
+      }
+
+      // Custom confirmation polling with extended timeout (120 seconds)
+      // The default confirmTransaction has a 30s timeout which may be too short
+      const confirmationResult = await this.pollForConfirmation(
+        connection,
         signature,
         "confirmed",
+        120000, // 120 second timeout
+        options.debug
       );
-      if (confirmation.value.err) {
-        const errorMessage = `Combined deployment failed: ${JSON.stringify(confirmation.value.err)}`;
+
+      if (!confirmationResult.success) {
+        const errorMessage = `Deployment confirmation failed: ${confirmationResult.error || "Unknown error"}`;
+        if (options.debug) console.log(`[FiveSDK] ${errorMessage}`);
+        return {
+          success: false,
+          error: errorMessage,
+          transactionId: signature,
+        };
+      }
+
+      if (confirmationResult.err) {
+        const errorMessage = `Combined deployment failed: ${JSON.stringify(confirmationResult.err)}`;
         if (options.debug) console.log(`[FiveSDK] ${errorMessage}`);
         return {
           success: false,
