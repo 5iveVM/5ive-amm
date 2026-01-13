@@ -5118,7 +5118,17 @@ export class FiveSDK {
           maxRetries: options.maxRetries || 3,
         },
       );
-      await connection.confirmTransaction(finalizeSignature, "confirmed");
+      // Use custom polling for finalize to handle validator latency
+      const finalizeConfirmation = await this.pollForConfirmation(
+        connection,
+        finalizeSignature,
+        "confirmed",
+        120000, // 120 second timeout
+        options.debug
+      );
+      if (!finalizeConfirmation.success) {
+        console.error(`[FiveSDK] FinalizeScript confirmation failed: ${finalizeConfirmation.error}`);
+      }
       transactionIds.push(finalizeSignature);
       if (options.debug) {
         console.log(`[FiveSDK] ✅ FinalizeScript completed: ${finalizeSignature}`);
