@@ -27,7 +27,7 @@ const result = await FiveSDK.deployLargeProgramOptimizedToSolana(
   deployerKeypair,
   {
     fiveVMProgramId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
-    debug: true,
+    debug: false,
   }
 );
 
