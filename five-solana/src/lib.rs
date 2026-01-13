@@ -15,8 +15,8 @@ use pinocchio::{
 
 // Conditional logging macro for debug/error levels
 #[macro_export]
-macro_rules! log_if_debug {
-    ($level:ident, $fmt:literal $(, $arg:expr)*) => {
+macro_rules! debug_log {
+    ($fmt:literal $(, $arg:expr)*) => {
         #[cfg(feature = "debug-logs")]
         {
             // pinocchio_log requires literal format strings; callers pass literals.
@@ -85,27 +85,26 @@ pub fn process_instruction(
         // pinocchio::log::sol_log_64(0, 0, 0, 0, instruction_data[0] as u64);
     }
 
-    log_if_debug!(
-        debug,
+    debug_log!(
         "FIVE Optimized: Processing instruction with no_allocator"
     );
 
     // Validate we have instruction data
     if instruction_data.is_empty() {
-        log_if_debug!(error, "Error: Empty instruction data");
+        debug_log!("Error: Empty instruction data");
         return Err(ProgramError::InvalidInstructionData);
     }
 
     // Log instruction details for debugging
-    log_if_debug!(debug, "Program ID: {}", program_id);
-    log_if_debug!(debug, "Accounts provided: {}", accounts.len());
+    debug_log!("Program ID: {}", program_id);
+    debug_log!("Accounts provided: {}", accounts.len());
 
     // Detailed account logging
     #[cfg(feature = "debug-logs")]
     for (i, account) in accounts.iter().enumerate() {
         let key_bytes = account.key().as_ref();
         let owner_bytes = account.owner().as_ref();
-        pinocchio_log::log!(
+        debug_log!(
             "  Account {}: Key={} {} Owner={} {} DataLen={} Writable={} Signer={}",
             i,
             key_bytes[0], key_bytes[1],
@@ -116,14 +115,14 @@ pub fn process_instruction(
         );
     }
 
-    log_if_debug!(debug, "Instruction data length: {}", instruction_data.len());
-    log_if_debug!(debug, "Instruction discriminator: {}", instruction_data[0]);
+    debug_log!("Instruction data length: {}", instruction_data.len());
+    debug_log!("Instruction discriminator: {}", instruction_data[0]);
 
     // Deserialize instruction using zero-copy deserialization
     let instruction = match FIVEInstruction::try_from(instruction_data) {
         Ok(ix) => ix,
         Err(e) => {
-            log_if_debug!(error, "Failed to deserialize instruction");
+            debug_log!("Failed to deserialize instruction");
             return Err(e);
         }
     };
@@ -131,12 +130,11 @@ pub fn process_instruction(
     // Process each instruction type
     let result = match instruction {
         FIVEInstruction::Initialize => {
-            log_if_debug!(debug, "Processing Initialize instruction");
+            debug_log!("Processing Initialize instruction");
             instructions::initialize(program_id, accounts)
         }
         FIVEInstruction::InitLargeProgram { expected_size, chunk_data } => {
-            log_if_debug!(
-                debug,
+            debug_log!(
                 "Processing InitLargeProgram instruction (expected size {}, chunk {})",
                 expected_size,
                 chunk_data.map(|c| c.len()).unwrap_or(0)
@@ -144,8 +142,7 @@ pub fn process_instruction(
             instructions::init_large_program(program_id, accounts, expected_size, chunk_data)
         }
         FIVEInstruction::AppendBytecode { data } => {
-            log_if_debug!(
-                debug,
+            debug_log!(
                 "Processing AppendBytecode instruction with {} bytes",
                 data.len()
             );
@@ -155,8 +152,7 @@ pub fn process_instruction(
             deploy_fee_bps,
             execute_fee_bps,
         } => {
-            log_if_debug!(
-                debug,
+            debug_log!(
                 "Processing SetFees instruction: deploy={} bps, execute={} bps",
                 deploy_fee_bps,
                 execute_fee_bps
@@ -164,8 +160,7 @@ pub fn process_instruction(
             instructions::set_fees(program_id, accounts, deploy_fee_bps, execute_fee_bps)
         }
         FIVEInstruction::Deploy { bytecode, permissions } => {
-            log_if_debug!(
-                debug,
+            debug_log!(
                 "Processing Deploy instruction with {} bytes of bytecode, permissions: 0x{}",
                 bytecode.len(),
                 permissions
@@ -182,7 +177,7 @@ pub fn process_instruction(
             instructions::execute(program_id, accounts, params)
         }
         FIVEInstruction::FinalizeScript => {
-            log_if_debug!(debug, "Processing FinalizeScript instruction");
+            debug_log!("Processing FinalizeScript instruction");
             instructions::finalize_script_upload(program_id, accounts)
         }
     };
@@ -190,13 +185,13 @@ pub fn process_instruction(
     // Log result only in debug mode
     match &result {
         Ok(()) => {
-            log_if_debug!(debug, "Instruction processed successfully");
+            debug_log!("Instruction processed successfully");
         }
         Err(e) => {
             #[cfg(feature = "debug-logs")]
             {
                 let code: u64 = (*e).into();
-                log_if_debug!(error, "Instruction failed with error code: {}", code);
+                debug_log!("Instruction failed with error code: {}", code);
             }
             #[cfg(not(feature = "debug-logs"))]
             {

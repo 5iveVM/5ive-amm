@@ -20,21 +20,21 @@
     - [x] Field type defaults
     - [x] External function offset fallbacks
 
-## Phase 3: Advanced Features (Current)
-- [ ] Cross-Program Invocation (CPI)
-    - [ ] `invoke` and `invoke_signed` parsing
-    - [ ] Bytecode generation for CPI
-    - [ ] VM implementation of CPI opcodes
-- [ ] Program Derived Addresses (PDA)
-    - [ ] `derive_pda` and `find_pda` built-ins
-    - [ ] Seed generation and handling
-- [ ] Advanced Account Constraints
-    - [ ] `@init` constraint implementation
-    - [ ] `@seeds` and `@bump` support
-    - [ ] Constraint validation optimization
+## Phase 3: Advanced Features (Completed)
+- [x] Cross-Program Invocation (CPI)
+    - [x] `invoke` and `invoke_signed` parsing
+    - [x] Bytecode generation for CPI
+    - [x] VM implementation of CPI opcodes (via System Program)
+- [x] Program Derived Addresses (PDA)
+    - [x] `derive_pda` and `find_pda` built-ins
+    - [x] Seed generation and handling
+- [x] Advanced Account Constraints
+    - [x] `@init` constraint implementation (Solana account creation via CPI)
+    - [x] `@seeds` and `@bump` support
+    - [x] Constraint validation optimization (CU efficiency fixes)
 
-## Phase 4: Production Readiness
-- [ ] Comprehensive test suite expansion
+## Phase 4: Production Readiness (Current)
+- [x] Comprehensive test suite expansion (Token E2E successful)
 - [ ] Documentation generation
 - [ ] Performance benchmarking and optimization
 - [ ] Security audit fixes

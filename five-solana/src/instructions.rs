@@ -62,7 +62,7 @@ use crate::{
         validate_vm_and_script_accounts, verify_program_owned, has_permission,
         verify_admin_signer, PERMISSION_POST_BYTECODE,
     },
-    log_if_debug,
+    debug_log,
     state::{FIVEVMState, ScriptAccountHeader},
 };
 use five_vm_mito::MitoVM;
@@ -209,24 +209,24 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
     type Error = ProgramError;
 
     fn try_from(data: &'a [u8]) -> Result<Self, ProgramError> {
-        log_if_debug!(debug, "FIVEInstruction::try_from - data length: {}", data.len());
+        debug_log!("FIVEInstruction::try_from - data length: {}", data.len());
 
         if data.is_empty() {
-            log_if_debug!(debug, "FIVEInstruction::try_from - data is empty");
+            debug_log!("FIVEInstruction::try_from - data is empty");
             return Err(ProgramError::InvalidInstructionData);
         }
 
-        log_if_debug!(debug, "FIVEInstruction::try_from - discriminator: {}", data[0]);
+        debug_log!("FIVEInstruction::try_from - discriminator: {}", data[0]);
 
         match data[0] {
             0 => {
-                log_if_debug!(debug, "FIVEInstruction::try_from - Initialize instruction");
+                debug_log!("FIVEInstruction::try_from - Initialize instruction");
                 Ok(FIVEInstruction::Initialize)
             }
             4 => {
-                log_if_debug!(debug, "FIVEInstruction::try_from - InitLargeProgram instruction");
+                debug_log!("FIVEInstruction::try_from - InitLargeProgram instruction");
                 if data.len() < 5 {
-                    log_if_debug!(debug, "FIVEInstruction::try_from - InitLargeProgram: data too short");
+                    debug_log!("FIVEInstruction::try_from - InitLargeProgram: data too short");
                     return Err(ProgramError::InvalidInstructionData);
                 }
                 let expected_size = u32::from_le_bytes(data[1..5].try_into().unwrap());
@@ -234,24 +234,24 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 let chunk_data = if data.len() > 5 { Some(&data[5..]) } else { None };
                 if let Some(chunk) = chunk_data {
                     #[cfg(feature = "debug-logs")]
-                    log_if_debug!(debug, "InitLargeProgram with {} byte first chunk", chunk.len());
+                    debug_log!("InitLargeProgram with {} byte first chunk", chunk.len());
                     #[cfg(not(feature = "debug-logs"))]
                     let _ = chunk;
                 }
                 Ok(FIVEInstruction::InitLargeProgram { expected_size, chunk_data })
             }
             5 => {
-                log_if_debug!(debug, "FIVEInstruction::try_from - AppendBytecode instruction");
+                debug_log!("FIVEInstruction::try_from - AppendBytecode instruction");
                 if data.len() < 2 {
-                    log_if_debug!(debug, "FIVEInstruction::try_from - AppendBytecode: data too short");
+                    debug_log!("FIVEInstruction::try_from - AppendBytecode: data too short");
                     return Err(ProgramError::InvalidInstructionData);
                 }
                 Ok(FIVEInstruction::AppendBytecode { data: &data[1..] })
             }
             6 => {
-                log_if_debug!(debug, "FIVEInstruction::try_from - SetFees instruction");
+                debug_log!("FIVEInstruction::try_from - SetFees instruction");
                 if data.len() < 9 {
-                    log_if_debug!(debug, "FIVEInstruction::try_from - SetFees: data too short");
+                    debug_log!("FIVEInstruction::try_from - SetFees: data too short");
                     return Err(ProgramError::InvalidInstructionData);
                 }
                 let deploy_fee_bps = u32::from_le_bytes(data[1..5].try_into().unwrap());
@@ -259,18 +259,18 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 Ok(FIVEInstruction::SetFees { deploy_fee_bps, execute_fee_bps })
             }
             DEPLOY_INSTRUCTION => {
-                log_if_debug!(debug, "FIVEInstruction::try_from - Deploy instruction (8)");
+                debug_log!("FIVEInstruction::try_from - Deploy instruction (8)");
                 if data.len() < MIN_DEPLOY_LEN {
-                    log_if_debug!(debug, "FIVEInstruction::try_from - Deploy: data too short ({}< {})", data.len(), MIN_DEPLOY_LEN);
+                    debug_log!("FIVEInstruction::try_from - Deploy: data too short ({}< {})", data.len(), MIN_DEPLOY_LEN);
                     return Err(ProgramError::InvalidInstructionData);
                 }
                 let len = u32::from_le_bytes(data[1..5].try_into().unwrap()) as usize;
                 let permissions = data[5];
-                log_if_debug!(debug, "FIVEInstruction::try_from - Deploy: bytecode length: {}, permissions: 0x{}", len, permissions);
+                debug_log!("FIVEInstruction::try_from - Deploy: bytecode length: {}, permissions: 0x{}", len, permissions);
                 let total_len = MIN_DEPLOY_LEN + len;
-                log_if_debug!(debug, "FIVEInstruction::try_from - Deploy: total expected: {}, actual: {}", total_len, data.len());
+                debug_log!("FIVEInstruction::try_from - Deploy: total expected: {}, actual: {}", total_len, data.len());
                 if data.len() < total_len {
-                    log_if_debug!(debug, "FIVEInstruction::try_from - Deploy: not enough data");
+                    debug_log!("FIVEInstruction::try_from - Deploy: not enough data");
                     return Err(ProgramError::InvalidInstructionData);
                 }
                 Ok(FIVEInstruction::Deploy {
@@ -279,15 +279,15 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 })
             }
             EXECUTE_INSTRUCTION => {
-                log_if_debug!(debug, "FIVEInstruction::try_from - Execute instruction (9)");
+                debug_log!("FIVEInstruction::try_from - Execute instruction (9)");
                 Ok(FIVEInstruction::Execute { params: &data[1..] })
             }
             7 => {
-                log_if_debug!(debug, "FIVEInstruction::try_from - FinalizeScript instruction");
+                debug_log!("FIVEInstruction::try_from - FinalizeScript instruction");
                 Ok(FIVEInstruction::FinalizeScript)
             }
             _ => {
-                log_if_debug!(debug, "FIVEInstruction::try_from - Unknown discriminator: {}", data[0]);
+                debug_log!("FIVEInstruction::try_from - Unknown discriminator: {}", data[0]);
                 Err(ProgramError::InvalidInstructionData)
             }
         }
@@ -365,11 +365,9 @@ pub fn set_fees(
     deploy_fee_bps: u32,
     execute_fee_bps: u32,
 ) -> ProgramResult {
-    log_if_debug!(
-        debug, 
-        "Setting fees: deploy={} bps, execute={} bps", 
-        deploy_fee_bps, 
-        execute_fee_bps
+    debug_log!(
+        "FIVE VM: SetFees - deploy={}bps, execute={}bps",
+        deploy_fee_bps, execute_fee_bps
     );
 
     require_min_accounts(accounts, 2)?;
@@ -394,13 +392,13 @@ pub fn set_fees(
     vm_state.deploy_fee_bps = deploy_fee_bps;
     vm_state.execute_fee_bps = execute_fee_bps;
 
-    log_if_debug!(debug, "Fees updated successfully");
+    debug_log!("Fees updated successfully");
     Ok(())
 }
 
 /// Initialize the VM state account
 pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    log_if_debug!(debug, "Initializing FIVE VM");
+    debug_log!("Initializing FIVE VM");
 
     require_min_accounts(accounts, 2)?;
 
@@ -419,7 +417,7 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResul
     let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
     vm_state.initialize(*authority.key());
 
-    log_if_debug!(debug, "FIVE VM initialized successfully");
+    debug_log!("FIVE VM initialized successfully");
     Ok(())
 }
 
@@ -439,16 +437,21 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     // Validate permissions bitmask
     validate_permissions(permissions)?;
 
-    log_if_debug!(debug, "Deploying script with {} bytes", bytecode.len());
+    debug_log!("Deploying script with {} bytes", bytecode.len());
+    debug_log!("FIVE: deploy start bytes={}", bytecode.len());
 
     require_min_accounts(accounts, 3)?;
+    debug_log!("FIVE: accounts OK");
 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
     let owner = &accounts[2];
 
+    debug_log!("FIVE: calling validate_vm_and_script");
     validate_vm_and_script_accounts(program_id, script_account, vm_state_account)?;
+    debug_log!("FIVE: validate OK");
     require_signer(owner)?;
+    debug_log!("FIVE: signer OK");
 
     // If any permissions are set, require admin key (VM authority) signature
     if permissions != 0 {
@@ -461,21 +464,24 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
         require_min_accounts(accounts, 4)?;
         let admin_account = &accounts[3];
         verify_admin_signer(admin_account, &admin_key)?;
-        log_if_debug!(debug, "Admin key verified for permissions: 0x{}", permissions);
+        debug_log!("Admin key verified for permissions: 0x{}", permissions);
     }
 
+    debug_log!("FIVE: size check");
     // Validate bytecode size
     if bytecode.len() < 4 || bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
-        return Err(ProgramError::InvalidInstructionData);
+        return Err(ProgramError::Custom(8001));
     }
+    debug_log!("FIVE: size OK");
 
     // Check if valid Five Protocol bytecode header format (10 bytes minimum)
     if bytecode.len() < five_protocol::FIVE_HEADER_OPTIMIZED_SIZE {
-        return Err(ProgramError::InvalidInstructionData);
+        return Err(ProgramError::Custom(8002));
     }
     if &bytecode[..4] != five_protocol::FIVE_MAGIC {
-        return Err(ProgramError::InvalidInstructionData);
+        return Err(ProgramError::Custom(8003));
     }
+    debug_log!("FIVE: header OK, calling verify");
 
     // **Deploy-time verification**: Verify bytecode content
     verify_bytecode_content(bytecode)?;
@@ -513,7 +519,7 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
                 if let Some(recipient) = admin_account {
                     let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
                     transfer_fee(owner, recipient, fee, system_program)?;
-                    log_if_debug!(debug, "Collected deploy fee: {}", fee);
+                    debug_log!("Collected deploy fee: {}", fee);
                 } else {
                     // If fee is required but admin not present, fail
                     return Err(ProgramError::MissingRequiredSignature);
@@ -562,8 +568,7 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     script_data[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + bytecode.len()]
         .copy_from_slice(bytecode);
 
-    log_if_debug!(
-        debug,
+    debug_log!(
         "Script {} deployed: public_funcs={}, total_funcs={}, instr_offset={}",
         script_id,
         public_function_count,
@@ -572,6 +577,205 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     );
     Ok(())
 }
+
+pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
+    debug_log!("FIVE: verify_bytecode entry len={}", bytecode.len());
+    // Validate bytecode size
+    if bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
+        debug_log!("FIVE: bytecode too large");
+        return Err(ProgramError::Custom(8101));
+    }
+
+    // Bypass full parsing to avoid OOM
+    // Extract header fields manually
+    if bytecode.len() < 10 {
+         return Err(ProgramError::Custom(8102));
+    }
+    let public_function_count = bytecode[8];
+    let total_function_count = bytecode[9];
+
+    debug_log!("FIVE: counts p={} t={}", public_function_count, total_function_count);
+
+    // Validate function counts are within bounds
+    if total_function_count > five_protocol::MAX_FUNCTIONS as u8 {
+        debug_log!("FIVE: total func count too high");
+        return Err(ProgramError::Custom(8103));
+    }
+
+    // CRITICAL: Validate that at least one public function exists (if functions exist)
+    if total_function_count > 0 && public_function_count == 0 {
+        debug_log!("FIVE: pub=0 but total>0");
+        return Err(ProgramError::Custom(8104));
+    }
+
+    // Validate public_count <= total_count
+    if public_function_count > total_function_count {
+        debug_log!("FIVE: pub > total");
+        return Err(ProgramError::Custom(8105));
+    }
+
+    // Iterate and verify all instructions
+    let mut offset = compute_instruction_start_offset(bytecode) as usize;
+    // debug_log!("FIVE: start offset {}", offset);
+    
+    // Ensure start offset is within bounds
+    if offset > bytecode.len() {
+        debug_log!("FIVE: start offset OOB");
+        return Err(ProgramError::Custom(8106));
+    }
+
+    while offset < bytecode.len() {
+        let opcode = bytecode[offset];
+        // debug_log!("FIVE: Verify op {} at {}", opcode, offset);
+
+        // Get opcode info - fails if valid opcode is not defined
+        let info = match opcodes::get_opcode_info(opcode) {
+            Some(i) => i,
+            None => {
+                debug_log!("FIVE: Unknown opcode {}", opcode);
+                return Err(ProgramError::Custom(opcode as u32));
+            }
+        };
+
+        let mut instruction_size = 1; // 1 byte for opcode
+
+        // Decode arguments based on argument type
+        match info.arg_type {
+            ArgType::None => {
+                 // msg!("FIVE: ArgType::None");
+            }
+            ArgType::U8 | ArgType::RegisterIndex | ArgType::ValueType => {
+                // Bounds check for the argument byte
+                if offset + instruction_size + 1 > bytecode.len() {
+                    debug_log!("FIVE: invalid U8 arg bounds");
+                    return Err(ProgramError::Custom(8110));
+                }
+
+                // Special handling for PUSH_STRING_LITERAL: consume string bytes
+                if opcode == 0x67 || opcode == opcodes::PUSH_STRING_LITERAL {
+                    let str_len = bytecode[offset + instruction_size];
+                    // debug_log!("FIVE: PUSH_STRING len {}", str_len);
+                    // opcode (1) + len_byte (1) + string_bytes (str_len)
+                    let total_len = instruction_size + 1 + (str_len as usize);
+                    
+                    if offset + total_len > bytecode.len() {
+                        debug_log!("FIVE: PUSH_STRING bounds fail");
+                        return Err(ProgramError::Custom(8111));
+                    }
+                    instruction_size = total_len;
+                } else {
+                    // debug_log!("FIVE: U8 generic");
+                    instruction_size += 1;
+                }
+            }
+            ArgType::U16 => {
+                if offset + instruction_size + 2 > bytecode.len() {
+                    debug_log!("FIVE: U16 bounds fail");
+                    return Err(ProgramError::Custom(8112));
+                }
+                instruction_size += 2;
+            }
+            ArgType::U32 | ArgType::FunctionIndex | ArgType::LocalIndex | ArgType::AccountIndex => {
+                if offset + instruction_size >= bytecode.len() {
+                     debug_log!("FIVE: U32 bounds fail 1");
+                     return Err(ProgramError::Custom(8113));
+                }
+                match VLE::decode_u32(&bytecode[offset + instruction_size..]) {
+                    Some((value, consumed)) => {
+                        // Additional Logic Checks
+                        if info.arg_type == ArgType::FunctionIndex && opcode == opcodes::CALL {
+                             if value >= total_function_count as u32 {
+                                 debug_log!("FIVE: Function index OOB");
+                                 return Err(ProgramError::Custom(8114));
+                             }
+                        }
+                        instruction_size += consumed;
+                    }
+                    None => {
+                        debug_log!("FIVE: VLE decode failed");
+                        return Err(ProgramError::Custom(8115));
+                    }
+                }
+            }
+            ArgType::U64 => {
+                 if offset + instruction_size >= bytecode.len() {
+                     return Err(ProgramError::Custom(8116));
+                }
+                match VLE::decode_u64(&bytecode[offset + instruction_size..]) {
+                    Some((_, consumed)) => instruction_size += consumed,
+                    None => return Err(ProgramError::Custom(8117)),
+                }
+            }
+            ArgType::TwoRegisters => {
+                if offset + instruction_size + 2 > bytecode.len() {
+                    return Err(ProgramError::Custom(8118));
+                }
+                instruction_size += 2;
+            }
+            ArgType::ThreeRegisters => {
+                if offset + instruction_size + 3 > bytecode.len() {
+                    return Err(ProgramError::Custom(8119));
+                }
+                instruction_size += 3;
+            }
+            ArgType::CallExternal => {
+                // account_index (u8) + func_offset (u16) + param_count (u8)
+                if offset + instruction_size + 4 > bytecode.len() {
+                    return Err(ProgramError::Custom(8120));
+                }
+                instruction_size += 4;
+            }
+            ArgType::CallInternal => {
+                // param_count (u8) + func_addr (u16)
+                if offset + instruction_size + 3 > bytecode.len() {
+                    return Err(ProgramError::Custom(8121));
+                }
+                
+                let addr_lo = bytecode[offset + 2];
+                let addr_hi = bytecode[offset + 3];
+                let func_addr = u16::from_le_bytes([addr_lo, addr_hi]) as usize;
+                
+                if func_addr >= bytecode.len() {
+                    return Err(ProgramError::Custom(8122));
+                }
+                
+                instruction_size += 3;
+            }
+            ArgType::AccountField => {
+                // account_index (u8)
+                if offset + instruction_size + 1 > bytecode.len() {
+                    return Err(ProgramError::Custom(8123));
+                }
+                instruction_size += 1;
+                
+                // field_offset (VLE)
+                if offset + instruction_size >= bytecode.len() {
+                     return Err(ProgramError::Custom(8124));
+                }
+                match VLE::decode_u32(&bytecode[offset + instruction_size..]) {
+                    Some((_, consumed)) => instruction_size += consumed,
+                    None => return Err(ProgramError::Custom(8125)),
+                }
+            }
+        }
+
+        // Final bounds check after size calculation
+        if offset + instruction_size > bytecode.len() {
+            msg!("FIVE: Final bounds fail");
+            return Err(ProgramError::Custom(8130));
+        }
+
+        offset += instruction_size;
+    }
+
+    Ok(())
+}
+
+
+
+
+
+
 
 /// Initialize a script account for chunked large-program deployment.
 /// If chunk_data is provided, it will be written as the first chunk (optimization).
@@ -582,11 +786,9 @@ pub fn init_large_program(
     chunk_data: Option<&[u8]>,
 ) -> ProgramResult {
     let chunk_len = chunk_data.map(|c| c.len()).unwrap_or(0);
-    log_if_debug!(
-        debug,
-        "Initializing large program: expected_size={}, initial_chunk={}",
-        expected_size,
-        chunk_len
+    debug_log!(
+        "InitLargeProgram: expected={}, chunk={}",
+        expected_size, chunk_len
     );
     
     require_min_accounts(accounts, 3)?;
@@ -607,15 +809,15 @@ pub fn init_large_program(
 
     let expected_size = expected_size as usize;
     if expected_size < 4 || expected_size > five_protocol::MAX_SCRIPT_SIZE {
-        return Err(ProgramError::InvalidInstructionData);
+        return Err(ProgramError::Custom(8206)); // Invalid expected size
     }
 
     // Validate chunk size if present
     if let Some(chunk) = chunk_data {
         if chunk.len() > expected_size {
             #[cfg(feature = "debug-logs")]
-            log_if_debug!(error, "Chunk size {} exceeds expected size {}", chunk.len(), expected_size);
-            return Err(ProgramError::InvalidInstructionData);
+            debug_log!("Chunk size {} exceeds expected size {}", chunk.len(), expected_size);
+            return Err(ProgramError::Custom(8207)); // Initial chunk too large
         }
     }
 
@@ -648,11 +850,11 @@ pub fn init_large_program(
         let start = ScriptAccountHeader::LEN;
         let end = start + chunk.len();
         if script_data.len() < end {
-            log_if_debug!(error, "Account too small: {} < {}", script_data.len(), end);
+            debug_log!("Account too small: {} < {}", script_data.len(), end);
             return Err(ProgramError::Custom(7006)); // Account too small
         }
         script_data[start..end].copy_from_slice(chunk);
-        log_if_debug!(debug, "Wrote {} bytes of initial chunk", chunk.len());
+        debug_log!("Wrote {} bytes of initial chunk", chunk.len());
     }
 
     Ok(())
@@ -664,11 +866,11 @@ pub fn append_bytecode(
     accounts: &[AccountInfo],
     chunk: &[u8],
 ) -> ProgramResult {
-    log_if_debug!(debug, "Appending {} bytes of bytecode", chunk.len());
+    debug_log!("Appending {} bytes of bytecode", chunk.len());
 
     require_min_accounts(accounts, 3)?;
     if chunk.is_empty() {
-        return Err(ProgramError::InvalidInstructionData);
+        return Err(ProgramError::Custom(8201)); // Empty chunk
     }
 
     let script_account = &accounts[0];
@@ -697,7 +899,7 @@ pub fn append_bytecode(
     };
 
     if current_len + chunk.len() > expected_size {
-        return Err(ProgramError::InvalidInstructionData);
+        return Err(ProgramError::Custom(8202)); // Chunk exceeds expected size
     }
 
     let new_len = current_len + chunk.len();
@@ -716,31 +918,31 @@ pub fn append_bytecode(
     header.set_upload_len(new_len as u32);
 
     if new_len == expected_size {
-        log_if_debug!(debug, "Check: new_len={} matched expected so finalizing...", new_len);
+        debug_log!("Check: new_len={} matched expected so finalizing...", new_len);
         let bytecode =
             &script_data[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + expected_size];
 
         if bytecode.len() < 4 || bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
-            return Err(ProgramError::InvalidInstructionData);
+            return Err(ProgramError::Custom(8203)); // Invalid bytecode size
         }
 
         if bytecode.len() < five_protocol::FIVE_HEADER_OPTIMIZED_SIZE {
-            return Err(ProgramError::InvalidInstructionData);
+            return Err(ProgramError::Custom(8204)); // Header too small
         }
         if &bytecode[..4] != five_protocol::FIVE_MAGIC {
-            return Err(ProgramError::InvalidInstructionData);
+            return Err(ProgramError::Custom(8205)); // Invalid magic bytes
         }
 
-        // log_if_debug!(debug, "Verifying bytecode content...");
+        // debug_log!("Verifying bytecode content...");
         if let Err(e) = verify_bytecode_content(bytecode) {
             #[cfg(feature = "debug-logs")]
             {
                 let code: u64 = e.into();
-                log_if_debug!(error, "Bytecode verification failed: {}", code);
+                debug_log!("Bytecode verification failed: {}", code);
             }
             return Err(e);
         }
-        log_if_debug!(debug, "Verification successful.");
+        debug_log!("Verification successful.");
 
         // Collect deployment fee if configured
         {
@@ -758,19 +960,19 @@ pub fn append_bytecode(
                 // Fee is bps of rent
                 let fee = calculate_fee(rent_basis, deploy_fee_bps);
 
-                log_if_debug!(debug, "Deploy fee check: bps={}, rent_basis={}, fee={}", deploy_fee_bps, rent_basis, fee);
+                debug_log!("Deploy fee check: bps={}, rent_basis={}, fee={}", deploy_fee_bps, rent_basis, fee);
 
                 if fee > 0 {
                     let admin_key = vm_state.authority;
                     let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
 
                     if let Some(recipient) = admin_account {
-                        log_if_debug!(debug, "Paying deploy fee: {}", fee);
+                        debug_log!("Paying deploy fee: {}", fee);
                         let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
                         transfer_fee(owner, recipient, fee, system_program)?;
-                        log_if_debug!(debug, "Collected deploy fee: {}", fee);
+                        debug_log!("Collected deploy fee: {}", fee);
                     } else {
-                        log_if_debug!(error, "Deploy fee required but Admin not found");
+                        debug_log!("Deploy fee required but Admin not found");
                         // If fee is required but admin not present, fail
                         return Err(ProgramError::MissingRequiredSignature);
                     }
@@ -813,7 +1015,7 @@ pub fn finalize_script_upload(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
-    log_if_debug!(debug, "Finalizing script upload");
+    debug_log!("Finalizing script upload");
 
     require_min_accounts(accounts, 2)?;
     let script_account = &accounts[0];
@@ -843,8 +1045,8 @@ pub fn finalize_script_upload(
     };
 
     if current_len != expected_size {
-        log_if_debug!(error, "Finalize failed: current_len {} != expected {}", current_len, expected_size);
-        return Err(ProgramError::InvalidInstructionData);
+        debug_log!("Finalize failed: current_len {} != expected {}", current_len, expected_size);
+        return Err(ProgramError::Custom(8208)); // Finalize size mismatch
     }
 
     // Verify bytecode
@@ -881,7 +1083,7 @@ pub fn finalize_script_upload(
     // Single write with all flags correctly set
     final_header.copy_into_account(script_data)?;
 
-    log_if_debug!(debug, "Script upload finalized successfully");
+    debug_log!("Script upload finalized successfully");
     Ok(())
 }
 
@@ -898,22 +1100,22 @@ pub fn finalize_script_upload(
 /// - Only runs if main execution succeeds
 pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> ProgramResult {
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: execute ENTRY");
+    debug_log!("DEBUG: execute ENTRY");
 
     require_min_accounts(accounts, 2)?;
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: require_min_accounts PASS");
+    debug_log!("DEBUG: require_min_accounts PASS");
 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
 
     if let Err(e) = validate_vm_and_script_accounts(program_id, script_account, vm_state_account) {
          #[cfg(feature = "debug-logs")]
-         pinocchio_log::log!("DEBUG: validate_vm_and_script_accounts FAIL");
+         debug_log!("DEBUG: validate_vm_and_script_accounts FAIL");
          return Err(e);
     }
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: validate_vm_and_script_accounts PASS");
+    debug_log!("DEBUG: validate_vm_and_script_accounts PASS");
 
     // Collect execution fee if configured.
     let vm_accounts = {
@@ -931,7 +1133,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
              if let Some(recipient) = admin_account {
                  if let Some(payer) = payer_account {
                      #[cfg(feature = "debug-logs")]
-                     pinocchio_log::log!("DEBUG: Paying execute fee: {}", fee);
+                     debug_log!("DEBUG: Paying execute fee: {}", fee);
                      let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
                      transfer_fee(payer, recipient, fee, system_program)?;
                  } else {
@@ -939,28 +1141,28 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
                  }
              } else {
                  #[cfg(feature = "debug-logs")]
-                 pinocchio_log::log!("DEBUG: Execute fee required but Admin not found");
+                 debug_log!("DEBUG: Execute fee required but Admin not found");
                  // Error 1107 matches test expectation (likely FeeCollectorMissing)
                  return Err(ProgramError::Custom(1107));
              }
              &accounts[1..]  // Skip Script account, start from VM State
         } else {
              #[cfg(feature = "debug-logs")]
-             pinocchio_log::log!("DEBUG: fee is 0");
+             debug_log!("DEBUG: fee is 0");
              &accounts[1..]  // Skip Script account, start from VM State
         }
     };
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: input accounts setup PASS - passing {} accounts to VM", vm_accounts.len() as u32);
+    debug_log!("DEBUG: input accounts setup PASS - passing {} accounts to VM", vm_accounts.len() as u32);
 
     // Parse script header from script account
     let script_data = unsafe { script_account.borrow_data_unchecked() };
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: script_data borrow PASS");
+    debug_log!("DEBUG: script_data borrow PASS");
 
     let header = ScriptAccountHeader::from_account_data(&script_data)?;
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: header parse PASS");
+    debug_log!("DEBUG: header parse PASS");
 
     if header.upload_mode() && !header.upload_complete() {
         return Err(ProgramError::Custom(7001));
@@ -971,7 +1173,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let required_len = ScriptAccountHeader::LEN + bytecode_len as usize + header.metadata_len();
     if script_data.len() < required_len {
         #[cfg(feature = "debug-logs")]
-        pinocchio_log::log!("DEBUG: script too short");
+        debug_log!("DEBUG: script too short");
         return Err(ProgramError::Custom(7003));
     }
 
@@ -981,17 +1183,16 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     let bytecode = &script_data[bytecode_start..bytecode_end];
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: bytecode slice PASS len={}", bytecode.len());
+    debug_log!("DEBUG: bytecode slice PASS len={}", bytecode.len());
 
     // Execute main bytecode
     #[cfg(feature = "debug-logs")]
-    pinocchio_log::log!("DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]");
+    debug_log!("DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]");
     // MitoVM expects accounts WITHOUT the Script account, only [VM State, param0, param1, ...]
     // This aligns with ACCOUNT_INDEX_OFFSET = 1 in the compiler
 
     if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
-        log_if_debug!(
-            error,
+        debug_log!(
             "MitoVM MAIN execution failed code={}",
             vm_error_name(&vm_error)
         );
@@ -1001,10 +1202,9 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     // Run post-execution hook if permission is set
     if has_permission(header.permissions, PERMISSION_POST_BYTECODE) {
-        log_if_debug!(debug, "Running POST-BYTECODE hook");
+        debug_log!("Running POST-BYTECODE hook");
         if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
-            log_if_debug!(
-                error,
+            debug_log!(
                 "MitoVM POST hook failed code={}",
                 vm_error_name(&vm_error)
             );
@@ -1012,7 +1212,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         }
     }
 
-    log_if_debug!(debug, "Script executed successfully");
+    debug_log!("Script executed successfully");
     Ok(())
 }
 
@@ -1059,188 +1259,8 @@ fn compute_instruction_start_offset(bytecode: &[u8]) -> u16 {
 /// - All instructions are valid opcodes with proper bounds and arguments
 /// - CALL instructions target valid function indices
 /// - No incomplete instructions
-/// - Function name metadata format is valid (if present)
-///
-/// Results are cached in ScriptAccountHeader for fast execution.
-#[allow(unused_variables)]
-pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
-    // Validate bytecode size
-    if bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
-        return Err(ProgramError::InvalidInstructionData);
-    }
 
-    // Bypass full parsing to avoid OOM
-    // Extract header fields manually
-    if bytecode.len() < 10 {
-         return Err(ProgramError::InvalidInstructionData);
-    }
-    let public_function_count = bytecode[8];
-    let total_function_count = bytecode[9];
 
-    // Validate function counts are within bounds
-    if total_function_count > five_protocol::MAX_FUNCTIONS as u8 {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-
-    // CRITICAL: Validate that at least one public function exists (if functions exist)
-    if total_function_count > 0 && public_function_count == 0 {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-
-    // Validate public_count <= total_count
-    if public_function_count > total_function_count {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-
-    // Iterate and verify all instructions
-    let mut offset = compute_instruction_start_offset(bytecode) as usize;
-    
-    // Ensure start offset is within bounds
-    if offset > bytecode.len() {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-
-    while offset < bytecode.len() {
-        let opcode = bytecode[offset];
-        // msg!("FIVE: Verify opcode");
-
-        // Get opcode info - fails if valid opcode is not defined
-        let info = match opcodes::get_opcode_info(opcode) {
-            Some(i) => i,
-            None => {
-                return Err(ProgramError::Custom(opcode as u32));
-            }
-        };
-
-        let mut instruction_size = 1; // 1 byte for opcode
-
-        // Decode arguments based on argument type
-        match info.arg_type {
-            ArgType::None => {}
-            ArgType::U8 | ArgType::RegisterIndex | ArgType::ValueType => {
-                // Bounds check for the argument byte
-                if offset + instruction_size + 1 > bytecode.len() {
-                    msg!("FIVE: invalid U8 arg bounds");
-                    return Err(ProgramError::InvalidInstructionData);
-                }
-
-                // Special handling for PUSH_STRING_LITERAL: consume string bytes
-                // Note: There is a mismatch between five-protocol constant (0x66) and bytecode (0x67)
-                // We perform the check for both to be safe, but 0x67 is what the compiler currently emits.
-                if opcode == 0x67 || opcode == opcodes::PUSH_STRING_LITERAL {
-                    let str_len = bytecode[offset + instruction_size];
-                    // opcode (1) + len_byte (1) + string_bytes (str_len)
-                    let total_len = instruction_size + 1 + (str_len as usize);
-                    
-                    if offset + total_len > bytecode.len() {
-                        msg!("FIVE: PUSH_STRING bounds fail");
-                        return Err(ProgramError::InvalidInstructionData);
-                    }
-                    instruction_size = total_len;
-                } else {
-                    instruction_size += 1;
-                }
-            }
-            ArgType::U16 => {
-                if offset + instruction_size + 2 > bytecode.len() {
-                    return Err(ProgramError::InvalidInstructionData);
-                }
-                instruction_size += 2;
-            }
-            ArgType::U32 | ArgType::FunctionIndex | ArgType::LocalIndex | ArgType::AccountIndex => {
-                if offset + instruction_size >= bytecode.len() {
-                     return Err(ProgramError::InvalidInstructionData);
-                }
-                match VLE::decode_u32(&bytecode[offset + instruction_size..]) {
-                    Some((value, consumed)) => {
-                        // Additional Logic Checks
-                        if info.arg_type == ArgType::FunctionIndex && opcode == opcodes::CALL {
-                             if value >= total_function_count as u32 {
-                                 return Err(ProgramError::InvalidInstructionData);
-                             }
-                        }
-                        instruction_size += consumed;
-                    }
-                    None => return Err(ProgramError::InvalidInstructionData),
-                }
-            }
-            ArgType::U64 => {
-                 if offset + instruction_size >= bytecode.len() {
-                     return Err(ProgramError::InvalidInstructionData);
-                }
-                match VLE::decode_u64(&bytecode[offset + instruction_size..]) {
-                    Some((_, consumed)) => instruction_size += consumed,
-                    None => return Err(ProgramError::InvalidInstructionData),
-                }
-            }
-            ArgType::TwoRegisters => {
-                if offset + instruction_size + 2 > bytecode.len() {
-                    return Err(ProgramError::InvalidInstructionData);
-                }
-                instruction_size += 2;
-            }
-            ArgType::ThreeRegisters => {
-                if offset + instruction_size + 3 > bytecode.len() {
-                    return Err(ProgramError::InvalidInstructionData);
-                }
-                instruction_size += 3;
-            }
-            ArgType::CallExternal => {
-                // account_index (u8) + func_offset (u16) + param_count (u8)
-                if offset + instruction_size + 4 > bytecode.len() {
-                    return Err(ProgramError::InvalidInstructionData);
-                }
-                instruction_size += 4;
-            }
-            ArgType::CallInternal => {
-                // param_count (u8) + func_addr (u16)
-                if offset + instruction_size + 3 > bytecode.len() {
-                    return Err(ProgramError::InvalidInstructionData);
-                }
-                
-                // Extract func_addr (u16) at buffer[offset+2..offset+4]
-                // instruction_size is 1 (opcode).
-                // Offset structure: [Opcode] [ParamCount] [AddrLo] [AddrHi]
-                // So addr is at offset + 1 + 1 = offset + 2
-                
-                let addr_lo = bytecode[offset + 2];
-                let addr_hi = bytecode[offset + 3];
-                let func_addr = u16::from_le_bytes([addr_lo, addr_hi]) as usize;
-                
-                if func_addr >= bytecode.len() {
-                    return Err(ProgramError::InvalidInstructionData);
-                }
-                
-                instruction_size += 3;
-            }
-            ArgType::AccountField => {
-                // account_index (u8)
-                if offset + instruction_size + 1 > bytecode.len() {
-                    return Err(ProgramError::InvalidInstructionData);
-                }
-                instruction_size += 1;
-                
-                // field_offset (VLE)
-                if offset + instruction_size >= bytecode.len() {
-                     return Err(ProgramError::InvalidInstructionData);
-                }
-                match VLE::decode_u32(&bytecode[offset + instruction_size..]) {
-                    Some((_, consumed)) => instruction_size += consumed,
-                    None => return Err(ProgramError::InvalidInstructionData),
-                }
-            }
-        }
-
-        // Final bounds check after size calculation
-        if offset + instruction_size > bytecode.len() {
-            return Err(ProgramError::InvalidInstructionData);
-        }
-
-        offset += instruction_size;
-    }
-
-    Ok(())
-}
 
 /// Validate function name metadata format (if present)
 #[allow(dead_code)]
@@ -1277,14 +1297,14 @@ fn validate_function_metadata(bytecode: &[u8]) -> ProgramResult {
     // Validate metadata doesn't exceed bytecode bounds
     let metadata_end = offset + section_size as usize;
     if metadata_end > bytecode.len() {
-        return Err(ProgramError::InvalidInstructionData);
+        return Err(ProgramError::Custom(8209)); // Metadata exceeds bytecode
     }
 
     // Quick validation: metadata section should contain valid name entries
     // Each entry has: name_len (u8) + name_bytes
     // At minimum, we expect at least public_count entries
     if section_size == 0 && public_count > 0 {
-        return Err(ProgramError::InvalidInstructionData);
+        return Err(ProgramError::Custom(8210)); // Missing metadata for public functions
     }
 
     Ok(())

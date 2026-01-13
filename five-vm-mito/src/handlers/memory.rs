@@ -83,7 +83,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             return Err(VMErrorCode::InvalidInstruction); // Not implemented in MitoVM
         }
         STORE_FIELD => {
-            crate::error_log!("PANIC_TRACE: Reach STORE_FIELD");
+            // crate::error_log!("PANIC_TRACE: Reach STORE_FIELD");
             debug_log!("DEBUG: STORE_FIELD start (Top of block)");
             // Protocol V3: STORE_FIELD account_index_u8, offset_vle
             let account_index = ctx.fetch_byte()?;
