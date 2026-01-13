@@ -1,22 +1,25 @@
 {
   "config": {
-    "programId": "AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN",
-    "script": "BW3KYxNDadVNzZVzXJ6zVCdvyQmKmGvFkrjyLuch5g3u"
+    "programId": "HvXw1h2ndbBRyBccW8UtYa1XVoFh2M5rWgUQTkoJWtEq",
+    "script": "EHUcshkpxbGSjLhtdSx95HqKQx6T6zSeMtPwV1ppHcH6"
   },
   "accounts": {
-    "mint": "9T9H37o9rUyuKFkgWfPcDP3KjLKNy5rU8VJjYbQ3XF42",
-    "user1": "CgzP8MQCmhi7oAATx8swaY7gCYGuRsAceppbBQWUEBBz",
-    "user2": "7HGNA2BtPbtJh8A8WnzCDn8WpDKpJTzF8oAYPBgMf3EH",
-    "user3": "8bR3vFaCqUrTPMk36eEjTFkfZbSFDxcWwit3fw1moojW"
+    "mint": "3PH9vBiJpWMepQbvGRkdnxESmRPQR5uSgE3Jd3Rv6y7d",
+    "user1": "7m78JrJDX1B9Gi2XcSaG9vr4KfoyYSTDnhmpJGKKvWbZ",
+    "user2": "BT42B2NrxubkV2PvLLQy7X4oxe7AtndFaY3zSG3DV4Sn",
+    "user3": "5FbURg9AzejsqR6rLoHFiTccfH52bZ4kqSuFf3oJFMrr",
+    "user1Token": "EC6pFhQjhLsVvJKR8usrVfQ7Da8T6S72qEytV243Wine",
+    "user2Token": "XqewcY6JMSxyon9U3DttgNXgieaDBymHUdUDCRZMs2M",
+    "user3Token": "FjoN4pnAErGbrzFXCjvyL6NnhFCQXDeshULjaCzbpcWR"
   },
   "results": {
     "initMint": true,
     "mintTo": true,
-    "transfer": false,
+    "transfer": true,
     "approve": true,
-    "transferFrom": false,
+    "transferFrom": true,
     "revoke": true,
-    "burn": false,
+    "burn": true,
     "freeze": true,
     "disable": true
   }

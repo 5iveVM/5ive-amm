@@ -1,4 +1,4 @@
-import { Connection, Keypair, PublicKey, Transaction, TransactionInstruction, SystemProgram, SYSVAR_RENT_PUBKEY, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, Transaction, TransactionInstruction, SystemProgram, SYSVAR_RENT_PUBKEY, LAMPORTS_PER_SOL, ComputeBudgetProgram } from '@solana/web3.js';
 import { FiveSDK } from '../../five-sdk/dist/index.js';
 import fs from 'fs';
 import path from 'path';
@@ -11,7 +11,7 @@ const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
 async function main() {
     const connection = new Connection(RPC_URL, 'confirmed');
     const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(PAYER_KEYPAIR_PATH, 'utf-8'))));
-    const FIVE_PROGRAM_ID = new PublicKey('13MYBMJQdvXBuhE396tGn24xYzDZL5bjiGZRAszDvBJx');
+    const FIVE_PROGRAM_ID = new PublicKey('HvXw1h2ndbBRyBccW8UtYa1XVoFh2M5rWgUQTkoJWtEq');
 
     console.log('=== Token Template Full Deployment ===');
     console.log('Payer:', payer.publicKey.toBase58());
@@ -153,7 +153,9 @@ async function main() {
             ])
         });
 
-        const appendTx = new Transaction().add(appendIx);
+        const appendTx = new Transaction()
+            .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }))
+            .add(appendIx);
         const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: false });
         await connection.confirmTransaction(appendSig, 'confirmed');
         console.log(`✅ Bytecode chunk ${Math.floor(offset / MAX_CHUNK_SIZE) + 1}: ${offset}-${chunkEnd} bytes`);
@@ -174,7 +176,9 @@ async function main() {
         data: Buffer.from([0x07]) // FinalizeScript discriminator (7)
     });
 
-    const finalizeTx = new Transaction().add(finalizeIx);
+    const finalizeTx = new Transaction()
+        .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }))
+        .add(finalizeIx);
     const finalizeSig = await connection.sendTransaction(finalizeTx, [payer], { skipPreflight: false });
     await connection.confirmTransaction(finalizeSig, 'confirmed');
     console.log('✅ Script finalized and ready for execution');

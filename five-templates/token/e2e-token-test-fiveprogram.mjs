@@ -86,7 +86,7 @@ async function sendInstruction(connection, instructionData, signers) {
     };
 
     const tx = new Transaction().add(ix);
-    
+
     try {
         const sig = await sendAndConfirmTransaction(connection, tx, signers, {
             skipPreflight: true,
@@ -278,7 +278,7 @@ async function main() {
     const user1 = Keypair.generate(); // Authority
     const user2 = Keypair.generate(); // Holder
     const user3 = Keypair.generate(); // Holder
-    
+
     // Fund users
     for (const user of [user1, user2, user3]) {
         const sig = await connection.requestAirdrop(user.publicKey, 5 * LAMPORTS_PER_SOL);
@@ -297,7 +297,7 @@ async function main() {
     // STEP 1: Init Mint
     // ======================================================================== 
     header('STEP 1: Init Mint');
-    
+
     const initMintIx = await program
         .function('init_mint')
         .accounts({
@@ -314,7 +314,7 @@ async function main() {
         .instruction();
 
     const initMintRes = await sendInstruction(connection, initMintIx, [payer, user1, mintAccount]);
-    if (initMintRes.success) success('init_mint successful');
+    if (initMintRes.success) success(`init_mint successful (sig: ${initMintRes.signature})`);
     else { error('init_mint failed'); console.error(initMintRes.error); process.exit(1); }
 
     // ======================================================================== 
@@ -339,9 +339,9 @@ async function main() {
                 mint: mintAccount.publicKey
             })
             .instruction();
-            
+
         const res = await sendInstruction(connection, ix, [payer, acc.owner, acc.kp]);
-        if (res.success) success(`init_token_account for ${acc.name} successful`);
+        if (res.success) success(`init_token_account for ${acc.name} successful (sig: ${res.signature})`);
         else { error(`init_token_account for ${acc.name} failed`); console.error(res.error); }
     }
 
@@ -370,7 +370,7 @@ async function main() {
             .instruction();
 
         const res = await sendInstruction(connection, ix, [payer, user1]);
-        if (res.success) success(`mint_to ${op.name} (${op.amount}) successful`);
+        if (res.success) success(`mint_to ${op.name} (${op.amount}) successful (sig: ${res.signature})`);
         else { error(`mint_to ${op.name} failed`); console.error(res.error); }
     }
 
@@ -393,7 +393,7 @@ async function main() {
         .instruction();
 
     const transferRes = await sendInstruction(connection, transferIx, [payer, user2]);
-    if (transferRes.success) success('transfer 100 from User2 to User3 successful');
+    if (transferRes.success) success(`transfer 100 from User2 to User3 successful (sig: ${transferRes.signature})`);
     else { error('transfer failed'); console.error(transferRes.error); }
 
     // ======================================================================== 
@@ -415,7 +415,7 @@ async function main() {
         .instruction();
 
     const approveRes = await sendInstruction(connection, approveIx, [payer, user3]);
-    if (approveRes.success) success('approve User2 as delegate successful');
+    if (approveRes.success) success(`approve User2 as delegate successful (sig: ${approveRes.signature})`);
     else { error('approve failed'); console.error(approveRes.error); }
 
     // User2 transfers 50 from User3 to User1
@@ -432,7 +432,7 @@ async function main() {
         .instruction();
 
     const transferFromRes = await sendInstruction(connection, transferFromIx, [payer, user2]);
-    if (transferFromRes.success) success('transfer_from 50 via delegate successful');
+    if (transferFromRes.success) success(`transfer_from 50 via delegate successful (sig: ${transferFromRes.signature})`);
     else { error('transfer_from failed'); console.error(transferFromRes.error); }
 
     // ======================================================================== 
@@ -449,7 +449,7 @@ async function main() {
         .instruction(); // No args for revoke
 
     const revokeRes = await sendInstruction(connection, revokeIx, [payer, user3]);
-    if (revokeRes.success) success('revoke delegation successful');
+    if (revokeRes.success) success(`revoke delegation successful (sig: ${revokeRes.signature})`);
     else { error('revoke failed'); console.error(revokeRes.error); }
 
     // ======================================================================== 
@@ -470,7 +470,7 @@ async function main() {
         .instruction();
 
     const burnRes = await sendInstruction(connection, burnIx, [payer, user1]);
-    if (burnRes.success) success('burn 100 tokens successful');
+    if (burnRes.success) success(`burn 100 tokens successful (sig: ${burnRes.signature})`);
     else { error('burn failed'); console.error(burnRes.error); }
 
     // ======================================================================== 
@@ -488,7 +488,7 @@ async function main() {
         .instruction();
 
     const freezeRes = await sendInstruction(connection, freezeIx, [payer, user1]);
-    if (freezeRes.success) success('freeze account successful');
+    if (freezeRes.success) success(`freeze account successful (sig: ${freezeRes.signature})`);
     else { error('freeze failed'); console.error(freezeRes.error); }
 
     const thawIx = await program
@@ -501,7 +501,7 @@ async function main() {
         .instruction();
 
     const thawRes = await sendInstruction(connection, thawIx, [payer, user1]);
-    if (thawRes.success) success('thaw account successful');
+    if (thawRes.success) success(`thaw account successful (sig: ${thawRes.signature})`);
     else { error('thaw failed'); console.error(thawRes.error); }
 
     // ======================================================================== 
@@ -518,7 +518,7 @@ async function main() {
         .instruction();
 
     const disableRes = await sendInstruction(connection, disableIx, [payer, user1]);
-    if (disableRes.success) success('disable_mint successful');
+    if (disableRes.success) success(`disable_mint successful (sig: ${disableRes.signature})`);
     else { error('disable_mint failed'); console.error(disableRes.error); }
 
     // Export state
@@ -531,7 +531,10 @@ async function main() {
             mint: mintAccount.publicKey.toBase58(),
             user1: user1.publicKey.toBase58(),
             user2: user2.publicKey.toBase58(),
-            user3: user3.publicKey.toBase58()
+            user3: user3.publicKey.toBase58(),
+            user1Token: user1TokenAccount.publicKey.toBase58(),
+            user2Token: user2TokenAccount.publicKey.toBase58(),
+            user3Token: user3TokenAccount.publicKey.toBase58()
         },
         results: {
             initMint: initMintRes.success,
@@ -545,9 +548,42 @@ async function main() {
             disable: disableRes.success
         }
     };
-    
+
     fs.writeFileSync(path.join(__dirname, 'test-state-fiveprogram.json'), JSON.stringify(testState, null, 2));
     success('Test state saved to test-state-fiveprogram.json');
+
+    // ======================================================================== 
+    // STEP 10: Verify Balances
+    // ======================================================================== 
+    header('STEP 10: Verify Balances');
+
+    const verifyBalance = async (tokenAccountPubkey, expectedBalance, label) => {
+        const account = await connection.getAccountInfo(tokenAccountPubkey);
+        if (!account) {
+            error(`${label} NOT FOUND`);
+            return;
+        }
+        
+        // Parse balance from offset 64 (after owner[32] and mint[32])
+        // using u64 LE format
+        const balance = Number(account.data.readBigUInt64LE(64));
+        if (balance === expectedBalance) {
+            success(`${label} balance verified: ${balance}`);
+        } else {
+            error(`${label} balance MISMATCH: Expected ${expectedBalance}, Got ${balance}`);
+        }
+    };
+
+    // Expected balances after all operations:
+    // User1: 1000 (mint) + 50 (transfer_from) - 100 (burn) = 950
+    // User2: 500 (mint) - 100 (transfer) = 400
+    // User3: 500 (mint) + 100 (transfer) - 50 (transfer_from) = 550
+    
+    await verifyBalance(user1TokenAccount.publicKey, 950, 'User1 Token Account');
+    await verifyBalance(user2TokenAccount.publicKey, 400, 'User2 Token Account');
+    await verifyBalance(user3TokenAccount.publicKey, 550, 'User3 Token Account');
+
+    console.log('\n🚀 Token E2E Test Completed Successfully!');
 }
 
 main().catch(err => {

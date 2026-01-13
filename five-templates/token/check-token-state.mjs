@@ -7,10 +7,10 @@ const connection = new Connection(RPC_URL, 'confirmed');
 
 // Account addresses from the test
 const accounts = {
-  mint: 'B4P95ChptHtkNpREnLh2F3enzasatpc22nsgLh7ySg94',
-  user1: 'E8FKB8eKZdX2TLaQypAHm5DJFFV8rYW6bDtZaatQX22d',
-  user2: 'Dy7ejm4GFcwudotR3UjfUgQpUWDBngZ4xrqZHqn8t3r1',
-  user3: 'BScXbBrDVr5DJXdAi6kRs6VssdtWKoGkG6Kmt5tsHpqW'
+  mint: 'uUJNxPr9WgiejEyRuQZ5yZKb2NxMun2hPv7yDo13PfC',
+  user1: '4zBmTtu2y51f2iKQEJvcvMN3vpER87Jm6nwtZd7D7tFL',
+  user2: '5dWA5xnuaZaSN6mQtmBikQWFJaWAULeajKbc1LfGAzv2',
+  user3: 'GJvykjgq6jkH8xEGXyM4W6LFS2XK6CjY1ntByWVQ7SX9'
 };
 
 async function getAccountState(pubkey, label) {
@@ -29,25 +29,16 @@ async function getAccountState(pubkey, label) {
     console.log(`   Executable: ${account.executable}`);
 
     // Try to parse as a simple token account structure
-    if (account.data.length >= 8) {
-      // Try to read 8-byte values (likely balance)
+    if (account.data.length >= 72) {
       const dataView = account.data;
-      let offset = 0;
-
-      // Check for non-zero data
-      let nonZeroBytes = 0;
-      for (let i = 0; i < Math.min(dataView.length, 128); i++) {
-        if (dataView[i] !== 0) nonZeroBytes++;
-      }
-      console.log(`   Non-zero bytes (first 128): ${nonZeroBytes}`);
-
-      // Try to read u64 values
-      if (account.data.length >= 8) {
-        const balance = Number(dataView.readBigUInt64LE(0));
-        if (balance > 0) {
-          console.log(`   Possible balance value: ${balance}`);
-        }
-      }
+      
+      const owner = new PublicKey(dataView.subarray(0, 32)).toBase58();
+      const mint = new PublicKey(dataView.subarray(32, 64)).toBase58();
+      const balance = Number(dataView.readBigUInt64LE(64));
+      
+      console.log(`   [Field 0] Owner:   ${owner}`);
+      console.log(`   [Field 1] Mint:    ${mint}`);
+      console.log(`   [Field 2] Balance: ${balance}`);
     }
 
     return account;
