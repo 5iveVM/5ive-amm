@@ -1,21 +1,24 @@
 # Five VM Project Handoff - Jan 13, 2026
 
-## 🚀 Current Status: Validator & Deployment Infrastructure Ready
-The Five DSL compiler, TypeScript CLI, and local Solana validator (surfpool) are fully operational. The Five VM is deployed on localnet and ready for script execution.
+## 🚀 Current Status: SDK Deployment Infrastructure & Counter Working
+The Five DSL compiler, TypeScript CLI, and local Solana validator are fully operational. The Five VM is deployed on localnet. Counter program successfully deployed and tested.
 
-### ✅ Completed Achievements (Jan 13, 2026)
+### ✅ Completed Achievements (Jan 13, 2026 - Continued)
 1.  **Local Validator Setup**: Surfpool configured and running at `http://127.0.0.1:8899` (port 8899 RPC, 8900 WebSocket)
 2.  **Five VM Deployed**:
     *   Program ID: `AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN`
     *   Status: Active and ready for script execution
-    *   Deployed via surfpool's deployment runbook
 3.  **Template Compilation**:
-    *   **Counter**: Compiled to `five-counter-template.five` (4.5 KB)
-    *   **Token**: Compiled to `five-token-template.five` (20 KB)
+    *   **Counter**: Compiled to `five-counter-template.five` (496 bytes) - ✅ Deployed & All 13 tests passing
+    *   **Token**: Compiled to `five-token-template.five` (1783 bytes) - ⚠️ Large deployment in progress
     *   **AMM**: Compiles successfully with qualified names pattern
     *   14 other templates compile successfully
-4.  **Template Modernization**: All compiling templates updated for namespace support
-5.  **CLI Configuration**: Five CLI v1.0.4 built and linked globally
+4.  **SDK Fixes Applied** (Jan 13, 2026):
+    - ✅ Fixed DataView encoding bug in `encodeDeployInstruction()` - was using Uint32Array.buffer
+    - ✅ Fixed `pollForConfirmation()` to properly detect transaction failures (now checks err field)
+    - ✅ Updated VM state account size from 48 to 56 bytes in large program deployment
+    - ✅ Added proper transaction confirmation with 120-second timeout throughout SDK
+    - ✅ Counter deployment successful with all tests passing (13/13)
 
 ## 🛠 Technical Details for Next Agent
 
@@ -29,14 +32,36 @@ Payer:      EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt (~9992 SOL)
 ```
 
 ### Script Deployment Status
-- ⚠️ **Counter Script**: Awaiting account creation and deployment
-  - Compiled bytecode: `five-templates/counter/build/five-counter-template.five`
-  - Test suite: `five-templates/counter/e2e-counter-test.mjs`
-  - Expected test operations: initialize, increment, decrement, add, get_count, reset (7 functions)
+- ✅ **Counter Script**: Successfully deployed & tested
+  - Script Account: `5R1QCu7AFytb3JohvcprMCiDvEkSK8TrMTv1UUrSQS9F`
+  - VM State PDA: `CdUn3QaA14FvHXBogJoYcGz6pWTomUQEoSZzpA728mBr`
+  - Test suite: `five-templates/counter/e2e-counter-test.mjs` - **13/13 tests passing**
+  - Deployment method: Regular `deployToSolana()` (496 bytes fits in single transaction)
 
-- ⚠️ **Token Script**: Awaiting account creation and deployment
-  - Compiled bytecode: `five-templates/token/build/five-token-template.five`
-  - Test suite: `five-templates/token/e2e-token-test.mjs`
+- ⚠️ **Token Script**: Large deployment in progress
+  - Compiled bytecode: `five-templates/token/build/five-token-template.five` (1783 bytes)
+  - Test suite: `five-templates/token/e2e-token-test-fiveprogram.mjs` (FiveProgram API)
+  - Deployment method: `deployLargeProgramOptimizedToSolana()` (multi-transaction)
+  - Status: VM state initialization & first 3 bytecode chunks successful, final append failing
+  - Issue: Fifth VM program's append_bytecode instruction panics on final chunk (needs investigation)
+
+### SDK Critical Fixes Summary
+1. **DataView Encoding Bug** (Fixed in v1.1.2)
+   - Problem: `encodeDeployInstruction()` used `Buffer.from(new Uint32Array([size]).buffer)` which doesn't properly encode to little-endian u32 in Node.js
+   - Impact: Deploy instruction bytecode length field was encoding as 0, causing Five VM to reject all deployments
+   - Solution: Use `Buffer.allocUnsafe(4); buffer.writeUInt32LE(size, 0)` instead
+   - Also fixed in large program `InitLargeProgramWithChunk` encoding
+
+2. **Transaction Confirmation Bug** (Fixed)
+   - Problem: `pollForConfirmation()` returned `success: true` even when transactions failed on-chain
+   - Impact: Failed deployments were reported as successful, causing silent failures
+   - Solution: Check `confirmationStatus.value.err` field - return success: true only if err is null
+   - Applied throughout: `deployToSolana()`, `deployLargeProgramOptimizedToSolana()` (all steps)
+
+3. **VM State Size Bug** (Fixed)
+   - Problem: Large program deployment created VM state account with 48 bytes, but `FIVEVMState::LEN` is 56 bytes
+   - Impact: Error 8001 (account data too small) when initializing VM state
+   - Solution: Updated `VM_STATE_SIZE` from 48 to 56 bytes in all deployment methods
 
 ### Namespace Resolution Logic
 - **ModuleMerger**: Qualifies definitions by prefixing them with `module_name::`.
@@ -99,9 +124,24 @@ node e2e-token-test.mjs
 
 ## 📋 Pending Tasks (Priority Order)
 
+### 🔴 IMMEDIATE - Token Deployment Issue
+**Problem**: Large program deployment succeeds through 3 chunks (1500+ bytes) but fails on final append
+- VM state initialization: ✅ Success
+- Chunks 1-3: ✅ Success (500 bytes each)
+- Chunk 4 (final, 283 bytes): ❌ Panics with "ProgramFailedToComplete"
+
+**Investigation Points**:
+1. Check `five-solana/src/instructions.rs::append_bytecode()` for edge cases with final chunk
+2. Possible issues: offset calculation, account reallocation, bytecode validation
+3. May be specific to token bytecode's final 283 bytes triggering validation logic
+
+**Workaround**: For programs < 800 bytes (fits in single Deploy instruction), use `deployToSolana()` instead
+
 ### ✅ COMPLETED
 1.  **Template Modernization**: All compiling templates updated to use qualified names and explicit imports.
 2.  **Validator Setup**: Surfpool configured and running locally.
+3.  **SDK Deployment Fixes**: Fixed 3 critical bugs preventing script deployment
+4.  **Counter Deployment**: ✅ Fully deployed and tested (13/13 tests)
 3.  **Five VM Deployment**: Deployed to localnet at `AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN`.
 4.  **Counter & Token Compilation**: Both programs compiled successfully.
 
