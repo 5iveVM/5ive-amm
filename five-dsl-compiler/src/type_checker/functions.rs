@@ -1,5 +1,6 @@
 // Function and interface type checking
 
+use super::type_helpers::type_names;
 use super::types::{InterfaceInfo, InterfaceMethod, InterfaceSerializer, TypeCheckerContext};
 use crate::ast::{AstNode, TypeNode};
 use five_vm_mito::error::VMError;
@@ -353,6 +354,14 @@ impl TypeCheckerContext {
         // Check all account fields have valid types
         for field in fields {
             self.validate_type(&field.field_type)?;
+
+            // Strings in accounts must be sized
+            if let TypeNode::Primitive(type_name) = &field.field_type {
+                if type_name == type_names::STRING {
+                    eprintln!("Type error: field '{}' in account '{}' is unsized string. Accounts require explicit sized strings (e.g. string<32>).", field.name, name);
+                    return Err(VMError::TypeMismatch);
+                }
+            }
         }
         Ok(())
     }

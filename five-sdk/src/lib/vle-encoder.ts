@@ -99,39 +99,36 @@ export class VLEEncoder {
         wasmModule = null;
       }
 
-      // Fallback: Inline load for Node.js
+      // Fallback: Import the proper wasm-pack generated module for Node.js
       if (!wasmModule && typeof process !== 'undefined') {
-        console.log("[DEBUG VLE] (SRC) Attempting inline WASM load...");
+        console.log("[DEBUG VLE] (SRC) Attempting wasm-pack module import...");
         try {
           const fs = await import('fs');
           const path = await import('path');
           const url = await import('url');
 
           const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-          // Assuming running from dist/lib/vle-encoder.js, assets are in ../assets/vm/
-          const bgPath = path.resolve(__dirname, '../assets/vm/five_vm_wasm_bg.js');
-          const wasmPath = path.resolve(__dirname, '../assets/vm/five_vm_wasm_bg.wasm');
+          // Import the wasm-pack generated entry point (five_vm_wasm.js)
+          // which already handles all the WASM initialization
+          const moduleEntryPath = path.resolve(__dirname, '../assets/vm/five_vm_wasm.js');
 
-          if (fs.existsSync(bgPath) && fs.existsSync(wasmPath)) {
-            console.log("[DEBUG VLE] Found assets at:", bgPath);
-            const bg = await import(bgPath);
-            const bytes = fs.readFileSync(wasmPath);
-            const mod = new WebAssembly.Module(bytes);
-            const instance = new WebAssembly.Instance(mod, { "./five_vm_wasm_bg.js": bg });
+          if (fs.existsSync(moduleEntryPath)) {
+            console.log("[DEBUG VLE] Found WASM module at:", moduleEntryPath);
+            const wasmMod = await import(moduleEntryPath);
 
-            if (bg.__wbg_set_wasm) {
-              bg.__wbg_set_wasm(instance.exports);
-              wasmModule = bg;
-              console.log("[DEBUG VLE] Inline load SUCCESS!");
+            // The wasm-pack module exports the initialized module directly
+            if (wasmMod && wasmMod.ParameterEncoder) {
+              wasmModule = wasmMod;
+              console.log("[DEBUG VLE] WASM module imported and initialized successfully!");
             } else {
-              console.error("[DEBUG VLE] bg module missing __wbg_set_wasm export");
+              console.error("[DEBUG VLE] WASM module missing expected exports");
             }
           } else {
-            console.error("[DEBUG VLE] Assets not found at expected path:", bgPath);
+            console.error("[DEBUG VLE] WASM module not found at:", moduleEntryPath);
           }
         } catch (err) {
-          console.error("[DEBUG VLE] Inline load FAILED:", err);
-          throw err;
+          console.error("[DEBUG VLE] Module import FAILED:", err);
+          // Don't throw - let it fall through to error handling below
         }
       }
     }
@@ -185,13 +182,23 @@ export class VLEEncoder {
     // Always use WASM encoder for all parameter types (accounts, pubkeys, strings, etc.)
     // The WASM encoder handles mixed-type parameters correctly via VLE encoding
     // This avoids the complexity and unreliability of manual typed params handling
-    const simpleValues = paramValues.map(({ value }) => value);
+
+    // Build parameter array with metadata for WASM encoder to distinguish account vs pubkey types
+    const paramArray = paramValues.map(({ param, value }) => {
+      const normalizedType = this.normalizeType(param);
+      // Create object with type information so WASM encoder can distinguish accounts from pubkeys
+      if (normalizedType === 'account') {
+        // Mark account parameters with type metadata
+        return { __type: 'account', value };
+      }
+      return value;
+    });
 
     try {
-      const encoded = wasmModule.ParameterEncoder.encode_execute_vle(functionIndex, simpleValues);
+      const encoded = wasmModule.ParameterEncoder.encode_execute_vle(functionIndex, paramArray);
       if (options && (options as any).debug) {
         const buf = Buffer.from(encoded);
-        console.log(`[VLE] WASM encoded ${simpleValues.length} parameters: ${buf.length} bytes`);
+        console.log(`[VLE] WASM encoded ${paramArray.length} parameters: ${buf.length} bytes`);
       }
       return Buffer.from(encoded);
     } catch (e) {

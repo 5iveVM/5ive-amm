@@ -1,17 +1,20 @@
 {
-  "filename": "unknown.v",
-  "bytecode": "NUlWRV8BAAABAdwZACcCEgAAkAAYAAAAGAbUBgYAAgB0eXBlczo6dHJlYXN1cnlfdHlwZXMKaW1wb3J0X2FsbAB0cmVhc3VyeTo6dHJlYXN1cnlfY29yZQppbXBvcnRfYWxs",
+  "bytecode": "NUlWRR8AAAABAdwZACcCEgAAkAAYAAAAGAbUBgYAAgB0eXBlczo6dHJlYXN1cnlfdHlwZXMKaW1wb3J0X2FsbAB0cmVhc3VyeTo6dHJlYXN1cnlfY29yZQppbXBvcnRfYWxs",
   "abi": {
+    "program_name": "Module",
     "functions": [
       {
         "name": "test_simple",
         "index": 0,
-        "parameters": []
+        "parameters": [],
+        "return_type": null,
+        "is_public": true,
+        "bytecode_offset": 0
       }
     ],
     "fields": [],
     "version": "1.0"
   },
-  "disassembly": [],
-  "version": "1.0"
+  "version": "1.0",
+  "metadata": {}
 }

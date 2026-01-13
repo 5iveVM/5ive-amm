@@ -6,7 +6,7 @@ account LendingMarket {
     authority: pubkey;
     quote_mint: pubkey;
     is_paused: bool;
-    name: string;
+    name: string<32>;
     created_slot: u64;
 }
 
@@ -22,7 +22,7 @@ account Reserve {
     liquidation_threshold_bps: u64;
     last_update_slot: u64;
     is_paused: bool;
-    name: string;
+    name: string<32>;
 }
 
 account Obligation {

@@ -1,5 +1,5 @@
 {
-  "bytecode": "NUlWRU8AAAAGBkMCIAdxAnACcAN1AtgbOAAAAAAAAACDGzgAAAAAAAAAGAKEVwNCAgDYQgIg2UICKFcCB3ECcANYAlcDJwRDAigEQwIg2SBCAiAGcQJwA1gCVwMnBEMCKARDAiDYJQNyAEMCINkhQgIgBnECcANYAlcDJwRDAigE2EICIAZxAnADWAJXAycEQwIoBEMCIN0gQgIgBgA=",
+  "bytecode": "NUlWRQ8AAAAGBtwZACcCNQDcGQEnAj8A3BkCJwJJANwZAycCUwDcGQQnAl8A3BkFJwJnAAClAaUCkAJ7AAAApQGlApACuwAAAKUBpQKQAtMAAAClAaUCpQOQAwcBAAClAZABcQAAAKUBpQKQAvMAAABDASAHcAJxAXACdQFnB2NvdW50ZXJXAhgC2If6ExZnB2NvdW50ZXJXAhgC2Bs4gxgCGzgYAYVXAkIBANhCASDZQgEoVwEHcQFwAkgBAFcCJwRDASgEQwEg2SBCASAGcQFwAkgBAFcCJwRDASgEQwEg2CUD7gBDASDZIUIBIAZxAXACSAEAVwInBEMBKATYQgEgBnEBcAJIAQBXAicEQwEoBEMBIN8gQgEgBgA=",
   "abi": {
     "program_name": "Module",
     "functions": [
@@ -13,8 +13,7 @@
             "is_account": true,
             "attributes": [
               "mut",
-              "init",
-              "signer"
+              "init"
             ]
           },
           {

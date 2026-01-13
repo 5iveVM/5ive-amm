@@ -6,9 +6,9 @@ account Mint {
     freeze_authority: pubkey;
     supply: u64;
     decimals: u8;
-    name: string;
-    symbol: string;
-    uri: string;
+    name: string<32>;
+    symbol: string<32>;
+    uri: string<96>;
 }
 
 account TokenAccount {

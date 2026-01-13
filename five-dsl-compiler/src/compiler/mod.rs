@@ -438,9 +438,38 @@ impl DslCompiler {
     ) -> Result<Vec<u8>, CompilerError> {
         use crate::bytecode_generator::ModuleMerger;
         use crate::error::{ErrorCategory, ErrorCode, ErrorSeverity};
+        use crate::type_checker::ModuleScope;
 
         let mut merger = ModuleMerger::new()
             .with_namespaces(config.enable_module_namespaces);
+
+        // Build ModuleScope for cross-module type resolution
+        let entry_path = std::path::Path::new(entry_point);
+        let main_module_name = entry_path.file_stem()
+            .unwrap_or_else(|| std::ffi::OsStr::new("main"))
+            .to_string_lossy()
+            .to_string();
+        
+        let mut module_scope = ModuleScope::new(main_module_name.clone());
+
+        // First pass: Parse all modules and populate ModuleScope
+        for file_path in &module_files {
+            let path = std::path::Path::new(file_path);
+            let module_name = path.file_stem()
+                .ok_or_else(|| CompilerError::new(
+                    ErrorCode::INVALID_MODULE_PATH,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Semantic,
+                    format!("Invalid module file path (no file stem): {}", file_path),
+                ))?
+                .to_string_lossy()
+                .to_string();
+
+            if module_name != main_module_name {
+                module_scope.add_module(module_name.clone());
+                module_scope.register_import(main_module_name.clone(), module_name.clone());
+            }
+        }
 
         for file_path in module_files {
             let source = std::fs::read_to_string(&file_path).map_err(|e| {
@@ -473,6 +502,9 @@ impl DslCompiler {
                 .to_string_lossy()
                 .to_string();
 
+            // Populate scope from AST
+            Self::populate_module_scope_from_ast(&ast, &module_name, &mut module_scope)?;
+
             if file_path == entry_point {
                 merger.set_main_ast(ast);
             } else {
@@ -489,10 +521,26 @@ impl DslCompiler {
             )
         })?;
 
+        // 4. Type Check with Module Scope
+        {
+            use crate::type_checker::DslTypeChecker;
+            let mut type_checker = DslTypeChecker::new()
+                .with_module_scope(module_scope);
+            type_checker.set_current_module(main_module_name);
+            type_checker.check_types(&merged_ast).map_err(|e| {
+                CompilerError::new(
+                    ErrorCode::TYPE_MISMATCH,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Type,
+                    format!("Type checking failed: {}", e),
+                )
+            })?;
+        }
+
         let entry_source = std::fs::read_to_string(entry_point).unwrap_or_default();
         let mut pipeline = CompilationPipeline::new(&entry_source, Some(entry_point));
 
-        pipeline.type_check(&merged_ast)?;
+        // Note: pipeline.type_check() is skipped because we did it manually with module_scope above
         let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
 
         pipeline.finalize_metrics(&bytecode);
@@ -757,9 +805,40 @@ impl DslCompiler {
     ) -> Result<FiveFile, CompilerError> {
         use crate::bytecode_generator::ModuleMerger;
         use crate::error::{ErrorCategory, ErrorCode, ErrorSeverity};
+        use crate::type_checker::ModuleScope;
 
         let mut merger = ModuleMerger::new()
             .with_namespaces(config.enable_module_namespaces);
+
+        // Build ModuleScope for cross-module type resolution
+        let entry_path = std::path::Path::new(entry_point);
+        let main_module_name = entry_path.file_stem()
+            .unwrap_or_else(|| std::ffi::OsStr::new("main"))
+            .to_string_lossy()
+            .to_string();
+        
+        let mut module_scope = ModuleScope::new(main_module_name.clone());
+
+        // First pass: Parse all modules and populate ModuleScope
+        for file_path in &module_files {
+            let path = std::path::Path::new(file_path);
+            let module_name = path.file_stem()
+                .ok_or_else(|| CompilerError::new(
+                    ErrorCode::INVALID_MODULE_PATH,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Semantic,
+                    format!("Invalid module file path (no file stem): {}", file_path),
+                ))?
+                .to_string_lossy()
+                .to_string();
+
+            if module_name != main_module_name {
+                module_scope.add_module(module_name.clone());
+                // In explicit module list mode, we assume all modules are available to each other
+                // or at least available to main. A more robust implementation would parse imports.
+                module_scope.register_import(main_module_name.clone(), module_name.clone());
+            }
+        }
 
         for file_path in module_files {
             let source = std::fs::read_to_string(&file_path).map_err(|e| {
@@ -792,6 +871,9 @@ impl DslCompiler {
                 .to_string_lossy()
                 .to_string();
 
+            // Populate scope from AST
+            Self::populate_module_scope_from_ast(&ast, &module_name, &mut module_scope)?;
+
             if file_path == entry_point {
                 merger.set_main_ast(ast);
             } else {
@@ -808,10 +890,26 @@ impl DslCompiler {
             )
         })?;
 
+        // 4. Type Check with Module Scope
+        {
+            use crate::type_checker::DslTypeChecker;
+            let mut type_checker = DslTypeChecker::new()
+                .with_module_scope(module_scope);
+            type_checker.set_current_module(main_module_name);
+            type_checker.check_types(&merged_ast).map_err(|e| {
+                CompilerError::new(
+                    ErrorCode::TYPE_MISMATCH,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Type,
+                    format!("Type checking failed: {}", e),
+                )
+            })?;
+        }
+
         let entry_source = std::fs::read_to_string(entry_point).unwrap_or_default();
         let mut pipeline = CompilationPipeline::new(&entry_source, Some(entry_point));
 
-        pipeline.type_check(&merged_ast)?;
+        // Note: pipeline.type_check() is skipped because we did it manually with module_scope above
         let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
         let abi = pipeline.generate_abi(&merged_ast, config)?;
 

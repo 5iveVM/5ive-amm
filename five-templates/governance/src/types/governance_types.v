@@ -9,7 +9,7 @@ account Governance {
     quorum_bps: u64;
     voting_period_slots: u64;
     is_paused: bool;
-    name: string;
+    name: string<32>;
 }
 
 account Proposal {
@@ -20,7 +20,7 @@ account Proposal {
     for_votes: u64;
     against_votes: u64;
     executed: bool;
-    description: string;
+    description: string<128>;
 }
 
 account VoteRecord {

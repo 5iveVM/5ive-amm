@@ -1,17 +1,20 @@
 {
-  "filename": "unknown.v",
-  "bytecode": "NUlWRV8BAAABAdwZACcCEgAAkAAYAAAAGBHUBgYABQB0eXBlczo6bGVuZGluZ190eXBlcwppbXBvcnRfYWxsAGxlbmRpbmc6OmxlbmRpbmdfY29yZQppbXBvcnRfYWxsAGxlbmRpbmc6OmxlbmRpbmdfZGVwb3NpdAppbXBvcnRfYWxsAGxlbmRpbmc6OmxlbmRpbmdfYm9ycm93CmltcG9ydF9hbGwAbGVuZGluZzo6bGVuZGluZ19saXF1aWRhdGlvbgppbXBvcnRfYWxs",
+  "bytecode": "NUlWRR8AAAABAdwZACcCEgAAkAAYAAAAGBHUBgYABQB0eXBlczo6bGVuZGluZ190eXBlcwppbXBvcnRfYWxsAGxlbmRpbmc6OmxlbmRpbmdfY29yZQppbXBvcnRfYWxsAGxlbmRpbmc6OmxlbmRpbmdfZGVwb3NpdAppbXBvcnRfYWxsAGxlbmRpbmc6OmxlbmRpbmdfYm9ycm93CmltcG9ydF9hbGwAbGVuZGluZzo6bGVuZGluZ19saXF1aWRhdGlvbgppbXBvcnRfYWxs",
   "abi": {
+    "program_name": "Module",
     "functions": [
       {
         "name": "test_simple",
         "index": 0,
-        "parameters": []
+        "parameters": [],
+        "return_type": null,
+        "is_public": true,
+        "bytecode_offset": 0
       }
     ],
     "fields": [],
     "version": "1.0"
   },
-  "disassembly": [],
-  "version": "1.0"
+  "version": "1.0",
+  "metadata": {}
 }

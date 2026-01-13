@@ -1,0 +1,15 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/nft/build/five-nft-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/nft/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/nft/src/types/nft_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/nft/src/nft/nft_core.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:17.835Z",
+  "hash": "a4564b8bb6beb6f785b8b58fa26f85a3f6cc95a5a1223fa1dd788a9dc11b114a",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

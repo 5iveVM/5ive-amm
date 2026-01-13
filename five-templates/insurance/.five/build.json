@@ -1,0 +1,16 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/insurance/build/five-insurance-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/insurance/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/insurance/src/types/insurance_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/insurance/src/insurance/insurance_core.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/insurance/src/insurance/insurance_claims.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:17.107Z",
+  "hash": "62f6832a63a2acb27d8a07ac602e3a864a48cd70f56bea487fa72f2421349435",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

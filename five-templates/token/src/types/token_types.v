@@ -6,8 +6,8 @@ account Mint {
     authority: pubkey;
     supply: u64;
     decimals: u8;
-    name: string;
-    symbol: string;
+    name: string<32>;
+    symbol: string<32>;
 }
 
 account TokenAccount {

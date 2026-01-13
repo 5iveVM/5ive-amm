@@ -1,0 +1,15 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/bridge/build/five-bridge-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/bridge/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/bridge/src/types/bridge_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/bridge/src/bridge/bridge_core.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:16.198Z",
+  "hash": "7b065aec2baaca9b8568b3e5bf35d8f2972627941425ef24ea1a37bf94de80ec",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

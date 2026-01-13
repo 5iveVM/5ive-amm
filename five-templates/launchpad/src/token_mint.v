@@ -1,6 +1,8 @@
+import launchpad_types;
+
 // Initialize a new Mint
 pub fn init_mint(
-    mint_account: Mint @mut @init,
+    mint_account: launchpad_types::Mint @mut @init,
     authority: account @signer,
     freeze_authority: pubkey,
     decimals: u8,
@@ -23,8 +25,8 @@ pub fn init_mint(
 
 // Mint tokens
 pub fn mint_to(
-    mint_state: Mint @mut,
-    destination_account: TokenAccount @mut,
+    mint_state: launchpad_types::Mint @mut,
+    destination_account: launchpad_types::TokenAccount @mut,
     mint_authority: account @signer,
     amount: u64
 ) {

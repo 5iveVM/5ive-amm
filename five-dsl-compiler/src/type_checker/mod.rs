@@ -84,10 +84,12 @@ impl types::TypeCheckerContext {
 
                             // Validate @init constraints
                             if param.is_init {
+                                eprintln!("DEBUG: Validating @init for parameter '{}' with type '{:?}'", param.name, param.param_type);
                                 // @init can only be applied to Account types (built-in or user-defined)
                                 let is_valid_account = match &param.param_type {
                                     crate::ast::TypeNode::Account => true,
                                     crate::ast::TypeNode::Named(name) => {
+                                        eprintln!("DEBUG: Checking named type '{}'", name);
                                         if name == "Account" || name == "account" {
                                             true
                                         } else if account_definitions.iter().any(|def| {
@@ -103,12 +105,16 @@ impl types::TypeCheckerContext {
                                             // Check module scope for imported accounts
                                             // We need to verify that the named type resolves to an Account type
                                             if let Some(scope) = &self.module_scope {
+                                                eprintln!("DEBUG: Checking module scope for '{}'", name);
                                                 if let Some(symbol) = scope.resolve_symbol(name, scope.current_module()) {
+                                                     eprintln!("DEBUG: Resolved symbol for '{}': {:?}", name, symbol);
                                                      matches!(symbol.type_info, crate::ast::TypeNode::Account)
                                                 } else {
+                                                    eprintln!("DEBUG: Could not resolve symbol for '{}' in module scope", name);
                                                     false
                                                 }
                                             } else {
+                                                eprintln!("DEBUG: No module scope available for '{}'", name);
                                                 false
                                             }
                                         }
@@ -117,8 +123,10 @@ impl types::TypeCheckerContext {
                                 };
 
                                 if !is_valid_account {
+                                    eprintln!("DEBUG: @init validation FAILED for parameter '{}'", param.name);
                                     return Err(VMError::ConstraintViolation);
                                 }
+                                eprintln!("DEBUG: @init validation PASSED for parameter '{}'", param.name);
                             }
 
                             let mut is_mutable = param.is_init;

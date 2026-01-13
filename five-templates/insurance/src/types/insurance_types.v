@@ -8,7 +8,7 @@ account InsurancePool {
     total_stake: u64;
     premium_rate_bps: u64;
     is_paused: bool;
-    name: string;
+    name: string<32>;
 }
 
 account Policy {

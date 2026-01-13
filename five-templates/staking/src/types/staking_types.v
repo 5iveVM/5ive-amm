@@ -10,7 +10,7 @@ account StakingPool {
     reward_rate_bps: u64;
     last_update_slot: u64;
     is_paused: bool;
-    name: string;
+    name: string<32>;
 }
 
 account Staker {

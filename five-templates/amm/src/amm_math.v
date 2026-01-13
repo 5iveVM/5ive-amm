@@ -3,8 +3,8 @@ pub fn sqrt(value: u64) -> u64 {
     if (value == 0) { return 0; }
     if (value < 4) { return 1; }
     
-    let z = value;
-    let x = value / 2 + 1;
+    let mut z = value;
+    let mut x = value / 2 + 1;
     
     while (x < z) {
         z = x;

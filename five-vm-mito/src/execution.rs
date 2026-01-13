@@ -738,7 +738,7 @@ impl MitoVM {
         accounts: &[AccountInfo],
         program_id: &Pubkey,
     ) -> Result<Option<Value>> {
-        error_log!("MitoVM: execute_direct ENTRY - script={} input={} accounts={}",
+        debug_log!("MitoVM: execute_direct ENTRY - script={} input={} accounts={}",
             script.len() as u32, input_data.len() as u32, accounts.len() as u32);
 
         let mut storage = crate::stack::StackStorage::new(script);

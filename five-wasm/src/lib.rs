@@ -2289,6 +2289,13 @@ impl WasmCompilationOptions {
         self
     }
 
+    /// Enable or disable module namespace qualification
+    #[wasm_bindgen]
+    pub fn with_module_namespaces(mut self, enabled: bool) -> WasmCompilationOptions {
+        self.enable_module_namespaces = enabled;
+        self
+    }
+
     // === Preset Configurations ===
     /// Create production-optimized configuration
     #[wasm_bindgen]
@@ -4618,47 +4625,86 @@ impl ParameterEncoder {
     ) -> Result<js_sys::Uint8Array, JsValue> {
         let mut data = Vec::new();
 
-        // IMPORTANT: Do NOT include function index here - SDK handles it
-        // Only encode parameter count and VLE-compressed parameter values
+        // 1. Add TYPED_PARAM_SENTINEL (128) to trigger typed parsing in MitoVM
+        // Execute format: [func_index, 128, param_count, type1, val1, type2, val2...]
+        // Sentinel is a raw 0x80 byte, NOT VLE-encoded
+        data.push(0x80);
 
-        // REMOVED: Parameter count prefix. MitoVM expects [func_index, param1, param2...]
-        // Including count shifts parameters by one slot (e.g. param1 becomes param2)
-        // let param_count = params.length() as u32;
-        // let (count_size, count_bytes) = VLE::encode_u32(param_count);
-        // data.extend_from_slice(&count_bytes[..count_size]);
+        // 2. Add actual parameter count (VLE-encoded)
+        let param_count = params.length() as u32;
+        let (count_size, count_bytes) = VLE::encode_u32(param_count);
+        data.extend_from_slice(&count_bytes[..count_size]);
 
-        // Encode each parameter value using VLE compression
+        // 3. Encode each parameter: [type_id, value]
         for i in 0..params.length() {
-            let param = params.get(i);
+            let mut param = params.get(i);
+            let mut is_account_type = false;
+            let mut account_value: JsValue = JsValue::null();
 
-            if param.is_string() {
-                let str_val = param.as_string().unwrap();
-                // Heuristic: 44-char base58 often indicates a pubkey; try decode, fall back to raw string on failure
-                if str_val.len() == 44 {
-                    match bs58::decode(&str_val).into_vec() {
-                        Ok(decoded) => {
-                            // Encode length + raw bytes
-                            let (len_size, len_bytes) = VLE::encode_u32(decoded.len() as u32);
-                            data.extend_from_slice(&len_bytes[..len_size]);
-                            data.extend_from_slice(&decoded);
-                        }
-                        Err(_) => {
-                            // Treat as plain string if not valid base58
-                            let bytes = str_val.as_bytes();
-                            let (len_size, len_bytes) = VLE::encode_u32(bytes.len() as u32);
-                            data.extend_from_slice(&len_bytes[..len_size]);
-                            data.extend_from_slice(bytes);
+            // Check if parameter is wrapped with type metadata (e.g., { __type: 'account', value: ... })
+            if param.is_object() {
+                if let Some(type_field) = js_sys::Reflect::get(&param, &"__type".into()).ok() {
+                    if let Some(type_str) = type_field.as_string() {
+                        if type_str == "account" {
+                            // Extract the actual value from the wrapper
+                            if let Ok(val) = js_sys::Reflect::get(&param, &"value".into()) {
+                                is_account_type = true;
+                                account_value = val;
+                                param = account_value.clone();
+                            }
                         }
                     }
-                } else {
-                    // String data - encode length + bytes
+                }
+            }
+
+            if is_account_type {
+                // Account parameter - encode as [type_id=12, index_vle]
+                // Value should be either a pubkey string (44 chars) or numeric index
+                data.push(types::ACCOUNT); // Type 12
+
+                if let Some(str_val) = param.as_string() {
+                    // Account pubkey - try to decode and use as 32-byte key
+                    // But we need to encode it as an index or just the raw pubkey
+                    // For now, treat as a 32-byte pubkey by decoding
+                    if str_val.len() == 44 {
+                        if let Ok(decoded) = bs58::decode(&str_val).into_vec() {
+                            if decoded.len() == 32 {
+                                // For accounts, encode the raw 32 bytes (the account key)
+                                data.extend_from_slice(&decoded);
+                            }
+                        }
+                    }
+                } else if let Some(num) = param.as_f64() {
+                    // Account index - encode as VLE number
+                    let idx = num as u32;
+                    let (idx_size, idx_bytes) = VLE::encode_u32(idx);
+                    data.extend_from_slice(&idx_bytes[..idx_size]);
+                }
+            } else if param.is_string() {
+                let str_val = param.as_string().unwrap();
+                // Heuristic: 44-char base58 indicates a pubkey
+                let mut is_pubkey = false;
+                if str_val.len() == 44 {
+                    if let Ok(decoded) = bs58::decode(&str_val).into_vec() {
+                        if decoded.len() == 32 {
+                            data.push(types::PUBKEY); // Type 10
+                            data.extend_from_slice(&decoded); // Raw 32 bytes
+                            is_pubkey = true;
+                        }
+                    }
+                }
+                
+                if !is_pubkey {
+                    // Standard String - encode as [type_id, len_vle, bytes...]
+                    data.push(types::STRING); // Type 11
                     let bytes = str_val.as_bytes();
                     let (len_size, len_bytes) = VLE::encode_u32(bytes.len() as u32);
                     data.extend_from_slice(&len_bytes[..len_size]);
                     data.extend_from_slice(bytes);
                 }
             } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
-                // Uint8Array - encode length + data
+                // Uint8Array -> encode as STRING format
+                data.push(types::STRING); 
                 let array = js_sys::Uint8Array::new(&param);
                 let mut bytes = vec![0u8; array.length() as usize];
                 array.copy_to(&mut bytes);
@@ -4666,12 +4712,14 @@ impl ParameterEncoder {
                 data.extend_from_slice(&len_bytes[..len_size]);
                 data.extend_from_slice(&bytes);
             } else if let Some(num) = param.as_f64() {
-                // Number - VLE encode the value
-                let val = num as u32; // Convert to u32 for VLE encoding
-                let (val_size, val_bytes) = VLE::encode_u32(val);
+                // Number -> U64
+                data.push(types::U64); // Type 4
+                let val = num as u64;
+                let (val_size, val_bytes) = VLE::encode_u64(val);
                 data.extend_from_slice(&val_bytes[..val_size]);
             } else if let Some(bool_val) = param.as_bool() {
-                // Boolean - VLE encode as 0 or 1
+                // Boolean -> BOOL
+                data.push(types::BOOL); // Type 9
                 let val = if bool_val { 1u32 } else { 0u32 };
                 let (val_size, val_bytes) = VLE::encode_u32(val);
                 data.extend_from_slice(&val_bytes[..val_size]);

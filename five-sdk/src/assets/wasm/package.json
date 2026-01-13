@@ -1,6 +1,6 @@
 {
   "name": "five-vm-wasm",
-  "type": "module",
+  "type": "commonjs",
   "version": "0.1.0",
   "files": [
     "five_vm_wasm_bg.wasm",

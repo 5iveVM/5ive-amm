@@ -1,0 +1,188 @@
+ℹ️  Loaded deployment-config.json overrides
+
+================================================================================
+🚀 Token E2E Test with FiveProgram API
+================================================================================
+ℹ️  Payer: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveProgram] Initialized with 14 functions
+✅ FiveProgram initialized
+ℹ️  Users created and funded
+ℹ️  Mint: 7U2ASS5wpNSPKXLrFEngzd2vAstHkKXBBpQ18sGKX3RF
+
+================================================================================
+STEP 1: Init Mint
+================================================================================
+[FunctionBuilder] Set accounts: mint_account, authority
+[FunctionBuilder] Set args: freeze_authority, decimals, name, symbol, uri
+[AccountResolver] Auto-injecting SystemProgram for @init constraint
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Detected @init constraint on parameter: mint_account
+[FunctionBuilder] Found payer for @init: authority = CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB
+[FunctionBuilder] Account metadata for mint_account: pubkey=7U2ASS5wpNSPKXLrFEngzd2vAstHkKXBBpQ18sGKX3RF, isSigner=true, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for authority: pubkey=CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB, isSigner=true, isWritable=true, isPayer=true
+[FunctionBuilder] Building instruction for function 'init_mint'
+[FunctionBuilder] Merged params: [
+  '7U2ASS5wpNSPKXLrFEngzd2vAstHkKXBBpQ18sGKX3RF',
+  'CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB',
+  PublicKey [PublicKey(CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB)] {
+    _bn: <BN: a96e6aff177216635445ae3549db846d67155dd99f48c83b99467d52145bba22>
+  },
+  6,
+  'TestToken',
+  'TEST',
+  'https://example.com/token'
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '7U2ASS5wpNSPKXLrFEngzd2vAstHkKXBBpQ18sGKX3RF' => { isSigner: true, isWritable: true },
+  'CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB' => { isSigner: true, isWritable: true },
+  '11111111111111111111111111111111' => { isSigner: false, isWritable: false, isSystemAccount: true }
+}
+[BytecodeCompiler] Initialized
+[ParameterEncoder] Initialized
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'DvizGT6fRmwLWihwKXyYrf2gV4yQpxvbf7kZWYykpQB5',
+  function: 0,
+  parameterCount: 7,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (mint_account) is account type, mapping: {
+  originalValue: '7U2ASS5wpNSPKXLrFEngzd2vAstHkKXBBpQ18sGKX3RF',
+  accounts: [ '7U2ASS5w...', 'CQPZCRiE...', '11111111...' ]
+}
+[FiveSDK] Mapped account 7U2ASS5w... to index 2
+[FiveSDK] Mapped to account index: 2
+[FiveSDK] Parameter 1 (authority) is account type, mapping: {
+  originalValue: 'CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB',
+  accounts: [ '7U2ASS5w...', 'CQPZCRiE...', '11111111...' ]
+}
+[FiveSDK] Mapped account CQPZCRiE... to index 3
+[FiveSDK] Mapped to account index: 3
+using deprecated parameters for `initSync()`; pass a single object instead
+[VLE] Parameters: [
+  {
+    name: 'mint_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'freeze_authority',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  },
+  { name: 'decimals', type: 'u8', normalized: 'u8', isAccount: false },
+  {
+    name: 'name',
+    type: 'string',
+    normalized: 'string',
+    isAccount: false
+  },
+  {
+    name: 'symbol',
+    type: 'string',
+    normalized: 'string',
+    isAccount: false
+  },
+  {
+    name: 'uri',
+    type: 'string',
+    normalized: 'string',
+    isAccount: false
+  }
+]
+[VLE] WASM encoded 7 parameters: 77 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: A5ddbSYW1iAPMivTdZ9bWmGM25F1MZbzxRX2DHQv3QHJ (override: yes)
+[FiveSDK] Detected @init on 'mint_account', found payer: authority = CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB
+[FiveSDK] ABI Metadata for param 'mint_account': pubkey=7U2ASS5wpNSPKXLrFEngzd2vAstHkKXBBpQ18sGKX3RF, signer=true, writable=true
+[FiveSDK] ABI Metadata for param 'authority': pubkey=CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB, signer=true, writable=true
+[FiveSDK] Instruction Account [2]: pubkey=7U2ASS5wpNSPKXLrFEngzd2vAstHkKXBBpQ18sGKX3RF, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 0,
+  functionIndex: 0,
+  parameterBytes: 77,
+  dataSize: 80,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'EzVq9uqEyWV7TTUsLd7W2HTnULZSxcRD1sYUykN9GTdQ',
+  keys: [
+    {
+      pubkey: 'DvizGT6fRmwLWihwKXyYrf2gV4yQpxvbf7kZWYykpQB5',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: 'A5ddbSYW1iAPMivTdZ9bWmGM25F1MZbzxRX2DHQv3QHJ',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '7U2ASS5wpNSPKXLrFEngzd2vAstHkKXBBpQ18sGKX3RF',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: 'CQPZCRiEpi7y4UGVRKtzEE5jQzP2Pcfs8z84c6kj7zTB',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: '11111111111111111111111111111111',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQAHAgMgqW5q/xdyFmNURa41SduEbWcVXdmfSMg7mUZ9UhRbuiIGCVRlc3RUb2tlbgRURVNUGWh0dHBzOi8vZXhhbXBsZS5jb20vdG9rZW4='
+}
+
+❌ Transaction Logs:
+  Program EzVq9uqEyWV7TTUsLd7W2HTnULZSxcRD1sYUykN9GTdQ invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: VM ERROR:
+  Program log: VM ERROR:
+  Program log: VM ERROR:
+  Program 11111111111111111111111111111111 invoke [2]
+  Program 11111111111111111111111111111111 success
+  Program 11111111111111111111111111111111 invoke [2]
+  Program 11111111111111111111111111111111 success
+  Program 11111111111111111111111111111111 invoke [2]
+  Program 11111111111111111111111111111111 success
+  Program log: VM ERROR:
+  Program log: VM ERROR:
+  Program log: VM ERROR:
+  Program log: VM ERROR:
+  Program log: VM ERROR:
+  Program log: VM ERROR:
+  Program log: VM ERROR:
+  Program log: VM ERROR:
+  Program EzVq9uqEyWV7TTUsLd7W2HTnULZSxcRD1sYUykN9GTdQ consumed 9789 of 200000 compute units
+  Program EzVq9uqEyWV7TTUsLd7W2HTnULZSxcRD1sYUykN9GTdQ failed: custom program error: 0x232b
+❌ init_mint failed
+SendTransactionError: Transaction U12fQ9c5c2iAePKkKiR2Xw4D9bMGU12y9MUVVr6Q167XkiiLrnL3RSmdPQGrvwt26DTVrQ2baNsdKrnWk75B4NA resulted in an error. 
+Status: ({"err":{"InstructionError":[0,{"Custom":9003}]}}). 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+    at sendAndConfirmTransaction (/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/node_modules/@solana/web3.js/lib/index.cjs.js:2302:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async sendInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/e2e-token-test-fiveprogram.mjs:91:21)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/e2e-token-test-fiveprogram.mjs:316:25) {
+  signature: 'U12fQ9c5c2iAePKkKiR2Xw4D9bMGU12y9MUVVr6Q167XkiiLrnL3RSmdPQGrvwt26DTVrQ2baNsdKrnWk75B4NA',
+  transactionMessage: 'Status: ({"err":{"InstructionError":[0,{"Custom":9003}]}})',
+  transactionLogs: undefined
+}

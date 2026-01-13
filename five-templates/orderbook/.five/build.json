@@ -1,0 +1,16 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/orderbook/build/five-orderbook-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/orderbook/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/orderbook/src/types/orderbook_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/orderbook/src/orderbook/orderbook_match.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/orderbook/src/orderbook/orderbook_core.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:18.280Z",
+  "hash": "c9c90bfc6a3c75cf5bba0793d5b72bf43864062c4e9560388d94f8bd2e71b6e6",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

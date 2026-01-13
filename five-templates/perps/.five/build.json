@@ -1,0 +1,16 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/perps/build/five-perps-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/perps/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/perps/src/types/perps_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/perps/src/perps/perps_liquidation.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/perps/src/perps/perps_core.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:18.510Z",
+  "hash": "b2d98625761b7baee3347057fc45679891429e14428e5db05268205f77406d25",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

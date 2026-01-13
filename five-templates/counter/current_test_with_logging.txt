@@ -1,0 +1,1333 @@
+[34m[INFO][0m Loaded deployment-config.json overrides
+
+================================================================================
+Counter Template E2E Test - State Persistence Validation
+================================================================================
+[34m[INFO][0m Loaded Counter ABI: 6 functions
+[34m[INFO][0m Payer: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[34m[INFO][0m Payer Balance: 9975.07 SOL
+[34m[INFO][0m Counter Script: EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244
+[34m[INFO][0m VM State PDA: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h
+
+================================================================================
+SETUP: Creating 2 Users
+================================================================================
+[34m[INFO][0m User1: 9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3
+[34m[INFO][0m User2: 2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3
+
+-- Funding users with SOL...
+[34m[INFO][0m Funded User1: 1000.00 SOL
+[34m[INFO][0m Funded User2: 1000.00 SOL
+
+================================================================================
+STEP 1: Deriving Counter Account PDAs
+================================================================================
+[32m[PASS][0m Derived PDA addresses for counter accounts
+[34m[INFO][0m Counter1 PDA: 4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ (bump: 252)
+[34m[INFO][0m Counter2 PDA: 21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H (bump: 255)
+
+================================================================================
+STEP 2: Initialize Counter1 (User1)
+================================================================================
+[BytecodeCompiler] Initialized
+[ParameterEncoder] Initialized
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 0,
+  parameterCount: 2,
+  accountCount: 4
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:387:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 0,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ',
+    param1: '9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3'
+  }
+}
+using deprecated parameters for `initSync()`; pass a single object instead
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  57,  75,  14, 187,  43,  43,  99,  89,  76, 164,
+     66, 207,  77,  10, 147,  72,   8,  62,  19,   0,  66,
+     71,  17, 220, 203,  14,  19, 110, 174, 129, 202, 237,
+     32, 129,  77,  93, 237, 157, 177, 159,  81,  86,  96,
+    124,  26,  68,  78, 211,  58, 251, 169,  10, 249, 138,
+    232, 219, 181,  70, 249, 180,  39, 254, 228, 226, 214
+  ],
+  hex: '20394b0ebb2b2b63594ca442cf4d0a9348083e1300424711dccb0e136eae81caed20814d5ded9db19f5156607c1a444ed33afba90af98ae8dbb546f9b427fee4e2d6'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=SysvarRent111111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 0,
+  functionIndex: 0,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] initialize:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 4recxq6A... signer=false writable=true (param0)
+  [3] 9hk1yAaX... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] SysvarRe... signer=false writable=false (param3)
+  [6] EMoPytP7... signer=true writable=true
+
+[31m[FAIL][0m initialize counter1 failed: undefined
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 0,
+  parameterCount: 2,
+  accountCount: 4
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:417:14)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 0,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H',
+    param1: '2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  15,  17, 127,  13, 113, 215,  67,  13, 211,  23,
+      2, 150, 152, 151, 129, 213, 208, 158,   5, 171, 161,
+    118, 232,  13, 204, 189,  29,  57, 218, 227, 196, 162,
+     32,  27,   1,  32, 109, 185, 151, 157, 124,  97, 157,
+    135,  92,  57,  53, 242,  74,  55,   0, 158,  22,  22,
+     49, 133, 225, 232, 134, 218, 111, 114, 163, 236, 106
+  ],
+  hex: '200f117f0d71d7430dd3170296989781d5d09e05aba176e80dccbd1d39dae3c4a2201b01206db9979d7c619d875c3935f24a37009e16163185e1e886da6f72a3ec6a'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=SysvarRent111111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 0,
+  functionIndex: 0,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] initialize:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 21pbBLxp... signer=false writable=true (param0)
+  [3] 2pR1FPJD... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] SysvarRe... signer=false writable=false (param3)
+  [6] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [initialize]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 7
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=15 17 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=27 1 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=6 167 Owner=6 167 DataLen=17 Writable=0 Signer=0
+  Program log:   Account 6: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x7
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 10172 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m initialize counter2 failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+
+================================================================================
+STEP 4: Increment Counter1 Three Times
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:448:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ',
+    param1: '9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  57,  75,  14, 187,  43,  43,  99,  89,  76, 164,
+     66, 207,  77,  10, 147,  72,   8,  62,  19,   0,  66,
+     71,  17, 220, 203,  14,  19, 110, 174, 129, 202, 237,
+     32, 129,  77,  93, 237, 157, 177, 159,  81,  86,  96,
+    124,  26,  68,  78, 211,  58, 251, 169,  10, 249, 138,
+    232, 219, 181,  70, 249, 180,  39, 254, 228, 226, 214
+  ],
+  hex: '20394b0ebb2b2b63594ca442cf4d0a9348083e1300424711dccb0e136eae81caed20814d5ded9db19f5156607c1a444ed33afba90af98ae8dbb546f9b427fee4e2d6'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 4recxq6A... signer=false writable=true (param0)
+  [3] 9hk1yAaX... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=57 75 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=129 77 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9471 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m increment counter1 (1/3) failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:448:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ',
+    param1: '9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  57,  75,  14, 187,  43,  43,  99,  89,  76, 164,
+     66, 207,  77,  10, 147,  72,   8,  62,  19,   0,  66,
+     71,  17, 220, 203,  14,  19, 110, 174, 129, 202, 237,
+     32, 129,  77,  93, 237, 157, 177, 159,  81,  86,  96,
+    124,  26,  68,  78, 211,  58, 251, 169,  10, 249, 138,
+    232, 219, 181,  70, 249, 180,  39, 254, 228, 226, 214
+  ],
+  hex: '20394b0ebb2b2b63594ca442cf4d0a9348083e1300424711dccb0e136eae81caed20814d5ded9db19f5156607c1a444ed33afba90af98ae8dbb546f9b427fee4e2d6'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 4recxq6A... signer=false writable=true (param0)
+  [3] 9hk1yAaX... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=57 75 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=129 77 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9471 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m increment counter1 (2/3) failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:448:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ',
+    param1: '9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  57,  75,  14, 187,  43,  43,  99,  89,  76, 164,
+     66, 207,  77,  10, 147,  72,   8,  62,  19,   0,  66,
+     71,  17, 220, 203,  14,  19, 110, 174, 129, 202, 237,
+     32, 129,  77,  93, 237, 157, 177, 159,  81,  86,  96,
+    124,  26,  68,  78, 211,  58, 251, 169,  10, 249, 138,
+    232, 219, 181,  70, 249, 180,  39, 254, 228, 226, 214
+  ],
+  hex: '20394b0ebb2b2b63594ca442cf4d0a9348083e1300424711dccb0e136eae81caed20814d5ded9db19f5156607c1a444ed33afba90af98ae8dbb546f9b427fee4e2d6'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 4recxq6A... signer=false writable=true (param0)
+  [3] 9hk1yAaX... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=57 75 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=129 77 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9471 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m increment counter1 (3/3) failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+
+================================================================================
+STEP 5: Add 10 to Counter1
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 3,
+  parameterCount: 3,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:478:14)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 3,
+  paramDefs: [
+    { name: 'param0', type: 'u64' },
+    { name: 'param1', type: 'u64' },
+    { name: 'param2', type: 'u64' }
+  ],
+  paramValues: {
+    param0: '4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ',
+    param1: '9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3',
+    param2: 10
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param2', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 3 parameters: 67 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 67,
+  encodedBytes: [
+     32,  57,  75,  14, 187,  43,  43,  99,  89,  76, 164,  66,
+    207,  77,  10, 147,  72,   8,  62,  19,   0,  66,  71,  17,
+    220, 203,  14,  19, 110, 174, 129, 202, 237,  32, 129,  77,
+     93, 237, 157, 177, 159,  81,  86,  96, 124,  26,  68,  78,
+    211,  58, 251, 169,  10, 249, 138, 232, 219, 181,  70, 249,
+    180,  39, 254, 228, 226, 214,  10
+  ],
+  hex: '20394b0ebb2b2b63594ca442cf4d0a9348083e1300424711dccb0e136eae81caed20814d5ded9db19f5156607c1a444ed33afba90af98ae8dbb546f9b427fee4e2d60a'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 3,
+  functionIndex: 3,
+  parameterBytes: 67,
+  dataSize: 70,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[FAIL] Transaction Logs for [add_amount]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=57 75 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=129 77 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 70
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 70
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x45
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9471 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m add_amount 10 to counter1 failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+
+================================================================================
+STEP 6: Decrement Counter1
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 2,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:507:14)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 2,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ',
+    param1: '9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  57,  75,  14, 187,  43,  43,  99,  89,  76, 164,
+     66, 207,  77,  10, 147,  72,   8,  62,  19,   0,  66,
+     71,  17, 220, 203,  14,  19, 110, 174, 129, 202, 237,
+     32, 129,  77,  93, 237, 157, 177, 159,  81,  86,  96,
+    124,  26,  68,  78, 211,  58, 251, 169,  10, 249, 138,
+    232, 219, 181,  70, 249, 180,  39, 254, 228, 226, 214
+  ],
+  hex: '20394b0ebb2b2b63594ca442cf4d0a9348083e1300424711dccb0e136eae81caed20814d5ded9db19f5156607c1a444ed33afba90af98ae8dbb546f9b427fee4e2d6'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4recxq6AKD311K4GKUrEk1KPpk7NGpoLemKcMMVMUzqJ, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=9hk1yAaXAp1sVfKKEmjxERdVbUvjQRcqiSWarvFPCUR3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 2,
+  functionIndex: 2,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[FAIL] Transaction Logs for [decrement]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=57 75 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=129 77 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9471 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m decrement counter1 failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+
+================================================================================
+STEP 7: Increment Counter2 Five Times
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H',
+    param1: '2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  15,  17, 127,  13, 113, 215,  67,  13, 211,  23,
+      2, 150, 152, 151, 129, 213, 208, 158,   5, 171, 161,
+    118, 232,  13, 204, 189,  29,  57, 218, 227, 196, 162,
+     32,  27,   1,  32, 109, 185, 151, 157, 124,  97, 157,
+    135,  92,  57,  53, 242,  74,  55,   0, 158,  22,  22,
+     49, 133, 225, 232, 134, 218, 111, 114, 163, 236, 106
+  ],
+  hex: '200f117f0d71d7430dd3170296989781d5d09e05aba176e80dccbd1d39dae3c4a2201b01206db9979d7c619d875c3935f24a37009e16163185e1e886da6f72a3ec6a'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 21pbBLxp... signer=false writable=true (param0)
+  [3] 2pR1FPJD... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=15 17 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=27 1 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9435 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m increment counter2 (1/5) failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H',
+    param1: '2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  15,  17, 127,  13, 113, 215,  67,  13, 211,  23,
+      2, 150, 152, 151, 129, 213, 208, 158,   5, 171, 161,
+    118, 232,  13, 204, 189,  29,  57, 218, 227, 196, 162,
+     32,  27,   1,  32, 109, 185, 151, 157, 124,  97, 157,
+    135,  92,  57,  53, 242,  74,  55,   0, 158,  22,  22,
+     49, 133, 225, 232, 134, 218, 111, 114, 163, 236, 106
+  ],
+  hex: '200f117f0d71d7430dd3170296989781d5d09e05aba176e80dccbd1d39dae3c4a2201b01206db9979d7c619d875c3935f24a37009e16163185e1e886da6f72a3ec6a'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 21pbBLxp... signer=false writable=true (param0)
+  [3] 2pR1FPJD... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=15 17 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=27 1 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9435 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m increment counter2 (2/5) failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H',
+    param1: '2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  15,  17, 127,  13, 113, 215,  67,  13, 211,  23,
+      2, 150, 152, 151, 129, 213, 208, 158,   5, 171, 161,
+    118, 232,  13, 204, 189,  29,  57, 218, 227, 196, 162,
+     32,  27,   1,  32, 109, 185, 151, 157, 124,  97, 157,
+    135,  92,  57,  53, 242,  74,  55,   0, 158,  22,  22,
+     49, 133, 225, 232, 134, 218, 111, 114, 163, 236, 106
+  ],
+  hex: '200f117f0d71d7430dd3170296989781d5d09e05aba176e80dccbd1d39dae3c4a2201b01206db9979d7c619d875c3935f24a37009e16163185e1e886da6f72a3ec6a'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 21pbBLxp... signer=false writable=true (param0)
+  [3] 2pR1FPJD... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=15 17 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=27 1 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9435 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m increment counter2 (3/5) failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H',
+    param1: '2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  15,  17, 127,  13, 113, 215,  67,  13, 211,  23,
+      2, 150, 152, 151, 129, 213, 208, 158,   5, 171, 161,
+    118, 232,  13, 204, 189,  29,  57, 218, 227, 196, 162,
+     32,  27,   1,  32, 109, 185, 151, 157, 124,  97, 157,
+    135,  92,  57,  53, 242,  74,  55,   0, 158,  22,  22,
+     49, 133, 225, 232, 134, 218, 111, 114, 163, 236, 106
+  ],
+  hex: '200f117f0d71d7430dd3170296989781d5d09e05aba176e80dccbd1d39dae3c4a2201b01206db9979d7c619d875c3935f24a37009e16163185e1e886da6f72a3ec6a'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 21pbBLxp... signer=false writable=true (param0)
+  [3] 2pR1FPJD... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=15 17 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=27 1 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9435 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m increment counter2 (4/5) failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H',
+    param1: '2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  15,  17, 127,  13, 113, 215,  67,  13, 211,  23,
+      2, 150, 152, 151, 129, 213, 208, 158,   5, 171, 161,
+    118, 232,  13, 204, 189,  29,  57, 218, 227, 196, 162,
+     32,  27,   1,  32, 109, 185, 151, 157, 124,  97, 157,
+    135,  92,  57,  53, 242,  74,  55,   0, 158,  22,  22,
+     49, 133, 225, 232, 134, 218, 111, 114, 163, 236, 106
+  ],
+  hex: '200f117f0d71d7430dd3170296989781d5d09e05aba176e80dccbd1d39dae3c4a2201b01206db9979d7c619d875c3935f24a37009e16163185e1e886da6f72a3ec6a'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] EiAtqByN... signer=false writable=false
+  [1] Gs2etpRw... signer=false writable=true
+  [2] 21pbBLxp... signer=false writable=true (param0)
+  [3] 2pR1FPJD... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=15 17 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=27 1 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9435 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m increment counter2 (5/5) failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+
+================================================================================
+STEP 8: Reset Counter2
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244',
+  function: 5,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for EiAtqByNJvNxcLJ8yiGCwopzjKkXKjb3gXiEtvkkf244: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:567:14)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 5,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H',
+    param1: '2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  15,  17, 127,  13, 113, 215,  67,  13, 211,  23,
+      2, 150, 152, 151, 129, 213, 208, 158,   5, 171, 161,
+    118, 232,  13, 204, 189,  29,  57, 218, 227, 196, 162,
+     32,  27,   1,  32, 109, 185, 151, 157, 124,  97, 157,
+    135,  92,  57,  53, 242,  74,  55,   0, 158,  22,  22,
+     49, 133, 225, 232, 134, 218, 111, 114, 163, 236, 106
+  ],
+  hex: '200f117f0d71d7430dd3170296989781d5d09e05aba176e80dccbd1d39dae3c4a2201b01206db9979d7c619d875c3935f24a37009e16163185e1e886da6f72a3ec6a'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: Gs2etpRwiegrm8yisTfZvCCuZkxtsNtomauxCZAcMX8h (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=21pbBLxpjPCRVcFhHMo8LzRJP1LCfvvb84ruxPZU596H, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=2pR1FPJDqCdnpqqjRZu94B494BZ2EcPv8WWkT176NCj3, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 5,
+  functionIndex: 5,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[FAIL] Transaction Logs for [reset]:
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [108, 132, 63, 172, 81, 149, 123, 167, 70, 12, 229, 31, 60, 70, 232, 83, 47, 100, 6, 38, 59, 186, 190, 229, 117, 206, 58, 195, 102, 92, 179, 194]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=203 179 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=235 176 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=15 17 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=27 1 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: verify_program_owned FAILED
+  Program log: Account owner mismatch - script/state account not owned by program
+  Program log: five-solana/src/common.rs
+  Program log: ** PANICKED **
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T consumed 9435 of 200000 compute units
+  Program 8Jbzan53a61oRD7jwUgeHbmuRqd5HCcX2wkqid7eR87T failed: SBF program panicked
+
+[31m[FAIL][0m reset counter2 failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+
+================================================================================
+Test Execution Complete
+================================================================================
+[34m[INFO][0m Total Tests: 13
+[34m[INFO][0m Passed: 0
+[34m[INFO][0m Failed: 13
+[34m[INFO][0m Total Compute Units: 114137
+[32m[PASS][0m Test state saved to test-state.json
+
+[31m========================================[0m
+[31m  SOME TESTS FAILED[0m
+[31m========================================[0m
+

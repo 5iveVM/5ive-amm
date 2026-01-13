@@ -397,6 +397,15 @@ pub fn parse_vle_parameters_unified(
         debug_log!("MitoVM: VLE param count decode - examining first byte");
     }
 
+    // Check for raw 0x80 sentinel byte (typed parameter encoding mode)
+    let is_typed_mode = if offset < input_data.len() && input_data[offset] == 0x80 {
+        debug_log!("MitoVM: Detected raw sentinel byte 0x80 - switching to typed parameter mode");
+        offset += 1; // Skip sentinel byte
+        true
+    } else {
+        false
+    };
+
     if let Some((param_count, consumed)) = five_protocol::VLE::decode_u32(&input_data[offset..]) {
         debug_log!(
             "MitoVM: parse_vle_parameters_unified - param count: {}, consumed: {} bytes",
@@ -405,12 +414,9 @@ pub fn parse_vle_parameters_unified(
         );
         offset += consumed;
 
-        if param_count == TYPED_PARAM_SENTINEL {
-            if let Some((typed_count, typed_consumed)) =
-                five_protocol::VLE::decode_u32(&input_data[offset..])
-            {
-                offset += typed_consumed;
-                let count = (typed_count as usize).min(7);
+        if is_typed_mode {
+            // In typed mode, param_count is the actual number of parameters
+            let count = (param_count as usize).min(7);
 
                 for i in 0..count {
                     if offset >= input_data.len() {
@@ -484,15 +490,12 @@ pub fn parse_vle_parameters_unified(
                 }
 
                 return Ok(());
-            } else {
-                return Err(VMErrorCode::InvalidInstructionPointer);
-            }
-        }
+        } else {
+            // Pure VLE mode - no sentinel detected
+            // Limit to available parameter slots (7 remaining after function index)
+            let count = (param_count as usize).min(7);
 
-        // Limit to available parameter slots (7 remaining after function index)
-        let count = (param_count as usize).min(7);
-
-        // Parse each parameter using TRUE VLE decoding (no type information)
+            // Parse each parameter using TRUE VLE decoding (no type information)
         // This matches the Five CLI encoding format for engineering integrity
         for i in 0..count {
             debug_log!("MitoVM: VLE param parse - parsing parameter at offset");
@@ -530,6 +533,9 @@ pub fn parse_vle_parameters_unified(
             "MitoVM: parse_vle_parameters_unified - successfully parsed {} parameters",
             count as u32
         );
+
+        return Ok(());
+    }
     } else {
         debug_log!("MitoVM: parse_vle_parameters_unified - FAILED to parse parameter count");
         debug_log!(

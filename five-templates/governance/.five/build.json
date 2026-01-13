@@ -1,0 +1,16 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/governance/build/five-governance-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/governance/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/governance/src/types/governance_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/governance/src/governance/governance_vote.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/governance/src/governance/governance_core.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:16.874Z",
+  "hash": "4c799c2f6b49c2b24d0c6f78cecb884e69c89e72171466971b1b14c9b347a557",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

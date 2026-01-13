@@ -1,38 +1,43 @@
+import launchpad_types;
+import bonding_curve;
+import token_mint;
+import token_transfer;
+
 // Launch a new token
 pub fn core_launch_token(
-    curve: BondingCurve @mut @init,
-    mint: Mint @mut @init,
-    curve_token_account: TokenAccount @mut @init,
+    curve: launchpad_types::BondingCurve @mut @init,
+    mint: launchpad_types::Mint @mut @init,
+    curve_token_account: launchpad_types::TokenAccount @mut @init,
     creator: account @signer,
     name: string,
     symbol: string,
     uri: string
 ) {
     // 1. Init Mint
-    init_mint(mint, creator, 0, 6, name, symbol, uri); // No freeze authority
+    token_mint::init_mint(mint, creator, 0, 6, name, symbol, uri); // No freeze authority
 
     // 2. Init Curve
-    init_curve(curve);
+    bonding_curve::init_curve(curve);
 
     // 3. Init Curve Token Account (Owner is Curve PDA)
-    init_token_account_pda(curve_token_account, curve.key, mint.key);
+    token_transfer::init_token_account_pda(curve_token_account, curve.key, mint.key);
 
     // 4. Mint Initial Supply to Curve
     let amount = curve.real_token_reserves;
-    mint_to(mint, curve_token_account, creator, amount);
+    token_mint::mint_to(mint, curve_token_account, creator, amount);
 }
 
 // Buy Action
 pub fn core_buy_token(
-    curve: BondingCurve @mut,
-    curve_token_account: TokenAccount @mut,
-    buyer_token_account: TokenAccount @mut,
+    curve: launchpad_types::BondingCurve @mut,
+    curve_token_account: launchpad_types::TokenAccount @mut,
+    buyer_token_account: launchpad_types::TokenAccount @mut,
     buyer: account @signer,
-    mint: Mint, 
+    mint: launchpad_types::Mint,
     amount_sol_in: u64
 ) {
     // 1. Calculate tokens out
-    let tokens_out = buy(curve, amount_sol_in, 0);
+    let tokens_out = bonding_curve::buy(curve, amount_sol_in, 0);
 
     // 2. Transfer Tokens: Curve -> Buyer
     require(curve_token_account.balance >= tokens_out);
@@ -44,16 +49,16 @@ pub fn core_buy_token(
 
 // Sell Action
 pub fn core_sell_token(
-    curve: BondingCurve @mut,
-    curve_token_account: TokenAccount @mut,
-    seller_token_account: TokenAccount @mut,
+    curve: launchpad_types::BondingCurve @mut,
+    curve_token_account: launchpad_types::TokenAccount @mut,
+    seller_token_account: launchpad_types::TokenAccount @mut,
     seller: account @signer,
-    mint: Mint,
+    mint: launchpad_types::Mint,
     amount_tokens_in: u64
 ) {
     // 1. Calculate SOL out
-    let sol_out = sell(curve, amount_tokens_in, 0);
+    let sol_out = bonding_curve::sell(curve, amount_tokens_in, 0);
 
     // 2. Transfer tokens: Seller -> Curve
-    transfer(seller_token_account, curve_token_account, seller, mint, amount_tokens_in);
+    token_transfer::transfer(seller_token_account, curve_token_account, seller, mint, amount_tokens_in);
 }

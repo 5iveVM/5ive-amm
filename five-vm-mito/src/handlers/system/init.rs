@@ -69,7 +69,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let lamports = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
     let owner_ref = ctx.pop()?;
 
-    error_log!(
+    debug_log!(
         "INIT_ACCOUNT: account_idx={} space={} payer_idx={} lamports={} num_accounts={}",
         account_idx,
         space,
@@ -100,7 +100,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Log account info before creation
     let account = ctx.get_account_unchecked(account_idx)?;
     let _key_bytes = account.key();
-    error_log!(
+    debug_log!(
         "INIT_ACCOUNT: target account key {} {} {} {} data_len_before={}",
         _key_bytes[0], _key_bytes[1], _key_bytes[2], _key_bytes[3],
         account.data_len() as u32
@@ -130,10 +130,10 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // "ExternalAccountDataModified" errors.
     match ctx.create_account_with_payer(account_idx, payer_idx, space, lamports, &owner) {
         Ok(()) => {
-            error_log!("INIT_ACCOUNT: SUCCESS with payer {} - created account {} with {} bytes", payer_idx, account_idx, space);
+            debug_log!("INIT_ACCOUNT: SUCCESS with payer {} - created account {} with {} bytes", payer_idx, account_idx, space);
         }
         Err(e) => {
-            error_log!("INIT_ACCOUNT: FAILED - account {}", account_idx);
+            debug_log!("INIT_ACCOUNT: FAILED - account {}", account_idx);
             return Err(e);
         }
     }
@@ -141,7 +141,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Log account info after creation
     let _account_after = ctx.get_account(account_idx)?;
-    error_log!(
+    debug_log!(
         "INIT_ACCOUNT: after - data_len={} is_writable={}",
         _account_after.data_len() as u32,
         if _account_after.is_writable() { 1u8 } else { 0u8 }
@@ -156,7 +156,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // CRITICAL DEBUG: Log pointers to detect stale references
     let ptr_after = unsafe { _account_after.borrow_data_unchecked().as_ptr() as usize };
-    error_log!(
+    debug_log!(
         "INIT_ACCOUNT_PTRS: idx={} ptr_before={} ptr_after={} changed={}",
         account_idx,
         ptr_before,
@@ -227,7 +227,7 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     
     // Log the owner for debugging
     let owner_bytes = owner.as_ref();
-    error_log!(
+    debug_log!(
         "INIT_PDA_ACCOUNT: owner={} {} {} {}",
         owner_bytes[0], owner_bytes[1], owner_bytes[2], owner_bytes[3]
     );
@@ -268,7 +268,7 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
                  .map_err(|_| VMErrorCode::InvokeError)?;
              
              if account.key() != &expected_pda {
-                 error_log!("INIT_PDA_ACCOUNT: Account address mismatch! Expected PDA but got different address");
+                 debug_log!("INIT_PDA_ACCOUNT: Account address mismatch! Expected PDA but got different address");
                  return Err(VMErrorCode::AccountError);
              }
         }
@@ -278,7 +278,7 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
              let expected_pda = crate::utils::derive_pda_offchain(validation_seeds.as_slice(), &owner);
              
              if account.key() != &expected_pda {
-                  error_log!("INIT_PDA_ACCOUNT: Account address mismatch! Computed PDA does not match account key");
+                  debug_log!("INIT_PDA_ACCOUNT: Account address mismatch! Computed PDA does not match account key");
                   return Err(VMErrorCode::AccountError);
              }
         }

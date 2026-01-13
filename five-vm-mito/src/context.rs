@@ -12,7 +12,6 @@ use crate::{
     MAX_CALL_DEPTH, MAX_LOCALS, MAX_PARAMETERS, MAX_SCRIPT_SIZE, STACK_SIZE,
 };
 
-#[cfg(feature = "debug-logs")]
 use crate::debug_log;
 use five_protocol::ValueRef;
 use heapless::Vec;
@@ -992,7 +991,7 @@ impl<'a> ExecutionContext<'a> {
         if self.program_id == required_authority {
             Ok(())
         } else {
-            crate::error_log!("Auth failed: owner mismatch");
+            crate::debug_log!("Auth failed: owner mismatch");
             return Err(VMErrorCode::ScriptNotAuthorized);
         }
     }
@@ -1005,7 +1004,7 @@ impl<'a> ExecutionContext<'a> {
                 let temp_buf = self.temp_buffer();
                 
                 if start >= temp_buf.len() {
-                     crate::error_log!("EXTRACT_STRING ERROR: Offset out of bounds. offset={} temp_len={}", start, temp_buf.len());
+                     crate::debug_log!("EXTRACT_STRING ERROR: Offset out of bounds. offset={} temp_len={}", start, temp_buf.len());
                      return Err(VMErrorCode::MemoryError);
                 }
                 
@@ -1016,7 +1015,7 @@ impl<'a> ExecutionContext<'a> {
                 let data_end = data_start + len;
                 
                 if data_end > temp_buf.len() {
-                    crate::error_log!("EXTRACT_STRING ERROR: String end out of bounds. start={} end={} len={} temp_len={}", data_start, data_end, len, temp_buf.len());
+                    crate::debug_log!("EXTRACT_STRING ERROR: String end out of bounds. start={} end={} len={} temp_len={}", data_start, data_end, len, temp_buf.len());
                     return Err(VMErrorCode::MemoryError);
                 }
                 
@@ -1222,12 +1221,12 @@ impl<'a> ExecutionContext<'a> {
 
         // Validate payer properties
         if !payer.is_signer() {
-            crate::error_log!("Payer {} not signer", payer_idx);
+            crate::debug_log!("Payer {} not signer", payer_idx);
             return Err(VMErrorCode::ConstraintViolation);
         }
 
         if !payer.is_writable() {
-            crate::error_log!("Payer {} not writable", payer_idx);
+            crate::debug_log!("Payer {} not writable", payer_idx);
             return Err(VMErrorCode::ConstraintViolation);
         }
 
@@ -1362,11 +1361,11 @@ impl<'a> ExecutionContext<'a> {
         let new_account = self.get_account_unchecked(account_idx)?;
 
         // Debug: Log payer_idx before validation
-        crate::error_log!("create_pda_account: payer_idx={} num_accounts={}", payer_idx as u32, self.accounts.len() as u32);
+        crate::debug_log!("create_pda_account: payer_idx={} num_accounts={}", payer_idx as u32, self.accounts.len() as u32);
 
         // Validate payer_idx
         if payer_idx as usize >= self.accounts.len() {
-            crate::error_log!("create_pda_account: INVALID payer_idx {} >= num_accounts {}", payer_idx as u32, self.accounts.len() as u32);
+            crate::debug_log!("create_pda_account: INVALID payer_idx {} >= num_accounts {}", payer_idx as u32, self.accounts.len() as u32);
             return Err(VMErrorCode::InvalidAccountIndex);
         }
 
@@ -1375,9 +1374,9 @@ impl<'a> ExecutionContext<'a> {
         // Debug: Log all critical parameters
         let p_key = payer.key().as_ref();
         let n_key = new_account.key().as_ref();
-        crate::error_log!("create_pda_account: account_idx={} payer_idx={} lamports={} space={}", account_idx as u32, payer_idx as u32, lamports, space);
-        crate::error_log!("create_pda_account: acc_key={} {} {} {}", n_key[0], n_key[1], n_key[2], n_key[3]);
-        crate::error_log!(
+        crate::debug_log!("create_pda_account: account_idx={} payer_idx={} lamports={} space={}", account_idx as u32, payer_idx as u32, lamports, space);
+        crate::debug_log!("create_pda_account: acc_key={} {} {} {}", n_key[0], n_key[1], n_key[2], n_key[3]);
+        crate::debug_log!(
             "Payer details: key={} {} {} {} is_signer={} is_writable={} lamports={}",
             p_key[0], p_key[1], p_key[2], p_key[3],
             if payer.is_signer() { 1 } else { 0 },
@@ -1391,18 +1390,18 @@ impl<'a> ExecutionContext<'a> {
             .iter()
             .find(|a| a.key() == &system_program_id)
             .ok_or_else(|| {
-                crate::error_log!("create_pda_account: System Program NOT FOUND in accounts!");
+                crate::debug_log!("create_pda_account: System Program NOT FOUND in accounts!");
                 VMErrorCode::AccountNotFound
             })?;
         
-        crate::error_log!("create_pda_account: system_program_key={}", system_program.key().as_ref()[0]);
+        crate::debug_log!("create_pda_account: system_program_key={}", system_program.key().as_ref()[0]);
 
         // Use CreateAccount with invoke_signed for PDAs
         // The owner should be the Five VM program (self.program_id), not the System Program
         
         // Log owner for debugging
         let owner_bytes = owner.as_ref();
-        crate::error_log!(
+        crate::debug_log!(
             "create_pda_account: requested_owner={} {} {} {}",
             owner_bytes[0], owner_bytes[1], owner_bytes[2], owner_bytes[3]
         );
@@ -1431,10 +1430,10 @@ impl<'a> ExecutionContext<'a> {
 
         #[cfg(target_os = "solana")]
         {
-            crate::error_log!("create_pda_account: Executing SOLANA path (CPI) - 3-step approach");
+            crate::debug_log!("create_pda_account: Executing SOLANA path (CPI) - 3-step approach");
             
             // Build signer seeds for PDA signing
-            crate::error_log!("CPI CHECK 1");
+            crate::debug_log!("CPI CHECK 1");
             const MAX_SEEDS: usize = 8;
             let binding = [bump];
             let mut seed_vec: heapless::Vec<Seed, MAX_SEEDS> = heapless::Vec::new();
@@ -1446,7 +1445,7 @@ impl<'a> ExecutionContext<'a> {
             seed_vec
                 .push(Seed::from(&binding))
                 .map_err(|_| VMErrorCode::TooManySeeds)?;
-            crate::error_log!("CPI CHECK 2");
+            crate::debug_log!("CPI CHECK 2");
             let signer = Signer::from(seed_vec.as_slice());
             // Step 1: Transfer lamports to new account (if needed)
             if lamports > 0 {
@@ -1613,7 +1612,7 @@ impl<'a> ExecutionContext<'a> {
     /// 3. Subsequent STORE_FIELD operations access updated data
     #[inline]
     pub fn refresh_account_pointers_after_cpi(&self, account_indices: &[usize]) -> CompactResult<()> {
-        error_log!(
+        debug_log!(
             "CPI_POINTER_REFRESH: Refreshing pointers for {} accounts",
             account_indices.len() as u32
         );
@@ -1633,7 +1632,7 @@ impl<'a> ExecutionContext<'a> {
             let data_len = account.data_len();
             let ptr = unsafe { account.borrow_data_unchecked().as_ptr() as usize };
 
-            error_log!(
+            debug_log!(
                 "CPI_POINTER_REFRESH: idx={} data_len={} ptr={}",
                 idx as u32,
                 data_len as u32,

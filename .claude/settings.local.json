@@ -25,7 +25,11 @@
       "Bash(file:*)",
       "Bash(xxd:*)",
       "Bash(solana account:*)",
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(tee:*)",
+      "Bash(chmod:*)",
+      "Bash(solana program write-buffer:*)",
+      "Bash(solana program show:*)"
     ]
   }
 }

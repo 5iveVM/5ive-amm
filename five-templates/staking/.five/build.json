@@ -1,0 +1,16 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/staking/build/five-staking-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/staking/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/staking/src/types/staking_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/staking/src/staking/staking_rewards.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/staking/src/staking/staking_core.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:19.216Z",
+  "hash": "cdc0071333b8695ad0e4297109b6c145e1003d2f131aef99c6849262ce871cd6",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

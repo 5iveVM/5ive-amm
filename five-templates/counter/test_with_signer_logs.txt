@@ -1,0 +1,2665 @@
+[34m[INFO][0m Loaded deployment-config.json overrides
+
+================================================================================
+Counter Template E2E Test - State Persistence Validation
+================================================================================
+[34m[INFO][0m Loaded Counter ABI: 6 functions
+[34m[INFO][0m Payer: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[34m[INFO][0m Payer Balance: 9971.04 SOL
+[34m[INFO][0m Counter Script: AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc
+[34m[INFO][0m VM State PDA: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4
+
+================================================================================
+SETUP: Creating 2 Users
+================================================================================
+[34m[INFO][0m User1: 3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG
+[34m[INFO][0m User2: 3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh
+
+-- Funding users with SOL...
+[34m[INFO][0m Funded User1: 1000.00 SOL
+[34m[INFO][0m Funded User2: 1000.00 SOL
+
+================================================================================
+STEP 1: Deriving Counter Account PDAs
+================================================================================
+[32m[PASS][0m Derived PDA addresses for counter accounts
+[34m[INFO][0m Counter1 PDA: 6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7 (bump: 252)
+[34m[INFO][0m Counter2 PDA: 4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn (bump: 254)
+
+================================================================================
+STEP 2: Initialize Counter1 (User1)
+================================================================================
+[BytecodeCompiler] Initialized
+[ParameterEncoder] Initialized
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 0,
+  parameterCount: 2,
+  accountCount: 4
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:387:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 0,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7',
+    param1: '3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG'
+  }
+}
+using deprecated parameters for `initSync()`; pass a single object instead
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  77, 185,  16, 127, 217, 143, 126, 205, 144, 106,
+     71,  32, 200,  33, 251, 160, 173,  17, 222, 128, 171,
+    231, 182,  64, 240,  91,  94, 235,  89,  95, 124,  10,
+     32,  33, 245, 249, 245,  53,  24, 172, 140, 130, 232,
+    171,  12, 148,  68, 131,  51, 200, 219, 220, 203,  73,
+     88,  91, 224, 228,  80, 123, 142, 197, 171,  88, 143
+  ],
+  hex: '204db9107fd98f7ecd906a4720c821fba0ad11de80abe7b640f05b5eeb595f7c0a2021f5f9f53518ac8c82e8ab0c94448333c8dbdccb49585be0e4507b8ec5ab588f'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=SysvarRent111111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 0,
+  functionIndex: 0,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] initialize:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 6EQ4kY8c... signer=false writable=true (param0)
+  [3] 3HZzpEWH... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] SysvarRe... signer=false writable=false (param3)
+  [6] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [initialize]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 7
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=77 185 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=33 245 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=6 167 Owner=6 167 DataLen=17 Writable=0 Signer=0
+  Program log:   Account 6: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x7
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 6 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=6
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 6
+  Program log: MitoVM: Input data first byte (function index): 0
+  Program log: MitoVM: Input data first 4 bytes: 0 2 32 77
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 0
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 0, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(0), U64(32), U64(77), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(77)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 0
+  Program log: MitoVM: ✓ Function visibility check passed - index 0 < public_count 6
+  Program log: MitoVM: ⚡ Dispatching to main function (0) at start_ip: 70
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 113
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 115
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 117
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=118
+  Program log: MitoVM: CALL params: count=2, target_addr=183, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=183, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 117 at IP: 183
+  Program log: MitoVM: handle_constraints opcode: 117
+  Program log: MitoVM: CHECK_SIGNER constant: 112
+  Program log: MitoVM: CHECK_UNINITIALIZED passed for account 1
+  Program log: MitoVM: EXEC LOOP - Opcode: 103 at IP: 185
+  Program log: MitoVM: PUSH_STRING with 7 bytes (VLE encoded)
+  Program log: MitoVM: String created at array_id=0 with 7 bytes (VLE)
+  Program log: MitoVM: EXEC LOOP - Opcode: 87 at IP: 194
+  Program log: MitoVM: GET_KEY account 2 allocated temp at offset 9
+  Program log: MitoVM: GET_KEY account 2 pushed TempRef(9, 32) to stack (stack_size=4)
+  Program log: MitoVM: EXEC LOOP - Opcode: 24 at IP: 196
+  Program log: MitoVM: EXEC LOOP - Opcode: 216 at IP: 198
+  Program log: MitoVM: EXEC LOOP - Opcode: 135 at IP: 199
+  Program log: MitoVM: FIND_PDA operation
+  Program log: MitoVM: FIND_PDA seeds_count: 2
+  Program log: MitoVM: FIND_PDA seed[1]: ValueRef
+  Program log: MitoVM: FIND_PDA seed[0]: ValueRef
+  Program log: MitoVM: FIND_PDA calling find_program_address
+  Program log: MitoVM: FIND_PDA program_id: [pubkey]
+  Program log: MitoVM: FIND_PDA seed: 0
+  Program log: Seed bytes: 7
+  Program log: MitoVM: FIND_PDA seed: 1
+  Program log: Seed bytes: 32
+  Program log: MitoVM: FIND_PDA success: [pubkey]
+  Program log: MitoVM: FIND_PDA bump: 252
+  Program log: MitoVM: EXEC LOOP - Opcode: 250 at IP: 200
+  Program log: MitoVM: EXEC LOOP - Opcode: 19 at IP: 201
+  Program log: MitoVM: EXEC LOOP - Opcode: 22 at IP: 202
+  Program log: MitoVM: EXEC LOOP - Opcode: 103 at IP: 203
+  Program log: MitoVM: PUSH_STRING with 7 bytes (VLE encoded)
+  Program log: MitoVM: String created at array_id=78 with 7 bytes (VLE)
+  Program log: MitoVM: EXEC LOOP - Opcode: 87 at IP: 212
+  Program log: MitoVM: GET_KEY account 2 allocated temp at offset 87
+  Program log: MitoVM: GET_KEY account 2 pushed TempRef(87, 32) to stack (stack_size=5)
+  Program log: MitoVM: EXEC LOOP - Opcode: 24 at IP: 214
+  Program log: MitoVM: EXEC LOOP - Opcode: 216 at IP: 216
+  Program log: MitoVM: EXEC LOOP - Opcode: 27 at IP: 217
+  Program log: MitoVM: PUSH_U64 pushing value: 56
+  Program log: Stack size before: 7
+  Program log: Stack size after: 8
+  Program log: MitoVM: EXEC LOOP - Opcode: 131 at IP: 219
+  Program log: MitoVM: GET_RENT operation - accessing real Solana Rent sysvar
+  Program log: MitoVM: GET_RENT calculated min_balance=1280640 for space=56
+  Program log: MitoVM: EXEC LOOP - Opcode: 24 at IP: 220
+  Program log: MitoVM: EXEC LOOP - Opcode: 27 at IP: 222
+  Program log: MitoVM: PUSH_U64 pushing value: 56
+  Program log: Stack size before: 9
+  Program log: Stack size after: 10
+  Program log: MitoVM: EXEC LOOP - Opcode: 24 at IP: 224
+  Program log: MitoVM: EXEC LOOP - Opcode: 133 at IP: 226
+  Program log: INIT_PDA_ACCOUNT: Checking space. input=56, limit=10485760
+  Program log: MitoVM: value_ref_to_seed_bytes - TempRef offset: 87, len: 32
+  Program log: MitoVM: value_ref_to_seed_bytes - StringRef offset: 78
+  Program log: VM ERROR:
+  Program log: INIT_PDA_ACCOUNT: owner=252 97 169 250
+  Program log: VM ERROR:
+  Program log: create_pda_account: payer_idx=2 num_accounts=6
+  Program log: VM ERROR:
+  Program log: create_pda_account: account_idx=1 payer_idx=2 lamports=1280640 space=56
+  Program log: VM ERROR:
+  Program log: create_pda_account: acc_key=77 185 16 127
+  Program log: VM ERROR:
+  Program log: Payer details: key=33 245 249 245 is_signer=1 is_writable=1 lamports=1000000000000
+  Program log: VM ERROR:
+  Program log: create_pda_account: system_program_key=0
+  Program log: VM ERROR:
+  Program log: create_pda_account: requested_owner=252 97 169 250
+  Program log: VM ERROR:
+  Program log: create_pda_account: Executing SOLANA path (CPI) - 3-step approach
+  Program log: VM ERROR:
+  Program log: CPI CHECK 1
+  Program log: VM ERROR:
+  Program log: CPI CHECK 2
+  Program 11111111111111111111111111111111 invoke [2]
+  Log truncated
+
+[31m[FAIL][0m initialize counter1 failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 0,
+  parameterCount: 2,
+  accountCount: 4
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:417:14)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 0,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn',
+    param1: '3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  55, 132, 103, 230, 177,  19,  46, 123, 198, 233,
+      9,  55, 106,  91,  28, 251,  66,  10, 234, 237, 137,
+     35, 172, 100,  12, 117, 203, 120, 233, 196, 235, 217,
+     32,  37, 111, 125, 191, 124,  64, 160, 170,  61,  73,
+     29, 129,  82, 244,   4,  46, 244, 245, 107, 182, 212,
+    126, 187,  45, 133, 131, 242,  52, 199, 243, 119, 244
+  ],
+  hex: '20378467e6b1132e7bc6e909376a5b1cfb420aeaed8923ac640c75cb78e9c4ebd920256f7dbf7c40a0aa3d491d8152f4042ef4f56bb6d47ebb2d8583f234c7f377f4'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [5]: pubkey=SysvarRent111111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 0,
+  functionIndex: 0,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] initialize:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 4jiXP3WJ... signer=false writable=true (param0)
+  [3] 3X8gv7YK... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] SysvarRe... signer=false writable=false (param3)
+  [6] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [initialize]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 7
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=55 132 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=37 111 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=6 167 Owner=6 167 DataLen=17 Writable=0 Signer=0
+  Program log:   Account 6: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x7
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 6 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=6
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 6
+  Program log: MitoVM: Input data first byte (function index): 0
+  Program log: MitoVM: Input data first 4 bytes: 0 2 32 55
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 0
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 0, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(0), U64(32), U64(55), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(55)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 0
+  Program log: MitoVM: ✓ Function visibility check passed - index 0 < public_count 6
+  Program log: MitoVM: ⚡ Dispatching to main function (0) at start_ip: 70
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 113
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 115
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 117
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=118
+  Program log: MitoVM: CALL params: count=2, target_addr=183, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=183, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 117 at IP: 183
+  Program log: MitoVM: handle_constraints opcode: 117
+  Program log: MitoVM: CHECK_SIGNER constant: 112
+  Program log: MitoVM: CHECK_UNINITIALIZED passed for account 1
+  Program log: MitoVM: EXEC LOOP - Opcode: 103 at IP: 185
+  Program log: MitoVM: PUSH_STRING with 7 bytes (VLE encoded)
+  Program log: MitoVM: String created at array_id=0 with 7 bytes (VLE)
+  Program log: MitoVM: EXEC LOOP - Opcode: 87 at IP: 194
+  Program log: MitoVM: GET_KEY account 2 allocated temp at offset 9
+  Program log: MitoVM: GET_KEY account 2 pushed TempRef(9, 32) to stack (stack_size=4)
+  Program log: MitoVM: EXEC LOOP - Opcode: 24 at IP: 196
+  Program log: MitoVM: EXEC LOOP - Opcode: 216 at IP: 198
+  Program log: MitoVM: EXEC LOOP - Opcode: 135 at IP: 199
+  Program log: MitoVM: FIND_PDA operation
+  Program log: MitoVM: FIND_PDA seeds_count: 2
+  Program log: MitoVM: FIND_PDA seed[1]: ValueRef
+  Program log: MitoVM: FIND_PDA seed[0]: ValueRef
+  Program log: MitoVM: FIND_PDA calling find_program_address
+  Program log: MitoVM: FIND_PDA program_id: [pubkey]
+  Program log: MitoVM: FIND_PDA seed: 0
+  Program log: Seed bytes: 7
+  Program log: MitoVM: FIND_PDA seed: 1
+  Program log: Seed bytes: 32
+  Program log: MitoVM: FIND_PDA success: [pubkey]
+  Program log: MitoVM: FIND_PDA bump: 254
+  Program log: MitoVM: EXEC LOOP - Opcode: 250 at IP: 200
+  Program log: MitoVM: EXEC LOOP - Opcode: 19 at IP: 201
+  Program log: MitoVM: EXEC LOOP - Opcode: 22 at IP: 202
+  Program log: MitoVM: EXEC LOOP - Opcode: 103 at IP: 203
+  Program log: MitoVM: PUSH_STRING with 7 bytes (VLE encoded)
+  Program log: MitoVM: String created at array_id=78 with 7 bytes (VLE)
+  Program log: MitoVM: EXEC LOOP - Opcode: 87 at IP: 212
+  Program log: MitoVM: GET_KEY account 2 allocated temp at offset 87
+  Program log: MitoVM: GET_KEY account 2 pushed TempRef(87, 32) to stack (stack_size=5)
+  Program log: MitoVM: EXEC LOOP - Opcode: 24 at IP: 214
+  Program log: MitoVM: EXEC LOOP - Opcode: 216 at IP: 216
+  Program log: MitoVM: EXEC LOOP - Opcode: 27 at IP: 217
+  Program log: MitoVM: PUSH_U64 pushing value: 56
+  Program log: Stack size before: 7
+  Program log: Stack size after: 8
+  Program log: MitoVM: EXEC LOOP - Opcode: 131 at IP: 219
+  Program log: MitoVM: GET_RENT operation - accessing real Solana Rent sysvar
+  Program log: MitoVM: GET_RENT calculated min_balance=1280640 for space=56
+  Program log: MitoVM: EXEC LOOP - Opcode: 24 at IP: 220
+  Program log: MitoVM: EXEC LOOP - Opcode: 27 at IP: 222
+  Program log: MitoVM: PUSH_U64 pushing value: 56
+  Program log: Stack size before: 9
+  Program log: Stack size after: 10
+  Program log: MitoVM: EXEC LOOP - Opcode: 24 at IP: 224
+  Program log: MitoVM: EXEC LOOP - Opcode: 133 at IP: 226
+  Program log: INIT_PDA_ACCOUNT: Checking space. input=56, limit=10485760
+  Program log: MitoVM: value_ref_to_seed_bytes - TempRef offset: 87, len: 32
+  Program log: MitoVM: value_ref_to_seed_bytes - StringRef offset: 78
+  Program log: VM ERROR:
+  Program log: INIT_PDA_ACCOUNT: owner=252 97 169 250
+  Program log: VM ERROR:
+  Program log: create_pda_account: payer_idx=2 num_accounts=6
+  Program log: VM ERROR:
+  Program log: create_pda_account: account_idx=1 payer_idx=2 lamports=1280640 space=56
+  Program log: VM ERROR:
+  Program log: create_pda_account: acc_key=55 132 103 230
+  Program log: VM ERROR:
+  Program log: Payer details: key=37 111 125 191 is_signer=1 is_writable=1 lamports=1000000000000
+  Program log: VM ERROR:
+  Program log: create_pda_account: system_program_key=0
+  Program log: VM ERROR:
+  Program log: create_pda_account: requested_owner=252 97 169 250
+  Program log: VM ERROR:
+  Program log: create_pda_account: Executing SOLANA path (CPI) - 3-step approach
+  Program log: VM ERROR:
+  Program log: CPI CHECK 1
+  Program log: VM ERROR:
+  Program log: CPI CHECK 2
+  Program 11111111111111111111111111111111 invoke [2]
+  Log truncated
+
+[31m[FAIL][0m initialize counter2 failed: {"InstructionError":[0,"ProgramFailedToComplete"]}
+
+================================================================================
+STEP 4: Increment Counter1 Three Times
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:448:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7',
+    param1: '3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  77, 185,  16, 127, 217, 143, 126, 205, 144, 106,
+     71,  32, 200,  33, 251, 160, 173,  17, 222, 128, 171,
+    231, 182,  64, 240,  91,  94, 235,  89,  95, 124,  10,
+     32,  33, 245, 249, 245,  53,  24, 172, 140, 130, 232,
+    171,  12, 148,  68, 131,  51, 200, 219, 220, 203,  73,
+     88,  91, 224, 228,  80, 123, 142, 197, 171,  88, 143
+  ],
+  hex: '204db9107fd98f7ecd906a4720c821fba0ad11de80abe7b640f05b5eeb595f7c0a2021f5f9f53518ac8c82e8ab0c94448333c8dbdccb49585be0e4507b8ec5ab588f'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 6EQ4kY8c... signer=false writable=true (param0)
+  [3] 3HZzpEWH... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=77 185 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=33 245 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 1
+  Program log: MitoVM: Input data first 4 bytes: 1 2 32 77
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 1
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 1, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(1), U64(32), U64(77), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(77)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 1
+  Program log: MitoVM: ✓ Function visibility check passed - index 1 < public_count 6
+  Program log: MitoVM: ⚡ Function 1 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 123
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 125
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 127
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=128
+  Program log: MitoVM: CALL params: count=2, target_addr=247, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=247, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 247
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 247
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 33023 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m increment counter1 (1/3) failed: {"InstructionError":[0,{"Custom":9006}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:448:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7',
+    param1: '3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  77, 185,  16, 127, 217, 143, 126, 205, 144, 106,
+     71,  32, 200,  33, 251, 160, 173,  17, 222, 128, 171,
+    231, 182,  64, 240,  91,  94, 235,  89,  95, 124,  10,
+     32,  33, 245, 249, 245,  53,  24, 172, 140, 130, 232,
+    171,  12, 148,  68, 131,  51, 200, 219, 220, 203,  73,
+     88,  91, 224, 228,  80, 123, 142, 197, 171,  88, 143
+  ],
+  hex: '204db9107fd98f7ecd906a4720c821fba0ad11de80abe7b640f05b5eeb595f7c0a2021f5f9f53518ac8c82e8ab0c94448333c8dbdccb49585be0e4507b8ec5ab588f'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 6EQ4kY8c... signer=false writable=true (param0)
+  [3] 3HZzpEWH... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=77 185 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=33 245 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 1
+  Program log: MitoVM: Input data first 4 bytes: 1 2 32 77
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 1
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 1, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(1), U64(32), U64(77), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(77)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 1
+  Program log: MitoVM: ✓ Function visibility check passed - index 1 < public_count 6
+  Program log: MitoVM: ⚡ Function 1 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 123
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 125
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 127
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=128
+  Program log: MitoVM: CALL params: count=2, target_addr=247, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=247, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 247
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 247
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 33023 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m increment counter1 (2/3) failed: {"InstructionError":[0,{"Custom":9006}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:448:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7',
+    param1: '3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  77, 185,  16, 127, 217, 143, 126, 205, 144, 106,
+     71,  32, 200,  33, 251, 160, 173,  17, 222, 128, 171,
+    231, 182,  64, 240,  91,  94, 235,  89,  95, 124,  10,
+     32,  33, 245, 249, 245,  53,  24, 172, 140, 130, 232,
+    171,  12, 148,  68, 131,  51, 200, 219, 220, 203,  73,
+     88,  91, 224, 228,  80, 123, 142, 197, 171,  88, 143
+  ],
+  hex: '204db9107fd98f7ecd906a4720c821fba0ad11de80abe7b640f05b5eeb595f7c0a2021f5f9f53518ac8c82e8ab0c94448333c8dbdccb49585be0e4507b8ec5ab588f'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 6EQ4kY8c... signer=false writable=true (param0)
+  [3] 3HZzpEWH... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=77 185 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=33 245 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 1
+  Program log: MitoVM: Input data first 4 bytes: 1 2 32 77
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 1
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 1, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(1), U64(32), U64(77), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(77)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 1
+  Program log: MitoVM: ✓ Function visibility check passed - index 1 < public_count 6
+  Program log: MitoVM: ⚡ Function 1 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 123
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 125
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 127
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=128
+  Program log: MitoVM: CALL params: count=2, target_addr=247, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=247, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 247
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 247
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 33023 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m increment counter1 (3/3) failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 5: Add 10 to Counter1
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 3,
+  parameterCount: 3,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:478:14)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 3,
+  paramDefs: [
+    { name: 'param0', type: 'u64' },
+    { name: 'param1', type: 'u64' },
+    { name: 'param2', type: 'u64' }
+  ],
+  paramValues: {
+    param0: '6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7',
+    param1: '3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG',
+    param2: 10
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param2', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 3 parameters: 67 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 67,
+  encodedBytes: [
+     32,  77, 185,  16, 127, 217, 143, 126, 205, 144, 106,
+     71,  32, 200,  33, 251, 160, 173,  17, 222, 128, 171,
+    231, 182,  64, 240,  91,  94, 235,  89,  95, 124,  10,
+     32,  33, 245, 249, 245,  53,  24, 172, 140, 130, 232,
+    171,  12, 148,  68, 131,  51, 200, 219, 220, 203,  73,
+     88,  91, 224, 228,  80, 123, 142, 197, 171,  88, 143,
+     10
+  ],
+  hex: '204db9107fd98f7ecd906a4720c821fba0ad11de80abe7b640f05b5eeb595f7c0a2021f5f9f53518ac8c82e8ab0c94448333c8dbdccb49585be0e4507b8ec5ab588f0a'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 3,
+  functionIndex: 3,
+  parameterBytes: 67,
+  dataSize: 70,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[FAIL] Transaction Logs for [add_amount]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=77 185 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=33 245 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 70
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 70
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x45
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=69 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 69 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 3
+  Program log: MitoVM: Input data first 4 bytes: 3 3 32 77
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 69
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 3
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 69, available bytes: 69
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 3, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 3, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 3 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 4 VLE parameters successfully: [U64(3), U64(32), U64(77), U64(2105), Empty, Empty, Empty, Empty
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(77)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Pushing parameter 3 (U64(2105)) onto stack
+  Program log: MitoVM: Initialized local 2 from parameter 3
+  Program log: MitoVM: Function dispatch requested for function index: 3
+  Program log: MitoVM: ✓ Function visibility check passed - index 3 < public_count 6
+  Program log: MitoVM: ⚡ Function 3 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 84
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 85
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 87
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 88
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 91
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 92
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 94
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 95
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 143
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 145
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 147
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 149
+  Program log: MitoVM: CALL opcode encountered - stack size: 6, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=6, local_base=0, local_count=3, IP=150
+  Program log: MitoVM: CALL params: count=3, target_addr=323, current_depth=0
+  Program log: MitoVM: internal CALL params=3 stack=6
+  Program log: MitoVM: CALL AFTER - SP=3, local_base=3, local_count=3, new_IP=323, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 323
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 3
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 3
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 323
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 3
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 38041 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m add_amount 10 to counter1 failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 6: Decrement Counter1
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 2,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:507:14)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 2,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7',
+    param1: '3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  77, 185,  16, 127, 217, 143, 126, 205, 144, 106,
+     71,  32, 200,  33, 251, 160, 173,  17, 222, 128, 171,
+    231, 182,  64, 240,  91,  94, 235,  89,  95, 124,  10,
+     32,  33, 245, 249, 245,  53,  24, 172, 140, 130, 232,
+    171,  12, 148,  68, 131,  51, 200, 219, 220, 203,  73,
+     88,  91, 224, 228,  80, 123, 142, 197, 171,  88, 143
+  ],
+  hex: '204db9107fd98f7ecd906a4720c821fba0ad11de80abe7b640f05b5eeb595f7c0a2021f5f9f53518ac8c82e8ab0c94448333c8dbdccb49585be0e4507b8ec5ab588f'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=6EQ4kY8cUi7sFymFmSfiq7hD6TU7iKY4t5LGyMqnVGD7, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3HZzpEWHTHXvdYHBobxQynRV3DhRJrToTNuJS1H2kwHG, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 2,
+  functionIndex: 2,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[FAIL] Transaction Logs for [decrement]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=77 185 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=33 245 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 2
+  Program log: MitoVM: Input data first 4 bytes: 2 2 32 77
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 2
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 2, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(2), U64(32), U64(77), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(77)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 2
+  Program log: MitoVM: ✓ Function visibility check passed - index 2 < public_count 6
+  Program log: MitoVM: ⚡ Function 2 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 84
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 85
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 87
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 88
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 133
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 135
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 137
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=138
+  Program log: MitoVM: CALL params: count=2, target_addr=271, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=271, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 271
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 271
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 34494 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m decrement counter1 failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 7: Increment Counter2 Five Times
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn',
+    param1: '3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  55, 132, 103, 230, 177,  19,  46, 123, 198, 233,
+      9,  55, 106,  91,  28, 251,  66,  10, 234, 237, 137,
+     35, 172, 100,  12, 117, 203, 120, 233, 196, 235, 217,
+     32,  37, 111, 125, 191, 124,  64, 160, 170,  61,  73,
+     29, 129,  82, 244,   4,  46, 244, 245, 107, 182, 212,
+    126, 187,  45, 133, 131, 242,  52, 199, 243, 119, 244
+  ],
+  hex: '20378467e6b1132e7bc6e909376a5b1cfb420aeaed8923ac640c75cb78e9c4ebd920256f7dbf7c40a0aa3d491d8152f4042ef4f56bb6d47ebb2d8583f234c7f377f4'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 4jiXP3WJ... signer=false writable=true (param0)
+  [3] 3X8gv7YK... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=55 132 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=37 111 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 1
+  Program log: MitoVM: Input data first 4 bytes: 1 2 32 55
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 1
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 1, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(1), U64(32), U64(55), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(55)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 1
+  Program log: MitoVM: ✓ Function visibility check passed - index 1 < public_count 6
+  Program log: MitoVM: ⚡ Function 1 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 123
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 125
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 127
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=128
+  Program log: MitoVM: CALL params: count=2, target_addr=247, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=247, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 247
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 247
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 33023 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m increment counter2 (1/5) failed: {"InstructionError":[0,{"Custom":9006}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn',
+    param1: '3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  55, 132, 103, 230, 177,  19,  46, 123, 198, 233,
+      9,  55, 106,  91,  28, 251,  66,  10, 234, 237, 137,
+     35, 172, 100,  12, 117, 203, 120, 233, 196, 235, 217,
+     32,  37, 111, 125, 191, 124,  64, 160, 170,  61,  73,
+     29, 129,  82, 244,   4,  46, 244, 245, 107, 182, 212,
+    126, 187,  45, 133, 131, 242,  52, 199, 243, 119, 244
+  ],
+  hex: '20378467e6b1132e7bc6e909376a5b1cfb420aeaed8923ac640c75cb78e9c4ebd920256f7dbf7c40a0aa3d491d8152f4042ef4f56bb6d47ebb2d8583f234c7f377f4'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 4jiXP3WJ... signer=false writable=true (param0)
+  [3] 3X8gv7YK... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=55 132 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=37 111 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 1
+  Program log: MitoVM: Input data first 4 bytes: 1 2 32 55
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 1
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 1, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(1), U64(32), U64(55), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(55)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 1
+  Program log: MitoVM: ✓ Function visibility check passed - index 1 < public_count 6
+  Program log: MitoVM: ⚡ Function 1 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 123
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 125
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 127
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=128
+  Program log: MitoVM: CALL params: count=2, target_addr=247, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=247, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 247
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 247
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 33023 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m increment counter2 (2/5) failed: {"InstructionError":[0,{"Custom":9006}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn',
+    param1: '3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  55, 132, 103, 230, 177,  19,  46, 123, 198, 233,
+      9,  55, 106,  91,  28, 251,  66,  10, 234, 237, 137,
+     35, 172, 100,  12, 117, 203, 120, 233, 196, 235, 217,
+     32,  37, 111, 125, 191, 124,  64, 160, 170,  61,  73,
+     29, 129,  82, 244,   4,  46, 244, 245, 107, 182, 212,
+    126, 187,  45, 133, 131, 242,  52, 199, 243, 119, 244
+  ],
+  hex: '20378467e6b1132e7bc6e909376a5b1cfb420aeaed8923ac640c75cb78e9c4ebd920256f7dbf7c40a0aa3d491d8152f4042ef4f56bb6d47ebb2d8583f234c7f377f4'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 4jiXP3WJ... signer=false writable=true (param0)
+  [3] 3X8gv7YK... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=55 132 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=37 111 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 1
+  Program log: MitoVM: Input data first 4 bytes: 1 2 32 55
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 1
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 1, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(1), U64(32), U64(55), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(55)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 1
+  Program log: MitoVM: ✓ Function visibility check passed - index 1 < public_count 6
+  Program log: MitoVM: ⚡ Function 1 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 123
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 125
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 127
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=128
+  Program log: MitoVM: CALL params: count=2, target_addr=247, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=247, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 247
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 247
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 33023 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m increment counter2 (3/5) failed: {"InstructionError":[0,{"Custom":9006}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn',
+    param1: '3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  55, 132, 103, 230, 177,  19,  46, 123, 198, 233,
+      9,  55, 106,  91,  28, 251,  66,  10, 234, 237, 137,
+     35, 172, 100,  12, 117, 203, 120, 233, 196, 235, 217,
+     32,  37, 111, 125, 191, 124,  64, 160, 170,  61,  73,
+     29, 129,  82, 244,   4,  46, 244, 245, 107, 182, 212,
+    126, 187,  45, 133, 131, 242,  52, 199, 243, 119, 244
+  ],
+  hex: '20378467e6b1132e7bc6e909376a5b1cfb420aeaed8923ac640c75cb78e9c4ebd920256f7dbf7c40a0aa3d491d8152f4042ef4f56bb6d47ebb2d8583f234c7f377f4'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 4jiXP3WJ... signer=false writable=true (param0)
+  [3] 3X8gv7YK... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=55 132 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=37 111 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 1
+  Program log: MitoVM: Input data first 4 bytes: 1 2 32 55
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 1
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 1, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(1), U64(32), U64(55), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(55)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 1
+  Program log: MitoVM: ✓ Function visibility check passed - index 1 < public_count 6
+  Program log: MitoVM: ⚡ Function 1 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 123
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 125
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 127
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=128
+  Program log: MitoVM: CALL params: count=2, target_addr=247, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=247, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 247
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 247
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 33023 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m increment counter2 (4/5) failed: {"InstructionError":[0,{"Custom":9006}]}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 1,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:537:18)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 1,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn',
+    param1: '3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  55, 132, 103, 230, 177,  19,  46, 123, 198, 233,
+      9,  55, 106,  91,  28, 251,  66,  10, 234, 237, 137,
+     35, 172, 100,  12, 117, 203, 120, 233, 196, 235, 217,
+     32,  37, 111, 125, 191, 124,  64, 160, 170,  61,  73,
+     29, 129,  82, 244,   4,  46, 244, 245, 107, 182, 212,
+    126, 187,  45, 133, 131, 242,  52, 199, 243, 119, 244
+  ],
+  hex: '20378467e6b1132e7bc6e909376a5b1cfb420aeaed8923ac640c75cb78e9c4ebd920256f7dbf7c40a0aa3d491d8152f4042ef4f56bb6d47ebb2d8583f234c7f377f4'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[ACCOUNT_LAYOUT] increment:
+  [0] AUt3zhJK... signer=false writable=false
+  [1] DtYmvLPv... signer=false writable=true
+  [2] 4jiXP3WJ... signer=false writable=true (param0)
+  [3] 3X8gv7YK... signer=true writable=true (param1)
+  [4] 11111111... signer=false writable=false (param2)
+  [5] EMoPytP7... signer=true writable=true
+
+
+[FAIL] Transaction Logs for [increment]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=55 132 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=37 111 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 1
+  Program log: MitoVM: Input data first 4 bytes: 1 2 32 55
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 1
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 1, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(1), U64(32), U64(55), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(55)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 1
+  Program log: MitoVM: ✓ Function visibility check passed - index 1 < public_count 6
+  Program log: MitoVM: ⚡ Function 1 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 123
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 125
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 127
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=128
+  Program log: MitoVM: CALL params: count=2, target_addr=247, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=247, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 247
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 247
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 33023 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m increment counter2 (5/5) failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+STEP 8: Reset Counter2
+================================================================================
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc',
+  function: 5,
+  parameterCount: 2,
+  accountCount: 3
+}
+[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types
+[FiveSDK] ABI processing error: Error: Failed to get script metadata: Failed to get script metadata for AUt3zhJKXHRTiMBEMVqqrd8aBCQwAm7kkMbRbCcKTrVc: accountFetcher.getAccountData is not a function
+    at FiveSDK.getScriptMetadata (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:1139:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async FiveSDK.generateExecuteInstruction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk/dist/FiveSDK.js:677:34)
+    at async executeCounterFunction (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:194:29)
+    at async main (file:///Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/e2e-counter-test.mjs:567:14)
+[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with: {
+  functionIndex: 5,
+  paramDefs: [ { name: 'param0', type: 'u64' }, { name: 'param1', type: 'u64' } ],
+  paramValues: {
+    param0: '4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn',
+    param1: '3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh'
+  }
+}
+[VLE] Parameters: [
+  { name: 'param0', type: 'u64', normalized: 'u64', isAccount: false },
+  { name: 'param1', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 2 parameters: 66 bytes
+[FiveSDK] VLE encoder returned: {
+  encodedLength: 66,
+  encodedBytes: [
+     32,  55, 132, 103, 230, 177,  19,  46, 123, 198, 233,
+      9,  55, 106,  91,  28, 251,  66,  10, 234, 237, 137,
+     35, 172, 100,  12, 117, 203, 120, 233, 196, 235, 217,
+     32,  37, 111, 125, 191, 124,  64, 160, 170,  61,  73,
+     29, 129,  82, 244,   4,  46, 244, 245, 107, 182, 212,
+    126, 187,  45, 133, 131, 242,  52, 199, 243, 119, 244
+  ],
+  hex: '20378467e6b1132e7bc6e909376a5b1cfb420aeaed8923ac640c75cb78e9c4ebd920256f7dbf7c40a0aa3d491d8152f4042ef4f56bb6d47ebb2d8583f234c7f377f4'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: DtYmvLPvK45wsde3xQcrc76RwvhratwDxvKmsjQnwJg4 (override: yes)
+[FiveSDK] Instruction Account [2]: pubkey=4jiXP3WJ3cYoWa6iGC79c6AVdwBSopDwNgon5EKxxAqn, signer=true, writable=true (via Fallback)
+[FiveSDK] Instruction Account [3]: pubkey=3X8gv7YKQW5tzRHuDX85WxRAKrEgp67zHGvn8u3xcAqh, signer=false, writable=true (via Fallback)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 5,
+  functionIndex: 5,
+  parameterBytes: 66,
+  dataSize: 69,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Execute fee estimate: {
+  feeBps: 0,
+  basisLamports: 5000,
+  feeLamports: 0,
+  totalEstimatedCost: 5000,
+  costBreakdown: { basis: '0.000005 SOL', fee: '0 SOL', total: '0.000005 SOL' }
+}
+
+[FAIL] Transaction Logs for [reset]:
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [252, 97, 169, 250, 193, 171, 153, 105, 199, 254, 34, 168, 242, 157, 227, 240, 197, 8, 212, 95, 41, 64, 145, 3, 106, 169, 112, 189, 44, 251, 184, 149]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=140 221 Owner=252 97 DataLen=408 Writable=0 Signer=0
+  Program log:   Account 1: Key=191 128 Owner=252 97 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=55 132 Owner=0 0 DataLen=0 Writable=1 Signer=0
+  Program log:   Account 3: Key=37 111 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log:   Account 4: Key=0 0 Owner=5 135 DataLen=14 Writable=0 Signer=0
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 69
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 69
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x44
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=344
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: VM ERROR:
+  Program log: MitoVM: execute_direct ENTRY - script=344 input=68 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 344 bytes
+  Program log: MitoVM: Input data length: 68 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 5
+  Program log: MitoVM: Input data first 4 bytes: 5 2 32 55
+  Program log: MitoVM: Header parsed (features=0x10F, public=6, total=6), start_ip=70
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 6 public, 6 total
+  Program log: MitoVM: ExecutionManager created with IP set to 70
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 68
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 5
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 68, available bytes: 68
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 5, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 2, consumed: 1 bytes
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: VLE param parse - parsing parameter at offset
+  Program log: MitoVM: VLE param parse - decoding pure VLE value at offset
+  Program log: MitoVM: VLE param parse - parameter decoded VLE value successfully
+  Program log: MitoVM: VLE param parse - parameter stored successfully as U64
+  Program log: MitoVM: parse_vle_parameters_unified - successfully parsed 2 parameters
+  Program log: MitoVM: parse_vle_parameters_unified - completed successfully
+  Program log: MitoVM: Parsed 3 VLE parameters successfully: [U64(5), U64(32), U64(55), Empty, Empty, Empty, Empty, Empty]
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (U64(32)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (U64(55)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Function dispatch requested for function index: 5
+  Program log: MitoVM: ✓ Function visibility check passed - index 5 < public_count 6
+  Program log: MitoVM: ⚡ Function 5 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 70
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 70, Script length: 344
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 70
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 71
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 73
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 74
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 77
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 78
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 80
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 81
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 84
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 85
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 87
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 88
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 91
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 92
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 94
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 95
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 98
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 99
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 101
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 102
+  Program log: MitoVM: EXEC LOOP - Opcode: 220 at IP: 105
+  Program log: MitoVM: EXEC LOOP - Opcode: 25 at IP: 106
+  Program log: MitoVM: EXEC LOOP - Opcode: 39 at IP: 108
+  Program log: MitoVM: EXEC LOOP - Opcode: 2 at IP: 109
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 163
+  Program log: MitoVM: EXEC LOOP - Opcode: 165 at IP: 165
+  Program log: MitoVM: EXEC LOOP - Opcode: 144 at IP: 167
+  Program log: MitoVM: CALL opcode encountered - stack size: 4, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=4, local_base=0, local_count=2, IP=168
+  Program log: MitoVM: CALL params: count=2, target_addr=303, current_depth=0
+  Program log: MitoVM: internal CALL params=2 stack=4
+  Program log: MitoVM: CALL AFTER - SP=2, local_base=2, local_count=3, new_IP=303, call_depth=1
+  Program log: MitoVM: EXEC LOOP - Opcode: 72 at IP: 303
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset 0 + 32 > len 0
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 2
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 2
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 303
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 72
+  Program log: VM ERROR:
+  Program log: Stack size: 2
+  Program log: MitoVM MAIN execution failed code=InvalidAccountData
+  Program log: Instruction failed with error code: 9006
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k consumed 38997 of 200000 compute units
+  Program HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k failed: custom program error: 0x232e
+
+[31m[FAIL][0m reset counter2 failed: {"InstructionError":[0,{"Custom":9006}]}
+
+================================================================================
+Test Execution Complete
+================================================================================
+[34m[INFO][0m Total Tests: 13
+[34m[INFO][0m Passed: 0
+[34m[INFO][0m Failed: 13
+[34m[INFO][0m Total Compute Units: 534864
+[32m[PASS][0m Test state saved to test-state.json
+
+[31m========================================[0m
+[31m  SOME TESTS FAILED[0m
+[31m========================================[0m
+

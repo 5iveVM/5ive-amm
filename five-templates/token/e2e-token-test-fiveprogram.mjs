@@ -37,7 +37,7 @@ let RPC_URL = 'http://127.0.0.1:8899';
 const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
 
 // Localnet deployment defaults
-let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || 'DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8');
+let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || '7JizMjzU3u8z3p5QuPNUE2r7YmA6Cks1V7attcujVQrd');
 let VM_STATE_PDA = new PublicKey('DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
 let TOKEN_SCRIPT_ACCOUNT = new PublicKey('GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
 

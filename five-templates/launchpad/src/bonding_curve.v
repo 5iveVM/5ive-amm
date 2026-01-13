@@ -1,6 +1,8 @@
+import launchpad_types;
+
 // Initialize a new buying curve
 pub fn init_curve(
-    curve: BondingCurve @mut @init
+    curve: launchpad_types::BondingCurve @mut @init
 ) {
     curve.virtual_sol_reserves = 30_000_000_000; // 30 SOL initial virtual liquidity
     curve.real_sol_reserves = 0;
@@ -12,7 +14,7 @@ pub fn init_curve(
 
 // Buy Tokens (Input SOL, Output Tokens)
 pub fn buy(
-    curve: BondingCurve @mut,
+    curve: launchpad_types::BondingCurve @mut,
     amount_sol_in: u64,
     min_tokens_out: u64
 ) -> u64 {
@@ -47,7 +49,7 @@ pub fn buy(
 
 // Sell Tokens (Input Tokens, Output SOL)
 pub fn sell(
-    curve: BondingCurve @mut,
+    curve: launchpad_types::BondingCurve @mut,
     amount_tokens_in: u64,
     min_sol_out: u64
 ) -> u64 {

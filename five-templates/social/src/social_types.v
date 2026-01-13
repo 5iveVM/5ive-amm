@@ -1,7 +1,7 @@
 // Market Account
 account Market {
     creator: pubkey;
-    question: string;
+    question: string<64>;
     resolution_time: u64;
     resolved: bool;
     outcome_yes: bool;     // true = YES won, false = NO won (only valid if resolved=true)

@@ -8,7 +8,7 @@ account Orderbook {
     quote_mint: pubkey;
     next_order_id: u64;
     is_paused: bool;
-    name: string;
+    name: string<32>;
 }
 
 account Order {

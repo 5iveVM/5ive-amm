@@ -7,7 +7,7 @@ account Treasury {
     min_signers: u64;
     proposal_count: u64;
     is_paused: bool;
-    name: string;
+    name: string<32>;
 }
 
 account SpendProposal {

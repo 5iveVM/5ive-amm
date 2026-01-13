@@ -1,0 +1,16 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/stablecoin/build/five-stablecoin-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/stablecoin/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/stablecoin/src/types/stablecoin_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/stablecoin/src/stablecoin/stablecoin_liquidation.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/stablecoin/src/stablecoin/stablecoin_core.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:18.977Z",
+  "hash": "c926388e1da2261b776241dc349c3505910cdc7bfd208ae0f4741b6f35e41acd",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

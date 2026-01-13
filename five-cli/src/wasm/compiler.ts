@@ -163,7 +163,7 @@ export class FiveCompilerWasm {
           .with_comprehensive_metrics(comprehensiveMetrics)
           .with_metrics_format(metricsFormat)
           .with_error_format(errorFormat)
-        // Note: not setting source_file since we have source string
+          .with_module_namespaces(!Boolean(options?.flatNamespace));
 
         // Execute compilation
         result = this.compiler.compile(source, compilationOptions);
@@ -276,6 +276,7 @@ export class FiveCompilerWasm {
         .with_comprehensive_metrics(comprehensiveMetrics)
         .with_metrics_format(metricsFormat)
         .with_error_format(errorFormat)
+        .with_module_namespaces(!Boolean(options?.flatNamespace))
         .with_source_file(mainFileName);
 
       // Map JS module structure (source) to Rust module structure (content)
@@ -942,6 +943,7 @@ export class FiveCompilerWasm {
         .with_comprehensive_metrics(comprehensiveMetrics)
         .with_metrics_format(metricsFormat)
         .with_error_format(errorFormat)
+        .with_module_namespaces(!Boolean(options?.flatNamespace))
         .with_source_file(entryPoint);
 
       const result = this.compiler.compileMultiWithDiscovery(entryPoint, compilationOptions);
@@ -1021,6 +1023,7 @@ export class FiveCompilerWasm {
         .with_comprehensive_metrics(comprehensiveMetrics)
         .with_metrics_format(metricsFormat)
         .with_error_format(errorFormat)
+        .with_module_namespaces(!Boolean(options?.flatNamespace))
         .with_source_file(entryPoint);
 
       const result = this.compiler.compileModules(moduleFiles, entryPoint, compilationOptions);

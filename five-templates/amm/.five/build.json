@@ -1,0 +1,18 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/amm/build/five-project.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/amm/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/amm/src/amm_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/amm/src/amm_math.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/amm/src/amm_liquidity.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/amm/src/amm_swap.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/amm/src/pool_manager.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:15.969Z",
+  "hash": "0fd384156cef329d6a096c49927475742abc1e82456fb35d63715f1626fea3f8",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

@@ -1,6 +1,9 @@
+import amm_types;
+
 // Initialize Pool
 pub fn initialize_pool(
-    pool: AMMPool @mut @init,
+    pool: amm_types::AMMPool @mut,
+    payer: account @signer,
     token_a: pubkey,
     token_b: pubkey,
     fee_bps: u64

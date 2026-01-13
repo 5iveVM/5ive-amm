@@ -69,7 +69,7 @@ impl CompilationConfig {
             enable_constraint_cache: true,
             optimization_level: OptimizationLevel::V2,
             include_debug_info: matches!(mode, CompilationMode::Testing),
-            enable_module_namespaces: false, // Disabled: type system doesn't qualify type refs within definitions
+            enable_module_namespaces: true, // Enabled: critical for multi-module compilation
         }
     }
 

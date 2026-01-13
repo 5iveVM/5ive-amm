@@ -436,6 +436,7 @@ impl AccountSystem {
 
     /// Calculate the size of a type in bytes
     fn calculate_type_size(&self, type_node: &TypeNode) -> Result<u32, VMError> {
+        println!("DEBUG: calculate_type_size for {:?}", type_node);
         match type_node {
             TypeNode::Primitive(name) => {
                 match name.as_str() {

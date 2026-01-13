@@ -1259,8 +1259,21 @@ impl DslParser {
 
             // Handle custom/named types
             Token::Identifier(name) => {
-                let type_name = name.clone();
+                let mut type_name = name.clone();
                 self.advance();
+
+                // Handle namespaced types: Module::Type
+                while matches!(self.current_token, Token::DoubleColon) {
+                    self.advance(); // consume '::'
+                    
+                    if let Token::Identifier(part) = &self.current_token {
+                        type_name.push_str("::");
+                        type_name.push_str(part);
+                        self.advance();
+                    } else {
+                        return Err(self.parse_error("identifier after '::' in type name"));
+                    }
+                }
 
                 // Check for TypeScript-style arrays: Type[N]
                 if matches!(self.current_token, Token::LeftBracket) {

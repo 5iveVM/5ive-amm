@@ -1,0 +1,15 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/treasury/build/five-treasury-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/treasury/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/treasury/src/treasury/treasury_core.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/treasury/src/types/treasury_types.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:19.906Z",
+  "hash": "0162a773807d004c303c30873fbc7abe3029655d4d1addc2b832ae3bc5955053",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

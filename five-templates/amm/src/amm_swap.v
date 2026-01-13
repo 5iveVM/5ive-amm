@@ -1,6 +1,8 @@
+import amm_types;
+
 // Swap A for B
 pub fn swap_a_to_b(
-    pool: AMMPool @mut,
+    pool: amm_types::AMMPool @mut,
     amount_a_in: u64,
     min_b_out: u64
 ) -> u64 {
@@ -33,7 +35,7 @@ pub fn swap_a_to_b(
 
 // Swap B for A
 pub fn swap_b_to_a(
-    pool: AMMPool @mut,
+    pool: amm_types::AMMPool @mut,
     amount_b_in: u64,
     min_a_out: u64
 ) -> u64 {

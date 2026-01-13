@@ -255,7 +255,7 @@ build_template() {
     cd "$PROJECT_ROOT"
 
     if [ "$VERBOSE" = true ]; then
-        if ../../target/debug/debug_compile "$SOURCE_FILE" && node create_artifact.js; then
+        if five compile "$SOURCE_FILE" && node create_artifact.js; then
             print_success "Build completed"
             BUILD_SUCCESSFUL=true
         else
@@ -263,7 +263,7 @@ build_template() {
             exit 1
         fi
     else
-        if ../../target/debug/debug_compile "$SOURCE_FILE" > /tmp/five-build.log 2>&1 && node create_artifact.js >> /tmp/five-build.log 2>&1; then
+        if five compile "$SOURCE_FILE" > /tmp/five-build.log 2>&1 && node create_artifact.js >> /tmp/five-build.log 2>&1; then
             print_success "Build completed"
             BUILD_SUCCESSFUL=true
 

@@ -1,6 +1,6 @@
 {
   "name": "@five-vm/cli",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "High-performance CLI for Five VM development with WebAssembly integration",
   "type": "module",
   "main": "dist/index.js",

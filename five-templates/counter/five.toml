@@ -4,7 +4,8 @@ version = "1.0.0"
 description = "Counter template for testing Five VM state persistence"
 
 [build]
-source = "src/counter.v"
+target = "vm"
+entry_point = "src/counter.v"
 output = "build/five-counter-template.five"
 
 [test]

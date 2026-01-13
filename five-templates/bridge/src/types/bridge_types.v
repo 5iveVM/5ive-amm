@@ -7,7 +7,7 @@ account Bridge {
     wrapped_mint: pubkey;
     total_supply: u64;
     is_paused: bool;
-    name: string;
+    name: string<32>;
 }
 
 account WrappedAccount {

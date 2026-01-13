@@ -13,7 +13,7 @@ account AMMPool {
     pool_authority: pubkey;
     initialized: bool;
     is_paused: bool;
-    name: string;
+    name: string<32>;
 }
 
 account LPAccount {

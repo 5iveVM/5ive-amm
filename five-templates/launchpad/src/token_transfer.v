@@ -1,6 +1,8 @@
+import launchpad_types;
+
 // Initialize Token Account
 pub fn init_token_account(
-    token_account: TokenAccount @mut @init,
+    token_account: launchpad_types::TokenAccount @mut @init,
     owner: account @signer, // or PDA owner passed as param if authorized
     mint: pubkey
 ) -> pubkey {
@@ -18,7 +20,7 @@ pub fn init_token_account(
 
 // Initialize Token Account with explicit owner pubkey (for PDA usage)
 pub fn init_token_account_pda(
-    token_account: TokenAccount @mut @init,
+    token_account: launchpad_types::TokenAccount @mut @init,
     owner_pubkey: pubkey,
     mint: pubkey
 ) {
@@ -31,10 +33,10 @@ pub fn init_token_account_pda(
 
 // Transfer tokens
 pub fn transfer(
-    source_account: TokenAccount @mut,
-    destination_account: TokenAccount @mut,
+    source_account: launchpad_types::TokenAccount @mut,
+    destination_account: launchpad_types::TokenAccount @mut,
     owner: account @signer,
-    mint: Mint, 
+    mint: launchpad_types::Mint,
     amount: u64
 ) {
     require(amount > 0);

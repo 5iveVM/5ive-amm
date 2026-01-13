@@ -1,0 +1,15 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/oracle/build/five-oracle-template.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/oracle/src/main.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/oracle/src/types/oracle_types.v",
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/oracle/src/oracle/oracle_core.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-01-13T05:13:18.051Z",
+  "hash": "5db69badb112971ecb81b768d708afb3a6c0d82379f984d054790b61f65cc2d9",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

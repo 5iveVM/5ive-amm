@@ -1,19 +1,19 @@
 # WASM Build Report
 
-Generated: Fri Jan  2 07:38:32 EST 2026
+Generated: Mon Jan 12 22:27:24 EST 2026
 
 ## Bundle Sizes
 
 ### Web Target
-- WASM: 2.2M
+- WASM: 2.5M
 - JS: 106K
 
 ### Node.js Target  
-- WASM: 2.2M
+- WASM: 2.5M
 - JS: 102K
 
 ### Bundler Target
-- WASM: 2.2M
+- WASM: 2.5M
 - JS: 188B
 
 ## Build Configuration

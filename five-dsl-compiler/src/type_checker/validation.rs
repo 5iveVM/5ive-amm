@@ -27,6 +27,9 @@ impl TypeCheckerContext {
                 let inner: Vec<String> = args.iter().map(Self::fmt_type).collect();
                 format!("{}<{}>", base, inner.join(", "))
             }
+            TypeNode::Sized { base_type, size } => {
+                format!("{}<{}>", base_type, size)
+            }
             _ => "<unknown>".to_string(),
         }
     }
@@ -134,6 +137,10 @@ impl TypeCheckerContext {
             } => self.is_valid_type_node(element_type),
             TypeNode::Account => true, // Built-in account type is always valid
             TypeNode::Named(_) => true, // Named types validated against account definitions during compilation
+            TypeNode::Sized { base_type, .. } => {
+                // Currently only string<N> is supported as a sized primitive
+                base_type == type_names::STRING
+            }
             TypeNode::Tuple { elements } => elements
                 .iter()
                 .all(|element| self.is_valid_type_node(element)),
@@ -169,6 +176,9 @@ impl TypeCheckerContext {
         match (type1, type2) {
             (TypeNode::Primitive(name1), TypeNode::Primitive(name2)) => name1 == name2,
             (TypeNode::Named(name1), TypeNode::Named(name2)) => name1 == name2,
+            (TypeNode::Sized { base_type: b1, size: s1 }, TypeNode::Sized { base_type: b2, size: s2 }) => b1 == b2 && s1 == s2,
+            (TypeNode::Sized { base_type, .. }, TypeNode::Primitive(p)) => base_type == p,
+            (TypeNode::Primitive(p), TypeNode::Sized { base_type, .. }) => base_type == p,
             (TypeNode::Account, TypeNode::Account) => true,
             (TypeNode::Tuple { elements: e1 }, TypeNode::Tuple { elements: e2 }) => {
                 e1.len() == e2.len()

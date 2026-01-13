@@ -11,7 +11,7 @@ account StablecoinEngine {
     total_collateral: u64;
     total_debt: u64;
     is_paused: bool;
-    name: string;
+    name: string<32>;
 }
 
 account Position {

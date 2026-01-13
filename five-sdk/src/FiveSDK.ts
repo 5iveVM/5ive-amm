@@ -130,14 +130,22 @@ export class FiveSDK {
           // Transaction found in the blockchain
           if (confirmationStatus.value.confirmationStatus === commitment ||
               confirmationStatus.value.confirmations >= 1) {
+            const transactionError = confirmationStatus.value.err;
+            const succeeded = !transactionError;
+
             if (debug) {
               console.log(
-                `[FiveSDK] Transaction confirmed after ${Date.now() - startTime}ms`
+                `[FiveSDK] Transaction confirmed after ${Date.now() - startTime}ms${succeeded ? '' : ' (with error)'}`
               );
+              if (transactionError) {
+                console.log(`[FiveSDK] Transaction error: ${JSON.stringify(transactionError)}`);
+              }
             }
+
             return {
-              success: true,
-              err: confirmationStatus.value.err,
+              success: succeeded,
+              err: transactionError,
+              error: transactionError ? JSON.stringify(transactionError) : undefined,
             };
           }
         }
@@ -4791,7 +4799,7 @@ export class FiveSDK {
 
       // Generate VM state account for this deployment
       const vmStateKeypair = Keypair.generate();
-      const VM_STATE_SIZE = 48; // FIVEVMState::LEN
+      const VM_STATE_SIZE = 56; // FIVEVMState::LEN (32 + 8 + 4 + 4 + 1 + 7)
       const vmStateRent =
         await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
 
@@ -4861,7 +4869,20 @@ export class FiveSDK {
           maxRetries: options.maxRetries || 3,
         },
       );
-      await connection.confirmTransaction(vmStateSignature, "confirmed");
+      const vmStateConfirmation = await this.pollForConfirmation(
+        connection,
+        vmStateSignature,
+        "confirmed",
+        120000,
+        options.debug
+      );
+      if (!vmStateConfirmation.success) {
+        return {
+          success: false,
+          error: `VM state initialization confirmation failed: ${vmStateConfirmation.error}`,
+          transactionIds: [vmStateSignature]
+        };
+      }
       transactionIds.push(vmStateSignature);
 
       if (options.debug) {
@@ -4901,9 +4922,11 @@ export class FiveSDK {
       initTransaction.add(createAccountInstruction);
 
       // Add InitLargeProgramWithChunk instruction (discriminator 4 + expected_size + first_chunk)
+      const sizeBuffer = Buffer.allocUnsafe(4);
+      sizeBuffer.writeUInt32LE(bytecode.length, 0);
       const initInstructionData = Buffer.concat([
         Buffer.from([4]), // InitLargeProgramWithChunk discriminator (same as InitLargeProgram)
-        Buffer.from(new Uint32Array([bytecode.length]).buffer), // expected_size as little-endian u32
+        sizeBuffer, // expected_size as little-endian u32
         firstChunk, // First chunk data
       ]);
 
@@ -4946,7 +4969,20 @@ export class FiveSDK {
         },
       );
 
-      await connection.confirmTransaction(initSignature, "confirmed");
+      const initConfirmation = await this.pollForConfirmation(
+        connection,
+        initSignature,
+        "confirmed",
+        120000,
+        options.debug
+      );
+      if (!initConfirmation.success) {
+        return {
+          success: false,
+          error: `Initialization confirmation failed: ${initConfirmation.error}`,
+          transactionIds
+        };
+      }
       transactionIds.push(initSignature);
 
       if (options.debug) {
@@ -5068,7 +5104,20 @@ export class FiveSDK {
             },
           );
 
-          await connection.confirmTransaction(appendSignature, "confirmed");
+          const appendConfirmation = await this.pollForConfirmation(
+            connection,
+            appendSignature,
+            "confirmed",
+            120000,
+            options.debug
+          );
+          if (!appendConfirmation.success) {
+            return {
+              success: false,
+              error: `Append confirmation failed: ${appendConfirmation.error}`,
+              transactionIds
+            };
+          }
           transactionIds.push(appendSignature);
 
           if (options.debug) {

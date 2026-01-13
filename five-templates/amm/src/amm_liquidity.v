@@ -1,7 +1,10 @@
+import amm_types;
+import amm_math;
+
 // Add Liquidity
 pub fn add_liquidity(
-    pool: AMMPool @mut,
-    lp_account: LPTokenAccount @mut,
+    pool: amm_types::AMMPool @mut,
+    lp_account: amm_types::LPTokenAccount @mut,
     provider: account @signer,
     amount_a_desired: u64,
     amount_b_desired: u64,
@@ -9,7 +12,7 @@ pub fn add_liquidity(
 ) -> u64 {
     require(!pool.is_paused);
     
-    let liquidity_minted = 0;
+    let mut liquidity_minted = 0;
     
     if (pool.total_liquidity == 0) {
         // First deposit: K = x * y
@@ -17,7 +20,7 @@ pub fn add_liquidity(
         pool.token_a_reserve = amount_a_desired;
         pool.token_b_reserve = amount_b_desired;
         
-        liquidity_minted = sqrt(amount_a_desired * amount_b_desired);
+        liquidity_minted = amm_math::sqrt(amount_a_desired * amount_b_desired);
         
         // Lock minimal liquidity (1000) to prevent inflation attack (Uniswap v2 style)
         // For simple template, we just mint it all to provider but careful users should burn some.
@@ -59,8 +62,8 @@ pub fn add_liquidity(
 
 // Remove Liquidity
 pub fn remove_liquidity(
-    pool: AMMPool @mut,
-    lp_account: LPTokenAccount @mut,
+    pool: amm_types::AMMPool @mut,
+    lp_account: amm_types::LPTokenAccount @mut,
     provider: account @signer,
     liquidity_amount: u64,
     min_a: u64,

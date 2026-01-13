@@ -21,7 +21,8 @@ enable_register_allocation = true
 enable_constraint_optimization = true
 optimization_level = 2
 
-modules = [
+[modules]
+main = [
     "src/amm_types.v",
     "src/amm_math.v",
     "src/amm_liquidity.v",
