@@ -129,7 +129,7 @@ export class FiveSDK {
         if (confirmationStatus.value) {
           // Transaction found in the blockchain
           if (confirmationStatus.value.confirmationStatus === commitment ||
-              confirmationStatus.value.confirmations >= 1) {
+            confirmationStatus.value.confirmations >= 1) {
             const transactionError = confirmationStatus.value.err;
             const succeeded = !transactionError;
 
@@ -1246,9 +1246,9 @@ export class FiveSDK {
             const attributes = param.attributes || [];
             const isSigner = attributes.includes('signer');
             const isWritable = attributes.includes('mut') ||
-                              attributes.includes('init') ||
-                              // If this is the payer for @init, it must be writable
-                              (hasInit && pubkey === payerPubkey);
+              attributes.includes('init') ||
+              // If this is the payer for @init, it must be writable
+              (hasInit && pubkey === payerPubkey);
 
             if (options.debug) {
               console.log(`[FiveSDK] ABI Metadata for param '${param.name}': pubkey=${pubkey}, signer=${isSigner}, writable=${isWritable}`);
@@ -4603,6 +4603,24 @@ export class FiveSDK {
               lamports: additionalRent,
             }),
           );
+        }
+
+        // Add compute budget for final chunk (verification is expensive)
+        if (i === chunks.length - 1) {
+          try {
+            const { ComputeBudgetProgram } = await import("@solana/web3.js");
+            if (options.debug) console.log("[FiveSDK] Adding 1.4M CU limit for final chunk verification");
+            appendTransaction.add(
+              ComputeBudgetProgram.setComputeUnitLimit({
+                units: 1_400_000,
+              }),
+            );
+          } catch (e) {
+            if (options.debug) console.warn("[FiveSDK] Failed to add compute budget:", e);
+          }
+        }
+
+        if (additionalRent > 0) {
           totalCost += additionalRent;
         }
 

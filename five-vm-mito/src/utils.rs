@@ -88,6 +88,24 @@ pub fn resolve_u64(value: ValueRef, ctx: &crate::context::ExecutionManager) -> C
     }
 }
 
+/// Helper to resolve a value (including AccountRef) to bool for logical operations
+/// This reads 1 byte from account data if given an AccountRef
+pub fn resolve_bool(value: ValueRef, ctx: &crate::context::ExecutionManager) -> CompactResult<bool> {
+    match value {
+        ValueRef::AccountRef(account_idx, offset) => {
+            let account = ctx.get_account(account_idx)?;
+            let data = unsafe { account.borrow_data_unchecked() };
+            if (offset as usize + 1) > data.len() {
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            // Read 1 byte and interpret as bool (non-zero is true)
+            let byte = data[offset as usize];
+            Ok(byte != 0)
+        }
+        _ => ValueRefUtils::as_bool(value),
+    }
+}
+
 /// Utility functions for bytecode validation
 pub struct BytecodeUtils;
 

@@ -1047,6 +1047,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 8,
     }, // account_index_u8 + offset_u16 + param_count_u8
     OpcodeInfo {
+        opcode: CALL_NATIVE,
+        name: "CALL_NATIVE",
+        arg_type: ArgType::U8,
+        stack_effect: 0,
+        compute_cost: 5,
+    }, // syscall_id_u8
+    OpcodeInfo {
         opcode: ALLOC_LOCALS,
         name: "ALLOC_LOCALS",
         arg_type: ArgType::None,

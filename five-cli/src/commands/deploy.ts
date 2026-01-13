@@ -175,8 +175,8 @@ export const deployCommand: CommandDefinition = {
       if (!options.keypair && projectContext?.config.keypairPath) {
         options.keypair = projectContext.config.keypairPath;
       }
-      if (!options.programId && projectContext?.config.programId) {
-        options.programId = projectContext.config.programId;
+      if (!options.programId) {
+        options.programId = projectContext?.config.programId || process.env.FIVE_PROGRAM_ID;
       }
 
       if (context.options.verbose) {

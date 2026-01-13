@@ -74,3 +74,16 @@ fn test_opcode_constants_match_table() {
     check_opcode(RETURN, "RETURN");
     // check_opcode(PUSH_U8, "PUSH_U8"); // PUSH_U8 is not imported, let's stick to imported ones
 }
+
+#[test]
+fn test_call_native_in_opcode_table() {
+    // Test that CALL_NATIVE (0x92) is correctly in the opcode table
+    const CALL_NATIVE: u8 = 0x92;
+    let info = get_opcode_info(CALL_NATIVE);
+    assert!(info.is_some(), "CALL_NATIVE (0x92) should be in opcode table");
+    let info = info.unwrap();
+    assert_eq!(info.name, "CALL_NATIVE");
+    assert_eq!(info.opcode, CALL_NATIVE);
+    println!("CALL_NATIVE lookup successful: {:?}", info.name);
+}
+

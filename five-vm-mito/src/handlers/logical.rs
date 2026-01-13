@@ -15,22 +15,29 @@ use five_protocol::{opcodes::*, ValueRef};
 pub fn handle_logical(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         AND => {
-            let b = ctx.pop()?.as_bool().ok_or(VMErrorCode::TypeMismatch)?;
-            let a = ctx.pop()?.as_bool().ok_or(VMErrorCode::TypeMismatch)?;
+            let b_val = ctx.pop()?;
+            let b = crate::utils::resolve_bool(b_val, ctx)?;
+            let a_val = ctx.pop()?;
+            let a = crate::utils::resolve_bool(a_val, ctx)?;
             ctx.push(ValueRef::Bool(a && b))?;
         }
         OR => {
-            let b = ctx.pop()?.as_bool().ok_or(VMErrorCode::TypeMismatch)?;
-            let a = ctx.pop()?.as_bool().ok_or(VMErrorCode::TypeMismatch)?;
+            let b_val = ctx.pop()?;
+            let b = crate::utils::resolve_bool(b_val, ctx)?;
+            let a_val = ctx.pop()?;
+            let a = crate::utils::resolve_bool(a_val, ctx)?;
             ctx.push(ValueRef::Bool(a || b))?;
         }
         NOT => {
-            let a = ctx.pop()?.as_bool().ok_or(VMErrorCode::TypeMismatch)?;
+            let a_val = ctx.pop()?;
+            let a = crate::utils::resolve_bool(a_val, ctx)?;
             ctx.push(ValueRef::Bool(!a))?;
         }
         XOR => {
-            let b = ctx.pop()?.as_bool().ok_or(VMErrorCode::TypeMismatch)?;
-            let a = ctx.pop()?.as_bool().ok_or(VMErrorCode::TypeMismatch)?;
+            let b_val = ctx.pop()?;
+            let b = crate::utils::resolve_bool(b_val, ctx)?;
+            let a_val = ctx.pop()?;
+            let a = crate::utils::resolve_bool(a_val, ctx)?;
             ctx.push(ValueRef::Bool(a ^ b))?;
         }
         BITWISE_NOT => {
