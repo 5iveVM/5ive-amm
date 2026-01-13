@@ -1,7 +1,6 @@
 {
-  "fiveProgramId": "AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN",
-  "counterScriptAccount": "5R1QCu7AFytb3JohvcprMCiDvEkSK8TrMTv1UUrSQS9F",
-  "vmStatePda": "CdUn3QaA14FvHXBogJoYcGz6pWTomUQEoSZzpA728mBr",
   "rpcUrl": "http://127.0.0.1:8899",
-  "timestamp": "2026-01-13T14:53:00.000Z"
+  "fiveProgramId": "HvXw1h2ndbBRyBccW8UtYa1XVoFh2M5rWgUQTkoJWtEq",
+  "vmStatePda": "9grzL8LF8DHknsBoAtrYs36sNR96QR3DTDycg1gYK5Ng",
+  "counterScriptAccount": "EeJrJqaB4KxmNeZB6vjddtFZao2qNiSSPs98xK1gdLbo"
 }
