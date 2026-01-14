@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod property_based_tests {
-    use crate::test_framework::TestUtils;
+    use crate::tests::framework::TestUtils;
     use crate::{opcodes, push_bool, push_u64, test_bytecode};
     use crate::{MitoVM, VMError, Value};
     use five_protocol::opcodes::*;

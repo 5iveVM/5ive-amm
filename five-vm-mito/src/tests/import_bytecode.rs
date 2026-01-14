@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod import_bytecode_tests {
     use crate::BytecodeUtils;
-    use crate::test_framework::{TestUtils, AccountUtils};
+    use crate::tests::framework::{TestUtils, AccountUtils};
 
     #[test]
     fn imports_bytecode_when_account_has_data() {

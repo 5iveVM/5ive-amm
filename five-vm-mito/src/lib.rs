@@ -74,39 +74,6 @@ pub mod utils;
 
 mod tests;
 
-// Comprehensive test framework and modules (feature-gated)
-#[cfg(all(test, feature = "test-utils"))]
-mod test_framework;
-
-// Mollusk integration tests (feature-gated)
-#[cfg(all(test, feature = "test-utils"))]
-mod mollusk_integration_tests;
-
-#[cfg(all(test, feature = "test-utils"))]
-mod test_core_vm;
-
-#[cfg(all(test, feature = "test-utils"))]
-mod test_account_system;
-
-#[cfg(all(test, feature = "test-utils"))]
-mod test_pda_operations;
-
-#[cfg(all(test, feature = "test-utils"))]
-mod test_function_calls;
-
-#[cfg(all(test, feature = "test-utils"))]
-mod test_array_operations;
-
-#[cfg(all(test, feature = "test-utils"))]
-mod test_integration;
-
-#[cfg(all(test, feature = "test-utils"))]
-mod test_property_based;
-
-mod test_polymorphic_arithmetic;
-
-mod test_vle_param_decoding;
-
 // Performance benchmarks
 mod bench_lazy_validation;
 

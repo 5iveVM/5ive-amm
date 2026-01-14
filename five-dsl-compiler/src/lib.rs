@@ -63,7 +63,7 @@ pub mod tokenizer;
 pub mod type_checker;
 
 #[cfg(test)]
-mod test_modular_generator;
+mod tests;
 
 // Re-export public API
 pub use ast::{

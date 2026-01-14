@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod account_system_tests {
-    use crate::test_framework::{
+    use crate::tests::framework::{
         InitializedAccount, SignerAccount, TestUtils, UninitializedAccount, WritableAccount,
     };
     use crate::{opcodes, push_bool, push_u64, test_bytecode};
