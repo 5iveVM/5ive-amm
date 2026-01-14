@@ -1,0 +1,2230 @@
+ℹ️  Loaded deployment-config.json overrides
+
+================================================================================
+🚀 Token E2E Test with FiveProgram API
+================================================================================
+ℹ️  Payer: EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt
+[FiveProgram] Initialized with 14 functions
+✅ FiveProgram initialized
+ℹ️  Users created and funded
+ℹ️  Mint: 2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA
+
+================================================================================
+STEP 1: Init Mint
+================================================================================
+[FunctionBuilder] Set accounts: mint_account, authority
+[FunctionBuilder] Set args: freeze_authority, decimals, name, symbol, uri
+[AccountResolver] Auto-injecting SystemProgram for @init constraint
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Detected @init constraint on parameter: mint_account
+[FunctionBuilder] Found payer for @init: authority = HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4
+[FunctionBuilder] Account metadata for mint_account: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, isSigner=true, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for authority: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, isSigner=true, isWritable=true, isPayer=true
+[FunctionBuilder] Building instruction for function 'init_mint'
+[FunctionBuilder] Merged params: [
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+  PublicKey [PublicKey(HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4)] {
+    _bn: <BN: f8b647248d8546eb963813ba2750d9f5e9a4a4e36ee7b7fc7e50066c97b3aa6b>
+  },
+  6,
+  'TestToken',
+  'TEST',
+  'https://example.com/token'
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA' => { isSigner: true, isWritable: true },
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4' => { isSigner: true, isWritable: true },
+  '11111111111111111111111111111111' => { isSigner: false, isWritable: false, isSystemAccount: true }
+}
+[BytecodeCompiler] Initialized
+[ParameterEncoder] Initialized
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 0,
+  parameterCount: 7,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (mint_account) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (authority) is account type, mapped to transaction index: 3
+[VLE] Parameters: [
+  {
+    name: 'mint_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'freeze_authority',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  },
+  { name: 'decimals', type: 'u8', normalized: 'u8', isAccount: false },
+  {
+    name: 'name',
+    type: 'string',
+    normalized: 'string',
+    isAccount: false
+  },
+  {
+    name: 'symbol',
+    type: 'string',
+    normalized: 'string',
+    isAccount: false
+  },
+  {
+    name: 'uri',
+    type: 'string',
+    normalized: 'string',
+    isAccount: false
+  }
+]
+[VLE] WASM encoded 7 parameters: 85 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] Detected @init on 'mint_account', found payer: authority = HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4
+[FiveSDK] ABI Metadata for param 'mint_account': pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=true, writable=true
+[FiveSDK] ABI Metadata for param 'authority': pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=true
+[FiveSDK] Instruction Account [2]: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 0,
+  functionIndex: 0,
+  parameterBytes: 85,
+  dataSize: 87,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: 'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: '11111111111111111111111111111111',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQCABwwCDAMK+LZHJI2FRuuWOBO6J1DZ9emkpONu57f8flAGbJezqmsEBgsJVGVzdFRva2VuCwRURVNUCxlodHRwczovL2V4YW1wbGUuY29tL3Rva2Vu'
+}
+✅ init_mint successful (sig: 3hVi4Z1jbfmy1JzCgUaWw2YmPHgX9ibnSxV2vKh3EfgtRUvJc3rPytYYTRgCXtYfgSE5wi8yZq1yHzUNyXRwHVpP)
+
+================================================================================
+STEP 2: Init Token Accounts
+================================================================================
+[FunctionBuilder] Set accounts: token_account, owner
+[FunctionBuilder] Set args: mint
+[AccountResolver] Auto-injecting SystemProgram for @init constraint
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Detected @init constraint on parameter: token_account
+[FunctionBuilder] Found payer for @init: owner = HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4
+[FunctionBuilder] Account metadata for token_account: pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, isSigner=true, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for owner: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, isSigner=true, isWritable=true, isPayer=true
+[FunctionBuilder] Building instruction for function 'init_token_account'
+[FunctionBuilder] Merged params: [
+  'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz',
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+  PublicKey [PublicKey(2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA)] {
+    _bn: <BN: 139db32a4642ae095fd1ed346c14b456120924725b17ad7e3d8be6c31a9325d9>
+  }
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz' => { isSigner: true, isWritable: true },
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4' => { isSigner: true, isWritable: true },
+  '11111111111111111111111111111111' => { isSigner: false, isWritable: false, isSystemAccount: true }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 1,
+  parameterCount: 3,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (token_account) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (owner) is account type, mapped to transaction index: 3
+[VLE] Parameters: [
+  {
+    name: 'token_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  }
+]
+[VLE] WASM encoded 3 parameters: 39 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] Detected @init on 'token_account', found payer: owner = HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4
+[FiveSDK] ABI Metadata for param 'token_account': pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, signer=true, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=true
+[FiveSDK] Instruction Account [2]: pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 39,
+  dataSize: 41,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: 'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: '11111111111111111111111111111111',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQGAAwwCDAMKE52zKkZCrglf0e00bBS0VhIJJHJbF61+PYvmwxqTJdk='
+}
+✅ init_token_account for User1 successful (sig: 3TDMw8FHDkLLJu1f1aEFmkCho3Ka8sDz6Ky7Lc7JsJrTJNCtYR2zxXYq3ZKQULvWRabDcWWWs66QKPWLg93h8WRm)
+[FunctionBuilder] Set accounts: token_account, owner
+[FunctionBuilder] Set args: mint
+[AccountResolver] Auto-injecting SystemProgram for @init constraint
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Detected @init constraint on parameter: token_account
+[FunctionBuilder] Found payer for @init: owner = 3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX
+[FunctionBuilder] Account metadata for token_account: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, isSigner=true, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for owner: pubkey=3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX, isSigner=true, isWritable=true, isPayer=true
+[FunctionBuilder] Building instruction for function 'init_token_account'
+[FunctionBuilder] Merged params: [
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+  '3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX',
+  PublicKey [PublicKey(2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA)] {
+    _bn: <BN: 139db32a4642ae095fd1ed346c14b456120924725b17ad7e3d8be6c31a9325d9>
+  }
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ' => { isSigner: true, isWritable: true },
+  '3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX' => { isSigner: true, isWritable: true },
+  '11111111111111111111111111111111' => { isSigner: false, isWritable: false, isSystemAccount: true }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 1,
+  parameterCount: 3,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (token_account) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (owner) is account type, mapped to transaction index: 3
+[VLE] Parameters: [
+  {
+    name: 'token_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  }
+]
+[VLE] WASM encoded 3 parameters: 39 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] Detected @init on 'token_account', found payer: owner = 3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX
+[FiveSDK] ABI Metadata for param 'token_account': pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=true, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX, signer=true, writable=true
+[FiveSDK] Instruction Account [2]: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 39,
+  dataSize: 41,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: '3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: '11111111111111111111111111111111',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQGAAwwCDAMKE52zKkZCrglf0e00bBS0VhIJJHJbF61+PYvmwxqTJdk='
+}
+✅ init_token_account for User2 successful (sig: 2NGVcHDf1WgD6gZetmVSHAwJjZL37kDbQ61Hw4NAkzxx31umtW2Np5bempZJ9b11x5Q5nz1sRpCY5WXyuH2avwZy)
+[FunctionBuilder] Set accounts: token_account, owner
+[FunctionBuilder] Set args: mint
+[AccountResolver] Auto-injecting SystemProgram for @init constraint
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Detected @init constraint on parameter: token_account
+[FunctionBuilder] Found payer for @init: owner = 5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj
+[FunctionBuilder] Account metadata for token_account: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, isSigner=true, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for owner: pubkey=5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj, isSigner=true, isWritable=true, isPayer=true
+[FunctionBuilder] Building instruction for function 'init_token_account'
+[FunctionBuilder] Merged params: [
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+  '5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj',
+  PublicKey [PublicKey(2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA)] {
+    _bn: <BN: 139db32a4642ae095fd1ed346c14b456120924725b17ad7e3d8be6c31a9325d9>
+  }
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC' => { isSigner: true, isWritable: true },
+  '5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj' => { isSigner: true, isWritable: true },
+  '11111111111111111111111111111111' => { isSigner: false, isWritable: false, isSystemAccount: true }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 1,
+  parameterCount: 3,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (token_account) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (owner) is account type, mapped to transaction index: 3
+[VLE] Parameters: [
+  {
+    name: 'token_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  }
+]
+[VLE] WASM encoded 3 parameters: 39 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] Detected @init on 'token_account', found payer: owner = 5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj
+[FiveSDK] ABI Metadata for param 'token_account': pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=true, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj, signer=true, writable=true
+[FiveSDK] Instruction Account [2]: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj, signer=true, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=11111111111111111111111111111111, signer=false, writable=true (via Fallback)
+[FiveSDK] Generated execution instruction: {
+  function: 1,
+  functionIndex: 1,
+  parameterBytes: 39,
+  dataSize: 41,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: '5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj',
+      isSigner: true,
+      isWritable: true
+    },
+    {
+      pubkey: '11111111111111111111111111111111',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQGAAwwCDAMKE52zKkZCrglf0e00bBS0VhIJJHJbF61+PYvmwxqTJdk='
+}
+✅ init_token_account for User3 successful (sig: 2rVasbRiHAUdR78uif7iCAJN8ZdVyqn4eYCFm3htdyFQ7pvKbQuvFeGeHseM3CMRXyrgDSn6DcS9NqkzNGL3ESdP)
+
+================================================================================
+STEP 3: Mint To
+================================================================================
+[FunctionBuilder] Set accounts: mint_state, destination_account, mint_authority
+[FunctionBuilder] Set args: amount
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for mint_state: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for destination_account: pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for mint_authority: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'mint_to'
+[FunctionBuilder] Merged params: [
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+  'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz',
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+  1000
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA' => { isSigner: false, isWritable: true },
+  'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz' => { isSigner: false, isWritable: true },
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 2,
+  parameterCount: 4,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (mint_state) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (destination_account) is account type, mapped to transaction index: 3
+[FiveSDK] Parameter 2 (mint_authority) is account type, mapped to transaction index: 4
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 4 parameters: 11 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'mint_authority': pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 2,
+  functionIndex: 2,
+  parameterBytes: 11,
+  dataSize: 13,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQKABAwCDAMMBAToBw=='
+}
+
+❌ Transaction Logs:
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [144, 138, 247, 170, 38, 251, 42, 93, 113, 73, 51, 5, 212, 20, 121, 73, 3, 247, 220, 236, 141, 101, 208, 252, 215, 113, 167, 14, 242, 160, 179, 93]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=220 119 Owner=144 138 DataLen=1847 Writable=0 Signer=0
+  Program log:   Account 1: Key=56 12 Owner=144 138 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=19 157 Owner=144 138 DataLen=256 Writable=1 Signer=0
+  Program log:   Account 3: Key=144 93 Owner=144 138 DataLen=192 Writable=1 Signer=0
+  Program log:   Account 4: Key=248 182 Owner=0 0 DataLen=0 Writable=0 Signer=1
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 13
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 13
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0xc
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=1783
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: MitoVM: execute_direct ENTRY - script=1783 input=12 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 1783 bytes
+  Program log: MitoVM: Input data length: 12 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 2
+  Program log: MitoVM: Input data first 4 bytes: 2 128 4 12
+  Program log: MitoVM: Header parsed (features=0x10F, public=22, total=22), start_ip=376
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 22 public, 22 total
+  Program log: MitoVM: ExecutionManager created with IP set to 376
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 12
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 2
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 12, available bytes: 12
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 2, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: Detected raw sentinel byte 0x80 - switching to typed parameter mode
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 4, consumed: 1 bytes
+  Program log: MitoVM: Parsed 5 VLE parameters successfully: [U64(2), AccountRef(2, 0), AccountRef(3, 0), AccountRef(4, 0), 
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (AccountRef(2, 0)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (AccountRef(3, 0)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Pushing parameter 3 (AccountRef(4, 0)) onto stack
+  Program log: MitoVM: Initialized local 2 from parameter 3
+  Program log: MitoVM: Pushing parameter 4 (U64(1000)) onto stack
+  Program log: MitoVM: Initialized local 3 from parameter 4
+  Program log: MitoVM: Function dispatch requested for function index: 2
+  Program log: MitoVM: ✓ Function visibility check passed - index 2 < public_count 22
+  Program log: MitoVM: ⚡ Function 2 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 376
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 376, Script length: 1783
+  Program log: MitoVM: CALL opcode encountered - stack size: 8, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=8, local_base=0, local_count=4, IP=572
+  Program log: MitoVM: CALL params: count=4, target_addr=1068, current_depth=0
+  Program log: MitoVM: internal CALL params=4 stack=8
+  Program log: MitoVM: CALL AFTER - SP=4, local_base=4, local_count=4, new_IP=1068, call_depth=1
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(1, 0)
+  Program log: MitoVM: GET_KEY account 3 allocated temp at offset 0
+  Program log: MitoVM: GET_KEY account 3 pushed TempRef(0, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=2, offset=32
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(2, 32)
+  Program log: MitoVM: GET_KEY account 1 allocated temp at offset 32
+  Program log: MitoVM: GET_KEY account 1 pushed TempRef(32, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD account_index=2, offset=72
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 4
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 4
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 1085
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 50
+  Program log: VM ERROR:
+  Program log: Stack size: 4
+  Program log: MitoVM MAIN execution failed code=TypeMismatch
+  Program log: Instruction failed with error code: 12884901888
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN consumed 36780 of 200000 compute units
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN failed: invalid instruction data
+❌ mint_to User1 failed
+[FunctionBuilder] Set accounts: mint_state, destination_account, mint_authority
+[FunctionBuilder] Set args: amount
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for mint_state: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for destination_account: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for mint_authority: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'mint_to'
+[FunctionBuilder] Merged params: [
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+  500
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA' => { isSigner: false, isWritable: true },
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ' => { isSigner: false, isWritable: true },
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 2,
+  parameterCount: 4,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (mint_state) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (destination_account) is account type, mapped to transaction index: 3
+[FiveSDK] Parameter 2 (mint_authority) is account type, mapped to transaction index: 4
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 4 parameters: 11 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'mint_authority': pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 2,
+  functionIndex: 2,
+  parameterBytes: 11,
+  dataSize: 13,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQKABAwCDAMMBAT0Aw=='
+}
+
+❌ Transaction Logs:
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [144, 138, 247, 170, 38, 251, 42, 93, 113, 73, 51, 5, 212, 20, 121, 73, 3, 247, 220, 236, 141, 101, 208, 252, 215, 113, 167, 14, 242, 160, 179, 93]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=220 119 Owner=144 138 DataLen=1847 Writable=0 Signer=0
+  Program log:   Account 1: Key=56 12 Owner=144 138 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=19 157 Owner=144 138 DataLen=256 Writable=1 Signer=0
+  Program log:   Account 3: Key=60 217 Owner=144 138 DataLen=192 Writable=1 Signer=0
+  Program log:   Account 4: Key=248 182 Owner=0 0 DataLen=0 Writable=0 Signer=1
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 13
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 13
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0xc
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=1783
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: MitoVM: execute_direct ENTRY - script=1783 input=12 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 1783 bytes
+  Program log: MitoVM: Input data length: 12 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 2
+  Program log: MitoVM: Input data first 4 bytes: 2 128 4 12
+  Program log: MitoVM: Header parsed (features=0x10F, public=22, total=22), start_ip=376
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 22 public, 22 total
+  Program log: MitoVM: ExecutionManager created with IP set to 376
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 12
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 2
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 12, available bytes: 12
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 2, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: Detected raw sentinel byte 0x80 - switching to typed parameter mode
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 4, consumed: 1 bytes
+  Program log: MitoVM: Parsed 5 VLE parameters successfully: [U64(2), AccountRef(2, 0), AccountRef(3, 0), AccountRef(4, 0), 
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (AccountRef(2, 0)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (AccountRef(3, 0)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Pushing parameter 3 (AccountRef(4, 0)) onto stack
+  Program log: MitoVM: Initialized local 2 from parameter 3
+  Program log: MitoVM: Pushing parameter 4 (U64(500)) onto stack
+  Program log: MitoVM: Initialized local 3 from parameter 4
+  Program log: MitoVM: Function dispatch requested for function index: 2
+  Program log: MitoVM: ✓ Function visibility check passed - index 2 < public_count 22
+  Program log: MitoVM: ⚡ Function 2 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 376
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 376, Script length: 1783
+  Program log: MitoVM: CALL opcode encountered - stack size: 8, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=8, local_base=0, local_count=4, IP=572
+  Program log: MitoVM: CALL params: count=4, target_addr=1068, current_depth=0
+  Program log: MitoVM: internal CALL params=4 stack=8
+  Program log: MitoVM: CALL AFTER - SP=4, local_base=4, local_count=4, new_IP=1068, call_depth=1
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(1, 0)
+  Program log: MitoVM: GET_KEY account 3 allocated temp at offset 0
+  Program log: MitoVM: GET_KEY account 3 pushed TempRef(0, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=2, offset=32
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(2, 32)
+  Program log: MitoVM: GET_KEY account 1 allocated temp at offset 32
+  Program log: MitoVM: GET_KEY account 1 pushed TempRef(32, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD account_index=2, offset=72
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 4
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 4
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 1085
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 50
+  Program log: VM ERROR:
+  Program log: Stack size: 4
+  Program log: MitoVM MAIN execution failed code=TypeMismatch
+  Program log: Instruction failed with error code: 12884901888
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN consumed 36766 of 200000 compute units
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN failed: invalid instruction data
+❌ mint_to User2 failed
+[FunctionBuilder] Set accounts: mint_state, destination_account, mint_authority
+[FunctionBuilder] Set args: amount
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for mint_state: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for destination_account: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for mint_authority: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'mint_to'
+[FunctionBuilder] Merged params: [
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+  500
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA' => { isSigner: false, isWritable: true },
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC' => { isSigner: false, isWritable: true },
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 2,
+  parameterCount: 4,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (mint_state) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (destination_account) is account type, mapped to transaction index: 3
+[FiveSDK] Parameter 2 (mint_authority) is account type, mapped to transaction index: 4
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'mint_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 4 parameters: 11 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'mint_authority': pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 2,
+  functionIndex: 2,
+  parameterBytes: 11,
+  dataSize: 13,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQKABAwCDAMMBAT0Aw=='
+}
+
+❌ Transaction Logs:
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [144, 138, 247, 170, 38, 251, 42, 93, 113, 73, 51, 5, 212, 20, 121, 73, 3, 247, 220, 236, 141, 101, 208, 252, 215, 113, 167, 14, 242, 160, 179, 93]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=220 119 Owner=144 138 DataLen=1847 Writable=0 Signer=0
+  Program log:   Account 1: Key=56 12 Owner=144 138 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=19 157 Owner=144 138 DataLen=256 Writable=1 Signer=0
+  Program log:   Account 3: Key=223 33 Owner=144 138 DataLen=192 Writable=1 Signer=0
+  Program log:   Account 4: Key=248 182 Owner=0 0 DataLen=0 Writable=0 Signer=1
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 13
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 13
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0xc
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=1783
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: MitoVM: execute_direct ENTRY - script=1783 input=12 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 1783 bytes
+  Program log: MitoVM: Input data length: 12 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 2
+  Program log: MitoVM: Input data first 4 bytes: 2 128 4 12
+  Program log: MitoVM: Header parsed (features=0x10F, public=22, total=22), start_ip=376
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 22 public, 22 total
+  Program log: MitoVM: ExecutionManager created with IP set to 376
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 12
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 2
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 12, available bytes: 12
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 2, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: Detected raw sentinel byte 0x80 - switching to typed parameter mode
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 4, consumed: 1 bytes
+  Program log: MitoVM: Parsed 5 VLE parameters successfully: [U64(2), AccountRef(2, 0), AccountRef(3, 0), AccountRef(4, 0), 
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (AccountRef(2, 0)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (AccountRef(3, 0)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Pushing parameter 3 (AccountRef(4, 0)) onto stack
+  Program log: MitoVM: Initialized local 2 from parameter 3
+  Program log: MitoVM: Pushing parameter 4 (U64(500)) onto stack
+  Program log: MitoVM: Initialized local 3 from parameter 4
+  Program log: MitoVM: Function dispatch requested for function index: 2
+  Program log: MitoVM: ✓ Function visibility check passed - index 2 < public_count 22
+  Program log: MitoVM: ⚡ Function 2 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 376
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 376, Script length: 1783
+  Program log: MitoVM: CALL opcode encountered - stack size: 8, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=8, local_base=0, local_count=4, IP=572
+  Program log: MitoVM: CALL params: count=4, target_addr=1068, current_depth=0
+  Program log: MitoVM: internal CALL params=4 stack=8
+  Program log: MitoVM: CALL AFTER - SP=4, local_base=4, local_count=4, new_IP=1068, call_depth=1
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(1, 0)
+  Program log: MitoVM: GET_KEY account 3 allocated temp at offset 0
+  Program log: MitoVM: GET_KEY account 3 pushed TempRef(0, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=2, offset=32
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(2, 32)
+  Program log: MitoVM: GET_KEY account 1 allocated temp at offset 32
+  Program log: MitoVM: GET_KEY account 1 pushed TempRef(32, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD account_index=2, offset=72
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 4
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 4
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 1085
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 50
+  Program log: VM ERROR:
+  Program log: Stack size: 4
+  Program log: MitoVM MAIN execution failed code=TypeMismatch
+  Program log: Instruction failed with error code: 12884901888
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN consumed 36766 of 200000 compute units
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN failed: invalid instruction data
+❌ mint_to User3 failed
+
+================================================================================
+STEP 4: Transfer
+================================================================================
+[FunctionBuilder] Set accounts: source_account, destination_account, owner
+[FunctionBuilder] Set args: amount
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for source_account: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for destination_account: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for owner: pubkey=3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'transfer'
+[FunctionBuilder] Merged params: [
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+  '3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX',
+  100
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ' => { isSigner: false, isWritable: true },
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC' => { isSigner: false, isWritable: true },
+  '3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 3,
+  parameterCount: 4,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (source_account) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (destination_account) is account type, mapped to transaction index: 3
+[FiveSDK] Parameter 2 (owner) is account type, mapped to transaction index: 4
+[VLE] Parameters: [
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 4 parameters: 10 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 3,
+  functionIndex: 3,
+  parameterBytes: 10,
+  dataSize: 12,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQOABAwCDAMMBARk'
+}
+
+❌ Transaction Logs:
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [144, 138, 247, 170, 38, 251, 42, 93, 113, 73, 51, 5, 212, 20, 121, 73, 3, 247, 220, 236, 141, 101, 208, 252, 215, 113, 167, 14, 242, 160, 179, 93]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=220 119 Owner=144 138 DataLen=1847 Writable=0 Signer=0
+  Program log:   Account 1: Key=56 12 Owner=144 138 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=60 217 Owner=144 138 DataLen=192 Writable=1 Signer=0
+  Program log:   Account 3: Key=223 33 Owner=144 138 DataLen=192 Writable=1 Signer=0
+  Program log:   Account 4: Key=37 186 Owner=0 0 DataLen=0 Writable=0 Signer=1
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 12
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 12
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0xb
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=1783
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: MitoVM: execute_direct ENTRY - script=1783 input=11 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 1783 bytes
+  Program log: MitoVM: Input data length: 11 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 3
+  Program log: MitoVM: Input data first 4 bytes: 3 128 4 12
+  Program log: MitoVM: Header parsed (features=0x10F, public=22, total=22), start_ip=376
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 22 public, 22 total
+  Program log: MitoVM: ExecutionManager created with IP set to 376
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 11
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 3
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 11, available bytes: 11
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 3, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: Detected raw sentinel byte 0x80 - switching to typed parameter mode
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 4, consumed: 1 bytes
+  Program log: MitoVM: Parsed 5 VLE parameters successfully: [U64(3), AccountRef(2, 0), AccountRef(3, 0), AccountRef(4, 0), 
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (AccountRef(2, 0)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (AccountRef(3, 0)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Pushing parameter 3 (AccountRef(4, 0)) onto stack
+  Program log: MitoVM: Initialized local 2 from parameter 3
+  Program log: MitoVM: Pushing parameter 4 (U64(100)) onto stack
+  Program log: MitoVM: Initialized local 3 from parameter 4
+  Program log: MitoVM: Function dispatch requested for function index: 3
+  Program log: MitoVM: ✓ Function visibility check passed - index 3 < public_count 22
+  Program log: MitoVM: ⚡ Function 3 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 376
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 376, Script length: 1783
+  Program log: MitoVM: CALL opcode encountered - stack size: 8, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=8, local_base=0, local_count=4, IP=586
+  Program log: MitoVM: CALL params: count=4, target_addr=1117, current_depth=0
+  Program log: MitoVM: internal CALL params=4 stack=8
+  Program log: MitoVM: CALL AFTER - SP=4, local_base=4, local_count=4, new_IP=1117, call_depth=1
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(1, 0)
+  Program log: MitoVM: GET_KEY account 3 allocated temp at offset 0
+  Program log: MitoVM: GET_KEY account 3 pushed TempRef(0, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD account_index=1, offset=64
+  Program log: GTE
+  Program log: Stack before: 6
+  Program log: Comparison result: 0
+  Program log: Stack after: 5
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 4
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 4
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 1130
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 4
+  Program log: VM ERROR:
+  Program log: Stack size: 4
+  Program log: MitoVM MAIN execution failed code=ConstraintViolation
+  Program log: Instruction failed with error code: 9003
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN consumed 35910 of 200000 compute units
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN failed: custom program error: 0x232b
+❌ transfer failed
+
+================================================================================
+STEP 5: Approve & Transfer From
+================================================================================
+[FunctionBuilder] Set accounts: source_account, owner
+[FunctionBuilder] Set args: delegate, amount
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for source_account: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for owner: pubkey=5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'approve'
+[FunctionBuilder] Merged params: [
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+  '5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj',
+  PublicKey [PublicKey(3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX)] {
+    _bn: <BN: 25bac59080980d1825c0a41ed9ced75571579419a3d71defb9fb4b272e5e6b94>
+  },
+  150
+]
+[FunctionBuilder] Account metadata: Map(2) {
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC' => { isSigner: false, isWritable: true },
+  '5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 5,
+  parameterCount: 4,
+  accountCount: 2
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (source_account) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (owner) is account type, mapped to transaction index: 3
+[VLE] Parameters: [
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'delegate',
+    type: 'pubkey',
+    normalized: 'pubkey',
+    isAccount: false
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 4 parameters: 42 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 5,
+  functionIndex: 5,
+  parameterBytes: 42,
+  dataSize: 44,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQWABAwCDAMKJbrFkICYDRglwKQe2c7XVXFXlBmj1x3vuftLJy5ea5QElgE='
+}
+✅ approve User2 as delegate successful (sig: 3zRp6vkHMr2fVGjb8i1nkgnXTV8GXr8XKKcRozC5eEvFxK1sdsuztd3hLCzZVNgT9j8mPkKvkTVyQDu6BBXdJBo5)
+[FunctionBuilder] Set accounts: source_account, destination_account, authority
+[FunctionBuilder] Set args: amount
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for source_account: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for destination_account: pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for authority: pubkey=3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'transfer_from'
+[FunctionBuilder] Merged params: [
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+  'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz',
+  '3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX',
+  50
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC' => { isSigner: false, isWritable: true },
+  'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz' => { isSigner: false, isWritable: true },
+  '3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 4,
+  parameterCount: 4,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (source_account) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (destination_account) is account type, mapped to transaction index: 3
+[FiveSDK] Parameter 2 (authority) is account type, mapped to transaction index: 4
+[VLE] Parameters: [
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'destination_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 4 parameters: 10 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'destination_account': pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'authority': pubkey=3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 4,
+  functionIndex: 4,
+  parameterBytes: 10,
+  dataSize: 12,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '3YHGU8vazJi64PizsR4pPUsTHzw5p4SzEXJGHQZL1XLX',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQSABAwCDAMMBAQy'
+}
+
+❌ Transaction Logs:
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [144, 138, 247, 170, 38, 251, 42, 93, 113, 73, 51, 5, 212, 20, 121, 73, 3, 247, 220, 236, 141, 101, 208, 252, 215, 113, 167, 14, 242, 160, 179, 93]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=220 119 Owner=144 138 DataLen=1847 Writable=0 Signer=0
+  Program log:   Account 1: Key=56 12 Owner=144 138 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=223 33 Owner=144 138 DataLen=192 Writable=1 Signer=0
+  Program log:   Account 3: Key=144 93 Owner=144 138 DataLen=192 Writable=1 Signer=0
+  Program log:   Account 4: Key=37 186 Owner=0 0 DataLen=0 Writable=0 Signer=1
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 12
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 12
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0xb
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=1783
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: MitoVM: execute_direct ENTRY - script=1783 input=11 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 1783 bytes
+  Program log: MitoVM: Input data length: 11 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 4
+  Program log: MitoVM: Input data first 4 bytes: 4 128 4 12
+  Program log: MitoVM: Header parsed (features=0x10F, public=22, total=22), start_ip=376
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 22 public, 22 total
+  Program log: MitoVM: ExecutionManager created with IP set to 376
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 11
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 4
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 11, available bytes: 11
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 4, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: Detected raw sentinel byte 0x80 - switching to typed parameter mode
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 4, consumed: 1 bytes
+  Program log: MitoVM: Parsed 5 VLE parameters successfully: [U64(4), AccountRef(2, 0), AccountRef(3, 0), AccountRef(4, 0), 
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (AccountRef(2, 0)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (AccountRef(3, 0)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Pushing parameter 3 (AccountRef(4, 0)) onto stack
+  Program log: MitoVM: Initialized local 2 from parameter 3
+  Program log: MitoVM: Pushing parameter 4 (U64(50)) onto stack
+  Program log: MitoVM: Initialized local 3 from parameter 4
+  Program log: MitoVM: Function dispatch requested for function index: 4
+  Program log: MitoVM: ✓ Function visibility check passed - index 4 < public_count 22
+  Program log: MitoVM: ⚡ Function 4 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 376
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 376, Script length: 1783
+  Program log: MitoVM: CALL opcode encountered - stack size: 8, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=8, local_base=0, local_count=4, IP=600
+  Program log: MitoVM: CALL params: count=4, target_addr=1179, current_depth=0
+  Program log: MitoVM: internal CALL params=4 stack=8
+  Program log: MitoVM: CALL AFTER - SP=4, local_base=4, local_count=4, new_IP=1179, call_depth=1
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(1, 0)
+  Program log: MitoVM: GET_KEY account 3 allocated temp at offset 0
+  Program log: MitoVM: GET_KEY account 3 pushed TempRef(0, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=1, offset=81
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(1, 81)
+  Program log: MitoVM: GET_KEY account 3 allocated temp at offset 32
+  Program log: MitoVM: GET_KEY account 3 pushed TempRef(32, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD account_index=1, offset=73
+  Program log: GTE
+  Program log: Stack before: 6
+  Program log: Comparison result: 1
+  Program log: Stack after: 5
+  Program log: MitoVM: LOAD_FIELD account_index=1, offset=64
+  Program log: GTE
+  Program log: Stack before: 6
+  Program log: Comparison result: 0
+  Program log: Stack after: 5
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 4
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 4
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 1211
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 4
+  Program log: VM ERROR:
+  Program log: Stack size: 4
+  Program log: MitoVM MAIN execution failed code=ConstraintViolation
+  Program log: Instruction failed with error code: 9003
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN consumed 39924 of 200000 compute units
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN failed: custom program error: 0x232b
+❌ transfer_from failed
+
+================================================================================
+STEP 6: Revoke
+================================================================================
+[FunctionBuilder] Set accounts: source_account, owner
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for source_account: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for owner: pubkey=5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'revoke'
+[FunctionBuilder] Merged params: [
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+  '5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj'
+]
+[FunctionBuilder] Account metadata: Map(2) {
+  'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC' => { isSigner: false, isWritable: true },
+  '5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 6,
+  parameterCount: 2,
+  accountCount: 2
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (source_account) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (owner) is account type, mapped to transaction index: 3
+[VLE] Parameters: [
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  }
+]
+[VLE] WASM encoded 2 parameters: 6 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 6,
+  functionIndex: 6,
+  parameterBytes: 6,
+  dataSize: 8,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'G21M3nhjqRbKqjognCFawB5eaUWWtmwPyfr9ecfKroHC',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '5U8wxpKxcgGCozbRmwMHKUkL4VZXVceckLiEExiS8RNj',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQaAAgwCDAM='
+}
+✅ revoke delegation successful (sig: 2VC6v7iEHqBzoy4kNJbamFJzvjExnaant94vf3fkjPf2hwC89pCC3ST6auaCWfuxvH419mrpUxppJdoGdKGKJuca)
+
+================================================================================
+STEP 7: Burn
+================================================================================
+[FunctionBuilder] Set accounts: mint_state, source_account, owner
+[FunctionBuilder] Set args: amount
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for mint_state: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for source_account: pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for owner: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'burn'
+[FunctionBuilder] Merged params: [
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+  'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz',
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+  100
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA' => { isSigner: false, isWritable: true },
+  'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz' => { isSigner: false, isWritable: true },
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 7,
+  parameterCount: 4,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (mint_state) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (source_account) is account type, mapped to transaction index: 3
+[FiveSDK] Parameter 2 (owner) is account type, mapped to transaction index: 4
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'source_account',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'owner',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  { name: 'amount', type: 'u64', normalized: 'u64', isAccount: false }
+]
+[VLE] WASM encoded 4 parameters: 10 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'source_account': pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'owner': pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 7,
+  functionIndex: 7,
+  parameterBytes: 10,
+  dataSize: 12,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'AiY8pPfgQFoaLJcEwAPTmSgzTwt5xmSae6kixmEmypFz',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQeABAwCDAMMBARk'
+}
+
+❌ Transaction Logs:
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN invoke [1]
+  Program log: ENTRYPOINT_CONFIRMED_UNCONDITIONAL
+  Program log: @@@ FIVE ENTRYPOINT REACHED @@@
+  Program log: FIVE VM: PROCESS_INSTRUCTION START
+  Program log: FIVE Optimized: Processing instruction with no_allocator
+  Program log: Program ID: [144, 138, 247, 170, 38, 251, 42, 93, 113, 73, 51, 5, 212, 20, 121, 73, 3, 247, 220, 236, 141, 101, 208, 252, 215, 113, 167, 14, 242, 160, 179, 93]
+  Program log: Accounts provided: 6
+  Program log:   Account 0: Key=220 119 Owner=144 138 DataLen=1847 Writable=0 Signer=0
+  Program log:   Account 1: Key=56 12 Owner=144 138 DataLen=56 Writable=1 Signer=0
+  Program log:   Account 2: Key=19 157 Owner=144 138 DataLen=256 Writable=1 Signer=0
+  Program log:   Account 3: Key=144 93 Owner=144 138 DataLen=192 Writable=1 Signer=0
+  Program log:   Account 4: Key=248 182 Owner=0 0 DataLen=0 Writable=0 Signer=1
+  Program log:   Account 5: Key=198 124 Owner=0 0 DataLen=0 Writable=1 Signer=1
+  Program log: Instruction data length: 12
+  Program log: Instruction discriminator: 9
+  Program log: FIVEInstruction::try_from - data length: 12
+  Program log: FIVEInstruction::try_from - discriminator: 9
+  Program log: FIVEInstruction::try_from - Execute instruction (9)
+  Program log: FIVE VM: EXECUTE START
+  Program log: 0x0, 0x0, 0x0, 0x0, 0xb
+  Program log: 0x0, 0x0, 0x0, 0x0, 0x6
+  Program log: DEBUG: execute ENTRY
+  Program log: DEBUG: require_min_accounts PASS
+  Program log: DEBUG: validate_vm_and_script_accounts PASS
+  Program log: DEBUG: Paying execute fee: 5000
+  Program log: DEBUG: input accounts setup PASS - passing 5 accounts to VM
+  Program log: DEBUG: script_data borrow PASS
+  Program log: DEBUG: header parse PASS
+  Program log: DEBUG: bytecode slice PASS len=1783
+  Program log: DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]
+  Program log: MitoVM: execute_direct ENTRY - script=1783 input=11 accounts=5
+  Program log: MitoVM: ===== EXECUTE_DIRECT ENTRY POINT =====
+  Program log: MitoVM: Starting enhanced execution with function call support
+  Program log: MitoVM: Script length: 1783 bytes
+  Program log: MitoVM: Input data length: 11 bytes
+  Program log: MitoVM: Account count: 5
+  Program log: MitoVM: Input data first byte (function index): 7
+  Program log: MitoVM: Input data first 4 bytes: 7 128 4 12
+  Program log: MitoVM: Header parsed (features=0x10F, public=22, total=22), start_ip=376
+  Program log: MitoVM: Creating ExecutionManager...
+  Program log: MitoVM: ⚡ Using compile-time defaults for optimal performance
+  Program log: MitoVM: Function counts from header: 22 public, 22 total
+  Program log: MitoVM: ExecutionManager created with IP set to 376
+  Program log: MitoVM: Parsing VLE parameters using unified function...
+  Program log: MitoVM: parse_vle_parameters_unified - input length: 11
+  Program log: MitoVM: parse_vle_parameters_unified - first byte: 7
+  Program log: MitoVM: parse_vle_parameters_unified - parsing function index from offset 0
+  Program log: MitoVM: VLE decode - input_data.len(): 11, available bytes: 11
+  Program log: MitoVM: VLE decode - examining first byte
+  Program log: MitoVM: VLE decode - examining second byte
+  Program log: MitoVM: VLE decode - examining third byte
+  Program log: MitoVM: parse_vle_parameters_unified - function index: 7, consumed: 1 bytes
+  Program log: MitoVM: parse_vle_parameters_unified - parsing param count from offset 1
+  Program log: MitoVM: VLE param count decode - available bytes calculated
+  Program log: MitoVM: VLE param count decode - examining first byte
+  Program log: MitoVM: Detected raw sentinel byte 0x80 - switching to typed parameter mode
+  Program log: MitoVM: parse_vle_parameters_unified - param count: 4, consumed: 1 bytes
+  Program log: MitoVM: Parsed 5 VLE parameters successfully: [U64(7), AccountRef(2, 0), AccountRef(3, 0), AccountRef(4, 0), 
+  Program log: MitoVM: Setting pre-parsed parameters in ExecutionContext...
+  Program log: MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): 8
+  Program log: MitoVM: Initializing ValueAccessContext...
+  Program log: MitoVM: ValueAccessContext components prepared successfully
+  Program log: MitoVM: Pushing VLE parameters onto stack and initializing locals...
+  Program log: MitoVM: Pushing parameter 1 (AccountRef(2, 0)) onto stack
+  Program log: MitoVM: Initialized local 0 from parameter 1
+  Program log: MitoVM: Pushing parameter 2 (AccountRef(3, 0)) onto stack
+  Program log: MitoVM: Initialized local 1 from parameter 2
+  Program log: MitoVM: Pushing parameter 3 (AccountRef(4, 0)) onto stack
+  Program log: MitoVM: Initialized local 2 from parameter 3
+  Program log: MitoVM: Pushing parameter 4 (U64(100)) onto stack
+  Program log: MitoVM: Initialized local 3 from parameter 4
+  Program log: MitoVM: Function dispatch requested for function index: 7
+  Program log: MitoVM: ✓ Function visibility check passed - index 7 < public_count 22
+  Program log: MitoVM: ⚡ Function 7 dispatch - bytecode should use CALL instructions
+  Program log: MitoVM: Context created, starting execution at ip 376
+  Program log: MitoVM: ===== BEGINNING EXECUTION LOOP =====
+  Program log: 🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====
+  Program log: 🔍 EXECUTION_TRACE: Starting IP: 376, Script length: 1783
+  Program log: MitoVM: CALL opcode encountered - stack size: 8, call depth: 0
+  Program log: MitoVM: CALL BEFORE - SP=8, local_base=0, local_count=4, IP=638
+  Program log: MitoVM: CALL params: count=4, target_addr=1295, current_depth=0
+  Program log: MitoVM: internal CALL params=4 stack=8
+  Program log: MitoVM: CALL AFTER - SP=4, local_base=4, local_count=4, new_IP=1295, call_depth=1
+  Program log: MitoVM: LOAD_FIELD_PUBKEY account_index=2, offset=0
+  Program log: MitoVM: LOAD_FIELD_PUBKEY pushed lazy AccountRef(2, 0)
+  Program log: MitoVM: GET_KEY account 3 allocated temp at offset 0
+  Program log: MitoVM: GET_KEY account 3 pushed TempRef(0, 32) to stack (stack_size=6)
+  Program log: MitoVM: LOAD_FIELD account_index=2, offset=64
+  Program log: GTE
+  Program log: Stack before: 6
+  Program log: Comparison result: 0
+  Program log: Stack after: 5
+  Program log: STACK_ERROR: Operation failed
+  Program log: Available: 4
+  Program log: Required: 0
+  Program log: Call depth: 1
+  Program log: Parameters: 4
+  Program log: VM ERROR:
+  Program log: MitoVM: ERROR_DETAILS: error_occurred at current_ip: 1308
+  Program log: VM ERROR:
+  Program log: OPCODE FAILED: 4
+  Program log: VM ERROR:
+  Program log: Stack size: 4
+  Program log: MitoVM MAIN execution failed code=ConstraintViolation
+  Program log: Instruction failed with error code: 9003
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN consumed 37380 of 200000 compute units
+  Program AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN failed: custom program error: 0x232b
+❌ burn failed
+
+================================================================================
+STEP 8: Freeze/Thaw
+================================================================================
+[FunctionBuilder] Set accounts: mint_state, account_to_freeze, freeze_authority
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for mint_state: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, isSigner=false, isWritable=false, isPayer=false
+[FunctionBuilder] Account metadata for account_to_freeze: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for freeze_authority: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'freeze_account'
+[FunctionBuilder] Merged params: [
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4'
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA' => { isSigner: false, isWritable: false },
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ' => { isSigner: false, isWritable: true },
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 8,
+  parameterCount: 3,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (mint_state) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (account_to_freeze) is account type, mapped to transaction index: 3
+[FiveSDK] Parameter 2 (freeze_authority) is account type, mapped to transaction index: 4
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'account_to_freeze',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'freeze_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  }
+]
+[VLE] WASM encoded 3 parameters: 8 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=false
+[FiveSDK] ABI Metadata for param 'account_to_freeze': pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'freeze_authority': pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=false (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 8,
+  functionIndex: 8,
+  parameterBytes: 8,
+  dataSize: 10,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQiAAwwCDAMMBA=='
+}
+✅ freeze account successful (sig: V8K8Kvz6ZZgT4AGHtvSeMeefg1BGVAowwZ3iGtuo3dgixbyeuoem5FNmR2ZBBK6D87Ha9g7h68F51XnBEvc37L8)
+[FunctionBuilder] Set accounts: mint_state, account_to_thaw, freeze_authority
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for mint_state: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, isSigner=false, isWritable=false, isPayer=false
+[FunctionBuilder] Account metadata for account_to_thaw: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for freeze_authority: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'thaw_account'
+[FunctionBuilder] Merged params: [
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4'
+]
+[FunctionBuilder] Account metadata: Map(3) {
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA' => { isSigner: false, isWritable: false },
+  '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ' => { isSigner: false, isWritable: true },
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 9,
+  parameterCount: 3,
+  accountCount: 3
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (mint_state) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (account_to_thaw) is account type, mapped to transaction index: 3
+[FiveSDK] Parameter 2 (freeze_authority) is account type, mapped to transaction index: 4
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'account_to_thaw',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'freeze_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  }
+]
+[VLE] WASM encoded 3 parameters: 8 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=false
+[FiveSDK] ABI Metadata for param 'account_to_thaw': pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'freeze_authority': pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=false (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [4]: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 9,
+  functionIndex: 9,
+  parameterBytes: 8,
+  dataSize: 10,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '56Y2yFg9Q6wewVEFcSKXKRyKjDiZ3HcFwfZi9LUjgATQ',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQmAAwwCDAMMBA=='
+}
+✅ thaw account successful (sig: 4xQMrqQvbQQTCzMyvsFFqGKj2NADgT8Tk9qmcybW385BzyvnZCosZBtXYbb5zHiBhXC9KLKRoBDoXybu8paUaLfF)
+
+================================================================================
+STEP 9: Disable Authority
+================================================================================
+[FunctionBuilder] Set accounts: mint_state, current_authority
+[FiveProgram] Initialized with 14 functions
+[FunctionBuilder] Account metadata for mint_state: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, isSigner=false, isWritable=true, isPayer=false
+[FunctionBuilder] Account metadata for current_authority: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, isSigner=true, isWritable=false, isPayer=false
+[FunctionBuilder] Building instruction for function 'disable_mint'
+[FunctionBuilder] Merged params: [
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4'
+]
+[FunctionBuilder] Account metadata: Map(2) {
+  '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA' => { isSigner: false, isWritable: true },
+  'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4' => { isSigner: true, isWritable: false }
+}
+[FiveSDK] Generating execution instruction: {
+  scriptAccount: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+  function: 12,
+  parameterCount: 2,
+  accountCount: 2
+}
+[FiveSDK] Using provided ABI with 14 functions
+[FiveSDK] Parameter 0 (mint_state) is account type, mapped to transaction index: 2
+[FiveSDK] Parameter 1 (current_authority) is account type, mapped to transaction index: 3
+[VLE] Parameters: [
+  {
+    name: 'mint_state',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  },
+  {
+    name: 'current_authority',
+    type: 'account',
+    normalized: 'account',
+    isAccount: true
+  }
+]
+[VLE] WASM encoded 2 parameters: 6 bytes
+[deriveVMStatePDA] Deriving VM state PDA algorithmically
+[FiveSDK] Using VM state account: 4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW (override: yes)
+[FiveSDK] ABI Metadata for param 'mint_state': pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true
+[FiveSDK] ABI Metadata for param 'current_authority': pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false
+[FiveSDK] Instruction Account [2]: pubkey=2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA, signer=false, writable=true (via ABI)
+[FiveSDK] Instruction Account [3]: pubkey=HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4, signer=true, writable=false (via ABI)
+[FiveSDK] Generated execution instruction: {
+  function: 12,
+  functionIndex: 12,
+  parameterBytes: 6,
+  dataSize: 8,
+  estimatedCU: 5000,
+  adminAccount: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt'
+}
+[FunctionBuilder] Generated instruction: {
+  programId: 'AjEcViqBu32FiBV25pgoPeTC4DQtNwD6tkPfwCWa6NfN',
+  keys: [
+    {
+      pubkey: 'FqcWkCFbVQKrTb6eJpAcx1zcESpNaNamz3CSLkfzVYwd',
+      isSigner: false,
+      isWritable: false
+    },
+    {
+      pubkey: '4mnvqJbnByb4c15UmoKsyBzUuvjJEkWBbgN6jYPXmpfW',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: '2KaDaNVYk2Dt1H4ZVXJbtNonjep2LBzgAyfHHydTQLoA',
+      isSigner: false,
+      isWritable: true
+    },
+    {
+      pubkey: 'HjsKMriFQbvkebw1paHNegcgbCWL3gmVF6fyVqd935M4',
+      isSigner: true,
+      isWritable: false
+    },
+    {
+      pubkey: 'EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt',
+      isSigner: false,
+      isWritable: true
+    }
+  ],
+  data: 'CQyAAgwCDAM='
+}
+✅ disable_mint successful (sig: 662kRvqqD2HDTN7i4nZUksrz3NSaPo6Q3FNzGpsqoheubwhtTG9rM5yk1WJrf6imVfJGCyNEu7FkAqzLFQRHGACk)
+✅ Test state saved to test-state-fiveprogram.json
