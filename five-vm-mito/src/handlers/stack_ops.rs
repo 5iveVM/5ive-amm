@@ -29,10 +29,7 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
         PUSH_U64 => {
             let val = ctx.fetch_vle_u64()?;
-            debug_log!("MitoVM: PUSH_U64 pushing value: {}", val);
-            debug_log!("Stack size before: {}", ctx.size() as u32);
             vm_push_u64!(ctx, val);
-            debug_log!("Stack size after: {}", ctx.size() as u32);
         }
         PUSH_I64 => {
             let val = ctx.fetch_vle_u64()?;
@@ -40,7 +37,6 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
         PUSH_U128 => {
             let val = ctx.fetch_u128()?;
-            debug_log!("MitoVM: PUSH_U128 pushing value: {}", val);
             vm_push_u128!(ctx, val);
         }
         PUSH_BOOL => {
