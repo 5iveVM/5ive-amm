@@ -136,11 +136,11 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             // );
 
             // Validate translated parameter index bounds against actual parameter count
-            if actual_param_index > ctx.param_len as usize {
+            if actual_param_index > ctx.param_len() as usize {
                 debug_log!(
                     "MitoVM: LOAD_PARAM ERROR - translated index {} > actual param_len {}",
                     actual_param_index as u32,
-                    ctx.param_len as u32
+                    ctx.param_len() as u32
                 );
                 return Err(VMErrorCode::InvalidInstruction);
             }

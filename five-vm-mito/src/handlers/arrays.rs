@@ -85,7 +85,7 @@ fn handle_array_literals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 return Err(VMErrorCode::StackError);
             }
 
-            if ctx.sp < element_count {
+            if ctx.stack.sp < element_count {
                 return Err(VMErrorCode::StackError);
             }
 
@@ -93,8 +93,8 @@ fn handle_array_literals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let mut total_size = 2; // header size
             let mut element_type_id = None;
             for i in 0..element_count {
-                let idx = ctx.sp as usize - 1 - i as usize;
-                let element = ctx.storage.stack[idx];
+                let idx = ctx.stack.sp as usize - 1 - i as usize;
+                let element = ctx.stack.stack[idx];
                 if element_type_id.is_none() {
                     element_type_id = Some(element.type_id());
                 }
@@ -105,8 +105,8 @@ fn handle_array_literals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             if total_size > 62 {
                 let mut all_u8_compatible = true;
                 for i in 0..element_count {
-                    let idx = ctx.sp as usize - 1 - i as usize;
-                    let element = ctx.storage.stack[idx];
+                    let idx = ctx.stack.sp as usize - 1 - i as usize;
+                    let element = ctx.stack.stack[idx];
                     let is_u8 = match element {
                         ValueRef::U8(_) | ValueRef::Bool(_) => true,
                         ValueRef::U64(v) => v <= u8::MAX as u64,
@@ -576,15 +576,15 @@ fn handle_array_creation(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 return Err(VMErrorCode::StackError);
             }
 
-            if (ctx.sp as usize) < capacity as usize {
+            if (ctx.stack.sp as usize) < capacity as usize {
                 return Err(VMErrorCode::StackError);
             }
 
             // Calculate total size needed
             let mut total_size = 2; // header size
             for i in 0..capacity {
-                let idx = ctx.sp as usize - 1 - i as usize;
-                let element = ctx.storage.stack[idx];
+                let idx = ctx.stack.sp as usize - 1 - i as usize;
+                let element = ctx.stack.stack[idx];
                 total_size += element.serialized_size();
                 if total_size > 62 {
                     return Err(VMErrorCode::OutOfMemory);
@@ -593,8 +593,8 @@ fn handle_array_creation(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 
             // Determine element type from first element
             let first_element_type_id = if capacity > 0 {
-                let first_idx = ctx.sp as usize - 1;
-                ctx.storage.stack[first_idx].type_id()
+                let first_idx = ctx.stack.sp as usize - 1;
+                ctx.stack.stack[first_idx].type_id()
             } else {
                 0
             };

@@ -180,12 +180,12 @@ impl MitoVM {
                     );
                 }
             }
-            ctx.parameters[..8].copy_from_slice(&parsed_params);
+            ctx.parameters_mut()[..8].copy_from_slice(&parsed_params);
         }
 
         // Store parsed parameters metadata
         debug_log!("MitoVM: Setting pre-parsed parameters in ExecutionContext...");
-        ctx.param_start = 0;
+        ctx.frame.param_start = 0;
         debug_log!(
             "MitoVM: Pre-parsed parameters stored successfully. ctx.parameters.len(): {}",
             ctx.parameters().len() as u32
@@ -205,14 +205,14 @@ impl MitoVM {
         let mut param_count: u8 = 0;
         let mut max_param_index: u8 = 0;
         for i in 1..8 {
-            if !ctx.parameters[i].is_empty() {
+            if !ctx.parameters()[i].is_empty() {
                 param_count = param_count.saturating_add(1);
                 max_param_index = i as u8;
             }
         }
 
         // Set param_len to actual count (not MAX_PARAMETERS)
-        ctx.param_len = param_count;
+        ctx.frame.param_len = param_count;
 
         // Initialize locals to mirror parameters for compilers that lower params to locals 0..N-1
         // Allocate based on max_param_index to handle sparse parameters
@@ -226,7 +226,7 @@ impl MitoVM {
         ctx.allocate_locals(locals_to_allocate)?;
 
         for i in 1..8 {
-            let param = ctx.parameters[i];
+            let param = ctx.parameters()[i];
             if param.is_empty() {
                 continue;
             }
@@ -257,8 +257,8 @@ impl MitoVM {
         }
 
         // Handle function dispatch with visibility validation
-        let dispatch_ip = if !ctx.parameters[0].is_empty() {
-            if let ValueRef::U64(func_index) = ctx.parameters[0] {
+        let dispatch_ip = if !ctx.parameters()[0].is_empty() {
+            if let ValueRef::U64(func_index) = ctx.parameters()[0] {
                 debug_log!(
                     "MitoVM: Function dispatch requested for function index: {}",
                     func_index

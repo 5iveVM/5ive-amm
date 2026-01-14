@@ -610,10 +610,10 @@ pub fn value_ref_to_seed_bytes(
             // Get data from temp buffer
             let start = offset as usize;
             let end = start + len as usize;
-            if end > ctx.storage.temp_buffer.len() {
+            if end > ctx.memory.temp_buffer.len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
-            Vec::from_slice(&ctx.storage.temp_buffer[start..end]).map_err(|_| VMErrorCode::MemoryError)
+            Vec::from_slice(&ctx.memory.temp_buffer[start..end]).map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::InputRef(offset) => {
             debug_log!(
@@ -647,19 +647,19 @@ pub fn value_ref_to_seed_bytes(
             );
             // String is stored in temp buffer: [length, type, bytes...]
             let start = offset as usize;
-            if start + 2 > ctx.storage.temp_buffer.len() {
+            if start + 2 > ctx.memory.temp_buffer.len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
             
-            let len = ctx.storage.temp_buffer[start] as usize;
+            let len = ctx.memory.temp_buffer[start] as usize;
             let data_start = start + 2;
             let data_end = data_start + len;
             
-            if data_end > ctx.storage.temp_buffer.len() {
+            if data_end > ctx.memory.temp_buffer.len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
             
-            Vec::from_slice(&ctx.storage.temp_buffer[data_start..data_end]).map_err(|_| VMErrorCode::MemoryError)
+            Vec::from_slice(&ctx.memory.temp_buffer[data_start..data_end]).map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::Empty => {
             debug_log!("MitoVM: value_ref_to_seed_bytes - Empty value");
@@ -718,10 +718,10 @@ pub fn value_ref_to_bytes_ref<'a>(
             );
             let start = offset as usize;
             let end = start + len as usize;
-            if end > ctx.storage.temp_buffer.len() {
+            if end > ctx.memory.temp_buffer.len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
-            Ok(&ctx.storage.temp_buffer[start..end])
+            Ok(&ctx.memory.temp_buffer[start..end])
         }
         ValueRef::InputRef(_offset) => {
             debug_log!(
