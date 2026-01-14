@@ -88,8 +88,6 @@ pub use types::*;
 use crate::ast::AstNode;
 use crate::compiler::CompilationMode;
 use five_vm_mito::error::VMError;
-use crate::bytecode_generator::ast_generator::types::ExternalImport;
-use std::collections::HashMap;
 
 /// Main bytecode generator that orchestrates the compilation process
 /// This is the simplified version that delegates to specialized modules
@@ -364,62 +362,6 @@ impl DslBytecodeGenerator {
         result
     }
 
-    /// Register test imports (math_lib, simple_lib) with hardcoded offsets
-    /// This is a temporary test-only mechanism
-    fn register_test_imports(&mut self, ast: &AstNode, ast_generator: &mut ASTGenerator) {
-        println!("BytecodeGenerator: Attempting to process imports from AST node...");
-        if let AstNode::Program { import_statements, .. } = ast {
-             println!("BytecodeGenerator: AST Node is Program. Found {} import statements", import_statements.len());
-             for import_stmt in import_statements {
-                println!("BytecodeGenerator: Inspecting import: {:?}", import_stmt);
-                if let AstNode::ImportStatement {
-                    module_specifier: crate::ast::ModuleSpecifier::Local(name),
-                    ..
-                } = import_stmt
-                {
-                    println!("BytecodeGenerator: Found Local import: {}", name);
-                    if name == "math_lib" {
-                        println!("BytecodeGenerator: Registering external import 'math_lib' with hardcoded offsets");
-
-                        let mut functions = HashMap::new();
-                        // Offsets determined via debug_compile disassembly of math_lib.bin
-                        // Updated to match actual build/math_lib.bin offsets
-                        functions.insert("safe_add".to_string(), 119);  // +1 to skip HALT
-                        functions.insert("safe_mul".to_string(), 129);  // +1 to skip HALT
-                        functions.insert("safe_sub".to_string(), 139);  // +1 to skip HALT
-                        functions.insert("percent_of".to_string(), 169); // +1 to skip HALT
-
-                        ast_generator.external_imports.insert(
-                            name.clone(),
-                            ExternalImport {
-                                module_name: name.clone(),
-                                account_index: 3, // Hardcoded index for test setup
-                                functions,
-                            },
-                        );
-                    } else if name == "simple_lib" {
-                        println!("BytecodeGenerator: Registering external import 'simple_lib' with hardcoded offsets");
-
-                        let mut functions = HashMap::new();
-                        // Offset determined via analysis of simple_lib.fbin
-                        functions.insert("get_val".to_string(), 34);
-
-                        ast_generator.external_imports.insert(
-                            name.clone(),
-                            ExternalImport {
-                                module_name: name.clone(),
-                                account_index: 3, // Hardcoded index for test setup
-                                functions,
-                            },
-                        );
-                    }
-                }
-            }
-        } else {
-            println!("BytecodeGenerator: AST Node is NOT Program!");
-        }
-    }
-
     /// Internal generation logic extracted from generate() to reduce complexity
     fn generate_internal(&mut self, ast: &AstNode) -> Result<Vec<u8>, VMError> {
             // Check if we need function dispatch to determine header format
@@ -543,9 +485,6 @@ impl DslBytecodeGenerator {
                         ast_generator.process_interface_definitions(interface_definitions)?;
                     }
                 }
-
-                // Register test imports
-                self.register_test_imports(ast, &mut ast_generator);
 
                 dispatcher.generate_dispatcher(
                     self,

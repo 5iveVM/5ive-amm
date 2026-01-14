@@ -7,8 +7,6 @@ use super::types::ASTGenerator;
 use super::super::OpcodeEmitter;
 use crate::ast::AstNode;
 use five_vm_mito::error::VMError;
-use std::collections::HashMap;
-use super::types::ExternalImport;
 
 impl ASTGenerator {
     pub(super) fn generate_program<T: OpcodeEmitter>(
@@ -37,28 +35,10 @@ impl ASTGenerator {
                 _ => None,
             };
 
-            if let Some(name) = module_name {
-                if name == "math_lib" || name.contains("math_lib") {
-                    #[cfg(debug_assertions)]
-                    println!("AST Generator: Registering external import 'math_lib' (detected via {})", name);
-
-                    let mut functions = HashMap::new();
-                    // Offsets determined via debug_compile disassembly of math_lib.bin
-                    // Note: These offsets might need updating if math_lib changes
-                    functions.insert("safe_add".to_string(), 119);  // +1 to skip HALT
-                    functions.insert("safe_mul".to_string(), 129);  // +1 to skip HALT
-                    functions.insert("safe_sub".to_string(), 139);  // +1 to skip HALT
-                    functions.insert("percent_of".to_string(), 169); // +1 to skip HALT
-
-                    self.external_imports.insert(
-                        "math_lib".to_string(),
-                        ExternalImport {
-                            module_name: "math_lib".to_string(),
-                            account_index: 3, // Hardcoded index for test setup (Script, VM, Payer, MathLib)
-                            functions,
-                        },
-                    );
-                }
+            if let Some(_name) = module_name {
+                // Future: Implement generic external import registration here
+                // This would involve looking up the module in a registry or checking for interface definitions
+                // to populate self.external_imports
             }
         }
 

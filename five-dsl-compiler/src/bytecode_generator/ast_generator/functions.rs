@@ -22,53 +22,6 @@ impl ASTGenerator {
     ) -> Result<(), VMError> {
         println!("DEBUG: generate_method_call method='{}'", method);
         // Check if this is an interface method call first
-        // Intercept math_lib calls parsed as method calls by Valid Function Names (Heuristic)
-        if method == "safe_add" || method == "safe_mul" || method == "safe_sub" || method == "percent_of" {
-             // Generate arguments only (skip object)
-            for arg in args {
-                self.generate_ast_node(emitter, arg)?;
-            }
-            
-             // Emit CALL_EXTERNAL
-             emitter.emit_opcode(CALL_EXTERNAL);
-             emitter.emit_u8(3); // account_index 3 for math_lib
-             
-             let offset = match method {
-                    "safe_add" => 226,
-                    "safe_mul" => 244,
-                    "safe_sub" => 276,
-                    "percent_of" => 290,
-                    _ => 0
-             };
-             emitter.emit_u16(offset);
-             emitter.emit_u8(args.len() as u8);
-             return Ok(());
-        }
-
-        if let AstNode::Identifier(obj_name) = object {
-            if obj_name == "math_lib" {
-                 // Generate arguments only (skip object)
-                for arg in args {
-                    self.generate_ast_node(emitter, arg)?;
-                }
-                
-                 // Emit CALL_EXTERNAL
-                 emitter.emit_opcode(CALL_EXTERNAL);
-                 emitter.emit_u8(3); // account_index 3 for math_lib
-                 
-                 let offset = match method {
-                        "safe_add" => 226,
-                        "safe_mul" => 244,
-                        "safe_sub" => 276,
-                        "percent_of" => 290,
-                        _ => 0
-                 };
-                 emitter.emit_u16(offset);
-                 emitter.emit_u8(args.len() as u8);
-                 return Ok(());
-            }
-        }
-
         if let AstNode::Identifier(interface_name) = object {
             if let Some(interface_info) = self.interface_registry.get(interface_name) {
                 // This is an interface method call - generate INVOKE opcode
