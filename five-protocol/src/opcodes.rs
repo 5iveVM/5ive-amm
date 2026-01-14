@@ -767,7 +767,7 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: PUSH_STRING,
         name: "PUSH_STRING",
-        arg_type: ArgType::U8,
+        arg_type: ArgType::U32,
         stack_effect: 1,
         compute_cost: 1,
     },

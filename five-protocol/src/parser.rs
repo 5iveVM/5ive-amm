@@ -8,10 +8,10 @@ use crate::encoding::VLE;
 use crate::opcodes::{get_opcode_info, ArgType};
 use crate::OptimizedHeader;
 use crate::{FunctionNameEntry, FunctionNameMetadata};
+use alloc::format;
 use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec::Vec;
-use alloc::format;
 
 /// Parsed bytecode result containing header and instructions with validation
 #[derive(Debug, Clone)]
@@ -72,55 +72,93 @@ impl ParseError {
     }
 }
 
-/// Parse bytecode and return parsed metadata with validation errors
-pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode {
-    let mut instructions = alloc::vec::Vec::new();
-    let mut errors = alloc::vec::Vec::new();
-    let mut header = OptimizedHeader {
-        magic: [0u8; 4],
-        features: 0u32,
-        public_function_count: 0,
-        total_function_count: 0,
-    };
-
+/// Parse header and return basic info + instruction start offset
+///
+/// This function validates the header magic, basic fields, and skips any metadata
+/// sections (like function names) to find where instructions actually begin.
+/// It uses 0 allocations.
+pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseError> {
     if bytecode.len() < crate::FIVE_HEADER_OPTIMIZED_SIZE {
-        errors.push(ParseError::HeaderTooShort);
-        return ParsedBytecode {
-            header,
-            instructions,
-            errors,
-            total_size: bytecode.len(),
-            bytecode,
-        };
+        return Err(ParseError::HeaderTooShort);
     }
 
     // Parse header
     let magic = [bytecode[0], bytecode[1], bytecode[2], bytecode[3]];
     if magic != *b"5IVE" {
-        errors.push(ParseError::InvalidMagic);
+        return Err(ParseError::InvalidMagic);
     }
 
     // Read features as little-endian u32 from bytes 4..8 and counts from bytes 8/9
-    let features = if bytecode.len() >= 8 {
-        u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]])
-    } else {
-        0u32
-    };
+    let features = u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]]);
 
-    header = OptimizedHeader {
+    let header = OptimizedHeader {
         magic,
         features,
-        public_function_count: if bytecode.len() > 8 { bytecode[8] } else { 0 },
-        total_function_count: if bytecode.len() > 9 { bytecode[9] } else { 0 },
+        public_function_count: bytecode[8],
+        total_function_count: bytecode[9],
     };
 
     // Validate function counts
     if header.total_function_count > crate::MAX_FUNCTIONS as u8 {
-        errors.push(ParseError::InvalidFunctionCount);
+        return Err(ParseError::InvalidFunctionCount);
     }
 
-    // Parse instructions
+    // Calculate instruction start offset (skip metadata)
     let mut offset = crate::FIVE_HEADER_OPTIMIZED_SIZE;
+
+    // Skip function names metadata if present
+    if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0 {
+        // Read section size (VLE u16)
+        if offset >= bytecode.len() {
+             // Incomplete metadata
+             // If we just have the header and claim metadata but no bytes, that's technically OOB for metadata
+             return Ok((header, offset)); // Let caller decide if OOB matter
+        }
+
+        match VLE::decode_u16(&bytecode[offset..]) {
+            Some((section_size, consumed)) => {
+                offset += consumed;
+                // Skip the section content
+                offset += section_size as usize;
+            }
+            None => return Err(ParseError::InvalidVLE),
+        }
+    }
+
+    // Ensure start offset is within bounds (or exactly at end if empty script)
+    if offset > bytecode.len() {
+        return Err(ParseError::HeaderTooShort); // Metadata claimed to be larger than bytecode
+    }
+
+    Ok((header, offset))
+}
+
+/// Parse bytecode and return parsed metadata with validation errors
+pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode<'_> {
+    let mut instructions = alloc::vec::Vec::new();
+    let mut errors = alloc::vec::Vec::new();
+
+    let (header, start_offset) = match parse_header(bytecode) {
+        Ok(res) => res,
+        Err(e) => {
+            errors.push(e);
+             return ParsedBytecode {
+                header: OptimizedHeader {
+                    magic: [0u8; 4],
+                    features: 0,
+                    public_function_count: 0,
+                    total_function_count: 0,
+                },
+                instructions,
+                errors,
+                total_size: bytecode.len(),
+                bytecode,
+            };
+        }
+    };
+
+    // Parse instructions
+    let mut offset = start_offset;
     while offset < bytecode.len() {
         match parse_instruction(bytecode, offset) {
             Ok((inst, size)) => {
@@ -140,11 +178,6 @@ pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode {
         }
     }
 
-    // Check if last instruction consumed all bytes
-    if !errors.is_empty() && instructions.is_empty() && offset > 7 {
-        // If there were parse errors, the total_size might not match
-    }
-
     ParsedBytecode {
         header,
         instructions,
@@ -155,7 +188,7 @@ pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode {
 }
 
 /// Parse a single instruction at the given offset
-fn parse_instruction(
+pub fn parse_instruction(
     bytecode: &[u8],
     offset: usize,
 ) -> Result<(ParsedInstruction, usize), ParseError> {
@@ -184,6 +217,16 @@ fn parse_instruction(
             }
             arg1 = bytecode[offset + total_size] as u32;
             total_size += 1;
+
+            // Special handling for PUSH_STRING_LITERAL (0x66)
+            // ArgType::U8 consumes length. We must also skip the string bytes.
+            if opcode == crate::opcodes::PUSH_STRING_LITERAL {
+                let str_len = arg1 as usize;
+                if offset + total_size + str_len > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                total_size += str_len;
+            }
         }
         ArgType::U16 => {
             if offset + total_size + 1 >= bytecode.len() {
@@ -200,6 +243,16 @@ fn parse_instruction(
             Some((value, consumed)) => {
                 arg1 = value;
                 total_size += consumed;
+
+                // Special handling for PUSH_STRING (0x67)
+                // ArgType::U32 consumes VLE length. We must also skip the string bytes.
+                if opcode == crate::opcodes::PUSH_STRING {
+                    let str_len = arg1 as usize;
+                    if offset + total_size + str_len > bytecode.len() {
+                        return Err(ParseError::InstructionOutOfBounds);
+                    }
+                    total_size += str_len;
+                }
             }
             None => {
                 return Err(ParseError::InvalidVLE);
@@ -396,44 +449,19 @@ fn parse_function_names(
 
 /// Parse optimized bytecode with metadata sections
 pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String> {
-    if bytecode.len() < crate::FIVE_HEADER_OPTIMIZED_SIZE {
-        return Err("Bytecode too short for header".to_string());
-    }
-
-    // Parse header
-    let magic = [bytecode[0], bytecode[1], bytecode[2], bytecode[3]];
-    if magic != *b"5IVE" {
-        return Err("Invalid magic number".to_string());
-    }
-
-    // Read features as little-endian u32 and function counts at bytes 8/9
-    let features = if bytecode.len() >= crate::FIVE_HEADER_OPTIMIZED_SIZE {
-        u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]])
-    } else {
-        0u32
-    };
-
-    let public_function_count = if bytecode.len() > 8 { bytecode[8] } else { 0 };
-    let total_function_count = if bytecode.len() > 9 { bytecode[9] } else { 0 };
-
-    let header = crate::OptimizedHeader {
-        magic,
-        features,
-        public_function_count,
-        total_function_count,
-    };
-
-    if header.magic != *b"5IVE" {
-        return Err("Invalid magic number".to_string());
-    }
+    let (header, start_offset) = parse_header(bytecode).map_err(|e| e.message().to_string())?;
 
     let (function_names, bytecode_start) = if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0
     {
+        // If parse_header returned start_offset that already skipped metadata, we might need to backtrack
+        // if we want to extract names.
+        // However, parse_header logic simply skips it.
+        // If we want names, we have to parse them.
         let mut offset = crate::FIVE_HEADER_OPTIMIZED_SIZE;
         let (metadata, final_offset) = parse_function_names(bytecode, &mut offset)?;
         (Some(metadata), final_offset)
     } else {
-        (None, crate::FIVE_HEADER_OPTIMIZED_SIZE)
+        (None, start_offset)
     };
 
     let mut instructions = Vec::new();

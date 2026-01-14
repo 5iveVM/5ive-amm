@@ -11,9 +11,11 @@ use crate::{
     state::{FIVEVMState, ScriptAccountHeader},
 };
 
+use five_protocol::parser::parse_header;
+
 use super::{
     fees::{calculate_fee, transfer_fee},
-    verify::{verify_bytecode_content, compute_instruction_start_offset},
+    verify::{verify_bytecode_content},
     require_min_accounts, require_signer, safe_realloc,
 };
 
@@ -163,7 +165,10 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     } else {
         0
     };
-    let instruction_start_offset = compute_instruction_start_offset(bytecode);
+
+    // We already verified content, so parse_header should succeed
+    let (_, offset) = parse_header(bytecode).map_err(|_| ProgramError::Custom(8002))?;
+    let instruction_start_offset = offset as u16;
 
     // Update VM state - reuse mutable borrow from earlier? No, borrow scope ended.
     // SAFETY: `vm_state_account` verified.
@@ -411,7 +416,9 @@ pub fn append_bytecode(
         } else {
             0
         };
-        let instruction_start_offset = compute_instruction_start_offset(bytecode);
+
+        let (_, offset) = parse_header(bytecode).map_err(|_| ProgramError::Custom(8205))?;
+        let instruction_start_offset = offset as u16;
 
         let mut final_header = ScriptAccountHeader::new_with_metadata(
             bytecode,
@@ -487,7 +494,9 @@ pub fn finalize_script_upload(
     } else {
         0
     };
-    let instruction_start_offset = compute_instruction_start_offset(bytecode);
+
+    let (_, offset) = parse_header(bytecode).map_err(|_| ProgramError::Custom(8209))?;
+    let instruction_start_offset = offset as u16;
 
     // Update header
     let mut final_header = ScriptAccountHeader::new_with_metadata(
