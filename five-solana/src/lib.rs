@@ -44,6 +44,9 @@ mod instructions;
 mod state;
 
 #[cfg(test)]
+mod test_deploy_verification;
+
+#[cfg(test)]
 mod test_script_header_v3;
 
 #[cfg(test)]
