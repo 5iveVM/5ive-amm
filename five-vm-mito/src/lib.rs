@@ -140,9 +140,7 @@ pub mod enhanced_opcodes {
 #[cfg(feature = "debug-logs")]
 macro_rules! debug_log {
     ($($arg:tt)*) => {
-        unsafe {
-            pinocchio_log::log!($($arg)*);
-        }
+        pinocchio_log::log!($($arg)*);
     };
 }
 
