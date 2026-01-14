@@ -79,7 +79,7 @@ fn test_init_pda_account_success() {
 
     // 2. Setup Accounts: Use the derived PDA as the key for account #1
     let mut lamports = 0u64;
-    let mut data = [0u8; 0];
+    let mut data = [0u8; 1024]; // Increase buffer to allow resize
     let mut payer_lamports = 1_000_000_000;
     let mut payer_data = [0u8; 0];
     let mut sys_lamports = 0u64;
@@ -143,7 +143,7 @@ fn test_init_pda_account_failure_address_mismatch() {
     // 2. Setup Accounts: Use a RANDOM/WRONG key for account #1
     let wrong_key = Pubkey::from([0xBB; 32]); // Different from PDA
     let mut lamports = 0u64;
-    let mut data = [0u8; 0];
+    let mut data = [0u8; 1024];
     let mut payer_lamports = 1_000_000_000;
     let mut payer_data = [0u8; 0];
     let mut sys_lamports = 0u64;
@@ -210,7 +210,7 @@ fn test_init_pda_account_failure_invalid_bump() {
 
     // Setup account with CORRECT address
     let mut lamports = 0u64;
-    let mut data = [0u8; 0];
+    let mut data = [0u8; 1024];
     let mut payer_lamports = 1_000_000_000;
     let mut payer_data = [0u8; 0];
     let mut sys_lamports = 0u64;
