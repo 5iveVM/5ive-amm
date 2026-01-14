@@ -933,6 +933,18 @@ impl<'a> ExecutionContext<'a> {
                 }
             }
             ValueRef::U64(0) => Ok(self.program_id),
+            ValueRef::AccountRef(idx, offset) => {
+                let account = self.get_account(*idx)?;
+                let data = unsafe { account.borrow_data_unchecked() };
+                let start = *offset as usize;
+                let end = start + 32;
+                if end > data.len() {
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
+                let mut pubkey = [0u8; 32];
+                pubkey.copy_from_slice(&data[start..end]);
+                Ok(pubkey)
+            }
             _ => Err(VMErrorCode::TypeMismatch),
         }
     }
