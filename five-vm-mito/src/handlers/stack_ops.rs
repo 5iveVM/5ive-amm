@@ -16,7 +16,7 @@ use crate::{
     vm_push_u128,
     vm_push_u64,
 };
-use five_protocol::{opcodes::*, ValueRef, VLE};
+use five_protocol::{opcodes::*, ValueRef};
 
 /// Process stack manipulation opcodes including PUSH variants, POP, DUP, SWAP, and PICK.
 /// Handles the 0x10-0x1F opcode range exclusively.
@@ -35,9 +35,7 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             debug_log!("Stack size after: {}", ctx.size() as u32);
         }
         PUSH_I64 => {
-            let (val, consumed) = VLE::decode_u64(&ctx.script()[ctx.ip()..])
-                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
-            ctx.set_ip(ctx.ip() + consumed);
+            let val = ctx.fetch_vle_u64()?;
             push_i64!(ctx, val as i64);
         }
         PUSH_U128 => {
@@ -55,15 +53,11 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
         // ===== PUSH OPERATIONS (0x18-0x1F) =====
         PUSH_U16 => {
-            let (val, consumed) = VLE::decode_u32(&ctx.script()[ctx.ip()..])
-                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
-            ctx.set_ip(ctx.ip() + consumed);
+            let val = ctx.fetch_vle_u32()?;
             vm_push_u64!(ctx, val as u64);
         }
         PUSH_U32 => {
-            let (val, consumed) = VLE::decode_u32(&ctx.script()[ctx.ip()..])
-                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
-            ctx.set_ip(ctx.ip() + consumed);
+            let val = ctx.fetch_vle_u32()?;
             vm_push_u64!(ctx, val as u64);
         }
         // ===== BASIC STACK OPERATIONS (0x10-0x17) =====

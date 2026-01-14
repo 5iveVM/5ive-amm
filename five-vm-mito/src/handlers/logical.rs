@@ -10,6 +10,54 @@ use crate::{
 };
 use five_protocol::{opcodes::*, ValueRef};
 
+macro_rules! bitwise_op {
+    ($ctx:expr, $op_name:expr, $op:tt) => {{
+        let b = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+        let a = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+        let result = a $op b;
+        debug_log!("MitoVM: {} {} {} {} = {}", $op_name, a, stringify!($op), b, result);
+        $ctx.push(ValueRef::U64(result))?;
+    }};
+}
+
+macro_rules! shift_op {
+    ($ctx:expr, $op_name:expr, $op:tt) => {{
+        let shift_amount = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+        let value = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+        // Limit shift amount to prevent undefined behavior
+        let safe_shift = (shift_amount % 64) as u32;
+        let result = value $op safe_shift;
+        debug_log!(
+            "MitoVM: {} {} {} {} = {}",
+            $op_name,
+            value,
+            stringify!($op),
+            safe_shift,
+            result
+        );
+        $ctx.push(ValueRef::U64(result))?;
+    }};
+}
+
+macro_rules! rotate_op {
+    ($ctx:expr, $op_name:expr, $method:ident) => {{
+        let rotate_amount = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+        let value = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+        // Rotate amount modulo 64 for circular rotation
+        let safe_rotate = (rotate_amount % 64) as u32;
+        let result = value.$method(safe_rotate);
+        debug_log!(
+            "MitoVM: {} {} {} {} = {}",
+            $op_name,
+            value,
+            stringify!($method),
+            safe_rotate,
+            result
+        );
+        $ctx.push(ValueRef::U64(result))?;
+    }};
+}
+
 /// Handle logical operations (0x30-0x3F)
 #[inline(never)]
 pub fn handle_logical(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
@@ -57,57 +105,14 @@ pub fn handle_logical(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<(
         }
 
         // ===== BITWISE OPERATIONS =====
-        BITWISE_AND => {
-            let b = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let a = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let result = a & b;
-            debug_log!("MitoVM: BITWISE_AND {} & {} = {}", a, b, result);
-            ctx.push(ValueRef::U64(result))?;
-        }
-        BITWISE_OR => {
-            let b = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let a = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let result = a | b;
-            debug_log!("MitoVM: BITWISE_OR {} | {} = {}", a, b, result);
-            ctx.push(ValueRef::U64(result))?;
-        }
-        BITWISE_XOR => {
-            let b = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let a = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let result = a ^ b;
-            debug_log!("MitoVM: BITWISE_XOR {} ^ {} = {}", a, b, result);
-            ctx.push(ValueRef::U64(result))?;
-        }
+        BITWISE_AND => bitwise_op!(ctx, "BITWISE_AND", &),
+        BITWISE_OR => bitwise_op!(ctx, "BITWISE_OR", |),
+        BITWISE_XOR => bitwise_op!(ctx, "BITWISE_XOR", ^),
 
         // ===== SHIFT OPERATIONS =====
-        SHIFT_LEFT => {
-            let shift_amount = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let value = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            // Limit shift amount to prevent undefined behavior
-            let safe_shift = (shift_amount % 64) as u32;
-            let result = value << safe_shift;
-            debug_log!(
-                "MitoVM: SHIFT_LEFT {} << {} = {}",
-                value,
-                safe_shift,
-                result
-            );
-            ctx.push(ValueRef::U64(result))?;
-        }
-        SHIFT_RIGHT => {
-            let shift_amount = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let value = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            // Limit shift amount to prevent undefined behavior
-            let safe_shift = (shift_amount % 64) as u32;
-            let result = value >> safe_shift;
-            debug_log!(
-                "MitoVM: SHIFT_RIGHT {} >> {} = {}",
-                value,
-                safe_shift,
-                result
-            );
-            ctx.push(ValueRef::U64(result))?;
-        }
+        SHIFT_LEFT => shift_op!(ctx, "SHIFT_LEFT", <<),
+        SHIFT_RIGHT => shift_op!(ctx, "SHIFT_RIGHT", >>),
+
         SHIFT_RIGHT_ARITH => {
             let shift_amount = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
             let value = ctx.pop()?;
@@ -144,34 +149,8 @@ pub fn handle_logical(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<(
         }
 
         // ===== ROTATE OPERATIONS =====
-        ROTATE_LEFT => {
-            let rotate_amount = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let value = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            // Rotate amount modulo 64 for circular rotation
-            let safe_rotate = (rotate_amount % 64) as u32;
-            let result = value.rotate_left(safe_rotate);
-            debug_log!(
-                "MitoVM: ROTATE_LEFT {} <<< {} = {}",
-                value,
-                safe_rotate,
-                result
-            );
-            ctx.push(ValueRef::U64(result))?;
-        }
-        ROTATE_RIGHT => {
-            let rotate_amount = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let value = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            // Rotate amount modulo 64 for circular rotation
-            let safe_rotate = (rotate_amount % 64) as u32;
-            let result = value.rotate_right(safe_rotate);
-            debug_log!(
-                "MitoVM: ROTATE_RIGHT {} >>> {} = {}",
-                value,
-                safe_rotate,
-                result
-            );
-            ctx.push(ValueRef::U64(result))?;
-        }
+        ROTATE_LEFT => rotate_op!(ctx, "ROTATE_LEFT", rotate_left),
+        ROTATE_RIGHT => rotate_op!(ctx, "ROTATE_RIGHT", rotate_right),
 
         // ===== BYTE MANIPULATION OPERATIONS =====
         BYTE_SWAP_16 => {
