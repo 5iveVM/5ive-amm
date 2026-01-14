@@ -25,7 +25,7 @@ fn test_basic_option_creation() {
         0x2A,             // VLE-encoded 42
         OPTIONAL_SOME,    // Wrap in Option::Some
         OPTIONAL_IS_SOME, // Check if Some
-        HALT,             // Stop execution
+        RETURN_VALUE,             // Stop execution
     ];
 
     let script = build_script(&body);
@@ -44,7 +44,7 @@ fn test_basic_result_creation() {
         0x7B,         // VLE-encoded 123
         RESULT_OK,    // Wrap in Result::Ok
         RESULT_IS_OK, // Check if Ok
-        HALT,         // Stop execution
+        RETURN_VALUE,         // Stop execution
     ];
 
     let script = build_script(&body);
