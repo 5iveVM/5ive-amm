@@ -60,6 +60,9 @@
 //! # Ok::<(), five_vm_mito::VMError>(())
 //! ```
 
+#[cfg(target_os = "solana")]
+extern crate alloc;
+
 pub mod context;
 pub mod error;
 pub mod execution;

@@ -410,7 +410,33 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
             // Calculate total size: header (2 bytes) + string bytes
             let total_size = 2 + string_length as usize;
             if total_size > 62 {
-                return Err(VMErrorCode::OutOfMemory); // Exceeds temp buffer space
+                // Fallback to heap allocation for large strings
+                let heap_total_size = 4 + string_length as usize; // 4 bytes for length + string bytes
+                let heap_id = ctx.heap_alloc(heap_total_size)?;
+
+                // Write length (u32)
+                let length_bytes = (string_length as u32).to_le_bytes();
+                ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
+
+                // Read string bytes from bytecode directly into heap
+                for i in 0..string_length {
+                    let byte = ctx.fetch_byte()?;
+                    ctx.get_heap_data_mut(heap_id + 4 + i as u32, 1)?[0] = byte;
+                }
+
+                // Validate UTF-8 encoding
+                let string_bytes = ctx.get_heap_data(heap_id + 4, string_length as u32)?;
+                if core::str::from_utf8(string_bytes).is_err() {
+                    return Err(VMErrorCode::InvalidOperation); // Invalid UTF-8
+                }
+
+                ctx.push(ValueRef::HeapString(heap_id))?;
+                debug_log!(
+                    "MitoVM: Heap String created at heap_id={} with {} bytes",
+                    heap_id,
+                    string_length
+                );
+                return Ok(());
             }
 
             // Allocate temp buffer space
@@ -441,7 +467,7 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
         }
         PUSH_STRING => {
             // PUSH_STRING with VLE encoding - similar to PUSH_STRING_LITERAL but with VLE length
-            let string_length = ctx.fetch_vle_u32()? as u8; // Fetch VLE encoded length
+            let string_length = ctx.fetch_vle_u32()?; // Fetch VLE encoded length (u32)
             debug_log!(
                 "MitoVM: PUSH_STRING with {} bytes (VLE encoded)",
                 string_length
@@ -459,14 +485,40 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
             // Calculate total size: header (2 bytes) + string bytes
             let total_size = 2 + string_length as usize;
             if total_size > 62 {
-                return Err(VMErrorCode::OutOfMemory); // Exceeds temp buffer space
+                // Fallback to heap allocation for large strings
+                let heap_total_size = 4 + string_length as usize; // 4 bytes for length + string bytes
+                let heap_id = ctx.heap_alloc(heap_total_size)?;
+
+                // Write length (u32)
+                let length_bytes = string_length.to_le_bytes();
+                ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
+
+                // Read string bytes from bytecode
+                for i in 0..string_length {
+                    let byte = ctx.fetch_byte()?;
+                    ctx.get_heap_data_mut(heap_id + 4 + i, 1)?[0] = byte;
+                }
+
+                // Validate UTF-8 encoding
+                let string_bytes = ctx.get_heap_data(heap_id + 4, string_length)?;
+                if core::str::from_utf8(string_bytes).is_err() {
+                    return Err(VMErrorCode::InvalidOperation); // Invalid UTF-8
+                }
+
+                ctx.push(ValueRef::HeapString(heap_id))?;
+                debug_log!(
+                    "MitoVM: Heap String created at heap_id={} with {} bytes (VLE)",
+                    heap_id,
+                    string_length
+                );
+                return Ok(());
             }
 
             // Allocate temp buffer space
             let array_id = ctx.alloc_temp(total_size as u8)?;
 
             // Write array header for string
-            ctx.temp_buffer_mut()[array_id as usize] = string_length; // length
+            ctx.temp_buffer_mut()[array_id as usize] = string_length as u8; // length (safe because total_size <= 62)
             ctx.temp_buffer_mut()[array_id as usize + 1] = 1; // element_type = VARIABLE_SIZE (binary classification)
 
             // Read string bytes from bytecode

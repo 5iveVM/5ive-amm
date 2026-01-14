@@ -14,7 +14,9 @@ use crate::{
 use crate::debug_log;
 use five_protocol::ValueRef;
 #[cfg(target_os = "solana")]
-use heapless::Vec;
+use alloc::vec::Vec;
+#[cfg(not(target_os = "solana"))]
+use std::vec::Vec;
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Instruction, Signer},
@@ -48,6 +50,9 @@ pub struct ExecutionContext<'a> {
     pub sp: u8,
     pub temp_pos: usize,
     pub csp: u8,
+
+    // --- Heap storage for dynamic allocations ---
+    pub heap_storage: Vec<u8>,
 
     // --- Function metadata (optimized header V2) ---
     pub public_function_count: u8, // For external dispatch validation
@@ -139,6 +144,7 @@ impl<'a> ExecutionContext<'a> {
             sp: 0,
             temp_pos: 0,
             csp: 0,
+            heap_storage: Vec::with_capacity(512),
             public_function_count,
             total_function_count,
             header_features: 0,
@@ -372,6 +378,43 @@ impl<'a> ExecutionContext<'a> {
 
         ValueRef::deserialize_from(&self.storage.temp_buffer[offset as usize..])
             .map_err(|_| VMError::ProtocolError)
+    }
+
+    // --- Heap operations ---
+
+    #[inline]
+    pub fn heap_alloc(&mut self, size: usize) -> CompactResult<u32> {
+        let offset = self.heap_storage.len();
+        // Check for overflow or limits if necessary
+        // Note: Vec::try_reserve is available in standard library and alloc
+        self.heap_storage.try_reserve(size).map_err(|_| VMErrorCode::OutOfMemory)?;
+
+        // Zero-initialize the allocated memory
+        for _ in 0..size {
+            self.heap_storage.push(0);
+        }
+
+        Ok(offset as u32)
+    }
+
+    #[inline]
+    pub fn get_heap_data_mut(&mut self, offset: u32, size: u32) -> CompactResult<&mut [u8]> {
+        let start = offset as usize;
+        let end = start + size as usize;
+        if end > self.heap_storage.len() {
+             return Err(VMErrorCode::MemoryError);
+        }
+        Ok(&mut self.heap_storage[start..end])
+    }
+
+    #[inline]
+    pub fn get_heap_data(&self, offset: u32, size: u32) -> CompactResult<&[u8]> {
+        let start = offset as usize;
+        let end = start + size as usize;
+        if end > self.heap_storage.len() {
+             return Err(VMErrorCode::MemoryError);
+        }
+        Ok(&self.heap_storage[start..end])
     }
 
     // --- Call stack operations ---
@@ -1034,6 +1077,25 @@ impl<'a> ExecutionContext<'a> {
                 }
                 
                 Ok((len as u32, &temp_buf[data_start..data_end]))
+            }
+            ValueRef::HeapString(heap_id) => {
+                let start = *heap_id as usize;
+                // [len: u32][bytes...]
+                if start + 4 > self.heap_storage.len() {
+                    return Err(VMErrorCode::MemoryError);
+                }
+
+                let len_bytes = &self.heap_storage[start..start+4];
+                let len = u32::from_le_bytes(len_bytes.try_into().unwrap()) as usize;
+
+                let data_start = start + 4;
+                let data_end = data_start + len;
+
+                if data_end > self.heap_storage.len() {
+                    return Err(VMErrorCode::MemoryError);
+                }
+
+                Ok((len as u32, &self.heap_storage[data_start..data_end]))
             }
             ValueRef::U64(0) => Ok((0, &[])), // Empty string optimization
             _ => Err(VMErrorCode::TypeMismatch),

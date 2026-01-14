@@ -19,7 +19,7 @@ fn test_heap_string_allocation() {
     ];
     // Add 70 bytes of 'A'
     bytecode_body.extend(std::iter::repeat(b'A').take(70));
-    bytecode_body.push(0x00); // HALT
+    bytecode_body.push(0x07); // RETURN_VALUE (was HALT 0x00 which returns None)
 
     let bytecode = build_bytecode(&bytecode_body);
 
