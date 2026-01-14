@@ -135,14 +135,14 @@ pub fn handle_advanced(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             if element_count > MAX_TUPLE_ELEMENTS {
                 return Err(VMErrorCode::StackError);
             }
-            if (ctx.sp as usize) < element_count {
+            if (ctx.stack.sp as usize) < element_count {
                 return Err(VMErrorCode::StackError);
             }
             // Calculate size without storing elements
             let mut total_size = 2;
             for i in 0..element_count {
-                let idx = ctx.sp as usize - 1 - i;
-                let element = ctx.storage.stack[idx];
+                let idx = ctx.stack.sp as usize - 1 - i;
+                let element = ctx.stack.stack[idx];
                 total_size += element.serialized_size();
                 if total_size > 62 {
                     return Err(VMErrorCode::OutOfMemory);
