@@ -12,9 +12,8 @@ use crate::{
     error::{CompactResult, Result, VMErrorCode, VMError},
     handlers::{
         handle_accounts, handle_arithmetic, handle_arrays, handle_constraints, handle_control_flow,
-        handle_functions, handle_init_ops, handle_invoke_ops, handle_locals, handle_logical,
-        handle_memory, handle_native_ops, handle_nibble_locals, handle_option_result_ops,
-        handle_pda_ops, handle_registers, handle_stack_ops, handle_sysvar_ops,
+        handle_functions, handle_locals, handle_logical, handle_memory, handle_nibble_locals,
+        handle_option_result_ops, handle_registers, handle_stack_ops, handle_system_ops,
     },
     stack_error_context, // Import enhanced debugging macros
     FIVE_MAGIC,
@@ -70,24 +69,6 @@ pub struct VMExecutionContext {
 pub struct MitoVM;
 
 impl MitoVM {
-    /// Dispatch system-level operations including CPI, PDA operations, and account initialization.
-    #[inline(never)]
-    fn handle_system(opcode: u8, ctx: &mut ExecutionManager<'_>) -> CompactResult<()> {
-        match opcode {
-            // Cross-program invocation operations (INVOKE, INVOKE_SIGNED)
-            INVOKE | INVOKE_SIGNED => handle_invoke_ops(opcode, ctx),
-            // Blockchain sysvar operations (GET_CLOCK, GET_RENT)
-            GET_CLOCK | GET_RENT => handle_sysvar_ops(opcode, ctx),
-            // Account initialization operations (INIT_ACCOUNT, INIT_PDA_ACCOUNT)
-            INIT_ACCOUNT | INIT_PDA_ACCOUNT => handle_init_ops(opcode, ctx),
-            // Program Derived Address operations (DERIVE_PDA, FIND_PDA, etc.)
-            DERIVE_PDA | FIND_PDA | DERIVE_PDA_PARAMS | FIND_PDA_PARAMS => {
-                handle_pda_ops(opcode, ctx)
-            }
-            _ => Err(VMErrorCode::InvalidInstruction),
-        }
-    }
-
     /// Prepare execution environment with optimized parameter parsing and minimal overhead.
     /// Validates script format, parses VLE parameters, and sets up function dispatch.
     #[inline(never)]
@@ -355,15 +336,11 @@ impl MitoVM {
             }
             0x80..=0x8F => {
                 // 🎯 LOGICAL REORGANIZATION: System operations moved from 0x70 to 0x80
-                Self::handle_system(opcode, ctx)
+                handle_system_ops(opcode, ctx)
             }
             0x90..=0x9F => {
                 // 🎯 LOGICAL REORGANIZATION: Functions moved from 0x80 to 0x90
-                if opcode == CALL_NATIVE {
-                    handle_native_ops(ctx)
-                } else {
-                    handle_functions(opcode, ctx)
-                }
+                handle_functions(opcode, ctx)
             }
             0xA0..=0xAF => {
                 // 🎯 LOGICAL REORGANIZATION: Locals moved from 0x90 to 0xA0 + general operations

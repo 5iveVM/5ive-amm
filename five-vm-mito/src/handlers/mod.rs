@@ -35,5 +35,5 @@ pub use option_result::handle_option_result_ops;
 pub use registers::handle_registers;
 pub use syscalls::*;
 pub use system::{
-    handle_init_ops, handle_invoke_ops, handle_native_ops, handle_pda_ops, handle_sysvar_ops,
+    handle_init_ops, handle_invoke_ops, handle_pda_ops, handle_system_ops, handle_sysvar_ops,
 };
