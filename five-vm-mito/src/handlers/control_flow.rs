@@ -72,9 +72,6 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
         ASSERT => {
             check_condition(ctx)?;
         }
-        POP => {
-            ctx.pop()?;
-        }
         RETURN => {
                 // "MitoVM: RETURN encountered - call depth: {}, stack size: {}",
                 // ctx.call_depth() as u32,

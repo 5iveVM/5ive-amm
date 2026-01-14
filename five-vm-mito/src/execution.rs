@@ -326,17 +326,8 @@ impl MitoVM {
 
         match opcode & 0xF0 {
             0x00 => {
-                // TRY CONTROL FLOW FIRST (HALT, JUMP, etc.)
-                let result = handle_control_flow(opcode, ctx);
-                
-                match result {
-                    Ok(_) => Ok(()),
-                    Err(VMErrorCode::InvalidInstruction) => {
-                        // FALLBACK: Try stack ops (e.g. PUSH_U64=0x01, POP=0x02 if not in control_flow)
-                        handle_stack_ops(opcode, ctx)
-                    },
-                    Err(e) => Err(e)
-                }
+                // Control flow operations (HALT, JUMP, etc.)
+                handle_control_flow(opcode, ctx)
             }
             0x10..=0x1F => {
                 handle_stack_ops(opcode, ctx)
@@ -348,17 +339,8 @@ impl MitoVM {
                 handle_logical(opcode, ctx)
             }
             0x40..=0x4F => {
-                // TRY CONTROL FLOW FIRST (JUMP=0x40, JUMP_IF=0x41 etc might be here)
-                let result = handle_control_flow(opcode, ctx);
-
-                match result {
-                    Ok(_) => Ok(()),
-                    Err(VMErrorCode::InvalidInstruction) => {
-                        // FALLBACK: Memory instructions (STORE/LOAD/STORE_FIELD etc)
-                        handle_memory(opcode, ctx)
-                    },
-                    Err(e) => Err(e)
-                }
+                // Memory instructions (STORE/LOAD/STORE_FIELD etc)
+                handle_memory(opcode, ctx)
             }
             0x50..=0x5F => {
                 handle_accounts(opcode, ctx)
