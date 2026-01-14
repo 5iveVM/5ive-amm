@@ -83,7 +83,7 @@ fn test_constraint_bytecode_optimality_and_ordering() {
                          if verify_check_pattern(&instructions, i) {
                              found_vault_has_owner = true;
                          }
-                    } else if *field_offset == 8 { // Pubkey treated as 8 bytes (unknown/ref) or compacted
+                    } else if *field_offset == 32 { // Pubkey is 32 bytes
                          if verify_check_pattern(&instructions, i) {
                              found_vault_has_mint = true;
                          }
