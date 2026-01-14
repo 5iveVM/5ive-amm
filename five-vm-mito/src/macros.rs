@@ -671,7 +671,7 @@ macro_rules! polymorphic_comparison_op {
             (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U128(b_val)) => {
                 a_val $op b_val
             },
-            _ => panic!("COMPARISON_TYPE_MISMATCH"),
+            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
         };
 
         debug_log!("Comparison result: {}", result as u32);

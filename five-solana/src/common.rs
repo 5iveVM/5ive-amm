@@ -136,7 +136,6 @@ pub fn verify_program_owned(account: &AccountInfo, program_id: &Pubkey) -> Progr
         {
             pinocchio::log::sol_log("DEBUG: verify_program_owned FAILED");
             pinocchio::log::sol_log("Account owner mismatch - script/state account not owned by program");
-            panic!("PANIC_TRACE: verify_program_owned FAILED - Owner mismatch");
         }
         return Err(ProgramError::IllegalOwner);
     }
