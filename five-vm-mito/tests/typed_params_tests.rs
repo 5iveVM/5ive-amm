@@ -6,13 +6,12 @@ use five_vm_mito::{AccountInfo, ExecutionContext, FIVE_VM_PROGRAM_ID, Pubkey, St
 #[test]
 fn parse_typed_string_parameter() {
     let (func_size, func_bytes) = VLE::encode_u32(2);
-    let (sentinel_size, sentinel_bytes) = VLE::encode_u32(128);
     let (count_size, count_bytes) = VLE::encode_u32(1);
     let (len_size, len_bytes) = VLE::encode_u32(2);
 
     let mut input = Vec::new();
     input.extend_from_slice(&func_bytes[..func_size]);
-    input.extend_from_slice(&sentinel_bytes[..sentinel_size]);
+    input.push(0x80); // Raw sentinel byte, NOT VLE encoded
     input.extend_from_slice(&count_bytes[..count_size]);
     input.push(types::STRING);
     input.extend_from_slice(&len_bytes[..len_size]);
