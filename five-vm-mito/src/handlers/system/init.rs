@@ -8,12 +8,13 @@
 
 use crate::{
     context::ExecutionManager,
-    debug_log, error_log,
+    debug_log,
     error::{CompactResult, VMErrorCode},
     utils::value_ref_to_seed_bytes,
 };
 use five_protocol::{opcodes::*, ValueRef};
 use heapless::Vec;
+#[cfg(target_os = "solana")]
 use pinocchio::pubkey::Pubkey;
 #[cfg(target_os = "solana")]
 use pinocchio::pubkey::create_program_address;

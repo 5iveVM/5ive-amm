@@ -10,7 +10,9 @@ use crate::{
     error::{CompactResult, VMErrorCode},
 };
 use five_protocol::{opcodes::*, ValueRef};
-use pinocchio::pubkey::{create_program_address, find_program_address, Pubkey};
+#[cfg(target_os = "solana")]
+use pinocchio::pubkey::{create_program_address, find_program_address};
+use pinocchio::pubkey::Pubkey;
 
 /// Process a single seed value and store it in the seed array.
 /// Returns the length of the seed data written.

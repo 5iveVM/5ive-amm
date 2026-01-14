@@ -5,7 +5,6 @@
 
 use crate::{
     error::{CompactResult, Result, VMError, VMErrorCode},
-    error_log,
     metadata::ImportMetadata,
     stack::StackStorage,
     types::CallFrame,
@@ -14,13 +13,16 @@ use crate::{
 
 use crate::debug_log;
 use five_protocol::ValueRef;
+#[cfg(target_os = "solana")]
 use heapless::Vec;
 use pinocchio::{
     account_info::AccountInfo,
-    instruction::{AccountMeta, Instruction, Seed, Signer},
+    instruction::{Instruction, Signer},
     program::{invoke, invoke_signed},
     pubkey::Pubkey,
 };
+#[cfg(any(target_os = "solana", test))]
+use pinocchio::instruction::{AccountMeta, Seed};
 
 // System program ID constant
 const SYSTEM_PROGRAM_ID: [u8; 32] = [
@@ -1043,6 +1045,7 @@ impl<'a> ExecutionContext<'a> {
     /// Helper for performing System Program account creation via CPI.
     /// Uses Transfer + Allocate + Assign pattern.
     #[inline]
+    #[allow(unused_variables)]
     fn perform_create_account_cpi(
         &self,
         payer: &AccountInfo,
