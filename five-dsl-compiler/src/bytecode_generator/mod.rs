@@ -465,13 +465,6 @@ impl DslBytecodeGenerator {
                 let mut ast_generator =
                     ASTGenerator::with_optimization_level(self.optimization_level);
 
-                // Initialize and sync account registry for ABI in direct path as well
-                {
-                    let mut account_system = AccountSystem::new();
-                    account_system.process_account_definitions(ast)?;
-                    self.account_registry = account_system.get_account_registry().clone();
-                }
-
                 // Pass interface registry to AST generator if available
                 if let Some(ref interface_registry) = self.interface_registry {
                     ast_generator.set_interface_registry(interface_registry.clone());

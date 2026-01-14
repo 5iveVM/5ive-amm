@@ -166,19 +166,24 @@ impl ASTGenerator {
                 let registry = account_system.get_account_registry();
                 // Lookup with namespace support
                 let namespace_suffix = format!("::{}", type_name);
-                let account_info = registry.account_types.get(&type_name)
-                    .or_else(|| {
-                        registry.account_types.iter()
-                            .find(|(k, _)| k.ends_with(&namespace_suffix))
-                            .map(|(_, v)| v)
-                    })
-                    .ok_or_else(|| {
-                        println!("AST Generator: ERROR - Account type '{}' not found in registry", type_name);
-                        VMError::UndefinedAccountField
-                    })?;
-                
-                println!("AST Generator: Found account definition, size={}, total required={}", account_info.total_size, account_info.total_size as u64);
-                account_info.total_size as u64
+                if type_name == "Account" {
+                    println!("AST Generator: generic Account type, assuming 0 data size");
+                    0
+                } else {
+                    let account_info = registry.account_types.get(&type_name)
+                        .or_else(|| {
+                            registry.account_types.iter()
+                                .find(|(k, _)| k.ends_with(&namespace_suffix))
+                                .map(|(_, v)| v)
+                        })
+                        .ok_or_else(|| {
+                            println!("AST Generator: ERROR - Account type '{}' not found in registry", type_name);
+                            VMError::UndefinedAccountField
+                        })?;
+
+                    println!("AST Generator: Found account definition, size={}, total required={}", account_info.total_size, account_info.total_size as u64);
+                    account_info.total_size as u64
+                }
             } else {
                 println!("AST Generator: ERROR - AccountSystem not available for space calculation");
                 return Err(VMError::InvalidScript);

@@ -27,6 +27,11 @@ pub struct AccountSystem {
 impl AccountSystem {
     /// Create a new account system
     pub fn new() -> Self {
+        Self::with_registry(AccountRegistry::new())
+    }
+
+    /// Create a new account system with existing registry
+    pub fn with_registry(registry: AccountRegistry) -> Self {
         let mut builtin_properties = HashMap::new();
         builtin_properties.insert("lamports".to_string(), FIELD_LAMPORTS);
         builtin_properties.insert("owner".to_string(), FIELD_OWNER);
@@ -34,7 +39,7 @@ impl AccountSystem {
         builtin_properties.insert("data".to_string(), FIELD_DATA);
 
         Self {
-            account_registry: AccountRegistry::new(),
+            account_registry: registry,
             zerocopy_enabled: true, // Enable by default for performance
             builtin_properties,
         }
@@ -141,23 +146,9 @@ impl AccountSystem {
             );
         }
 
-        // Look up account type in registry with namespace-aware matching
-        let namespace_suffix = format!("::{}", account_type);
-        let account_info = self.account_registry.account_types.get(account_type)
-            .or_else(|| {
-                self.account_registry.account_types.iter()
-                    .find(|(k, _)| k.ends_with(&namespace_suffix))
-                    .map(|(_, v)| v)
-            });
-
-        if let Some(account_info) = account_info {
+        if let Some(account_info) = self.resolve_account_type(account_type) {
             if let Some(field_info) = account_info.fields.get(field_name) {
-                // Resolve account index from parameter table
-                let account_index = if let Some(param_info) = symbol_table.get(account_param) {
-                    super::account_utils::account_index_from_param_offset(param_info.offset)
-                } else {
-                    return Err(VMError::InvalidScript); // Parameter not found
-                };
+                let account_index = self.resolve_account_index(symbol_table, account_param)?;
 
                 if self.should_use_zerocopy_optimization(account_param) {
                     // Use zerocopy optimization for better performance
@@ -206,23 +197,9 @@ impl AccountSystem {
             );
         }
 
-        // Look up account type and field with namespace-aware matching
-        let namespace_suffix = format!("::{}", account_type);
-        let account_info = self.account_registry.account_types.get(account_type)
-            .or_else(|| {
-                self.account_registry.account_types.iter()
-                    .find(|(k, _)| k.ends_with(&namespace_suffix))
-                    .map(|(_, v)| v)
-            });
-
-        if let Some(account_info) = account_info {
+        if let Some(account_info) = self.resolve_account_type(account_type) {
             if let Some(field_info) = account_info.fields.get(field_name) {
-                // Resolve account index from parameter table
-                let account_index = if let Some(param_info) = symbol_table.get(account_param) {
-                    super::account_utils::account_index_from_param_offset(param_info.offset)
-                } else {
-                    return Err(VMError::InvalidScript); // Parameter not found
-                };
+                let account_index = self.resolve_account_index(symbol_table, account_param)?;
 
                 // Use optimized register-direct access
                 // For now, fall back to standard field access until register optimization is implemented
@@ -258,28 +235,14 @@ impl AccountSystem {
             );
         }
 
-        // Look up account type and field with namespace-aware matching
-        let namespace_suffix = format!("::{}", account_type);
-        let account_info = self.account_registry.account_types.get(account_type)
-            .or_else(|| {
-                self.account_registry.account_types.iter()
-                    .find(|(k, _)| k.ends_with(&namespace_suffix))
-                    .map(|(_, v)| v)
-            });
-
-        if let Some(account_info) = account_info {
+        if let Some(account_info) = self.resolve_account_type(account_type) {
             if let Some(field_info) = account_info.fields.get(field_name) {
                 // Check mutability
                 if !field_info.is_mutable {
                     return Err(VMError::InvalidScript); // Cannot assign to immutable field
                 }
 
-                // Resolve account index from parameter table
-                let account_index = if let Some(param_info) = symbol_table.get(account_param) {
-                    super::account_utils::account_index_from_param_offset(param_info.offset)
-                } else {
-                    return Err(VMError::InvalidScript); // Parameter not found
-                };
+                let account_index = self.resolve_account_index(symbol_table, account_param)?;
 
                 // Generate value expression first (this would be handled by AST generator)
                 // For now, we assume the value is already on the stack
@@ -308,6 +271,26 @@ impl AccountSystem {
         Err(VMError::InvalidScript)
     }
 
+    /// Helper to resolve account type
+    fn resolve_account_type(&self, account_type: &str) -> Option<&AccountTypeInfo> {
+        let namespace_suffix = format!("::{}", account_type);
+        self.account_registry.account_types.get(account_type)
+            .or_else(|| {
+                self.account_registry.account_types.iter()
+                    .find(|(k, _)| k.ends_with(&namespace_suffix))
+                    .map(|(_, v)| v)
+            })
+    }
+
+    /// Helper to resolve account index
+    fn resolve_account_index(&self, symbol_table: &HashMap<String, FieldInfo>, account_param: &str) -> Result<u8, VMError> {
+        if let Some(param_info) = symbol_table.get(account_param) {
+            Ok(super::account_utils::account_index_from_param_offset(param_info.offset))
+        } else {
+            Err(VMError::InvalidScript) // Parameter not found
+        }
+    }
+
     /// Generate built-in account property access
     pub fn generate_builtin_account_property_access<T: OpcodeEmitter>(
         &self,
@@ -316,12 +299,7 @@ impl AccountSystem {
         property: &str,
         symbol_table: &HashMap<String, FieldInfo>,
     ) -> Result<(), VMError> {
-        // Resolve account index from parameter table
-        let account_index = if let Some(param_info) = symbol_table.get(account_param) {
-            super::account_utils::account_index_from_param_offset(param_info.offset)
-        } else {
-            return Err(VMError::InvalidScript); // Parameter not found
-        };
+        let account_index = self.resolve_account_index(symbol_table, account_param)?;
 
         if let Some(_field_id) = self.builtin_properties.get(property) {
             // Use existing account property opcodes
@@ -349,12 +327,7 @@ impl AccountSystem {
         _field_reg: u8,
         symbol_table: &HashMap<String, FieldInfo>,
     ) -> Result<(), VMError> {
-        // Resolve account index from parameter table
-        let account_index = if let Some(param_info) = symbol_table.get(account_param) {
-            super::account_utils::account_index_from_param_offset(param_info.offset)
-        } else {
-            return Err(VMError::InvalidScript); // Parameter not found
-        };
+        let account_index = self.resolve_account_index(symbol_table, account_param)?;
 
         if let Some(_field_id) = self.builtin_properties.get(property) {
             // For now, fall back to standard builtin property access until register optimization is implemented
@@ -382,12 +355,7 @@ impl AccountSystem {
         _value: &AstNode,
         symbol_table: &HashMap<String, FieldInfo>,
     ) -> Result<(), VMError> {
-        // Resolve account index from parameter table
-        let account_index = if let Some(param_info) = symbol_table.get(account_param) {
-            super::account_utils::account_index_from_param_offset(param_info.offset)
-        } else {
-            return Err(VMError::InvalidScript); // Parameter not found
-        };
+        let account_index = self.resolve_account_index(symbol_table, account_param)?;
 
         // Check if the property is writable
         match property {
@@ -462,6 +430,13 @@ impl AccountSystem {
                 })?;
                 Ok(element_size * (array_size as u32))
             }
+            TypeNode::Named(name) => {
+                if name == "Pubkey" {
+                    Ok(32)
+                } else {
+                    Err(VMError::TypeMismatch)
+                }
+            }
             _ => Err(VMError::TypeMismatch),
         }
     }
@@ -487,6 +462,8 @@ impl AccountSystem {
             TypeNode::Sized { base_type, size } => {
                 format!("{}<{}>", base_type, size)
             }
+            TypeNode::Account => "Account".to_string(),
+            TypeNode::Named(name) => name.clone(),
             _ => "unknown".to_string(),
         }
     }
@@ -574,7 +551,7 @@ impl super::DslBytecodeGenerator {
         field_name: &str,
         symbol_table: &HashMap<String, FieldInfo>,
     ) -> Result<(), VMError> {
-        let mut account_system = AccountSystem::new();
+        let mut account_system = AccountSystem::with_registry(self.account_registry.clone());
         account_system.generate_account_field_access(
             self,
             account_param,

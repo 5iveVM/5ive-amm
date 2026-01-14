@@ -16,7 +16,7 @@ pub fn emit_constraint_checks<T: OpcodeEmitter>(
 
     for (param_index, param) in parameters.iter().enumerate() {
         // Skip non-account parameters for most checks
-        let is_account = is_account_param(param);
+        let is_account = is_account_param(param, account_registry);
         if !is_account {
              continue;
         }
@@ -71,8 +71,31 @@ fn emit_init_payer_checks<T: OpcodeEmitter>(
     Ok(())
 }
 
-fn is_account_param(param: &InstructionParameter) -> bool {
-    matches!(param.param_type, TypeNode::Account | TypeNode::Named(_))
+fn is_account_param(param: &InstructionParameter, account_registry: &AccountRegistry) -> bool {
+    match &param.param_type {
+        TypeNode::Account => true,
+        TypeNode::Named(name) => {
+            // Check if it's a registered account type
+            // Also consider built-in accounts if any (TokenAccount, etc)
+            // Ideally we should use AccountSystem::is_account_type logic but we don't have AccountSystem here.
+            // We assume built-in accounts are NOT in registry but should be treated as accounts?
+            // "Account" -> TypeNode::Account. "TokenAccount" -> Named("TokenAccount").
+            // If TokenAccount is built-in and not in registry, checking registry fails.
+            // But AccountSystem::is_account_type handles "TokenAccount" etc. explicitly.
+            // We should replicate that or assume all Named types might be accounts?
+            // NO, "Pubkey" is Named but NOT account.
+
+            if matches!(name.as_str(), "Account" | "TokenAccount" | "ProgramAccount") {
+                return true;
+            }
+
+            // Check registry
+            let namespace_suffix = format!("::{}", name);
+            account_registry.account_types.contains_key(name) ||
+            account_registry.account_types.keys().any(|k| k.ends_with(&namespace_suffix))
+        },
+        _ => false,
+    }
 }
 
 /// Emit CHECK_SIGNER opcode
@@ -152,7 +175,7 @@ fn emit_has_check<T: OpcodeEmitter>(
         // B. Load Target Argument -> Stack
         // If target is an Account, we compare KEYS.
         // If target is a Value (u64, etc), we compare VALUES.
-        if is_account_param(target_param) {
+        if is_account_param(target_param, account_registry) {
             // Get Key of target account
             let target_acct_idx = account_index_from_param_index(target_idx as u8);
             emitter.emit_opcode(GET_KEY);
