@@ -275,8 +275,8 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
         #[cfg(not(target_os = "solana"))]
         {
-             let expected_pda = crate::utils::derive_pda_offchain(validation_seeds.as_slice(), &owner);
-             
+             let expected_pda = crate::utils::derive_pda_offchain(validation_seeds.as_slice(), &owner)?;
+
              if account.key() != &expected_pda {
                   debug_log!("INIT_PDA_ACCOUNT: Account address mismatch! Computed PDA does not match account key");
                   return Err(VMErrorCode::AccountError);

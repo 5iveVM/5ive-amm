@@ -146,7 +146,7 @@ pub fn handle_pda_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<(
                 .map_err(|_| pinocchio::program_error::ProgramError::Custom(9101));
 
             #[cfg(not(target_os = "solana"))]
-            let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> = Ok(crate::utils::derive_pda_offchain(&seed_refs[..seeds_count as usize], &program_pubkey));
+            let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> = crate::utils::derive_pda_offchain(&seed_refs[..seeds_count as usize], &program_pubkey).map_err(|e| e.into());
 
             match pda_result {
                 Ok(pda_pubkey) => {
@@ -247,7 +247,7 @@ pub fn handle_pda_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<(
                 find_program_address(&seed_refs[..seeds_count as usize], &program_pubkey);
 
             #[cfg(not(target_os = "solana"))]
-            let (pda_pubkey, bump_seed) = crate::utils::find_program_address_offchain(&seed_refs[..seeds_count as usize], &program_pubkey);
+            let (pda_pubkey, bump_seed) = crate::utils::find_program_address_offchain(&seed_refs[..seeds_count as usize], &program_pubkey)?;
 
             debug_log!("MitoVM: FIND_PDA success: [pubkey]");
             debug_log!("MitoVM: FIND_PDA bump: {}", bump_seed as u32);

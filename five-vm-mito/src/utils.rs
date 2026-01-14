@@ -771,40 +771,40 @@ pub fn value_ref_to_bytes_ref<'a>(
 }
 
 /// Helper for off-chain PDA derivation using solana-nostd-sha256
-pub fn derive_pda_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> [u8; 32] {
+pub fn derive_pda_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> CompactResult<[u8; 32]> {
     use solana_nostd_sha256::hashv;
     let mut hasher_seeds: Vec<&[u8], 19> = Vec::new(); // MAX_SEEDS(16) + bump(1) + program_id(1) + marker(1)
     for s in seeds {
-        hasher_seeds.push(s).unwrap();
+        hasher_seeds.push(s).map_err(|_| VMErrorCode::MemoryError)?;
     }
-    hasher_seeds.push(program_id).unwrap();
-    hasher_seeds.push(b"ProgramDerivedAddress").unwrap();
-    
+    hasher_seeds.push(program_id).map_err(|_| VMErrorCode::MemoryError)?;
+    hasher_seeds.push(b"ProgramDerivedAddress").map_err(|_| VMErrorCode::MemoryError)?;
+
     let hash = hashv(&hasher_seeds);
-    Pubkey::from(hash)
+    Ok(Pubkey::from(hash))
 }
 
 /// Helper for off-chain program address finding (with bump searching)
-pub fn find_program_address_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> ([u8; 32], u8) {
+pub fn find_program_address_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> CompactResult<([u8; 32], u8)> {
     for bump in (0..=255u8).rev() {
         let bump_slice = [bump];
         let mut full_seeds: Vec<&[u8], 17> = Vec::new();
         for s in seeds {
-            full_seeds.push(s).unwrap();
+            full_seeds.push(s).map_err(|_| VMErrorCode::MemoryError)?;
         }
-        full_seeds.push(&bump_slice).unwrap();
-        
-        let pda = derive_pda_offchain(&full_seeds, program_id);
-        
+        full_seeds.push(&bump_slice).map_err(|_| VMErrorCode::MemoryError)?;
+
+        let pda = derive_pda_offchain(&full_seeds, program_id)?;
+
         // Simple check: is this a valid PDA (off-curve)?
         // For off-chain simulator, we don't have curve25519-dalek easily available
-        // in no-std without adding more dependencies. 
-        // For most tests, just returning the first one is enough, 
+        // in no-std without adding more dependencies.
+        // For most tests, just returning the first one is enough,
         // as long as it handles the bump correctly.
         // Real Solana find_program_address repeats until off-curve.
-        
+
         // For now, assume most are valid or just return it for simulator purposes.
-        return (pda, bump);
+        return Ok((pda, bump));
     }
-    panic!("Unable to find a viable program address bump seed");
+    Err(VMErrorCode::PdaDerivationFailed)
 }
