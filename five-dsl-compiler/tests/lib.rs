@@ -765,7 +765,7 @@ fn test_multiplication_precedence_over_addition_correct() {
 }
 
 #[test]
-fn test_rust_style_let_with_type_annotation_failing() {
+fn test_rust_style_let_with_type_annotation() {
     let source = r#"
         script test_vault {
             init {
@@ -828,7 +828,7 @@ fn test_rust_style_let_with_type_annotation_failing() {
 }
 
 #[test]
-fn test_generic_type_option_result_failing() {
+fn test_generic_type_option_result() {
     let source = r#"
         script test_vault {
             init {
@@ -882,7 +882,7 @@ fn test_generic_type_option_result_failing() {
 }
 
 #[test]
-fn test_array_types_rust_and_ts_style_failing() {
+fn test_array_types_rust_and_ts_style() {
     let source = r#"
         script test_vault {
             init {
@@ -929,7 +929,7 @@ fn test_array_types_rust_and_ts_style_failing() {
 }
 
 #[test]
-fn test_field_definition_with_type_annotation_failing() {
+fn test_field_definition_with_type_annotation() {
     let source = r#"
         script test_vault {
             balance: u64;
@@ -1011,7 +1011,7 @@ fn test_field_definition_with_type_annotation_failing() {
 }
 
 #[test]
-fn test_field_definition_typescript_style_failing() {
+fn test_field_definition_typescript_style() {
     let source = r#"
         script test_vault {
             name?: string<32>;
@@ -1061,7 +1061,7 @@ fn test_field_definition_typescript_style_failing() {
 }
 
 #[test]
-fn test_basic_instruction_definition_failing() {
+fn test_basic_instruction_definition() {
     let source = r#"
         script payment_vault {
             balance: u64;
@@ -1168,7 +1168,7 @@ fn test_basic_instruction_definition_failing() {
 }
 
 #[test]
-fn test_complex_parameter_types_failing() {
+fn test_complex_parameter_types() {
     let source = r#"
         script advanced_vault {
             execute(accounts: [pubkey; 5], data: string) -> bool {
@@ -1220,7 +1220,7 @@ fn test_complex_parameter_types_failing() {
 }
 
 #[test]
-fn test_optional_parameters_failing() {
+fn test_optional_parameters() {
     let source = r#"
         script flexible_vault {
             transfer(amount: u64, memo?: string, priority?: u8 = 1) -> Result<(), String> {
@@ -1290,7 +1290,7 @@ fn test_optional_parameters_failing() {
 }
 
 #[test]
-fn test_multiple_instruction_definitions_failing() {
+fn test_multiple_instruction_definitions() {
     let source = r#"
         script multi_vault {
             balance: u64;
@@ -1344,7 +1344,7 @@ fn test_multiple_instruction_definitions_failing() {
 }
 
 #[test]
-fn test_instruction_definition_with_generic_return_type_failing() {
+fn test_instruction_definition_with_generic_return_type() {
     let source = r#"
         script query_vault {
             get_balance() -> Option<u64> {
@@ -1547,7 +1547,7 @@ fn test_instruction_with_optional_params() {
 }
 
 #[test]
-fn test_event_definition_failing() {
+fn test_event_definition() {
     let source = r#"
         script payment_vault {
             balance: u64;
@@ -1622,7 +1622,7 @@ fn test_event_definition_failing() {
 }
 
 #[test]
-fn test_multiple_events_and_emit_statements_failing() {
+fn test_multiple_events_and_emit_statements() {
     let source = r#"
         script trading_vault {
             balance: u64;
@@ -1707,7 +1707,7 @@ fn test_multiple_events_and_emit_statements_failing() {
 }
 
 #[test]
-fn test_event_with_complex_types_failing() {
+fn test_event_with_complex_types() {
     let source = r#"
         script nft_vault {
             event NftMinted {
@@ -1773,7 +1773,7 @@ fn test_event_with_complex_types_failing() {
 }
 
 #[test]
-fn test_account_attributes_failing() {
+fn test_account_attributes() {
     let source = r#"
         script account_vault {
             transfer(@signer payer: Account, @mut recipient: Account, amount: u64) -> Result<(), String> {
@@ -1822,7 +1822,7 @@ fn test_account_attributes_failing() {
 }
 
 #[test]
-fn test_pda_constraints_failing() {
+fn test_pda_constraints() {
     let source = r#"
         script pda_vault {
             create_user(@init user_account: Account, user_id: u64) -> Result<(), String> {
@@ -1850,7 +1850,7 @@ fn test_pda_constraints_failing() {
 }
 
 #[test]
-fn test_account_validation_failing() {
+fn test_account_validation() {
     let source = r#"
         script validation_vault {
             validate_transfer(@signer authority: Account, @mut source: TokenAccount, @mut dest: TokenAccount) -> Result<(), String> {
