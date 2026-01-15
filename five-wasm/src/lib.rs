@@ -4052,47 +4052,78 @@ impl WasmFiveCompiler {
     /// Optimize bytecode
     #[wasm_bindgen]
     pub fn optimize_bytecode(&self, bytecode: &[u8]) -> Result<js_sys::Uint8Array, JsValue> {
+        Self::optimize_bytecode_internal(bytecode)
+            .map(|opt| js_sys::Uint8Array::from(&opt[..]))
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Internal optimization logic returning standard Rust types
+    pub(crate) fn optimize_bytecode_internal(bytecode: &[u8]) -> Result<Vec<u8>, String> {
+        use five_protocol::opcodes;
+
         // Simple optimization: remove consecutive PUSH/POP pairs
         let mut optimized = Vec::new();
         let mut i = 0;
 
         while i < bytecode.len() {
-            if i + 1 < bytecode.len() {
-                // Check for PUSH followed by POP
-                if (bytecode[i] == opcodes::PUSH_U64
-                    || bytecode[i] == opcodes::PUSH_U8
-                    || bytecode[i] == opcodes::PUSH_I64
-                    || bytecode[i] == opcodes::PUSH_BOOL
-                    || bytecode[i] == opcodes::PUSH_PUBKEY)
-                    && bytecode[i + 1] == opcodes::POP
-                {
-                    // Skip both instructions
-                    i += 2;
+            let opcode = bytecode[i];
+            let instruction_size = get_instruction_size(opcode, &bytecode[i..]);
+
+            // Ensure we have enough bytes for this instruction
+            if i + instruction_size > bytecode.len() {
+                // Incomplete instruction, just copy remaining and bail
+                optimized.extend_from_slice(&bytecode[i..]);
+                break;
+            }
+
+            // Check for PUSH variants
+            let is_push = opcode == opcodes::PUSH_U64
+                || opcode == opcodes::PUSH_U8
+                || opcode == opcodes::PUSH_I64
+                || opcode == opcodes::PUSH_BOOL
+                || opcode == opcodes::PUSH_PUBKEY;
+
+            if is_push {
+                let next_instruction_idx = i + instruction_size;
+
+                // Check if next instruction exists and is POP
+                if next_instruction_idx < bytecode.len() && bytecode[next_instruction_idx] == opcodes::POP {
+                    // Found PUSH ... POP sequence.
+                    // Skip PUSH (size bytes)
+                    // Skip POP (1 byte)
+                    i = next_instruction_idx + 1; // +1 for POP size (POP is always 1 byte)
                     continue;
                 }
             }
 
-            optimized.push(bytecode[i]);
-            i += 1;
+            // Copy current instruction bytes
+            optimized.extend_from_slice(&bytecode[i..i + instruction_size]);
+            i += instruction_size;
         }
 
-        Ok(js_sys::Uint8Array::from(&optimized[..]))
+        Ok(optimized)
     }
 
     /// Extract account definitions from DSL source code
     #[wasm_bindgen]
     pub fn extract_account_definitions(&self, source: &str) -> Result<JsValue, JsValue> {
+        Self::extract_account_definitions_internal(source)
+            .map(|json| JsValue::from_str(&json.to_string()))
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    pub(crate) fn extract_account_definitions_internal(source: &str) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::{ast::AstNode, DslParser, DslTokenizer};
 
         let mut tokenizer = DslTokenizer::new(source);
         let tokens = tokenizer
             .tokenize()
-            .map_err(|e| JsValue::from_str(&format!("Tokenization failed: {:?}", e)))?;
+            .map_err(|e| format!("Tokenization failed: {:?}", e))?;
 
         let mut parser = DslParser::new(tokens);
         let ast = parser
             .parse()
-            .map_err(|e| JsValue::from_str(&format!("Parsing failed: {:?}", e)))?;
+            .map_err(|e| format!("Parsing failed: {:?}", e))?;
 
         let mut account_definitions = Vec::new();
 
@@ -4119,28 +4150,32 @@ impl WasmFiveCompiler {
             }
         }
 
-        let result = serde_json::json!({
+        Ok(serde_json::json!({
             "success": true,
             "account_definitions": account_definitions
-        });
-
-        Ok(JsValue::from_str(&result.to_string()))
+        }))
     }
 
     /// Extract function signatures with account parameters
     #[wasm_bindgen]
     pub fn extract_function_signatures(&self, source: &str) -> Result<JsValue, JsValue> {
+        Self::extract_function_signatures_internal(source)
+            .map(|json| JsValue::from_str(&json.to_string()))
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    pub(crate) fn extract_function_signatures_internal(source: &str) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::{ast::AstNode, DslParser, DslTokenizer};
 
         let mut tokenizer = DslTokenizer::new(source);
         let tokens = tokenizer
             .tokenize()
-            .map_err(|e| JsValue::from_str(&format!("Tokenization failed: {:?}", e)))?;
+            .map_err(|e| format!("Tokenization failed: {:?}", e))?;
 
         let mut parser = DslParser::new(tokens);
         let ast = parser
             .parse()
-            .map_err(|e| JsValue::from_str(&format!("Parsing failed: {:?}", e)))?;
+            .map_err(|e| format!("Parsing failed: {:?}", e))?;
 
         let mut function_signatures = Vec::new();
 
@@ -4171,12 +4206,10 @@ impl WasmFiveCompiler {
             }
         }
 
-        let result = serde_json::json!({
+        Ok(serde_json::json!({
             "success": true,
             "function_signatures": function_signatures
-        });
-
-        Ok(JsValue::from_str(&result.to_string()))
+        }))
     }
 
     /// Validate account constraints against function parameters
@@ -4187,22 +4220,32 @@ impl WasmFiveCompiler {
         function_name: &str,
         accounts_json: &str,
     ) -> Result<JsValue, JsValue> {
+        // Parse the accounts JSON
+        let accounts: serde_json::Value = serde_json::from_str(accounts_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid accounts JSON: {}", e)))?;
+
+        Self::validate_account_constraints_internal(source, function_name, accounts)
+            .map(|json| JsValue::from_str(&json.to_string()))
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    pub(crate) fn validate_account_constraints_internal(
+        source: &str,
+        function_name: &str,
+        accounts: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::{ast::AstNode, DslParser, DslTokenizer};
 
         // Parse the DSL to get function definitions
         let mut tokenizer = DslTokenizer::new(source);
         let tokens = tokenizer
             .tokenize()
-            .map_err(|e| JsValue::from_str(&format!("Tokenization failed: {:?}", e)))?;
+            .map_err(|e| format!("Tokenization failed: {:?}", e))?;
 
         let mut parser = DslParser::new(tokens);
         let ast = parser
             .parse()
-            .map_err(|e| JsValue::from_str(&format!("Parsing failed: {:?}", e)))?;
-
-        // Parse the accounts JSON
-        let accounts: serde_json::Value = serde_json::from_str(accounts_json)
-            .map_err(|e| JsValue::from_str(&format!("Invalid accounts JSON: {}", e)))?;
+            .map_err(|e| format!("Parsing failed: {:?}", e))?;
 
         // Find the target function
         if let AstNode::Program {
@@ -4285,16 +4328,16 @@ impl WasmFiveCompiler {
                             "validation_results": validation_results
                         });
 
-                        return Ok(JsValue::from_str(&result.to_string()));
+                        return Ok(result);
                     }
                 }
             }
         }
 
-        Err(JsValue::from_str(&format!(
+        Err(format!(
             "Function '{}' not found",
             function_name
-        )))
+        ))
     }
 
     /// Get compiler statistics
@@ -4484,6 +4527,11 @@ impl WasmFiveCompiler {
     /// Validate DSL syntax without full compilation
     #[wasm_bindgen]
     pub fn validate_syntax(&self, source: &str) -> JsValue {
+        let response = Self::validate_syntax_internal(source);
+        JsValue::from_str(&response.to_string())
+    }
+
+    pub(crate) fn validate_syntax_internal(source: &str) -> serde_json::Value {
         use five_dsl_compiler::{DslParser, DslTokenizer, DslTypeChecker};
 
         let result = (|| -> Result<(), String> {
@@ -4508,7 +4556,7 @@ impl WasmFiveCompiler {
             Ok(())
         })();
 
-        let response = match result {
+        match result {
             Ok(()) => serde_json::json!({
                 "valid": true,
                 "errors": [],
@@ -4519,9 +4567,7 @@ impl WasmFiveCompiler {
                 "errors": [error],
                 "warnings": []
             }),
-        };
-
-        JsValue::from_str(&response.to_string())
+        }
     }
 }
 
@@ -5271,5 +5317,195 @@ mod error_enhancement_tests {
         assert!(msg.contains("Function at index 0 expected 2 parameters but received 1"));
         assert!(msg.contains("Failed to load parameter at position 2"));
         assert!(msg.contains("Debug Information"));
+    }
+}
+
+#[cfg(test)]
+mod compiler_tests {
+    use super::*;
+    use five_protocol::opcodes;
+
+    #[test]
+    fn test_optimize_bytecode_no_change() {
+        let bytecode = vec![opcodes::ADD, opcodes::SUB];
+        let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
+        assert_eq!(result, bytecode);
+    }
+
+    #[test]
+    fn test_optimize_push_u8_pop() {
+        // PUSH_U8 (0x1C) + value + POP (0x06)
+        // Should be optimized away
+        let mut bytecode = vec![opcodes::PUSH_U8, 42, opcodes::POP];
+        // Add a HALT at the end to verify we don't optimize too much
+        bytecode.push(opcodes::HALT);
+
+        let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
+        assert_eq!(result, vec![opcodes::HALT]);
+    }
+
+    #[test]
+    fn test_optimize_push_u64_pop() {
+        // PUSH_U64 (0x1B) + VLE value + POP (0x06)
+        use five_protocol::encoding::VLE;
+        let (size, bytes) = VLE::encode_u64(1000);
+
+        let mut bytecode = vec![opcodes::PUSH_U64];
+        bytecode.extend_from_slice(&bytes[..size]);
+        bytecode.push(opcodes::POP);
+        bytecode.push(opcodes::HALT);
+
+        let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
+        assert_eq!(result, vec![opcodes::HALT]);
+    }
+
+    #[test]
+    fn test_optimize_push_no_pop() {
+        let mut bytecode = vec![opcodes::PUSH_U8, 42];
+        bytecode.push(opcodes::HALT);
+
+        let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
+        assert_eq!(result, bytecode);
+    }
+
+    #[test]
+    fn test_optimize_pop_no_push() {
+        let bytecode = vec![opcodes::POP, opcodes::HALT];
+        let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
+        assert_eq!(result, bytecode);
+    }
+
+    #[test]
+    fn test_optimize_consecutive() {
+        let mut bytecode = vec![opcodes::PUSH_U8, 1, opcodes::POP];
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 2, opcodes::POP]);
+        bytecode.push(opcodes::HALT);
+
+        let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
+        assert_eq!(result, vec![opcodes::HALT]);
+    }
+
+    #[test]
+    fn test_optimize_interleaved() {
+        // PUSH 1, POP, PUSH 2, HALT
+        let mut bytecode = vec![opcodes::PUSH_U8, 1, opcodes::POP];
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 2]);
+        bytecode.push(opcodes::HALT);
+
+        let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
+        // Should remove first PUSH/POP
+        let expected = vec![opcodes::PUSH_U8, 2, opcodes::HALT];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_validate_syntax_internal_valid() {
+        let source = r#"
+            script test_program {
+                instruction test_func() {
+                    return;
+                }
+            }
+        "#;
+        let result = WasmFiveCompiler::validate_syntax_internal(source);
+        assert_eq!(result["valid"], true);
+    }
+
+    #[test]
+    fn test_validate_syntax_internal_invalid() {
+        let source = r#"
+            script test_program {
+                instruction test_func() {
+                    invalid_syntax ///
+                }
+            }
+        "#;
+        let result = WasmFiveCompiler::validate_syntax_internal(source);
+        assert_eq!(result["valid"], false);
+        assert!(!result["errors"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_extract_account_definitions_internal() {
+        let source = r#"
+            script test_program {
+                account MyAccount {
+                    field1: u64,
+                    field2: bool,
+                }
+            }
+        "#;
+        let result = WasmFiveCompiler::extract_account_definitions_internal(source).unwrap();
+        assert_eq!(result["success"], true);
+        let accounts = result["account_definitions"].as_array().unwrap();
+        assert_eq!(accounts.len(), 1);
+        assert_eq!(accounts[0]["name"], "MyAccount");
+        let fields = accounts[0]["fields"].as_array().unwrap();
+        assert_eq!(fields.len(), 2);
+    }
+
+    #[test]
+    fn test_extract_function_signatures_internal() {
+        let source = r#"
+            script test_program {
+                instruction my_func(acc1: account, @signer acc2: account) {
+                    return;
+                }
+            }
+        "#;
+        let result = WasmFiveCompiler::extract_function_signatures_internal(source).unwrap();
+        assert_eq!(result["success"], true);
+        let funcs = result["function_signatures"].as_array().unwrap();
+        assert_eq!(funcs.len(), 1);
+        assert_eq!(funcs[0]["name"], "my_func");
+        let params = funcs[0]["parameters"].as_array().unwrap();
+        assert_eq!(params.len(), 2);
+        // Check attributes
+        let param2 = &params[1];
+        let attrs = param2["attributes"].as_array().unwrap();
+        assert_eq!(attrs.len(), 1);
+        assert_eq!(attrs[0]["name"], "signer");
+    }
+
+    #[test]
+    fn test_validate_account_constraints_internal() {
+         let source = r#"
+            script test_program {
+                instruction my_func(@signer acc1: account) {
+                    return;
+                }
+            }
+        "#;
+
+        // Mock accounts input: acc1 is signer
+        let accounts = serde_json::json!([
+            { "is_signer": true, "is_writable": false }
+        ]);
+
+        let result = WasmFiveCompiler::validate_account_constraints_internal(
+            source,
+            "my_func",
+            accounts
+        ).unwrap();
+
+        assert_eq!(result["success"], true);
+        let validations = result["validation_results"].as_array().unwrap();
+        let checks = validations[0]["constraint_checks"].as_array().unwrap();
+        assert_eq!(checks[0]["valid"], true);
+
+        // Mock accounts input: acc1 is NOT signer (should fail validation)
+        let accounts_fail = serde_json::json!([
+            { "is_signer": false, "is_writable": false }
+        ]);
+
+        let result_fail = WasmFiveCompiler::validate_account_constraints_internal(
+            source,
+            "my_func",
+            accounts_fail
+        ).unwrap();
+
+        let validations_fail = result_fail["validation_results"].as_array().unwrap();
+        let checks_fail = validations_fail[0]["constraint_checks"].as_array().unwrap();
+        assert_eq!(checks_fail[0]["valid"], false);
     }
 }
