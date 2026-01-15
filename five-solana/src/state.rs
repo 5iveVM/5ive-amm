@@ -537,4 +537,52 @@ mod tests {
         let result_mut = FIVEVMState::from_account_data_mut(&mut data_too_short_mut);
         assert!(matches!(result_mut, Err(ProgramError::Custom(8001))));
     }
+
+    #[test]
+    fn test_script_account_header_failures() {
+        let short_data = vec![0u8; ScriptAccountHeader::LEN - 1];
+        assert_eq!(ScriptAccountHeader::from_account_data(&short_data).err(), Some(ProgramError::Custom(8003)));
+
+        let mut short_data_mut = vec![0u8; ScriptAccountHeader::LEN - 1];
+        assert_eq!(ScriptAccountHeader::from_account_data_mut(&mut short_data_mut).err(), Some(ProgramError::Custom(8003)));
+
+        let invalid_magic_data = vec![0u8; ScriptAccountHeader::LEN];
+        // Default init is all zeros, so magic is invalid
+        assert_eq!(ScriptAccountHeader::from_account_data(&invalid_magic_data).err(), Some(ProgramError::Custom(8002)));
+
+        let header = ScriptAccountHeader::new(10, Pubkey::default(), 1);
+        let mut short_dst = vec![0u8; ScriptAccountHeader::LEN - 1];
+        assert_eq!(header.copy_into_account(&mut short_dst), Err(ProgramError::Custom(8004)));
+
+        // Bytecode slice error
+        let mut data = vec![0u8; ScriptAccountHeader::LEN];
+        header.copy_into_account(&mut data).unwrap();
+        // data has length LEN (64), but bytecode_len is 10.
+        // bytecode_slice expects data.len() >= LEN + metadata + bytecode
+        assert_eq!(header.bytecode_slice(&data).err(), Some(ProgramError::Custom(8005)));
+
+        // is_valid checks
+        assert!(!ScriptAccountHeader::is_valid(&short_data));
+        assert!(!ScriptAccountHeader::is_valid(&invalid_magic_data));
+    }
+
+    #[test]
+    fn test_namespace_registry_failures() {
+         let short_data = vec![0u8; NamespaceRegistry::LEN - 1];
+         assert_eq!(NamespaceRegistry::from_account_data(&short_data).err(), Some(ProgramError::Custom(8006)));
+
+         let mut short_data_mut = vec![0u8; NamespaceRegistry::LEN - 1];
+         assert_eq!(NamespaceRegistry::from_account_data_mut(&mut short_data_mut).err(), Some(ProgramError::Custom(8006)));
+
+         let invalid_magic_data = vec![0u8; NamespaceRegistry::LEN];
+         assert_eq!(NamespaceRegistry::from_account_data(&invalid_magic_data).err(), Some(ProgramError::Custom(8007)));
+
+         let registry = NamespaceRegistry::new(Pubkey::default(), 0, 0);
+         let mut short_dst = vec![0u8; NamespaceRegistry::LEN - 1];
+         assert_eq!(registry.copy_into_account(&mut short_dst), Err(ProgramError::Custom(8008)));
+
+         // is_valid checks
+         assert!(!NamespaceRegistry::is_valid(&short_data));
+         assert!(!NamespaceRegistry::is_valid(&invalid_magic_data));
+    }
 }
