@@ -372,4 +372,80 @@ mod tests {
         let result = validate_upgrade_authority(&authority, &proof_account_wrong).unwrap();
         assert!(!result, "Should be invalid when keys mismatch");
     }
+
+    #[test]
+    fn test_script_header_v2_validation_failures() {
+        let mut data = vec![0u8; FIVEScriptHeaderV2::LEN + 100];
+        let mut header = FIVEScriptHeaderV2 {
+            owner: Pubkey::default(),
+            script_id: 1,
+            bytecode_len: 100,
+            version: 1,
+            upgrade_authority: Pubkey::default(),
+            previous_version_pda: Pubkey::default(),
+            deployment_slot: 12345,
+            is_immutable: 0,
+            _padding: [0; 7],
+        };
+
+        // 1. Bytecode too large
+        header.bytecode_len = five_vm_mito::MAX_SCRIPT_SIZE as u32 + 1;
+        // Actually we can use bytemuck::bytes_of but we need to mutate the buffer
+        data[..FIVEScriptHeaderV2::LEN].copy_from_slice(bytemuck::bytes_of(&header));
+
+        // validate is called on the struct itself, passing account_data_len
+        assert_eq!(header.validate(data.len()), Err(ProgramError::Custom(9101)));
+        header.bytecode_len = 100; // Reset
+
+        // 2. Account too small
+        assert_eq!(header.validate(FIVEScriptHeaderV2::LEN + 50), Err(ProgramError::Custom(9102)));
+
+        // 3. Version too high
+        header.version = 1001;
+        assert_eq!(header.validate(data.len()), Err(ProgramError::Custom(9103)));
+        header.version = 1; // Reset
+
+        // 4. from_account_data short data
+        let short_data = vec![0u8; FIVEScriptHeaderV2::LEN - 1];
+        assert_eq!(FIVEScriptHeaderV2::from_account_data(&short_data).err(), Some(ProgramError::Custom(9104)));
+
+        // 5. from_account_data_mut short data
+        let mut short_data_mut = vec![0u8; FIVEScriptHeaderV2::LEN - 1];
+        assert_eq!(FIVEScriptHeaderV2::from_account_data_mut(&mut short_data_mut).err(), Some(ProgramError::Custom(9105)));
+
+        // 6. get_bytecode short data
+        // Restore valid header in data
+        data[..FIVEScriptHeaderV2::LEN].copy_from_slice(bytemuck::bytes_of(&header));
+        // Truncate data to cut off bytecode
+        let truncated_data = &data[..FIVEScriptHeaderV2::LEN + 50]; // Bytecode len is 100
+
+        // get_bytecode is called on &self.
+        let valid_header = FIVEScriptHeaderV2::from_account_data(&data).unwrap();
+        assert_eq!(valid_header.get_bytecode(truncated_data).err(), Some(ProgramError::Custom(9106)));
+    }
+
+    #[test]
+    fn test_version_history_find_missing() {
+        let history = ScriptVersionHistory {
+            script_id: 1,
+            current_version: 0,
+            version_count: 0,
+            versions: [VersionRecord {
+                deployment_slot: 0,
+                version: 0,
+                is_active: 0,
+                _padding: [0; 3],
+                deployer: Pubkey::default(),
+                bytecode_hash: [0; 32],
+            }; 10],
+        };
+
+        assert!(history.find_version(1).is_none());
+    }
+
+    #[test]
+    fn test_padding_zeroed() {
+         let record = create_version_record(1, b"test", &Pubkey::default(), 123);
+         assert_eq!(record._padding, [0; 3]);
+    }
 }
