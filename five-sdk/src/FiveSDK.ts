@@ -58,13 +58,10 @@ export class FiveSDK {
   private debug: boolean;
   private network?: string;
 
-  /**
-   * Create a new Five SDK instance (for configuration)
-   */
   constructor(config: FiveSDKConfig = {}) {
     this.fiveVMProgramId = config.fiveVMProgramId || FIVE_VM_PROGRAM_ID;
     this.debug = config.debug || false;
-    this.network = (config as any).network; // Cast to handle network property
+    this.network = (config as any).network;
 
     if (this.debug) {
       console.log(
@@ -73,9 +70,6 @@ export class FiveSDK {
     }
   }
 
-  /**
-   * Get SDK configuration
-   */
   getConfig(): FiveSDKConfig & { network?: string } {
     return {
       fiveVMProgramId: this.fiveVMProgramId,
@@ -84,9 +78,6 @@ export class FiveSDK {
     };
   }
 
-  /**
-   * Initialize static components (lazy initialization)
-   */
   private static async initializeComponents(debug = false) {
     if (!this.compiler) {
       this.compiler = new BytecodeCompiler({ debug });
@@ -98,7 +89,6 @@ export class FiveSDK {
 
   /**
    * Poll for transaction confirmation with extended timeout
-   * Handles cases where the validator is slow to include transactions
    */
   private static async pollForConfirmation(
     connection: any,
@@ -112,7 +102,7 @@ export class FiveSDK {
     error?: string;
   }> {
     const startTime = Date.now();
-    const pollIntervalMs = 1000; // Poll every 1 second
+    const pollIntervalMs = 1000;
 
     if (debug) {
       console.log(`[FiveSDK] Starting confirmation poll with ${timeoutMs}ms timeout`);
@@ -127,7 +117,6 @@ export class FiveSDK {
         }
 
         if (confirmationStatus.value) {
-          // Transaction found in the blockchain
           if (confirmationStatus.value.confirmationStatus === commitment ||
             confirmationStatus.value.confirmations >= 1) {
             const transactionError = confirmationStatus.value.err;
@@ -150,18 +139,15 @@ export class FiveSDK {
           }
         }
 
-        // Wait before polling again
         await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
       } catch (error) {
         if (debug) {
           console.log(`[FiveSDK] Polling error: ${error instanceof Error ? error.message : String(error)}`);
         }
-        // Continue polling despite errors
         await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
       }
     }
 
-    // Timeout reached
     const elapsed = Date.now() - startTime;
     if (debug) {
       console.log(`[FiveSDK] Confirmation polling timeout after ${elapsed}ms`);
@@ -572,7 +558,6 @@ export class FiveSDK {
 
   /**
    * Execute bytecode directly using WASM VM for local testing and development
-   * This bypasses Solana entirely - no network connection needed!
    */
   static async executeLocally(
     bytecode: FiveBytecode,
@@ -594,7 +579,6 @@ export class FiveSDK {
     error?: string;
     trace?: any[];
   }> {
-    // Input validation
     Validators.bytecode(bytecode);
     Validators.functionRef(functionName);
     Validators.parameters(parameters);
@@ -610,15 +594,12 @@ export class FiveSDK {
     }
 
     try {
-      // Load WASM VM
       const wasmVM = await this.loadWasmVM();
 
-      // Resolve function name to index if needed
       let resolvedFunctionIndex: number;
       if (typeof functionName === "number") {
         resolvedFunctionIndex = functionName;
       } else if (options.abi) {
-        // Use provided ABI for function name resolution
         try {
           resolvedFunctionIndex = this.resolveFunctionIndex(
             options.abi,
@@ -631,7 +612,6 @@ export class FiveSDK {
           );
         }
       } else {
-        // No ABI provided and function name given - cannot resolve
         throw new FiveSDKError(
           `Cannot resolve function name '${functionName}' without ABI information. Please provide function index or use compileAndExecuteLocally() instead.`,
           "MISSING_ABI_ERROR",
@@ -651,7 +631,6 @@ export class FiveSDK {
         console.log(`[FiveSDK] WASM VM execution starting...`);
       }
 
-      // Execute using WASM VM with proper VLE parameter encoding
       const transformedParams = parameters.map((param, index) => ({
         type: this.inferParameterType(param),
         value: param,
@@ -664,11 +643,9 @@ export class FiveSDK {
         console.log(`[FiveSDK] Transformed parameters:`, transformedParams);
       }
 
-      // Convert account addresses to AccountInfo format if provided
       let accountInfos: any[] = [];
       if (options.accounts && options.accounts.length > 0) {
-        // Create mock AccountInfo objects from addresses
-        // Account data will be empty (0 lamports) for test purposes
+        // Create mock AccountInfo objects from addresses. Account data will be empty (0 lamports).
         accountInfos = options.accounts.map((address, index) => ({
           key: address,
           lamports: 0,
@@ -857,22 +834,13 @@ export class FiveSDK {
 
   /**
    * Generate deployment instruction data (static method)
-   *
-   * Creates a complete deployment transaction that includes:
-   * 1. Creating the script account PDA owned by Five VM program
-   * 2. Deploying bytecode to the created account
-   * 3. Optionally estimating deployment fees (automatic if connection provided)
-   *
-   * Fee estimation is enabled by default when a connection is provided.
-   * Pass estimateFees: false to disable fee calculation.
    */
   static async generateDeployInstruction(
     bytecode: FiveBytecode,
-    deployer: string, // base58 pubkey string
+    deployer: string,
     options: DeploymentOptions & { debug?: boolean } = {},
-    connection?: any, // Optional connection for fee estimation
+    connection?: any,
   ): Promise<SerializedDeployment> {
-    // Input validation
     Validators.bytecode(bytecode);
     validator.validateBase58Address(deployer, "deployer");
     Validators.options(options);
@@ -891,7 +859,6 @@ export class FiveSDK {
       );
     }
 
-    // Derive script account with seed
     const scriptResult = await PDAUtils.deriveScriptAccount(
       bytecode,
       FIVE_VM_PROGRAM_ID,
@@ -899,7 +866,6 @@ export class FiveSDK {
     const scriptAccount = scriptResult.address;
     const scriptSeed = scriptResult.seed;
 
-    // Derive VM state PDA
     const vmStatePDA = await this.deriveVMStatePDA();
 
     if (options.debug) {
@@ -909,18 +875,14 @@ export class FiveSDK {
       console.log(`[FiveSDK] VM State PDA: ${vmStatePDA}`);
     }
 
-    // Calculate account size and rent
-    const SCRIPT_HEADER_SIZE = 64; // ScriptAccountHeader size from Rust program (64 bytes)
+    const SCRIPT_HEADER_SIZE = 64; // ScriptAccountHeader size from Rust program
     const totalAccountSize = SCRIPT_HEADER_SIZE + bytecode.length;
     const rentLamports = await this.calculateRentExemption(totalAccountSize);
 
-    // Build account list for deploy instruction (after PDA creation):
-    // 0: script_account, 1: vm_state_account, 2: owner (signer)
     const deployAccounts = [
-      { pubkey: scriptAccount, isSigner: false, isWritable: true }, // Script account PDA
-      { pubkey: vmStatePDA, isSigner: false, isWritable: true }, // VM state PDA
-      { pubkey: deployer, isSigner: true, isWritable: true }, // Owner/deployer (must be signer)
-      // System program for account creation
+      { pubkey: scriptAccount, isSigner: false, isWritable: true },
+      { pubkey: vmStatePDA, isSigner: false, isWritable: true },
+      { pubkey: deployer, isSigner: true, isWritable: true },
       {
         pubkey: "11111111111111111111111111111112",
         isSigner: false,
@@ -928,7 +890,6 @@ export class FiveSDK {
       },
     ];
 
-    // Add admin account if provided (required if deploy fees are enabled)
     if (options.adminAccount) {
       deployAccounts.push({
         pubkey: options.adminAccount,
@@ -937,12 +898,10 @@ export class FiveSDK {
       });
     }
 
-    // Encode deployment instruction data
     const instructionData = this.encodeDeployInstruction(bytecode, options.permissions || 0);
 
-    // Create the deployment result with setup instructions
     const result: SerializedDeployment = {
-      programId: FIVE_VM_PROGRAM_ID, // Added top-level consistency
+      programId: FIVE_VM_PROGRAM_ID,
       instruction: {
         programId: FIVE_VM_PROGRAM_ID,
         accounts: deployAccounts,
@@ -952,7 +911,6 @@ export class FiveSDK {
       requiredSigners: [deployer],
       estimatedCost: rentLamports + (options.extraLamports || 0),
       bytecodeSize: bytecode.length,
-      // Add setup information for account creation
       setupInstructions: {
         createScriptAccount: {
           pda: scriptAccount,
@@ -976,8 +934,6 @@ export class FiveSDK {
       });
     }
 
-    // Automatically calculate and include fee information if connection provided
-    // User can explicitly disable with estimateFees: false
     const shouldEstimateFees = options.estimateFees !== false && connection;
 
     if (shouldEstimateFees) {
@@ -1009,27 +965,23 @@ export class FiveSDK {
 
   /**
    * Generate execution instruction data (static method)
-   *
-   * Fee estimation is enabled by default when a connection is provided.
-   * Pass estimateFees: false in options to disable fee calculation.
    */
   static async generateExecuteInstruction(
-    scriptAccount: string, // base58 pubkey string
+    scriptAccount: string,
     functionName: string | number,
     parameters: any[] = [],
-    accounts: string[] = [], // base58 pubkey strings
-    connection?: any, // Optional Solana connection for metadata lookup
+    accounts: string[] = [],
+    connection?: any,
     options: {
       debug?: boolean;
       computeUnitLimit?: number;
       vmStateAccount?: string;
       fiveVMProgramId?: string;
-      abi?: any; // Optional ABI for parameter encoding
-      adminAccount?: string; // Admin account for fee collection
-      estimateFees?: boolean; // Request fee estimation
+      abi?: any;
+      adminAccount?: string;
+      estimateFees?: boolean;
     } = {},
   ): Promise<SerializedExecution> {
-    // Input validation
     validator.validateBase58Address(scriptAccount, "scriptAccount");
     Validators.functionRef(functionName);
     Validators.parameters(parameters);
@@ -1047,18 +999,15 @@ export class FiveSDK {
       });
     }
 
-    // Handle missing metadata gracefully - generate parameters for VLE encoding
     let functionIndex: number;
     let encodedParams: Uint8Array;
     let actualParamCount: number = 0;
     let funcDef: any = null;
 
     try {
-      // Use provided ABI if available, otherwise try to load from chain
       let scriptMetadata = options.abi;
 
       if (!scriptMetadata) {
-        // Try to load script metadata for ABI-driven parameter encoding
         scriptMetadata = await this.getScriptMetadata(
           scriptAccount,
           connection,
@@ -1067,29 +1016,23 @@ export class FiveSDK {
         console.log(`[FiveSDK] Using provided ABI with ${Array.isArray(scriptMetadata.functions) ? scriptMetadata.functions.length : Object.keys(scriptMetadata.functions || {}).length} functions`);
       }
 
-      // Normalize ABI functions to array format if needed
       if (Array.isArray(scriptMetadata.functions)) {
-        // ABI is already in array format, keep it as is
       } else if (typeof scriptMetadata.functions === 'object' && scriptMetadata.functions !== null) {
-        // Convert object format to array format
         scriptMetadata.functions = Object.entries(scriptMetadata.functions).map(([name, func]: [string, any]) => ({
           name,
           ...(func || {}),
         }));
       }
 
-      // Resolve function index
       functionIndex =
         typeof functionName === "number"
           ? functionName
           : FiveSDK.resolveFunctionIndex(scriptMetadata, functionName);
 
-      // Get function definition - handle array format
       funcDef = Array.isArray(scriptMetadata.functions)
         ? scriptMetadata.functions.find((f: any) => f.index === functionIndex)
         : scriptMetadata.functions[functionIndex];
 
-      // Encode all parameters (including accounts) with ABI guidance
       const paramDefs = (funcDef.parameters || []);
       actualParamCount = paramDefs.length;
       encodedParams = await this.encodeParametersWithABI(
@@ -1107,10 +1050,8 @@ export class FiveSDK {
         console.log(`[FiveSDK] ABI processing error:`, metadataError);
       }
 
-      // Use VLE encoding without metadata
       functionIndex = typeof functionName === "number" ? functionName : 0;
 
-      // Create parameter definitions for VLE encoding (assume all u64)
       const paramDefs = parameters.map((_, index) => ({
         name: `param${index}`,
         type: "u64",
@@ -1150,10 +1091,8 @@ export class FiveSDK {
       }
     }
 
-    // Derive VM state PDA - required for all Five VM executions
     const vmStatePDA = await this.deriveVMStatePDA();
 
-    // Build account list with required VM state PDA
     const vmState = options.vmStateAccount || vmStatePDA;
     if (options.debug) {
       console.log(
@@ -1161,24 +1100,20 @@ export class FiveSDK {
       );
     }
 
-    // Auto-resolve admin account from VM state if not provided but connection exists
     let adminAccount = options.adminAccount;
     if (!adminAccount && connection) {
       try {
-        // Use the override or derive it using PDAUtils to support custom program ID
         let vmStateAddress = options.vmStateAccount;
         if (!vmStateAddress) {
           const pda = await PDAUtils.deriveVMStatePDA(options.fiveVMProgramId || FIVE_VM_PROGRAM_ID);
           vmStateAddress = pda.address;
         }
 
-        // Dynamically import PublicKey
         const { PublicKey } = await import("@solana/web3.js");
         const info = await connection.getAccountInfo(new PublicKey(vmStateAddress));
 
         if (info) {
           const data = new Uint8Array(info.data);
-          // Authority is first 32 bytes (based on getVMState logic)
           if (data.length >= 32) {
             const authorityPubkey = new PublicKey(data.slice(0, 32));
             adminAccount = authorityPubkey.toBase58();
@@ -1197,13 +1132,11 @@ export class FiveSDK {
       }
     }
 
-    // Resolve proper account attributes (signer/writable) using ABI if available
     const instructionAccounts = [
       { pubkey: scriptAccount, isSigner: false, isWritable: false },
-      { pubkey: vmState, isSigner: false, isWritable: true }, // VM state (required!)
+      { pubkey: vmState, isSigner: false, isWritable: true },
     ];
 
-    // Build map of pubkey strings to their metadata from ABI
     const abiAccountMetadata = new Map<string, { isSigner: boolean; isWritable: boolean }>();
 
     if (funcDef && funcDef.parameters) {
@@ -1216,7 +1149,6 @@ export class FiveSDK {
           const attributes = param.attributes || [];
           if (attributes.includes('init')) {
             hasInit = true;
-            // Find the payer - typically the @signer in an @init context
             for (let j = 0; j < funcDef.parameters.length; j++) {
               const payerParam = funcDef.parameters[j];
               if (
@@ -1237,7 +1169,6 @@ export class FiveSDK {
         }
       }
 
-      // Second pass: build metadata
       funcDef.parameters.forEach((param: any, paramIndex: number) => {
         if (param.is_account || param.isAccount) {
           const value = parameters[paramIndex];
@@ -1247,7 +1178,6 @@ export class FiveSDK {
             const isSigner = attributes.includes('signer');
             const isWritable = attributes.includes('mut') ||
               attributes.includes('init') ||
-              // If this is the payer for @init, it must be writable
               (hasInit && pubkey === payerPubkey);
 
             if (options.debug) {
@@ -1264,7 +1194,6 @@ export class FiveSDK {
       });
     }
 
-    // Add user provided accounts with metadata merged from ABI
     const userInstructionAccounts = accounts.map((acc, index) => {
       const metadata = abiAccountMetadata.get(acc);
       const isSigner = metadata ? metadata.isSigner : (index === 0 && adminAccount ? true : false);
@@ -1283,9 +1212,7 @@ export class FiveSDK {
 
     instructionAccounts.push(...userInstructionAccounts);
 
-    // Add admin account if resolved (required for fee collection)
     if (adminAccount) {
-      // Ensure admin isn't already added. If it is, ensure it's writable
       const existingAdminIdx = instructionAccounts.findIndex(a => a.pubkey === adminAccount);
       if (existingAdminIdx === -1) {
         instructionAccounts.push({
@@ -1298,7 +1225,6 @@ export class FiveSDK {
       }
     }
 
-    // Encode execution instruction data
     const instructionData = this.encodeExecuteInstruction(
       functionIndex,
       encodedParams,
@@ -2691,10 +2617,9 @@ export class FiveSDK {
         `Tracking ${accountsToTrack.length} accounts for state changes`,
       );
 
-      // Step 1: Fetch BEFORE state
       if (options.debug) {
         console.log(
-          `[FiveSDK] Step 1: Fetching BEFORE state for ${accountsToTrack.length} accounts...`,
+          `[FiveSDK] Fetching BEFORE state for ${accountsToTrack.length} accounts...`,
         );
       }
 
@@ -2702,9 +2627,9 @@ export class FiveSDK {
         accountsToTrack,
         connection,
         {
-          debug: false, // Avoid debug spam
+          debug: false,
           parseMetadata: true,
-          validateVLE: false, // Skip validation for speed
+          validateVLE: false,
         },
       );
 
@@ -2723,7 +2648,6 @@ export class FiveSDK {
         `BEFORE state: ${successfulBeforeFetches}/${accountsToTrack.length} accounts fetched`,
       );
 
-      // Extract global fields from BEFORE state if requested
       let beforeGlobalFields: Record<string, any> = {};
       if (options.trackGlobalFields) {
         const scriptBefore = beforeState.get(scriptAccount);
@@ -2740,9 +2664,8 @@ export class FiveSDK {
         }
       }
 
-      // Step 2: Execute the script
       if (options.debug) {
-        console.log(`[FiveSDK] Step 2: Executing script...`);
+        console.log(`[FiveSDK] Executing script...`);
       }
 
       const executionResult = await this.executeOnSolana(
@@ -2770,12 +2693,10 @@ export class FiveSDK {
 
       logs.push(`Execution successful: ${executionResult.transactionId}`);
 
-      // Step 3: Wait a moment for state to settle
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Step 4: Fetch AFTER state
       if (options.debug) {
-        console.log(`[FiveSDK] Step 3: Fetching AFTER state...`);
+        console.log(`[FiveSDK] Fetching AFTER state...`);
       }
 
       const afterState = await this.fetchMultipleAccountsAndDeserializeVLE(
@@ -2803,7 +2724,6 @@ export class FiveSDK {
         `AFTER state: ${successfulAfterFetches}/${accountsToTrack.length} accounts fetched`,
       );
 
-      // Extract global fields from AFTER state if requested
       let afterGlobalFields: Record<string, any> = {};
       if (options.trackGlobalFields) {
         const scriptAfter = afterState.get(scriptAccount);
@@ -2820,9 +2740,8 @@ export class FiveSDK {
         }
       }
 
-      // Step 5: Compute differences
       if (options.debug) {
-        console.log(`[FiveSDK] Step 4: Computing state differences...`);
+        console.log(`[FiveSDK] Computing state differences...`);
       }
 
       const changes = this.computeStateDifferences(
@@ -3400,52 +3319,10 @@ export class FiveSDK {
         console.log(`[FiveSDK] Sending execution transaction...`);
       }
 
-      // ==================== TRANSACTION DEBUG OUTPUT ====================
-      console.log(`\n🔍 EXECUTION TRANSACTION DETAILS:`);
-      console.log(`📋 Transaction Overview:`);
-      console.log(`  - Instructions: ${transaction.instructions.length}`);
-      console.log(`  - Fee Payer: ${transaction.feePayer?.toString()}`);
-      console.log(`  - Recent Blockhash: ${transaction.recentBlockhash}`);
-      console.log(`  - Signatures: ${transaction.signatures.length}`);
-
-      transaction.instructions.forEach((instruction, index) => {
-        console.log(`\n📝 Instruction ${index}:`);
-        console.log(`  - Program ID: ${instruction.programId.toString()}`);
-        console.log(`  - Data Length: ${instruction.data.length} bytes`);
-        console.log(`  - Data (hex): ${instruction.data.toString("hex")}`);
-        console.log(
-          `  - Data (base64): ${instruction.data.toString("base64")}`,
-        );
-        console.log(`  - Accounts (${instruction.keys.length}):`);
-
-        instruction.keys.forEach((key, keyIndex) => {
-          console.log(
-            `    ${keyIndex}: ${key.pubkey.toString()} (signer: ${key.isSigner}, writable: ${key.isWritable})`,
-          );
-        });
-      });
-
-      console.log(`\n🔐 Transaction Signatures:`);
-      transaction.signatures.forEach((sig, sigIndex) => {
-        console.log(
-          `  ${sigIndex}: ${sig.publicKey.toString()} - ${sig.signature ? "SIGNED" : "UNSIGNED"}`,
-        );
-      });
-
-      console.log(
-        `\n📦 Serialized Transaction: ${transaction.serialize().length} bytes`,
-      );
-      console.log(
-        `==================== END TRANSACTION DEBUG ====================\n`,
-      );
-
-      console.log(`\n\n\n!!!!!!!!! SENDING TRANSACTION NOW !!!!!!!!!\n\n\n`);
-
-      // Send transaction with preflight disabled to get actual Five VM errors
       const signature = await connection.sendRawTransaction(
         transaction.serialize(),
         {
-          skipPreflight: true, // Skip preflight to see actual program errors
+          skipPreflight: true,
           preflightCommitment: "confirmed",
           maxRetries: options.maxRetries || 3,
         },
@@ -4722,17 +4599,7 @@ export class FiveSDK {
   }
 
   /**
-   * Deploy large program to Solana with OPTIMIZED instruction combining (50-70% fewer transactions)
-   *
-   * This uses the new optimized Five VM instructions:
-   * - InitLargeProgramWithChunk (discriminator 4) - combines initialization with first chunk
-   * - AppendMultipleBytecodeChunks (discriminator 5) - appends multiple chunks per transaction
-   *
-   * Benefits:
-   * - Reduces transaction count by 50-70%
-   * - Lower deployment costs due to fewer transactions
-   * - Faster deployment due to fewer network round-trips
-   * - Pre-allocates full account space to eliminate rent transfers
+   * Deploy large program to Solana with OPTIMIZED instruction combining
    */
   static async deployLargeProgramOptimizedToSolana(
     bytecode: FiveBytecode,
@@ -4834,10 +4701,9 @@ export class FiveSDK {
       const transactionIds: string[] = [];
       let totalCost = rentLamports + vmStateRent;
 
-      // TRANSACTION 0: Create VM State Account + Initialize
       if (options.debug) {
         console.log(
-          `[FiveSDK] Step 0: Create VM state account and initialize`,
+          `[FiveSDK] Create VM state account and initialize`,
         );
       }
 
@@ -4906,7 +4772,6 @@ export class FiveSDK {
         );
       }
 
-      // Split bytecode into chunks
       const chunks = this.chunkBytecode(bytecode, chunkSize);
       const firstChunk = chunks[0];
       const remainingChunks = chunks.slice(1);
@@ -4917,32 +4782,29 @@ export class FiveSDK {
         );
       }
 
-      // TRANSACTION 1 - Create Account + InitLargeProgramWithChunk (combined)
       if (options.debug) {
         console.log(
-          `[FiveSDK] Step 1: Create account + initialize with first chunk (${firstChunk.length} bytes)`,
+          `[FiveSDK] Create account + initialize with first chunk (${firstChunk.length} bytes)`,
         );
       }
 
       const initTransaction = new Transaction();
 
-      // Add account creation instruction with FULL SIZE
       const createAccountInstruction = SystemProgram.createAccount({
         fromPubkey: deployerKeypair.publicKey,
         newAccountPubkey: scriptKeypair.publicKey,
-        lamports: rentLamports, // Full rent paid upfront
+        lamports: rentLamports,
         space: totalAccountSize,
         programId: programId,
       });
       initTransaction.add(createAccountInstruction);
 
-      // Add InitLargeProgramWithChunk instruction (discriminator 4 + expected_size + first_chunk)
       const sizeBuffer = Buffer.allocUnsafe(4);
       sizeBuffer.writeUInt32LE(bytecode.length, 0);
       const initInstructionData = Buffer.concat([
         Buffer.from([4]), // InitLargeProgramWithChunk discriminator (same as InitLargeProgram)
-        sizeBuffer, // expected_size as little-endian u32
-        firstChunk, // First chunk data
+        sizeBuffer,
+        firstChunk,
       ]);
 
       const initLargeProgramWithChunkInstruction = new TransactionInstruction({
@@ -4968,7 +4830,6 @@ export class FiveSDK {
       });
       initTransaction.add(initLargeProgramWithChunkInstruction);
 
-      // Sign and send initialization transaction
       initTransaction.feePayer = deployerKeypair.publicKey;
       const { blockhash } = await connection.getLatestBlockhash("confirmed");
       initTransaction.recentBlockhash = blockhash;
