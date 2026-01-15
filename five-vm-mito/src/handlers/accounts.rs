@@ -119,36 +119,11 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         }
         GET_KEY => {
             let account_idx = ctx.fetch_byte()?;
-            let account = ctx.get_account(account_idx)?;
-            let key_bytes = *account.key();
+            // SAFETY: We copy the key bytes immediately so we don't hold the account borrow
+            // while mutating context in push_bytes_as_temp
+            let key_bytes = *ctx.get_account(account_idx)?.key();
 
-            // Store pubkey in temp buffer and return TempRef for zero-copy access
-            match ctx.alloc_temp(32) {
-                Ok(temp_offset) => {
-                    debug_log!(
-                        "MitoVM: GET_KEY account {} allocated temp at offset {}",
-                        account_idx,
-                        temp_offset
-                    );
-                    ctx.temp_buffer_mut()[temp_offset as usize..(temp_offset as usize + 32)]
-                        .copy_from_slice(&key_bytes);
-                    ctx.push(ValueRef::TempRef(temp_offset, 32))?;
-                    debug_log!(
-                        "MitoVM: GET_KEY account {} pushed TempRef({}, 32) to stack (stack_size={})",
-                        account_idx,
-                        temp_offset,
-                        ctx.size() as u32
-                    );
-                }
-                Err(e) => {
-                    error_log!(
-                        "MitoVM: GET_KEY account {} alloc_temp(32) FAILED - error code: {}",
-                        account_idx,
-                        e as u32
-                    );
-                    return Err(e);
-                }
-            }
+            push_bytes_as_temp(ctx, &key_bytes, "GET_KEY", account_idx)?;
         }
         GET_DATA => {
             let account_idx = ctx.fetch_byte()?;
@@ -175,19 +150,11 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         }
         GET_OWNER => {
             let account_idx = ctx.fetch_byte()?;
-            let account = ctx.get_account(account_idx)?;
-            let owner_bytes = *account.owner();
+            // SAFETY: We copy the owner bytes immediately so we don't hold the account borrow
+            // while mutating context in push_bytes_as_temp
+            let owner_bytes = *ctx.get_account(account_idx)?.owner();
 
-            // Store owner pubkey in temp buffer and return TempRef for zero-copy access
-            let temp_offset = ctx.alloc_temp(32)?;
-            ctx.temp_buffer_mut()[temp_offset as usize..(temp_offset as usize + 32)]
-                .copy_from_slice(&owner_bytes);
-            ctx.push(ValueRef::TempRef(temp_offset, 32))?;
-            debug_log!(
-                "MitoVM: GET_OWNER account {} -> TempRef({}, 32)",
-                account_idx,
-                temp_offset
-            );
+            push_bytes_as_temp(ctx, &owner_bytes, "GET_OWNER", account_idx)?;
         }
         SET_LAMPORTS => {
             let account_idx = ctx.fetch_byte()?;
@@ -212,4 +179,48 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         _ => return Err(VMErrorCode::InvalidInstruction.into()),
     }
     Ok(())
+}
+
+/// Helper to allocate temp space, copy bytes, and push TempRef
+/// Encapsulates common pattern for GET_KEY, GET_OWNER etc.
+#[inline(always)]
+fn push_bytes_as_temp(
+    ctx: &mut ExecutionManager,
+    bytes: &[u8],
+    op_name: &str,
+    account_idx: u8,
+) -> CompactResult<()> {
+    // We assume bytes.len() fits in u8 for these operations (32 bytes for Pubkey)
+    let len = bytes.len() as u8;
+    match ctx.alloc_temp(len) {
+        Ok(temp_offset) => {
+            debug_log!(
+                "MitoVM: {} account {} allocated temp at offset {}",
+                op_name,
+                account_idx,
+                temp_offset
+            );
+            ctx.temp_buffer_mut()[temp_offset as usize..(temp_offset as usize + bytes.len())]
+                .copy_from_slice(bytes);
+            ctx.push(ValueRef::TempRef(temp_offset, len))?;
+            debug_log!(
+                "MitoVM: {} account {} pushed TempRef({}, {})",
+                op_name,
+                account_idx,
+                temp_offset,
+                len
+            );
+            Ok(())
+        }
+        Err(e) => {
+            error_log!(
+                "MitoVM: {} account {} alloc_temp({}) FAILED - error code: {}",
+                op_name,
+                account_idx,
+                len,
+                e as u32
+            );
+            Err(e)
+        }
+    }
 }
