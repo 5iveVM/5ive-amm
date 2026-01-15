@@ -104,8 +104,15 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             use crate::handlers::system::pda::with_pda_seeds;
             with_pda_seeds(ctx, |_, program_pubkey, seeds| {
                 // Derive PDA using the same logic as DERIVE_PDA
-                use pinocchio::pubkey::create_program_address;
-                match create_program_address(seeds, &program_pubkey) {
+                #[cfg(target_os = "solana")]
+                let pda_result = pinocchio::pubkey::create_program_address(seeds, &program_pubkey)
+                    .map_err(|_| ());
+
+                #[cfg(not(target_os = "solana"))]
+                let pda_result = crate::utils::derive_pda_offchain(seeds, &program_pubkey)
+                    .map_err(|_| ());
+
+                match pda_result {
                     Ok(derived_pda) => {
                         // Compare derived PDA with expected PDA
                         if derived_pda != expected_pubkey {

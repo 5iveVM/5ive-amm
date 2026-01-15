@@ -70,14 +70,9 @@ fn resolve_value_ref_with_depth(
             }
         }
 
-        ValueRef::TupleRef(_offset, _size) => {
-            // Tuple refs are complex - for now return Empty, but log for debugging
-            debug_log!(
-                "MitoVM: TupleRef resolution not fully implemented, offset: {}, size: {}",
-                *_offset,
-                *_size
-            );
-            Ok(Value::Empty)
+        ValueRef::TupleRef(offset, _size) => {
+            // Map TupleRef to Value::Array for compatibility
+            Ok(Value::Array(*offset))
         }
 
         ValueRef::OptionalRef(offset, size) => {
@@ -166,14 +161,8 @@ pub fn finalize_execution_result(ctx: &mut ExecutionManager<'_>) -> CompactResul
             // No return value captured, check if there's something on the stack as fallback
             if !ctx.is_empty() {
                 let value_ref = ctx.pop()?;
-                match value_ref {
-                    ValueRef::U64(val) => Ok(Some(Value::U64(val))),
-                    ValueRef::U8(val) => Ok(Some(Value::U8(val))),
-                    ValueRef::I64(val) => Ok(Some(Value::I64(val))),
-                    ValueRef::U128(val) => Ok(Some(Value::U128(val))),
-                    ValueRef::Bool(val) => Ok(Some(Value::Bool(val))),
-                    _ => Ok(None), // Complex types return None for fallback
-                }
+                // Use full resolution for stack values too
+                Ok(Some(resolve_value_ref(&value_ref, ctx)?))
             } else {
                 Ok(None) // No return value
             }

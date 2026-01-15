@@ -264,12 +264,12 @@ Highly optimized single-byte instructions for common operations.
 | 0xF4 | `OPTIONAL_UNWRAP`| None | 0 | Unwrap or panic. | Accessing optional values. |
 | 0xF5 | `OPTIONAL_IS_SOME`| None | 0 | Check if some. | Conditional logic on optionals. |
 | 0xF6 | `OPTIONAL_GET_VALUE`| None | 0 | Unsafe get. | Performance (if checked externally). |
-| 0xF7 | `BULK_LOAD_FIELD_N`| `n` | +N | Load N fields. | Optimizing multiple field reads. |
+| 0xF7 | Reserved | - | - | Reserved. | - |
 | 0xF8 | `CREATE_TUPLE` | `n` | -N+1 | Create tuple of n items. | Grouping values. |
 | 0xF9 | `TUPLE_GET` | `idx` | 0 | Get item from tuple. | Accessing grouped values. |
 | 0xFA | `UNPACK_TUPLE` | None | +N-1 | Explode tuple to stack. | Using grouped values. |
-| 0xFB | `STACK_SIZE` | None | +1 | Get stack depth. | Introspection/Debugging. |
-| 0xFC | `STACK_CLEAR` | None | -All | Clear stack. | Reset state. |
+| 0xFB | Reserved | - | - | Reserved. | - |
+| 0xFC | Reserved | - | - | Reserved. | - |
 | 0xFD | `OPTIONAL_IS_NONE`| None | 0 | Check if none. | Conditional logic. |
 | 0xFE | `RESULT_IS_OK` | None | 0 | Check if ok. | Conditional logic. |
 | 0xFF | `RESULT_IS_ERR` | None | 0 | Check if err. | Conditional logic. |
