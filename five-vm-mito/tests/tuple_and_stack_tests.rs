@@ -6,8 +6,6 @@
 //! - CREATE_TUPLE (0xF8) - Create tuple from stack values
 //! - TUPLE_GET (0xF9) - Get tuple element
 //! - UNPACK_TUPLE (0xFA) - Unpack tuple to stack
-//! - STACK_SIZE (0xFB) - Get current stack size
-//! - STACK_CLEAR (0xFC) - Clear entire stack
 
 use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value};
@@ -152,71 +150,6 @@ mod tuple_operations_tests {
             },
             Ok(val) => panic!("Expected U64(2), got {:?}", val),
             Err(e) => panic!("Complex tuple operations failed: {:?}", e),
-        }
-    }
-}
-
-#[cfg(test)]
-mod stack_management_tests {
-    use super::*;
-
-    #[test]
-    fn test_stack_size() {
-        let result = execute_script(|script| {
-            push_u64(script, 1);
-            push_u64(script, 2);
-            push_u64(script, 3);
-            script.push(STACK_SIZE);
-            script.push(HALT);
-        });
-
-        // Stack: 1, 2, 3, SIZE(3). HALT pops 3.
-        match result {
-            Ok(Some(Value::U64(size))) => assert_eq!(size, 3),
-            Ok(val) => panic!("Expected U64(3), got {:?}", val),
-            Err(e) => panic!("STACK_SIZE failed: {:?}", e),
-        }
-    }
-
-    #[test]
-    fn test_stack_clear() {
-        let result = execute_script(|script| {
-            push_u64(script, 7);
-            push_u64(script, 8);
-            push_u64(script, 9);
-            script.push(STACK_CLEAR);
-            script.push(STACK_SIZE);
-            script.push(HALT);
-        });
-
-        match result {
-            Ok(Some(Value::U64(size_after_clear))) => assert_eq!(size_after_clear, 0),
-            Ok(val) => panic!("Expected U64(0), got {:?}", val),
-            Err(e) => panic!("STACK_CLEAR failed: {:?}", e),
-        }
-    }
-
-    #[test]
-    fn test_stack_operations_sequence() {
-        let result = execute_script(|script| {
-            push_u64(script, 10);
-            push_u64(script, 20);
-            push_u64(script, 30);
-            // Stack: 10, 20, 30
-            script.push(STACK_SIZE); // Stack: 10, 20, 30, 3
-            script.push(POP);        // Stack: 10, 20, 30
-
-            script.push(CREATE_TUPLE);
-            script.push(2);          // Stack: 10, Tuple(20, 30)
-
-            script.push(STACK_SIZE); // Stack: 10, Tuple, 2
-            script.push(HALT);
-        });
-
-        match result {
-            Ok(Some(Value::U64(size))) => assert_eq!(size, 2),
-            Ok(val) => panic!("Expected U64(2), got {:?}", val),
-            Err(e) => panic!("Stack operations sequence failed: {:?}", e),
         }
     }
 }

@@ -46,6 +46,33 @@ fn test_option_some_creation_and_unwrap() {
 }
 
 #[test]
+fn test_type_conversion_safety() {
+    match execute(|script| {
+        push_u64_instr(script, 42);
+        script.push(OPTIONAL_SOME);
+        script.push(OPTIONAL_IS_SOME);
+        script.push(RETURN_VALUE);
+    }) {
+        Ok(Some(Value::Bool(true))) => println!("✅ Type safety test passed"),
+        Ok(result) => panic!("❌ Expected Bool(true), got {:?}", result),
+        Err(e) => panic!("❌ Execution failed: {:?}", e),
+    }
+}
+
+#[test]
+fn test_error_propagation() {
+    match execute(|script| {
+        push_u64_instr(script, 500);
+        script.push(RESULT_ERR);
+        script.push(RETURN_VALUE);
+    }) {
+        Ok(Some(_)) => println!("✅ Error propagation test passed"), // Returns AccountRef(254, ...) which resolves to valid Value if returned
+        Ok(None) => panic!("❌ Expected result"),
+        Err(e) => panic!("❌ Execution failed: {:?}", e),
+    }
+}
+
+#[test]
 fn test_option_none_creation_and_check() {
     match execute(|script| {
         script.extend_from_slice(&[OPTIONAL_NONE, OPTIONAL_IS_NONE, RETURN_VALUE]);

@@ -324,6 +324,11 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 total_size += element.serialized_size();
             }
 
+            // Safety check: TupleRef size is u8, so total_size must fit
+            if total_size > 255 {
+                return Err(VMErrorCode::OutOfMemory);
+            }
+
             let offset = ctx.alloc_temp(total_size as u8)?;
 
             // Pop elements and write them (reverse order pop, so we write from end to start to preserve order)
@@ -402,21 +407,6 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                     return Err(VMErrorCode::TypeMismatch);
                 }
             }
-        }
-        STACK_SIZE => {
-            debug_log!("MitoVM: STACK_SIZE - get current stack size");
-            let size = ctx.size() as u64;
-            ctx.push(ValueRef::U64(size))?;
-        }
-        STACK_CLEAR => {
-            debug_log!("MitoVM: STACK_CLEAR - clear entire stack");
-            while !ctx.is_empty() {
-                ctx.pop()?;
-            }
-        }
-        BULK_LOAD_FIELD_N => {
-            debug_log!("MitoVM: BULK_LOAD_FIELD_N - bulk load N fields");
-            return Err(VMErrorCode::InvalidInstruction); // Complex operation for future implementation
         }
         _ => {
             debug_log!("MitoVM: Option/Result opcode {} not implemented", opcode);

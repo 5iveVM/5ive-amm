@@ -14,17 +14,17 @@ mod basic_constraint_tests {
     use super::*;
 
     // Helper to get mocked accounts
-    fn setup_accounts<'a>(
+    pub fn setup_accounts<'a>(
         lamports: &'a mut u64,
         data: &'a mut [u8],
         payer_lamports: &'a mut u64,
         payer_data: &'a mut [u8],
         sys_lamports: &'a mut u64,
         sys_data: &'a mut [u8]
-    ) -> ([five_vm_mito::AccountInfo; 3], Pubkey, Pubkey) {
+    ) -> ([five_vm_mito::AccountInfo; 3], Pubkey, Pubkey, u8) {
         let program_id = Pubkey::from([0xAA; 32]);
         let seeds: &[&[u8]] = &[b"test"];
-        let (pda_address, _) = derive_pda_real(seeds, &program_id);
+        let (pda_address, bump) = derive_pda_real(seeds, &program_id);
 
         let accounts = create_test_accounts(
             &program_id,
@@ -36,7 +36,7 @@ mod basic_constraint_tests {
             sys_lamports,
             sys_data,
         );
-        (accounts, program_id, pda_address)
+        (accounts, program_id, pda_address, bump)
     }
 
     #[test]
@@ -47,7 +47,7 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
 
         // Account 0 (payer) is signer
         let bytecode = vec![
@@ -69,7 +69,7 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
 
         // Account 2 (system program) is NOT signer
         let bytecode = vec![
@@ -94,7 +94,7 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
 
         // Account 0 is writable
         let bytecode = vec![
@@ -116,7 +116,7 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
 
         // Account 2 is not writable
         let bytecode = vec![
@@ -141,7 +141,7 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
 
         // Account 1 owner is program_id
         let expected_owner = program_id;
@@ -168,7 +168,7 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
 
         // Account 1 has data
         let bytecode = vec![
@@ -190,7 +190,7 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
 
         // Account 2 (system program) has empty data and owner is System Program ([0u8; 32])
         // create_test_accounts uses [0u8; 32] as system_program_key.
@@ -206,6 +206,55 @@ mod basic_constraint_tests {
 
         let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
         result.expect("CHECK_UNINITIALIZED should succeed for uninitialized account");
+    }
+}
+
+#[cfg(test)]
+mod pda_constraint_tests {
+    use super::*;
+    use super::basic_constraint_tests::setup_accounts;
+
+    #[test]
+    fn test_check_pda_valid() {
+        let mut lamports = 100u64;
+        let mut data = [0u8; 32];
+        let mut payer_lamports = 1_000_000_000;
+        let mut payer_data = [0u8; 0];
+        let mut sys_lamports = 0u64;
+        let mut sys_data = [0u8; 0];
+        let (accounts, program_id, pda_address, bump) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+
+        // Account 1 is the PDA derived from seeds "test" and program_id
+        let mut bytecode = vec![
+            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
+        ];
+
+        // 1. Push seeds "test"
+        // PUSH_STRING "test"
+        bytecode.extend_from_slice(&[0x67, 0x04, b't', b'e', b's', b't']);
+
+        // 2. Push bump (u8) - as a seed
+        bytecode.push(0x18); // PUSH_U8
+        bytecode.push(bump);
+
+        // 3. Push seeds count (2) - "test" + bump
+        bytecode.extend_from_slice(&[0x18, 0x02]);
+
+        // 4. Push program_id
+        bytecode.push(0x1E); // PUSH_PUBKEY
+        bytecode.extend_from_slice(program_id.as_ref());
+
+        // 5. Push expected PDA address (which is Account 1's key)
+        bytecode.push(0x1E); // PUSH_PUBKEY
+        bytecode.extend_from_slice(pda_address.as_ref());
+
+        // 6. CHECK_PDA
+        bytecode.push(0x74);
+
+        bytecode.push(0x00); // HALT
+
+        let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
+        result.expect("CHECK_PDA should succeed for valid PDA");
     }
 }
 

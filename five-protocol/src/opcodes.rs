@@ -400,16 +400,16 @@ pub const OPTIONAL_IS_SOME: u8 = 0xF5; // Check if Optional has Some value
 pub const OPTIONAL_GET_VALUE: u8 = 0xF6; // Get value from Optional (unsafe)
 
 // Advanced bulk operations
-pub const BULK_LOAD_FIELD_N: u8 = 0xF7; // BULK load N fields from account (VLE encoding by default)
+// BULK_LOAD_FIELD_N (0xF7) removed - optimization not implemented
 
 // Tuple operations (moved from stack range to make room for PUSH ops)
 pub const CREATE_TUPLE: u8 = 0xF8; // MOVED FROM 0x18
 pub const TUPLE_GET: u8 = 0xF9; // MOVED FROM 0x19
 pub const UNPACK_TUPLE: u8 = 0xFA; // MOVED FROM 0x1A
 
-// Stack management operations (moved from stack range to make room for PUSH ops)
-pub const STACK_SIZE: u8 = 0xFB; // Get current stack size (MOVED FROM 0x1B)
-pub const STACK_CLEAR: u8 = 0xFC; // Clear entire stack (MOVED FROM 0x1C)
+// Stack management operations
+// STACK_SIZE (0xFB) removed - introspection not needed
+// STACK_CLEAR (0xFC) removed - security vector
 
 // Additional Option/Result operations
 pub const OPTIONAL_IS_NONE: u8 = 0xFD; // Check if Optional is None
@@ -624,20 +624,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 127,
         compute_cost: 2,
     }, // Dynamic: +(n-1)
-    OpcodeInfo {
-        opcode: STACK_SIZE,
-        name: "STACK_SIZE",
-        arg_type: ArgType::None,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: STACK_CLEAR,
-        name: "STACK_CLEAR",
-        arg_type: ArgType::None,
-        stack_effect: -127,
-        compute_cost: 1,
-    },
     OpcodeInfo {
         opcode: OPTIONAL_SOME,
         name: "OPTIONAL_SOME",
@@ -1515,15 +1501,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 2,
     },
     // SWAP_SUB removed - use individual SWAP + SUB operations
-
-    // V3 Bulk Operations
-    OpcodeInfo {
-        opcode: BULK_LOAD_FIELD_N,
-        name: "BULK_LOAD_FIELD_N",
-        arg_type: ArgType::U8,
-        stack_effect: 127,
-        compute_cost: 5,
-    },
 
     // Nibble immediate GET_LOCAL operations (0xD0-0xD3)
     OpcodeInfo {

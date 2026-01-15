@@ -423,7 +423,6 @@ impl OpcodeAnalyzer {
                 | opcodes::EQ_ZERO_JUMP
                 | opcodes::GT_ZERO_JUMP
                 | opcodes::LT_ZERO_JUMP
-                | opcodes::BULK_LOAD_FIELD_N
         )
     }
 
@@ -454,7 +453,6 @@ impl OpcodeAnalyzer {
             opcodes::COPY_REG => 2,
             opcodes::TRANSFER_DEBIT | opcodes::TRANSFER_CREDIT => 1, // u8 account index
             opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => 2, // u16 offset
-            opcodes::BULK_LOAD_FIELD_N => 1, // u8
             _ => 0,
         }
     }
