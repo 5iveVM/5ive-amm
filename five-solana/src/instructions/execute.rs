@@ -12,76 +12,13 @@ use crate::{
 use five_vm_mito::MitoVM;
 #[cfg(feature = "debug-logs")]
 use five_vm_mito::VMError;
+#[cfg(feature = "debug-logs")]
+use five_vm_mito::error::VMErrorCode;
 
 use super::{
     fees::{calculate_fee, transfer_fee, STANDARD_TX_FEE},
     require_min_accounts,
 };
-
-/// Map VMError to a short code string for debug logging.
-#[cfg(feature = "debug-logs")]
-fn vm_error_name(err: &VMError) -> &'static str {
-    match err {
-        VMError::StackError => "StackError",
-        VMError::InvalidInstruction => "InvalidInstruction",
-        VMError::InvalidScript => "InvalidScript",
-        VMError::InvalidScriptSize => "InvalidScriptSize",
-        VMError::MemoryViolation => "MemoryViolation",
-        VMError::TypeMismatch => "TypeMismatch",
-        VMError::DivisionByZero => "DivisionByZero",
-        VMError::NumericOverflow => "NumericOverflow",
-        VMError::ArithmeticOverflow => "ArithmeticOverflow",
-        VMError::AccountError => "AccountError",
-        VMError::ConstraintViolation => "ConstraintViolation",
-        VMError::Halted => "Halted",
-        VMError::InvalidAccountIndex => "InvalidAccountIndex",
-        VMError::AccountNotWritable => "AccountNotWritable",
-        VMError::AccountNotSigner => "AccountNotSigner",
-        VMError::InvalidVariableIndex(_) => "InvalidVariableIndex",
-        VMError::ParameterMismatch { .. } => "ParameterMismatch",
-        VMError::StackOperationError { .. } => "StackOperationError",
-        VMError::AbiParameterMismatch { .. } => "AbiParameterMismatch",
-        VMError::InvalidInstructionPointer => "InvalidInstructionPointer",
-        VMError::CallStackOverflow => "CallStackOverflow",
-        VMError::CallStackUnderflow => "CallStackUnderflow",
-        VMError::DataBufferOverflow => "DataBufferOverflow",
-        VMError::InvalidRegister => "InvalidRegister",
-        VMError::InvalidOperation => "InvalidOperation",
-        VMError::ParseError { .. } => "ParseError",
-        VMError::UnexpectedToken => "UnexpectedToken",
-        VMError::UnexpectedEndOfInput => "UnexpectedEndOfInput",
-        VMError::InvalidFunctionIndex => "InvalidFunctionIndex",
-        VMError::LocalsOverflow => "LocalsOverflow",
-        VMError::InvalidAccountData => "InvalidAccountData",
-        VMError::InvalidAccount => "InvalidAccount",
-        VMError::MemoryError => "MemoryError",
-        VMError::AccountOwnershipError { .. } => "AccountOwnershipError",
-        VMError::InvokeError { .. } => "InvokeError",
-        VMError::ExternalAccountLamportSpend => "ExternalAccountLamportSpend",
-        VMError::ScriptNotAuthorized { .. } => "ScriptNotAuthorized",
-        VMError::UndefinedAccountField => "UndefinedAccountField",
-        VMError::InvalidSeedArray(_) => "InvalidSeedArray",
-        VMError::ImmutableField => "ImmutableField",
-        VMError::FunctionVisibilityViolation { .. } => "FunctionVisibilityViolation",
-        VMError::UndefinedField => "UndefinedField",
-        VMError::UndefinedIdentifier => "UndefinedIdentifier",
-        VMError::InvalidParameterCount => "InvalidParameterCount",
-        VMError::IndexOutOfBounds => "IndexOutOfBounds",
-        VMError::OutOfMemory => "OutOfMemory",
-        VMError::ProtocolError => "ProtocolError",
-        VMError::TooManySeeds => "TooManySeeds",
-        VMError::SecurityViolation => "SecurityViolation",
-        VMError::AccountNotFound => "AccountNotFound",
-        VMError::AccountDataEmpty => "AccountDataEmpty",
-        VMError::RuntimeIntegrationRequired => "RuntimeIntegrationRequired",
-        VMError::InvalidParameter => "InvalidParameter",
-        VMError::InvalidOpcode => "InvalidOpcode",
-        VMError::ExecutionTerminated => "ExecutionTerminated",
-        VMError::UninitializedAccount => "UninitializedAccount",
-        VMError::UnauthorizedBytecodeInvocation => "UnauthorizedBytecodeInvocation",
-        VMError::PdaDerivationFailed => "PdaDerivationFailed",
-    }
-}
 
 /// Execute a script with optional pre/post bytecode hooks
 ///
@@ -191,7 +128,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         #[cfg(feature = "debug-logs")]
         debug_log!(
             "MitoVM MAIN execution failed code={}",
-            vm_error_name(&vm_error)
+            VMErrorCode::from(vm_error.clone()).message()
         );
         return Err(vm_error.to_program_error());
     }
@@ -204,7 +141,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
             #[cfg(feature = "debug-logs")]
             debug_log!(
                 "MitoVM POST hook failed code={}",
-                vm_error_name(&vm_error)
+                VMErrorCode::from(vm_error.clone()).message()
             );
             return Err(vm_error.to_program_error());
         }

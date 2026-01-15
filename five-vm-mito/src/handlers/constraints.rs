@@ -21,6 +21,18 @@ const SYSTEM_PROGRAM_ID: [u8; 32] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]; // Solana system program ID: 11111111111111111111111111111111
 
+macro_rules! check_constraint {
+    ($ctx:expr, $name:literal, $account:ident, $check:expr) => {{
+        let account_idx = $ctx.fetch_byte()?;
+        let $account = $ctx.get_account(account_idx)?;
+        if !($check) {
+             debug_log!("MitoVM: {} failed - account {} check failed", $name, account_idx);
+             return Err(VMErrorCode::ConstraintViolation);
+        }
+        debug_log!("MitoVM: {} passed for account {}", $name, account_idx);
+    }};
+}
+
 /// Handle constraint operations (0x70-0x7F)
 #[inline(never)]
 pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
@@ -30,22 +42,10 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
         // ===== CONSTRAINT VALIDATION OPERATIONS (0x70-0x7F) =====
         // Core account constraint checking operations
         CHECK_SIGNER => {
-            let account_idx = ctx.fetch_byte()?; // Fetch account_idx directly from bytecode
-            debug_log!("MitoVM: CHECK_SIGNER checking account {}", account_idx);
-            let account = ctx.get_account(account_idx)?;
-            if !account.is_signer() {
-                debug_log!("MitoVM: CHECK_SIGNER failed - account {} is not signer", account_idx);
-                return Err(VMErrorCode::ConstraintViolation);
-            }
-            debug_log!("MitoVM: CHECK_SIGNER passed for account {}", account_idx);
+            check_constraint!(ctx, "CHECK_SIGNER", account, account.is_signer());
         }
         CHECK_WRITABLE => {
-            let account_idx = ctx.fetch_byte()?; // Fetch account_idx directly from bytecode
-            let account = ctx.get_account(account_idx)?;
-            if !account.is_writable() {
-                return Err(VMErrorCode::ConstraintViolation);
-            }
-            debug_log!("MitoVM: CHECK_WRITABLE passed for account {}", account_idx);
+            check_constraint!(ctx, "CHECK_WRITABLE", account, account.is_writable());
         }
         CHECK_OWNER => {
             let account_idx = ctx.fetch_byte()?; // Fetch account_idx from bytecode
@@ -64,17 +64,8 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             debug_log!("MitoVM: CHECK_OWNER passed for account {}", account_idx);
         }
         CHECK_INITIALIZED => {
-            let account_idx = ctx.fetch_byte()?; // Fetch account_idx directly from bytecode
-            let account = ctx.get_account(account_idx)?;
-            // SAFETY: We only read the account data to verify initialization state and
-            // `ExecutionManager` ensures no concurrent mutable borrows.
-            if unsafe { account.borrow_data_unchecked() }.is_empty() {
-                return Err(VMErrorCode::ConstraintViolation);
-            }
-            debug_log!(
-                "MitoVM: CHECK_INITIALIZED passed for account {}",
-                account_idx
-            );
+            // Check if account has data (is initialized)
+            check_constraint!(ctx, "CHECK_INITIALIZED", account, account.data_len() > 0);
         }
         CHECK_UNINITIALIZED => {
             let account_idx = ctx.fetch_byte()?; // Fetch account_idx directly from bytecode
