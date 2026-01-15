@@ -4,19 +4,15 @@
 //! Designed for maximum performance with zero indirection.
 
 use crate::{
-    error::{CompactResult, Result, VMError, VMErrorCode},
+    error::{CompactResult, Result, VMErrorCode},
     metadata::ImportMetadata,
     stack::StackStorage,
     types::CallFrame,
-    MAX_CALL_DEPTH, MAX_LOCALS, MAX_PARAMETERS, MAX_SCRIPT_SIZE, STACK_SIZE,
+    MAX_LOCALS, MAX_PARAMETERS, MAX_SCRIPT_SIZE,
 };
 
 use crate::debug_log;
-use five_protocol::ValueRef;
-#[cfg(target_os = "solana")]
-use alloc::vec::Vec;
-#[cfg(not(target_os = "solana"))]
-use std::vec::Vec;
+use five_protocol::{ValueRef, VLE, types};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Instruction, Signer},
@@ -913,6 +909,204 @@ impl<'a> ExecutionContext<'a> {
     #[inline]
     pub fn validate_bitwise_constraints(&self, constraints: u64) -> CompactResult<()> {
         self.accounts.validate_bitwise_constraints(constraints)
+    }
+
+    /// Parse VLE parameters directly into parameters array with zero copy
+    pub fn parse_parameters(&mut self) -> CompactResult<()> {
+        // Clear params first not needed as we overwrite
+        self.reset_temp_buffer();
+        let mut offset = 0;
+        let input_len = self.instruction_data.len();
+
+        if input_len == 0 {
+            return Ok(());
+        }
+
+        // 1. Function Index
+        let function_index = if let Some((func_index, consumed)) =
+            VLE::decode_u32(&self.instruction_data[offset..])
+        {
+            offset += consumed;
+            func_index
+        } else {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        };
+
+        // Store function index at params[0]
+        self.frame.set_parameter(0, ValueRef::U64(function_index as u64))?;
+
+        // 2. Parameter Count
+        if offset >= input_len {
+            return Ok(());
+        }
+
+        // Check for typed mode sentinel
+        let is_typed_mode = if self.instruction_data[offset] == 0x80 {
+            offset += 1;
+            true
+        } else {
+            false
+        };
+
+        if let Some((param_count, consumed)) = VLE::decode_u32(&self.instruction_data[offset..]) {
+            offset += consumed;
+
+            // Limit count to available slots (MAX_PARAMETERS - 1 for func index)
+            // But we actually have SHARED_PARAM_SIZE slots.
+            // params[0] is func index. params[1..8] are arguments.
+            let count = (param_count as usize).min(MAX_PARAMETERS - 1);
+
+            for i in 0..count {
+                if is_typed_mode {
+                     if offset >= input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                     let type_id = self.instruction_data[offset];
+                     offset += 1;
+
+                     match type_id {
+                        t if t == types::STRING => {
+                            let (len, len_consumed) = VLE::decode_u32(&self.instruction_data[offset..])
+                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+                            offset += len_consumed;
+                            let len = len as usize;
+
+                            // Check bounds
+                            if offset + len > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+
+                            // Alloc temp buffer: [len:u8, type:u8, bytes...]
+                            let total_size = 2 + len;
+                            if total_size > crate::TEMP_BUFFER_SIZE { return Err(VMErrorCode::OutOfMemory); }
+
+                            let array_id = self.alloc_temp(total_size as u8)?;
+
+                            self.memory.temp_buffer[array_id as usize] = len as u8;
+                            self.memory.temp_buffer[array_id as usize + 1] = 1; // Type 1 (String?) or just marker
+
+                            // Copy bytes
+                            self.memory.temp_buffer[array_id as usize + 2..array_id as usize + 2 + len]
+                                .copy_from_slice(&self.instruction_data[offset..offset + len]);
+
+                            offset += len;
+                            self.frame.set_parameter(i + 1, ValueRef::StringRef(array_id as u16))?;
+                        }
+                        t if t == types::BOOL => {
+                            let (val, consumed) = VLE::decode_u32(&self.instruction_data[offset..])
+                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+                            offset += consumed;
+                            self.frame.set_parameter(i + 1, ValueRef::Bool(val != 0))?;
+                        }
+                        t if t == types::U8 => {
+                             let (val, consumed) = VLE::decode_u32(&self.instruction_data[offset..])
+                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+                            offset += consumed;
+                            self.frame.set_parameter(i + 1, ValueRef::U8(val as u8))?;
+                        }
+                        t if t == types::U32 || t == types::U64 => {
+                             let (val, consumed) = VLE::decode_u32(&self.instruction_data[offset..])
+                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+                            offset += consumed;
+                            self.frame.set_parameter(i + 1, ValueRef::U64(val as u64))?;
+                        }
+                        t if t == types::PUBKEY => {
+                             if offset + 32 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                             let temp_offset = self.alloc_temp(32)?;
+                             self.memory.temp_buffer[temp_offset as usize..temp_offset as usize + 32]
+                                .copy_from_slice(&self.instruction_data[offset..offset + 32]);
+                             offset += 32;
+                             self.frame.set_parameter(i + 1, ValueRef::TempRef(temp_offset, 32))?;
+                        }
+                        t if t == types::ACCOUNT => {
+                            let (idx, consumed) = VLE::decode_u32(&self.instruction_data[offset..])
+                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+                            offset += consumed;
+                            self.frame.set_parameter(i + 1, ValueRef::AccountRef(idx as u8, 0))?;
+                        }
+                        _ => return Err(VMErrorCode::TypeMismatch),
+                     }
+                } else {
+                    // Pure VLE
+                    if let Some((val, consumed)) = VLE::decode_u64(&self.instruction_data[offset..]) {
+                        offset += consumed;
+                        self.frame.set_parameter(i + 1, ValueRef::U64(val))?;
+                    } else {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                }
+            }
+        } else {
+             return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+
+        Ok(())
+    }
+
+    /// Initialize entry point by parsing parameters and setting up stack/locals
+    /// Returns the resolved start IP
+    pub fn initialize_entry_point(&mut self, default_start_ip: usize) -> CompactResult<usize> {
+        // 1. Parse parameters
+        self.parse_parameters()?;
+
+        // 2. Count parameters
+        let mut param_count: u8 = 0;
+        let mut max_param_index: u8 = 0;
+
+        // Skip index 0 (func index)
+        // Access parameters through frame to satisfy borrow checker if needed, but self.frame is accessible
+        let params_len = self.frame.parameters().len();
+        // We can't iterate self.frame.parameters() while mutating self.
+        // So we just index.
+        for i in 1..params_len {
+            if !self.frame.parameters[i].is_empty() {
+                param_count = param_count.saturating_add(1);
+                max_param_index = i as u8;
+            }
+        }
+
+        // 3. Setup frame
+        self.frame.param_len = param_count;
+
+        let locals_to_allocate = if max_param_index > 0 {
+            max_param_index
+        } else {
+            3 // Default
+        };
+
+        self.allocate_locals(locals_to_allocate)?;
+
+        // 4. Push params and init locals
+        for i in 1..params_len {
+             let param = self.frame.parameters[i];
+             if param.is_empty() { continue; }
+
+             self.push(param)?;
+
+             let local_index = (i - 1) as u8;
+             if (local_index as usize) < MAX_LOCALS {
+                 self.set_local(local_index, param)?;
+             }
+        }
+
+        // 5. Dispatch
+        let func_index_val = self.frame.parameters[0];
+        let dispatch_ip = if !func_index_val.is_empty() {
+             if let ValueRef::U64(func_index) = func_index_val {
+                 if (func_index as u8) >= self.public_function_count {
+                     return Err(VMErrorCode::FunctionVisibilityViolation);
+                 }
+
+                 if func_index == 0 {
+                     default_start_ip
+                 } else {
+                     default_start_ip
+                 }
+             } else {
+                 default_start_ip
+             }
+        } else {
+             default_start_ip
+        };
+
+        self.set_ip(dispatch_ip);
+        Ok(dispatch_ip)
     }
 }
 
