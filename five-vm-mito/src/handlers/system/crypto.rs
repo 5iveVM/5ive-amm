@@ -1,0 +1,254 @@
+//! Cryptography syscall handlers
+
+use crate::{
+    context::ExecutionManager,
+    debug_log,
+    error::{CompactResult, VMErrorCode},
+};
+use five_protocol::ValueRef;
+
+#[cfg(target_os = "solana")]
+use pinocchio::syscalls;
+
+/// Helper to parse data array (vals) for hash functions
+/// Returns pointer to array of slices and count
+fn parse_data_array(ctx: &mut ExecutionManager, data_ref: ValueRef) -> CompactResult<(*const u8, u64)> {
+    // Similar to log_data, but needs to return pointer that syscall consumes.
+    // Syscall expects `*const u8` which points to `&[u8]` array (iovec style).
+    // This requires us to construct the array of slices in contiguous memory.
+
+    // For now, we only support single data slice (ValueRef::StringRef/TempRef)
+    // or we need to construct the iovec array in temp buffer.
+
+    // If it's a simple byte buffer (StringRef/TempRef), we treat it as 1 element array.
+    // We need to alloc a slot in temp buffer for the slice descriptor { ptr, len }.
+    // slice descriptor in Rust is [usize; 2].
+
+    // Constructing iovec for syscalls is tricky because we need pointers to memory.
+    // Pinocchio `hash.rs` helper handles this.
+    // Here we must do it manually.
+
+    let (len, ptr) = match data_ref {
+        ValueRef::StringRef(_) | ValueRef::TempRef(_,_) => {
+            let (l, b) = ctx.extract_string_slice(&data_ref)?;
+             (l as u64, b.as_ptr())
+        }
+        // TODO: Handle ArrayRef
+        _ => return Err(VMErrorCode::TypeMismatch),
+    };
+
+    // We need an array of `IoVec { base: *const u8, len: u64 }` ?
+    // Solana syscalls take `vals: *const u8` where vals is array of `&[u8]`.
+    // In Rust `&[u8]` is (ptr, len).
+    // So we need to write `ptr` (u64/usize) and `len` (u64/usize) to temp buffer.
+
+    // Allocate temp space for 1 slice (16 bytes on 64-bit, but Solana VM is 64-bit).
+    // `&[u8]` layout: pointer (8 bytes), length (8 bytes).
+
+    let vec_offset = ctx.alloc_temp(16)?;
+    let ptr_u64 = ptr as u64;
+    let len_u64 = len;
+
+    // Write to temp buffer
+    unsafe {
+        let temp_base = ctx.temp_buffer_mut().as_mut_ptr();
+        let vec_ptr = temp_base.add(vec_offset as usize);
+        *(vec_ptr as *mut u64) = ptr_u64;
+        *(vec_ptr.add(8) as *mut u64) = len_u64;
+
+        Ok((vec_ptr, 1))
+    }
+}
+
+macro_rules! impl_hash_syscall {
+    ($name:ident, $syscall:path, $log_name:expr) => {
+        #[inline(never)]
+        pub fn $name(ctx: &mut ExecutionManager) -> CompactResult<()> {
+            debug_log!($log_name);
+
+            // Pop result buffer, data array
+            // Stack: push data, push result. Pop: result, data.
+            let result_ref = ctx.pop()?;
+            let data_ref = ctx.pop()?;
+
+            // Result buffer
+            let result_ptr = match result_ref {
+                ValueRef::TempRef(offset, len) => {
+                    if len < 32 { return Err(VMErrorCode::MemoryViolation); } // Most hashes 32 bytes
+                    unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(offset as usize) }
+                }
+                _ => return Err(VMErrorCode::TypeMismatch),
+            };
+
+            let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+
+            #[cfg(target_os = "solana")]
+            unsafe {
+                $syscall(vals_ptr, val_len, result_ptr);
+            }
+            #[cfg(not(target_os = "solana"))]
+            {
+                debug_log!("HASH SYSCALL MOCK");
+                unsafe { *result_ptr = 0; } // Zero mock
+            }
+
+            Ok(())
+        }
+    };
+}
+
+impl_hash_syscall!(handle_syscall_sha256, syscalls::sol_sha256, "MitoVM: SYSCALL_SHA256");
+impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: SYSCALL_KECCAK256");
+impl_hash_syscall!(handle_syscall_blake3, syscalls::sol_blake3, "MitoVM: SYSCALL_BLAKE3");
+
+// Poseidon has extra args
+#[inline(never)]
+pub fn handle_syscall_poseidon(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_POSEIDON");
+    // poseidon(parameters, endianness, vals, val_len, hash_result)
+    // Stack: result, vals, endianness, parameters. (Pushed in order parameters, endianness, vals, result)
+
+    let result_ref = ctx.pop()?;
+    let vals_ref = ctx.pop()?;
+    let endianness = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+    let parameters = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+
+    let result_ptr = match result_ref {
+        ValueRef::TempRef(offset, len) => {
+             unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(offset as usize) }
+        }
+        _ => return Err(VMErrorCode::TypeMismatch),
+    };
+
+    let (vals_ptr, val_len) = parse_data_array(ctx, vals_ref)?;
+
+    #[cfg(target_os = "solana")]
+    unsafe {
+        syscalls::sol_poseidon(parameters, endianness, vals_ptr, val_len, result_ptr);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (endianness, parameters, vals_ptr, val_len, result_ptr);
+    }
+
+    Ok(())
+}
+
+// Secp256k1 recover
+#[inline(never)]
+pub fn handle_syscall_secp256k1_recover(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_SECP256K1_RECOVER");
+    // secp256k1_recover(hash, recovery_id, signature, result)
+    // Stack: result, signature, recovery_id, hash.
+
+    let result_ref = ctx.pop()?;
+    let signature_ref = ctx.pop()?;
+    let recovery_id = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+    let hash_ref = ctx.pop()?;
+
+    let result_ptr = match result_ref {
+         ValueRef::TempRef(offset, _) => unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(offset as usize) },
+         _ => return Err(VMErrorCode::TypeMismatch),
+    };
+
+    // Hash (32 bytes)
+    let hash_ptr = match hash_ref {
+         ValueRef::TempRef(offset, _) => unsafe { ctx.temp_buffer().as_ptr().add(offset as usize) },
+         _ => return Err(VMErrorCode::TypeMismatch),
+    };
+
+    // Signature (64 bytes)
+    let sig_ptr = match signature_ref {
+         ValueRef::TempRef(offset, _) => unsafe { ctx.temp_buffer().as_ptr().add(offset as usize) },
+         _ => return Err(VMErrorCode::TypeMismatch),
+    };
+
+    #[cfg(target_os = "solana")]
+    unsafe {
+        syscalls::sol_secp256k1_recover(hash_ptr, recovery_id, sig_ptr, result_ptr);
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+         // Mock success
+         unsafe { *result_ptr = 0; }
+         let _ = (recovery_id, hash_ptr, sig_ptr);
+    }
+
+    Ok(())
+}
+
+// Curve syscalls - simplified placeholders calling raw syscalls assuming correct pointers
+// macro_rules! impl_curve_syscall { ... } // Unused
+
+// Implementing one as example
+#[inline(never)]
+pub fn handle_syscall_alt_bn128_compression(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_ALT_BN128_COMPRESSION");
+    // op, input, input_size, result
+    let result_ref = ctx.pop()?;
+    let input_size = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+    let input_ref = ctx.pop()?;
+    let op = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+
+    let result_ptr = match result_ref {
+        ValueRef::TempRef(offset, _) => unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(offset as usize) },
+         _ => return Err(VMErrorCode::TypeMismatch),
+    };
+
+    let input_ptr = match input_ref {
+        ValueRef::TempRef(offset, _) => unsafe { ctx.temp_buffer().as_ptr().add(offset as usize) },
+         _ => return Err(VMErrorCode::TypeMismatch),
+    };
+
+    #[cfg(target_os = "solana")]
+    unsafe {
+        syscalls::sol_alt_bn128_compression(op, input_ptr, input_size, result_ptr);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        // Suppress unused warnings
+        let _ = (input_size, op, result_ptr, input_ptr);
+    }
+
+    Ok(())
+}
+
+
+// Remaining are placeholders for now to save space, but declared
+#[inline(never)]
+pub fn handle_syscall_alt_bn128_group_op(_ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_ALT_BN128_GROUP_OP - Stub");
+    Ok(())
+}
+
+#[inline(never)]
+pub fn handle_syscall_big_mod_exp(_ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_BIG_MOD_EXP - Stub");
+    Ok(())
+}
+
+#[inline(never)]
+pub fn handle_syscall_curve_group_op(_ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_CURVE_GROUP_OP - Stub");
+    Ok(())
+}
+
+#[inline(never)]
+pub fn handle_syscall_curve_multiscalar_mul(_ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_CURVE_MULTISCALAR_MUL - Stub");
+    Ok(())
+}
+
+#[inline(never)]
+pub fn handle_syscall_curve_pairing_map(_ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_CURVE_PAIRING_MAP - Stub");
+    Ok(())
+}
+
+#[inline(never)]
+pub fn handle_syscall_curve_validate_point(_ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_CURVE_VALIDATE_POINT - Stub");
+    Ok(())
+}

@@ -123,16 +123,53 @@ pub fn handle_syscall_create_program_address(ctx: &mut ExecutionManager) -> Comp
     debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS");
 
     // Pop program_id and seeds from stack
-    let _program_id_ref = ctx.pop()?;
-    let _seeds_ref = ctx.pop()?;
+    // Stack: push seeds, push program_id. Pop: program_id, seeds.
+    let program_id_ref = ctx.pop()?;
+    let seeds_ref = ctx.pop()?;
 
-    // For now, return a placeholder result
-    // Full implementation would need proper seed parsing and PDA derivation
-    debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS - returning placeholder");
+    // Extract pubkey directly
+    let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
+    let program_pubkey = Pubkey::from(program_id_bytes);
 
-    // Push success result (placeholder pubkey reference)
-    ctx.push(ValueRef::result_ok(0, 0))?;
-    Ok(())
+    // Process seeds
+    // Since we don't support full array parsing yet, we treat seeds_ref as a single seed
+    // or if it is an ArrayRef, we treat its content as the seed.
+    // Ideally we should support list of seeds.
+    // For now, support up to 1 seed.
+    const MAX_SEEDS: usize = 8;
+    let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
+
+    // Process single seed
+    let len = process_seed_value(seeds_ref, &mut seeds, 0, ctx)?;
+    let seed_refs = [&seeds[0][..len]];
+
+    debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS calling create_program_address");
+
+    // Perform PDA derivation based on target
+    #[cfg(target_os = "solana")]
+    let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> =
+        create_program_address(&seed_refs, &program_pubkey)
+            .map_err(|_| pinocchio::program_error::ProgramError::Custom(9101));
+
+    #[cfg(not(target_os = "solana"))]
+    let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> =
+        crate::utils::derive_pda_offchain(&seed_refs, &program_pubkey).map_err(|e| e.into());
+
+    match pda_result {
+        Ok(pda_pubkey) => {
+            debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS success");
+            push_pda_result(ctx, pda_pubkey, 0)
+        }
+        Err(_e) => {
+            debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS failed");
+            // Return null/error? Syscall usually returns 0 for success?
+            // create_program_address returns void/result?
+            // Pinocchio syscall returns u64 (Success=0).
+            // But VM should probably return Result<Pubkey>.
+            // If the syscall fails, we return error in VM logic.
+            Err(VMErrorCode::InvokeError)
+        }
+    }
 }
 
 /// Handle sol_try_find_program_address syscall - PDA generation with bump search
@@ -140,17 +177,30 @@ pub fn handle_syscall_create_program_address(ctx: &mut ExecutionManager) -> Comp
 pub fn handle_syscall_try_find_program_address(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS");
 
-    // Pop program_id and seeds from stack
-    let _program_id_ref = ctx.pop()?;
-    let _seeds_ref = ctx.pop()?;
+    let program_id_ref = ctx.pop()?;
+    let seeds_ref = ctx.pop()?;
 
-    // For now, return a placeholder result with bump seed
-    debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS - returning placeholder");
+    let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
+    let program_pubkey = Pubkey::from(program_id_bytes);
 
-    // Push success result (placeholder pubkey + bump)
-    ctx.push(ValueRef::U8(255))?; // bump seed
-    ctx.push(ValueRef::result_ok(0, 0))?; // pubkey result
-    Ok(())
+    // Process seeds (single seed support for now)
+    const MAX_SEEDS: usize = 8;
+    let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
+
+    let len = process_seed_value(seeds_ref, &mut seeds, 0, ctx)?;
+    let seed_refs = [&seeds[0][..len]];
+
+    debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS calling find_program_address");
+
+    #[cfg(target_os = "solana")]
+    let (pda_pubkey, bump_seed) = find_program_address(&seed_refs, &program_pubkey);
+
+    #[cfg(not(target_os = "solana"))]
+    let (pda_pubkey, bump_seed) =
+        crate::utils::find_program_address_offchain(&seed_refs, &program_pubkey)?;
+
+    debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS success");
+    push_pda_result(ctx, pda_pubkey, bump_seed)
 }
 
 /// Execute a closure with parsed PDA seeds and program ID.
