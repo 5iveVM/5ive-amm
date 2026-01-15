@@ -1,6 +1,6 @@
 use crate::ast::{AstNode, EventFieldAssignment, MatchArm, BlockKind};
 use crate::parser::{DslParser, types};
-use crate::tokenizer::{Token, TokenKind};
+use crate::tokenizer::Token;
 use five_vm_mito::error::VMError;
 
 impl DslParser {
