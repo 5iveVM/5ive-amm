@@ -1,8 +1,5 @@
 
-// FIVE VM implementation using Pinocchio for maximum performance
-//
-// This implementation leverages Pinocchio's zero-copy deserialization
-// and direct memory access for optimal compute unit usage.
+// FIVE VM implementation.
 
 use pinocchio::{
     // program_entrypoint,
@@ -13,7 +10,6 @@ use pinocchio::{
     ProgramResult,
 };
 
-// Conditional logging macro for debug/error levels
 #[macro_export]
 macro_rules! debug_log {
     ($fmt:literal $(, $arg:expr)*) => {
@@ -36,7 +32,6 @@ mod tests_process_instruction;
 #[cfg(test)]
 pub mod test_utils;
 
-// DSL compiler functionality removed from onchain program
 mod common;
 mod error;
 pub use error::FIVEError;
@@ -68,11 +63,10 @@ pub mod test_call_external_constraint_bug;
 
 use instructions::FIVEInstruction;
 
-// Use the optimized Pinocchio entrypoint (no allocator) for minimal CU
 //program_entrypoint!(process_instruction);
 entrypoint!(process_instruction); // Basic entrypoint (includes allocator/panic handler)
 
-/// Optimized program entrypoint with no allocator (zero heap allocations)
+/// Program entrypoint.
 pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],

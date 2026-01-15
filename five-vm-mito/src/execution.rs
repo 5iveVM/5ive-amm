@@ -21,7 +21,6 @@ use crate::{
 use five_protocol::{Value, ValueRef, FIVE_HEADER_OPTIMIZED_SIZE};
 
 
-// ExecutionResult removed - fake CU tracking eliminated for production
 use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
 #[cfg(feature = "debug-logs")]
 use heapless::String as HString;
@@ -110,18 +109,17 @@ impl MitoVM {
             }
         }
 
-        // TRUST: Script format validated at deploy-time, skip validation here
-        // This enables blazing-fast execution path
+        // Script format validated at deploy-time.
 
-        // Parse optimized production header V2 (magic + features + public_count + total_count)
+        // Parse optimized header (magic + features + public_count + total_count)
         let (start_ip, public_function_count, total_function_count, header_features) =
             Self::parse_optimized_header(script)?;
 
-        // Create execution manager with optimized approach
+        // Create execution manager
         debug_log!("MitoVM: Creating ExecutionManager...");
 
-        // 🚀 OPTIMIZED: Direct ExecutionManager creation - no expensive resource parsing
-        debug_log!("MitoVM: ⚡ Using compile-time defaults for optimal performance");
+        // Direct ExecutionManager creation.
+        debug_log!("MitoVM: Using compile-time defaults");
         debug_log!(
             "MitoVM: Function counts from header: {} public, {} total",
             public_function_count as u32,
@@ -183,30 +181,25 @@ impl MitoVM {
                 handle_accounts(opcode, ctx)
             }
             0x60..=0x6F => {
-                // 🎯 LOGICAL REORGANIZATION: Arrays now at 0x60 (moved from scattered locations)
                 handle_arrays(opcode, ctx)
             }
             0x70..=0x7F => {
-                // 🎯 LOGICAL REORGANIZATION: Constraints moved from 0x60 to 0x70
                 handle_constraints(opcode, ctx)
             }
             0x80..=0x8F => {
-                // 🎯 LOGICAL REORGANIZATION: System operations moved from 0x70 to 0x80
                 handle_system_ops(opcode, ctx)
             }
             0x90..=0x9F => {
-                // 🎯 LOGICAL REORGANIZATION: Functions moved from 0x80 to 0x90
                 handle_functions(opcode, ctx)
             }
             0xA0..=0xAF => {
-                // 🎯 LOGICAL REORGANIZATION: Locals moved from 0x90 to 0xA0 + general operations
                 handle_locals(opcode, ctx)
             }
             0xB0..=0xBF => {
                 handle_registers(opcode, ctx)
             }
             0xC0..=0xCF => {
-                // [REMOVED] Account view operations - use zero-copy LOAD_FIELD/STORE_FIELD instead
+                // Account view operations removed - use zero-copy LOAD_FIELD/STORE_FIELD instead
                 debug_log!(
                     "MitoVM: Account view opcode {} removed - use LOAD_FIELD/STORE_FIELD",
                     opcode
@@ -316,8 +309,7 @@ impl MitoVM {
                 return Err(e);
             }
 
-            // CRITICAL FIX: Check halted flag immediately after opcode execution
-            // This fixes the regression where RETURN_VALUE sets halted=true but loop continues
+            // Check halted flag immediately after opcode execution
             let post_execution_halted = ctx.halted();
             if post_execution_halted {
                 debug_log!(
@@ -333,20 +325,6 @@ impl MitoVM {
             }
         }
 
-        // DIAGNOSTIC: Stack state at the END of execution loop
-        #[cfg(feature = "debug-logs")]
-        {
-            debug_log!(
-                "STACK_DEBUG: END of execute_instruction_loop - stack size: {}, halted: {}",
-                ctx.size() as u32,
-                ctx.halted() as u8
-            );
-            if !ctx.is_empty() {
-                debug_log!("STACK_DEBUG: Final stack has items, returning to execute_with_context");
-            } else {
-                debug_log!("STACK_DEBUG: WARNING - Final stack is EMPTY, this may be the problem!");
-            }
-        }
 
         Ok(())
     }
@@ -567,9 +545,8 @@ impl MitoVM {
     // Decomposed execute_direct() for improved maintainability and performance
     // Four focused functions handle initialization, execution, dispatch, and finalization
 
-    /// Parse optimized script header V3 (10 bytes)
+    /// Parse optimized script header (10 bytes)
     ///
-    /// **TRUST Deploy-Time Verification**
     /// This function assumes bytecode was verified during deployment:
     /// - Header format is valid (magic, features, counts)
     /// - All opcodes are valid
@@ -631,7 +608,7 @@ impl MitoVM {
         ))
     }
 
-    /// Fast metadata offset computation (trust deploy-time validation)
+    /// Fast metadata offset computation
     /// Skips VLE validation since deploy-time ensures format is valid
     #[inline]
     fn compute_instruction_start_fast(script: &[u8], features: u32, public_count: u8) -> usize {
@@ -642,7 +619,7 @@ impl MitoVM {
             return FIVE_HEADER_OPTIMIZED_SIZE;
         }
 
-        // TRUST: Metadata format was validated at deploy-time
+        // Metadata format was validated at deploy-time
         // Quick VLE decode without bounds checking (format guaranteed valid)
         let mut offset = FIVE_HEADER_OPTIMIZED_SIZE;
         let mut section_size = 0u16;
@@ -663,7 +640,7 @@ impl MitoVM {
         (offset + section_size as usize).min(script.len())
     }
 
-    // 🚀 OPTIMIZED: Function validation removed for performance
+    // Function validation removed for performance
     // Simple bounds checking is done inline during function dispatch
     // Function 0 is always the main entry point
 }
@@ -703,7 +680,7 @@ mod tests {
 
     #[test]
     fn parse_optimized_header_with_valid_bytes() {
-        // NOTE: We no longer validate magic bytes at execute-time
+        // We no longer validate magic bytes at execute-time
         // Trust deploy-time verification instead for performance
         // This test verifies the parser still works with valid bytecode
 
@@ -726,7 +703,7 @@ mod tests {
     #[test]
     fn parse_optimized_header_minimum_size() {
         // Minimum valid script is 10 bytes (header)
-        // NOTE: This test trusts deploy-time verified bytecode
+        // This test trusts deploy-time verified bytecode
 
         let script = vec![
             b'5', b'I', b'V', b'E',  // magic

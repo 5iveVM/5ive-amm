@@ -95,10 +95,9 @@ pub use types::{CallFrame, LocalVariables};
 pub use utils::DebugUtils;
 pub use utils::{BytecodeUtils, ErrorUtils, ValueRefUtils};
 
-// Re-export pinocchio types for convenience
+// Re-export pinocchio types
 pub use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
-// Re-export magic bytes from protocol for consistency
 pub use five_protocol::{FIVE_DEPLOY_MAGIC, FIVE_MAGIC};
 
 /// FIVE VM Program ID (placeholder - should match actual deployed program)
@@ -118,8 +117,6 @@ pub const MAX_LOCALS: usize = 32;
 /// Maximum function parameters (limited by parameter array size)
 pub const MAX_PARAMETERS: usize = 7;
 
-// Field-level variables removed - MitoVM uses account-based storage only
-
 /// Maximum script size in bytes
 pub const MAX_SCRIPT_SIZE: usize = 10_000;
 
@@ -130,10 +127,9 @@ pub const MAX_CALL_DEPTH: usize = 8;
 /// Temporary buffer size for byte operations (heap-backed in context)
 pub const TEMP_BUFFER_SIZE: usize = five_protocol::TEMP_BUFFER_SIZE; // default 64
 
-// Import unified opcodes from function transport
 pub use five_protocol::*;
 
-/// Legacy enhanced opcodes module for compatibility - now uses transport
+/// Legacy enhanced opcodes module for compatibility.
 pub mod enhanced_opcodes {
     // Re-export all opcodes from function transport
     pub use five_protocol::*;
@@ -156,7 +152,6 @@ macro_rules! debug_log {
 
 pub(crate) use debug_log;
 
-// Always enable error logging for critical failures
 macro_rules! error_log {
     ($($arg:tt)*) => {
         #[cfg(target_os = "solana")]
