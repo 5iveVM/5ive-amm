@@ -1,0 +1,431 @@
+use crate::ast::{AstNode, Attribute, InstructionParameter};
+use crate::parser::{DslParser, types};
+use crate::tokenizer::{Token};
+use five_vm_mito::error::VMError;
+
+pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNode, VMError> {
+    parser.advance(); // consume 'interface'
+
+    // Parse interface name
+    let name = match &parser.current_token {
+        Token::Identifier(name) => name.clone(),
+        _ => return Err(parser.parse_error("interface name identifier")),
+    };
+    parser.advance();
+
+    // Parse optional program ID: program("address") or @program("address")
+    let mut program_id: Option<String> = None;
+    let mut serializer: Option<String> = None;
+    if matches!(&parser.current_token, Token::Identifier(name) if name == "program") {
+        parser.advance(); // consume 'program'
+        if !matches!(parser.current_token, Token::LeftParen) {
+            return Err(parser.parse_error("'(' after program keyword"));
+        }
+        parser.advance(); // consume '('
+        let id = match &parser.current_token {
+            Token::StringLiteral(s) => s.clone(),
+            _ => return Err(parser.parse_error("string literal for program ID")),
+        };
+        parser.advance();
+        if !matches!(parser.current_token, Token::RightParen) {
+            return Err(parser.parse_error("')' after program ID"));
+        }
+        parser.advance(); // consume ')'
+        program_id = Some(id);
+    } else if matches!(parser.current_token, Token::At) {
+        // Attribute form: @program("...")
+        let saved_pos = parser.position;
+        parser.advance(); // consume '@'
+        let is_program_attr =
+            matches!(&parser.current_token, Token::Identifier(name) if name == "program");
+        if is_program_attr {
+            parser.advance(); // consume 'program' identifier
+            if !matches!(parser.current_token, Token::LeftParen) {
+                return Err(parser.parse_error("'(' after program attribute"));
+            }
+            parser.advance(); // '('
+            let id = match &parser.current_token {
+                Token::StringLiteral(s) => s.clone(),
+                _ => return Err(parser.parse_error("string literal for program ID")),
+            };
+            parser.advance();
+            if !matches!(parser.current_token, Token::RightParen) {
+                return Err(parser.parse_error("')' after program ID"));
+            }
+            parser.advance(); // ')'
+            program_id = Some(id);
+        } else {
+            // Not a @program attribute; rewind to saved position so later parsing can continue cleanly
+            parser.position = saved_pos;
+            parser.current_token = parser
+                .tokens
+                .get(parser.position)
+                .cloned()
+                .unwrap_or(Token::Eof);
+        }
+    }
+
+    // Optional serializer hint: serializer("borsh") or @serializer("borsh")
+    if serializer.is_none() {
+        if matches!(&parser.current_token, Token::Identifier(name) if name == "serializer") {
+            parser.advance(); // consume 'serializer'
+            if !matches!(parser.current_token, Token::LeftParen) {
+                return Err(parser.parse_error("'(' after serializer keyword"));
+            }
+            parser.advance(); // '('
+            let ser = match &parser.current_token {
+                Token::StringLiteral(s) => s.clone(),
+                _ => return Err(parser.parse_error("string literal for serializer name")),
+            };
+            parser.advance();
+            if !matches!(parser.current_token, Token::RightParen) {
+                return Err(parser.parse_error("')' after serializer name"));
+            }
+            parser.advance(); // ')'
+            serializer = Some(ser);
+        } else if matches!(parser.current_token, Token::At) {
+            let saved_pos = parser.position;
+            parser.advance(); // consume '@'
+            let is_serializer_attr =
+                matches!(&parser.current_token, Token::Identifier(name) if name == "serializer");
+            if is_serializer_attr {
+                parser.advance(); // consume 'serializer'
+                if !matches!(parser.current_token, Token::LeftParen) {
+                    return Err(parser.parse_error("'(' after serializer attribute"));
+                }
+                parser.advance(); // '('
+                let ser = match &parser.current_token {
+                    Token::StringLiteral(s) => s.clone(),
+                    _ => return Err(parser.parse_error("string literal for serializer name")),
+                };
+                parser.advance();
+                if !matches!(parser.current_token, Token::RightParen) {
+                    return Err(parser.parse_error("')' after serializer name"));
+                }
+                parser.advance(); // ')'
+                serializer = Some(ser);
+            } else {
+                // Rewind if not serializer attribute
+                parser.position = saved_pos;
+                parser.current_token = parser
+                    .tokens
+                    .get(parser.position)
+                    .cloned()
+                    .unwrap_or(Token::Eof);
+            }
+        }
+    }
+
+    // Parse interface methods: { method1(), method2() }
+    if !matches!(parser.current_token, Token::LeftBrace) {
+        return Err(parser.parse_error("'{' to start interface methods"));
+    }
+    parser.advance(); // consume '{'
+
+    let mut functions = Vec::new();
+
+    while !matches!(parser.current_token, Token::RightBrace)
+        && !matches!(parser.current_token, Token::Eof)
+    {
+        // Parse method name (optional `fn` keyword allowed for readability)
+        if matches!(parser.current_token, Token::Fn) {
+            parser.advance(); // consume 'fn'
+        }
+
+        let method_name = match &parser.current_token {
+            Token::Identifier(name) => name.clone(),
+            _ => return Err(parser.parse_error("method name identifier")),
+        };
+        parser.advance();
+
+        // Optional attribute form for discriminator before parameter list: @discriminator(N)
+        let mut discriminator: Option<u8> = None;
+        let mut discriminator_bytes: Option<Vec<u8>> = None;
+        if matches!(parser.current_token, Token::At) {
+            parser.advance(); // consume '@'
+                            // Accept either identifier("discriminator") or Token::Discriminator
+            let is_disc = matches!(&parser.current_token, Token::Identifier(name) if name == "discriminator")
+                || matches!(parser.current_token, Token::Discriminator);
+            let is_disc_bytes =
+                matches!(&parser.current_token, Token::Identifier(name) if name == "discriminator_bytes")
+                    || matches!(parser.current_token, Token::DiscriminatorBytes);
+            if is_disc {
+                parser.advance(); // consume 'discriminator'
+                if !matches!(parser.current_token, Token::LeftParen) {
+                    return Err(parser.parse_error("'(' after discriminator keyword"));
+                }
+                parser.advance(); // '('
+                discriminator = match &parser.current_token {
+                    Token::NumberLiteral(n) => Some(*n as u8),
+                    _ => return Err(parser.parse_error("number literal for discriminator")),
+                };
+                parser.advance();
+                if !matches!(parser.current_token, Token::RightParen) {
+                    return Err(parser.parse_error("')' after discriminator value"));
+                }
+                parser.advance(); // ')'
+            } else if is_disc_bytes {
+                parser.advance(); // consume 'discriminator_bytes'
+                if !matches!(parser.current_token, Token::LeftParen) {
+                    return Err(parser.parse_error("'(' after discriminator_bytes keyword"));
+                }
+                parser.advance(); // '('
+                let mut bytes = Vec::new();
+                while !matches!(parser.current_token, Token::RightParen)
+                    && !matches!(parser.current_token, Token::Eof)
+                {
+                    let b = match &parser.current_token {
+                        Token::NumberLiteral(n) if *n <= u8::MAX as u64 => *n as u8,
+                        _ => {
+                            return Err(
+                                parser.parse_error("number literal (0-255) for discriminator_bytes"),
+                            )
+                        }
+                    };
+                    bytes.push(b);
+                    parser.advance();
+                    if matches!(parser.current_token, Token::Comma) {
+                        parser.advance(); // consume ',' and continue
+                    } else {
+                        break;
+                    }
+                }
+                if !matches!(parser.current_token, Token::RightParen) {
+                    return Err(parser.parse_error("')' after discriminator_bytes values"));
+                }
+                parser.advance(); // ')'
+                discriminator_bytes = Some(bytes);
+            } else {
+                // Unknown attribute before params; ignore gracefully by skipping identifier and any (...) group
+                // Best-effort skip
+            }
+        }
+
+        // Parse parameter list: (param1: Type, param2?: Type)
+        if !matches!(parser.current_token, Token::LeftParen) {
+            return Err(parser.parse_error("'(' to start method parameter list"));
+        }
+        parser.advance(); // consume '('
+
+        let mut parameters = Vec::new();
+
+        while !matches!(parser.current_token, Token::RightParen)
+            && !matches!(parser.current_token, Token::Eof)
+        {
+            // Parse parameter name
+            let param_name = match &parser.current_token {
+                Token::Identifier(name) => name.clone(),
+                _ => return Err(parser.parse_error("parameter name identifier")),
+            };
+            parser.advance();
+
+            // Check for optional marker: param?
+            let is_optional = if matches!(parser.current_token, Token::Question) {
+                parser.advance(); // consume '?'
+                true
+            } else {
+                false
+            };
+
+            // Parse parameter type: : Type
+            if !matches!(parser.current_token, Token::Colon) {
+                return Err(parser.parse_error("':' after parameter name for type annotation"));
+            }
+            parser.advance(); // consume ':'
+
+            let param_type = types::parse_type(parser)?;
+
+            // Parse optional account attributes after type: @signer, @mut, @init
+            let mut attributes: Vec<Attribute> = Vec::new();
+            let mut is_init = false;
+            let mut init_config = None;
+
+            while matches!(
+                parser.current_token,
+                Token::AtSigner | Token::AtMut | Token::AtInit | Token::At
+            ) {
+                match &parser.current_token {
+                    Token::AtSigner => {
+                        attributes.push(Attribute { name: "signer".to_string(), args: vec![] });
+                        parser.advance();
+                    }
+                    Token::AtMut => {
+                        attributes.push(Attribute { name: "mut".to_string(), args: vec![] });
+                        parser.advance();
+                    }
+                    Token::AtInit => {
+                        is_init = true;
+                        attributes.push(Attribute { name: "init".to_string(), args: vec![] });
+                        parser.advance();
+
+                        // For interfaces, we might not need full init config parsing with seeds,
+                        // but let's handle the basic token consumption to be safe.
+                        // If [seeds] are present, parse them to avoid syntax errors.
+                        if matches!(parser.current_token, Token::LeftBracket) {
+                            parser.advance(); // consume '['
+                            let mut seeds = Vec::new();
+                            while !matches!(parser.current_token, Token::RightBracket | Token::Eof) {
+                                seeds.push(parser.parse_expression()?);
+                                if matches!(parser.current_token, Token::Comma) {
+                                    parser.advance();
+                                } else if !matches!(parser.current_token, Token::RightBracket) {
+                                    return Err(parser.parse_error("',' or ']' in seed list"));
+                                }
+                            }
+                            if !matches!(parser.current_token, Token::RightBracket) {
+                                return Err(parser.parse_error("']' to close seed list"));
+                            }
+                            parser.advance(); // consume ']'
+
+                            init_config = Some(crate::ast::InitConfig {
+                                seeds: if seeds.is_empty() { None } else { Some(seeds) },
+                                bump: None,
+                                space: None,
+                                payer: None,
+                            });
+                        } else {
+                            init_config = Some(crate::ast::InitConfig {
+                                seeds: None,
+                                bump: None,
+                                space: None,
+                                payer: None,
+                            });
+                        }
+                    }
+                    Token::At => {
+                        parser.advance(); // consume '@'
+                        let name = parser.expect_ident()?;
+                        let mut args = Vec::new();
+                        if matches!(parser.current_token, Token::LeftParen) {
+                            parser.advance(); // consume '('
+                            while !matches!(parser.current_token, Token::RightParen)
+                                && !matches!(parser.current_token, Token::Eof)
+                            {
+                                args.push(parser.parse_expression()?);
+                                if matches!(parser.current_token, Token::Comma) {
+                                    parser.advance();
+                                } else {
+                                    break;
+                                }
+                            }
+                            if !matches!(parser.current_token, Token::RightParen) {
+                                return Err(parser.parse_error("')' to close attribute arguments"));
+                            }
+                            parser.advance(); // consume ')'
+                        }
+                        attributes.push(Attribute { name, args });
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            // Interface methods don't have attributes or default values
+            parameters.push(InstructionParameter {
+                name: param_name,
+                param_type,
+                is_optional,
+                default_value: None,
+                attributes,
+                is_init,
+                init_config,
+            });
+
+            // Handle comma separator
+            if matches!(parser.current_token, Token::Comma) {
+                parser.advance(); // consume ','
+            } else {
+                break;
+            }
+        }
+
+        if !matches!(parser.current_token, Token::RightParen) {
+            return Err(parser.parse_error("')' to end method parameter list"));
+        }
+        parser.advance(); // consume ')'
+
+        // Parse optional return type: -> ReturnType
+        let return_type = if matches!(parser.current_token, Token::Arrow) {
+            parser.advance(); // consume '->'
+            Some(Box::new(types::parse_type(parser)?))
+        } else {
+            None
+        };
+
+        // Parse optional discriminator after params: discriminator(N) or discriminator_bytes(...)
+        let (discriminator, discriminator_bytes) = if discriminator.is_some() || discriminator_bytes.is_some() {
+            (discriminator, discriminator_bytes)
+        } else if matches!(parser.current_token, Token::Discriminator) {
+            parser.advance(); // consume 'discriminator'
+            if !matches!(parser.current_token, Token::LeftParen) {
+                return Err(parser.parse_error("'(' after discriminator keyword"));
+            }
+            parser.advance(); // consume '('
+
+            let disc = match &parser.current_token {
+                Token::NumberLiteral(n) => Some(*n as u8),
+                _ => return Err(parser.parse_error("number literal for discriminator")),
+            };
+            parser.advance();
+
+            if !matches!(parser.current_token, Token::RightParen) {
+                return Err(parser.parse_error("')' after discriminator value"));
+            }
+            parser.advance(); // consume ')'
+            (disc, None)
+        } else if matches!(parser.current_token, Token::DiscriminatorBytes) {
+            parser.advance(); // consume 'discriminator_bytes'
+            if !matches!(parser.current_token, Token::LeftParen) {
+                return Err(parser.parse_error("'(' after discriminator_bytes keyword"));
+            }
+            parser.advance(); // consume '('
+            let mut bytes = Vec::new();
+            while !matches!(parser.current_token, Token::RightParen)
+                && !matches!(parser.current_token, Token::Eof)
+            {
+                let b = match &parser.current_token {
+                    Token::NumberLiteral(n) if *n <= u8::MAX as u64 => *n as u8,
+                    _ => return Err(parser.parse_error("number literal (0-255) for discriminator_bytes")),
+                };
+                bytes.push(b);
+                parser.advance();
+                if matches!(parser.current_token, Token::Comma) {
+                    parser.advance();
+                } else {
+                    break;
+                }
+            }
+            if !matches!(parser.current_token, Token::RightParen) {
+                return Err(parser.parse_error("')' after discriminator_bytes values"));
+            }
+            parser.advance(); // consume ')'
+            (None, Some(bytes))
+        } else {
+            (None, None)
+        };
+
+        // Optional semicolon
+        if matches!(parser.current_token, Token::Semicolon) {
+            parser.advance();
+        }
+
+        functions.push(AstNode::InterfaceFunction {
+            name: method_name,
+            parameters,
+            return_type,
+            discriminator,
+            discriminator_bytes,
+        });
+    }
+
+    if !matches!(parser.current_token, Token::RightBrace) {
+        return Err(parser.parse_error("'}' to end interface methods"));
+    }
+    parser.advance(); // consume '}'
+
+    Ok(AstNode::InterfaceDefinition {
+        name,
+        program_id,
+        serializer,
+        functions,
+    })
+}
