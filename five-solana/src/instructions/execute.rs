@@ -85,15 +85,8 @@ fn vm_error_name(err: &VMError) -> &'static str {
 
 /// Execute a script with optional pre/post bytecode hooks
 ///
-/// **Pre-Execution Hook** (if PERMISSION_PRE_BYTECODE is set):
-/// - Runs the bytecode BEFORE main execution
-/// - Can validate conditions, collect fees, etc.
-/// - If pre-execution fails, main script never runs
-///
-/// **Post-Execution Hook** (if PERMISSION_POST_BYTECODE is set):
-/// - Runs the bytecode AFTER main execution
-/// - Can process results, log, cleanup, etc.
-/// - Only runs if main execution succeeds
+/// **Pre-Execution Hook** (PERMISSION_PRE_BYTECODE).
+/// **Post-Execution Hook** (PERMISSION_POST_BYTECODE).
 pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> ProgramResult {
     #[cfg(feature = "debug-logs")]
     debug_log!("DEBUG: execute ENTRY");
@@ -113,9 +106,9 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     #[cfg(feature = "debug-logs")]
     debug_log!("DEBUG: validate_vm_and_script_accounts PASS");
 
-    // Collect execution fee if configured.
+    // Collect execution fee.
     let vm_accounts = {
-        // SAFETY: The state account is program-owned and read-only here.
+        // SAFETY: State account program-owned, read-only.
         let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
         let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
         let fee = calculate_fee(STANDARD_TX_FEE, vm_state.execute_fee_bps);
@@ -184,8 +177,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     // Execute main bytecode
     #[cfg(feature = "debug-logs")]
     debug_log!("DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]");
-    // MitoVM expects accounts WITHOUT the Script account, only [VM State, param0, param1, ...]
-    // This aligns with ACCOUNT_INDEX_OFFSET = 1 in the compiler
+    // MitoVM expects accounts starting from VM State.
 
     if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
         #[cfg(feature = "debug-logs")]

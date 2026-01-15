@@ -1107,7 +1107,7 @@ export class FiveSDK {
         console.log(`[FiveSDK] ABI processing error:`, metadataError);
       }
 
-      // GRACEFUL HANDLING: Use VLE encoding without metadata
+      // Use VLE encoding without metadata
       functionIndex = typeof functionName === "number" ? functionName : 0;
 
       // Create parameter definitions for VLE encoding (assume all u64)
@@ -1912,7 +1912,6 @@ export class FiveSDK {
         return idx + 2;
       }
 
-      // CRITICAL: Don't silently fall back to 0 - this causes VM errors
       throw new Error(`Account parameter ${pubkeyStr.slice(0, 8)}... not found in accounts array. Available accounts: ${accounts.map((a: string) => a.slice(0, 8) + '...').join(', ')}`);
     };
 
@@ -3289,8 +3288,6 @@ export class FiveSDK {
           },
         );
       } catch (metadataError) {
-        // NO FALLBACK: Metadata is required for proper VLE encoding
-        // ENGINEERING INTEGRITY: No duplicate code paths, no silent degradation
         const errorMessage = `Execution instruction generation failed - metadata required for VLE encoding: ${metadataError instanceof Error ? metadataError.message : "Unknown metadata error"}`;
         if (options.debug) {
           console.error(`[FiveSDK] ${errorMessage}`);
@@ -4805,7 +4802,7 @@ export class FiveSDK {
       const scriptKeypair = Keypair.generate();
       const scriptAccount = scriptKeypair.publicKey.toString();
 
-      // PRE-ALLOCATION OPTIMIZATION: Calculate full account size upfront
+      // Calculate full account size upfront
       const SCRIPT_HEADER_SIZE = 128; // FIVEScriptHeaderV2::LEN
       const totalAccountSize = SCRIPT_HEADER_SIZE + bytecode.length;
       const rentLamports =
@@ -4920,10 +4917,10 @@ export class FiveSDK {
         );
       }
 
-      // OPTIMIZATION 1: TRANSACTION 1 - Create Account + InitLargeProgramWithChunk (combined)
+      // TRANSACTION 1 - Create Account + InitLargeProgramWithChunk (combined)
       if (options.debug) {
         console.log(
-          `[FiveSDK] ⚡ OPTIMIZED Step 1: Create account + initialize with first chunk (${firstChunk.length} bytes)`,
+          `[FiveSDK] Step 1: Create account + initialize with first chunk (${firstChunk.length} bytes)`,
         );
       }
 
@@ -4934,7 +4931,7 @@ export class FiveSDK {
         fromPubkey: deployerKeypair.publicKey,
         newAccountPubkey: scriptKeypair.publicKey,
         lamports: rentLamports, // Full rent paid upfront
-        space: totalAccountSize, // PRE-ALLOCATE full space
+        space: totalAccountSize,
         programId: programId,
       });
       initTransaction.add(createAccountInstruction);
@@ -5012,7 +5009,7 @@ export class FiveSDK {
         );
       }
 
-      // OPTIMIZATION 2: Group remaining chunks into multi-chunk transactions
+      // Group remaining chunks into multi-chunk transactions
       if (remainingChunks.length > 0) {
         const groupedChunks = this.groupChunksForOptimalTransactions(
           remainingChunks,
@@ -5021,7 +5018,7 @@ export class FiveSDK {
 
         if (options.debug) {
           console.log(
-            `[FiveSDK] ⚡ OPTIMIZATION: Grouped ${remainingChunks.length} remaining chunks into ${groupedChunks.length} transactions`,
+            `[FiveSDK] Grouped ${remainingChunks.length} remaining chunks into ${groupedChunks.length} transactions`,
           );
         }
 
@@ -5034,7 +5031,7 @@ export class FiveSDK {
 
           if (options.debug) {
             console.log(
-              `[FiveSDK] ⚡ Step ${groupIdx + 2}: Appending ${chunkGroup.length} chunks in single transaction`,
+              `[FiveSDK] Step ${groupIdx + 2}: Appending ${chunkGroup.length} chunks in single transaction`,
             );
           }
 
