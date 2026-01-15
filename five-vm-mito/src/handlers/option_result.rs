@@ -308,6 +308,70 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 }
             }
         }
+        CREATE_TUPLE => {
+            debug_log!("MitoVM: CREATE_TUPLE - create tuple");
+            let element_count = ctx.fetch_byte()? as usize;
+
+            if (ctx.stack.sp as usize) < element_count {
+                return Err(VMErrorCode::StackError);
+            }
+
+            // Calculate size
+            let mut total_size = 0;
+            for i in 0..element_count {
+                let idx = ctx.stack.sp as usize - 1 - i;
+                let element = ctx.stack.stack[idx];
+                total_size += element.serialized_size();
+            }
+
+            let offset = ctx.alloc_temp(total_size as u8)?;
+
+            // Pop elements and write them (reverse order pop, so we write from end to start to preserve order)
+            let mut write_pos = offset as usize + total_size;
+            for _ in 0..element_count {
+                let element = ctx.pop()?;
+                let size = element.serialized_size();
+                write_pos -= size;
+                element.serialize_into(&mut ctx.temp_buffer_mut()[write_pos..write_pos+size])
+                    .map_err(|_| VMErrorCode::ProtocolError)?;
+            }
+
+            ctx.push(ValueRef::TupleRef(offset, total_size as u8))?;
+        }
+        TUPLE_GET => {
+            debug_log!("MitoVM: TUPLE_GET - get tuple element");
+            let index = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)? as usize;
+            let tuple_ref = ctx.pop()?;
+
+            let (offset, size) = match tuple_ref {
+                ValueRef::TupleRef(o, s) => (o, s),
+                _ => return Err(VMErrorCode::TypeMismatch),
+            };
+
+            let mut current_offset = offset as usize;
+            let end_offset = current_offset + size as usize;
+            let mut current_idx = 0;
+
+            loop {
+                 if current_offset >= end_offset {
+                     return Err(VMErrorCode::IndexOutOfBounds);
+                 }
+                 let (val, len) = {
+                      let temp = ctx.temp_buffer();
+                      let v = ValueRef::deserialize_from(&temp[current_offset..])
+                          .map_err(|_| VMErrorCode::ProtocolError)?;
+                      (v, v.serialized_size())
+                 };
+
+                 if current_idx == index {
+                     ctx.push(val)?;
+                     break;
+                 }
+
+                 current_offset += len;
+                 current_idx += 1;
+            }
+        }
         UNPACK_TUPLE => {
             // UNPACK_TUPLE - Unpack tuple elements onto stack
             let tuple_ref = ctx.pop()?;
@@ -316,11 +380,6 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                     let mut current_offset = offset as usize;
                     let end_offset = current_offset + size as usize;
                     
-                    // First pass: validate and collect elements to avoid multiple borrows
-                    // We can't push while reading because pushing might realloc temp buffer (unlikely for stack but possible for context state)
-                    // Actually, ctx.push doesn't touch temp buffer usually, but let's be safe
-                    
-                    // Simple iteration: read and push. ValueRef is Copy? Yes.
                     while current_offset < end_offset {
                         // Scope the immutable borrow
                         let (val, len) = {
@@ -334,7 +393,7 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                         };
                         current_offset += len;
                         
-                        // Push to stack (copies the ValueRef)
+                        // Push to stack
                         ctx.push(val)?;
                     }
                 }
@@ -343,6 +402,21 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                     return Err(VMErrorCode::TypeMismatch);
                 }
             }
+        }
+        STACK_SIZE => {
+            debug_log!("MitoVM: STACK_SIZE - get current stack size");
+            let size = ctx.size() as u64;
+            ctx.push(ValueRef::U64(size))?;
+        }
+        STACK_CLEAR => {
+            debug_log!("MitoVM: STACK_CLEAR - clear entire stack");
+            while !ctx.is_empty() {
+                ctx.pop()?;
+            }
+        }
+        BULK_LOAD_FIELD_N => {
+            debug_log!("MitoVM: BULK_LOAD_FIELD_N - bulk load N fields");
+            return Err(VMErrorCode::InvalidInstruction); // Complex operation for future implementation
         }
         _ => {
             debug_log!("MitoVM: Option/Result opcode {} not implemented", opcode);
