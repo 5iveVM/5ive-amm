@@ -491,6 +491,57 @@ macro_rules! polymorphic_comparison_op {
     }};
 }
 
+#[macro_export]
+macro_rules! bitwise_op {
+    ($ctx:expr, $op_name:expr, $op:tt) => {{
+        let b = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
+        let a = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
+        let result = a $op b;
+        debug_log!("MitoVM: {} {} {} {} = {}", $op_name, a, stringify!($op), b, result);
+        $ctx.push(five_protocol::ValueRef::U64(result))?;
+    }};
+}
+
+#[macro_export]
+macro_rules! shift_op {
+    ($ctx:expr, $op_name:expr, $op:tt) => {{
+        let shift_amount = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
+        let value = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
+        // Limit shift amount to prevent undefined behavior
+        let safe_shift = (shift_amount % 64) as u32;
+        let result = value $op safe_shift;
+        debug_log!(
+            "MitoVM: {} {} {} {} = {}",
+            $op_name,
+            value,
+            stringify!($op),
+            safe_shift,
+            result
+        );
+        $ctx.push(five_protocol::ValueRef::U64(result))?;
+    }};
+}
+
+#[macro_export]
+macro_rules! rotate_op {
+    ($ctx:expr, $op_name:expr, $method:ident) => {{
+        let rotate_amount = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
+        let value = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
+        // Rotate amount modulo 64 for circular rotation
+        let safe_rotate = (rotate_amount % 64) as u32;
+        let result = value.$method(safe_rotate);
+        debug_log!(
+            "MitoVM: {} {} {} {} = {}",
+            $op_name,
+            value,
+            stringify!($method),
+            safe_rotate,
+            result
+        );
+        $ctx.push(five_protocol::ValueRef::U64(result))?;
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{debug_log, stack::StackStorage, error::CompactResult, ExecutionContext, Pubkey};
