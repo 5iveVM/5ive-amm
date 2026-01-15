@@ -8,7 +8,7 @@
 
 #[cfg(test)]
 mod parameter_indexing_tests {
-    use crate::instructions::{FIVEInstruction, EXECUTE_INSTRUCTION};
+    use five::instructions::{FIVEInstruction, EXECUTE_INSTRUCTION};
 
     #[test]
     fn test_execute_instruction_with_parameters() {
@@ -136,7 +136,7 @@ mod parameter_indexing_tests {
 
 #[cfg(test)]
 mod comprehensive_instruction_tests {
-    use crate::instructions::{FIVEInstruction, EXECUTE_INSTRUCTION, DEPLOY_INSTRUCTION};
+    use five::instructions::{FIVEInstruction, EXECUTE_INSTRUCTION, DEPLOY_INSTRUCTION};
 
     #[test]
     fn test_deploy_instruction_parsing() {

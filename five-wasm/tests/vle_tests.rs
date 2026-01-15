@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod vle_encoder_tests {
-    use crate::ParameterEncoder;
+    use five_vm_wasm::ParameterEncoder;
     use five_protocol::encoding::VLE;
     use js_sys::{Array, Uint8Array};
     use wasm_bindgen::prelude::*;
@@ -390,7 +390,7 @@ mod vle_encoder_tests {
 #[cfg(test)]
 #[allow(dead_code)]
 mod integration_tests {
-    use crate::ParameterEncoder;
+    use five_vm_wasm::ParameterEncoder;
     use js_sys::Uint8Array;
     use wasm_bindgen::prelude::*;
     use wasm_bindgen_test::*;

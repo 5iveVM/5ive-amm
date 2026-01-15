@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod deploy_verification_tests {
-    use crate::instructions::verify_bytecode_content;
+    use five::instructions::verify_bytecode_content;
     use five_protocol::{bytecode, opcodes::*};
 
     #[test]

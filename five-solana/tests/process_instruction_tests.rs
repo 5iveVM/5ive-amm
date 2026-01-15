@@ -2,11 +2,11 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::instructions::{
+    use five::instructions::{
         execute, set_fees, FIVEInstruction,
         DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION, STANDARD_TX_FEE,
     };
-    use crate::state::{FIVEVMState, ScriptAccountHeader};
+    use five::state::{FIVEVMState, ScriptAccountHeader};
     use five_protocol::bytecode;
     use pinocchio::account_info::AccountInfo;
     use pinocchio::program_error::ProgramError;

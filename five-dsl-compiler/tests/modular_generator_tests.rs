@@ -5,8 +5,8 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::AstNode;
-    use crate::bytecode_generator::*;
+    use five_dsl_compiler::ast::AstNode;
+    use five_dsl_compiler::bytecode_generator::*;
     use five_protocol::Value;
 
     #[test]

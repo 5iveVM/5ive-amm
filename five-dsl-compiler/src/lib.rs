@@ -62,9 +62,6 @@ pub mod security_rules {
 pub mod tokenizer;
 pub mod type_checker;
 
-#[cfg(test)]
-mod tests;
-
 // Re-export public API
 pub use ast::{
     AstNode, ErrorVariant, EventFieldAssignment, MatchArm, StructField, StructLiteralField,
