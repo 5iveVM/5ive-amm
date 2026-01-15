@@ -1,7 +1,7 @@
 use five_protocol::encoding::VLE;
 use five_protocol::types;
 use five_protocol::ValueRef;
-use five_vm_mito::{AccountInfo, ExecutionContext, FIVE_VM_PROGRAM_ID, Pubkey, StackStorage, TEMP_BUFFER_SIZE, utils::parse_vle_parameters_unified};
+use five_vm_mito::{AccountInfo, ExecutionContext, FIVE_VM_PROGRAM_ID, Pubkey, StackStorage, TEMP_BUFFER_SIZE};
 
 #[test]
 fn parse_typed_string_parameter() {
@@ -30,11 +30,10 @@ fn parse_typed_string_parameter() {
         0,
     );
 
-    let mut params = [ValueRef::Empty; 8];
-    parse_vle_parameters_unified(&mut ctx, &input, &mut params).unwrap();
+    ctx.parse_parameters().unwrap();
 
-    assert_eq!(params[0], ValueRef::U64(2));
-    let string_ref = match params[1] {
+    assert_eq!(ctx.parameters()[0], ValueRef::U64(2));
+    let string_ref = match ctx.parameters()[1] {
         ValueRef::StringRef(offset) => offset as usize,
         other => panic!("Expected StringRef, got {:?}", other),
     };
