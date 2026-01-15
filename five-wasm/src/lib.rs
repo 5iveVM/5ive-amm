@@ -25,7 +25,25 @@ fn init_panic_hook() {
 
 #[wasm_bindgen]
 pub fn log_to_console(message: &str) {
+    log_message(message);
+}
+
+// Helper for logging that works in both WASM and native environments
+fn log_message(message: &str) {
+    #[cfg(target_arch = "wasm32")]
     web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(message));
+
+    #[cfg(not(target_arch = "wasm32"))]
+    println!("[WASM LOG] {}", message);
+}
+
+// Helper for warning that works in both WASM and native environments
+fn warn_message(message: &str) {
+    #[cfg(target_arch = "wasm32")]
+    web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(message));
+
+    #[cfg(not(target_arch = "wasm32"))]
+    eprintln!("[WASM WARN] {}", message);
 }
 
 /// Execution result that honestly reports what happened
@@ -234,7 +252,7 @@ pub struct WasmLogger;
 
 impl WasmLogger {
     pub fn log(&self, message: &str) {
-        web_sys::console::log_1(&JsValue::from_str(message));
+        log_message(message);
     }
 }
 
@@ -613,49 +631,37 @@ impl FiveVMWasm {
         })?;
 
         // Log account information for debugging
-        web_sys::console::log_1(
-            &format!(
-                "WASM: execute_mito_vm called with {} accounts",
-                wasm_accounts.len()
-            )
-            .into(),
-        );
+        log_message(&format!(
+            "WASM: execute_mito_vm called with {} accounts",
+            wasm_accounts.len()
+        ));
         for (i, account) in wasm_accounts.iter().enumerate() {
-            web_sys::console::log_1(
-                &format!(
-                    "WASM: Account {}: writable={}, signer={}, data_len={}",
-                    i,
-                    account.is_writable,
-                    account.is_signer,
-                    account.data.len()
-                )
-                .into(),
-            );
+            log_message(&format!(
+                "WASM: Account {}: writable={}, signer={}, data_len={}",
+                i,
+                account.is_writable,
+                account.is_signer,
+                account.data.len()
+            ));
         }
 
         // WASM execution currently doesn't support real AccountInfo creation since pinocchio
         // AccountInfo structs are typically provided by the Solana validator during execution.
         // For now, use empty accounts but log the account information we would have used.
-        web_sys::console::log_1(
-            &format!(
-                "WASM: Would pass {} accounts to VM execution:",
-                wasm_accounts.len()
-            )
-            .into(),
-        );
+        log_message(&format!(
+            "WASM: Would pass {} accounts to VM execution:",
+            wasm_accounts.len()
+        ));
         for (i, account) in wasm_accounts.iter().enumerate() {
-            web_sys::console::log_1(
-                &format!(
-                    "  Account {}: key={:?}, lamports={}, owner={:?}, signer={}, writable={}",
-                    i,
-                    account.key,
-                    account.lamports,
-                    account.owner,
-                    account.is_signer,
-                    account.is_writable
-                )
-                .into(),
-            );
+            log_message(&format!(
+                "  Account {}: key={:?}, lamports={}, owner={:?}, signer={}, writable={}",
+                i,
+                account.key,
+                account.lamports,
+                account.owner,
+                account.is_signer,
+                account.is_writable
+            ));
         }
 
         // Prepare backing storage for account data
@@ -690,13 +696,10 @@ impl FiveVMWasm {
         }
 
         // Execute using MitoVM with populated accounts
-        web_sys::console::log_1(
-            &format!(
-                "WASM: About to execute MitoVM with account list size: {}",
-                account_infos.len()
-            )
-            .into(),
-        );
+        log_message(&format!(
+            "WASM: About to execute MitoVM with account list size: {}",
+            account_infos.len()
+        ));
 
         // Execute using MitoVM
         // Execute using MitoVM
@@ -732,43 +735,28 @@ impl FiveVMWasm {
         // Enhanced error reporting for debugging
         match &result {
              Ok((result_value, context)) => {
-                web_sys::console::log_1(
-                    &format!(
-                        "WASM: MitoVM execution SUCCESS - IP: {}, halted: {}",
-                        context.instruction_pointer, context.halted
-                    )
-                    .into(),
-                );
+                log_message(&format!(
+                    "WASM: MitoVM execution SUCCESS - IP: {}, halted: {}",
+                    context.instruction_pointer, context.halted
+                ));
                 if result_value.is_some() {
-                    web_sys::console::log_1(&"WASM: MitoVM - function returned a value".into());
+                    log_message("WASM: MitoVM - function returned a value");
                 } else {
-                    web_sys::console::log_1(
-                        &"WASM: MitoVM - function completed without return value".into(),
-                    );
+                    log_message("WASM: MitoVM - function completed without return value");
                 }
             }
             Err((vm_error, _)) => {
-                web_sys::console::log_1(
-                    &format!("WASM: MitoVM execution ERROR: {:?}", vm_error).into(),
-                );
+                log_message(&format!("WASM: MitoVM execution ERROR: {:?}", vm_error));
 
                 // Enhanced error analysis
                 match vm_error {
                     five_vm_mito::error::VMError::StackError => {
-                        web_sys::console::log_1(
-                            &"WASM: ERROR ANALYSIS - StackError detected".into(),
-                        );
-                        web_sys::console::log_1(&"WASM: This typically means:".into());
-                        web_sys::console::log_1(
-                            &"WASM: 1. Function call tried to pop from empty stack".into(),
-                        );
-                        web_sys::console::log_1(&"WASM: 2. Return value placement failed".into());
-                        web_sys::console::log_1(
-                            &"WASM: 3. Stack state corrupted between function calls".into(),
-                        );
-                        web_sys::console::log_1(
-                            &"WASM: 4. SET_LOCAL tried to pop from empty stack".into(),
-                        );
+                        log_message("WASM: ERROR ANALYSIS - StackError detected");
+                        log_message("WASM: This typically means:");
+                        log_message("WASM: 1. Function call tried to pop from empty stack");
+                        log_message("WASM: 2. Return value placement failed");
+                        log_message("WASM: 3. Stack state corrupted between function calls");
+                        log_message("WASM: 4. SET_LOCAL tried to pop from empty stack");
                     }
                     five_vm_mito::error::VMError::AbiParameterMismatch {
                         function_index,
@@ -776,46 +764,32 @@ impl FiveVMWasm {
                         actual_param_count,
                         failed_param_index,
                     } => {
-                        web_sys::console::log_1(
-                            &format!(
-                                "WASM: ERROR ANALYSIS - Parameter mismatch in function {}",
-                                function_index
-                            )
-                            .into(),
-                        );
-                        web_sys::console::log_1(
-                            &format!(
-                                "WASM: Expected {} params, got {} params, failed at param {}",
-                                expected_param_count, actual_param_count, failed_param_index
-                            )
-                            .into(),
-                        );
+                        log_message(&format!(
+                            "WASM: ERROR ANALYSIS - Parameter mismatch in function {}",
+                            function_index
+                        ));
+                        log_message(&format!(
+                            "WASM: Expected {} params, got {} params, failed at param {}",
+                            expected_param_count, actual_param_count, failed_param_index
+                        ));
                     }
                     five_vm_mito::error::VMError::CallStackOverflow => {
-                        web_sys::console::log_1(&"WASM: ERROR ANALYSIS - Call stack overflow (too many nested function calls)".into());
+                        log_message("WASM: ERROR ANALYSIS - Call stack overflow (too many nested function calls)");
                     }
                     five_vm_mito::error::VMError::CallStackUnderflow => {
-                        web_sys::console::log_1(
-                            &"WASM: ERROR ANALYSIS - Call stack underflow (RETURN without CALL)"
-                                .into(),
-                        );
+                        log_message("WASM: ERROR ANALYSIS - Call stack underflow (RETURN without CALL)");
                     }
                     five_vm_mito::error::VMError::InvalidInstruction => {
-                        web_sys::console::log_1(
-                            &"WASM: ERROR ANALYSIS - Invalid opcode encountered".into(),
-                        );
+                        log_message("WASM: ERROR ANALYSIS - Invalid opcode encountered");
                     }
                     _ => {
-                        web_sys::console::log_1(
-                            &format!("WASM: ERROR ANALYSIS - Other VM error: {:?}", vm_error)
-                                .into(),
-                        );
+                        log_message(&format!("WASM: ERROR ANALYSIS - Other VM error: {:?}", vm_error));
                     }
                 }
             }
         }
 
-        web_sys::console::log_1(&format!("WASM: MitoVM execution result: {:?}", result).into());
+        log_message(&format!("WASM: MitoVM execution result: {:?}", result));
         
         // Return result with updated accounts
         result.map(|(val, ctx)| (val, ctx, updated_wasm_accounts))
@@ -831,22 +805,19 @@ impl FiveVMWasm {
         }
 
         // Log input for debugging
-        web_sys::console::log_1(
-            &format!(
-                "WASM: Extracting FIVE bytecode from {} bytes",
-                input_data.len()
-            )
-            .into(),
-        );
+        log_message(&format!(
+            "WASM: Extracting FIVE bytecode from {} bytes",
+            input_data.len()
+        ));
 
         // Check if this is already pure FIVE bytecode (starts with magic bytes)
         if input_data.len() >= 4 && &input_data[0..4] == FIVE_MAGIC {
-            web_sys::console::log_1(&"WASM: Input is already pure 5IVX bytecode".into());
+            log_message("WASM: Input is already pure 5IVX bytecode");
             return Ok(input_data.to_vec());
         }
 
         if input_data.len() >= 4 && &input_data[0..4] == FIVE_DEPLOY_MAGIC {
-            web_sys::console::log_1(&"WASM: Input is already pure 5IVE bytecode".into());
+            log_message("WASM: Input is already pure 5IVE bytecode");
             return Ok(input_data.to_vec());
         }
 
@@ -858,14 +829,11 @@ impl FiveVMWasm {
 
             // Verify FIVE magic bytes at the expected offset
             if potential_bytecode.len() >= 4 && &potential_bytecode[0..4] == FIVE_MAGIC {
-                web_sys::console::log_1(
-                    &format!(
-                        "WASM: Found FIVE bytecode at offset {}, extracted {} bytes",
-                        bytecode_offset,
-                        potential_bytecode.len()
-                    )
-                    .into(),
-                );
+                log_message(&format!(
+                    "WASM: Found FIVE bytecode at offset {}, extracted {} bytes",
+                    bytecode_offset,
+                    potential_bytecode.len()
+                ));
                 return Ok(potential_bytecode.to_vec());
             }
         }
@@ -874,14 +842,11 @@ impl FiveVMWasm {
         for i in 0..input_data.len().saturating_sub(4) {
             if &input_data[i..i + 4] == FIVE_MAGIC {
                 let extracted = &input_data[i..];
-                web_sys::console::log_1(
-                    &format!(
-                        "WASM: Found FIVE magic bytes at offset {}, extracted {} bytes",
-                        i,
-                        extracted.len()
-                    )
-                    .into(),
-                );
+                log_message(&format!(
+                    "WASM: Found FIVE magic bytes at offset {}, extracted {} bytes",
+                    i,
+                    extracted.len()
+                ));
                 return Ok(extracted.to_vec());
             }
         }
@@ -900,16 +865,14 @@ impl FiveVMWasm {
             if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(content) {
                 if let Some(abi_section) = json_value.get("abi") {
                     if let Ok(abi_json) = serde_json::to_string(abi_section) {
-                        web_sys::console::log_1(
-                            &"WASM: Successfully extracted ABI from .five file".into(),
-                        );
+                        log_message("WASM: Successfully extracted ABI from .five file");
                         return Some(abi_json);
                     }
                 }
             }
         }
 
-        web_sys::console::log_1(&"WASM: No ABI information found in input data".into());
+        log_message("WASM: No ABI information found in input data");
         None
     }
 
@@ -927,37 +890,26 @@ impl FiveVMWasm {
             let vle_data = &input_data[1..];
 
             // Log the decoding for debugging
-            web_sys::console::log_1(&format!("WASM: Decoded VLE instruction data").into());
-            web_sys::console::log_1(
-                &format!(
-                    "  Original data ({} bytes): {:?}",
-                    input_data.len(),
-                    input_data
-                )
-                .into(),
-            );
-            web_sys::console::log_1(
-                &format!("  Stripped discriminator ({})", input_data[0]).into(),
-            );
-            web_sys::console::log_1(
-                &format!(
-                    "  VLE data for MitoVM ({} bytes): {:?}",
-                    vle_data.len(),
-                    vle_data
-                )
-                .into(),
-            );
+            log_message("WASM: Decoded VLE instruction data");
+            log_message(&format!(
+                "  Original data ({} bytes): {:?}",
+                input_data.len(),
+                input_data
+            ));
+            log_message(&format!("  Stripped discriminator ({})", input_data[0]));
+            log_message(&format!(
+                "  VLE data for MitoVM ({} bytes): {:?}",
+                vle_data.len(),
+                vle_data
+            ));
 
             Ok(vle_data.to_vec())
         } else {
             // Not an Execute instruction - pass through as-is
-            web_sys::console::log_1(
-                &format!(
-                    "WASM: Non-Execute instruction, passing through: {:?}",
-                    input_data
-                )
-                .into(),
-            );
+            log_message(&format!(
+                "WASM: Non-Execute instruction, passing through: {:?}",
+                input_data
+            ));
             Ok(input_data.to_vec())
         }
     }
@@ -1198,9 +1150,7 @@ pub fn wrap_with_script_header(bytecode: &[u8]) -> Result<js_sys::Uint8Array, Js
         ));
     }
 
-    web_sys::console::log_1(
-        &"wrap_with_script_header: optimized header detected, returning bytecode as-is".into(),
-    );
+    log_message("wrap_with_script_header: optimized header detected, returning bytecode as-is");
     Ok(js_sys::Uint8Array::from(bytecode))
 }
 
@@ -2739,10 +2689,10 @@ impl WasmFiveCompiler {
         // Initialize enhanced error system if enabled
         if options.enhanced_errors {
             if let Err(e) = integration::initialize_error_system() {
-                web_sys::console::warn_1(&JsValue::from_str(&format!(
+                warn_message(&format!(
                     "Failed to initialize enhanced error system: {}",
                     e
-                )));
+                ));
             }
             // Set error formatter... (keeping existing logic short for brevity in thought, but must include in code)
             let error_format = options.error_format.as_str();
@@ -2853,43 +2803,43 @@ impl WasmFiveCompiler {
         let abi_json = abi.and_then(|a| {
             // Debug: Log ABI structure before serialization
             if !a.functions.is_empty() {
-                web_sys::console::log_1(&JsValue::from_str(&format!(
+                log_message(&format!(
                     "[ABI Debug] Generated {} functions",
                     a.functions.len()
-                )));
+                ));
                 // Log first function details
                 let first_fn = &a.functions[0];
-                web_sys::console::log_1(&JsValue::from_str(&format!(
+                log_message(&format!(
                     "[ABI Debug] Function 0: '{}' has {} parameters",
                     first_fn.name,
                     first_fn.parameters.len()
-                )));
+                ));
                 if !first_fn.parameters.is_empty() {
                     let first_param = &first_fn.parameters[0];
-                    web_sys::console::log_1(&JsValue::from_str(&format!(
+                    log_message(&format!(
                         "[ABI Debug] Parameter 0: '{}' of type '{}'",
                         first_param.name,
                         first_param.param_type
-                    )));
+                    ));
                 }
             }
             let json_result = serde_json::to_string(&a).ok();
             // Debug: Show JSON output
             if let Some(ref json) = json_result {
-                web_sys::console::log_1(&JsValue::from_str(&format!(
+                log_message(&format!(
                     "[ABI Debug] Serialized ABI JSON length: {} bytes",
                     json.len()
-                )));
+                ));
                 // Show first 200 chars of JSON to verify parameters are there
                 let preview = if json.len() > 200 {
                     format!("{}...", &json[..200])
                 } else {
                     json.clone()
                 };
-                web_sys::console::log_1(&JsValue::from_str(&format!(
+                log_message(&format!(
                     "[ABI Debug] JSON preview: {}",
                     preview
-                )));
+                ));
             }
             json_result
         });
@@ -4316,13 +4266,13 @@ impl WasmFiveCompiler {
     pub fn generate_abi(&self, source: &str) -> Result<JsValue, JsValue> {
         use five_dsl_compiler::{DslBytecodeGenerator, DslParser, DslTokenizer, DslTypeChecker};
 
-        web_sys::console::log_1(&JsValue::from_str("generate_abi: Starting..."));
+        log_message("generate_abi: Starting...");
 
         // Tokenize
         let mut tokenizer = DslTokenizer::new(source);
         let tokens = match tokenizer.tokenize() {
             Ok(tokens) => {
-                web_sys::console::log_1(&JsValue::from_str("generate_abi: Tokenization OK"));
+                log_message("generate_abi: Tokenization OK");
                 tokens
             }
             Err(e) => {
@@ -4336,7 +4286,7 @@ impl WasmFiveCompiler {
         let mut parser = DslParser::new(tokens);
         let ast = match parser.parse() {
             Ok(ast) => {
-                web_sys::console::log_1(&JsValue::from_str("generate_abi: Parsing OK"));
+                log_message("generate_abi: Parsing OK");
                 ast
             }
             Err(e) => {
@@ -4350,7 +4300,7 @@ impl WasmFiveCompiler {
         let mut type_checker = DslTypeChecker::new();
         match type_checker.check_types(&ast) {
             Ok(_) => {
-                web_sys::console::log_1(&JsValue::from_str("generate_abi: Type checking OK"));
+                log_message("generate_abi: Type checking OK");
             }
             Err(e) => {
                 let err_msg = format!("Type checking failed: {:?}", e);
@@ -4363,7 +4313,7 @@ impl WasmFiveCompiler {
         let mut bytecode_gen = DslBytecodeGenerator::new();
         match bytecode_gen.generate(&ast) {
             Ok(_) => {
-                web_sys::console::log_1(&JsValue::from_str("generate_abi: Bytecode generation OK"));
+                log_message("generate_abi: Bytecode generation OK");
             }
             Err(e) => {
                 let err_msg = format!("Bytecode generation failed: {:?}", e);
@@ -4375,7 +4325,7 @@ impl WasmFiveCompiler {
         // Generate simplified ABI - reuse the same generator that compiled the bytecode
         let simple_abi = match bytecode_gen.generate_simple_abi(&ast) {
             Ok(abi) => {
-                web_sys::console::log_1(&JsValue::from_str("generate_abi: ABI generation OK"));
+                log_message("generate_abi: ABI generation OK");
                 abi
             }
             Err(e) => {
@@ -4388,7 +4338,7 @@ impl WasmFiveCompiler {
         // Serialize ABI to JSON
         let abi_json = match serde_json::to_string_pretty(&simple_abi) {
             Ok(json) => {
-                web_sys::console::log_1(&JsValue::from_str("generate_abi: Serialization OK"));
+                log_message("generate_abi: Serialization OK");
                 json
             }
             Err(e) => {
@@ -5046,5 +4996,147 @@ mod formatting_tests {
         // Check coloring codes (basic check)
         assert!(output.contains("\x1b[31m")); // Red for error
         assert!(output.contains("\x1b[34m")); // Blue for location
+    }
+}
+
+#[cfg(test)]
+mod internal_tests {
+    use super::*;
+    use five_protocol::FIVE_MAGIC;
+
+    #[test]
+    fn test_extract_five_bytecode_pure() {
+        let mut bytecode = Vec::new();
+        bytecode.extend_from_slice(&FIVE_MAGIC);
+        bytecode.extend_from_slice(&[0x00]); // HALT
+
+        let result = FiveVMWasm::extract_five_bytecode(&bytecode);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), bytecode);
+    }
+
+    #[test]
+    fn test_extract_five_bytecode_with_account_header() {
+        let mut data = vec![0u8; 64]; // Header
+        data.extend_from_slice(&FIVE_MAGIC);
+        data.extend_from_slice(&[0x00]); // HALT
+
+        let result = FiveVMWasm::extract_five_bytecode(&data);
+        assert!(result.is_ok());
+        let extracted = result.unwrap();
+        assert_eq!(extracted.len(), 5);
+        assert_eq!(&extracted[0..4], FIVE_MAGIC);
+    }
+
+    #[test]
+    fn test_extract_five_bytecode_offset_search() {
+        let mut data = vec![0u8; 10]; // Random prefix
+        data.extend_from_slice(&FIVE_MAGIC);
+        data.extend_from_slice(&[0x00]);
+
+        let result = FiveVMWasm::extract_five_bytecode(&data);
+        assert!(result.is_ok());
+        let extracted = result.unwrap();
+        assert_eq!(extracted.len(), 5);
+        assert_eq!(&extracted[0..4], FIVE_MAGIC);
+    }
+
+    #[test]
+    fn test_extract_five_bytecode_invalid() {
+        let data = vec![0x00, 0x01, 0x02];
+        let result = FiveVMWasm::extract_five_bytecode(&data);
+        assert!(matches!(result, Err(VMError::InvalidScript)));
+    }
+
+    #[test]
+    fn test_extract_abi_valid() {
+        let json = r#"
+        {
+            "abi": {
+                "functions": []
+            }
+        }
+        "#;
+        let data = json.as_bytes();
+        let result = FiveVMWasm::extract_abi_from_five_file(data);
+        assert!(result.is_some());
+        let abi = result.unwrap();
+        assert!(abi.contains("functions"));
+    }
+
+    #[test]
+    fn test_extract_abi_invalid_json() {
+        let data = b"invalid json";
+        let result = FiveVMWasm::extract_abi_from_five_file(data);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_extract_abi_no_abi_field() {
+        let json = r#"{"foo": "bar"}"#;
+        let data = json.as_bytes();
+        let result = FiveVMWasm::extract_abi_from_five_file(data);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_decode_vle_instruction_data_discriminator_2() {
+        // Setup VM instance
+        let bytecode = FIVE_MAGIC.to_vec();
+        let vm = FiveVMWasm::new(&bytecode).expect("Failed to create VM");
+
+        // [2, 0x01, 0x02] -> [0x01, 0x02]
+        let input = vec![2, 0x01, 0x02];
+        let result = vm.decode_vle_instruction_data(&input);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), vec![0x01, 0x02]);
+    }
+
+    #[test]
+    fn test_decode_vle_instruction_data_discriminator_9() {
+        let bytecode = FIVE_MAGIC.to_vec();
+        let vm = FiveVMWasm::new(&bytecode).expect("Failed to create VM");
+
+        // [9, 0x01, 0x02] -> [0x01, 0x02]
+        let input = vec![9, 0x01, 0x02];
+        let result = vm.decode_vle_instruction_data(&input);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), vec![0x01, 0x02]);
+    }
+
+    #[test]
+    fn test_decode_vle_instruction_data_pass_through() {
+        let bytecode = FIVE_MAGIC.to_vec();
+        let vm = FiveVMWasm::new(&bytecode).expect("Failed to create VM");
+
+        // [1, 0x01, 0x02] -> [1, 0x01, 0x02]
+        let input = vec![1, 0x01, 0x02];
+        let result = vm.decode_vle_instruction_data(&input);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), input);
+    }
+
+    #[test]
+    fn test_get_instruction_size() {
+        // PUSH_U64 (0x1B) + VLE value
+        let opcode = five_protocol::opcodes::PUSH_U64;
+
+        // Case 1: PUSH_U64 with 1-byte VLE
+        let mut op_bytes = vec![opcode];
+        let (size, encoded) = VLE::encode_u64(100); // < 128, 1 byte
+        op_bytes.extend_from_slice(&encoded[..size]);
+        // Total 2 bytes
+        assert_eq!(get_instruction_size(opcode, &op_bytes), 2);
+
+        // Case 2: PUSH_U64 with 2-byte VLE
+        let mut op_bytes = vec![opcode];
+        let (size, encoded) = VLE::encode_u64(1000); // > 128, 2 bytes
+        op_bytes.extend_from_slice(&encoded[..size]);
+        // Total 3 bytes
+        assert_eq!(get_instruction_size(opcode, &op_bytes), 3);
+
+        // Case 3: HALT (No args)
+        let opcode = five_protocol::opcodes::HALT;
+        assert_eq!(get_instruction_size(opcode, &[opcode]), 1);
     }
 }
