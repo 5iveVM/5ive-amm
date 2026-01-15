@@ -18,12 +18,14 @@ const ACCOUNT_REF_ERR: u8 = 254; // Result::Err
 const ACCOUNT_REF_MAX_VALID: u8 = 253; // Max valid account index for Some/Ok
 
 // Helper enums for cleaner pattern matching
+#[derive(Copy, Clone)]
 enum OptionStatus {
     None,
     Some(u16), // offset
     Invalid,
 }
 
+#[derive(Copy, Clone)]
 enum ResultStatus {
     Ok(u16), // offset
     Err(u16), // offset
@@ -31,6 +33,7 @@ enum ResultStatus {
 }
 
 // Helper functions to categorize ValueRef
+#[inline(always)]
 fn check_option_status(value: ValueRef) -> OptionStatus {
     match value {
         ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => OptionStatus::None,
@@ -41,6 +44,7 @@ fn check_option_status(value: ValueRef) -> OptionStatus {
     }
 }
 
+#[inline(always)]
 fn check_result_status(value: ValueRef) -> ResultStatus {
     match value {
         ValueRef::AccountRef(ACCOUNT_REF_ERR, offset) => ResultStatus::Err(offset),
