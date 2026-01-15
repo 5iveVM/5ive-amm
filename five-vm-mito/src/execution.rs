@@ -90,23 +90,6 @@ impl MitoVM {
                 input_data.len() as u32
             );
             debug_log!("MitoVM: Account count: {}", accounts.len() as u32);
-
-            // Detailed input data analysis
-            if input_data.len() > 0 {
-                debug_log!(
-                    "MitoVM: Input data first byte (function index): {}",
-                    input_data[0]
-                );
-                if input_data.len() >= 4 {
-                    debug_log!(
-                        "MitoVM: Input data first 4 bytes: {} {} {} {}",
-                        input_data[0],
-                        input_data[1],
-                        input_data[2],
-                        input_data[3]
-                    );
-                }
-            }
         }
 
         let (start_ip, public_function_count, total_function_count, header_features) =
@@ -499,34 +482,28 @@ impl MitoVM {
     /// Returns (instruction_pointer_start, public_function_count, total_function_count, features)
     #[inline]
     fn parse_optimized_header(script: &[u8]) -> CompactResult<(usize, u8, u8, u32)> {
-        // Minimum bounds check for safety
         if script.len() < FIVE_HEADER_OPTIMIZED_SIZE {
             return Err(VMErrorCode::InvalidScript);
         }
 
-        // Validate magic bytes
         if script[0..4] != FIVE_MAGIC {
             return Err(VMErrorCode::InvalidScript);
         }
 
-        // Fast extraction from verified bytecode
         let features = u32::from_le_bytes([script[4], script[5], script[6], script[7]]);
         let public_function_count = script[8];
         let total_function_count = script[9];
 
-        // Validate function count consistency
         if public_function_count > total_function_count {
             return Err(VMErrorCode::InvalidScript);
         }
 
-        // Validate total_count is reasonable for script size
         // Each function needs at least 1 byte, so total_count can't exceed available space
         let available_space = script.len().saturating_sub(FIVE_HEADER_OPTIMIZED_SIZE);
         if (total_function_count as usize) > available_space {
             return Err(VMErrorCode::InvalidScript);
         }
 
-        // Compute instruction start offset (skip metadata if present)
         let start_ip = Self::compute_instruction_start_fast(script, features, public_function_count);
 
         #[cfg(feature = "debug-logs")]
@@ -551,23 +528,19 @@ impl MitoVM {
     }
 
     /// Fast metadata offset computation
-    /// Skips VLE validation since deploy-time ensures format is valid
     #[inline]
     fn compute_instruction_start_fast(script: &[u8], features: u32, public_count: u8) -> usize {
         const FEATURE_FUNCTION_NAMES: u32 = 1 << 8;
 
-        // No metadata or no public functions = standard 10-byte header
         if (features & FEATURE_FUNCTION_NAMES) == 0 || public_count == 0 {
             return FIVE_HEADER_OPTIMIZED_SIZE;
         }
 
         // Metadata format was validated at deploy-time
-        // Quick VLE decode without bounds checking (format guaranteed valid)
         let mut offset = FIVE_HEADER_OPTIMIZED_SIZE;
         let mut section_size = 0u16;
         let mut shift = 0;
 
-        // Simplified VLE decode (no format validation needed)
         while offset < script.len() && shift < 16 {
             let byte = script[offset];
             section_size |= ((byte & 0x7F) as u16) << shift;
@@ -578,7 +551,6 @@ impl MitoVM {
             shift += 7;
         }
 
-        // instruction_start = 10 (header) + VLE bytes + metadata bytes
         (offset + section_size as usize).min(script.len())
     }
 
@@ -619,11 +591,6 @@ mod tests {
 
     #[test]
     fn parse_optimized_header_with_valid_bytes() {
-        // We no longer validate magic bytes at execute-time
-        // Trust deploy-time verification instead for performance
-        // This test verifies the parser still works with valid bytecode
-
-        // Create script with 10+ bytes (minimum valid format)
         let script = vec![
             b'5', b'I', b'V', b'E',  // magic
             0x00, 0x00, 0x00, 0x00,  // features
@@ -636,14 +603,11 @@ mod tests {
         let (start_ip, public_count, total_count, _) = result.unwrap();
         assert_eq!(public_count, 1);
         assert_eq!(total_count, 1);
-        assert_eq!(start_ip, 10); // No metadata, standard header size
+        assert_eq!(start_ip, 10);
     }
 
     #[test]
     fn parse_optimized_header_minimum_size() {
-        // Minimum valid script is 10 bytes (header)
-        // This test trusts deploy-time verified bytecode
-
         let script = vec![
             b'5', b'I', b'V', b'E',  // magic
             0x00, 0x00, 0x00, 0x00,  // features

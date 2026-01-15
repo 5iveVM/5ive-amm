@@ -128,8 +128,7 @@ impl Default for CompilationConfig {
 ///
 /// This struct consolidates compilation logic into a single reusable pipeline to ensure consistent behavior.
 ///
-/// Performance: Uses `&'a str` instead of `String` to avoid 8 unnecessary
-/// allocations during compilation (saves ~800KB for a 100KB DSL file).
+/// Uses `&'a str` instead of `String` to avoid unnecessary allocations during compilation.
 pub struct CompilationPipeline<'a> {
     pub(crate) metrics: MetricsCollector,
     pub(crate) error_collector: integration::ErrorCollector,
@@ -510,7 +509,6 @@ mod tests {
     #[test]
     fn test_pipeline_creation() {
         let _pipeline = CompilationPipeline::new("", None);
-        // If we get here without panic, pipeline creation works
         assert!(true);
     }
 
@@ -519,45 +517,32 @@ mod tests {
         let mut pipeline = CompilationPipeline::new("", None);
         let config = CompilationConfig::default();
 
-        // Tokenize
         let tokens = pipeline.tokenize().expect("tokenization failed");
-
-        // Parse
         let ast = pipeline.parse(tokens).expect("parsing failed");
-
-        // Type check
         pipeline.type_check(&ast).expect("type checking failed");
 
-        // Generate bytecode
         let bytecode = pipeline
             .generate_bytecode(&ast, &config)
             .expect("bytecode generation failed");
 
-        // Should produce valid bytecode (even if minimal)
         assert!(!bytecode.is_empty());
     }
 
-    // Test Coverage: Interface Registry Path
-
     #[test]
     fn test_interface_registry_empty_program() {
-        // Test that interface preprocessing works even with no interfaces
         let mut pipeline = CompilationPipeline::new("", None);
         let tokens = pipeline.tokenize().expect("tokenization failed");
         let ast = pipeline.parse(tokens).expect("parsing failed");
 
-        // Should succeed even with no interfaces defined
         let _registry = pipeline
             .type_check_with_interfaces(&ast)
             .expect("interface preprocessing failed");
 
-        // Registry should be empty but valid
-        assert!(true); // If we get here, preprocessing worked
+        assert!(true);
     }
 
     #[test]
     fn test_interface_preprocessing_with_interface() {
-        // Test interface preprocessing with an actual interface definition
         let source = r#"
             interface IToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
                 fn transfer @discriminator(1)(to: pubkey, amount: u64) -> bool;
@@ -569,18 +554,15 @@ mod tests {
         let tokens = pipeline.tokenize().expect("tokenization failed");
         let ast = pipeline.parse(tokens).expect("parsing failed");
 
-        // Should successfully preprocess the interface
         let _registry = pipeline
             .type_check_with_interfaces(&ast)
             .expect("interface preprocessing failed");
 
-        // Registry should contain the interface
-        assert!(true); // If we get here, interface was processed
+        assert!(true);
     }
 
     #[test]
     fn test_bytecode_generation_with_interface_registry() {
-        // Test that bytecode generation works with interface registry
         let source = r#"
             interface IToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
                 fn transfer @discriminator(1)(to: pubkey, amount: u64) -> bool;
@@ -598,18 +580,15 @@ mod tests {
             .type_check_with_interfaces(&ast)
             .expect("interface preprocessing failed");
 
-        // Generate bytecode with the interface registry
         let bytecode = pipeline
             .generate_bytecode_with_interfaces(&ast, &config, registry)
             .expect("bytecode generation with interfaces failed");
 
-        // Should produce valid bytecode
         assert!(!bytecode.is_empty());
     }
 
     #[test]
     fn test_generate_bytecode_with_log_and_interfaces() {
-        // Test log capture with interface registry
         let source = r#"
             interface IVault @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
                 fn deposit @discriminator(1)(amount: u64);
@@ -625,19 +604,16 @@ mod tests {
             .type_check_with_interfaces(&ast)
             .expect("interface preprocessing failed");
 
-        // Generate bytecode with log
         let (bytecode, log) = pipeline
             .generate_bytecode_with_log(&ast, &config, Some(registry))
             .expect("bytecode generation with log failed");
 
-        // Should produce valid bytecode and log
         assert!(!bytecode.is_empty());
-        let _ = log; // Log may or may not be empty
+        let _ = log;
     }
 
     #[test]
     fn test_interface_error_handling() {
-        // Test that malformed interface definition produces an error
         let source = r#"
             interface BadInterface {
                 // Missing function signature
@@ -647,21 +623,16 @@ mod tests {
 
         let mut pipeline = CompilationPipeline::new(source, None);
 
-        // This should fail during tokenization or parsing
         let result = pipeline.tokenize();
 
-        // Either tokenization fails, or parsing will fail
         if let Ok(tokens) = result {
             let parse_result = pipeline.parse(tokens);
-            // Should fail during parsing due to incomplete syntax
             assert!(parse_result.is_err() || parse_result.is_ok());
-            // We accept either outcome since error reporting varies
         }
     }
 
     #[test]
     fn test_abi_generation() {
-        // Test ABI generation works correctly
         let source = r#"
             pub fn transfer(to: pubkey, amount: u64) {
                 // Function body
@@ -675,18 +646,15 @@ mod tests {
         let ast = pipeline.parse(tokens).expect("parsing failed");
         pipeline.type_check(&ast).expect("type checking failed");
 
-        // Generate ABI
         let abi = pipeline
             .generate_abi(&ast, &config)
             .expect("ABI generation failed");
 
-        // ABI should contain at least one function (transfer)
         assert!(!abi.functions.is_empty());
     }
 
     #[test]
     fn test_pipeline_metrics_finalization() {
-        // Test that metrics finalization works correctly
         let mut pipeline = CompilationPipeline::new("", None);
         let config = CompilationConfig::default();
 
@@ -697,22 +665,18 @@ mod tests {
             .generate_bytecode(&ast, &config)
             .expect("bytecode generation failed");
 
-        // Finalize metrics
         pipeline.finalize_metrics(&bytecode);
 
-        // Get metrics and verify they're populated
         let metrics = pipeline.get_metrics();
         assert!(metrics.bytecode_analytics.final_size > 0);
     }
 
     #[test]
     fn test_zero_allocation_source_access() {
-        // Performance test: Verify source is not cloned during compilation
         let source = "pub fn test() {}";
         let mut pipeline = CompilationPipeline::new(source, None);
         let config = CompilationConfig::default();
 
-        // Run full pipeline
         let tokens = pipeline.tokenize().expect("tokenization failed");
         let ast = pipeline.parse(tokens).expect("parsing failed");
         pipeline.type_check(&ast).expect("type checking failed");
@@ -720,8 +684,6 @@ mod tests {
             .generate_bytecode(&ast, &config)
             .expect("bytecode generation failed");
 
-        // If we get here, the pipeline successfully used &str without clones
-        // This test primarily serves as a compile-time check that lifetimes work
         assert!(true);
     }
 }

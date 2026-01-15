@@ -26,7 +26,6 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             let lamports = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
             let account_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
 
-            // Extract owner pubkey
             let owner_bytes = ctx.extract_pubkey(&owner_ref)?;
             let owner = Pubkey::from(owner_bytes);
 
@@ -37,14 +36,11 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
                 space
             );
 
-            // Try to create the account using CPI
-            // If it fails (e.g. already exists), we check if it matches requirements
             match ctx.create_account(account_idx, space, lamports, &owner) {
                 Ok(_) => {
                     ctx.push(ValueRef::Bool(true))?;
                 }
                 Err(_) => {
-                    // Fallback: Check if existing account satisfies requirements
                     let account = ctx.get_account(account_idx)?;
                     if account.lamports() < lamports
                         // SAFETY: Read-only access to check length
@@ -52,7 +48,6 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
                     {
                         ctx.push(ValueRef::Bool(false))?;
                     } else {
-                        // Account exists and is sufficient
                         ctx.push(ValueRef::Bool(true))?;
                     }
                 }
@@ -119,8 +114,7 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         }
         GET_KEY => {
             let account_idx = ctx.fetch_byte()?;
-            // SAFETY: We copy the key bytes immediately so we don't hold the account borrow
-            // while mutating context in push_bytes_as_temp
+            // SAFETY: Copy key bytes immediately to avoid holding account borrow
             let key_bytes = *ctx.get_account(account_idx)?.key();
 
             push_bytes_as_temp(ctx, &key_bytes, "GET_KEY", account_idx)?;
@@ -128,18 +122,14 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         GET_DATA => {
             let account_idx = ctx.fetch_byte()?;
 
-            // Zero-copy approach: Return direct AccountRef without temp buffer allocation
-            // This maintains MitoVM's zero-allocation principle
             let data_len = {
                 let account = ctx.get_account(account_idx)?;
-                // SAFETY: We only need the length, not the data itself
+                // SAFETY: Read-only access for length
                 unsafe { account.borrow_data_unchecked() }.len()
             };
 
-            // Ensure data length fits in u16 for AccountRef offset
             let _data_len_u16 = u16::try_from(data_len).map_err(|_| VMErrorCode::MemoryError)?;
 
-            // Return direct reference to account data (zero-copy)
             ctx.push(ValueRef::AccountRef(account_idx, 0))?;
 
             debug_log!(
@@ -150,8 +140,7 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         }
         GET_OWNER => {
             let account_idx = ctx.fetch_byte()?;
-            // SAFETY: We copy the owner bytes immediately so we don't hold the account borrow
-            // while mutating context in push_bytes_as_temp
+            // SAFETY: Copy owner bytes immediately to avoid holding account borrow
             let owner_bytes = *ctx.get_account(account_idx)?.owner();
 
             push_bytes_as_temp(ctx, &owner_bytes, "GET_OWNER", account_idx)?;
