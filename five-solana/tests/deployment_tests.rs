@@ -469,4 +469,71 @@ mod deployment_tests {
         // Error 8202: Chunk exceeds expected size
         assert_eq!(result, Err(ProgramError::Custom(8202)));
     }
+
+    #[test]
+    fn test_init_large_program_with_chunk() {
+        let program_id = key(70);
+        let admin_key = key(71);
+        let owner_key = key(72);
+        let script_key = key(73);
+        let vm_key = key(74);
+
+        let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
+
+        let expected_size = 100u32;
+        let required_size = ScriptAccountHeader::LEN + expected_size as usize;
+
+        let mut script_lamports = 0u64;
+        let mut script_data = vec![0u8; required_size];
+        let mut owner_lamports = 10_000u64;
+        let mut owner_data = [];
+
+        let script_account = create_account(
+            &script_key,
+            false,
+            true,
+            &mut script_lamports,
+            &mut script_data,
+            &program_id,
+        );
+        let owner_account = create_account(
+            &owner_key,
+            true,
+            true,
+            &mut owner_lamports,
+            &mut owner_data,
+            &program_id,
+        );
+        let vm_account = create_account(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+
+        let accounts = [script_account.clone(), owner_account.clone(), vm_account.clone()];
+
+        let chunk = vec![1, 2, 3, 4, 5];
+        let result = init_large_program(
+            &program_id,
+            &accounts,
+            expected_size,
+            Some(&chunk),
+        );
+        assert!(result.is_ok());
+
+        let script_data_ref = script_account.try_borrow_data().unwrap();
+        let header = unsafe { ScriptAccountHeader::from_account_data(&script_data_ref).unwrap() };
+
+        assert!(header.upload_mode());
+        assert!(!header.upload_complete());
+        assert_eq!(header.upload_len(), 5);
+        assert_eq!(header.bytecode_len(), expected_size as usize);
+
+        // Verify chunk data written
+        let written_chunk = &script_data_ref[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + 5];
+        assert_eq!(written_chunk, &chunk[..]);
+    }
 }

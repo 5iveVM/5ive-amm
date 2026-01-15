@@ -125,4 +125,23 @@ mod deploy_verification_tests {
             }
         }
     }
+
+    #[test]
+    fn test_verify_public_gt_total() {
+        // Create bytecode with public_function_count (2) > total_function_count (1)
+        // emit_header(public, total)
+        let bytecode_data = bytecode!(emit_header(2, 1), emit_halt());
+        // Should return Err(ProgramError::Custom(8105))
+        let result = verify_bytecode_content(&bytecode_data);
+        assert!(matches!(result, Err(pinocchio::program_error::ProgramError::Custom(8105))));
+    }
+
+    #[test]
+    fn test_verify_public_zero_but_total_nonzero() {
+        // Create bytecode with public_function_count (0) and total_function_count (1)
+        let bytecode_data = bytecode!(emit_header(0, 1), emit_halt());
+        // Should return Err(ProgramError::Custom(8104))
+        let result = verify_bytecode_content(&bytecode_data);
+        assert!(matches!(result, Err(pinocchio::program_error::ProgramError::Custom(8104))));
+    }
 }
