@@ -1,0 +1,1363 @@
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+  --> third_party/pinocchio/src/entrypoint/mod.rs:22:24
+   |
+22 |     BPF_ALIGN_OF_U128, MAX_TX_ACCOUNTS,
+   |                        ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+   --> third_party/pinocchio/src/entrypoint/mod.rs:312:29
+    |
+312 |             MAX_ACCOUNTS <= MAX_TX_ACCOUNTS,
+    |                             ^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+   --> third_party/pinocchio/src/entrypoint/mod.rs:347:61
+    |
+347 |             let mut to_process_plus_one = if MAX_ACCOUNTS < MAX_TX_ACCOUNTS {
+    |                                                             ^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+   --> third_party/pinocchio/src/entrypoint/mod.rs:398:31
+    |
+398 |             if MAX_ACCOUNTS < MAX_TX_ACCOUNTS {
+    |                               ^^^^^^^^^^^^^^^
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/account_info.rs:313:32
+    |
+313 |     pub fn try_borrow_lamports(&self) -> Result<Ref<u64>, ProgramError> {
+    |                                ^^^^^            ^^^^^^^^ the same lifetime is hidden here
+    |                                |
+    |                                the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+    = note: `#[warn(mismatched_lifetime_syntaxes)]` on by default
+help: use `'_` for type paths
+    |
+313 |     pub fn try_borrow_lamports(&self) -> Result<Ref<'_, u64>, ProgramError> {
+    |                                                     +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/account_info.rs:337:36
+    |
+337 |     pub fn try_borrow_mut_lamports(&self) -> Result<RefMut<u64>, ProgramError> {
+    |                                    ^^^^^            ^^^^^^^^^^^ the same lifetime is hidden here
+    |                                    |
+    |                                    the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+337 |     pub fn try_borrow_mut_lamports(&self) -> Result<RefMut<'_, u64>, ProgramError> {
+    |                                                            +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/account_info.rs:412:28
+    |
+412 |     pub fn try_borrow_data(&self) -> Result<Ref<[u8]>, ProgramError> {
+    |                            ^^^^^            ^^^^^^^^^ the same lifetime is hidden here
+    |                            |
+    |                            the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+412 |     pub fn try_borrow_data(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
+    |                                                 +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/account_info.rs:436:32
+    |
+436 |     pub fn try_borrow_mut_data(&self) -> Result<RefMut<[u8]>, ProgramError> {
+    |                                ^^^^^            ^^^^^^^^^^^^ the same lifetime is hidden here
+    |                                |
+    |                                the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+436 |     pub fn try_borrow_mut_data(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
+    |                                                        +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> third_party/pinocchio/src/sysvars/clock.rs:89:44
+   |
+89 |     pub fn from_account_info(account_info: &AccountInfo) -> Result<Ref<Clock>, ProgramError> {
+   |                                            ^^^^^^^^^^^^            ^^^^^^^^^^ the same lifetime is hidden here
+   |                                            |
+   |                                            the lifetime is elided here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+   |
+89 |     pub fn from_account_info(account_info: &AccountInfo) -> Result<Ref<'_, Clock>, ProgramError> {
+   |                                                                        +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> third_party/pinocchio/src/sysvars/instructions.rs:67:9
+   |
+67 |         &self,
+   |         ^^^^^ the lifetime is elided here
+68 |         index: usize,
+69 |     ) -> IntrospectedInstruction {
+   |          ^^^^^^^^^^^^^^^^^^^^^^^ the same lifetime is hidden here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+   |
+69 |     ) -> IntrospectedInstruction<'_> {
+   |                                 ++++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> third_party/pinocchio/src/sysvars/instructions.rs:84:9
+   |
+84 |         &self,
+   |         ^^^^^ the lifetime is elided here
+85 |         index: usize,
+86 |     ) -> Result<IntrospectedInstruction, ProgramError> {
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^ the same lifetime is hidden here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+   |
+86 |     ) -> Result<IntrospectedInstruction<'_>, ProgramError> {
+   |                                        ++++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/sysvars/instructions.rs:99:9
+    |
+ 99 |         &self,
+    |         ^^^^^ the lifetime is elided here
+100 |         index_relative_to_current: i64,
+101 |     ) -> Result<IntrospectedInstruction, ProgramError> {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^ the same lifetime is hidden here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+101 |     ) -> Result<IntrospectedInstruction<'_>, ProgramError> {
+    |                                        ++++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/sysvars/instructions.rs:244:28
+    |
+244 |     pub fn to_account_meta(&self) -> AccountMeta {
+    |                            ^^^^^     ^^^^^^^^^^^ the same lifetime is hidden here
+    |                            |
+    |                            the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+244 |     pub fn to_account_meta(&self) -> AccountMeta<'_> {
+    |                                                 ++++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> third_party/pinocchio/src/sysvars/rent.rs:98:44
+   |
+98 |     pub fn from_account_info(account_info: &AccountInfo) -> Result<Ref<Rent>, ProgramError> {
+   |                                            ^^^^^^^^^^^^            ^^^^^^^^^ the same lifetime is hidden here
+   |                                            |
+   |                                            the lifetime is elided here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+   |
+98 |     pub fn from_account_info(account_info: &AccountInfo) -> Result<Ref<'_, Rent>, ProgramError> {
+   |                                                                        +++
+
+warning: `pinocchio` (lib) generated 14 warnings (run `cargo fix --lib -p pinocchio` to apply 10 suggestions)
+warning: unused import: `crate::debug_log`
+  --> five-vm-mito/src/context.rs:14:5
+   |
+14 | use crate::debug_log;
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `core::fmt::Write`
+  --> five-vm-mito/src/execution.rs:82:13
+   |
+82 |         use core::fmt::Write;
+   |             ^^^^^^^^^^^^^^^^
+
+warning: unused import: `debug_log`
+  --> five-vm-mito/src/handlers/stack_ops.rs:10:5
+   |
+10 |     debug_log,
+   |     ^^^^^^^^^
+
+warning: unused import: `vm_push_u64`
+  --> five-vm-mito/src/handlers/advanced.rs:14:5
+   |
+14 |     vm_push_u64,
+   |     ^^^^^^^^^^^
+
+warning: unused imports: `VMError`, `debug_log`, and `utils::ValueRefUtils`
+  --> five-vm-mito/src/resolution.rs:9:5
+   |
+ 9 |     debug_log,
+   |     ^^^^^^^^^
+10 |     error::{CompactResult, VMErrorCode, VMError},
+   |                                         ^^^^^^^
+11 |     utils::ValueRefUtils,
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Instruction` and `program::invoke_signed`
+ --> five-vm-mito/src/systems/accounts.rs:6:19
+  |
+6 |     instruction::{Instruction, Signer},
+  |                   ^^^^^^^^^^^
+7 |     program::invoke_signed,
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `vals_ptr`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:18
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vals_ptr`
+...
+100 | impl_hash_syscall!(handle_syscall_sha256, syscalls::sol_sha256, "MitoVM: SYSCALL_SHA256");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `val_len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:28
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                            ^^^^^^^
+...
+100 | impl_hash_syscall!(handle_syscall_sha256, syscalls::sol_sha256, "MitoVM: SYSCALL_SHA256");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: if this is intentional, prefix it with an underscore
+    |
+ 83 |             let (vals_ptr, _val_len) = parse_data_array(ctx, data_ref)?;
+    |                            +
+help: you might have meant to pattern match on the similarly named constant `MAX_ACCOUNT_SIZE`
+    |
+ 83 -             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+ 83 +             let (vals_ptr, systems::accounts::AccountManager::<'a>::create_account_with_payer::MAX_ACCOUNT_SIZE) = parse_data_array(ctx, data_ref)?;
+    |
+
+warning: unused variable: `vals_ptr`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:18
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vals_ptr`
+...
+101 | impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: SYSCALL_KECCAK256");
+    | -------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `val_len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:28
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                            ^^^^^^^
+...
+101 | impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: SYSCALL_KECCAK256");
+    | -------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: if this is intentional, prefix it with an underscore
+    |
+ 83 |             let (vals_ptr, _val_len) = parse_data_array(ctx, data_ref)?;
+    |                            +
+help: you might have meant to pattern match on the similarly named constant `MAX_ACCOUNT_SIZE`
+    |
+ 83 -             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+ 83 +             let (vals_ptr, systems::accounts::AccountManager::<'a>::create_account_with_payer::MAX_ACCOUNT_SIZE) = parse_data_array(ctx, data_ref)?;
+    |
+
+warning: unused variable: `vals_ptr`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:18
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vals_ptr`
+...
+102 | impl_hash_syscall!(handle_syscall_blake3, syscalls::sol_blake3, "MitoVM: SYSCALL_BLAKE3");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `val_len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:28
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                            ^^^^^^^
+...
+102 | impl_hash_syscall!(handle_syscall_blake3, syscalls::sol_blake3, "MitoVM: SYSCALL_BLAKE3");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: if this is intentional, prefix it with an underscore
+    |
+ 83 |             let (vals_ptr, _val_len) = parse_data_array(ctx, data_ref)?;
+    |                            +
+help: you might have meant to pattern match on the similarly named constant `MAX_ACCOUNT_SIZE`
+    |
+ 83 -             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+ 83 +             let (vals_ptr, systems::accounts::AccountManager::<'a>::create_account_with_payer::MAX_ACCOUNT_SIZE) = parse_data_array(ctx, data_ref)?;
+    |
+
+warning: unused variable: `len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:117:35
+    |
+117 |         ValueRef::TempRef(offset, len) => {
+    |                                   ^^^
+    |
+help: if this is intentional, prefix it with an underscore
+    |
+117 |         ValueRef::TempRef(offset, _len) => {
+    |                                   +
+help: you might have meant to pattern match on the similarly named constant `MAX_VALUE_REF_DEPTH`
+    |
+117 -         ValueRef::TempRef(offset, len) => {
+117 +         ValueRef::TempRef(offset, resolution::resolve_value_ref_with_depth::MAX_VALUE_REF_DEPTH) => {
+    |
+
+warning: unused variable: `pubkey`
+  --> five-vm-mito/src/handlers/system/logging.rs:83:9
+   |
+83 |     let pubkey = ctx.extract_pubkey(&pk_ref)?;
+   |         ^^^^^^
+   |
+help: if this is intentional, prefix it with an underscore
+   |
+83 |     let _pubkey = ctx.extract_pubkey(&pk_ref)?;
+   |         +
+help: you might have meant to pattern match on the similarly named constant `FIVE_VM_PROGRAM_ID`
+   |
+83 -     let pubkey = ctx.extract_pubkey(&pk_ref)?;
+83 +     let FIVE_VM_PROGRAM_ID = ctx.extract_pubkey(&pk_ref)?;
+   |
+
+warning: value assigned to `count` is never read
+   --> five-vm-mito/src/handlers/system/logging.rs:105:13
+    |
+105 |     let mut count = 0;
+    |             ^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `pid_offset`
+  --> five-vm-mito/src/handlers/system/program.rs:34:9
+   |
+34 |     let pid_offset = match pid_ref {
+   |         ^^^^^^^^^^
+   |
+help: if this is intentional, prefix it with an underscore
+   |
+34 |     let _pid_offset = match pid_ref {
+   |         +
+help: you might have meant to pattern match on the similarly named constant `MAX_VALUE_REF_DEPTH`
+   |
+34 -     let pid_offset = match pid_ref {
+34 +     let resolution::resolve_value_ref_with_depth::MAX_VALUE_REF_DEPTH = match pid_ref {
+   |
+
+warning: unused variable: `offset`
+  --> five-vm-mito/src/handlers/system/program.rs:39:28
+   |
+39 |         ValueRef::ArrayRef(offset) => {
+   |                            ^^^^^^
+   |
+help: if this is intentional, prefix it with an underscore
+   |
+39 |         ValueRef::ArrayRef(_offset) => {
+   |                            +
+help: you might have meant to pattern match on the similarly named constant `MAX_VALUE_REF_DEPTH`
+   |
+39 -         ValueRef::ArrayRef(offset) => {
+39 +         ValueRef::ArrayRef(resolution::resolve_value_ref_with_depth::MAX_VALUE_REF_DEPTH) => {
+   |
+
+warning: unused variable: `data_offset`
+  --> five-vm-mito/src/handlers/system/program.rs:50:9
+   |
+50 |     let data_offset = match data_ref {
+   |         ^^^^^^^^^^^
+   |
+help: if this is intentional, prefix it with an underscore
+   |
+50 |     let _data_offset = match data_ref {
+   |         +
+help: you might have meant to pattern match on the similarly named constant `MAX_VALUE_REF_DEPTH`
+   |
+50 -     let data_offset = match data_ref {
+50 +     let resolution::resolve_value_ref_with_depth::MAX_VALUE_REF_DEPTH = match data_ref {
+   |
+
+warning: value assigned to `result_len` is never read
+  --> five-vm-mito/src/handlers/system/program.rs:58:13
+   |
+58 |     let mut result_len = 0;
+   |             ^^^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+
+warning: unused variable: `bytes`
+  --> five-vm-mito/src/handlers/system/program.rs:88:15
+   |
+88 |     let (len, bytes) = ctx.extract_string_slice(&data_ref)?;
+   |               ^^^^^ help: if this is intentional, prefix it with an underscore: `_bytes`
+
+warning: constant `SYSTEM_PROGRAM_ID` is never used
+  --> five-vm-mito/src/context.rs:33:7
+   |
+33 | const SYSTEM_PROGRAM_ID: [u8; 32] = [
+   |       ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `MAX_ACCOUNT_SIZE` is never used
+  --> five-vm-mito/src/context.rs:37:7
+   |
+37 | const MAX_ACCOUNT_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
+   |       ^^^^^^^^^^^^^^^^
+
+warning: constant `SHARED_PARAM_SIZE` is never used
+  --> five-vm-mito/src/context.rs:40:18
+   |
+40 | pub(crate) const SHARED_PARAM_SIZE: usize = MAX_PARAMETERS + 1;
+   |                  ^^^^^^^^^^^^^^^^^
+
+warning: `five-vm-mito` (lib) generated 23 warnings (run `cargo fix --lib -p five-vm-mito` to apply 14 suggestions)
+    Checking five-dsl-compiler v0.1.0 (/app/five-dsl-compiler)
+error: attempted to repeat an expression containing no syntax variables matched as repeating at this depth
+  --> five-dsl-compiler/src/tokenizer/tokens.rs:72:39
+   |
+72 |                         Token::$name $( (_) )? => TokenKind::$name,
+   |                                       ^^^^^^^
+
+error[E0432]: unresolved import `crate::tokenizer::Token`
+  --> five-dsl-compiler/src/compiler/pipeline.rs:13:38
+   |
+13 | use crate::tokenizer::{DslTokenizer, Token};
+   |                                      ^^^^^ no `Token` in `tokenizer`
+
+error[E0432]: unresolved imports `crate::tokenizer::Token`, `crate::tokenizer::TokenKind`
+ --> five-dsl-compiler/src/parser/mod.rs:8:24
+  |
+8 | use crate::tokenizer::{Token, TokenKind};
+  |                        ^^^^^  ^^^^^^^^^ no `TokenKind` in `tokenizer`
+  |                        |
+  |                        no `Token` in `tokenizer`
+
+error[E0432]: unresolved imports `crate::tokenizer::Token`, `crate::tokenizer::TokenKind`
+ --> five-dsl-compiler/src/parser/expressions.rs:3:24
+  |
+3 | use crate::tokenizer::{Token, TokenKind};
+  |                        ^^^^^  ^^^^^^^^^ no `TokenKind` in `tokenizer`
+  |                        |
+  |                        no `Token` in `tokenizer`
+  |
+  = help: consider importing this unresolved item through its public re-export instead:
+          crate::parser::Token
+  = help: consider importing this unresolved item through its public re-export instead:
+          crate::parser::TokenKind
+
+error[E0432]: unresolved imports `crate::tokenizer::Token`, `crate::tokenizer::TokenKind`
+ --> five-dsl-compiler/src/parser/imports.rs:3:24
+  |
+3 | use crate::tokenizer::{Token, TokenKind};
+  |                        ^^^^^  ^^^^^^^^^ no `TokenKind` in `tokenizer`
+  |                        |
+  |                        no `Token` in `tokenizer`
+  |
+  = help: consider importing this unresolved item through its public re-export instead:
+          crate::parser::Token
+  = help: consider importing this unresolved item through its public re-export instead:
+          crate::parser::TokenKind
+
+error[E0432]: unresolved import `crate::tokenizer::Token`
+ --> five-dsl-compiler/src/parser/instructions.rs:5:24
+  |
+5 | use crate::tokenizer::{Token};
+  |                        ^^^^^ no `Token` in `tokenizer`
+  |
+  = help: consider importing this unresolved item through its public re-export instead:
+          crate::parser::Token
+
+error[E0432]: unresolved import `crate::tokenizer::Token`
+ --> five-dsl-compiler/src/parser/interfaces.rs:3:24
+  |
+3 | use crate::tokenizer::{Token};
+  |                        ^^^^^ no `Token` in `tokenizer`
+  |
+  = help: consider importing this unresolved item through its public re-export instead:
+          crate::parser::Token
+
+error[E0432]: unresolved import `crate::tokenizer::Token`
+ --> five-dsl-compiler/src/parser/statements.rs:3:5
+  |
+3 | use crate::tokenizer::Token;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^ no `Token` in `tokenizer`
+  |
+help: consider importing this unresolved item through its public re-export instead
+  |
+3 - use crate::tokenizer::Token;
+3 + use crate::parser::Token;
+  |
+
+error[E0432]: unresolved import `crate::tokenizer::Token`
+ --> five-dsl-compiler/src/parser/structures.rs:3:24
+  |
+3 | use crate::tokenizer::{Token};
+  |                        ^^^^^ no `Token` in `tokenizer`
+  |
+  = help: consider importing this unresolved item through its public re-export instead:
+          crate::parser::Token
+
+error[E0432]: unresolved import `crate::tokenizer::Token`
+ --> five-dsl-compiler/src/parser/types.rs:3:24
+  |
+3 | use crate::tokenizer::{Token};
+  |                        ^^^^^ no `Token` in `tokenizer`
+  |
+  = help: consider importing this unresolved item through its public re-export instead:
+          crate::parser::Token
+
+error[E0432]: unresolved import `tokenizer::Token`
+  --> five-dsl-compiler/src/lib.rs:91:35
+   |
+91 | pub use tokenizer::{DslTokenizer, Token};
+   |                                   ^^^^^ no `Token` in `tokenizer`
+   |
+   = note: unresolved item `crate::parser::blocks::Token` exists but is inaccessible
+
+error[E0412]: cannot find type `Token` in module `crate::tokenizer`
+   --> five-dsl-compiler/src/metrics.rs:481:85
+    |
+481 |     pub fn record_source_stats(&mut self, source: &str, tokens: &[crate::tokenizer::Token]) {
+    |                                                                                     ^^^^^ not found in `crate::tokenizer`
+
+error[E0412]: cannot find type `Token` in this scope
+  --> five-dsl-compiler/src/tokenizer/mod.rs:29:46
+   |
+29 |     pub fn tokenize(&mut self) -> Result<Vec<Token>, VMError> {
+   |                                              ^^^^^ not found in this scope
+   |
+help: you might be missing a type parameter
+   |
+18 | impl<'a, Token> DslTokenizer<'a> {
+   |        +++++++
+
+error[E0412]: cannot find type `Token` in this scope
+   --> five-dsl-compiler/src/tokenizer/mod.rs:534:56
+    |
+534 |     fn classify_identifier(&self, identifier: &str) -> Token {
+    |                                                        ^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Token` in this scope
+   --> five-dsl-compiler/src/tokenizer/mod.rs:623:53
+    |
+623 |     fn parse_seeds_list(&mut self, tokens: &mut Vec<Token>) -> Result<(), VMError> {
+    |                                                     ^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+ 18 | impl<'a, Token> DslTokenizer<'a> {
+    |        +++++++
+
+warning: unused import: `five_protocol::opcodes::*`
+ --> five-dsl-compiler/src/bytecode_generator/bytecode_analyzer/decoder.rs:2:5
+  |
+2 | use five_protocol::opcodes::*;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: ambiguous glob re-exports
+  --> five-dsl-compiler/src/bytecode_generator/mod.rs:75:9
+   |
+75 | pub use bytecode_analyzer::*;
+   |         ^^^^^^^^^^^^^^^^^^^^ the name `decoder` in the type namespace is first re-exported here
+...
+79 | pub use disassembler::*;
+   |         --------------- but the name `decoder` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+  --> five-dsl-compiler/src/tokenizer/mod.rs:48:37
+   |
+48 |                         tokens.push(Token::DivideAssign);
+   |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+  --> five-dsl-compiler/src/tokenizer/mod.rs:50:37
+   |
+50 |                         tokens.push(Token::Divide);
+   |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+  --> five-dsl-compiler/src/tokenizer/mod.rs:73:37
+   |
+73 |                         tokens.push(Token::At);
+   |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+  --> five-dsl-compiler/src/tokenizer/mod.rs:80:49
+   |
+80 |                         "signer" => tokens.push(Token::AtSigner),
+   |                                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+  --> five-dsl-compiler/src/tokenizer/mod.rs:81:46
+   |
+81 |                         "mut" => tokens.push(Token::AtMut),
+   |                                              ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+  --> five-dsl-compiler/src/tokenizer/mod.rs:83:41
+   |
+83 | ...                   tokens.push(Token::AtInit);
+   |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+  --> five-dsl-compiler/src/tokenizer/mod.rs:87:45
+   |
+87 | ...                   tokens.push(Token::LeftBracket);
+   |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+  --> five-dsl-compiler/src/tokenizer/mod.rs:91:49
+   |
+91 | ...                   tokens.push(Token::RightBracket);
+   |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:100:41
+    |
+100 | ...                   tokens.push(Token::At);
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:101:41
+    |
+101 | ...                   tokens.push(Token::Identifier(attribute));
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:108:33
+    |
+108 |                     tokens.push(Token::LeftBracket);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:112:33
+    |
+112 |                     tokens.push(Token::RightBracket);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:116:33
+    |
+116 |                     tokens.push(Token::LeftBrace);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:120:33
+    |
+120 |                     tokens.push(Token::RightBrace);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:124:33
+    |
+124 |                     tokens.push(Token::LeftParen);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:128:33
+    |
+128 |                     tokens.push(Token::RightParen);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:132:33
+    |
+132 |                     tokens.push(Token::Comma);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:136:33
+    |
+136 |                     tokens.push(Token::Semicolon);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:143:37
+    |
+143 |                         tokens.push(Token::Range);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:145:37
+    |
+145 |                         tokens.push(Token::Dot);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:150:33
+    |
+150 |                     tokens.push(Token::Hash);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:154:33
+    |
+154 |                     tokens.push(Token::Question);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:158:33
+    |
+158 |                     tokens.push(Token::Percent);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:165:37
+    |
+165 |                         tokens.push(Token::BitwiseXorAssign);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:167:37
+    |
+167 |                         tokens.push(Token::BitwiseXor);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:172:33
+    |
+172 |                     tokens.push(Token::BitwiseTilde);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:181:37
+    |
+181 |                         tokens.push(Token::DoubleColon);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:183:37
+    |
+183 |                         tokens.push(Token::Colon);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:194:41
+    |
+194 | ...                   tokens.push(Token::Equal);
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:199:41
+    |
+199 | ...                   tokens.push(Token::Arrow);
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:201:41
+    |
+201 | ...                   tokens.push(Token::Assign);
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:206:37
+    |
+206 |                         tokens.push(Token::Assign);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:215:37
+    |
+215 |                         tokens.push(Token::NotEqual);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:217:37
+    |
+217 |                         tokens.push(Token::Bang);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:228:41
+    |
+228 | ...                   tokens.push(Token::RotateLeft); // <<<
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:231:41
+    |
+231 | ...                   tokens.push(Token::LeftShiftAssign); // <<=
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:233:41
+    |
+233 | ...                   tokens.push(Token::LeftShift); // <<
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:237:37
+    |
+237 |                         tokens.push(Token::LessEqual);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:239:37
+    |
+239 |                         tokens.push(Token::LT);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:249:41
+    |
+249 | ...                   tokens.push(Token::ArithRightShift); // >>>
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:252:41
+    |
+252 | ...                   tokens.push(Token::RightShiftAssign); // >>=
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:254:41
+    |
+254 | ...                   tokens.push(Token::RightShift); // >>
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:258:37
+    |
+258 |                         tokens.push(Token::GreaterEqual);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:260:37
+    |
+260 |                         tokens.push(Token::GT);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:270:41
+    |
+270 | ...                   tokens.push(Token::Arrow);
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:274:41
+    |
+274 | ...                   tokens.push(Token::MinusAssign);
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:278:41
+    |
+278 | ...                   tokens.push(Token::MinusChecked);
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:280:41
+    |
+280 | ...                   tokens.push(Token::Minus);
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:285:37
+    |
+285 |                         tokens.push(Token::Minus);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:294:37
+    |
+294 |                         tokens.push(Token::LogicalAnd);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:298:37
+    |
+298 |                         tokens.push(Token::BitwiseAndAssign);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:300:37
+    |
+300 |                         tokens.push(Token::BitwiseAnd);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:309:37
+    |
+309 |                         tokens.push(Token::LogicalOr);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:313:37
+    |
+313 |                         tokens.push(Token::BitwiseOrAssign);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:315:37
+    |
+315 |                         tokens.push(Token::BitwiseOr);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:325:37
+    |
+325 |                         tokens.push(Token::PlusAssign);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:329:37
+    |
+329 |                         tokens.push(Token::PlusChecked);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:331:37
+    |
+331 |                         tokens.push(Token::Plus);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:339:37
+    |
+339 |                         tokens.push(Token::MultiplyAssign);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:343:37
+    |
+343 |                         tokens.push(Token::MultiplyChecked);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:345:37
+    |
+345 |                         tokens.push(Token::Multiply);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:353:33
+    |
+353 |                     tokens.push(Token::StringLiteral(string_value));
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:386:41
+    |
+386 | ...                   tokens.push(Token::NumberLiteral(value));
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:390:41
+    |
+390 | ...                   tokens.push(Token::NumberLiteral(number_value));
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:395:37
+    |
+395 |                         tokens.push(Token::NumberLiteral(number_value));
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:410:21
+    |
+410 |         tokens.push(Token::Eof);
+    |                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:537:23
+    |
+537 |             "init" => Token::Init,
+    |                       ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:538:30
+    |
+538 |             "constraints" => Token::Constraints,
+    |                              ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:539:30
+    |
+539 |             "instruction" => Token::Instruction,
+    |                              ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:540:33
+    |
+540 |             "use" | "import" => Token::Use,
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:541:28
+    |
+541 |             "interface" => Token::Interface,
+    |                            ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:542:23
+    |
+542 |             "when" => Token::When,
+    |                       ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:543:24
+    |
+543 |             "event" => Token::Event,
+    |                        ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:544:23
+    |
+544 |             "emit" => Token::Emit,
+    |                       ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:545:24
+    |
+545 |             "query" => Token::Query,
+    |                        ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:546:25
+    |
+546 |             "return" => Token::Return,
+    |                         ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:547:21
+    |
+547 |             "if" => Token::If,
+    |                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:548:23
+    |
+548 |             "else" => Token::Else,
+    |                       ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:549:24
+    |
+549 |             "match" => Token::Match,
+    |                        ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:550:22
+    |
+550 |             "let" => Token::Let,
+    |                      ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:551:22
+    |
+551 |             "mut" => Token::Mut,
+    |                      ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:552:21
+    |
+552 |             "of" => Token::Of,
+    |                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:553:26
+    |
+553 |             "or_init" => Token::OrInit,
+    |                          ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:554:21
+    |
+554 |             "in" => Token::In,
+    |                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:555:26
+    |
+555 |             "realloc" => Token::Realloc,
+    |                          ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:556:22
+    |
+556 |             "pda" => Token::Pda,
+    |                      ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:557:24
+    |
+557 |             "while" => Token::While,
+    |                        ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:558:22
+    |
+558 |             "for" => Token::For,
+    |                      ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:559:21
+    |
+559 |             "do" => Token::Do,
+    |                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:560:24
+    |
+560 |             "break" => Token::Break,
+    |                        ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:561:27
+    |
+561 |             "continue" => Token::Continue,
+    |                           ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:562:23
+    |
+562 |             "true" => Token::True,
+    |                       ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:563:24
+    |
+563 |             "false" => Token::False,
+    |                        ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:564:26
+    |
+564 |             "require" => Token::Require,
+    |                          ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:565:24
+    |
+565 |             "error" => Token::Error,
+    |                        ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:566:21
+    |
+566 |             "as" => Token::As,
+    |                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:567:21
+    |
+567 |             "fn" => Token::Fn,
+    |                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:568:24
+    |
+568 |             "async" => Token::Async,
+    |                        ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:569:25
+    |
+569 |             "script" => Token::Script,
+    |                         ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:570:23
+    |
+570 |             "enum" => Token::Enum,
+    |                       ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:571:24
+    |
+571 |             "field" => Token::Field,
+    |                        ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:572:22
+    |
+572 |             "pub" => Token::Pub,
+    |                      ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:573:28
+    |
+573 |             "assert_eq" => Token::AssertEq,
+    |                            ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:574:30
+    |
+574 |             "assert_true" => Token::AssertTrue,
+    |                              ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:575:31
+    |
+575 |             "assert_false" => Token::AssertFalse,
+    |                               ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:576:31
+    |
+576 |             "assert_fails" => Token::AssertFails,
+    |                               ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:577:35
+    |
+577 |             "assert_approx_eq" => Token::AssertApproxEq,
+    |                                   ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:578:23
+    |
+578 |             "Some" => Token::Some,
+    |                       ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:579:23
+    |
+579 |             "None" => Token::None,
+    |                       ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:580:21
+    |
+580 |             "Ok" => Token::Ok,
+    |                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:581:22
+    |
+581 |             "Err" => Token::Err,
+    |                      ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:582:25
+    |
+582 |             "Result" => Token::Result,
+    |                         ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:583:25
+    |
+583 |             "Option" => Token::Option,
+    |                         ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:584:25
+    |
+584 |             "ignore" => Token::Ignore,
+    |                         ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:585:30
+    |
+585 |             "should_fail" => Token::ShouldFail,
+    |                              ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:586:26
+    |
+586 |             "timeout" => Token::Timeout,
+    |                          ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:587:32
+    |
+587 |             "discriminator" => Token::Discriminator,
+    |                                ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:588:29
+    |
+588 |             "serializer" => Token::Serializer,
+    |                             ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:589:38
+    |
+589 |             "discriminator_bytes" => Token::DiscriminatorBytes,
+    |                                      ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:592:26
+    |
+592 |             "account" => Token::Account,
+    |                          ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:596:49
+    |
+596 |             | "string" | "lamports" | "u128" => Token::Type(identifier.to_string()),
+    |                                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:599:26
+    |
+599 |             "Account" => Token::Type(identifier.to_string()),
+    |                          ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:602:18
+    |
+602 |             _ => Token::Identifier(identifier.to_string()),
+    |                  ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:645:33
+    |
+645 |                     tokens.push(Token::Comma);
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:670:37
+    |
+670 |                         tokens.push(Token::Dot);
+    |                                     ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:693:33
+    |
+693 |                     tokens.push(Token::StringLiteral(string_value));
+    |                                 ^^^^^ use of undeclared type `Token`
+
+error[E0433]: failed to resolve: use of undeclared type `Token`
+   --> five-dsl-compiler/src/tokenizer/mod.rs:697:33
+    |
+697 |                     tokens.push(Token::NumberLiteral(number_value));
+    |                                 ^^^^^ use of undeclared type `Token`
+
+warning: unused variable: `account_system`
+   --> five-dsl-compiler/src/bytecode_generator/function_dispatch.rs:426:9
+    |
+426 |         account_system: &AccountSystem, // Add account_system parameter
+    |         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_account_system`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0412, E0432, E0433.
+For more information about an error, try `rustc --explain E0412`.
+warning: `five-dsl-compiler` (lib) generated 3 warnings
+error: could not compile `five-dsl-compiler` (lib) due to 142 previous errors; 3 warnings emitted
