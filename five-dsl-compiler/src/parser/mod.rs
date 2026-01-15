@@ -33,7 +33,6 @@ impl DslParser {
     }
 
     pub fn parse(&mut self) -> Result<AstNode, VMError> {
-        eprintln!("OLIVIA_WATERMARK: DslParser::parse started");
         eprintln!("DEBUG_PARSER: DslParser::parse started");
         let mut program_name = "Module".to_string();
         if matches!(self.current_token, Token::Script) {
@@ -103,11 +102,9 @@ impl DslParser {
                     self.advance();
                     constraints_block = Some(Box::new(self.parse_block(BlockKind::Constraints)?));
                 }
-                // TDD Phase 1.7: Handle event definitions
                 TokenKind::Event => {
                     event_definitions.push(self.parse_event_definition()?);
                 }
-                // TDD Phase 1.10: Handle enum/error type definitions
                 TokenKind::Enum => {
                     field_definitions.push(self.parse_error_type_definition()?);
                 }
@@ -180,7 +177,6 @@ impl DslParser {
             .kind()
     }
 
-    // TDD Phase 1.5: Parse field definitions with TypeScript syntax support
     #[allow(dead_code)]
     fn parse_field_definition(&mut self) -> Result<AstNode, VMError> {
         // Check for 'pub' keyword to determine visibility
@@ -246,7 +242,6 @@ impl DslParser {
         })
     }
 
-    // TDD Phase 1.6: Parse instruction definition method
     pub(crate) fn parse_instruction_definition(&mut self) -> Result<AstNode, VMError> {
         eprintln!("DEBUG_PARSER: parse_instruction_definition entry");
         // Check for 'pub' keyword to determine visibility
@@ -267,7 +262,6 @@ impl DslParser {
             self.advance();
         }
 
-        println!("OLIVIA_WATERMARK: DslBytecodeGenerator::generate finished");
         // Parse optional function/instruction name (allow shorthand 'test' prefix)
         // Some call sites invoke this parser after consuming 'fn'/'instruction'/'pub',
         // others call it directly when the current token is the function name.
@@ -590,7 +584,6 @@ impl DslParser {
         })
     }
 
-    // TDD Phase 1.6: Helper to determine if current tokens represent an instruction definition
     #[allow(dead_code)]
     fn is_instruction_definition(&mut self) -> Result<AstNode, VMError> {
         // Consume '#'
@@ -1036,7 +1029,6 @@ impl DslParser {
         Ok(AstNode::EventDefinition { name, fields, visibility })
     }
 
-    // TDD Phase 1.4: Type parsing for hybrid Rust+TypeScript syntax
     fn parse_type(&mut self) -> Result<TypeNode, VMError> {
         let token = self.current_token.clone();
         match &token {

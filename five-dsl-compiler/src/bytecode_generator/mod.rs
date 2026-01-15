@@ -339,7 +339,6 @@ impl DslBytecodeGenerator {
 
         // Execute the existing generation logic inside a closure so we can capture
         // any error and augment it with disassembly diagnostics before returning.
-        eprintln!("OLIVIA_WATERMARK: DslBytecodeGenerator::generate started");
         let result = self.generate_internal(ast);
 
         // If an error occurred, augment stderr output with a small disassembly snippet

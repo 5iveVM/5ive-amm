@@ -2,12 +2,7 @@
 //
 // Orchestrates the compilation pipeline from source to bytecode.
 //
-// This module has been refactored to eliminate DRY violations:
-// - Extracted macros.rs for repetitive patterns (execute_phase!, init_compilation_context!)
-// - Extracted error_handling.rs for error conversion (eliminates 16 duplicate blocks)
-// - Extracted pipeline.rs for core pipeline logic (consolidates 4 duplicate implementations)
-//
-// Result: ~300 lines of duplicate code eliminated, single source of truth for compilation.
+// This module has been refactored to eliminate DRY violations and provide a single source of truth for compilation.
 
 #[macro_use]
 pub mod macros;

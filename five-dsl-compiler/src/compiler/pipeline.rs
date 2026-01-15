@@ -126,14 +126,7 @@ impl Default for CompilationConfig {
 
 /// Core compilation pipeline that executes all compilation phases.
 ///
-/// This struct eliminates the duplicate compilation logic that appeared in:
-/// - compile_to_five_file_with_config (155 lines)
-/// - compile_with_mode_and_features (139 lines)
-/// - run_compilation_pipeline (196 lines)
-/// - compile_with_metrics (74 lines)
-///
-/// By consolidating into a single reusable pipeline, we save ~300 lines
-/// of duplicate code and ensure consistent behavior.
+/// This struct consolidates compilation logic into a single reusable pipeline to ensure consistent behavior.
 ///
 /// Performance: Uses `&'a str` instead of `String` to avoid 8 unnecessary
 /// allocations during compilation (saves ~800KB for a 100KB DSL file).
@@ -153,7 +146,6 @@ impl<'a> CompilationPipeline<'a> {
     ///
     /// Performance: Source is stored as `&str` to avoid unnecessary allocations.
     pub fn new(source: &'a str, filename: Option<&'a str>) -> Self {
-        eprintln!("OLIVIA_WATERMARK: CompilationPipeline::new started");
         if let Err(e) = integration::initialize_error_system() {
             eprintln!("Warning: Failed to initialize enhanced error system: {}", e);
         }
