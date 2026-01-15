@@ -1,7 +1,7 @@
 //! Comprehensive tests for AST generator functionality
 
 use super::*;
-use crate::ast::{AstNode, BlockKind, InstructionParameter, TypeNode};
+use crate::ast::{AstNode, BlockKind, InstructionParameter, TypeNode, MatchArm};
 use five_protocol::{opcodes::*, Value};
 
 /// Mock emitter for testing
@@ -430,4 +430,155 @@ fn test_continue_outside_loop() {
     let continue_stmt = AstNode::ContinueStatement { label: None };
     let result = generator.generate_ast_node(&mut emitter, &continue_stmt);
     assert!(result.is_err()); // Should error
+}
+
+#[test]
+fn test_tuple_generation() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    let tuple_literal = AstNode::TupleLiteral {
+        elements: vec![
+            AstNode::Literal(Value::U64(1)),
+            AstNode::Literal(Value::U64(2)),
+        ],
+    };
+
+    assert!(generator.generate_ast_node(&mut emitter, &tuple_literal).is_ok());
+    // Should emit CREATE_TUPLE
+    assert!(emitter.bytecode.contains(&CREATE_TUPLE));
+}
+
+#[test]
+fn test_tuple_access_generation() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    let tuple_access = AstNode::TupleAccess {
+        object: Box::new(AstNode::Identifier("my_tuple".to_string())),
+        index: 1,
+    };
+
+    // Add dummy variable to symbol table to avoid error
+    generator.add_local_field("my_tuple".to_string(), "(u64, u64)".to_string(), false, false);
+
+    assert!(generator.generate_ast_node(&mut emitter, &tuple_access).is_ok());
+    // Should emit TUPLE_GET
+    assert!(emitter.bytecode.contains(&TUPLE_GET));
+}
+
+#[test]
+fn test_array_literal_generation() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    let array_literal = AstNode::ArrayLiteral {
+        elements: vec![
+            AstNode::Literal(Value::U64(10)),
+            AstNode::Literal(Value::U64(20)),
+        ],
+    };
+
+    assert!(generator.generate_ast_node(&mut emitter, &array_literal).is_ok());
+    // Should emit PUSH_ARRAY_LITERAL
+    assert!(emitter.bytecode.contains(&PUSH_ARRAY_LITERAL));
+}
+
+#[test]
+fn test_string_literal_generation() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    let string_literal = AstNode::StringLiteral {
+        value: "Hello".to_string(),
+    };
+
+    assert!(generator.generate_ast_node(&mut emitter, &string_literal).is_ok());
+    // Should emit PUSH_STRING
+    assert!(emitter.bytecode.contains(&PUSH_STRING));
+}
+
+#[test]
+fn test_match_expression_generation() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    let match_expr = AstNode::MatchExpression {
+        expression: Box::new(AstNode::Literal(Value::U64(5))),
+        arms: vec![
+            MatchArm {
+                pattern: Box::new(AstNode::Literal(Value::U64(5))),
+                guard: None,
+                body: Box::new(AstNode::Block {
+                    statements: vec![],
+                    kind: BlockKind::Regular,
+                }),
+            },
+            MatchArm {
+                pattern: Box::new(AstNode::Identifier("_".to_string())),
+                guard: None,
+                body: Box::new(AstNode::Block {
+                    statements: vec![],
+                    kind: BlockKind::Regular,
+                }),
+            },
+        ],
+    };
+
+    assert!(generator.generate_ast_node(&mut emitter, &match_expr).is_ok());
+    assert!(!emitter.bytecode.is_empty());
+}
+
+#[test]
+fn test_tuple_destructuring() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    let tuple_destructuring = AstNode::TupleDestructuring {
+        targets: vec!["a".to_string(), "b".to_string()],
+        value: Box::new(AstNode::TupleLiteral {
+            elements: vec![
+                AstNode::Literal(Value::U64(1)),
+                AstNode::Literal(Value::U64(2)),
+            ],
+        }),
+    };
+
+    assert!(generator.generate_ast_node(&mut emitter, &tuple_destructuring).is_ok());
+    // Should emit UNPACK_TUPLE
+    assert!(emitter.bytecode.contains(&UNPACK_TUPLE));
+    // Should create local variables
+    assert!(generator.local_symbol_table.contains_key("a"));
+    assert!(generator.local_symbol_table.contains_key("b"));
+}
+
+#[test]
+fn test_tuple_assignment() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    // Prepare variables
+    generator.add_local_field("x".to_string(), "u64".to_string(), true, false);
+    generator.add_local_field("y".to_string(), "u64".to_string(), true, false);
+
+    let tuple_assignment = AstNode::TupleAssignment {
+        targets: vec![
+            AstNode::Identifier("x".to_string()),
+            AstNode::Identifier("y".to_string()),
+        ],
+        value: Box::new(AstNode::TupleLiteral {
+            elements: vec![
+                AstNode::Literal(Value::U64(10)),
+                AstNode::Literal(Value::U64(20)),
+            ],
+        }),
+    };
+
+    assert!(generator.generate_ast_node(&mut emitter, &tuple_assignment).is_ok());
+    // Should generate assignments (SET_LOCAL or similar)
+    // Note: implementation uses emit_set_local, which might be SET_LOCAL or SET_LOCAL_N
+    // Since x and y are indices 0 and 1, likely SET_LOCAL_0 and SET_LOCAL_1
+
+    // We can just check that bytecode is not empty and no error occurred
+    assert!(!emitter.bytecode.is_empty());
 }
