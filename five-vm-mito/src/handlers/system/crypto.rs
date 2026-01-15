@@ -29,11 +29,30 @@ fn parse_data_array(ctx: &mut ExecutionManager, data_ref: ValueRef) -> CompactRe
     // Here we must do it manually.
 
     let (len, ptr) = match data_ref {
-        ValueRef::StringRef(_) | ValueRef::TempRef(_,_) => {
+        ValueRef::StringRef(_) | ValueRef::TempRef(_,_) | ValueRef::HeapString(_) => {
             let (l, b) = ctx.extract_string_slice(&data_ref)?;
              (l as u64, b.as_ptr())
         }
-        // TODO: Handle ArrayRef
+        ValueRef::ArrayRef(id) => {
+            // Treat array as single data slice
+            let temp_buf = ctx.temp_buffer();
+            let start = id as usize;
+
+            // Validate header access
+            if start + 2 > temp_buf.len() {
+                 return Err(VMErrorCode::MemoryViolation);
+            }
+
+            let array_len = temp_buf[start] as u64;
+
+            // Validate data access
+            if start + 2 + (array_len as usize) > temp_buf.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+
+            let ptr = unsafe { temp_buf.as_ptr().add(start + 2) };
+            (array_len, ptr)
+        }
         _ => return Err(VMErrorCode::TypeMismatch),
     };
 
@@ -49,15 +68,14 @@ fn parse_data_array(ctx: &mut ExecutionManager, data_ref: ValueRef) -> CompactRe
     let ptr_u64 = ptr as u64;
     let len_u64 = len;
 
-    // Write to temp buffer
-    unsafe {
-        let temp_base = ctx.temp_buffer_mut().as_mut_ptr();
-        let vec_ptr = temp_base.add(vec_offset as usize);
-        *(vec_ptr as *mut u64) = ptr_u64;
-        *(vec_ptr.add(8) as *mut u64) = len_u64;
+    // Write to temp buffer safely (handling potential misalignment)
+    let temp_buf = ctx.temp_buffer_mut();
+    let vec_slice = &mut temp_buf[vec_offset as usize .. vec_offset as usize + 16];
+    vec_slice[0..8].copy_from_slice(&ptr_u64.to_le_bytes());
+    vec_slice[8..16].copy_from_slice(&len_u64.to_le_bytes());
 
-        Ok((vec_ptr, 1))
-    }
+    let vec_ptr = unsafe { temp_buf.as_ptr().add(vec_offset as usize) };
+    Ok((vec_ptr, 1))
 }
 
 macro_rules! impl_hash_syscall {
@@ -76,6 +94,46 @@ macro_rules! impl_hash_syscall {
                 ValueRef::TempRef(offset, len) => {
                     if len < 32 { return Err(VMErrorCode::MemoryViolation); } // Most hashes 32 bytes
                     unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(offset as usize) }
+                }
+                ValueRef::ArrayRef(id) => {
+                     let temp_buf = ctx.temp_buffer();
+                     let start = id as usize;
+                     if start + 2 > temp_buf.len() {
+                         return Err(VMErrorCode::MemoryViolation);
+                     }
+                     let len = temp_buf[start];
+                     if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+
+                     // Ensure buffer has enough space for 32 bytes
+                     if start + 2 + 32 > temp_buf.len() {
+                         return Err(VMErrorCode::MemoryViolation);
+                     }
+
+                     unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) }
+                }
+                ValueRef::StringRef(offset) => {
+                     let start = offset as usize;
+                     let temp_buf = ctx.temp_buffer();
+                     if start + 2 > temp_buf.len() {
+                         return Err(VMErrorCode::MemoryViolation);
+                     }
+                     let len = temp_buf[start];
+                     if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+
+                     // Ensure buffer has enough space for 32 bytes
+                     if start + 2 + 32 > temp_buf.len() {
+                         return Err(VMErrorCode::MemoryViolation);
+                     }
+
+                     unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) }
+                }
+                ValueRef::HeapString(id) => {
+                     // Check length stored at id
+                     let len_bytes = ctx.get_heap_data(id, 4)?;
+                     let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
+                     if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+
+                     unsafe { ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr() }
                 }
                 _ => return Err(VMErrorCode::TypeMismatch),
             };
@@ -114,8 +172,36 @@ pub fn handle_syscall_poseidon(ctx: &mut ExecutionManager) -> CompactResult<()> 
     let parameters = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
 
     let result_ptr = match result_ref {
-        ValueRef::TempRef(offset, len) => {
+        ValueRef::TempRef(offset, _) => {
              unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(offset as usize) }
+        }
+        ValueRef::ArrayRef(id) => {
+             let temp_buf = ctx.temp_buffer();
+             let start = id as usize;
+             if start + 2 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             let len = temp_buf[start];
+             if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+             // Ensure buffer has enough space for 32 bytes (Poseidon result size)
+             if start + 2 + 32 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) }
+        }
+        ValueRef::StringRef(offset) => {
+             let start = offset as usize;
+             let temp_buf = ctx.temp_buffer();
+             if start + 2 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             let len = temp_buf[start];
+             if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+             // Ensure buffer has enough space for 32 bytes
+             if start + 2 + 32 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) }
+        }
+        ValueRef::HeapString(id) => {
+             // We assume sufficient size validation happened at allocation or call site logic
+             // But for safety we should get the ptr safely
+             let len_bytes = ctx.get_heap_data(id, 4)?;
+             let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
+             if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr() }
         }
         _ => return Err(VMErrorCode::TypeMismatch),
     };
@@ -149,18 +235,91 @@ pub fn handle_syscall_secp256k1_recover(ctx: &mut ExecutionManager) -> CompactRe
 
     let result_ptr = match result_ref {
          ValueRef::TempRef(offset, _) => unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(offset as usize) },
+         ValueRef::ArrayRef(id) => {
+             let temp_buf = ctx.temp_buffer();
+             let start = id as usize;
+             if start + 2 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             let len = temp_buf[start];
+             if len < 64 { return Err(VMErrorCode::MemoryViolation); } // Result is 64 bytes
+             if start + 2 + 64 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) }
+         },
+         ValueRef::StringRef(offset) => {
+             let start = offset as usize;
+             let temp_buf = ctx.temp_buffer();
+             if start + 2 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             let len = temp_buf[start];
+             if len < 64 { return Err(VMErrorCode::MemoryViolation); }
+             if start + 2 + 64 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) }
+         },
+         ValueRef::HeapString(id) => {
+             let len_bytes = ctx.get_heap_data(id, 4)?;
+             let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
+             if len < 64 { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr() }
+         }
          _ => return Err(VMErrorCode::TypeMismatch),
     };
 
     // Hash (32 bytes)
     let hash_ptr = match hash_ref {
          ValueRef::TempRef(offset, _) => unsafe { ctx.temp_buffer().as_ptr().add(offset as usize) },
+         ValueRef::ArrayRef(id) => {
+             let temp_buf = ctx.temp_buffer();
+             let start = id as usize;
+             if start + 2 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             let len = temp_buf[start];
+             if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+             // Only reading, but check bounds
+             if start + 2 + 32 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.temp_buffer().as_ptr().add(start + 2) }
+         },
+         ValueRef::StringRef(offset) => {
+             let start = offset as usize;
+             let temp_buf = ctx.temp_buffer();
+             if start + 2 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             let len = temp_buf[start];
+             if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+             if start + 2 + 32 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.temp_buffer().as_ptr().add(start + 2) }
+         },
+         ValueRef::HeapString(id) => {
+             let len_bytes = ctx.get_heap_data(id, 4)?;
+             let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
+             if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.get_heap_data(id + 4, len)?.as_ptr() }
+         }
          _ => return Err(VMErrorCode::TypeMismatch),
     };
 
     // Signature (64 bytes)
     let sig_ptr = match signature_ref {
          ValueRef::TempRef(offset, _) => unsafe { ctx.temp_buffer().as_ptr().add(offset as usize) },
+         ValueRef::ArrayRef(id) => {
+             let temp_buf = ctx.temp_buffer();
+             let start = id as usize;
+             if start + 2 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             let len = temp_buf[start];
+             if len < 64 { return Err(VMErrorCode::MemoryViolation); }
+             if start + 2 + 64 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.temp_buffer().as_ptr().add(start + 2) }
+         },
+         ValueRef::StringRef(offset) => {
+             let start = offset as usize;
+             let temp_buf = ctx.temp_buffer();
+             if start + 2 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             let len = temp_buf[start];
+             if len < 64 { return Err(VMErrorCode::MemoryViolation); }
+             if start + 2 + 64 > temp_buf.len() { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.temp_buffer().as_ptr().add(start + 2) }
+         },
+         ValueRef::HeapString(id) => {
+             let len_bytes = ctx.get_heap_data(id, 4)?;
+             let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
+             if len < 64 { return Err(VMErrorCode::MemoryViolation); }
+             unsafe { ctx.get_heap_data(id + 4, len)?.as_ptr() }
+         }
          _ => return Err(VMErrorCode::TypeMismatch),
     };
 
