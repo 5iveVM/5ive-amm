@@ -33,12 +33,12 @@ pub struct ParsedScript {
 }
 
 /// Parsed instruction with decoded arguments
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParsedInstruction {
     pub offset: usize,
     pub opcode: u8,
-    pub arg1: u32,
-    pub arg2: u32,
+    pub arg1: u64,
+    pub arg2: u64,
     pub size: usize,
 }
 
@@ -204,8 +204,8 @@ pub fn parse_instruction(
 
     let arg_type = info.unwrap().arg_type;
 
-    let mut arg1 = 0u32;
-    let mut arg2 = 0u32;
+    let mut arg1 = 0u64;
+    let mut arg2 = 0u64;
     let mut total_size = 1; // opcode size
 
     // Decode arg1 based on arg_type
@@ -215,7 +215,7 @@ pub fn parse_instruction(
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            arg1 = bytecode[offset + total_size] as u32;
+            arg1 = bytecode[offset + total_size] as u64;
             total_size += 1;
 
             // Special handling for PUSH_STRING_LITERAL (0x66)
@@ -236,12 +236,12 @@ pub fn parse_instruction(
                 bytecode[offset + total_size],
                 bytecode[offset + total_size + 1],
             ];
-            arg1 = u16::from_le_bytes(bytes) as u32;
+            arg1 = u16::from_le_bytes(bytes) as u64;
             total_size += 2;
         }
         ArgType::U32 => match VLE::decode_u32(&bytecode[offset + total_size..]) {
             Some((value, consumed)) => {
-                arg1 = value;
+                arg1 = value as u64;
                 total_size += consumed;
 
                 // Special handling for PUSH_STRING (0x67)
@@ -260,7 +260,7 @@ pub fn parse_instruction(
         },
         ArgType::FunctionIndex => match VLE::decode_u32(&bytecode[offset + total_size..]) {
             Some((value, consumed)) => {
-                arg1 = value;
+                arg1 = value as u64;
                 total_size += consumed;
             }
             None => {
@@ -269,7 +269,7 @@ pub fn parse_instruction(
         },
         ArgType::LocalIndex => match VLE::decode_u32(&bytecode[offset + total_size..]) {
             Some((value, consumed)) => {
-                arg1 = value;
+                arg1 = value as u64;
                 total_size += consumed;
             }
             None => {
@@ -278,7 +278,7 @@ pub fn parse_instruction(
         },
         ArgType::AccountIndex => match VLE::decode_u32(&bytecode[offset + total_size..]) {
             Some((value, consumed)) => {
-                arg1 = value;
+                arg1 = value as u64;
                 total_size += consumed;
             }
             None => {
@@ -288,10 +288,7 @@ pub fn parse_instruction(
         ArgType::U64 => {
             match VLE::decode_u64(&bytecode[offset + total_size..]) {
                 Some((value, consumed)) => {
-                    arg1 = value as u32; // Truncate for now
-                    if value > u32::MAX as u64 {
-                        return Err(ParseError::InvalidVLE);
-                    }
+                    arg1 = value;
                     total_size += consumed;
                 }
                 None => return Err(ParseError::InvalidVLE),
@@ -301,31 +298,31 @@ pub fn parse_instruction(
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            arg1 = bytecode[offset + total_size] as u32;
+            arg1 = bytecode[offset + total_size] as u64;
             total_size += 1;
         }
         ArgType::TwoRegisters => {
             if offset + total_size + 1 >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            arg1 = bytecode[offset + total_size] as u32;
-            arg2 = bytecode[offset + total_size + 1] as u32;
+            arg1 = bytecode[offset + total_size] as u64;
+            arg2 = bytecode[offset + total_size + 1] as u64;
             total_size += 2;
         }
         ArgType::ThreeRegisters => {
             if offset + total_size + 2 >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            arg1 = bytecode[offset + total_size] as u32;
-            arg2 = ((bytecode[offset + total_size + 1] as u32) << 8)
-                | bytecode[offset + total_size + 2] as u32;
+            arg1 = bytecode[offset + total_size] as u64;
+            arg2 = ((bytecode[offset + total_size + 1] as u64) << 8)
+                | bytecode[offset + total_size + 2] as u64;
             total_size += 3;
         }
         ArgType::RegisterIndex => {
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            arg1 = bytecode[offset + total_size] as u32;
+            arg1 = bytecode[offset + total_size] as u64;
             total_size += 1;
         }
         ArgType::CallExternal => {
@@ -333,13 +330,13 @@ pub fn parse_instruction(
                 return Err(ParseError::InstructionOutOfBounds);
             }
             // Consumes 4 bytes: account_index (u8) + func_offset (u16) + param_count (u8)
-            let account_idx = bytecode[offset + total_size] as u32;
+            let account_idx = bytecode[offset + total_size] as u64;
             let offset_bytes = [
                 bytecode[offset + total_size + 1],
                 bytecode[offset + total_size + 2],
             ];
-            let func_offset = u16::from_le_bytes(offset_bytes) as u32;
-            let param_count = bytecode[offset + total_size + 3] as u32;
+            let func_offset = u16::from_le_bytes(offset_bytes) as u64;
+            let param_count = bytecode[offset + total_size + 3] as u64;
 
             arg1 = (account_idx << 24) | func_offset;
             arg2 = param_count;
@@ -350,12 +347,12 @@ pub fn parse_instruction(
                 return Err(ParseError::InstructionOutOfBounds);
             }
             // Consumes 3 bytes: param_count (u8) + function_address (u16)
-            let param_count = bytecode[offset + total_size] as u32;
+            let param_count = bytecode[offset + total_size] as u64;
             let addr_bytes = [
                 bytecode[offset + total_size + 1],
                 bytecode[offset + total_size + 2],
             ];
-            let func_addr = u16::from_le_bytes(addr_bytes) as u32;
+            let func_addr = u16::from_le_bytes(addr_bytes) as u64;
 
             arg1 = func_addr;
             arg2 = param_count;
@@ -365,12 +362,12 @@ pub fn parse_instruction(
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            arg1 = bytecode[offset + total_size] as u32; // account_index
+            arg1 = bytecode[offset + total_size] as u64; // account_index
             total_size += 1;
 
             match VLE::decode_u32(&bytecode[offset + total_size..]) {
                 Some((value, consumed)) => {
-                    arg2 = value; // field_offset
+                    arg2 = value as u64; // field_offset
                     total_size += consumed;
                 }
                 None => {
