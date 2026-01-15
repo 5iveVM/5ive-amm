@@ -17,6 +17,40 @@ const ACCOUNT_REF_NONE: u8 = 255; // Option::None
 const ACCOUNT_REF_ERR: u8 = 254; // Result::Err
 const ACCOUNT_REF_MAX_VALID: u8 = 253; // Max valid account index for Some/Ok
 
+// Helper enums for cleaner pattern matching
+enum OptionStatus {
+    None,
+    Some(u16), // offset
+    Invalid,
+}
+
+enum ResultStatus {
+    Ok(u16), // offset
+    Err(u16), // offset
+    Invalid,
+}
+
+// Helper functions to categorize ValueRef
+fn check_option_status(value: ValueRef) -> OptionStatus {
+    match value {
+        ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => OptionStatus::None,
+        ValueRef::AccountRef(idx, offset) if idx <= ACCOUNT_REF_MAX_VALID => {
+            OptionStatus::Some(offset)
+        }
+        _ => OptionStatus::Invalid,
+    }
+}
+
+fn check_result_status(value: ValueRef) -> ResultStatus {
+    match value {
+        ValueRef::AccountRef(ACCOUNT_REF_ERR, offset) => ResultStatus::Err(offset),
+        ValueRef::AccountRef(idx, offset) if idx <= ACCOUNT_REF_MAX_VALID => {
+            ResultStatus::Ok(offset)
+        }
+        _ => ResultStatus::Invalid,
+    }
+}
+
 /// Handle Option and Result operations (0xF0-0xFF)
 #[inline(never)]
 pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
@@ -101,20 +135,18 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_UNWRAP unwrapping optional {}", s.as_str());
             }
 
-            match optional_value {
-                ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => {
+            match check_option_status(optional_value) {
+                OptionStatus::None => {
                     // None value - panic
                     debug_log!("MitoVM: OPTIONAL_UNWRAP panic - unwrapping None value");
                     return Err(VMErrorCode::InvalidOperation);
                 }
-                ValueRef::AccountRef(account_idx, offset)
-                    if account_idx <= ACCOUNT_REF_MAX_VALID =>
-                {
+                OptionStatus::Some(offset) => {
                     // Some value - read from account/temp buffer
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
                 }
-                _ => {
+                OptionStatus::Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
             }
@@ -129,12 +161,10 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_IS_SOME checking optional {}", s.as_str());
             }
 
-            let is_some = match optional_value {
-                ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => false, // None
-                ValueRef::AccountRef(account_idx, _) if account_idx <= ACCOUNT_REF_MAX_VALID => {
-                    true
-                } // Some
-                _ => false,                                         // Invalid
+            let is_some = match check_option_status(optional_value) {
+                OptionStatus::None => false,
+                OptionStatus::Some(_) => true,
+                OptionStatus::Invalid => false, // Treating invalid as false for consistency with original code
             };
             ctx.push(ValueRef::Bool(is_some))?;
         }
@@ -148,12 +178,10 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_IS_NONE checking optional {}", s.as_str());
             }
 
-            let is_none = match optional_value {
-                ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => true, // None
-                ValueRef::AccountRef(account_idx, _) if account_idx <= ACCOUNT_REF_MAX_VALID => {
-                    false
-                } // Some
-                _ => false,                                        // Invalid
+            let is_none = match check_option_status(optional_value) {
+                OptionStatus::None => true,
+                OptionStatus::Some(_) => false,
+                OptionStatus::Invalid => false, // Treating invalid as false
             };
             ctx.push(ValueRef::Bool(is_none))?;
         }
@@ -167,20 +195,18 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_GET_VALUE extracting from optional {}", s.as_str());
             }
 
-            match optional_value {
-                ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => {
+            match check_option_status(optional_value) {
+                OptionStatus::None => {
                     // Unsafe operation - return empty value for None (undefined behavior)
                     debug_log!("MitoVM: OPTIONAL_GET_VALUE unsafe - extracting from None");
                     ctx.push(ValueRef::Empty)?;
                 }
-                ValueRef::AccountRef(account_idx, offset)
-                    if account_idx <= ACCOUNT_REF_MAX_VALID =>
-                {
+                OptionStatus::Some(offset) => {
                     // Some value - read from temp buffer
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
                 }
-                _ => {
+                OptionStatus::Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
             }
@@ -195,12 +221,10 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_IS_OK checking result {}", s.as_str());
             }
 
-            let is_ok = match result_value {
-                ValueRef::AccountRef(ACCOUNT_REF_ERR, _) => false, // Err
-                ValueRef::AccountRef(account_idx, _) if account_idx <= ACCOUNT_REF_MAX_VALID => {
-                    true
-                } // Ok
-                _ => false,                                        // Invalid
+            let is_ok = match check_result_status(result_value) {
+                ResultStatus::Err(_) => false,
+                ResultStatus::Ok(_) => true,
+                ResultStatus::Invalid => false,
             };
             ctx.push(ValueRef::Bool(is_ok))?;
         }
@@ -214,12 +238,10 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_IS_ERR checking result {}", s.as_str());
             }
 
-            let is_err = match result_value {
-                ValueRef::AccountRef(ACCOUNT_REF_ERR, _) => true, // Err
-                ValueRef::AccountRef(account_idx, _) if account_idx <= ACCOUNT_REF_MAX_VALID => {
-                    false
-                } // Ok
-                _ => false,                                       // Invalid
+            let is_err = match check_result_status(result_value) {
+                ResultStatus::Err(_) => true,
+                ResultStatus::Ok(_) => false,
+                ResultStatus::Invalid => false,
             };
             ctx.push(ValueRef::Bool(is_err))?;
         }
@@ -233,20 +255,18 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_UNWRAP unwrapping result {}", s.as_str());
             }
 
-            match result_value {
-                ValueRef::AccountRef(ACCOUNT_REF_ERR, _) => {
+            match check_result_status(result_value) {
+                ResultStatus::Err(_) => {
                     // Err value - panic
                     debug_log!("MitoVM: RESULT_UNWRAP panic - unwrapping Err value");
                     return Err(VMErrorCode::InvalidOperation);
                 }
-                ValueRef::AccountRef(account_idx, offset)
-                    if account_idx <= ACCOUNT_REF_MAX_VALID =>
-                {
+                ResultStatus::Ok(offset) => {
                     // Ok value - read from temp buffer
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
                 }
-                _ => {
+                ResultStatus::Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
             }
@@ -261,20 +281,18 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_GET_VALUE extracting from result {}", s.as_str());
             }
 
-            match result_value {
-                ValueRef::AccountRef(ACCOUNT_REF_ERR, _) => {
+            match check_result_status(result_value) {
+                ResultStatus::Err(_) => {
                     // Unsafe operation - return empty value for Err (undefined behavior)
                     debug_log!("MitoVM: RESULT_GET_VALUE unsafe - extracting from Err");
                     ctx.push(ValueRef::Empty)?;
                 }
-                ValueRef::AccountRef(account_idx, offset)
-                    if account_idx <= ACCOUNT_REF_MAX_VALID =>
-                {
+                ResultStatus::Ok(offset) => {
                     // Ok value - read from temp buffer
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
                 }
-                _ => {
+                ResultStatus::Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
             }
@@ -289,8 +307,8 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_GET_ERROR extracting error from result {}", s.as_str());
             }
 
-            match result_value {
-                ValueRef::AccountRef(ACCOUNT_REF_ERR, offset) => {
+            match check_result_status(result_value) {
+                ResultStatus::Err(offset) => {
                     // Err value - read error code from temp buffer
                     let error_value = ctx.read_value_from_temp(offset)?;
                     match error_value {
@@ -298,12 +316,12 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                         _ => ctx.push(ValueRef::U8(1))?, // Default error
                     }
                 }
-                ValueRef::AccountRef(account_idx, _) if account_idx <= ACCOUNT_REF_MAX_VALID => {
+                ResultStatus::Ok(_) => {
                     // Unsafe operation - return 0 error code for Ok (undefined behavior)
                     debug_log!("MitoVM: RESULT_GET_ERROR unsafe - extracting error from Ok");
                     ctx.push(ValueRef::U8(0))?;
                 }
-                _ => {
+                ResultStatus::Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
             }

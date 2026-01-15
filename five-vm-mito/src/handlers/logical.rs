@@ -4,62 +4,9 @@
 //! These operations work on boolean values and bitwise operations on u64 values.
 
 use crate::{
-    context::ExecutionManager,
-    debug_log,
-    error::{CompactResult, VMErrorCode},
-    logical_binary_op,
-    pop_bool,
-    vm_push_bool,
+    bitwise_op, context::ExecutionManager, debug_log, error::{CompactResult, VMErrorCode}, logical_binary_op, pop_bool, rotate_op, shift_op, vm_push_bool
 };
 use five_protocol::{opcodes::*, ValueRef};
-
-macro_rules! bitwise_op {
-    ($ctx:expr, $op_name:expr, $op:tt) => {{
-        let b = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-        let a = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-        let result = a $op b;
-        debug_log!("MitoVM: {} {} {} {} = {}", $op_name, a, stringify!($op), b, result);
-        $ctx.push(ValueRef::U64(result))?;
-    }};
-}
-
-macro_rules! shift_op {
-    ($ctx:expr, $op_name:expr, $op:tt) => {{
-        let shift_amount = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-        let value = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-        // Limit shift amount to prevent undefined behavior
-        let safe_shift = (shift_amount % 64) as u32;
-        let result = value $op safe_shift;
-        debug_log!(
-            "MitoVM: {} {} {} {} = {}",
-            $op_name,
-            value,
-            stringify!($op),
-            safe_shift,
-            result
-        );
-        $ctx.push(ValueRef::U64(result))?;
-    }};
-}
-
-macro_rules! rotate_op {
-    ($ctx:expr, $op_name:expr, $method:ident) => {{
-        let rotate_amount = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-        let value = $ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-        // Rotate amount modulo 64 for circular rotation
-        let safe_rotate = (rotate_amount % 64) as u32;
-        let result = value.$method(safe_rotate);
-        debug_log!(
-            "MitoVM: {} {} {} {} = {}",
-            $op_name,
-            value,
-            stringify!($method),
-            safe_rotate,
-            result
-        );
-        $ctx.push(ValueRef::U64(result))?;
-    }};
-}
 
 /// Handle logical operations (0x30-0x3F)
 #[inline(never)]
