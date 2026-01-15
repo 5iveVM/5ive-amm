@@ -84,3 +84,39 @@ export function findFunctionInABI(
   // No match found
   return undefined;
 }
+
+/**
+ * Resolve function name to index using ABI
+ */
+export function resolveFunctionIndex(abi: any, functionName: string): number {
+  if (!abi || !abi.functions) {
+    throw new Error(
+      "No ABI information available for function name resolution",
+    );
+  }
+
+  // Handle both array format: [{ name: "add", index: 0 }] and object format: { "add": { index: 0 } }
+  if (Array.isArray(abi.functions)) {
+    // Array format (legacy)
+    const func = abi.functions.find((f: any) => f.name === functionName);
+    if (!func) {
+      const availableFunctions = abi.functions
+        .map((f: any) => f.name)
+        .join(", ");
+      throw new Error(
+        `Function '${functionName}' not found in ABI. Available functions: ${availableFunctions}`,
+      );
+    }
+    return func.index;
+  } else {
+    // Object format (new WASM ABI)
+    const func = abi.functions[functionName];
+    if (!func) {
+      const availableFunctions = Object.keys(abi.functions).join(", ");
+      throw new Error(
+        `Function '${functionName}' not found in ABI. Available functions: ${availableFunctions}`,
+      );
+    }
+    return func.index;
+  }
+}

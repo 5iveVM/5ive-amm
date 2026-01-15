@@ -389,7 +389,7 @@ export class BytecodeCompiler {
       // Load WASM compiler silently unless debug
 
       // Import existing WASM compiler from the SDK
-      const wasmModule = await import("../wasm/compiler.js");
+      const wasmModule = await import("../wasm/compiler/index.js");
       const wasmInstance = new wasmModule.FiveCompiler(this.createWasmLogger());
 
       // Initialize the compiler
