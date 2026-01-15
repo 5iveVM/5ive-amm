@@ -290,6 +290,21 @@ impl ASTGenerator {
                 Ok(())
             }
 
+            AstNode::WhileLoop { condition, body } => {
+                self.generate_while_loop(emitter, condition, body)?;
+                Ok(())
+            }
+
+            AstNode::BreakStatement { .. } => {
+                self.generate_break_statement(emitter)?;
+                Ok(())
+            }
+
+            AstNode::ContinueStatement { .. } => {
+                self.generate_continue_statement(emitter)?;
+                Ok(())
+            }
+
             AstNode::FieldAssignment {
                 object,
                 field,

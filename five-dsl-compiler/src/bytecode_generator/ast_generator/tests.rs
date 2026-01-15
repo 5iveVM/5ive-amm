@@ -343,3 +343,91 @@ fn test_call_deduplication_safety() {
     let result2 = generator.emit_call_with_deduplication(&mut emitter, 1, 0, "test_fn");
     assert!(result2.is_ok());
 }
+
+#[test]
+fn test_while_loop_generation() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    // while (true) { }
+    let while_loop = AstNode::WhileLoop {
+        condition: Box::new(AstNode::Literal(Value::Bool(true))),
+        body: Box::new(AstNode::Block {
+            statements: vec![],
+            kind: BlockKind::Regular,
+        }),
+    };
+
+    let result = generator.generate_ast_node(&mut emitter, &while_loop);
+    assert!(result.is_ok());
+    assert!(emitter.bytecode.len() > 0, "While loop generated no bytecode!");
+
+    // We expect at least:
+    // 1. Literal True (PUSH_U64 1 or similar)
+    // 2. JUMP_IF_NOT (to end)
+    // 3. JUMP (to start)
+    // Plus labels placeholders.
+}
+
+#[test]
+fn test_while_loop_with_break() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    // while (true) { break; }
+    let while_loop = AstNode::WhileLoop {
+        condition: Box::new(AstNode::Literal(Value::Bool(true))),
+        body: Box::new(AstNode::Block {
+            statements: vec![AstNode::BreakStatement { label: None }],
+            kind: BlockKind::Regular,
+        }),
+    };
+
+    let result = generator.generate_ast_node(&mut emitter, &while_loop);
+    assert!(result.is_ok());
+
+    // Check patches
+    // Break should generate a JUMP 0 that is patched to end of loop.
+    // Since MockEmitter mocks patch_u16, we can check if bytecode has patched values?
+    // MockEmitter updates bytecode in place.
+    // However, without specific offsets, it is hard to check exact values.
+    // But success of generation implies no errors.
+}
+
+#[test]
+fn test_while_loop_with_continue() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    // while (true) { continue; }
+    let while_loop = AstNode::WhileLoop {
+        condition: Box::new(AstNode::Literal(Value::Bool(true))),
+        body: Box::new(AstNode::Block {
+            statements: vec![AstNode::ContinueStatement { label: None }],
+            kind: BlockKind::Regular,
+        }),
+    };
+
+    let result = generator.generate_ast_node(&mut emitter, &while_loop);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_break_outside_loop() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    let break_stmt = AstNode::BreakStatement { label: None };
+    let result = generator.generate_ast_node(&mut emitter, &break_stmt);
+    assert!(result.is_err()); // Should error
+}
+
+#[test]
+fn test_continue_outside_loop() {
+    let mut generator = ASTGenerator::new();
+    let mut emitter = MockEmitter::new();
+
+    let continue_stmt = AstNode::ContinueStatement { label: None };
+    let result = generator.generate_ast_node(&mut emitter, &continue_stmt);
+    assert!(result.is_err()); // Should error
+}
