@@ -1,5 +1,5 @@
 use pinocchio::{
-    account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult, sysvars::Sysvar,
+    account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
 use crate::{
@@ -11,10 +11,8 @@ use crate::{
     state::{FIVEVMState, ScriptAccountHeader},
 };
 
-use five_protocol::parser::parse_header;
-
 use super::{
-    fees::{calculate_fee, transfer_fee},
+    fees::{collect_deploy_fee},
     verify::{verify_bytecode_content},
     require_min_accounts, require_signer, safe_realloc,
 };
@@ -118,57 +116,11 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     let required_size = ScriptAccountHeader::LEN + bytecode.len();
 
     // Check for deployment fees
-    {
-        // SAFETY: The state account is program-owned and read-only here.
-        let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
-        let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
-
-        let deploy_fee_bps = vm_state.deploy_fee_bps;
-        if deploy_fee_bps > 0 {
-            // Calculate rent basis
-            let rent = pinocchio::sysvars::rent::Rent::get()
-                .map_err(|_| ProgramError::AccountNotRentExempt)?;
-            let rent_basis = rent.minimum_balance(required_size);
-
-            // Fee is bps of rent
-            let fee = calculate_fee(rent_basis, deploy_fee_bps);
-
-            if fee > 0 {
-                // Find admin (authority) account to receive fee
-                // If permissions != 0, admin is at accounts[3]
-                // If permissions == 0, we might need to search or require admin present
-
-                let admin_key = vm_state.authority;
-                let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
-
-                if let Some(recipient) = admin_account {
-                    let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
-                    transfer_fee(owner, recipient, fee, system_program)?;
-                    debug_log!("Collected deploy fee: {}", fee);
-                } else {
-                    // If fee is required but admin not present, fail
-                    return Err(ProgramError::MissingRequiredSignature);
-                }
-            }
-        }
-    }
+    collect_deploy_fee(vm_state_account, accounts, owner, required_size)?;
 
     if script_account.data_len() < required_size {
         return Err(ProgramError::Custom(7005));
     }
-
-    // Extract cached metadata from bytecode for fast execution
-    let public_function_count = if bytecode.len() >= 9 { bytecode[8] } else { 0 };
-    let total_function_count = if bytecode.len() >= 10 { bytecode[9] } else { 0 };
-    let features = if bytecode.len() >= 8 {
-        u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]])
-    } else {
-        0
-    };
-
-    // We already verified content, so parse_header should succeed
-    let (_, offset) = parse_header(bytecode).map_err(|_| ProgramError::Custom(8002))?;
-    let instruction_start_offset = offset as u16;
 
     // Update VM state - reuse mutable borrow from earlier? No, borrow scope ended.
     // SAFETY: `vm_state_account` verified.
@@ -181,14 +133,10 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     let script_data = unsafe { script_account.borrow_mut_data_unchecked() };
 
     // Create header with cached metadata for fast execution path
-    let header = ScriptAccountHeader::new_with_metadata(
+    let header = ScriptAccountHeader::create_from_bytecode(
         bytecode,
         *owner.key(),
         script_id,
-        public_function_count,
-        total_function_count,
-        features,
-        instruction_start_offset,
         permissions, // Use the permissions from the instruction
     );
 
@@ -197,11 +145,8 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
         .copy_from_slice(bytecode);
 
     debug_log!(
-        "Script {} deployed: public_funcs={}, total_funcs={}, instr_offset={}",
-        script_id,
-        public_function_count,
-        total_function_count,
-        instruction_start_offset
+        "Script {} deployed: header_created",
+        script_id
     );
     Ok(())
 }
@@ -375,59 +320,14 @@ pub fn append_bytecode(
 
         // Collect deployment fee if configured
         {
-            let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
-            let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
-
-            let deploy_fee_bps = vm_state.deploy_fee_bps;
-            if deploy_fee_bps > 0 {
-                // Calculate rent basis for the final script account size
-                let final_size = ScriptAccountHeader::LEN + expected_size;
-                let rent = pinocchio::sysvars::rent::Rent::get()
-                    .map_err(|_| ProgramError::AccountNotRentExempt)?;
-                let rent_basis = rent.minimum_balance(final_size);
-
-                // Fee is bps of rent
-                let fee = calculate_fee(rent_basis, deploy_fee_bps);
-
-                debug_log!("Deploy fee check: bps={}, rent_basis={}, fee={}", deploy_fee_bps, rent_basis, fee);
-
-                if fee > 0 {
-                    let admin_key = vm_state.authority;
-                    let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
-
-                    if let Some(recipient) = admin_account {
-                        debug_log!("Paying deploy fee: {}", fee);
-                        let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
-                        transfer_fee(owner, recipient, fee, system_program)?;
-                        debug_log!("Collected deploy fee: {}", fee);
-                    } else {
-                        debug_log!("Deploy fee required but Admin not found");
-                        // If fee is required but admin not present, fail
-                        return Err(ProgramError::MissingRequiredSignature);
-                    }
-                }
-            }
+            let final_size = ScriptAccountHeader::LEN + expected_size;
+            collect_deploy_fee(vm_state_account, accounts, owner, final_size)?;
         }
 
-        let public_function_count = if bytecode.len() >= 9 { bytecode[8] } else { 0 };
-        let total_function_count = if bytecode.len() >= 10 { bytecode[9] } else { 0 };
-        let features = if bytecode.len() >= 8 {
-            u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]])
-        } else {
-            0
-        };
-
-        let (_, offset) = parse_header(bytecode).map_err(|_| ProgramError::Custom(8205))?;
-        let instruction_start_offset = offset as u16;
-
-        let mut final_header = ScriptAccountHeader::new_with_metadata(
+        let mut final_header = ScriptAccountHeader::create_from_bytecode(
             bytecode,
             *owner.key(),
             script_id,
-            public_function_count,
-            total_function_count,
-            features,
-            instruction_start_offset,
             permissions,
         );
         // Set upload flags BEFORE writing to account (single-write pattern)
@@ -486,27 +386,11 @@ pub fn finalize_script_upload(
 
     verify_bytecode_content(bytecode)?;
 
-    // Calculate metadata
-    let public_function_count = if bytecode.len() >= 9 { bytecode[8] } else { 0 };
-    let total_function_count = if bytecode.len() >= 10 { bytecode[9] } else { 0 };
-    let features = if bytecode.len() >= 8 {
-        u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]])
-    } else {
-        0
-    };
-
-    let (_, offset) = parse_header(bytecode).map_err(|_| ProgramError::Custom(8209))?;
-    let instruction_start_offset = offset as u16;
-
     // Update header
-    let mut final_header = ScriptAccountHeader::new_with_metadata(
+    let mut final_header = ScriptAccountHeader::create_from_bytecode(
         bytecode,
         *owner.key(),
         script_id,
-        public_function_count,
-        total_function_count,
-        features,
-        instruction_start_offset,
         permissions,
     );
     // Set upload flags BEFORE writing to account (single-write pattern)

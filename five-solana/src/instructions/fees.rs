@@ -1,5 +1,6 @@
 use pinocchio::{
-    account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+    account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, sysvars::Sysvar,
+    ProgramResult,
 };
 
 use crate::{
@@ -74,6 +75,53 @@ pub fn transfer_fee(payer: &AccountInfo, recipient: &AccountInfo, amount: u64, s
         *recipient.try_borrow_mut_lamports()? = new_recipient_lamports;
     }
 
+    Ok(())
+}
+
+/// Collect deployment fee if configured in VM state
+pub fn collect_deploy_fee(
+    vm_state_account: &AccountInfo,
+    accounts: &[AccountInfo],
+    payer: &AccountInfo,
+    total_script_size: usize,
+) -> ProgramResult {
+    // SAFETY: The state account is program-owned and read-only here.
+    let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+    let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
+
+    let deploy_fee_bps = vm_state.deploy_fee_bps;
+    if deploy_fee_bps > 0 {
+        // Calculate rent basis for the total script size
+        let rent = pinocchio::sysvars::rent::Rent::get()
+            .map_err(|_| ProgramError::AccountNotRentExempt)?;
+        let rent_basis = rent.minimum_balance(total_script_size);
+
+        // Fee is bps of rent
+        let fee = calculate_fee(rent_basis, deploy_fee_bps);
+
+        debug_log!(
+            "Deploy fee check: bps={}, rent_basis={}, fee={}",
+            deploy_fee_bps,
+            rent_basis,
+            fee
+        );
+
+        if fee > 0 {
+            let admin_key = vm_state.authority;
+            let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
+
+            if let Some(recipient) = admin_account {
+                debug_log!("Paying deploy fee: {}", fee);
+                let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
+                transfer_fee(payer, recipient, fee, system_program)?;
+                debug_log!("Collected deploy fee: {}", fee);
+            } else {
+                debug_log!("Deploy fee required but Admin not found");
+                // If fee is required but admin not present, fail
+                return Err(ProgramError::MissingRequiredSignature);
+            }
+        }
+    }
     Ok(())
 }
 
