@@ -16,8 +16,6 @@ use pinocchio::pubkey::Pubkey;
 
 /// Process a single seed value and store it in the seed array.
 /// Returns the length of the seed data written.
-///
-/// This helper eliminates duplication across DERIVE_PDA, FIND_PDA, and constraint validation.
 #[inline(always)]
 pub fn process_seed_value(
     seed_value: ValueRef,
@@ -36,19 +34,17 @@ pub fn process_seed_value(
             Ok(1)
         }
         ValueRef::TempRef(offset, len) => {
-            // Get string or byte array from temp buffer
             let start = offset as usize;
             let end = start + len as usize;
             if end > ctx.temp_buffer().len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
-            let copy_len = len.min(32); // Clamp to seed max size
+            let copy_len = len.min(32);
             seeds[seed_idx][..copy_len as usize]
                 .copy_from_slice(&ctx.temp_buffer()[start..start + copy_len as usize]);
             Ok(copy_len as usize)
         }
         ValueRef::StringRef(offset) => {
-            // String stored in temp buffer: [len, type, bytes...]
             let start = offset as usize;
             if start + 2 > ctx.temp_buffer().len() {
                 return Err(VMErrorCode::MemoryViolation);
@@ -67,8 +63,6 @@ pub fn process_seed_value(
             Ok(copy_len)
         }
         ValueRef::ArrayRef(id) => {
-            // Array stored in temp buffer: [len, type, bytes...]
-            // We treat array content as bytes for seeding (must be array of u8 or use first bytes of elements)
             let start = id as usize;
             if start + 2 > ctx.temp_buffer().len() {
                 return Err(VMErrorCode::MemoryViolation);
@@ -91,7 +85,6 @@ pub fn process_seed_value(
 }
 
 /// Pop seeds from stack and process them into the provided buffers.
-/// Validates seeds_count.
 #[inline(always)]
 pub fn pop_and_process_seeds(
     ctx: &mut ExecutionManager,
@@ -99,7 +92,6 @@ pub fn pop_and_process_seeds(
     seeds: &mut [[u8; 32]; 8],
     seed_lens: &mut [usize; 8],
 ) -> CompactResult<()> {
-    // Validate seeds count (stack-based limit)
     const MAX_SEEDS: usize = 8;
     if seeds_count as usize > MAX_SEEDS {
         return Err(VMErrorCode::InvalidOperation);
@@ -110,42 +102,31 @@ pub fn pop_and_process_seeds(
         let seed_idx = (seeds_count - 1 - i) as usize; // Reverse order since we pop
         let seed_value = ctx.pop()?;
         debug_log!("MitoVM: PDA seed index: {}", seed_idx as u32);
-
-        // Convert seed value to bytes using helper function
         seed_lens[seed_idx] = process_seed_value(seed_value, seeds, seed_idx, ctx)?;
     }
     Ok(())
 }
 
-/// Handle sol_create_program_address syscall - deterministic PDA generation
+/// Handle sol_create_program_address syscall.
 #[inline(never)]
 pub fn handle_syscall_create_program_address(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS");
 
-    // Pop program_id and seeds from stack
-    // Stack: push seeds, push program_id. Pop: program_id, seeds.
     let program_id_ref = ctx.pop()?;
     let seeds_ref = ctx.pop()?;
 
-    // Extract pubkey directly
     let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
     let program_pubkey = Pubkey::from(program_id_bytes);
 
-    // Process seeds
-    // Since we don't support full array parsing yet, we treat seeds_ref as a single seed
-    // or if it is an ArrayRef, we treat its content as the seed.
-    // Ideally we should support list of seeds.
-    // For now, support up to 1 seed.
+    // Process seeds. Currently supports a single seed (or array treated as one).
     const MAX_SEEDS: usize = 8;
     let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
 
-    // Process single seed
     let len = process_seed_value(seeds_ref, &mut seeds, 0, ctx)?;
     let seed_refs = [&seeds[0][..len]];
 
     debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS calling create_program_address");
 
-    // Perform PDA derivation based on target
     #[cfg(target_os = "solana")]
     let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> =
         create_program_address(&seed_refs, &program_pubkey)
@@ -162,17 +143,12 @@ pub fn handle_syscall_create_program_address(ctx: &mut ExecutionManager) -> Comp
         }
         Err(_e) => {
             debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS failed");
-            // Return null/error? Syscall usually returns 0 for success?
-            // create_program_address returns void/result?
-            // Pinocchio syscall returns u64 (Success=0).
-            // But VM should probably return Result<Pubkey>.
-            // If the syscall fails, we return error in VM logic.
             Err(VMErrorCode::InvokeError)
         }
     }
 }
 
-/// Handle sol_try_find_program_address syscall - PDA generation with bump search
+/// Handle sol_try_find_program_address syscall.
 #[inline(never)]
 pub fn handle_syscall_try_find_program_address(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS");
@@ -183,7 +159,7 @@ pub fn handle_syscall_try_find_program_address(ctx: &mut ExecutionManager) -> Co
     let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
     let program_pubkey = Pubkey::from(program_id_bytes);
 
-    // Process seeds (single seed support for now)
+    // Process seeds. Currently supports a single seed (or array treated as one).
     const MAX_SEEDS: usize = 8;
     let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
 
@@ -204,13 +180,6 @@ pub fn handle_syscall_try_find_program_address(ctx: &mut ExecutionManager) -> Co
 }
 
 /// Execute a closure with parsed PDA seeds and program ID.
-/// Encapsulates the common logic for setting up PDA derivation context:
-/// - Parsing program ID
-/// - Parsing seeds count
-/// - Populating stack-allocated seed buffers
-/// - Creating slice references
-///
-/// This reduces code duplication and ensures consistent stack usage.
 #[inline(always)]
 pub fn with_pda_seeds<F>(ctx: &mut ExecutionManager, f: F) -> CompactResult<()>
 where
@@ -285,7 +254,6 @@ pub fn handle_pda_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<(
             with_pda_seeds(ctx, |ctx, program_pubkey, seeds| {
                 debug_log!("MitoVM: DERIVE_PDA calling create_program_address");
 
-                // Perform PDA derivation based on target
                 #[cfg(target_os = "solana")]
                 let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> =
                     create_program_address(seeds, &program_pubkey)
@@ -312,7 +280,6 @@ pub fn handle_pda_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<(
             with_pda_seeds(ctx, |ctx, program_pubkey, seeds| {
                 debug_log!("MitoVM: FIND_PDA calling find_program_address");
 
-                // Perform PDA finding based on target
                 #[cfg(target_os = "solana")]
                 let (pda_pubkey, bump_seed) = find_program_address(seeds, &program_pubkey);
 

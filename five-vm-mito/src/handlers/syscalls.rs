@@ -4,26 +4,9 @@
 //! enabling contracts to access native blockchain functionality while maintaining
 //! zero-allocation execution principles.
 //!
-//! # Architecture
-//!
 //! The CALL_NATIVE opcode takes a single byte parameter (syscall_id) that identifies
 //! which Pinocchio syscall to execute. All parameters are passed through the VM's
 //! stack using ValueRef for zero-copy efficiency.
-//!
-//! # CU Cost Overview
-//!
-//! Each syscall has an associated compute unit (CU) cost based on Solana's runtime:
-//! - Control: 50-100 CU (abort, panic)
-//! - Sysvars: 200-400 CU (fast reads)
-//! - PDAs: 1,500-3,000 CU (derivation complexity)
-//! - Crypto: 2,000-150,000+ CU (varies by algorithm)
-//! - Logging: 200+ CU (plus message size)
-//! - Memory: 50+ CU (plus data size)
-//!
-//! # Safety
-//!
-//! All handlers maintain MitoVM's zero-allocation guarantee and use stack-based
-//! parameter passing. Error conditions return VMError rather than panicking.
 
 use crate::{
     context::ExecutionManager,
@@ -64,7 +47,6 @@ pub use crate::handlers::system::cpi::{
 };
 
 // ===== SYSCALL ID CONSTANTS =====
-// These match the syscall_id values used in CALL_NATIVE
 
 pub const SYSCALL_ABORT: u8 = 1;
 pub const SYSCALL_PANIC: u8 = 2;
@@ -117,62 +99,16 @@ pub const SYSCALL_CURVE_VALIDATE_POINT: u8 = 91;
 
 // ===== CONTROL SYSCALLS =====
 
-/// Handle sol_abort syscall - immediate program termination
-///
-/// # Description
-/// Immediately terminates program execution, similar to C's abort() function.
-/// This is the cleanest way to halt execution when an unrecoverable error occurs.
-///
-/// # Parameters
-/// None
-///
-/// # Stack Effect
-/// None (execution terminates)
-///
-/// # CU Cost
-/// ~50 CU
-///
-/// # Errors
-/// Always returns VMError::ExecutionTerminated to halt the VM
-///
-/// # Five DSL Usage
-/// ```five
-/// abort()  // Terminates execution immediately
-/// ```
+/// Handle sol_abort syscall - immediate program termination.
 pub fn handle_syscall_abort(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_ABORT - terminating execution");
-    // In Solana, abort() immediately terminates the program
-    // We simulate this by returning a specific error
     Err(VMErrorCode::ExecutionTerminated)
 }
 
-/// Handle sol_panic_ syscall - program panic with optional message
-///
-/// # Description  
-/// Terminates program execution with an optional panic message that can be
-/// logged for debugging purposes. Provides more context than abort().
-///
-/// # Parameters
-/// - Optional panic message (ValueRef) - if present on stack, will be logged
-///
-/// # Stack Effect
-/// Consumes optional message from stack, then terminates
-///
-/// # CU Cost
-/// ~50-100 CU (base cost + message size)
-///
-/// # Errors
-/// Always returns VMError::ExecutionTerminated to halt the VM
-///
-/// # Five DSL Usage
-/// ```five
-/// panic()                    // Simple panic
-/// panic("Error message")     // Panic with debug message  
-/// ```
+/// Handle sol_panic_ syscall - program panic with optional message.
 pub fn handle_syscall_panic(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_PANIC - program panic");
 
-    // Pop optional panic message from stack (if any)
     if ctx.size() > 0 {
         if let Ok(_msg_ref) = ctx.pop() {
             #[cfg(feature = "debug-logs")]
@@ -187,4 +123,3 @@ pub fn handle_syscall_panic(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     Err(VMErrorCode::ExecutionTerminated)
 }
-
