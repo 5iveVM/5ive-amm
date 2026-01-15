@@ -29,10 +29,17 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
-    handlers::system::serialize_clock_to_buffer,
+};
+pub use crate::handlers::system::pda::{
+    handle_syscall_create_program_address, handle_syscall_try_find_program_address,
+};
+pub use crate::handlers::system::sysvars::{
+    handle_syscall_get_clock_sysvar, handle_syscall_get_epoch_rewards_sysvar,
+    handle_syscall_get_epoch_schedule_sysvar, handle_syscall_get_epoch_stake,
+    handle_syscall_get_fees_sysvar, handle_syscall_get_last_restart_slot,
+    handle_syscall_get_rent_sysvar, handle_syscall_get_sysvar,
 };
 use five_protocol::ValueRef;
-use pinocchio::sysvars::{clock::Clock, rent::Rent, Sysvar};
 
 // ===== SYSCALL ID CONSTANTS =====
 // These match the syscall_id values used in CALL_NATIVE
@@ -159,184 +166,6 @@ pub fn handle_syscall_panic(ctx: &mut ExecutionManager) -> CompactResult<()> {
     Err(VMErrorCode::ExecutionTerminated)
 }
 
-// ===== PDA/ADDRESS SYSCALLS =====
-
-/// Handle sol_create_program_address syscall - deterministic PDA generation
-///
-/// # Description
-/// Creates a program-derived address (PDA) from seeds and a program ID without
-/// searching for a valid bump seed. Fails if the resulting address is on the
-/// Ed25519 curve (invalid for PDAs).
-///
-/// # Parameters
-/// - seeds: Array of seed byte arrays (ValueRef)
-/// - program_id: 32-byte program identifier (ValueRef)
-///
-/// # Stack Effect
-/// Consumes: [program_id, seeds]
-/// Produces: [Result<pubkey, error>]
-///
-/// # CU Cost
-/// ~1,500 CU (deterministic, no bump search)
-///
-/// # Returns
-/// Result containing either the derived PDA or an error if invalid
-///
-/// # Five DSL Usage
-/// ```five
-/// let pda = create_program_address(seeds, program_id);
-/// match pda {
-///     Ok(address) => { /* use address */ },
-///     Err(_) => panic("Invalid PDA seeds")
-/// }
-/// ```
-pub fn handle_syscall_create_program_address(ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS");
-
-    // Pop program_id and seeds from stack
-    let _program_id_ref = ctx.pop()?;
-    let _seeds_ref = ctx.pop()?;
-
-    // For now, return a placeholder result
-    // Full implementation would need proper seed parsing and PDA derivation
-    debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS - returning placeholder");
-
-    // Push success result (placeholder pubkey reference)
-    ctx.push(ValueRef::result_ok(0, 0))?;
-    Ok(())
-}
-
-/// Handle sol_try_find_program_address syscall - PDA generation with bump search
-///
-/// # Description  
-/// Finds a valid program-derived address by searching for a bump seed that
-/// produces an address NOT on the Ed25519 curve. This is the most common
-/// way to generate PDAs as it guarantees validity.
-///
-/// # Parameters
-/// - seeds: Array of seed byte arrays (ValueRef)
-/// - program_id: 32-byte program identifier (ValueRef)
-///
-/// # Stack Effect
-/// Consumes: [program_id, seeds]  
-/// Produces: [bump_seed, Result<pubkey, error>]
-///
-/// # CU Cost
-/// ~2,000-3,000 CU (includes bump seed search loop)
-///
-/// # Returns
-/// - bump_seed: u8 value that produces valid PDA (typically 254-255)
-/// - Result containing either the derived PDA or error
-///
-/// # Five DSL Usage
-/// ```five
-/// let (pda, bump) = try_find_program_address(seeds, program_id);
-/// match pda {
-///     Ok(address) => log_pubkey(address),
-///     Err(_) => panic("PDA generation failed")
-/// }
-/// ```
-pub fn handle_syscall_try_find_program_address(ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS");
-
-    // Pop program_id and seeds from stack
-    let _program_id_ref = ctx.pop()?;
-    let _seeds_ref = ctx.pop()?;
-
-    // For now, return a placeholder result with bump seed
-    debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS - returning placeholder");
-
-    // Push success result (placeholder pubkey + bump)
-    ctx.push(ValueRef::U8(255))?; // bump seed
-    ctx.push(ValueRef::result_ok(0, 0))?; // pubkey result
-    Ok(())
-}
-
-// ===== SYSVAR SYSCALLS =====
-
-/// Handle sol_get_clock_sysvar syscall - access blockchain time and slot info
-///
-/// # Description
-/// Retrieves the Clock sysvar containing current slot, epoch, and timestamp
-/// information. This is essential for time-based logic in smart contracts.
-/// Enhanced version of the existing GET_CLOCK opcode with full sysvar access.
-///
-/// # Parameters  
-/// None
-///
-/// # Stack Effect
-/// Produces: [Clock struct (TupleRef)]
-///
-/// # CU Cost
-/// ~200 CU (fast sysvar read)
-///
-/// # Clock Structure
-/// The returned tuple contains 5 fields (40 bytes total):
-/// - slot: u64 - Current slot number
-/// - epoch_start_timestamp: u64 - Unix timestamp when current epoch started  
-/// - epoch: u64 - Current epoch number
-/// - leader_schedule_epoch: u64 - Epoch of the current leader schedule
-/// - unix_timestamp: u64 - Current Unix timestamp (estimated)
-///
-/// # Returns
-/// TupleRef pointing to Clock structure in temp buffer
-///
-/// # Five DSL Usage
-/// ```five
-/// let clock = get_clock_sysvar();
-/// let current_slot = clock.slot;
-/// let timestamp = clock.unix_timestamp;
-/// require(timestamp > deadline, "Transaction too late");
-/// ```
-pub fn handle_syscall_get_clock_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_GET_CLOCK_SYSVAR");
-
-    let clock = Clock::get().map_err(|_| {
-        debug_log!("MitoVM: Failed to access Clock sysvar");
-        VMErrorCode::InvalidOperation
-    })?;
-
-    // Use temp buffer to store clock data
-    let temp_buffer = ctx.temp_buffer_mut();
-    if temp_buffer.len() < 40 {
-        return Err(VMErrorCode::MemoryViolation);
-    }
-
-    // Write Clock structure: slot, epoch_start_timestamp, epoch, leader_schedule_epoch, unix_timestamp
-    serialize_clock_to_buffer(&clock, temp_buffer);
-
-    // Push reference to complete clock structure
-    ctx.push(ValueRef::TupleRef(0, 40))?;
-    debug_log!("MitoVM: SYSCALL_GET_CLOCK_SYSVAR success");
-    Ok(())
-}
-
-/// Handle sol_get_epoch_schedule_sysvar syscall
-pub fn handle_syscall_get_epoch_schedule_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_GET_EPOCH_SCHEDULE_SYSVAR - placeholder implementation");
-    // EpochSchedule is not available in current pinocchio version
-    // Return placeholder result
-    ctx.push(ValueRef::result_ok(0, 0))?;
-    Ok(())
-}
-
-/// Handle sol_get_rent_sysvar syscall (enhanced from existing GET_RENT)
-pub fn handle_syscall_get_rent_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_GET_RENT_SYSVAR");
-
-    let rent = Rent::get().map_err(|_| {
-        debug_log!("MitoVM: Failed to access Rent sysvar");
-        VMErrorCode::InvalidOperation
-    })?;
-
-    // Push rent lamports per byte per year
-    #[allow(deprecated)]
-    let lamports_per_byte_year = rent.lamports_per_byte_year;
-    ctx.push(ValueRef::U64(lamports_per_byte_year))?;
-    debug_log!("MitoVM: SYSCALL_GET_RENT_SYSVAR success");
-    Ok(())
-}
-
 // ===== PLACEHOLDER SYSCALL HANDLERS =====
 // These are minimal implementations to demonstrate the pattern.
 // Full implementations would require more complex parameter handling and native calls.
@@ -350,19 +179,6 @@ macro_rules! syscall_placeholder {
         }
     };
 }
-
-// Sysvar syscalls
-syscall_placeholder!(
-    handle_syscall_get_epoch_rewards_sysvar,
-    "SYSCALL_GET_EPOCH_REWARDS_SYSVAR"
-);
-syscall_placeholder!(handle_syscall_get_epoch_stake, "SYSCALL_GET_EPOCH_STAKE");
-syscall_placeholder!(handle_syscall_get_fees_sysvar, "SYSCALL_GET_FEES_SYSVAR");
-syscall_placeholder!(
-    handle_syscall_get_last_restart_slot,
-    "SYSCALL_GET_LAST_RESTART_SLOT"
-);
-syscall_placeholder!(handle_syscall_get_sysvar, "SYSCALL_GET_SYSVAR");
 
 // Program data syscalls
 syscall_placeholder!(handle_syscall_get_return_data, "SYSCALL_GET_RETURN_DATA");

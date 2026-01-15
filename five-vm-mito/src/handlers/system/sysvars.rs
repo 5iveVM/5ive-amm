@@ -97,3 +97,64 @@ pub fn handle_sysvar_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
     }
     Ok(())
 }
+
+/// Handle sol_get_clock_sysvar syscall
+#[inline(never)]
+pub fn handle_syscall_get_clock_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_GET_CLOCK_SYSVAR");
+
+    let clock = Clock::get().map_err(|_| {
+        debug_log!("MitoVM: Failed to access Clock sysvar");
+        VMErrorCode::InvalidOperation
+    })?;
+
+    // Use temp buffer to store clock data
+    let temp_buffer = ctx.temp_buffer_mut();
+    if temp_buffer.len() < 40 {
+        return Err(VMErrorCode::MemoryViolation);
+    }
+
+    // Write Clock structure: slot, epoch_start_timestamp, epoch, leader_schedule_epoch, unix_timestamp
+    serialize_clock_to_buffer(&clock, temp_buffer);
+
+    // Push reference to complete clock structure
+    ctx.push(ValueRef::TupleRef(0, 40))?;
+    debug_log!("MitoVM: SYSCALL_GET_CLOCK_SYSVAR success");
+    Ok(())
+}
+
+/// Handle sol_get_rent_sysvar syscall
+#[inline(never)]
+pub fn handle_syscall_get_rent_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_GET_RENT_SYSVAR");
+
+    let rent = Rent::get().map_err(|_| {
+        debug_log!("MitoVM: Failed to access Rent sysvar");
+        VMErrorCode::InvalidOperation
+    })?;
+
+    // Push rent lamports per byte per year
+    #[allow(deprecated)]
+    let lamports_per_byte_year = rent.lamports_per_byte_year;
+    ctx.push(ValueRef::U64(lamports_per_byte_year))?;
+    debug_log!("MitoVM: SYSCALL_GET_RENT_SYSVAR success");
+    Ok(())
+}
+
+// Placeholders for other sysvar syscalls
+macro_rules! sysvar_syscall_placeholder {
+    ($name:ident, $log_msg:expr) => {
+        pub fn $name(ctx: &mut ExecutionManager) -> CompactResult<()> {
+            debug_log!("MitoVM: {} - placeholder implementation", $log_msg);
+            ctx.push(ValueRef::result_ok(0, 0))?;
+            Ok(())
+        }
+    };
+}
+
+sysvar_syscall_placeholder!(handle_syscall_get_epoch_schedule_sysvar, "SYSCALL_GET_EPOCH_SCHEDULE_SYSVAR");
+sysvar_syscall_placeholder!(handle_syscall_get_epoch_rewards_sysvar, "SYSCALL_GET_EPOCH_REWARDS_SYSVAR");
+sysvar_syscall_placeholder!(handle_syscall_get_epoch_stake, "SYSCALL_GET_EPOCH_STAKE");
+sysvar_syscall_placeholder!(handle_syscall_get_fees_sysvar, "SYSCALL_GET_FEES_SYSVAR");
+sysvar_syscall_placeholder!(handle_syscall_get_last_restart_slot, "SYSCALL_GET_LAST_RESTART_SLOT");
+sysvar_syscall_placeholder!(handle_syscall_get_sysvar, "SYSCALL_GET_SYSVAR");

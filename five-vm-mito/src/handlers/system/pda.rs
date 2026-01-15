@@ -117,6 +117,42 @@ pub fn pop_and_process_seeds(
     Ok(())
 }
 
+/// Handle sol_create_program_address syscall - deterministic PDA generation
+#[inline(never)]
+pub fn handle_syscall_create_program_address(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS");
+
+    // Pop program_id and seeds from stack
+    let _program_id_ref = ctx.pop()?;
+    let _seeds_ref = ctx.pop()?;
+
+    // For now, return a placeholder result
+    // Full implementation would need proper seed parsing and PDA derivation
+    debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS - returning placeholder");
+
+    // Push success result (placeholder pubkey reference)
+    ctx.push(ValueRef::result_ok(0, 0))?;
+    Ok(())
+}
+
+/// Handle sol_try_find_program_address syscall - PDA generation with bump search
+#[inline(never)]
+pub fn handle_syscall_try_find_program_address(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS");
+
+    // Pop program_id and seeds from stack
+    let _program_id_ref = ctx.pop()?;
+    let _seeds_ref = ctx.pop()?;
+
+    // For now, return a placeholder result with bump seed
+    debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS - returning placeholder");
+
+    // Push success result (placeholder pubkey + bump)
+    ctx.push(ValueRef::U8(255))?; // bump seed
+    ctx.push(ValueRef::result_ok(0, 0))?; // pubkey result
+    Ok(())
+}
+
 /// Execute a closure with parsed PDA seeds and program ID.
 /// Encapsulates the common logic for setting up PDA derivation context:
 /// - Parsing program ID
