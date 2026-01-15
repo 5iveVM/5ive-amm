@@ -134,7 +134,7 @@ fn push_pda_result(ctx: &mut ExecutionManager, pda_pubkey: [u8; 32], bump: u8) -
     let tuple_offset = ctx.alloc_temp(size as u8)?;
 
     // Serialize into temp buffer
-    // Note: We access temp_buffer_mut carefully to avoid conflict with alloc_temp above
+    // Access temp_buffer via separate borrow to satisfy checker
     {
         let buffer = ctx.temp_buffer_mut();
         let mut current = tuple_offset as usize;

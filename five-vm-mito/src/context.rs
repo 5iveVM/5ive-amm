@@ -65,8 +65,6 @@ pub struct ExecutionContext<'a> {
     pub header_features: u32,      // Raw header feature flags
 
     // --- External Solana state ---
-    // Note: accounts are now managed by AccountManager, but we might keep references if needed.
-    // However, AccountManager owns the slice.
     pub program_id: Pubkey,
     pub instruction_data: &'a [u8],
 
@@ -457,8 +455,6 @@ impl<'a> ExecutionContext<'a> {
         self.compute_units_consumed
     }
 
-    // === PHASE 1: CRITICAL MISSING METHODS ===
-
     // --- Call stack management ---
 
     #[inline(always)]
@@ -705,24 +701,8 @@ impl<'a> ExecutionContext<'a> {
     #[inline]
     pub fn fetch_pubkey_to_temp(&mut self) -> CompactResult<u8> {
         let offset = self.memory.alloc_temp(32)?;
-        // We need to write to memory.temp_buffer
-        // fetch_byte updates pc
         for i in 0..32 {
             let byte = self.fetch_byte()?;
-            // Direct access to temp buffer for performance
-            // But we can use get_temp_data_mut but it's per byte
-            // Better to get slice once
-            // But we can't because of borrowing self multiple times (fetch_byte mutates self)
-            // So loop is fine, but accessing temp_buffer each time via memory might be slow if not inlined?
-            // self.memory.temp_buffer is reference to slice.
-            // But we can't hold reference to temp_buffer while calling fetch_byte (which mutates self).
-            // Actually fetch_byte mutates self.pc.
-            // memory.temp_buffer access requires self.memory.
-            // self.memory and self.pc are disjoint, but Rust borrow checker sees self.
-
-            // We can fetch all bytes first? No, we don't have buffer.
-
-            // We can modify memory directly using index since we know offset.
             self.memory.temp_buffer[offset as usize + i] = byte;
         }
         Ok(offset)

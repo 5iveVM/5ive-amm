@@ -109,16 +109,11 @@ impl MitoVM {
             }
         }
 
-        // Script format validated at deploy-time.
-
-        // Parse optimized header (magic + features + public_count + total_count)
         let (start_ip, public_function_count, total_function_count, header_features) =
             Self::parse_optimized_header(script)?;
 
-        // Create execution manager
         debug_log!("MitoVM: Creating ExecutionManager...");
 
-        // Direct ExecutionManager creation.
         debug_log!("MitoVM: Using compile-time defaults");
         debug_log!(
             "MitoVM: Function counts from header: {} public, {} total",
@@ -142,7 +137,7 @@ impl MitoVM {
             start_ip as u32
         );
 
-        // Pre-parse VLE parameters directly into execution context for zero-copy access
+        // Pre-parse VLE parameters
         {
             let mut parsed_params = [ValueRef::Empty; 8];
             if !input_data.is_empty() {
@@ -162,7 +157,6 @@ impl MitoVM {
             ctx.parameters_mut()[..8].copy_from_slice(&parsed_params);
         }
 
-        // Store parsed parameters metadata
         debug_log!("MitoVM: Setting pre-parsed parameters in ExecutionContext...");
         ctx.frame.param_start = 0;
         debug_log!(
@@ -170,17 +164,11 @@ impl MitoVM {
             ctx.parameters().len() as u32
         );
 
-        // Initialize ValueAccessContext for zero-copy parameter access
         debug_log!("MitoVM: Initializing ValueAccessContext...");
         debug_log!("MitoVM: ValueAccessContext components prepared successfully");
 
-        // Push parsed VLE parameters onto the stack and mirror into locals for nibble GET_LOCAL_* access
-        // Skip the first parameter (function index) as it's metadata, not a function parameter
         debug_log!("MitoVM: Pushing VLE parameters onto stack and initializing locals...");
 
-        // Count actual function parameters (excluding index 0) - iterate slice directly
-        // We need to find the highest index that is set to ensure we allocate enough locals
-        // even if there are gaps (sparse parameters)
         let mut param_count: u8 = 0;
         let mut max_param_index: u8 = 0;
         for i in 1..8 {
@@ -193,13 +181,10 @@ impl MitoVM {
         // Set param_len to actual count (not MAX_PARAMETERS)
         ctx.frame.param_len = param_count;
 
-        // Initialize locals to mirror parameters for compilers that lower params to locals 0..N-1
-        // Allocate based on max_param_index to handle sparse parameters
+        // Initialize locals to mirror parameters
         let locals_to_allocate = if max_param_index > 0 {
-            // Allocate enough locals to cover up to the last parameter
             max_param_index
         } else {
-            // Allocate default locals for main frame even with no parameters (3 allows 4 call levels with 12 max locals)
             3
         };
         ctx.allocate_locals(locals_to_allocate)?;
@@ -210,7 +195,6 @@ impl MitoVM {
                 continue;
             }
 
-            // Push onto stack for code that expects parameters on stack
             #[cfg(feature = "debug-logs")]
             {
                 let mut s = heapless::String::<64>::new();
@@ -244,8 +228,6 @@ impl MitoVM {
                 );
 
                 // Validate function visibility for external calls
-        // Explicit visibility validation using public_function_count.
-        // External calls can only target public functions (indices 0..public_count-1).
                 if func_index as u8 >= ctx.public_function_count() {
                     debug_log!(
                         "MitoVM: ERROR: Function index {} >= public_function_count {}",
@@ -261,8 +243,6 @@ impl MitoVM {
                 );
 
                 // Simple function dispatch.
-                // Function 0 is the main entry point at start_ip.
-                // Other functions are called via direct CALL instructions in bytecode.
                 if func_index == 0 {
                     debug_log!(
                         "MitoVM: Dispatching to main function (0) at start_ip: {}",
@@ -274,7 +254,6 @@ impl MitoVM {
                         "MitoVM: Function {} dispatch - bytecode should use CALL instructions",
                         func_index
                     );
-                    // For non-zero functions, start at beginning and let bytecode handle routing
                     start_ip
                 }
             } else {
@@ -296,12 +275,8 @@ impl MitoVM {
     }
 
     /// Route opcodes to specialized handlers based on upper nibble (16 opcodes per group).
-    /// Prevents stack overflow through hierarchical dispatch architecture.
     #[inline(never)]
     fn dispatch_opcode_range(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
-        // Hierarchical opcode dispatch to prevent stack overflow
-        // Dispatch based on opcode ranges (16 opcodes per range)
-
         match opcode & 0xF0 {
             0x00 => {
                 // Control flow operations (HALT, JUMP, etc.)
@@ -371,14 +346,8 @@ impl MitoVM {
     #[inline(never)]
     fn execute_instruction_loop(ctx: &mut ExecutionManager) -> CompactResult<()> {
         debug_log!("MitoVM: ===== BEGINNING EXECUTION LOOP =====");
-        debug_log!("🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====");
-        debug_log!(
-            "🔍 EXECUTION_TRACE: Starting IP: {}, Script length: {}",
-            ctx.ip() as u32,
-            ctx.script().len() as u32
-        );
 
-        // Main execution loop with enhanced opcodes
+        // Main execution loop
         #[cfg(feature = "debug-logs")]
         let mut _instruction_count = 0u32;
         loop {
@@ -567,7 +536,6 @@ impl MitoVM {
         accounts: &[AccountInfo],
         program_id: &Pubkey,
     ) -> std::result::Result<(Option<Value>, VMExecutionContext), (VMError, VMExecutionContext)> {
-        // Phase 1: Initialize execution context with script validation and function dispatch
         let mut storage = crate::stack::StackStorage::new(script);
         // Map initialization error to (VMError, EmptyContext) since we can't create a meaningful context yet
         let (mut ctx, _dispatch_ip) =
@@ -595,41 +563,10 @@ impl MitoVM {
             ctx.size() as u32
         );
 
-        // DIAGNOSTIC: Stack should be empty after initialization
-        #[cfg(feature = "debug-logs")]
-        debug_log!(
-            "STACK_DEBUG: After initialization - stack size: {}",
-            ctx.size() as u32
-        );
-
-        // Phase 2: Execute main instruction loop
         let execution_result = Self::execute_instruction_loop(&mut ctx);
 
-        // DIAGNOSTIC: Check stack size immediately after execution loop
-        #[cfg(feature = "debug-logs")]
-        {
-            debug_log!(
-                "STACK_DEBUG: After execution loop - stack size: {}, halted: {}",
-                ctx.size() as u32,
-                ctx.halted() as u8
-            );
-            if !ctx.is_empty() {
-                debug_log!("STACK_DEBUG: Stack has items after execution");
-            }
-        }
-
-        // Phase 3: (trimmed) Build minimal context only for success path below
-
-        // Phase 4: Finalize and extract result if execution succeeded
         let final_result = match execution_result {
             Ok(()) => {
-                // DIAGNOSTIC: Check stack size right before finalization
-                #[cfg(feature = "debug-logs")]
-                debug_log!(
-                    "STACK_DEBUG: Right before finalize_execution_result - stack size: {}",
-                    ctx.size() as u32
-                );
-
                 // Do NOT reset temp buffer here, as we want to return it in the context
                 crate::resolution::finalize_execution_result(&mut ctx).map_err(VMError::from)
             }
@@ -685,18 +622,7 @@ impl MitoVM {
         }
     }
 
-    // Decomposed execute_direct() for improved maintainability and performance
-    // Four focused functions handle initialization, execution, dispatch, and finalization
-
     /// Parse optimized script header (10 bytes)
-    ///
-    /// This function assumes bytecode was verified during deployment:
-    /// - Header format is valid (magic, features, counts)
-    /// - All opcodes are valid
-    /// - CALL targets are within bounds
-    /// - Function counts are consistent and within limits
-    /// - Function name metadata format is valid (if present)
-    ///
     /// Returns (instruction_pointer_start, public_function_count, total_function_count, features)
     #[inline]
     fn parse_optimized_header(script: &[u8]) -> CompactResult<(usize, u8, u8, u32)> {
@@ -783,9 +709,6 @@ impl MitoVM {
         (offset + section_size as usize).min(script.len())
     }
 
-    // Function validation removed for performance
-    // Simple bounds checking is done inline during function dispatch
-    // Function 0 is always the main entry point
 }
 
 #[cfg(test)]
