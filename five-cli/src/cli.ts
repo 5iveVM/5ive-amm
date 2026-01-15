@@ -56,11 +56,14 @@ export class FiveCLI {
   private setupProgram(): void {
     this.program
       .name('five')
-      .description('Five VM CLI - Ultra-fast bytecode VM for Solana')
+      .description('')
       .version(this.getVersion(), '-V, --version', 'Display version information')
       .helpOption(false) // Disable default help to use our custom help
+      .configureHelp({
+        subcommandTerm: (cmd) => cmd.name()
+      })
       .addHelpText('beforeAll', () => {
-        return `${brandLine()}\nFive VM CLI - Ultra-fast bytecode VM for Solana\n`;
+        return `${brandLine()}\n`;
       })
       .addHelpText('after', () => {
         return `
@@ -71,9 +74,6 @@ ${commandExample('five compile script.v', 'Compile Five source to bytecode')}
 ${commandExample('five execute script.v --local', 'Local WASM execution')}
 ${commandExample('five deploy build/script.bin --target mainnet', 'Deploy to Solana mainnet')}
 ${commandExample('five help <command>', 'Get help for specific command')}
-
-${chalk.bold.cyan('Documentation:')} ${chalk.cyan('https://github.com/five-vm/five-cli#readme')}
-${chalk.bold.cyan('Report Issues:')} ${chalk.cyan('https://github.com/five-vm/five-cli/issues')}
 `;
       });
 
