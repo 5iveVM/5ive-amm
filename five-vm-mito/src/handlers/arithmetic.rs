@@ -64,60 +64,56 @@ use five_protocol::{opcodes::*, ValueRef};
 /// Helper function to check equality between two values
 /// Handles type promotion and special comparisons (AccountRef, PubkeyRef, etc.)
 fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> CompactResult<bool> {
+    // Fast path: direct equality (works for U64, U8, I64, Bool, Empty if values match)
+    if a == b {
+        return Ok(true);
+    }
+
     match (a, b) {
-        (ValueRef::U64(a_val), ValueRef::U64(b_val)) => Ok(a_val == b_val),
-        (ValueRef::U64(a_val), ValueRef::U128(b_val)) => Ok((a_val as u128) == b_val),
-        (ValueRef::U128(a_val), ValueRef::U64(b_val)) => Ok(a_val == (b_val as u128)),
-        (ValueRef::U128(a_val), ValueRef::U128(b_val)) => Ok(a_val == b_val),
+        // Numeric comparisons with promotion
+        (ValueRef::U64(a), ValueRef::U128(b)) => Ok((a as u128) == b),
+        (ValueRef::U128(a), ValueRef::U64(b)) => Ok(a == (b as u128)),
 
-        // AccountRef comparisons (lazy-loaded values vs explicit values)
-        (ValueRef::AccountRef(idx_a, off_a), ValueRef::AccountRef(idx_b, off_b)) => {
-            // Pointer equality
-            if idx_a == idx_b && off_a == off_b {
-                Ok(true)
-            } else {
-                // Data equality - expensive read
-                // Assume 8-byte comparison for consistency with u64 default
-                let val_a = crate::utils::resolve_u64(a, ctx)?;
-                let val_b = crate::utils::resolve_u64(b, ctx)?;
-                Ok(val_a == val_b)
-            }
-        },
+        // AccountRef data equality (fallback from fast path pointer equality)
+        (ValueRef::AccountRef(_, _), ValueRef::AccountRef(_, _)) => {
+            let val_a = crate::utils::resolve_u64(a, ctx)?;
+            let val_b = crate::utils::resolve_u64(b, ctx)?;
+            Ok(val_a == val_b)
+        }
 
-        // AccountRef vs PubkeyRef/TempRef (32-byte comparison)
-        (ValueRef::AccountRef(_, _), ValueRef::PubkeyRef(_)) |
-        (ValueRef::AccountRef(_, _), ValueRef::TempRef(_, 32)) |
-        (ValueRef::PubkeyRef(_), ValueRef::AccountRef(_, _)) |
-        (ValueRef::TempRef(_, 32), ValueRef::AccountRef(_, _)) => {
+        // 32-byte Pubkey comparisons (Account vs Pubkey/Temp32)
+        (ValueRef::AccountRef(_, _), ValueRef::PubkeyRef(_))
+        | (ValueRef::PubkeyRef(_), ValueRef::AccountRef(_, _))
+        | (ValueRef::AccountRef(_, _), ValueRef::TempRef(_, 32))
+        | (ValueRef::TempRef(_, 32), ValueRef::AccountRef(_, _)) => {
             let pk_a = ctx.extract_pubkey(&a)?;
             let pk_b = ctx.extract_pubkey(&b)?;
             Ok(pk_a == pk_b)
-        },
+        }
 
-        // AccountRef vs u64
-        (ValueRef::AccountRef(_, _), ValueRef::U64(b_val)) => {
-            let a_val = crate::utils::resolve_u64(a, ctx)?;
-            Ok(a_val == b_val)
-        },
-        (ValueRef::U64(a_val), ValueRef::AccountRef(_, _)) => {
-            let b_val = crate::utils::resolve_u64(b, ctx)?;
-            Ok(a_val == b_val)
-        },
+        // Account data vs Integer comparisons
+        (ValueRef::AccountRef(_, _), ValueRef::U64(b)) => {
+            Ok(crate::utils::resolve_u64(a, ctx)? == b)
+        }
+        (ValueRef::U64(a), ValueRef::AccountRef(_, _)) => {
+            Ok(a == crate::utils::resolve_u64(b, ctx)?)
+        }
 
-        // Handle Pubkey comparison (TempRef or PubkeyRef) by value
-        (ValueRef::TempRef(_, _), ValueRef::TempRef(_, _)) |
-        (ValueRef::TempRef(_, _), ValueRef::PubkeyRef(_)) |
-        (ValueRef::PubkeyRef(_), ValueRef::TempRef(_, _)) |
-        (ValueRef::PubkeyRef(_), ValueRef::PubkeyRef(_)) => {
-             // Try to extract as pubkeys. If extraction fails (e.g. size != 32), fall back to exact match
-             if let (Ok(pk_a), Ok(pk_b)) = (ctx.extract_pubkey(&a), ctx.extract_pubkey(&b)) {
-                 Ok(pk_a == pk_b)
-             } else {
-                 Ok(a == b)
-             }
-        },
+        // Pubkey/Temp comparisons
+        (ValueRef::PubkeyRef(_), _)
+        | (_, ValueRef::PubkeyRef(_))
+        | (ValueRef::TempRef(_, 32), _)
+        | (_, ValueRef::TempRef(_, 32)) => {
+            // Try pubkey extraction first
+            if let (Ok(pk_a), Ok(pk_b)) = (ctx.extract_pubkey(&a), ctx.extract_pubkey(&b)) {
+                Ok(pk_a == pk_b)
+            } else {
+                Ok(false) // Fallback: if not both pubkeys, and not equal (checked at start), then false
+            }
+        }
 
-        (left, right) => Ok(left == right),
+        // Default fallback
+        _ => Ok(false),
     }
 }
 

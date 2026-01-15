@@ -71,6 +71,7 @@ pub mod lazy_validation;
 pub mod macros;
 pub mod metadata;  // NEW: Import verification metadata parser
 pub mod opcodes;
+pub mod resolution;
 pub mod stack;
 pub mod systems;
 pub mod types;
