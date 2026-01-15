@@ -252,13 +252,9 @@ build_template() {
     if cargo run -q --bin debug_compile -- "$PROJECT_ROOT/src/counter.v"; then
         print_success "Compilation successful"
         
-        # 2. Prepare files for create_artifact.js
+        # 2. Create the .five artifact
         cd "$PROJECT_ROOT"
-        cp src/counter.bin src/counter.fbin
-        # src/counter.abi.json is already created by debug_compile in the same dir as .v
-        
-        # 3. Create the .five artifact
-        if node create_artifact.js; then
+        if node create-artifact.js; then
             print_success "Artifact created"
             BUILD_SUCCESSFUL=true
             
