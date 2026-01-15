@@ -16,7 +16,7 @@ export * from './project/toml.js';
 export * from './project/config.js';
 export * from './project/workspace.js';
 export * from './wasm/vm.js';
-export * from './wasm/compiler.js';
+export * from './wasm/compiler/index.js';
 export * from './wasm/loader.js';
 export * from './testing/index.js';
 

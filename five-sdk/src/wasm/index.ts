@@ -7,7 +7,7 @@
 
 // Direct re-exports from CLI WASM modules
 export { FiveVM } from './vm.js';
-export { FiveCompiler } from './compiler.js';
+export { FiveCompiler } from './compiler/index.js';
 
 // VLE encoder from lib
 export { VLEEncoder } from '../lib/vle-encoder.js';
