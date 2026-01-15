@@ -222,13 +222,9 @@ mod tests {
 
         let test_bytecode = bytecode!(emit_header(0, 0), emit_halt());
         let mut script_data = vec![0u8; ScriptAccountHeader::LEN + test_bytecode.len()];
-        let header = ScriptAccountHeader::new_with_metadata(
+        let header = ScriptAccountHeader::create_from_bytecode(
             &test_bytecode,
             payer_key,
-            0,
-            0,
-            0,
-            0,
             0,
             0,
         );
@@ -305,13 +301,9 @@ mod tests {
 
         let test_bytecode = bytecode!(emit_header(0, 0), emit_halt());
         let mut script_data = vec![0u8; ScriptAccountHeader::LEN + test_bytecode.len()];
-        let header = ScriptAccountHeader::new_with_metadata(
+        let header = ScriptAccountHeader::create_from_bytecode(
             &test_bytecode,
             payer_key,
-            0,
-            0,
-            0,
-            0,
             0,
             0,
         );
@@ -390,13 +382,9 @@ mod tests {
 
         let test_bytecode = bytecode!(emit_header(0, 0), emit_halt());
         let mut script_data = vec![0u8; ScriptAccountHeader::LEN + test_bytecode.len()];
-        let header = ScriptAccountHeader::new_with_metadata(
+        let header = ScriptAccountHeader::create_from_bytecode(
             &test_bytecode,
             payer_key,
-            0,
-            0,
-            0,
-            0,
             0,
             0,
         );

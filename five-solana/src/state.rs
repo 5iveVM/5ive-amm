@@ -121,21 +121,23 @@ impl ScriptAccountHeader {
     pub const LEN: usize = 64;
     pub const MAGIC: [u8; 4] = [b'5', b'I', b'V', b'E'];
 
-    /// Create header with function count and permissions (stored in func_count field)
+    /// Create header with function count and permissions
     ///
     /// This is called during deployment after bytecode has been verified.
     /// Optimization fields (public_function_count, features, etc) are extracted
     /// from bytecode during execution, trusting deploy-time verification.
-    pub fn new_with_metadata(
+    ///
+    /// It automatically extracts metadata (like total_function_count) from the bytecode.
+    pub fn create_from_bytecode(
         bytecode: &[u8],
         owner: Pubkey,
         script_id: u64,
-        _public_function_count: u8,
-        total_function_count: u8,
-        _features: u32,
-        _instruction_start_offset: u16,
         permissions: u8,
     ) -> Self {
+        // Extract total_function_count from bytecode if available (byte 9)
+        // Format: magic(4) + features(4) + public(1) + total(1)
+        let total_function_count = if bytecode.len() >= 10 { bytecode[9] } else { 0 };
+
         Self {
             magic: Self::MAGIC,
             version: 4,
@@ -412,14 +414,10 @@ mod tests {
 
         // Create header with permissions
         let bytecode = vec![0x35, 0x49, 0x56, 0x45]; // 5IVE magic
-        let header_with_perms = ScriptAccountHeader::new_with_metadata(
+        let header_with_perms = ScriptAccountHeader::create_from_bytecode(
             &bytecode,
             owner,
             42,
-            0,
-            0,
-            0,
-            10,
             0x04, // PERMISSION_PDA_SPECIAL_CHARS
         );
 
@@ -469,14 +467,10 @@ mod tests {
 
         // Test all 3 permission bits individually
         for perm in &[0x01u8, 0x02, 0x04] {
-            let header = ScriptAccountHeader::new_with_metadata(
+            let header = ScriptAccountHeader::create_from_bytecode(
                 &bytecode,
                 owner,
                 100,
-                1,
-                1,
-                0,
-                10,
                 *perm,
             );
 
