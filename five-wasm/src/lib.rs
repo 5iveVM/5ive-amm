@@ -5265,6 +5265,39 @@ mod analyzer_tests {
         let result = BytecodeAnalyzer::analyze_internal(&bytecode);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_analyze_semantic_internal_simple() {
+        let mut bytecode = FIVE_MAGIC.to_vec();
+        bytecode.push(0x00); // HALT
+
+        let result = BytecodeAnalyzer::analyze_semantic_internal(&bytecode);
+        assert!(result.is_ok());
+        let json = result.unwrap();
+
+        // Verify structure
+        assert!(json.get("summary").is_some());
+        assert!(json.get("instructions").is_some());
+        assert!(json.get("control_flow").is_some());
+        assert!(json.get("stack_analysis").is_some());
+
+        let instructions = json["instructions"].as_array().unwrap();
+        assert_eq!(instructions.len(), 1);
+        assert_eq!(instructions[0]["name"], "HALT");
+    }
+
+    #[test]
+    fn test_get_bytecode_summary_internal() {
+        let mut bytecode = FIVE_MAGIC.to_vec();
+        bytecode.push(0x00); // HALT
+
+        let result = BytecodeAnalyzer::get_bytecode_summary_internal(&bytecode);
+        assert!(result.is_ok());
+        let json = result.unwrap();
+
+        assert_eq!(json["total_instructions"], 1);
+        assert_eq!(json["total_size"], 5);
+    }
 }
 
 #[cfg(test)]
@@ -5317,6 +5350,50 @@ mod error_enhancement_tests {
         assert!(msg.contains("Function at index 0 expected 2 parameters but received 1"));
         assert!(msg.contains("Failed to load parameter at position 2"));
         assert!(msg.contains("Debug Information"));
+    }
+}
+
+#[cfg(test)]
+mod compiler_error_tests {
+    use super::*;
+    use five_dsl_compiler::error::{CompilerError, ErrorCode, ErrorSeverity, ErrorCategory};
+
+    #[test]
+    fn test_process_multi_errors_single() {
+        let error = CompilerError::new(
+            ErrorCode::INVALID_SYNTAX,
+            ErrorSeverity::Error,
+            ErrorCategory::Syntax,
+            "Test error".to_string(),
+        );
+        let errors = vec![error];
+        let (err_count, warn_count, warnings, err_strs, wasm_errs, _term, _json) =
+            process_errors(&errors, "source code", Some("test.v"));
+
+        assert_eq!(err_count, 1);
+        assert_eq!(warn_count, 0);
+        assert_eq!(err_strs.len(), 1);
+        assert_eq!(wasm_errs.len(), 1);
+        assert_eq!(wasm_errs[0].message, "Test error");
+    }
+
+    #[test]
+    fn test_process_multi_errors_warning() {
+        let warning = CompilerError::new(
+            ErrorCode::UNUSED_VARIABLE,
+            ErrorSeverity::Warning,
+            ErrorCategory::Semantic,
+            "Test warning".to_string(),
+        );
+        let errors = vec![warning];
+        let (err_count, warn_count, warnings, err_strs, wasm_errs, _term, _json) =
+            process_errors(&errors, "source code", Some("test.v"));
+
+        assert_eq!(err_count, 0);
+        assert_eq!(warn_count, 1);
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(wasm_errs.len(), 1);
+        assert_eq!(wasm_errs[0].severity, "warning");
     }
 }
 
