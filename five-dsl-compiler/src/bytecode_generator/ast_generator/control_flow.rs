@@ -6,10 +6,108 @@
 use super::super::OpcodeEmitter;
 use super::types::{ASTGenerator, BrEqU8Info, BrEqU8Patch};
 use crate::ast::{AstNode, MatchArm};
+use crate::bytecode_generator::types::LoopContext;
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    /// Generate while loop with break/continue support
+    pub(super) fn generate_while_loop<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        condition: &AstNode,
+        body: &AstNode,
+    ) -> Result<(), VMError> {
+        let start_label = self.new_label();
+        let end_label = self.new_label();
+
+        // Place loop start label
+        self.place_label(emitter, start_label.clone());
+        let loop_start_pos = emitter.get_position();
+
+        // Push new loop context for break/continue tracking
+        self.loop_stack.push(LoopContext {
+            loop_start: loop_start_pos,
+            break_targets: Vec::new(),
+            continue_targets: Vec::new(),
+        });
+
+        // Generate condition code
+        self.generate_ast_node(emitter, condition)?;
+
+        // If condition is false, jump to end
+        self.emit_jump(emitter, JUMP_IF_NOT, end_label.clone());
+
+        // Generate loop body
+        self.generate_ast_node(emitter, body)?;
+
+        // Jump back to start
+        self.emit_jump(emitter, JUMP, start_label);
+
+        // Place loop end label
+        self.place_label(emitter, end_label);
+        let loop_end_pos = emitter.get_position();
+
+        // Pop loop context and patch break/continue jumps
+        if let Some(ctx) = self.loop_stack.pop() {
+            // Patch all break statements to jump to loop end
+            for break_pos in ctx.break_targets {
+                self.patch_jump_offset(emitter, break_pos, loop_end_pos)?;
+            }
+
+            // Patch all continue statements to jump to loop start
+            for continue_pos in ctx.continue_targets {
+                self.patch_jump_offset(emitter, continue_pos, loop_start_pos)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Generate break statement
+    pub(super) fn generate_break_statement<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+    ) -> Result<(), VMError> {
+        if self.loop_stack.is_empty() {
+            return Err(VMError::InvalidScript); // Break outside loop
+        }
+
+        // Emit JUMP with placeholder
+        emitter.emit_opcode(JUMP);
+        let patch_pos = emitter.get_position();
+        emitter.emit_u16(0);
+
+        // Record patch position in current loop context
+        if let Some(ctx) = self.loop_stack.last_mut() {
+            ctx.break_targets.push(patch_pos);
+        }
+
+        Ok(())
+    }
+
+    /// Generate continue statement
+    pub(super) fn generate_continue_statement<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+    ) -> Result<(), VMError> {
+        if self.loop_stack.is_empty() {
+            return Err(VMError::InvalidScript); // Continue outside loop
+        }
+
+        // Emit JUMP with placeholder
+        emitter.emit_opcode(JUMP);
+        let patch_pos = emitter.get_position();
+        emitter.emit_u16(0);
+
+        // Record patch position in current loop context
+        if let Some(ctx) = self.loop_stack.last_mut() {
+            ctx.continue_targets.push(patch_pos);
+        }
+
+        Ok(())
+    }
+
     /// Generate if statement with conditional jumps
     pub(super) fn generate_if_statement<T: OpcodeEmitter>(
         &mut self,
