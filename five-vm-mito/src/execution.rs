@@ -109,16 +109,11 @@ impl MitoVM {
             }
         }
 
-        // Script format validated at deploy-time.
-
-        // Parse optimized header (magic + features + public_count + total_count)
         let (start_ip, public_function_count, total_function_count, header_features) =
             Self::parse_optimized_header(script)?;
 
-        // Create execution manager
         debug_log!("MitoVM: Creating ExecutionManager...");
 
-        // Direct ExecutionManager creation.
         debug_log!("MitoVM: Using compile-time defaults");
         debug_log!(
             "MitoVM: Function counts from header: {} public, {} total",
@@ -153,12 +148,8 @@ impl MitoVM {
     }
 
     /// Route opcodes to specialized handlers based on upper nibble (16 opcodes per group).
-    /// Prevents stack overflow through hierarchical dispatch architecture.
     #[inline(never)]
     fn dispatch_opcode_range(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
-        // Hierarchical opcode dispatch to prevent stack overflow
-        // Dispatch based on opcode ranges (16 opcodes per range)
-
         match opcode & 0xF0 {
             0x00 => {
                 // Control flow operations (HALT, JUMP, etc.)
@@ -228,14 +219,8 @@ impl MitoVM {
     #[inline(never)]
     fn execute_instruction_loop(ctx: &mut ExecutionManager) -> CompactResult<()> {
         debug_log!("MitoVM: ===== BEGINNING EXECUTION LOOP =====");
-        debug_log!("🔍 EXECUTION_TRACE: ===== EXECUTION LOOP STARTING =====");
-        debug_log!(
-            "🔍 EXECUTION_TRACE: Starting IP: {}, Script length: {}",
-            ctx.ip() as u32,
-            ctx.script().len() as u32
-        );
 
-        // Main execution loop with enhanced opcodes
+        // Main execution loop
         #[cfg(feature = "debug-logs")]
         let mut _instruction_count = 0u32;
         loop {
@@ -424,7 +409,6 @@ impl MitoVM {
         accounts: &[AccountInfo],
         program_id: &Pubkey,
     ) -> std::result::Result<(Option<Value>, VMExecutionContext), (VMError, VMExecutionContext)> {
-        // Phase 1: Initialize execution context with script validation and function dispatch
         let mut storage = crate::stack::StackStorage::new(script);
         // Map initialization error to (VMError, EmptyContext) since we can't create a meaningful context yet
         let (mut ctx, _dispatch_ip) =
@@ -452,41 +436,10 @@ impl MitoVM {
             ctx.size() as u32
         );
 
-        // DIAGNOSTIC: Stack should be empty after initialization
-        #[cfg(feature = "debug-logs")]
-        debug_log!(
-            "STACK_DEBUG: After initialization - stack size: {}",
-            ctx.size() as u32
-        );
-
-        // Phase 2: Execute main instruction loop
         let execution_result = Self::execute_instruction_loop(&mut ctx);
 
-        // DIAGNOSTIC: Check stack size immediately after execution loop
-        #[cfg(feature = "debug-logs")]
-        {
-            debug_log!(
-                "STACK_DEBUG: After execution loop - stack size: {}, halted: {}",
-                ctx.size() as u32,
-                ctx.halted() as u8
-            );
-            if !ctx.is_empty() {
-                debug_log!("STACK_DEBUG: Stack has items after execution");
-            }
-        }
-
-        // Phase 3: (trimmed) Build minimal context only for success path below
-
-        // Phase 4: Finalize and extract result if execution succeeded
         let final_result = match execution_result {
             Ok(()) => {
-                // DIAGNOSTIC: Check stack size right before finalization
-                #[cfg(feature = "debug-logs")]
-                debug_log!(
-                    "STACK_DEBUG: Right before finalize_execution_result - stack size: {}",
-                    ctx.size() as u32
-                );
-
                 // Do NOT reset temp buffer here, as we want to return it in the context
                 crate::resolution::finalize_execution_result(&mut ctx).map_err(VMError::from)
             }
@@ -542,18 +495,7 @@ impl MitoVM {
         }
     }
 
-    // Decomposed execute_direct() for improved maintainability and performance
-    // Four focused functions handle initialization, execution, dispatch, and finalization
-
     /// Parse optimized script header (10 bytes)
-    ///
-    /// This function assumes bytecode was verified during deployment:
-    /// - Header format is valid (magic, features, counts)
-    /// - All opcodes are valid
-    /// - CALL targets are within bounds
-    /// - Function counts are consistent and within limits
-    /// - Function name metadata format is valid (if present)
-    ///
     /// Returns (instruction_pointer_start, public_function_count, total_function_count, features)
     #[inline]
     fn parse_optimized_header(script: &[u8]) -> CompactResult<(usize, u8, u8, u32)> {
@@ -640,9 +582,6 @@ impl MitoVM {
         (offset + section_size as usize).min(script.len())
     }
 
-    // Function validation removed for performance
-    // Simple bounds checking is done inline during function dispatch
-    // Function 0 is always the main entry point
 }
 
 #[cfg(test)]
