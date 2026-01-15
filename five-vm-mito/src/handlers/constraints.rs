@@ -9,7 +9,7 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
-    handlers::system::process_seed_value,
+    handlers::system::pda::pop_and_process_seeds,
     // Import stack operation macros
     pop_u8,
 };
@@ -109,12 +109,6 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
 
             debug_log!("MitoVM: CHECK_PDA seeds_count: {}", seeds_count);
 
-            // Validate seeds count (same limit as PDA operations)
-            const MAX_SEEDS: usize = 8;
-            if seeds_count as usize > MAX_SEEDS {
-                return Err(VMErrorCode::InvalidOperation);
-            }
-
             // Extract pubkeys directly
             let expected_pda_bytes = ctx.extract_pubkey(&expected_pda_ref)?;
             let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
@@ -125,17 +119,12 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             let program_pubkey = Pubkey::from(program_id_bytes);
 
             // Stack-allocated seed storage (same as PDA operations)
+            const MAX_SEEDS: usize = 8;
             let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
             let mut seed_lens: [usize; MAX_SEEDS] = [0; MAX_SEEDS];
 
-            // Pop seeds from stack and store directly in stack arrays
-            for i in 0..seeds_count {
-                let seed_idx = (seeds_count - 1 - i) as usize; // Reverse order since we pop
-                let seed_value = ctx.pop()?;
-
-                // Convert seed value to bytes using shared helper function
-                seed_lens[seed_idx] = process_seed_value(seed_value, &mut seeds, seed_idx, ctx)?;
-            }
+            // Use shared helper to collect and process seeds
+            pop_and_process_seeds(ctx, seeds_count, &mut seeds, &mut seed_lens)?;
 
             // Create stack-based seed reference array
             let mut seed_refs: [&[u8]; MAX_SEEDS] = [&[]; MAX_SEEDS];
