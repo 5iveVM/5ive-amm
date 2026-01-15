@@ -13,6 +13,8 @@ mod blocks;
 mod expressions;
 mod expression_builder;
 mod statements;
+#[cfg(test)]
+mod expressions_tests;
 
 /// Handles lexical analysis of .five DSL syntax into tokens.
 pub struct DslParser {
