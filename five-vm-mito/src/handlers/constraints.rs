@@ -9,9 +9,6 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
-    handlers::system::pda::pop_and_process_seeds,
-    // Import stack operation macros
-    pop_u8,
 };
 use five_protocol::opcodes::*;
 use pinocchio::pubkey::Pubkey;
@@ -95,50 +92,35 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
 
             // Stack layout (top to bottom): expected_pda, program_id, seeds_count, seed1, seed2, ...
             let expected_pda_ref = ctx.pop()?;
-            let program_id_ref = ctx.pop()?;
-            let seeds_count = pop_u8!(ctx);
-
-            debug_log!("MitoVM: CHECK_PDA seeds_count: {}", seeds_count);
 
             // Extract pubkeys directly
             let expected_pda_bytes = ctx.extract_pubkey(&expected_pda_ref)?;
-            let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
 
             // Convert to Pinocchio Pubkeys
             use pinocchio::pubkey::Pubkey;
             let expected_pubkey = Pubkey::from(expected_pda_bytes);
-            let program_pubkey = Pubkey::from(program_id_bytes);
 
-            // Stack-allocated seed storage (same as PDA operations)
-            const MAX_SEEDS: usize = 8;
-            let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
-            let mut seed_lens: [usize; MAX_SEEDS] = [0; MAX_SEEDS];
-
-            // Use shared helper to collect and process seeds
-            pop_and_process_seeds(ctx, seeds_count, &mut seeds, &mut seed_lens)?;
-
-            // Create stack-based seed reference array
-            let mut seed_refs: [&[u8]; MAX_SEEDS] = [&[]; MAX_SEEDS];
-            for i in 0..seeds_count as usize {
-                seed_refs[i] = &seeds[i][..seed_lens[i]];
-            }
-
-            // Derive PDA using the same logic as DERIVE_PDA
-            use pinocchio::pubkey::create_program_address;
-            match create_program_address(&seed_refs[..seeds_count as usize], &program_pubkey) {
-                Ok(derived_pda) => {
-                    // Compare derived PDA with expected PDA
-                    if derived_pda != expected_pubkey {
-                        debug_log!("MitoVM: CHECK_PDA failed - PDA mismatch");
-                        return Err(VMErrorCode::ConstraintViolation);
+            // Use shared helper to collect and process seeds (handles program_id and seeds)
+            use crate::handlers::system::pda::with_pda_seeds;
+            with_pda_seeds(ctx, |_, program_pubkey, seeds| {
+                // Derive PDA using the same logic as DERIVE_PDA
+                use pinocchio::pubkey::create_program_address;
+                match create_program_address(seeds, &program_pubkey) {
+                    Ok(derived_pda) => {
+                        // Compare derived PDA with expected PDA
+                        if derived_pda != expected_pubkey {
+                            debug_log!("MitoVM: CHECK_PDA failed - PDA mismatch");
+                            return Err(VMErrorCode::ConstraintViolation);
+                        }
+                        debug_log!("MitoVM: CHECK_PDA passed - PDA validation successful");
+                        Ok(())
                     }
-                    debug_log!("MitoVM: CHECK_PDA passed - PDA validation successful");
+                    Err(_) => {
+                        debug_log!("MitoVM: CHECK_PDA failed - PDA derivation error");
+                        Err(VMErrorCode::ConstraintViolation)
+                    }
                 }
-                Err(_) => {
-                    debug_log!("MitoVM: CHECK_PDA failed - PDA derivation error");
-                    return Err(VMErrorCode::ConstraintViolation);
-                }
-            }
+            })?;
         }
 
         _ => {
