@@ -46,6 +46,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@noble/ed25519": "^3.0.0",
     "borsh": "^0.7.0"
   }
 }

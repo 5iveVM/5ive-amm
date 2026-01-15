@@ -6,6 +6,8 @@
  */
 
 import bs58 from 'bs58';
+import { Point } from '@noble/ed25519';
+import { randomBytes } from 'crypto';
 
 /**
  * Program Derived Address (PDA) utilities - pure implementation
@@ -84,12 +86,17 @@ export class PDAUtils {
   }
   
   /**
-   * Simplified curve check (placeholder for real ed25519 curve validation)
+   * Check if hash is off the Ed25519 curve (valid PDA)
    */
   private static isOffCurve(hash: Buffer): boolean {
-    // Simplified check - in real implementation would validate against ed25519 curve
-    // This is a probabilistic check that works for most cases
-    return hash[31] < 128; // Simple heuristic
+    try {
+      // If point conversion succeeds, it's ON the curve
+      Point.fromHex(hash.toString('hex'));
+      return false;
+    } catch {
+      // If point conversion fails, it's OFF the curve (valid PDA)
+      return true;
+    }
   }
 
   /**
@@ -222,9 +229,8 @@ export class Base58Utils {
    * Generate a random base58 string of specified length
    */
   static random(byteLength: number = 32): string {
-    const crypto = require('crypto');
-    const randomBytes = crypto.randomBytes(byteLength);
-    return bs58.encode(randomBytes);
+    const bytes = randomBytes(byteLength);
+    return bs58.encode(bytes);
   }
 }
 
