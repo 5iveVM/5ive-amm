@@ -29,7 +29,8 @@
       "Bash(tee:*)",
       "Bash(chmod:*)",
       "Bash(solana program write-buffer:*)",
-      "Bash(solana program show:*)"
+      "Bash(solana program show:*)",
+      "Bash(solana-test-validator:*)"
     ]
   }
 }
