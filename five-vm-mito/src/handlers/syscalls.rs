@@ -39,7 +39,29 @@ pub use crate::handlers::system::sysvars::{
     handle_syscall_get_fees_sysvar, handle_syscall_get_last_restart_slot,
     handle_syscall_get_rent_sysvar, handle_syscall_get_sysvar,
 };
-use five_protocol::ValueRef;
+pub use crate::handlers::system::logging::{
+    handle_syscall_log, handle_syscall_log_64, handle_syscall_log_compute_units,
+    handle_syscall_log_data, handle_syscall_log_pubkey,
+};
+pub use crate::handlers::system::compute::handle_syscall_remaining_compute_units;
+pub use crate::handlers::system::program::{
+    handle_syscall_get_return_data, handle_syscall_set_return_data,
+    handle_syscall_get_stack_height, handle_syscall_get_processed_sibling_instruction,
+};
+pub use crate::handlers::system::memory::{
+    handle_syscall_memcpy, handle_syscall_memmove, handle_syscall_memset, handle_syscall_memcmp,
+};
+pub use crate::handlers::system::crypto::{
+    handle_syscall_sha256, handle_syscall_keccak256, handle_syscall_blake3,
+    handle_syscall_poseidon, handle_syscall_secp256k1_recover,
+    handle_syscall_alt_bn128_compression, handle_syscall_alt_bn128_group_op,
+    handle_syscall_big_mod_exp, handle_syscall_curve_group_op,
+    handle_syscall_curve_multiscalar_mul, handle_syscall_curve_pairing_map,
+    handle_syscall_curve_validate_point,
+};
+pub use crate::handlers::system::cpi::{
+    handle_syscall_invoke_signed_c, handle_syscall_invoke_signed_rust,
+};
 
 // ===== SYSCALL ID CONSTANTS =====
 // These match the syscall_id values used in CALL_NATIVE
@@ -166,86 +188,3 @@ pub fn handle_syscall_panic(ctx: &mut ExecutionManager) -> CompactResult<()> {
     Err(VMErrorCode::ExecutionTerminated)
 }
 
-// ===== PLACEHOLDER SYSCALL HANDLERS =====
-// These are minimal implementations to demonstrate the pattern.
-// Full implementations would require more complex parameter handling and native calls.
-
-macro_rules! syscall_placeholder {
-    ($name:ident, $log_msg:expr) => {
-        pub fn $name(ctx: &mut ExecutionManager) -> CompactResult<()> {
-            debug_log!("MitoVM: {} - placeholder implementation", $log_msg);
-            ctx.push(ValueRef::result_ok(0, 0))?;
-            Ok(())
-        }
-    };
-}
-
-// Program data syscalls
-syscall_placeholder!(handle_syscall_get_return_data, "SYSCALL_GET_RETURN_DATA");
-syscall_placeholder!(handle_syscall_set_return_data, "SYSCALL_SET_RETURN_DATA");
-syscall_placeholder!(
-    handle_syscall_get_processed_sibling_instruction,
-    "SYSCALL_GET_PROCESSED_SIBLING_INSTRUCTION"
-);
-syscall_placeholder!(handle_syscall_get_stack_height, "SYSCALL_GET_STACK_HEIGHT");
-
-// CPI syscalls
-syscall_placeholder!(handle_syscall_invoke_signed_c, "SYSCALL_INVOKE_SIGNED_C");
-syscall_placeholder!(
-    handle_syscall_invoke_signed_rust,
-    "SYSCALL_INVOKE_SIGNED_RUST"
-);
-
-// Compute syscalls
-syscall_placeholder!(
-    handle_syscall_remaining_compute_units,
-    "SYSCALL_REMAINING_COMPUTE_UNITS"
-);
-
-// Logging syscalls
-syscall_placeholder!(handle_syscall_log, "SYSCALL_LOG");
-syscall_placeholder!(handle_syscall_log_64, "SYSCALL_LOG_64");
-syscall_placeholder!(
-    handle_syscall_log_compute_units,
-    "SYSCALL_LOG_COMPUTE_UNITS"
-);
-syscall_placeholder!(handle_syscall_log_data, "SYSCALL_LOG_DATA");
-syscall_placeholder!(handle_syscall_log_pubkey, "SYSCALL_LOG_PUBKEY");
-
-// Memory syscalls
-syscall_placeholder!(handle_syscall_memcpy, "SYSCALL_MEMCPY");
-syscall_placeholder!(handle_syscall_memmove, "SYSCALL_MEMMOVE");
-syscall_placeholder!(handle_syscall_memset, "SYSCALL_MEMSET");
-syscall_placeholder!(handle_syscall_memcmp, "SYSCALL_MEMCMP");
-
-// Cryptography syscalls
-syscall_placeholder!(handle_syscall_sha256, "SYSCALL_SHA256");
-syscall_placeholder!(handle_syscall_keccak256, "SYSCALL_KECCAK256");
-syscall_placeholder!(handle_syscall_blake3, "SYSCALL_BLAKE3");
-syscall_placeholder!(handle_syscall_poseidon, "SYSCALL_POSEIDON");
-syscall_placeholder!(
-    handle_syscall_secp256k1_recover,
-    "SYSCALL_SECP256K1_RECOVER"
-);
-syscall_placeholder!(
-    handle_syscall_alt_bn128_compression,
-    "SYSCALL_ALT_BN128_COMPRESSION"
-);
-syscall_placeholder!(
-    handle_syscall_alt_bn128_group_op,
-    "SYSCALL_ALT_BN128_GROUP_OP"
-);
-syscall_placeholder!(handle_syscall_big_mod_exp, "SYSCALL_BIG_MOD_EXP");
-syscall_placeholder!(handle_syscall_curve_group_op, "SYSCALL_CURVE_GROUP_OP");
-syscall_placeholder!(
-    handle_syscall_curve_multiscalar_mul,
-    "SYSCALL_CURVE_MULTISCALAR_MUL"
-);
-syscall_placeholder!(
-    handle_syscall_curve_pairing_map,
-    "SYSCALL_CURVE_PAIRING_MAP"
-);
-syscall_placeholder!(
-    handle_syscall_curve_validate_point,
-    "SYSCALL_CURVE_VALIDATE_POINT"
-);

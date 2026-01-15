@@ -1,0 +1,445 @@
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+  --> third_party/pinocchio/src/entrypoint/mod.rs:22:24
+   |
+22 |     BPF_ALIGN_OF_U128, MAX_TX_ACCOUNTS,
+   |                        ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+   --> third_party/pinocchio/src/entrypoint/mod.rs:312:29
+    |
+312 |             MAX_ACCOUNTS <= MAX_TX_ACCOUNTS,
+    |                             ^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+   --> third_party/pinocchio/src/entrypoint/mod.rs:347:61
+    |
+347 |             let mut to_process_plus_one = if MAX_ACCOUNTS < MAX_TX_ACCOUNTS {
+    |                                                             ^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+   --> third_party/pinocchio/src/entrypoint/mod.rs:398:31
+    |
+398 |             if MAX_ACCOUNTS < MAX_TX_ACCOUNTS {
+    |                               ^^^^^^^^^^^^^^^
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/account_info.rs:313:32
+    |
+313 |     pub fn try_borrow_lamports(&self) -> Result<Ref<u64>, ProgramError> {
+    |                                ^^^^^            ^^^^^^^^ the same lifetime is hidden here
+    |                                |
+    |                                the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+    = note: `#[warn(mismatched_lifetime_syntaxes)]` on by default
+help: use `'_` for type paths
+    |
+313 |     pub fn try_borrow_lamports(&self) -> Result<Ref<'_, u64>, ProgramError> {
+    |                                                     +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/account_info.rs:337:36
+    |
+337 |     pub fn try_borrow_mut_lamports(&self) -> Result<RefMut<u64>, ProgramError> {
+    |                                    ^^^^^            ^^^^^^^^^^^ the same lifetime is hidden here
+    |                                    |
+    |                                    the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+337 |     pub fn try_borrow_mut_lamports(&self) -> Result<RefMut<'_, u64>, ProgramError> {
+    |                                                            +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/account_info.rs:412:28
+    |
+412 |     pub fn try_borrow_data(&self) -> Result<Ref<[u8]>, ProgramError> {
+    |                            ^^^^^            ^^^^^^^^^ the same lifetime is hidden here
+    |                            |
+    |                            the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+412 |     pub fn try_borrow_data(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
+    |                                                 +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/account_info.rs:436:32
+    |
+436 |     pub fn try_borrow_mut_data(&self) -> Result<RefMut<[u8]>, ProgramError> {
+    |                                ^^^^^            ^^^^^^^^^^^^ the same lifetime is hidden here
+    |                                |
+    |                                the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+436 |     pub fn try_borrow_mut_data(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
+    |                                                        +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> third_party/pinocchio/src/sysvars/clock.rs:89:44
+   |
+89 |     pub fn from_account_info(account_info: &AccountInfo) -> Result<Ref<Clock>, ProgramError> {
+   |                                            ^^^^^^^^^^^^            ^^^^^^^^^^ the same lifetime is hidden here
+   |                                            |
+   |                                            the lifetime is elided here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+   |
+89 |     pub fn from_account_info(account_info: &AccountInfo) -> Result<Ref<'_, Clock>, ProgramError> {
+   |                                                                        +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> third_party/pinocchio/src/sysvars/instructions.rs:67:9
+   |
+67 |         &self,
+   |         ^^^^^ the lifetime is elided here
+68 |         index: usize,
+69 |     ) -> IntrospectedInstruction {
+   |          ^^^^^^^^^^^^^^^^^^^^^^^ the same lifetime is hidden here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+   |
+69 |     ) -> IntrospectedInstruction<'_> {
+   |                                 ++++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> third_party/pinocchio/src/sysvars/instructions.rs:84:9
+   |
+84 |         &self,
+   |         ^^^^^ the lifetime is elided here
+85 |         index: usize,
+86 |     ) -> Result<IntrospectedInstruction, ProgramError> {
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^ the same lifetime is hidden here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+   |
+86 |     ) -> Result<IntrospectedInstruction<'_>, ProgramError> {
+   |                                        ++++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/sysvars/instructions.rs:99:9
+    |
+ 99 |         &self,
+    |         ^^^^^ the lifetime is elided here
+100 |         index_relative_to_current: i64,
+101 |     ) -> Result<IntrospectedInstruction, ProgramError> {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^ the same lifetime is hidden here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+101 |     ) -> Result<IntrospectedInstruction<'_>, ProgramError> {
+    |                                        ++++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> third_party/pinocchio/src/sysvars/instructions.rs:244:28
+    |
+244 |     pub fn to_account_meta(&self) -> AccountMeta {
+    |                            ^^^^^     ^^^^^^^^^^^ the same lifetime is hidden here
+    |                            |
+    |                            the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+244 |     pub fn to_account_meta(&self) -> AccountMeta<'_> {
+    |                                                 ++++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> third_party/pinocchio/src/sysvars/rent.rs:98:44
+   |
+98 |     pub fn from_account_info(account_info: &AccountInfo) -> Result<Ref<Rent>, ProgramError> {
+   |                                            ^^^^^^^^^^^^            ^^^^^^^^^ the same lifetime is hidden here
+   |                                            |
+   |                                            the lifetime is elided here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+   |
+98 |     pub fn from_account_info(account_info: &AccountInfo) -> Result<Ref<'_, Rent>, ProgramError> {
+   |                                                                        +++
+
+warning: `pinocchio` (lib) generated 14 warnings (run `cargo fix --lib -p pinocchio` to apply 10 suggestions)
+    Checking five-vm-mito v0.1.0 (/app/five-vm-mito)
+warning: unused import: `crate::debug_log`
+  --> five-vm-mito/src/context.rs:14:5
+   |
+14 | use crate::debug_log;
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `core::fmt::Write`
+  --> five-vm-mito/src/execution.rs:82:13
+   |
+82 |         use core::fmt::Write;
+   |             ^^^^^^^^^^^^^^^^
+
+warning: unused import: `debug_log`
+  --> five-vm-mito/src/handlers/stack_ops.rs:10:5
+   |
+10 |     debug_log,
+   |     ^^^^^^^^^
+
+warning: unused imports: `VMError` and `utils::ValueRefUtils`
+  --> five-vm-mito/src/resolution.rs:10:41
+   |
+10 |     error::{CompactResult, VMErrorCode, VMError},
+   |                                         ^^^^^^^
+11 |     utils::ValueRefUtils,
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Instruction` and `program::invoke_signed`
+ --> five-vm-mito/src/systems/accounts.rs:6:19
+  |
+6 |     instruction::{Instruction, Signer},
+  |                   ^^^^^^^^^^^
+7 |     program::invoke_signed,
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `vals_ptr`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:18
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vals_ptr`
+...
+100 | impl_hash_syscall!(handle_syscall_sha256, syscalls::sol_sha256, "MitoVM: SYSCALL_SHA256");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `val_len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:28
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                            ^^^^^^^
+...
+100 | impl_hash_syscall!(handle_syscall_sha256, syscalls::sol_sha256, "MitoVM: SYSCALL_SHA256");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: if this is intentional, prefix it with an underscore
+    |
+ 83 |             let (vals_ptr, _val_len) = parse_data_array(ctx, data_ref)?;
+    |                            +
+help: you might have meant to pattern match on the similarly named constant `MAX_ACCOUNT_SIZE`
+    |
+ 83 -             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+ 83 +             let (vals_ptr, systems::accounts::AccountManager::<'a>::create_account_with_payer::MAX_ACCOUNT_SIZE) = parse_data_array(ctx, data_ref)?;
+    |
+
+warning: unused variable: `vals_ptr`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:18
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vals_ptr`
+...
+101 | impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: SYSCALL_KECCAK256");
+    | -------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `val_len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:28
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                            ^^^^^^^
+...
+101 | impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: SYSCALL_KECCAK256");
+    | -------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: if this is intentional, prefix it with an underscore
+    |
+ 83 |             let (vals_ptr, _val_len) = parse_data_array(ctx, data_ref)?;
+    |                            +
+help: you might have meant to pattern match on the similarly named constant `MAX_ACCOUNT_SIZE`
+    |
+ 83 -             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+ 83 +             let (vals_ptr, systems::accounts::AccountManager::<'a>::create_account_with_payer::MAX_ACCOUNT_SIZE) = parse_data_array(ctx, data_ref)?;
+    |
+
+warning: unused variable: `vals_ptr`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:18
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vals_ptr`
+...
+102 | impl_hash_syscall!(handle_syscall_blake3, syscalls::sol_blake3, "MitoVM: SYSCALL_BLAKE3");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `val_len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:83:28
+    |
+ 83 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                            ^^^^^^^
+...
+102 | impl_hash_syscall!(handle_syscall_blake3, syscalls::sol_blake3, "MitoVM: SYSCALL_BLAKE3");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: if this is intentional, prefix it with an underscore
+    |
+ 83 |             let (vals_ptr, _val_len) = parse_data_array(ctx, data_ref)?;
+    |                            +
+help: you might have meant to pattern match on the similarly named constant `MAX_ACCOUNT_SIZE`
+    |
+ 83 -             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+ 83 +             let (vals_ptr, systems::accounts::AccountManager::<'a>::create_account_with_payer::MAX_ACCOUNT_SIZE) = parse_data_array(ctx, data_ref)?;
+    |
+
+warning: unused variable: `len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:117:35
+    |
+117 |         ValueRef::TempRef(offset, len) => {
+    |                                   ^^^
+    |
+help: if this is intentional, prefix it with an underscore
+    |
+117 |         ValueRef::TempRef(offset, _len) => {
+    |                                   +
+help: you might have meant to pattern match on the similarly named constant `MAX_VALUE_REF_DEPTH`
+    |
+117 -         ValueRef::TempRef(offset, len) => {
+117 +         ValueRef::TempRef(offset, resolution::resolve_value_ref_with_depth::MAX_VALUE_REF_DEPTH) => {
+    |
+
+warning: unused variable: `pubkey`
+  --> five-vm-mito/src/handlers/system/logging.rs:87:9
+   |
+87 |     let pubkey = ctx.extract_pubkey(&pk_ref)?;
+   |         ^^^^^^
+   |
+help: if this is intentional, prefix it with an underscore
+   |
+87 |     let _pubkey = ctx.extract_pubkey(&pk_ref)?;
+   |         +
+help: you might have meant to pattern match on the similarly named constant `FIVE_VM_PROGRAM_ID`
+   |
+87 -     let pubkey = ctx.extract_pubkey(&pk_ref)?;
+87 +     let FIVE_VM_PROGRAM_ID = ctx.extract_pubkey(&pk_ref)?;
+   |
+
+warning: unused variable: `cursor`
+   --> five-vm-mito/src/handlers/system/logging.rs:141:22
+    |
+141 |              let mut cursor = start + 2;
+    |                      ^^^^^^
+    |
+help: if this is intentional, prefix it with an underscore
+    |
+141 |              let mut _cursor = start + 2;
+    |                      +
+help: you might have meant to pattern match on the similarly named constant `TEMP_BUFFER_SIZE`
+    |
+141 -              let mut cursor = start + 2;
+141 +              let mut TEMP_BUFFER_SIZE = start + 2;
+    |
+
+warning: variable does not need to be mutable
+   --> five-vm-mito/src/handlers/system/logging.rs:141:18
+    |
+141 |              let mut cursor = start + 2;
+    |                  ----^^^^^^
+    |                  |
+    |                  help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `pid_offset`
+  --> five-vm-mito/src/handlers/system/program.rs:34:9
+   |
+34 |     let pid_offset = match pid_ref {
+   |         ^^^^^^^^^^
+   |
+help: if this is intentional, prefix it with an underscore
+   |
+34 |     let _pid_offset = match pid_ref {
+   |         +
+help: you might have meant to pattern match on the similarly named constant `MAX_VALUE_REF_DEPTH`
+   |
+34 -     let pid_offset = match pid_ref {
+34 +     let resolution::resolve_value_ref_with_depth::MAX_VALUE_REF_DEPTH = match pid_ref {
+   |
+
+warning: unused variable: `offset`
+  --> five-vm-mito/src/handlers/system/program.rs:39:28
+   |
+39 |         ValueRef::ArrayRef(offset) => {
+   |                            ^^^^^^
+   |
+help: if this is intentional, prefix it with an underscore
+   |
+39 |         ValueRef::ArrayRef(_offset) => {
+   |                            +
+help: you might have meant to pattern match on the similarly named constant `MAX_VALUE_REF_DEPTH`
+   |
+39 -         ValueRef::ArrayRef(offset) => {
+39 +         ValueRef::ArrayRef(resolution::resolve_value_ref_with_depth::MAX_VALUE_REF_DEPTH) => {
+   |
+
+warning: unused variable: `data_offset`
+  --> five-vm-mito/src/handlers/system/program.rs:50:9
+   |
+50 |     let data_offset = match data_ref {
+   |         ^^^^^^^^^^^
+   |
+help: if this is intentional, prefix it with an underscore
+   |
+50 |     let _data_offset = match data_ref {
+   |         +
+help: you might have meant to pattern match on the similarly named constant `MAX_VALUE_REF_DEPTH`
+   |
+50 -     let data_offset = match data_ref {
+50 +     let resolution::resolve_value_ref_with_depth::MAX_VALUE_REF_DEPTH = match data_ref {
+   |
+
+warning: value assigned to `result_len` is never read
+  --> five-vm-mito/src/handlers/system/program.rs:58:13
+   |
+58 |     let mut result_len = 0;
+   |             ^^^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `bytes`
+  --> five-vm-mito/src/handlers/system/program.rs:88:15
+   |
+88 |     let (len, bytes) = ctx.extract_string_slice(&data_ref)?;
+   |               ^^^^^ help: if this is intentional, prefix it with an underscore: `_bytes`
+
+warning: constant `SYSTEM_PROGRAM_ID` is never used
+  --> five-vm-mito/src/context.rs:33:7
+   |
+33 | const SYSTEM_PROGRAM_ID: [u8; 32] = [
+   |       ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `MAX_ACCOUNT_SIZE` is never used
+  --> five-vm-mito/src/context.rs:37:7
+   |
+37 | const MAX_ACCOUNT_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
+   |       ^^^^^^^^^^^^^^^^
+
+warning: constant `SHARED_PARAM_SIZE` is never used
+  --> five-vm-mito/src/context.rs:40:18
+   |
+40 | pub(crate) const SHARED_PARAM_SIZE: usize = MAX_PARAMETERS + 1;
+   |                  ^^^^^^^^^^^^^^^^^
+
+warning: `five-vm-mito` (lib) generated 23 warnings (run `cargo fix --lib -p five-vm-mito` to apply 15 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.29s

@@ -6,9 +6,15 @@
 //! - sysvars: Blockchain sysvar access (GET_CLOCK, GET_RENT)
 //! - init: Account initialization operations (INIT_ACCOUNT, INIT_PDA_ACCOUNT)
 
+pub mod compute;
+pub mod cpi;
+pub mod crypto;
 pub mod init;
 pub mod invoke;
+pub mod logging;
+pub mod memory;
 pub mod pda;
+pub mod program;
 pub mod sysvars;
 
 // Re-export handler functions for easy access
