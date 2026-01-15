@@ -100,11 +100,9 @@ impl DslParser {
                     self.advance();
                     constraints_block = Some(Box::new(self.parse_block(BlockKind::Constraints)?));
                 }
-                // TDD Phase 1.7: Handle event definitions
                 TokenKind::Event => {
                     event_definitions.push(self.parse_event_definition()?);
                 }
-                // TDD Phase 1.10: Handle enum/error type definitions
                 TokenKind::Enum => {
                     field_definitions.push(self.parse_error_type_definition()?);
                 }
@@ -176,7 +174,6 @@ impl DslParser {
             .kind()
     }
 
-    // TDD Phase 1.5: Parse field definitions with TypeScript syntax support
     #[allow(dead_code)]
     fn parse_field_definition(&mut self) -> Result<AstNode, VMError> {
         // Check for 'pub' keyword to determine visibility
@@ -242,7 +239,6 @@ impl DslParser {
         })
     }
 
-    // TDD Phase 1.6: Parse instruction definition method
     fn parse_instruction_definition(&mut self) -> Result<AstNode, VMError> {
         // Check for 'pub' keyword to determine visibility
         let (is_public, visibility) = if matches!(self.current_token, Token::Pub) {
@@ -523,7 +519,6 @@ impl DslParser {
         })
     }
 
-    // TDD Phase 1.6: Helper to determine if current tokens represent an instruction definition
     #[allow(dead_code)]
     fn is_instruction_definition(&mut self) -> Result<AstNode, VMError> {
         // Consume '#'
@@ -831,7 +826,6 @@ impl DslParser {
         Ok(AstNode::EventDefinition { name, fields, visibility })
     }
 
-    // TDD Phase 1.4: Type parsing for hybrid Rust+TypeScript syntax
     fn parse_type(&mut self) -> Result<TypeNode, VMError> {
         let token = self.current_token.clone();
         match &token {

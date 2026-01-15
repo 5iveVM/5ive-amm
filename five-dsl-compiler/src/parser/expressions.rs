@@ -113,7 +113,6 @@ impl DslParser {
         }
     }
 
-    // TDD Phase 1.3: Implement precedence climbing parser (arithmetic as BinaryExpression)
     pub(crate) fn parse_additive(&mut self) -> Result<AstNode, VMError> {
         let mut left = self.parse_multiplicative()?;
 

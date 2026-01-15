@@ -9,8 +9,6 @@ use five_protocol::{
 };
 use five_vm_mito::error::VMError;
 
-// TDD: Write failing tests first, then implement to make them pass
-
 #[test]
 fn test_dsl_tokenizer_simple_vault() {
     let source = r#"
@@ -599,11 +597,8 @@ fn test_violation_fix_undefined_identifiers_rejected() {
     assert!(result.is_err()); // Verify undefined identifiers are rejected
 }
 
-// TDD Phase 1.3: Operator precedence tests
-
 #[test]
 fn test_left_associativity_division_correct() {
-    // TDD: Now this should PASS - division should be left-associative: (6 / 2) / 3 = 1
     let source = r#"
         script test_vault {
             init {
@@ -682,7 +677,6 @@ fn test_left_associativity_division_correct() {
 
 #[test]
 fn test_multiplication_precedence_over_addition_correct() {
-    // TDD: Verify multiplication precedence is working correctly
     let source = r#"
         script test_vault {
             init {
@@ -770,11 +764,8 @@ fn test_multiplication_precedence_over_addition_correct() {
     }
 }
 
-// TDD Phase 1.4: Hybrid Type System Tests (write failing tests first)
-
 #[test]
 fn test_rust_style_let_with_type_annotation_failing() {
-    // TDD: This should FAIL initially - we need to implement let statements with types
     let source = r#"
         script test_vault {
             init {
@@ -838,7 +829,6 @@ fn test_rust_style_let_with_type_annotation_failing() {
 
 #[test]
 fn test_generic_type_option_result_failing() {
-    // TDD: This should FAIL initially - we need to implement generic types
     let source = r#"
         script test_vault {
             init {
@@ -893,7 +883,6 @@ fn test_generic_type_option_result_failing() {
 
 #[test]
 fn test_array_types_rust_and_ts_style_failing() {
-    // TDD: This should FAIL initially - we need to implement array types
     let source = r#"
         script test_vault {
             init {
@@ -939,11 +928,8 @@ fn test_array_types_rust_and_ts_style_failing() {
     }
 }
 
-// TDD Phase 1.5: Field definition tests (write failing tests first)
-
 #[test]
 fn test_field_definition_with_type_annotation_failing() {
-    // TDD: This should FAIL initially - we need to implement field definitions
     let source = r#"
         script test_vault {
             balance: u64;
@@ -1026,7 +1012,6 @@ fn test_field_definition_with_type_annotation_failing() {
 
 #[test]
 fn test_field_definition_typescript_style_failing() {
-    // TDD: Test TypeScript-style optional fields and complex types
     let source = r#"
         script test_vault {
             name?: string<32>;
@@ -1075,11 +1060,8 @@ fn test_field_definition_typescript_style_failing() {
     }
 }
 
-// TDD Phase 1.6: Instruction definition tests (write failing tests first)
-
 #[test]
 fn test_basic_instruction_definition_failing() {
-    // TDD: This should FAIL initially - we need to implement instruction definitions
     let source = r#"
         script payment_vault {
             balance: u64;
@@ -1187,7 +1169,6 @@ fn test_basic_instruction_definition_failing() {
 
 #[test]
 fn test_complex_parameter_types_failing() {
-    // TDD: This should FAIL initially - we need to implement complex parameter types
     let source = r#"
         script advanced_vault {
             execute(accounts: [pubkey; 5], data: string) -> bool {
@@ -1240,7 +1221,6 @@ fn test_complex_parameter_types_failing() {
 
 #[test]
 fn test_optional_parameters_failing() {
-    // TDD: This should FAIL initially - we need to implement optional parameters
     let source = r#"
         script flexible_vault {
             transfer(amount: u64, memo?: string, priority?: u8 = 1) -> Result<(), String> {
@@ -1311,7 +1291,6 @@ fn test_optional_parameters_failing() {
 
 #[test]
 fn test_multiple_instruction_definitions_failing() {
-    // TDD: This should FAIL initially - we need to support multiple instructions
     let source = r#"
         script multi_vault {
             balance: u64;
@@ -1366,7 +1345,6 @@ fn test_multiple_instruction_definitions_failing() {
 
 #[test]
 fn test_instruction_definition_with_generic_return_type_failing() {
-    // TDD: This should FAIL initially - we need to handle generic return types
     let source = r#"
         script query_vault {
             get_balance() -> Option<u64> {
@@ -1435,8 +1413,6 @@ fn test_instruction_definition_with_generic_return_type_failing() {
         }
     }
 }
-
-// TDD Phase 1.6: Instruction definition tests
 
 #[test]
 fn test_simple_instruction_definition() {
@@ -1570,11 +1546,8 @@ fn test_instruction_with_optional_params() {
     }
 }
 
-// TDD Phase 1.7: Event System Tests (write failing tests first)
-
 #[test]
 fn test_event_definition_failing() {
-    // TDD: This should FAIL initially - we need to implement event definitions
     let source = r#"
         script payment_vault {
             balance: u64;
@@ -1650,7 +1623,6 @@ fn test_event_definition_failing() {
 
 #[test]
 fn test_multiple_events_and_emit_statements_failing() {
-    // TDD: Test multiple event definitions and emit statements
     let source = r#"
         script trading_vault {
             balance: u64;
@@ -1736,7 +1708,6 @@ fn test_multiple_events_and_emit_statements_failing() {
 
 #[test]
 fn test_event_with_complex_types_failing() {
-    // TDD: Test events with complex field types
     let source = r#"
         script nft_vault {
             event NftMinted {
@@ -1801,11 +1772,8 @@ fn test_event_with_complex_types_failing() {
     }
 }
 
-// TDD Phase 1.8: Account Constraint System Tests (write failing tests first)
-
 #[test]
 fn test_account_attributes_failing() {
-    // TDD: This should FAIL initially - we need to implement account attributes
     let source = r#"
         script account_vault {
             transfer(@signer payer: Account, @mut recipient: Account, amount: u64) -> Result<(), String> {
@@ -1855,7 +1823,6 @@ fn test_account_attributes_failing() {
 
 #[test]
 fn test_pda_constraints_failing() {
-    // TDD: This should FAIL initially - we need to implement PDA constraints
     let source = r#"
         script pda_vault {
             create_user(@init user_account: Account, user_id: u64) -> Result<(), String> {
@@ -1884,7 +1851,6 @@ fn test_pda_constraints_failing() {
 
 #[test]
 fn test_account_validation_failing() {
-    // TDD: This should FAIL initially - we need to implement account validation
     let source = r#"
         script validation_vault {
             validate_transfer(@signer authority: Account, @mut source: TokenAccount, @mut dest: TokenAccount) -> Result<(), String> {
@@ -1941,8 +1907,6 @@ fn test_lamports_field_access_parsing() {
         panic!("Should be Program with instruction definitions");
     }
 }
-
-// TDD Phase 1.9: Control Flow Tests (write failing tests first)
 
 #[test]
 fn test_if_statement_parsing() {
@@ -2276,8 +2240,6 @@ fn test_nested_control_flow() {
         panic!("Should be Program with instruction definitions");
     }
 }
-
-// TDD Phase 1.10: Rust-style error handling tests
 
 #[test]
 fn test_custom_error_enum_definition() {

@@ -51,7 +51,6 @@ impl DslParser {
 
                 Ok(AstNode::TupleAssignment { targets, value })
             }
-            // TDD Phase 1.9: Handle control flow statements
             Token::If => self.parse_if_statement(),
             Token::Match => self.parse_match_expression(),
             Token::Require => self.parse_require_statement(),
@@ -60,7 +59,6 @@ impl DslParser {
             Token::While => self.parse_while_loop(),
             Token::For => self.parse_for_loop(),
             Token::Do => self.parse_do_while_loop(),
-            // TDD Phase 1.4: Handle let statements with type annotations
             Token::Let => {
                 self.advance(); // consume 'let'
 
@@ -149,7 +147,6 @@ impl DslParser {
                     })
                 }
             }
-            // TDD Phase 1.7: Handle emit statements
             // Testing system: Handle assertion statements
             Token::AssertEq
             | Token::AssertTrue
