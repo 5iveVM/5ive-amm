@@ -117,6 +117,46 @@ pub fn pop_and_process_seeds(
     Ok(())
 }
 
+/// Execute a closure with parsed PDA seeds and program ID.
+/// Encapsulates the common logic for setting up PDA derivation context:
+/// - Parsing program ID
+/// - Parsing seeds count
+/// - Populating stack-allocated seed buffers
+/// - Creating slice references
+///
+/// This reduces code duplication and ensures consistent stack usage.
+#[inline(always)]
+pub fn with_pda_seeds<F>(ctx: &mut ExecutionManager, f: F) -> CompactResult<()>
+where
+    F: FnOnce(&mut ExecutionManager, Pubkey, &[&[u8]]) -> CompactResult<()>,
+{
+    // Pop program_id from stack
+    let program_id_ref = ctx.pop()?;
+
+    // Extract pubkey directly
+    let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
+    let program_pubkey = Pubkey::from(program_id_bytes);
+
+    // Pop seeds_count
+    let seeds_count = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
+    debug_log!("MitoVM: PDA seeds_count: {}", seeds_count);
+
+    const MAX_SEEDS: usize = 8;
+    // Stack-allocated seed storage (no heap!)
+    let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
+    let mut seed_lens: [usize; MAX_SEEDS] = [0; MAX_SEEDS];
+
+    pop_and_process_seeds(ctx, seeds_count, &mut seeds, &mut seed_lens)?;
+
+    // Create stack-based seed reference array (no heap!)
+    let mut seed_refs: [&[u8]; MAX_SEEDS] = [&[]; MAX_SEEDS];
+    for i in 0..seeds_count as usize {
+        seed_refs[i] = &seeds[i][..seed_lens[i]];
+    }
+
+    f(ctx, program_pubkey, &seed_refs[..seeds_count as usize])
+}
+
 /// Helper to push (PDA, bump) tuple result efficiently
 #[inline(always)]
 fn push_pda_result(ctx: &mut ExecutionManager, pda_pubkey: [u8; 32], bump: u8) -> CompactResult<()> {
@@ -156,93 +196,49 @@ pub fn handle_pda_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<(
     match opcode {
         DERIVE_PDA => {
             debug_log!("MitoVM: DERIVE_PDA operation");
+            with_pda_seeds(ctx, |ctx, program_pubkey, seeds| {
+                debug_log!("MitoVM: DERIVE_PDA calling create_program_address");
 
-            // Pop program_id from stack
-            let program_id_ref = ctx.pop()?;
+                // Perform PDA derivation based on target
+                #[cfg(target_os = "solana")]
+                let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> =
+                    create_program_address(seeds, &program_pubkey)
+                        .map_err(|_| pinocchio::program_error::ProgramError::Custom(9101));
 
-            // Extract pubkey directly
-            let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
-            let program_pubkey = Pubkey::from(program_id_bytes);
+                #[cfg(not(target_os = "solana"))]
+                let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> =
+                    crate::utils::derive_pda_offchain(seeds, &program_pubkey).map_err(|e| e.into());
 
-            // Pop seeds_count
-            let seeds_count = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
-            debug_log!("MitoVM: DERIVE_PDA seeds_count: {}", seeds_count);
-
-            const MAX_SEEDS: usize = 8;
-            // Stack-allocated seed storage (no heap!)
-            let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
-            let mut seed_lens: [usize; MAX_SEEDS] = [0; MAX_SEEDS];
-
-            pop_and_process_seeds(ctx, seeds_count, &mut seeds, &mut seed_lens)?;
-
-            // Create stack-based seed reference array (no heap!)
-            let mut seed_refs: [&[u8]; MAX_SEEDS] = [&[]; MAX_SEEDS];
-            for i in 0..seeds_count as usize {
-                seed_refs[i] = &seeds[i][..seed_lens[i]];
-            }
-
-            debug_log!("MitoVM: DERIVE_PDA calling create_program_address");
-
-            // Perform PDA derivation based on target
-            #[cfg(target_os = "solana")]
-            let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> = create_program_address(&seed_refs[..seeds_count as usize], &program_pubkey)
-                .map_err(|_| pinocchio::program_error::ProgramError::Custom(9101));
-
-            #[cfg(not(target_os = "solana"))]
-            let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> = crate::utils::derive_pda_offchain(&seed_refs[..seeds_count as usize], &program_pubkey).map_err(|e| e.into());
-
-            match pda_result {
-                Ok(pda_pubkey) => {
-                    debug_log!("MitoVM: DERIVE_PDA success: [pubkey]");
-                    push_pda_result(ctx, pda_pubkey, 0)?;
+                match pda_result {
+                    Ok(pda_pubkey) => {
+                        debug_log!("MitoVM: DERIVE_PDA success: [pubkey]");
+                        push_pda_result(ctx, pda_pubkey, 0)
+                    }
+                    Err(_e) => {
+                        debug_log!("MitoVM: DERIVE_PDA failed");
+                        Err(VMErrorCode::InvokeError)
+                    }
                 }
-                Err(_e) => {
-                    debug_log!("MitoVM: DERIVE_PDA failed");
-                    return Err(VMErrorCode::InvokeError);
-                }
-            }
+            })?;
         }
         FIND_PDA => {
             debug_log!("MitoVM: FIND_PDA operation");
+            with_pda_seeds(ctx, |ctx, program_pubkey, seeds| {
+                debug_log!("MitoVM: FIND_PDA calling find_program_address");
 
-            // Pop program_id from stack
-            let program_id_ref = ctx.pop()?;
+                // Perform PDA finding based on target
+                #[cfg(target_os = "solana")]
+                let (pda_pubkey, bump_seed) = find_program_address(seeds, &program_pubkey);
 
-            // Extract pubkey directly
-            let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
-            let program_pubkey = Pubkey::from(program_id_bytes);
+                #[cfg(not(target_os = "solana"))]
+                let (pda_pubkey, bump_seed) =
+                    crate::utils::find_program_address_offchain(seeds, &program_pubkey)?;
 
-            // Pop seeds_count
-            let seeds_count = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
-            debug_log!("MitoVM: FIND_PDA seeds_count: {}", seeds_count);
+                debug_log!("MitoVM: FIND_PDA success: [pubkey]");
+                debug_log!("MitoVM: FIND_PDA bump: {}", bump_seed as u32);
 
-            const MAX_SEEDS: usize = 8;
-            // Stack-allocated seed storage (no heap!)
-            let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
-            let mut seed_lens: [usize; MAX_SEEDS] = [0; MAX_SEEDS];
-
-            pop_and_process_seeds(ctx, seeds_count, &mut seeds, &mut seed_lens)?;
-
-            // Create stack-based seed reference array (no heap!)
-            let mut seed_refs: [&[u8]; MAX_SEEDS] = [&[]; MAX_SEEDS];
-            for i in 0..seeds_count as usize {
-                seed_refs[i] = &seeds[i][..seed_lens[i]];
-            }
-
-            debug_log!("MitoVM: FIND_PDA calling find_program_address");
-
-            // Perform PDA finding based on target
-            #[cfg(target_os = "solana")]
-            let (pda_pubkey, bump_seed) =
-                find_program_address(&seed_refs[..seeds_count as usize], &program_pubkey);
-
-            #[cfg(not(target_os = "solana"))]
-            let (pda_pubkey, bump_seed) = crate::utils::find_program_address_offchain(&seed_refs[..seeds_count as usize], &program_pubkey)?;
-
-            debug_log!("MitoVM: FIND_PDA success: [pubkey]");
-            debug_log!("MitoVM: FIND_PDA bump: {}", bump_seed as u32);
-
-            push_pda_result(ctx, pda_pubkey, bump_seed)?;
+                push_pda_result(ctx, pda_pubkey, bump_seed)
+            })?;
         }
         _ => {
             debug_log!("MitoVM: PDA opcode {} not implemented", opcode);
