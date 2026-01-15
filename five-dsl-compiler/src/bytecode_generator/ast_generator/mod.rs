@@ -49,32 +49,8 @@ impl ASTGenerator {
         emitter: &mut T,
         node: &AstNode,
     ) -> Result<(), VMError> {
-        // Debug output for all AST nodes
         #[cfg(debug_assertions)]
-        println!(
-            "AST Generator DEBUG: Processing node: {:?}",
-            match node {
-                AstNode::Program { .. } => "Program",
-                AstNode::FieldDefinition { .. } => "FieldDefinition",
-                AstNode::InstructionDefinition { .. } => "InstructionDefinition",
-                AstNode::Assignment { .. } => "Assignment",
-                AstNode::FieldAssignment { object, field, .. } => {
-                    #[cfg(debug_assertions)]
-                    println!(
-                        "    FieldAssignment details: object={:?}, field={:?}",
-                        object, field
-                    );
-                    "FieldAssignment"
-                }
-                AstNode::Identifier(name) => {
-                    #[cfg(debug_assertions)]
-                    println!("    Identifier: {}", name);
-                    "Identifier"
-                }
-                AstNode::Literal(_) => "Literal",
-                _ => "Other",
-            }
-        );
+        println!("Processing node: {:?}", std::mem::discriminant(node));
 
         match node {
             AstNode::Program {
@@ -148,7 +124,7 @@ impl ASTGenerator {
                         if let Some(field_info) = self.local_symbol_table.get(name) {
                             if field_info.is_parameter {
                                 // Generate direct LOAD_PARAM for function parameters
-                                // Optimization: Use nibble immediate opcodes for indices 1-3
+                                // Use nibble immediate opcodes.
                                 let opcode_byte = match field_info.offset {
                                     1 => Some(LOAD_PARAM_1),
                                     2 => Some(LOAD_PARAM_2),
@@ -168,7 +144,7 @@ impl ASTGenerator {
                                     field_info.offset, name
                                 );
                             } else {
-                                // Generate GET_LOCAL for actual local variables with V2 optimization
+                                // Generate GET_LOCAL for actual local variables
                                 self.emit_get_local(
                                     emitter,
                                     field_info.offset,
@@ -176,10 +152,9 @@ impl ASTGenerator {
                                 );
                             }
                         } else if let Some(field_info) = self.global_symbol_table.get(name) {
-                            // Protocol V3: LOAD_FIELD account_index_u8, offset_vle
                             // Script fields use account_index=0 (the script account itself)
                             emitter.emit_opcode(LOAD_FIELD);
-                            emitter.emit_u8(0); // Script account is always index 0
+                            emitter.emit_u8(0);
                             emitter.emit_vle_u32(field_info.offset);
                         } else if !self.interface_registry.contains_key(name) {
                             // Only return error for truly undefined identifiers
@@ -331,10 +306,7 @@ impl ASTGenerator {
                         account_name, field
                     );
 
-                    // TODO: V3 PATTERN DETECTION - Implement bulk field loading optimization
-                    // Future enhancement: Detect consecutive field accesses from the same account
-                    // and emit BULK_LOAD instructions to reduce bytecode size and improve performance.
-                    // See: https://github.com/5iveVM/five-dsl-compiler/issues/XXX
+                    // TODO: Implement bulk field loading optimization
 
                     if let Some(field_info) = self.local_symbol_table.get(account_name) {
                         #[cfg(debug_assertions)]
@@ -373,7 +345,7 @@ impl ASTGenerator {
                             }
                         }
 
-                        // PRIORITY FIX: Check if this is a built-in account property
+                        // Check if this is a built-in account property
                         // BUT only if it is NOT a user-defined field (shadowing support)
                         if !field_found_in_registry {
                             if let Some(account_system) = &self.account_system {
@@ -456,13 +428,11 @@ impl ASTGenerator {
                 self.current_function_return_type = return_type.as_ref().map(|rt| (**rt).clone());
 
                 // Start local variable counter after global fields to avoid conflicts
-                // Local variables use GET_LOCAL/SET_LOCAL opcodes and need their own offset space
                 self.field_counter = 0;
 
                 // Process function parameters and add them to the local symbol table
-                // FIX: Maintain separate counters for account indices and data parameter indices
+                // Maintain separate counters for account indices and data parameter indices
                 // MitoVM/Solana entrypoint splits arguments into Accounts and Data.
-                // Accounts are accessed via account ID, Data arguments via LOAD_PARAM.
                 let mut account_param_counter: u32 = 0;
                 let mut data_param_counter: u32 = 0;
 

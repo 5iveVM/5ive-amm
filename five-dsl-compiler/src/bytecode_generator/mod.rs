@@ -254,7 +254,6 @@ impl DslBytecodeGenerator {
     }
 
     /// Emit import verification metadata section for Five bytecode imports
-    /// NEW: Stores both direct addresses and PDA seeds for import verification
     pub fn emit_import_metadata(&mut self, import_table: &ImportTable) -> Result<(), String> {
         // If the import table is empty, emit nothing (forward compatible)
         if import_table.is_empty() {
@@ -366,15 +365,14 @@ impl DslBytecodeGenerator {
             // Check if we need function dispatch to determine header format
             let mut dispatcher = FunctionDispatcher::new();
             let has_functions = dispatcher.has_callable_functions(ast);
-            println!("DEBUG: has_callable_functions = {}", has_functions);
 
-            // 🚀 OPTIMIZED: Collect function count only for OptimizedHeader
+            // Collect function count for OptimizedHeader
             let (public_count, total_count, has_imports) = if has_functions {
                 // Pre-collect function information for count
                 dispatcher.collect_function_info(ast)?;
                 let functions = dispatcher.get_functions();
 
-                // NEW: Check if imports exist (for feature flag)
+                // Check if imports exist (for feature flag)
                 let has_imports = !dispatcher.get_import_table().is_empty();
 
                 let public_count = functions.iter().filter(|f| f.is_public).count();
@@ -410,7 +408,7 @@ impl DslBytecodeGenerator {
                     return Err(VMError::StackError);
                 }
 
-                // CRITICAL: Compiler MUST enforce ordering invariant
+                // Compiler MUST enforce ordering invariant
                 // Public functions at indices 0..(public_count-1)
                 // Private functions at indices public_count..(total_count-1)
                 // This is validated below in the function emission phase
@@ -423,42 +421,30 @@ impl DslBytecodeGenerator {
                 (0, 0, false)
             };
 
-            // 🚀 PRODUCTION: Use OptimizedHeader V2 with explicit public/total counts
-            // Five VM Mito now supports OptimizedHeader as the primary format for maximum performance
-            println!("DEBUG: Using OptimizedHeader V2 with explicit public_count and total_count");
+            // Use OptimizedHeader V2.
             self.emit_optimized_header_v2_with_imports(public_count, total_count, has_imports);
 
             // Emit function name metadata if there are public functions AND debug info is enabled
             if public_count > 0 && self.include_debug_info {
-                println!("DEBUG: Emitting function name metadata (debug info enabled)");
                 self.emit_function_name_metadata()
-                    // Temporary debug: return InvalidInstruction to identify "Metadata Generation" case
                     .map_err(|_| VMError::InvalidInstruction)?;
-            } else if public_count > 0 {
-                println!("DEBUG: Skipping function name metadata (debug info disabled)");
             }
 
-            // NEW: Save import table for later emission after main bytecode
+            // Save import table for later emission after main bytecode
             let import_table = dispatcher.get_import_table().clone();
 
             let mut ast_generator = if has_functions {
                 // Use coordinated AST and function dispatcher for multi-function scripts
                 // This ensures CALL opcodes are properly coordinated with function indices
-                println!("DEBUG: Taking function coordination path - has_functions = true");
 
                 // Process field definitions first to populate symbol table
                 self.process_field_definitions(ast)?;
-                println!(
-                    "DEBUG: Processed field definitions, symbol table has {} entries",
-                    self.symbol_table.len()
-                );
 
-                // CRITICAL FIX: Initialize AccountSystem with account definitions from AST
+                // Initialize AccountSystem with account definitions from AST
                 let mut account_system = AccountSystem::new();
                 account_system.process_account_definitions(ast)?;
                 // Sync discovered account types into generator-level registry for ABI
                 self.account_registry = account_system.get_account_registry().clone();
-                println!("DEBUG: Processed account definitions in function coordination path");
 
                 let mut scope_analyzer = scope_analyzer::ScopeAnalyzer::new();
                 let mut ast_generator =
@@ -487,16 +473,11 @@ impl DslBytecodeGenerator {
                     &self.symbol_table.clone(),
                 )?;
 
-                // 🚀 PRODUCTION: No header metadata patching needed since OptimizedHeader has no metadata to patch
-                println!("DEBUG: Production optimization - using OptimizedHeader, no metadata patching needed");
+                // No header metadata patching needed.
 
                 ast_generator
             } else {
                 // Use direct AST generation for simple scripts
-                println!("DEBUG: Taking direct AST generation path - has_functions = false");
-                println!(
-                    "DEBUG: About to call self.generate_node(ast) which should trigger AST generator"
-                );
                 let mut ast_generator =
                     ASTGenerator::with_optimization_level(self.optimization_level);
 
@@ -524,7 +505,7 @@ impl DslBytecodeGenerator {
             // Finalize bytecode
             self.finalize_bytecode();
 
-            // NEW: Emit import verification metadata if imports exist
+            // Emit import verification metadata if imports exist
             self.emit_import_metadata(&import_table)
                 .map_err(|_| VMError::InvalidScript)?;
 

@@ -35,8 +35,7 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResul
     require_signer(authority)?;
 
     // Initialize VM state
-    // SAFETY: The account was verified to be owned by this program and we borrow
-    // its data mutably within the instruction, so aliasing rules are upheld.
+    // SAFETY: Account verified owned by program, mutable borrow is safe.
     let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
     vm_state.initialize(*authority.key());
@@ -106,7 +105,7 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     }
     debug_log!("FIVE: header OK, calling verify");
 
-    // **Deploy-time verification**: Verify bytecode content
+    // Verify bytecode content
     verify_bytecode_content(bytecode)?;
 
     #[cfg(not(feature = "debug-logs"))]
@@ -122,7 +121,6 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
         return Err(ProgramError::Custom(7005));
     }
 
-    // Update VM state - reuse mutable borrow from earlier? No, borrow scope ended.
     // SAFETY: `vm_state_account` verified.
     let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
@@ -132,7 +130,7 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     // SAFETY: `script_account` is owned by this program and exclusively borrowed.
     let script_data = unsafe { script_account.borrow_mut_data_unchecked() };
 
-    // Create header with cached metadata for fast execution path
+    // Create header with cached metadata
     let header = ScriptAccountHeader::create_from_bytecode(
         bytecode,
         *owner.key(),
