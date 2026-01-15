@@ -64,11 +64,23 @@ macro_rules! pop_u128 {
 #[macro_export]
 macro_rules! pop_bool {
     ($ctx:expr) => {
-        match $ctx.pop()? {
-            five_protocol::ValueRef::Bool(val) => val,
-            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
-        }
+        $crate::utils::resolve_bool($ctx.pop()?, &$ctx)?
     };
+}
+
+/// Handle logical binary operations (AND, OR, XOR) with automatic boolean resolution
+#[macro_export]
+macro_rules! logical_binary_op {
+    ($ctx:expr, $op_name:literal, $op:tt) => {{
+        debug_log!($op_name);
+        debug_log!("Stack before: {}", $ctx.len() as u32);
+        let b = pop_bool!($ctx);
+        let a = pop_bool!($ctx);
+        let result = a $op b;
+        debug_log!("Result: {}", if result { 1 } else { 0 });
+        debug_log!("Stack after: {}", ($ctx.len() + 1) as u32);
+        vm_push_bool!($ctx, result);
+    }};
 }
 
 /// Push u64 value onto execution stack as ValueRef::U64.

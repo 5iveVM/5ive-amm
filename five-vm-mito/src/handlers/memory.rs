@@ -29,21 +29,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 field_offset
             );
 
-            if (account_index as usize) >= ctx.accounts().len() {
-                return Err(VMErrorCode::InvalidAccountIndex);
-            }
-
-            ctx.check_bytecode_authorization(account_index)?;
-
-            let account = ctx.get_account(account_index)?;
-
-            if !account.is_writable() {
-                return Err(VMErrorCode::AccountNotWritable);
-            }
-
-            // CRITICAL FIX: Force refresh of account pointers before data access.
-            // After INIT_ACCOUNT CPI, Pinocchio's cached data pointers become stale.
-            account.refresh_after_cpi();
+            let account = ctx.get_account_for_write(account_index)?;
 
             // SAFETY: The account is verified by index and no other borrows exist,
             // granting exclusive mutable access to its data.
@@ -83,25 +69,18 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 ctx.accounts().len() as u32
             );
 
-            if (account_index as usize) >= ctx.accounts().len() {
-                return Err(VMErrorCode::InvalidAccountIndex);
-            }
-
-            ctx.check_bytecode_authorization(account_index)?;
-
-            let account = ctx.get_account(account_index)?;
-
-            if !account.is_writable() {
-                error_log!(
-                    "STORE_FIELD REJECTED: Account {} is READ-ONLY",
-                    account_index
-                );
-                return Err(VMErrorCode::InvalidOperation);
-            }
-
-            // CRITICAL FIX: Force refresh of account pointers before data access.
-            // After INIT_ACCOUNT CPI, Pinocchio's cached data pointers become stale.
-            account.refresh_after_cpi();
+            // Handle writable check with specific error code mapping for STORE_FIELD compatibility
+            let account = match ctx.get_account_for_write(account_index) {
+                Ok(acc) => acc,
+                Err(VMErrorCode::AccountNotWritable) => {
+                    error_log!(
+                        "STORE_FIELD REJECTED: Account {} is READ-ONLY",
+                        account_index
+                    );
+                    return Err(VMErrorCode::InvalidOperation);
+                }
+                Err(e) => return Err(e),
+            };
 
             // SAFETY: Account is verified by index and writable, granting exclusive mutable access
             let data = unsafe { account.borrow_mut_data_unchecked() };
@@ -118,28 +97,19 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 field_offset
             );
 
-            if (account_index as usize) >= ctx.accounts().len() {
-                return Err(VMErrorCode::InvalidAccountIndex);
-            }
+            let account = ctx.get_account_for_read(account_index)?;
 
             // Optimized lazy loading: push AccountRef instead of reading immediately
             // This allows the consumer (e.g. EQ, ADD) to decide how many bytes to read
             // AccountRef takes u16 offset. Check if offset fits.
             if field_offset <= u16::MAX as u32 {
                 // Eager bounds check: even if lazy, we verify the data *exists*
-                let account = &ctx.accounts()[account_index as usize];
-
-            // CRITICAL FIX: Force refresh of account pointers before bounds check.
-            // After INIT_ACCOUNT CPI, Pinocchio's cached data length may be stale.
-                account.refresh_after_cpi();
-
                 if (field_offset as usize + 8) > account.data_len() {
                     return Err(VMErrorCode::InvalidAccountData);
                 }
                 ctx.push(ValueRef::AccountRef(account_index, field_offset as u16))?;
             } else {
                 // Fallback for large offsets: eager load as u64
-                let account = &ctx.accounts()[account_index as usize];
                 // SAFETY: Read-only access, no mutable references active
                 let data = unsafe { account.borrow_data_unchecked() };
 
@@ -165,16 +135,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 field_offset
             );
 
-            if (account_index as usize) >= ctx.accounts().len() {
-                return Err(VMErrorCode::InvalidAccountIndex);
-            }
-
-            let account = &ctx.accounts()[account_index as usize];
-
-            // CRITICAL FIX: Force refresh of account pointers before data access.
-            // After INIT_ACCOUNT CPI, Pinocchio's cached pointers are stale.
-            account.refresh_after_cpi();
-
+            let account = ctx.get_account_for_read(account_index)?;
             let data = unsafe { account.borrow_data_unchecked() };
 
             if (field_offset as usize + 32) > data.len() {

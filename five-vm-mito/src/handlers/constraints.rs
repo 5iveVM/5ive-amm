@@ -21,7 +21,7 @@ const SYSTEM_PROGRAM_ID: [u8; 32] = [
 macro_rules! check_constraint {
     ($ctx:expr, $name:literal, $account:ident, $check:expr) => {{
         let account_idx = $ctx.fetch_byte()?;
-        let $account = $ctx.get_account(account_idx)?;
+        let $account = $ctx.get_account_for_read(account_idx)?;
         if !($check) {
              debug_log!("MitoVM: {} failed - account {} check failed", $name, account_idx);
              return Err(VMErrorCode::ConstraintViolation);
@@ -49,7 +49,7 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             let expected_owner_ref = ctx.fetch_pubkey_to_temp()?; // Fetch Pubkey from bytecode to temp buffer
 
             // Get account first and copy owner data
-            let account = ctx.get_account(account_idx)?;
+            let account = ctx.get_account_for_read(account_idx)?;
             let actual_owner_bytes = *account.owner();
 
             // Extract expected owner pubkey directly
@@ -66,7 +66,7 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
         }
         CHECK_UNINITIALIZED => {
             let account_idx = ctx.fetch_byte()?; // Fetch account_idx directly from bytecode
-            let account = ctx.get_account(account_idx)?;
+            let account = ctx.get_account_for_read(account_idx)?;
 
             // Account should be uninitialized (empty data) for @init
             // SAFETY: We only read the data slice; mutable borrows are ruled out by `ExecutionManager`.

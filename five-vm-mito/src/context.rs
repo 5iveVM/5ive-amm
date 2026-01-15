@@ -372,6 +372,36 @@ impl<'a> ExecutionContext<'a> {
         self.accounts.get(index)
     }
 
+    /// Get account for read access, ensuring pointer freshness
+    #[inline(always)]
+    pub fn get_account_for_read(&self, index: u8) -> CompactResult<&AccountInfo> {
+        let account = self.accounts.get(index)?;
+        // CRITICAL FIX: Force refresh of account pointers before data access
+        // to handle stale pointers after CPI.
+        account.refresh_after_cpi();
+        Ok(account)
+    }
+
+    /// Get account for write access, checking authorization and writability
+    #[inline(always)]
+    pub fn get_account_for_write(&self, index: u8) -> CompactResult<&AccountInfo> {
+        // 1. Check bytecode authorization for this account
+        self.check_bytecode_authorization(index)?;
+
+        // 2. Get account
+        let account = self.accounts.get(index)?;
+
+        // 3. Check writable
+        if !account.is_writable() {
+            return Err(VMErrorCode::AccountNotWritable);
+        }
+
+        // 4. CRITICAL FIX: Force refresh of account pointers
+        account.refresh_after_cpi();
+
+        Ok(account)
+    }
+
     /// Get account without lazy validation (for internal VM use)
     #[inline(always)]
     pub fn get_account_unchecked(&self, index: u8) -> CompactResult<&AccountInfo> {
