@@ -492,4 +492,49 @@ mod tests {
         // Magic should still be correct
         assert_eq!(header.magic, ScriptAccountHeader::MAGIC);
     }
+
+    #[test]
+    fn test_five_vm_state_initialize() {
+        let mut vm_state = FIVEVMState::new();
+        assert!(!vm_state.is_initialized());
+        assert_eq!(vm_state.script_count, 0);
+
+        let authority = Pubkey::from([7u8; 32]);
+        vm_state.initialize(authority);
+
+        assert!(vm_state.is_initialized());
+        assert_eq!(vm_state.authority, authority);
+        assert_eq!(vm_state.deploy_fee_bps, 10000);
+        assert_eq!(vm_state.execute_fee_bps, 10000);
+    }
+
+    #[test]
+    fn test_five_vm_state_create_script_id() {
+        let mut vm_state = FIVEVMState::new();
+        vm_state.initialize(Pubkey::default());
+
+        assert_eq!(vm_state.script_count, 0);
+
+        let id1 = vm_state.create_script_id();
+        assert_eq!(id1, 0);
+        assert_eq!(vm_state.script_count, 1);
+
+        let id2 = vm_state.create_script_id();
+        assert_eq!(id2, 1);
+        assert_eq!(vm_state.script_count, 2);
+    }
+
+    #[test]
+    fn test_five_vm_state_from_account_data_errors() {
+        let data_too_short = vec![0u8; FIVEVMState::LEN - 1];
+
+        // Test immutable
+        let result = FIVEVMState::from_account_data(&data_too_short);
+        assert!(matches!(result, Err(ProgramError::Custom(8001))));
+
+        // Test mutable
+        let mut data_too_short_mut = vec![0u8; FIVEVMState::LEN - 1];
+        let result_mut = FIVEVMState::from_account_data_mut(&mut data_too_short_mut);
+        assert!(matches!(result_mut, Err(ProgramError::Custom(8001))));
+    }
 }
