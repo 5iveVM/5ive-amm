@@ -321,4 +321,55 @@ mod tests {
         // Should return VersionHistoryFull which is 6001
         assert!(matches!(result, Err(ProgramError::Custom(6001))));
     }
+
+    #[test]
+    fn test_validate_upgrade_authority() {
+        let authority = [1u8; 32];
+        let other_key = [2u8; 32];
+        let mut lamports = 0;
+        let mut data = [];
+        let owner = Pubkey::default();
+
+        // 1. Correct authority and signer
+        let proof_account = AccountInfo::new(
+            &authority,
+            true, // is_signer
+            false,
+            &mut lamports,
+            &mut data,
+            &owner,
+            false,
+            0,
+        );
+        let result = validate_upgrade_authority(&authority, &proof_account).unwrap();
+        assert!(result, "Should be valid when key matches and is signer");
+
+        // 2. Correct authority but NOT signer
+        let proof_account_unsigned = AccountInfo::new(
+            &authority,
+            false, // is_signer
+            false,
+            &mut lamports,
+            &mut data,
+            &owner,
+            false,
+            0,
+        );
+        let result = validate_upgrade_authority(&authority, &proof_account_unsigned).unwrap();
+        assert!(!result, "Should be invalid when not signer");
+
+        // 3. Incorrect authority (signer or not)
+        let proof_account_wrong = AccountInfo::new(
+            &other_key,
+            true, // is_signer
+            false,
+            &mut lamports,
+            &mut data,
+            &owner,
+            false,
+            0,
+        );
+        let result = validate_upgrade_authority(&authority, &proof_account_wrong).unwrap();
+        assert!(!result, "Should be invalid when keys mismatch");
+    }
 }

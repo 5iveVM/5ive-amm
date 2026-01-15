@@ -144,4 +144,16 @@ mod deploy_verification_tests {
         let result = verify_bytecode_content(&bytecode_data);
         assert!(matches!(result, Err(pinocchio::program_error::ProgramError::Custom(8104))));
     }
+
+    #[test]
+    fn test_verify_bytecode_too_large() {
+        // Mock MAX_SCRIPT_SIZE check
+        // We can't easily allocate >10KB in test without being wasteful, but we can check if it returns 8101
+        // when we exceed five_protocol::MAX_SCRIPT_SIZE.
+        // MAX_SCRIPT_SIZE is 1024 * 10 (10KB).
+
+        let large_bytecode = vec![0u8; five_protocol::MAX_SCRIPT_SIZE + 1];
+        let result = verify_bytecode_content(&large_bytecode);
+        assert!(matches!(result, Err(pinocchio::program_error::ProgramError::Custom(8101))));
+    }
 }
