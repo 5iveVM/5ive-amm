@@ -16,6 +16,8 @@ mod validation;
 pub mod module_scope;
 #[cfg(test)]
 mod expressions_tests;
+#[cfg(test)]
+mod statements_tests;
 
 use crate::ast::{AstNode, TypeNode};
 use five_vm_mito::error::VMError;
