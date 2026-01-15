@@ -7,6 +7,9 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
+    logical_binary_op,
+    pop_bool,
+    vm_push_bool,
 };
 use five_protocol::{opcodes::*, ValueRef};
 
@@ -63,30 +66,17 @@ macro_rules! rotate_op {
 pub fn handle_logical(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         AND => {
-            let b_val = ctx.pop()?;
-            let b = crate::utils::resolve_bool(b_val, ctx)?;
-            let a_val = ctx.pop()?;
-            let a = crate::utils::resolve_bool(a_val, ctx)?;
-            ctx.push(ValueRef::Bool(a && b))?;
+            logical_binary_op!(ctx, "AND", &&);
         }
         OR => {
-            let b_val = ctx.pop()?;
-            let b = crate::utils::resolve_bool(b_val, ctx)?;
-            let a_val = ctx.pop()?;
-            let a = crate::utils::resolve_bool(a_val, ctx)?;
-            ctx.push(ValueRef::Bool(a || b))?;
+            logical_binary_op!(ctx, "OR", ||);
         }
         NOT => {
-            let a_val = ctx.pop()?;
-            let a = crate::utils::resolve_bool(a_val, ctx)?;
-            ctx.push(ValueRef::Bool(!a))?;
+            let a = pop_bool!(ctx);
+            vm_push_bool!(ctx, !a);
         }
         XOR => {
-            let b_val = ctx.pop()?;
-            let b = crate::utils::resolve_bool(b_val, ctx)?;
-            let a_val = ctx.pop()?;
-            let a = crate::utils::resolve_bool(a_val, ctx)?;
-            ctx.push(ValueRef::Bool(a ^ b))?;
+            logical_binary_op!(ctx, "XOR", ^);
         }
         BITWISE_NOT => {
             // MitoVM BITWISE_NOT: Bitwise complement (~value) flipping all bits
