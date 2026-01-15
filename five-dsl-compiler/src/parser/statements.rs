@@ -1,4 +1,7 @@
-use super::*;
+use crate::ast::{AstNode, EventFieldAssignment, MatchArm, BlockKind};
+use crate::parser::{DslParser, types};
+use crate::tokenizer::{Token, TokenKind};
+use five_vm_mito::error::VMError;
 
 impl DslParser {
     pub(crate) fn parse_statement(&mut self) -> Result<AstNode, VMError> {
@@ -121,7 +124,7 @@ impl DslParser {
                     // Parse optional type annotation: : Type
                     let type_annotation = if matches!(self.current_token, Token::Colon) {
                         self.advance(); // consume ':'
-                        Some(Box::new(self.parse_type()?))
+                        Some(Box::new(types::parse_type(self)?))
                     } else {
                         None
                     };
@@ -752,7 +755,7 @@ impl DslParser {
                 // Parse optional type annotation: : Type
                 let type_annotation = if matches!(self.current_token, Token::Colon) {
                     self.advance(); // consume ':'
-                    Some(Box::new(self.parse_type()?))
+                    Some(Box::new(types::parse_type(self)?))
                 } else {
                     None
                 };

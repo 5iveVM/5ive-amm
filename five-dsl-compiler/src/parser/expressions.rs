@@ -1,4 +1,8 @@
-use super::*;
+use crate::ast::{AstNode, StructLiteralField};
+use crate::parser::{DslParser, types};
+use crate::tokenizer::{Token, TokenKind};
+use five_vm_mito::error::VMError;
+use five_protocol::Value;
 
 impl DslParser {
     pub(crate) fn parse_expression(&mut self) -> Result<AstNode, VMError> {
@@ -314,7 +318,7 @@ impl DslParser {
                 Token::As => {
                     self.advance(); // consume 'as'
                                     // Parse and ignore the type annotation after 'as'
-                    let _ = self.parse_type()?;
+                    let _ = types::parse_type(self)?;
                     // Do not change expr; keep parsing further postfix ops
                 }
                 // Field access: object.field1.field2
