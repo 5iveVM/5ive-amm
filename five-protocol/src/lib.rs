@@ -265,6 +265,3 @@ macro_rules! transport_log {
 macro_rules! transport_log {
     ($($arg:tt)*) => {};
 }
-
-#[cfg(test)]
-mod tests;

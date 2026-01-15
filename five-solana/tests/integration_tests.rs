@@ -4,8 +4,8 @@ use pinocchio::program_error::ProgramError;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instructions::{FIVEInstruction, DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
-    use crate::state::FIVEVMState;
+    use five::instructions::{FIVEInstruction, DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
+    use five::state::FIVEVMState;
     use pinocchio::pubkey::Pubkey;
 
     // Since we're in tests and Pinocchio AccountInfo is not constructible directly,

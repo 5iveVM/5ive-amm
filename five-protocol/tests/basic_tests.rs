@@ -1,4 +1,4 @@
-use crate::*;
+use five_protocol::*;
 
 #[test]
 fn test_opcode_definitions() {
@@ -32,15 +32,15 @@ fn test_value_conversions() {
     let val_u64 = Value::U64(42);
     assert_eq!(val_u64.as_u64(), Some(42));
     assert_eq!(val_u64.as_bool(), Some(true));
-    assert_eq!(val_u64.type_id(), crate::types::U64); // 4 (FIXED: was 2)
+    assert_eq!(val_u64.type_id(), five_protocol::types::U64); // 4 (FIXED: was 2)
 
     let val_bool = Value::Bool(false);
     assert_eq!(val_bool.as_bool(), Some(false));
-    assert_eq!(val_bool.type_id(), crate::types::BOOL); // 9 (FIXED: was 5)
+    assert_eq!(val_bool.type_id(), five_protocol::types::BOOL); // 9 (FIXED: was 5)
 
     let val_empty = Value::Empty;
     assert_eq!(val_empty.as_u64(), None);
-    assert_eq!(val_empty.type_id(), crate::types::EMPTY); // 0 (correct)
+    assert_eq!(val_empty.type_id(), five_protocol::types::EMPTY); // 0 (correct)
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn test_valueref_u128_serialization() {
     let original = ValueRef::U128(0x123456789ABCDEF0123456789ABCDEF0);
 
     // Test type_id is correct (now matches types::U128 constant)
-    assert_eq!(original.type_id(), crate::types::U128); // 14 (FIXED: was 4)
+    assert_eq!(original.type_id(), five_protocol::types::U128); // 14 (FIXED: was 4)
 
     // Test is_immediate includes U128
     assert!(original.is_immediate());
@@ -153,8 +153,8 @@ fn test_call_protocol() {
 
     // Add function to table
     let mut table = FunctionTable::new();
-    let mut sig = FunctionSignature::new(0x12345678, 1, Some(crate::types::U64), 2);
-    sig.parameters[0] = Parameter::new(0x11111111, crate::types::U64); // U64 parameter (type_id=4)
+    let mut sig = FunctionSignature::new(0x12345678, 1, Some(five_protocol::types::U64), 2);
+    sig.parameters[0] = Parameter::new(0x11111111, five_protocol::types::U64); // U64 parameter (type_id=4)
     table.add_function(sig, 1000).unwrap();
     protocol.initialize(table);
 

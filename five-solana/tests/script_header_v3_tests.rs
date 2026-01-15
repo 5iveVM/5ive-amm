@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod script_header_v3_tests {
-    use crate::{
+    use five::{
         instructions::{verify_bytecode_content, DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION},
         state::ScriptAccountHeader,
     };

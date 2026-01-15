@@ -1,9 +1,10 @@
-use five_dsl_compiler::{DslCompiler};
+use five_dsl_compiler::DslCompiler;
 
-fn main() {
+#[test]
+fn test_debug_compiler() {
     let source = r#"
 script SingleParam {
-    test(a: u64) -> u64 {
+    pub test(a: u64) -> u64 {
         return a;
     }
 }
@@ -23,9 +24,11 @@ script SingleParam {
                 print!("{:02x} ", byte);
             }
             println!();
+            assert!(!bytecode.is_empty());
         }
         Err(e) => {
             println!("Compilation failed: {:?}", e);
+            panic!("Compilation failed");
         }
     }
 }

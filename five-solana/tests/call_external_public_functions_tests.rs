@@ -14,7 +14,7 @@
 
 #[cfg(test)]
 mod public_function_invocation_tests {
-    use crate::instructions::{FIVEInstruction, DEPLOY_INSTRUCTION};
+    use five::instructions::{FIVEInstruction, DEPLOY_INSTRUCTION};
     use five_protocol::bytecode;
 
     /// Test structure demonstrating bytecode with public and private functions

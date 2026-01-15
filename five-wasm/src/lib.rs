@@ -2,13 +2,6 @@
 
 use wasm_bindgen::prelude::*;
 
-// Integration tests module
-#[cfg(test)]
-mod tests;
-
-// VLE encoder unit tests module
-#[cfg(test)]
-mod vle_tests;
 use five_protocol::{
     encoding::VLE, opcodes, types, Value, FIVE_DEPLOY_MAGIC, FIVE_MAGIC, MAX_SCRIPT_SIZE,
 };

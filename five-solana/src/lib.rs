@@ -21,45 +21,12 @@ macro_rules! debug_log {
     };
 }
 
-// Test modules
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-mod tests_process_instruction;
-
-// Test utilities for all tests
-#[cfg(test)]
-pub mod test_utils;
-
 mod common;
 mod error;
 pub use error::FIVEError;
-mod instructions;
-mod state;
-
-#[cfg(test)]
-mod test_deploy_verification;
-
-#[cfg(test)]
-mod test_script_header_v3;
-
-#[cfg(test)]
-mod test_call_external;
-
-#[cfg(test)]
-mod test_call_external_public_functions;
-
-#[cfg(test)]
-mod test_call_external_constraints;
-
-#[cfg(test)]
-pub mod test_parameter_indexing;
-
+pub mod instructions;
+pub mod state;
 pub mod upgrade;
-
-#[cfg(test)]
-pub mod test_call_external_constraint_bug;
 
 use instructions::FIVEInstruction;
 

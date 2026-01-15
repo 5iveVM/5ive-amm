@@ -246,10 +246,9 @@ impl DslBytecodeGenerator {
     }
 
     /// Test helper: set the function table for unit tests without requiring full
-    /// dispatcher collection. This is published as `pub(crate)` so only crate
-    /// tests can use it and production encapsulation remains intact.
-    #[cfg(test)]
-    pub(crate) fn set_functions_for_test(&mut self, funcs: Vec<types::FunctionInfo>) {
+    /// dispatcher collection. This is published as `pub` for integration tests.
+    #[doc(hidden)]
+    pub fn set_functions_for_test(&mut self, funcs: Vec<types::FunctionInfo>) {
         self.functions = funcs;
     }
 
