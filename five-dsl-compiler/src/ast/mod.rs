@@ -89,7 +89,6 @@ pub enum AstNode {
         method: String,
         args: Vec<AstNode>,
     },
-    // TDD Phase 1.4: Type system additions
     FieldDefinition {
         name: String,
         field_type: Box<TypeNode>,
@@ -112,7 +111,6 @@ pub enum AstNode {
         targets: Vec<AstNode>, // Can be Identifier or FieldAccess
         value: Box<AstNode>,
     },
-    // TDD Phase 1.6: Enhanced instruction definitions
     InstructionDefinition {
         name: String,
         parameters: Vec<InstructionParameter>,
@@ -128,7 +126,6 @@ pub enum AstNode {
         name: String,
         args: Vec<AstNode>,
     },
-    // TDD Phase 1.7: Event system
     EventDefinition {
         name: String,
         fields: Vec<StructField>,
@@ -139,7 +136,6 @@ pub enum AstNode {
         fields: Vec<EventFieldAssignment>,
     },
 
-    // TDD Phase 1.9: Control flow support
     IfStatement {
         condition: Box<AstNode>,
         then_branch: Box<AstNode>,
@@ -153,7 +149,6 @@ pub enum AstNode {
         value: Option<Box<AstNode>>,
     },
 
-    // TDD Phase 1.10: Error handling AST nodes (keep enum definitions)
     ErrorTypeDefinition {
         name: String,
         variants: Vec<ErrorVariant>,
@@ -166,7 +161,6 @@ pub enum AstNode {
         visibility: Visibility, // pub for cross-module access
     },
 
-    // TDD Phase 1.7-1.8 Enhancement: Literal expressions
     StructLiteral {
         fields: Vec<StructLiteralField>,
     },
