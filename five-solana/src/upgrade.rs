@@ -289,4 +289,36 @@ mod tests {
         
         assert_eq!(archive_pda, archive_pda2);
     }
+
+    #[test]
+    fn test_version_history_full() {
+        let mut history = ScriptVersionHistory {
+            script_id: 1,
+            current_version: 0,
+            version_count: 0,
+            versions: [VersionRecord {
+                deployment_slot: 0,
+                version: 0,
+                is_active: 0,
+                _padding: [0; 3],
+                deployer: Pubkey::default(),
+                bytecode_hash: [0; 32],
+            }; 10],
+        };
+
+        // Fill history with 10 versions
+        for i in 0..10 {
+            let record = create_version_record(i + 1, b"bytecode", &Pubkey::default(), 1000 + i as u64);
+            assert!(history.add_version(record).is_ok());
+        }
+
+        assert_eq!(history.version_count, 10);
+
+        // Try adding 11th version
+        let record11 = create_version_record(11, b"bytecode_v11", &Pubkey::default(), 2000);
+        let result = history.add_version(record11);
+
+        // Should return VersionHistoryFull which is 6001
+        assert!(matches!(result, Err(ProgramError::Custom(6001))));
+    }
 }
