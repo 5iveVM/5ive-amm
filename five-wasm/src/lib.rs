@@ -549,6 +549,12 @@ impl FiveVMWasm {
     /// Validate bytecode without execution
     #[wasm_bindgen]
     pub fn validate_bytecode(bytecode: &[u8]) -> Result<bool, JsValue> {
+        Self::validate_bytecode_internal(bytecode)
+            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))
+    }
+
+    /// Internal validation logic returning Rust types
+    pub(crate) fn validate_bytecode_internal(bytecode: &[u8]) -> Result<bool, VMError> {
         // First try to extract pure bytecode
         let extracted_bytecode = match Self::extract_five_bytecode(bytecode) {
             Ok(extracted) => extracted,
@@ -924,8 +930,25 @@ impl FiveVMWasm {
         actual_param_count: u32,
         failed_param_index: u32,
     ) -> String {
+        Self::enhance_parameter_error_static(
+            &self.abi_data,
+            function_index,
+            expected_param_count,
+            actual_param_count,
+            failed_param_index,
+        )
+    }
+
+    /// Static version of enhance_parameter_error for testing without instance
+    pub(crate) fn enhance_parameter_error_static(
+        abi_data: &Option<String>,
+        function_index: u32,
+        expected_param_count: u32,
+        actual_param_count: u32,
+        failed_param_index: u32,
+    ) -> String {
         // Try to get enhanced information from ABI if available
-        if let Some(abi_json) = &self.abi_data {
+        if let Some(abi_json) = abi_data {
             if let Ok(abi) = serde_json::from_str::<serde_json::Value>(abi_json) {
                 if let Some(functions) = abi.get("functions") {
                     // Look for function by index - check both SimpleABI format (object) and FIVEABI format (array)
@@ -969,7 +992,7 @@ impl FiveVMWasm {
                             .unwrap_or_default();
 
                         // Create enhanced error message with function name and parameter types
-                        return self.create_enhanced_error_message(
+                        return Self::create_enhanced_error_message_static(
                             function_name,
                             &parameters,
                             expected_param_count,
@@ -982,7 +1005,7 @@ impl FiveVMWasm {
         }
 
         // Fallback to basic error message if no ABI available
-        self.create_basic_error_message(
+        Self::create_basic_error_message_static(
             function_index,
             expected_param_count,
             actual_param_count,
@@ -991,8 +1014,7 @@ impl FiveVMWasm {
     }
 
     /// Create enhanced error message with function name and parameter types from ABI
-    fn create_enhanced_error_message(
-        &self,
+    pub(crate) fn create_enhanced_error_message_static(
         function_name: &str,
         parameters: &[&str],
         expected_param_count: u32,
@@ -1077,8 +1099,7 @@ impl FiveVMWasm {
     }
 
     /// Create basic error message when ABI information is not available
-    fn create_basic_error_message(
-        &self,
+    pub(crate) fn create_basic_error_message_static(
         function_index: u32,
         expected_param_count: u32,
         actual_param_count: u32,
@@ -1302,13 +1323,10 @@ pub fn js_value_to_vm_value(js_val: &JsValue, value_type: u8) -> Result<JsValue,
 #[wasm_bindgen]
 pub struct BytecodeAnalyzer;
 
-#[wasm_bindgen]
 impl BytecodeAnalyzer {
-    /// Analyze bytecode and return instruction breakdown (legacy method for compatibility)
-    #[wasm_bindgen]
-    pub fn analyze(bytecode: &[u8]) -> Result<JsValue, JsValue> {
-        if !FiveVMWasm::validate_bytecode(bytecode)? {
-            return Err(JsValue::from_str("Invalid bytecode"));
+    pub(crate) fn analyze_internal(bytecode: &[u8]) -> Result<serde_json::Value, String> {
+        if !FiveVMWasm::validate_bytecode_internal(bytecode).map_err(|e| format!("{:?}", e))? {
+            return Err("Invalid bytecode".to_string());
         }
 
         let mut instructions = Vec::new();
@@ -1327,30 +1345,26 @@ impl BytecodeAnalyzer {
             i += get_instruction_size(opcode, &bytecode[i..]);
         }
 
-        let analysis = serde_json::json!({
+        Ok(serde_json::json!({
             "total_size": bytecode.len(),
             "instruction_count": instructions.len(),
             "instructions": instructions
-        });
-
-        Ok(JsValue::from_str(&analysis.to_string()))
+        }))
     }
 
-    /// Advanced semantic analysis with full opcode understanding and instruction flow
-    /// This provides the intelligent analysis that understands what each opcode does
-    /// and what operands follow each instruction.
-    #[wasm_bindgen]
-    pub fn analyze_semantic(bytecode: &[u8]) -> Result<JsValue, JsValue> {
+    pub(crate) fn analyze_semantic_internal(
+        bytecode: &[u8],
+    ) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::bytecode_generator::AdvancedBytecodeAnalyzer;
 
         // Create and run the advanced analyzer
         let mut analyzer = AdvancedBytecodeAnalyzer::new(bytecode.to_vec());
         let analysis = analyzer
             .analyze()
-            .map_err(|e| JsValue::from_str(&format!("Analysis failed: {:?}", e)))?;
+            .map_err(|e| format!("Analysis failed: {:?}", e))?;
 
         // Convert to JSON-serializable format
-        let semantic_analysis = serde_json::json!({
+        Ok(serde_json::json!({
             "summary": {
                 "total_size": analysis.summary.total_size,
                 "total_instructions": analysis.summary.total_instructions,
@@ -1407,20 +1421,19 @@ impl BytecodeAnalyzer {
                 "is_consistent": analysis.stack_analysis.is_consistent
             },
             "patterns": analysis.patterns.len() // Just count for now
-        });
-
-        Ok(JsValue::from_str(&semantic_analysis.to_string()))
+        }))
     }
 
-    /// Get detailed information about a specific instruction at an offset
-    #[wasm_bindgen]
-    pub fn analyze_instruction_at(bytecode: &[u8], offset: usize) -> Result<JsValue, JsValue> {
+    pub(crate) fn analyze_instruction_at_internal(
+        bytecode: &[u8],
+        offset: usize,
+    ) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::bytecode_generator::AdvancedBytecodeAnalyzer;
 
         let mut analyzer = AdvancedBytecodeAnalyzer::new(bytecode.to_vec());
         let analysis = analyzer
             .analyze()
-            .map_err(|e| JsValue::from_str(&format!("Analysis failed: {:?}", e)))?;
+            .map_err(|e| format!("Analysis failed: {:?}", e))?;
 
         // Find instruction at the specified offset
         if let Some(instruction) = analysis
@@ -1428,7 +1441,7 @@ impl BytecodeAnalyzer {
             .iter()
             .find(|inst| inst.offset == offset)
         {
-            let instruction_detail = serde_json::json!({
+            Ok(serde_json::json!({
                 "offset": instruction.offset,
                 "opcode": instruction.opcode,
                 "name": instruction.name,
@@ -1454,28 +1467,23 @@ impl BytecodeAnalyzer {
                 },
                 "raw_bytes": instruction.raw_bytes,
                 "hex_representation": instruction.raw_bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>()
-            });
-
-            Ok(JsValue::from_str(&instruction_detail.to_string()))
+            }))
         } else {
-            Err(JsValue::from_str(&format!(
-                "No instruction found at offset {}",
-                offset
-            )))
+            Err(format!("No instruction found at offset {}", offset))
         }
     }
 
-    /// Get summary statistics about the bytecode
-    #[wasm_bindgen]
-    pub fn get_bytecode_summary(bytecode: &[u8]) -> Result<JsValue, JsValue> {
+    pub(crate) fn get_bytecode_summary_internal(
+        bytecode: &[u8],
+    ) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::bytecode_generator::AdvancedBytecodeAnalyzer;
 
         let mut analyzer = AdvancedBytecodeAnalyzer::new(bytecode.to_vec());
         let analysis = analyzer
             .analyze()
-            .map_err(|e| JsValue::from_str(&format!("Analysis failed: {:?}", e)))?;
+            .map_err(|e| format!("Analysis failed: {:?}", e))?;
 
-        let summary = serde_json::json!({
+        Ok(serde_json::json!({
             "total_size": analysis.summary.total_size,
             "total_instructions": analysis.summary.total_instructions,
             "total_compute_units": analysis.summary.total_compute_cost,
@@ -1487,20 +1495,18 @@ impl BytecodeAnalyzer {
             "stack_consistency": analysis.stack_analysis.is_consistent,
             "basic_blocks_count": analysis.control_flow.basic_blocks.len(),
             "category_breakdown": analysis.summary.category_distribution.len()
-        });
-
-        Ok(JsValue::from_str(&summary.to_string()))
+        }))
     }
 
-    /// Get detailed opcode flow analysis - shows execution paths through the bytecode
-    #[wasm_bindgen]
-    pub fn analyze_execution_flow(bytecode: &[u8]) -> Result<JsValue, JsValue> {
+    pub(crate) fn analyze_execution_flow_internal(
+        bytecode: &[u8],
+    ) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::bytecode_generator::AdvancedBytecodeAnalyzer;
 
         let mut analyzer = AdvancedBytecodeAnalyzer::new(bytecode.to_vec());
         let analysis = analyzer
             .analyze()
-            .map_err(|e| JsValue::from_str(&format!("Analysis failed: {:?}", e)))?;
+            .map_err(|e| format!("Analysis failed: {:?}", e))?;
 
         // Build execution flow representation
         let mut execution_paths = Vec::new();
@@ -1527,7 +1533,7 @@ impl BytecodeAnalyzer {
             }));
         }
 
-        let flow_analysis = serde_json::json!({
+        Ok(serde_json::json!({
             "execution_paths": execution_paths,
             "entry_points": analysis.control_flow.entry_points,
             "basic_blocks": analysis.control_flow.basic_blocks.iter().map(|block| {
@@ -1544,9 +1550,52 @@ impl BytecodeAnalyzer {
                 "max_depth": analysis.stack_analysis.max_stack_depth,
                 "min_depth": analysis.stack_analysis.min_stack_depth
             }
-        });
+        }))
+    }
+}
 
-        Ok(JsValue::from_str(&flow_analysis.to_string()))
+#[wasm_bindgen]
+impl BytecodeAnalyzer {
+    /// Analyze bytecode and return instruction breakdown (legacy method for compatibility)
+    #[wasm_bindgen]
+    pub fn analyze(bytecode: &[u8]) -> Result<JsValue, JsValue> {
+        Self::analyze_internal(bytecode)
+            .map(|json| JsValue::from_str(&json.to_string()))
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Advanced semantic analysis with full opcode understanding and instruction flow
+    /// This provides the intelligent analysis that understands what each opcode does
+    /// and what operands follow each instruction.
+    #[wasm_bindgen]
+    pub fn analyze_semantic(bytecode: &[u8]) -> Result<JsValue, JsValue> {
+        Self::analyze_semantic_internal(bytecode)
+            .map(|json| JsValue::from_str(&json.to_string()))
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Get detailed information about a specific instruction at an offset
+    #[wasm_bindgen]
+    pub fn analyze_instruction_at(bytecode: &[u8], offset: usize) -> Result<JsValue, JsValue> {
+        Self::analyze_instruction_at_internal(bytecode, offset)
+            .map(|json| JsValue::from_str(&json.to_string()))
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Get summary statistics about the bytecode
+    #[wasm_bindgen]
+    pub fn get_bytecode_summary(bytecode: &[u8]) -> Result<JsValue, JsValue> {
+        Self::get_bytecode_summary_internal(bytecode)
+            .map(|json| JsValue::from_str(&json.to_string()))
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Get detailed opcode flow analysis - shows execution paths through the bytecode
+    #[wasm_bindgen]
+    pub fn analyze_execution_flow(bytecode: &[u8]) -> Result<JsValue, JsValue> {
+        Self::analyze_execution_flow_internal(bytecode)
+            .map(|json| JsValue::from_str(&json.to_string()))
+            .map_err(|e| JsValue::from_str(&e))
     }
 }
 
@@ -5138,5 +5187,89 @@ mod internal_tests {
         // Case 3: HALT (No args)
         let opcode = five_protocol::opcodes::HALT;
         assert_eq!(get_instruction_size(opcode, &[opcode]), 1);
+    }
+}
+
+#[cfg(test)]
+mod analyzer_tests {
+    use super::*;
+    use five_protocol::FIVE_MAGIC;
+
+    #[test]
+    fn test_analyze_internal_simple() {
+        let mut bytecode = FIVE_MAGIC.to_vec();
+        bytecode.push(0x00); // HALT
+
+        let result = BytecodeAnalyzer::analyze_internal(&bytecode);
+        assert!(result.is_ok());
+        let json = result.unwrap();
+
+        assert_eq!(json["total_size"], 5);
+        assert_eq!(json["instruction_count"], 1);
+
+        let instructions = json["instructions"].as_array().unwrap();
+        assert_eq!(instructions.len(), 1);
+        assert_eq!(instructions[0]["opcode"], 0);
+        assert_eq!(instructions[0]["name"], "HALT");
+    }
+
+    #[test]
+    fn test_analyze_internal_invalid_magic() {
+        let bytecode = vec![0x00, 0x01, 0x02, 0x03];
+        let result = BytecodeAnalyzer::analyze_internal(&bytecode);
+        assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod error_enhancement_tests {
+    use super::*;
+
+    #[test]
+    fn test_enhance_parameter_error_static_with_abi() {
+        let abi_json = r#"{
+            "functions": {
+                "my_func": {
+                    "index": 0,
+                    "name": "my_func",
+                    "parameters": [
+                        {"name": "a", "type": "u64"},
+                        {"name": "b", "type": "bool"}
+                    ]
+                }
+            }
+        }"#;
+        let abi_data = Some(abi_json.to_string());
+
+        let msg = FiveVMWasm::enhance_parameter_error_static(
+            &abi_data,
+            0, // function index
+            2, // expected
+            1, // actual
+            1, // failed index (b)
+        );
+
+        assert!(msg.contains("Function 'my_func' expected 2 parameters but received 1"));
+        assert!(msg.contains("Failed to load parameter 'bool' at position 2"));
+        assert!(msg.contains("Expected parameter types:"));
+        assert!(msg.contains("1. u64"));
+        assert!(msg.contains("2. bool (← FAILED HERE)"));
+    }
+
+    #[test]
+    fn test_enhance_parameter_error_static_without_abi() {
+        let abi_data = None;
+
+        let msg = FiveVMWasm::enhance_parameter_error_static(
+            &abi_data,
+            0, // function index
+            2, // expected
+            1, // actual
+            1, // failed index
+        );
+
+        assert!(msg.contains("Function at index 0 expected 2 parameters but received 1"));
+        assert!(msg.contains("Failed to load parameter at position 2"));
+        assert!(msg.contains("Debug Information"));
     }
 }
