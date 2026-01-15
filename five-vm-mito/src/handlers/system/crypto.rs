@@ -99,7 +99,7 @@ macro_rules! impl_hash_syscall {
 
 impl_hash_syscall!(handle_syscall_sha256, syscalls::sol_sha256, "MitoVM: SYSCALL_SHA256");
 impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: SYSCALL_KECCAK256");
-impl_hash_syscall!(handle_syscall_blake3, syscalls::sol_blake3, "MitoVM: SYSCALL_BLAKE3");
+// impl_hash_syscall!(handle_syscall_blake3, syscalls::sol_blake3, "MitoVM: SYSCALL_BLAKE3");
 
 // Poseidon has extra args
 #[inline(never)]

@@ -551,7 +551,7 @@ fn handle_call_native(ctx: &mut ExecutionManager) -> CompactResult<()> {
         // Cryptography syscalls
         SYSCALL_SHA256 => handle_syscall_sha256(ctx),
         SYSCALL_KECCAK256 => handle_syscall_keccak256(ctx),
-        SYSCALL_BLAKE3 => handle_syscall_blake3(ctx),
+        // SYSCALL_BLAKE3 => handle_syscall_blake3(ctx),
         SYSCALL_POSEIDON => handle_syscall_poseidon(ctx),
         SYSCALL_SECP256K1_RECOVER => handle_syscall_secp256k1_recover(ctx),
         SYSCALL_ALT_BN128_COMPRESSION => handle_syscall_alt_bn128_compression(ctx),

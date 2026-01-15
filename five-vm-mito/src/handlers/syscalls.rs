@@ -35,7 +35,7 @@ pub use crate::handlers::system::memory::{
     handle_syscall_memcpy, handle_syscall_memmove, handle_syscall_memset, handle_syscall_memcmp,
 };
 pub use crate::handlers::system::crypto::{
-    handle_syscall_sha256, handle_syscall_keccak256, handle_syscall_blake3,
+    handle_syscall_sha256, handle_syscall_keccak256, // handle_syscall_blake3,
     handle_syscall_poseidon, handle_syscall_secp256k1_recover,
     handle_syscall_alt_bn128_compression, handle_syscall_alt_bn128_group_op,
     handle_syscall_big_mod_exp, handle_syscall_curve_group_op,
