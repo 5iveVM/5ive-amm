@@ -17,42 +17,27 @@ const ACCOUNT_REF_NONE: u8 = 255; // Option::None
 const ACCOUNT_REF_ERR: u8 = 254; // Result::Err
 const ACCOUNT_REF_MAX_VALID: u8 = 253; // Max valid account index for Some/Ok
 
-// Helper enums for cleaner pattern matching
-#[derive(Copy, Clone)]
-enum OptionStatus {
-    None,
-    Some(u16), // offset
-    Invalid,
-}
+// Macros for zero-cost pattern matching
+// These expand directly to match statements to avoid any function call overhead or enum construction
 
-#[derive(Copy, Clone)]
-enum ResultStatus {
-    Ok(u16), // offset
-    Err(u16), // offset
-    Invalid,
-}
-
-// Helper functions to categorize ValueRef
-#[inline(always)]
-fn check_option_status(value: ValueRef) -> OptionStatus {
-    match value {
-        ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => OptionStatus::None,
-        ValueRef::AccountRef(idx, offset) if idx <= ACCOUNT_REF_MAX_VALID => {
-            OptionStatus::Some(offset)
+macro_rules! match_option_status {
+    ($value:expr, None => $none_arm:block, Some($offset:ident) => $some_arm:block, Invalid => $invalid_arm:block) => {
+        match $value {
+            ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => $none_arm
+            ValueRef::AccountRef(idx, $offset) if idx <= ACCOUNT_REF_MAX_VALID => $some_arm
+            _ => $invalid_arm
         }
-        _ => OptionStatus::Invalid,
-    }
+    };
 }
 
-#[inline(always)]
-fn check_result_status(value: ValueRef) -> ResultStatus {
-    match value {
-        ValueRef::AccountRef(ACCOUNT_REF_ERR, offset) => ResultStatus::Err(offset),
-        ValueRef::AccountRef(idx, offset) if idx <= ACCOUNT_REF_MAX_VALID => {
-            ResultStatus::Ok(offset)
+macro_rules! match_result_status {
+    ($value:expr, Err($offset:ident) => $err_arm:block, Ok($offset_ok:ident) => $ok_arm:block, Invalid => $invalid_arm:block) => {
+        match $value {
+            ValueRef::AccountRef(ACCOUNT_REF_ERR, $offset) => $err_arm
+            ValueRef::AccountRef(idx, $offset_ok) if idx <= ACCOUNT_REF_MAX_VALID => $ok_arm
+            _ => $invalid_arm
         }
-        _ => ResultStatus::Invalid,
-    }
+    };
 }
 
 /// Handle Option and Result operations (0xF0-0xFF)
@@ -139,21 +124,21 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_UNWRAP unwrapping optional {}", s.as_str());
             }
 
-            match check_option_status(optional_value) {
-                OptionStatus::None => {
+            match_option_status!(optional_value,
+                None => {
                     // None value - panic
                     debug_log!("MitoVM: OPTIONAL_UNWRAP panic - unwrapping None value");
                     return Err(VMErrorCode::InvalidOperation);
-                }
-                OptionStatus::Some(offset) => {
+                },
+                Some(offset) => {
                     // Some value - read from account/temp buffer
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
-                }
-                OptionStatus::Invalid => {
+                },
+                Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
-            }
+            );
         }
         OPTIONAL_IS_SOME => {
             // OPTIONAL_IS_SOME - Check if Optional has Some value
@@ -165,11 +150,11 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_IS_SOME checking optional {}", s.as_str());
             }
 
-            let is_some = match check_option_status(optional_value) {
-                OptionStatus::None => false,
-                OptionStatus::Some(_) => true,
-                OptionStatus::Invalid => false, // Treating invalid as false for consistency with original code
-            };
+            let is_some = match_option_status!(optional_value,
+                None => { false },
+                Some(_offset) => { true },
+                Invalid => { false } // Treating invalid as false for consistency with original code
+            );
             ctx.push(ValueRef::Bool(is_some))?;
         }
         OPTIONAL_IS_NONE => {
@@ -182,11 +167,11 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_IS_NONE checking optional {}", s.as_str());
             }
 
-            let is_none = match check_option_status(optional_value) {
-                OptionStatus::None => true,
-                OptionStatus::Some(_) => false,
-                OptionStatus::Invalid => false, // Treating invalid as false
-            };
+            let is_none = match_option_status!(optional_value,
+                None => { true },
+                Some(_offset) => { false },
+                Invalid => { false } // Treating invalid as false
+            );
             ctx.push(ValueRef::Bool(is_none))?;
         }
         OPTIONAL_GET_VALUE => {
@@ -199,21 +184,21 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_GET_VALUE extracting from optional {}", s.as_str());
             }
 
-            match check_option_status(optional_value) {
-                OptionStatus::None => {
+            match_option_status!(optional_value,
+                None => {
                     // Unsafe operation - return empty value for None (undefined behavior)
                     debug_log!("MitoVM: OPTIONAL_GET_VALUE unsafe - extracting from None");
                     ctx.push(ValueRef::Empty)?;
-                }
-                OptionStatus::Some(offset) => {
+                },
+                Some(offset) => {
                     // Some value - read from temp buffer
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
-                }
-                OptionStatus::Invalid => {
+                },
+                Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
-            }
+            );
         }
         RESULT_IS_OK => {
             // RESULT_IS_OK - Check if Result is Ok
@@ -225,11 +210,11 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_IS_OK checking result {}", s.as_str());
             }
 
-            let is_ok = match check_result_status(result_value) {
-                ResultStatus::Err(_) => false,
-                ResultStatus::Ok(_) => true,
-                ResultStatus::Invalid => false,
-            };
+            let is_ok = match_result_status!(result_value,
+                Err(_offset) => { false },
+                Ok(_offset) => { true },
+                Invalid => { false }
+            );
             ctx.push(ValueRef::Bool(is_ok))?;
         }
         RESULT_IS_ERR => {
@@ -242,11 +227,11 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_IS_ERR checking result {}", s.as_str());
             }
 
-            let is_err = match check_result_status(result_value) {
-                ResultStatus::Err(_) => true,
-                ResultStatus::Ok(_) => false,
-                ResultStatus::Invalid => false,
-            };
+            let is_err = match_result_status!(result_value,
+                Err(_offset) => { true },
+                Ok(_offset) => { false },
+                Invalid => { false }
+            );
             ctx.push(ValueRef::Bool(is_err))?;
         }
         RESULT_UNWRAP => {
@@ -259,21 +244,21 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_UNWRAP unwrapping result {}", s.as_str());
             }
 
-            match check_result_status(result_value) {
-                ResultStatus::Err(_) => {
+            match_result_status!(result_value,
+                Err(_offset) => {
                     // Err value - panic
                     debug_log!("MitoVM: RESULT_UNWRAP panic - unwrapping Err value");
                     return Err(VMErrorCode::InvalidOperation);
-                }
-                ResultStatus::Ok(offset) => {
+                },
+                Ok(offset) => {
                     // Ok value - read from temp buffer
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
-                }
-                ResultStatus::Invalid => {
+                },
+                Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
-            }
+            );
         }
         RESULT_GET_VALUE => {
             // RESULT_GET_VALUE - Get Ok value from Result (unsafe - no Err check)
@@ -285,21 +270,21 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_GET_VALUE extracting from result {}", s.as_str());
             }
 
-            match check_result_status(result_value) {
-                ResultStatus::Err(_) => {
+            match_result_status!(result_value,
+                Err(_offset) => {
                     // Unsafe operation - return empty value for Err (undefined behavior)
                     debug_log!("MitoVM: RESULT_GET_VALUE unsafe - extracting from Err");
                     ctx.push(ValueRef::Empty)?;
-                }
-                ResultStatus::Ok(offset) => {
+                },
+                Ok(offset) => {
                     // Ok value - read from temp buffer
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
-                }
-                ResultStatus::Invalid => {
+                },
+                Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
-            }
+            );
         }
         RESULT_GET_ERROR => {
             // RESULT_GET_ERROR - Get error code from Result (unsafe - no Ok check)
@@ -311,24 +296,24 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: RESULT_GET_ERROR extracting error from result {}", s.as_str());
             }
 
-            match check_result_status(result_value) {
-                ResultStatus::Err(offset) => {
+            match_result_status!(result_value,
+                Err(offset) => {
                     // Err value - read error code from temp buffer
                     let error_value = ctx.read_value_from_temp(offset)?;
                     match error_value {
                         ValueRef::U8(code) => ctx.push(ValueRef::U8(code))?,
                         _ => ctx.push(ValueRef::U8(1))?, // Default error
                     }
-                }
-                ResultStatus::Ok(_) => {
+                },
+                Ok(_offset) => {
                     // Unsafe operation - return 0 error code for Ok (undefined behavior)
                     debug_log!("MitoVM: RESULT_GET_ERROR unsafe - extracting error from Ok");
                     ctx.push(ValueRef::U8(0))?;
-                }
-                ResultStatus::Invalid => {
+                },
+                Invalid => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
-            }
+            );
         }
         CREATE_TUPLE => {
             debug_log!("MitoVM: CREATE_TUPLE - create tuple");
