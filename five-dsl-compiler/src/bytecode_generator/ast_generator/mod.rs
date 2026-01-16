@@ -471,6 +471,9 @@ impl ASTGenerator {
                         data_param_counter += 1;
                         off
                     };
+                    
+                    println!("DEBUG_MOD: Param '{}' is_account={} offset={} (acc_cnt={}, data_cnt={})", 
+                        param.name, is_account, offset, account_param_counter, data_param_counter);
 
                     let field_info = FieldInfo {
                         offset,

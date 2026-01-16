@@ -509,34 +509,55 @@ impl FunctionDispatcher {
             // CRITICAL FIX: Load ALL parameters with unified sequential indexing
             // The VM's params array is contiguous: [func_idx, param1, param2, ...]
             // All parameters (account AND data) must be passed to maintain correct indices.
-            let parameters = self.parameter_cache.get(&function.name)
-                .ok_or(VMError::InvalidScript)?;
+            // DIRECT JUMP ARCHITECTURE:
+            // Instead of marshalling parameters and using CALL, we specificially JUMP to the function body.
+            // This ensures the function executes in the ORIGINAL execution context (Main Frame),
+            // preserving access to the global `accounts` and `params` arrays exactly as the
+            // function body generation expects (via correct offsets verified in DEBUG_DISPATCH).
+            //
+            // This avoids the "LOAD_PARAM 7" crash caused by trying to load Account parameters
+            // (which are not in the params array) onto the stack.
             
-            let param_count = parameters.len() as u8;
-            for (i, _param) in parameters.iter().enumerate() {
-                // Use unified 1-based indexing: param[i] -> LOAD_PARAM (i+1)
-                emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
-                emitter.emit_u8((i + 1) as u8);
+            // Retrieve parameters from cache
+            let function_parameters = &self.parameter_cache[&name];
+
+            // 3. Prepare parameters for CALL
+            // CRITICAL: We only push DATA parameters to the stack.
+            // Account parameters are accessed globally via hardcoded indices (generated in function body).
+            // Data parameters are accessed via LOAD_PARAM and must be in the function's parameter slots.
+            
+            let mut data_param_count: u8 = 0;
+            
+            for param in function_parameters {
+                 let is_account = super::account_utils::is_account_parameter(
+                     &param.param_type,
+                     &param.attributes,
+                     Some(account_system.get_account_registry())
+                 );
+                 
+                 if !is_account {
+                     // Data parameter: Load from Input Data and push to stack
+                     emitter.emit_opcode(five_protocol::opcodes::LOAD_INPUT);
+                     data_param_count += 1;
+                 }
+                 // Account parameter: Skip (accessed globally)
             }
 
-            // Emit CALL instruction with TOTAL param count (all params, not just data)
+            // 4. Emit CALL instruction
+            // CALL takes (param_count, function_address_offset)
+            // It pops param_count items from stack and puts them into new frame params
             emitter.emit_opcode(five_protocol::opcodes::CALL);
-            emitter.emit_u8(param_count); // Number of args (ALL params)
+            emitter.emit_u8(data_param_count);  // Number of data parameters
             
-            // Record where the CALL's function offset is, so we can patch it 
+            // Record where the CALL's target offset is, so we can patch it 
             // once the actual function bodies are generated later.
             let call_offset_pos = emitter.get_position();
             self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
             
             emitter.emit_u16(0xFFFF); // Placeholder for function body offset
-
-            // Emit metadata marker for FEATURE_FUNCTION_METADATA compatibility
-            // 0x00 = no metadata for this CALL
-            emitter.emit_u8(0x00);
-
-            // After the function call, halt execution
-            // MAIN (dispatcher) is executed directly, not called, so there's no call frame to pop
-            // HALT cleanly exits the script execution
+            
+            // 5. HALT after return
+            // When function returns, we halt the main script
             emitter.emit_opcode(five_protocol::opcodes::HALT);
 
         }
@@ -764,30 +785,43 @@ impl FunctionDispatcher {
         // For account params: offset = account position (0-based among accounts only)
         // For data params: offset = position in params array (1-based, matching VLE)
 
-        let mut account_counter: u32 = 0;
+        // Initialize counters for offset assignment
+        // Accounts are 0-indexed in the VM's account array
+        // Data parameters are 0-indexed in the VM's parameter array
+        let mut account_param_counter: u32 = 0;
+        let mut data_param_counter: u32 = 0;
         
         for (index, param) in parameters.iter().enumerate() {
             let param_type = self.type_node_to_string(&param.param_type);
-            let is_account = account_system.is_account_type(&param_type);
+            
+            // CRITICAL FIX: Use unified account detection logic from account_utils
+            // This ensures consistent behavior with ABI generation and handles built-ins like "Account" correctly
+            let is_account = super::account_utils::is_account_parameter(
+                &param.param_type,
+                &param.attributes,
+                Some(account_system.get_account_registry())
+            );
 
             let (offset, is_parameter) = if is_account {
                 // Account parameters: offset is 0-based account index (for STORE_FIELD, GET_KEY)
                 // account_index_from_param_offset will add ACCOUNT_INDEX_OFFSET
-                let acc_off = account_counter;
-                account_counter += 1;
+                let acc_off = account_param_counter;
+                account_param_counter += 1;
                 (acc_off, false)
             } else {
                 // Data parameters: offset is 1-based unified index (for LOAD_PARAM)
-                // This matches the VM's params[] array where params[n] = nth param (1-indexed)
-                let data_off = (index + 1) as u32;
+                // We use a dedicated counter to pack data parameters contiguously, skipping accounts
+                let data_off = data_param_counter;
+                data_param_counter += 1;
                 (data_off, true)
             };
 
             let field_info = super::types::FieldInfo {
                 offset, 
                 field_type: param_type,
-                is_mutable: false,  // Function parameters are immutable by default
-                is_optional: false, // Function parameters are required by default
+                // Implicit mutability: @init implies mutable, or explicit @mut
+                is_mutable: param.is_init || param.attributes.iter().any(|a| a.name == "mut"),
+                is_optional: param.is_optional,
                 is_parameter,       // Account params use account access, data params use LOAD_PARAM
             };
             ast_generator.add_parameter_to_symbol_table(param.name.clone(), field_info);

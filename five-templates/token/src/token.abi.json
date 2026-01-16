@@ -78,6 +78,7 @@
           "param_type": "Account",
           "is_account": true,
           "attributes": [
+            "mut",
             "signer"
           ]
         },

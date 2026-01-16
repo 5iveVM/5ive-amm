@@ -8,7 +8,8 @@ import {
     Transaction,
     TransactionInstruction,
     SystemProgram,
-    LAMPORTS_PER_SOL
+    LAMPORTS_PER_SOL,
+    ComputeBudgetProgram
 } from '@solana/web3.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -83,20 +84,31 @@ async function deployTokenProgram() {
         let vmStatePda;
         const globalVmStateKeypairPath = path.join(__dirname, '../../five-solana/target/deploy/vm-state-keypair.json');
 
+        let vmStateKeypair;
         if (process.env.VM_STATE_PDA) {
             vmStatePda = new PublicKey(process.env.VM_STATE_PDA);
             console.log(`${CYAN}▶ Using provided VM State Account: ${vmStatePda.toBase58()}${NC}`);
-        } else if (fs.existsSync(globalVmStateKeypairPath)) {
-            const kp = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(globalVmStateKeypairPath, 'utf-8'))));
-            vmStatePda = kp.publicKey;
-            console.log(`${CYAN}▶ Using global VM State Account: ${vmStatePda.toBase58()}${NC}`);
         } else {
-            const vmStateKeypair = Keypair.generate();
+            if (fs.existsSync(globalVmStateKeypairPath)) {
+                vmStateKeypair = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(globalVmStateKeypairPath, 'utf-8'))));
+                console.log(`${CYAN}▶ Loaded global VM State Keypair: ${vmStateKeypair.publicKey.toBase58()}${NC}`);
+            } else {
+                vmStateKeypair = Keypair.generate();
+                console.log(`${CYAN}▶ Generated new VM State Keypair: ${vmStateKeypair.publicKey.toBase58()}${NC}`);
+            }
+            vmStatePda = vmStateKeypair.publicKey;
+        }
+
+        // Check if VM State exists
+        let vmStateInfo = await connection.getAccountInfo(vmStatePda);
+
+        if (!vmStateInfo && vmStateKeypair) {
+            console.log(`${CYAN}▶ VM State account not found on-chain. Creating/Initializing...${NC}`);
             const VM_STATE_SIZE = 56;
             const vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
 
-            console.log(`${CYAN}▶ Creating VM State Account...${NC}`);
             const vmStateTx = new Transaction().add(
+                ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
                 SystemProgram.createAccount({
                     fromPubkey: payer.publicKey,
                     newAccountPubkey: vmStateKeypair.publicKey,
@@ -116,12 +128,14 @@ async function deployTokenProgram() {
 
             const vmSig = await connection.sendTransaction(vmStateTx, [payer, vmStateKeypair], { skipPreflight: true });
             await confirmTx(vmSig, 'VM State Creation');
-            console.log(`  VM State: ${vmStateKeypair.publicKey.toBase58()} (${vmSig})`);
-            vmStatePda = vmStateKeypair.publicKey;
+            console.log(`  VM State initialized: ${vmStateKeypair.publicKey.toBase58()} (${vmSig})`);
+
+            // Refresh info
+            vmStateInfo = await connection.getAccountInfo(vmStatePda);
         }
 
         // Check VM State Owner
-        const vmStateInfo = await connection.getAccountInfo(vmStatePda);
+        // Check VM State Owner
         if (!vmStateInfo) {
             console.error(`${RED}Error: VM State account created but not found!${NC}`);
             process.exit(1);
@@ -149,6 +163,7 @@ async function deployTokenProgram() {
         console.log(`  Rent required: ${rentRequired} lamports`);
         console.log(`  Initial funding: ${initialLamports} lamports (${(initialLamports / LAMPORTS_PER_SOL).toFixed(8)} SOL)`);
         const initTx = new Transaction().add(
+            ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
             SystemProgram.createAccount({
                 fromPubkey: payer.publicKey,
                 newAccountPubkey: scriptKeypair.publicKey,
@@ -198,6 +213,7 @@ async function deployTokenProgram() {
             // const oldRent = ...
 
             const appendTx = new Transaction();
+            appendTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }));
             // appendTx.add(SystemProgram.transfer({...}));
 
             appendTx.add(new TransactionInstruction({
@@ -232,6 +248,7 @@ async function deployTokenProgram() {
         // This marks upload_complete = true, allowing Execute calls to succeed
         console.log(`${CYAN}▶ Finalizing script upload...${NC}`);
         const finalizeTx = new Transaction().add(
+            ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
             new TransactionInstruction({
                 keys: [
                     { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },

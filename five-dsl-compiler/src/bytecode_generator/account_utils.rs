@@ -38,7 +38,7 @@ pub fn is_account_type(type_node: &TypeNode, account_registry: Option<&AccountRe
             }
 
             // Check built-in account types
-            if matches!(name.as_str(), "Account" | "TokenAccount" | "ProgramAccount") {
+            if matches!(name.as_str(), "Account" | "TokenAccount" | "ProgramAccount" | "account") {
                 return true;
             }
 
@@ -49,14 +49,16 @@ pub fn is_account_type(type_node: &TypeNode, account_registry: Option<&AccountRe
 
         TypeNode::Primitive(name) => {
             // Handle primitive account types
-            matches!(name.as_str(), "Account" | "TokenAccount" | "ProgramAccount")
+            matches!(name.as_str(), "Account" | "TokenAccount" | "ProgramAccount" | "account")
         }
 
         TypeNode::Generic { base, .. } => {
             // Handle generic account types like Account<T>
-            matches!(base.as_str(), "Account" | "TokenAccount" | "ProgramAccount")
+            matches!(base.as_str(), "Account" | "TokenAccount" | "ProgramAccount" | "account")
                 || base.ends_with("Account")
         }
+
+        TypeNode::Account => true,
 
         _ => false,
     }
@@ -84,14 +86,19 @@ pub fn is_account_parameter(
     attributes: &[Attribute],
     account_registry: Option<&AccountRegistry>,
 ) -> bool {
+    // panic!("I AM NEW VERSION - DEBUGGING");
+    // println!("DEBUG: checking is_account_parameter for type '{:?}' attrs '{:?}'", type_node, attributes);
     // Primary check: type-based detection
     if is_account_type(type_node, account_registry) {
+        println!("DEBUG: type-based detection passed");
         return true;
     }
 
     // Secondary check: attribute-based detection
     // If a parameter has account attributes, it's likely an account
-    has_account_attributes(attributes)
+    let has_attrs = has_account_attributes(attributes);
+    println!("DEBUG: attribute-based detection: {}", has_attrs);
+    has_attrs
 }
 
 /// Convert TypeNode to string for debugging and display

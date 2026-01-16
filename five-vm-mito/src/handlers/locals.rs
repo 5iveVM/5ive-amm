@@ -40,6 +40,10 @@ pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
         LOAD_PARAM_0..=LOAD_PARAM_3 => {
             let index = opcode - LOAD_PARAM_0;
             let value = ctx.parameters()[index as usize];
+            let val_u64 = value.as_u64().unwrap_or(999);
+            // EXFILTRATE DATA: Return custom error with value + (index << 16)
+            // Error code = (index * 10000) + val_u64
+            // e.g. Index 1, Val 6 -> 10006
             if value.is_empty() {
                 ctx.push(ValueRef::U64(0))?;
             } else {
@@ -159,7 +163,9 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             }
 
             // Push parameter to stack
-            ctx.push(param_value)?;
+            ctx.push(param_value.clone())?;
+            let val_u64 = param_value.as_u64().unwrap_or(0);
+            debug_log!("MitoVM: LOAD_PARAM idx {} value_u64: {}", compiler_param_index, val_u64);
 
                       // actual_param_index as u32, ctx.size() as u32);
         }

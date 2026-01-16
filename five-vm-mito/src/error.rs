@@ -519,7 +519,7 @@ impl VMError {
         }
     }
 }
- 
+
 impl From<VMError> for VMErrorCode {
     fn from(error: VMError) -> Self {
         match error {
