@@ -23,27 +23,29 @@ fn test_data_parameter_indexing_single_value_param() {
     let bytecode = DslCompiler::compile_dsl(source).expect("Should compile");
 
     // Find LOAD_PARAM instruction
-    // Pattern: LOAD_PARAM opcode followed by index byte
-    let load_param_opcode = LOAD_PARAM;
+    // Pattern: LOAD_PARAM opcode followed by index byte OR optimized LOAD_PARAM_N
     let mut found_load_param = false;
 
+    // Check for optimized LOAD_PARAM_1 (0xDD)
+    if bytecode.contains(&LOAD_PARAM_1) {
+        found_load_param = true;
+    }
+
+    // Also check for explicit LOAD_PARAM (should contain index 1 if present)
     for window in bytecode.windows(2) {
-        if window[0] == load_param_opcode {
+        if window[0] == LOAD_PARAM {
             let param_index = window[1];
-            // First data parameter should be at index 1, not 0
-            assert_eq!(
-                param_index, 1,
-                "Data parameter should use 1-based indexing (LOAD_PARAM 1), got LOAD_PARAM {}",
-                param_index
-            );
-            found_load_param = true;
-            break;
+            if param_index == 1 {
+                found_load_param = true;
+            } else if param_index == 0 {
+                panic!("Data parameter using 0-based indexing (LOAD_PARAM 0)");
+            }
         }
     }
 
     assert!(
         found_load_param,
-        "Should find at least one LOAD_PARAM instruction in bytecode"
+        "Should find at least one LOAD_PARAM 1 instruction (optimized or explicit) in bytecode"
     );
 }
 
@@ -58,11 +60,16 @@ fn test_data_parameter_indexing_multiple_value_params() {
 
     let bytecode = DslCompiler::compile_dsl(source).expect("Should compile");
 
-    let load_param_opcode = LOAD_PARAM;
     let mut load_param_indices = Vec::new();
 
+    // Collect indices from optimized opcodes
+    if bytecode.contains(&LOAD_PARAM_1) { load_param_indices.push(1); }
+    if bytecode.contains(&LOAD_PARAM_2) { load_param_indices.push(2); }
+    if bytecode.contains(&LOAD_PARAM_3) { load_param_indices.push(3); }
+
+    // Collect indices from explicit LOAD_PARAM
     for window in bytecode.windows(2) {
-        if window[0] == load_param_opcode {
+        if window[0] == LOAD_PARAM {
             load_param_indices.push(window[1]);
         }
     }
@@ -140,11 +147,11 @@ fn test_single_data_param_bytecode_generation() {
     assert!(bytecode.len() > 10, "Bytecode should be non-trivial");
 
     // The function should have at least one LOAD_PARAM for the amount parameter
-    let load_param_opcode = LOAD_PARAM;
-    let has_load_param = bytecode.windows(2).any(|w| w[0] == load_param_opcode);
+    let has_load_param = bytecode.windows(2).any(|w| w[0] == LOAD_PARAM);
+    let has_load_param_opt = bytecode.iter().any(|&b| b == LOAD_PARAM_1 || b == LOAD_PARAM_2 || b == LOAD_PARAM_3);
 
     assert!(
-        has_load_param,
+        has_load_param || has_load_param_opt,
         "Should have LOAD_PARAM instruction for value parameter"
     );
 }

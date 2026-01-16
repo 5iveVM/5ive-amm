@@ -80,9 +80,11 @@ fn test_function_with_single_parameter() {
 
     let bytecode = DslCompiler::compile_dsl(source).expect("Should compile");
     
-    // Should contain LOAD_PARAM for the amount parameter
+    // Should contain LOAD_PARAM for the amount parameter (optimized or explicit)
     let has_load_param = bytecode.windows(2).any(|w| w[0] == LOAD_PARAM);
-    assert!(has_load_param, "Should have LOAD_PARAM for parameter");
+    let has_load_param_opt = bytecode.iter().any(|&b| b == LOAD_PARAM_1 || b == LOAD_PARAM_2 || b == LOAD_PARAM_3);
+
+    assert!(has_load_param || has_load_param_opt, "Should have LOAD_PARAM for parameter");
 }
 
 #[test]

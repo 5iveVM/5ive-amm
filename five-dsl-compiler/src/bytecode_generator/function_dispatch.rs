@@ -528,7 +528,7 @@ impl FunctionDispatcher {
             
             let mut data_param_count: u8 = 0;
             
-            for param in function_parameters {
+            for (param_idx, param) in function_parameters.iter().enumerate() {
                  let is_account = super::account_utils::is_account_parameter(
                      &param.param_type,
                      &param.attributes,
@@ -536,8 +536,22 @@ impl FunctionDispatcher {
                  );
                  
                  if !is_account {
-                     // Data parameter: Load from Input Data and push to stack
-                     emitter.emit_opcode(five_protocol::opcodes::LOAD_INPUT);
+                     // Data parameter: Load from parameters array using LOAD_PARAM
+                     // Index = param_idx + 1 (because index 0 is function index)
+
+                     let param_index = (param_idx + 1) as u8;
+
+                     // Use optimized opcodes if possible
+                     match param_index {
+                         1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
+                         2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
+                         3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
+                         _ => {
+                             emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
+                             emitter.emit_u8(param_index);
+                         }
+                     }
+
                      data_param_count += 1;
                  }
                  // Account parameter: Skip (accessed globally)
