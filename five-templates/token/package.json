@@ -1,6 +1,15 @@
 {
+  "scripts": {
+    "build": "node create-artifact.js",
+    "deploy": "node deploy-to-five-vm.mjs",
+    "test": "node e2e-token-test.mjs",
+    "e2e": "./e2e-token-test.sh",
+    "e2e:deploy": "./e2e-token-test.sh --deploy",
+    "e2e:verbose": "./e2e-token-test.sh --deploy --verbose",
+    "clean": "./e2e-token-test.sh --clean"
+  },
   "dependencies": {
-    "@solana/web3.js": "^1.98.4",
+    "@solana/web3.js": "^1.87.0",
     "five-sdk": "file:../../five-sdk"
   }
 }

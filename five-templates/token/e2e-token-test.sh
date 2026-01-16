@@ -4,14 +4,14 @@
 # Token Template E2E Test Runner
 #
 # Automated script to build, deploy, and test the token template.
-# Tests all 19 token functions with 3 users (Authority, Holder 1, Holder 2).
+# Tests core token functionalities (mint, transfer, approve, burn, freeze).
 #
 # Usage:
 #   ./e2e-token-test.sh [options]
 #
 # Examples:
-#   ./e2e-token-test.sh                    # Run the targeted init_mint test first
-
+#   ./e2e-token-test.sh                    # Build and test only
+#   ./e2e-token-test.sh --deploy           # Build, deploy, and test
 #   ./e2e-token-test.sh --deploy --verbose # Verbose output
 #   ./e2e-token-test.sh --clean            # Clean build artifacts
 #
@@ -42,7 +42,7 @@ BUILD_DIR="$PROJECT_ROOT/build"
 SOURCE_FILE="$PROJECT_ROOT/src/token.v"
 COMPILED_FILE="$BUILD_DIR/five-token-template.five"
 TEST_SCRIPT="$PROJECT_ROOT/e2e-token-test.mjs"
-REPORT_FILE="$PROJECT_ROOT/e2e-test-report.json"
+REPORT_FILE="$PROJECT_ROOT/test-state-fiveprogram.json"
 
 # Options
 VERBOSE=false
@@ -50,17 +50,11 @@ DEPLOY=false
 CLEAN=false
 SKIP_BUILD=false
 RPC_URL="http://127.0.0.1:8899"
-RPC_URL="http://127.0.0.1:8899"
 SHOW_HELP=false
-# VM_STATE_PDA removed to allow dynamic generation
-# export VM_STATE_PDA
-FIVE_PROGRAM_ID="DmBJLjdfSidk5SYMscpRZJeiyMqeBZvir1nHAVZZvAX8"
-export FIVE_PROGRAM_ID
 
 # Counters & Status
 BUILD_SUCCESSFUL=false
 TEST_SUCCESSFUL=false
-PROGRAM_ID=""
 DEPLOYMENT_SUCCESSFUL=false
 
 ##############################################################################
@@ -74,23 +68,23 @@ print_header() {
 }
 
 print_step() {
-    echo -e "${CYAN}▶ $1${NC}"
+    echo -e "${CYAN}> $1${NC}"
 }
 
 print_success() {
-    echo -e "${GREEN}✓ $1${NC}"
+    echo -e "${GREEN}[PASS] $1${NC}"
 }
 
 print_error() {
-    echo -e "${RED}✗ $1${NC}"
+    echo -e "${RED}[FAIL] $1${NC}"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠ $1${NC}"
+    echo -e "${YELLOW}[WARN] $1${NC}"
 }
 
 print_info() {
-    echo -e "${BLUE}ℹ $1${NC}"
+    echo -e "${BLUE}[INFO] $1${NC}"
 }
 
 print_separator() {
@@ -130,8 +124,9 @@ ${CYAN}Test Workflow:${NC}
   2. Clean old artifacts (optional)
   3. Build token template
   4. Deploy to localnet (optional)
-  5. Run E2E test with 3 users
-  6. Display results with compute unit analysis
+  5. Run E2E test
+  6. Verify on-chain state
+  7. Display results
 
 ${CYAN}Requirements:${NC}
   - Solana CLI (solana --version)
@@ -141,8 +136,8 @@ ${CYAN}Requirements:${NC}
   - @solana/web3.js installed (npm install)
 
 ${CYAN}Output:${NC}
-  - Console: Live test progress with TX IDs and CU costs
-  - JSON Report: e2e-test-report.json (structured results)
+  - Console: Live test progress with TX IDs
+  - JSON Report: test-state-fiveprogram.json (structured results)
 
 EOF
 }
@@ -201,7 +196,7 @@ check_prerequisites() {
             print_success "Connected to localnet (slot: $SLOT)"
         else
             print_warning "Cannot connect to $RPC_URL"
-            print_warning "Make sure    solana-test-validator --reset > validator.log 2>&1 &nning"
+            print_warning "Make sure solana-test-validator is running"
             if [ "$DEPLOY" = true ]; then
                 echo ""
                 print_error "Cannot deploy without a running validator"
@@ -250,36 +245,40 @@ build_template() {
     fi
 
     print_step "Source: $SOURCE_FILE"
-    print_step "Building with Five CLI..."
+    print_step "Building with local debug_compile..."
 
-    cd "$PROJECT_ROOT"
+    # 1. Compile with local debug_compile to get .bin and .abi.json
+    # Assuming five-dsl-compiler is in a sibling directory standard structure
+    COMPILER_DIR="$PROJECT_ROOT/../../five-dsl-compiler"
+    
+    if [ ! -d "$COMPILER_DIR" ]; then
+         print_error "Compiler directory not found at $COMPILER_DIR"
+         exit 1
+    fi
 
-    if [ "$VERBOSE" = true ]; then
-        if five compile "$SOURCE_FILE" && node create_artifact.js; then
-            print_success "Build completed"
+    cd "$COMPILER_DIR"
+    if cargo run -q --bin debug_compile -- "$PROJECT_ROOT/src/token.v"; then
+        print_success "Compilation successful"
+        
+        # 2. Create the .five artifact
+        cd "$PROJECT_ROOT"
+        if node create-artifact.js; then
+            print_success "Artifact created"
             BUILD_SUCCESSFUL=true
+            
+            # Show summary
+            BYTECODE_SIZE=$(ls -lh "$COMPILED_FILE" 2>/dev/null | awk '{print $5}' || echo "0")
+            print_info "Artifact: $COMPILED_FILE ($BYTECODE_SIZE)"
         else
-            print_error "Build failed"
+            print_error "Artifact creation failed"
             exit 1
         fi
     else
-        if five compile "$SOURCE_FILE" > /tmp/five-build.log 2>&1 && node create_artifact.js >> /tmp/five-build.log 2>&1; then
-            print_success "Build completed"
-            BUILD_SUCCESSFUL=true
-
-            # Show summary
-            BYTECODE_SIZE=$(ls -lh "$COMPILED_FILE" 2>/dev/null | awk '{print $5}' || echo "unknown")
-            print_info "Artifact: $COMPILED_FILE ($BYTECODE_SIZE)"
-        else
-            print_error "Build failed"
-            if [ "$VERBOSE" = true ]; then
-                cat /tmp/five-build.log
-            else
-                print_info "Run with --verbose for details"
-            fi
-            exit 1
-        fi
+        print_error "Compilation failed"
+        exit 1
     fi
+    
+    cd "$PROJECT_ROOT"
 }
 
 ##############################################################################
@@ -300,25 +299,19 @@ deploy_to_localnet() {
         if node deploy-to-five-vm.mjs; then
             DEPLOYMENT_SUCCESSFUL=true
             print_success "Deployment successful"
-            cat /tmp/deploy_out.json
         else
             print_error "Deployment failed"
             exit 1
         fi
     else
-        node deploy-to-five-vm.mjs > /tmp/deploy_out.json 2>&1
-        if [ $? -eq 0 ]; then
+        # Capture output but show minimal success
+        if node deploy-to-five-vm.mjs > /tmp/deploy_token_out.json 2>&1; then
             DEPLOYMENT_SUCCESSFUL=true
             print_success "Deployment successful"
-
-
-            # Parse output for Program ID from JSON
-            DEPLOY_OUTPUT=$(cat /tmp/deploy_out.json)
-            # We trust deploy-to-five-vm.mjs to update deployment-config.json correctly
-            print_info "Deployment output captured in /tmp/deploy_out.json"
+            print_info "Deployment output captured in /tmp/deploy_token_out.json"
         else
             print_error "Deployment failed"
-            cat /tmp/deploy_out.json
+            cat /tmp/deploy_token_out.json
             exit 1
         fi
     fi
@@ -348,12 +341,30 @@ run_e2e_test() {
             exit 1
         fi
     else
-        if node "$TEST_SCRIPT" 2>&1 | tee /tmp/e2e-test.log; then
+        if node "$TEST_SCRIPT" 2>&1 | tee /tmp/e2e-token-test.log; then
             TEST_SUCCESSFUL=true
         else
             print_error "Tests failed"
             exit 1
         fi
+    fi
+}
+
+##############################################################################
+# VERIFICATION
+##############################################################################
+
+run_verification() {
+    print_header "Running On-Chain Verification"
+
+    if [ -f "$PROJECT_ROOT/verify-on-chain.mjs" ]; then
+        if node "$PROJECT_ROOT/verify-on-chain.mjs"; then
+            print_success "On-Chain Verification Passed"
+        else
+            print_warning "On-Chain Verification Failed (non-fatal)"
+        fi
+    else
+        print_info "verify-on-chain.mjs not found, skipping verification"
     fi
 }
 
@@ -373,27 +384,20 @@ show_test_report() {
             print_step "Summary:"
             echo ""
 
-            TOTAL=$(jq '.summary.totalTests' "$REPORT_FILE" 2>/dev/null || echo "?")
-            PASSED=$(jq '.summary.successful' "$REPORT_FILE" 2>/dev/null || echo "?")
-            FAILED=$(jq '.summary.failed' "$REPORT_FILE" 2>/dev/null || echo "?")
-            SUCCESS_RATE=$(jq -r '.summary.successRate' "$REPORT_FILE" 2>/dev/null || echo "?")
-            TOTAL_CU=$(jq '.summary.totalComputeUnits' "$REPORT_FILE" 2>/dev/null || echo "?")
-            AVG_CU=$(jq '.summary.avgComputeUnitsPerTx' "$REPORT_FILE" 2>/dev/null || echo "?")
-            MIN_CU=$(jq '.summary.minCU' "$REPORT_FILE" 2>/dev/null || echo "?")
-            MAX_CU=$(jq '.summary.maxCU' "$REPORT_FILE" 2>/dev/null || echo "?")
-
-            echo "  Total Tests:              $TOTAL"
-            echo "  Passed:                   $PASSED"
-            echo "  Failed:                   $FAILED"
-            echo "  Success Rate:             $SUCCESS_RATE"
-            echo "  Total Compute Units:      $TOTAL_CU"
-            echo "  Avg CU per Transaction:   $AVG_CU"
-            echo "  Min CU:                   $MIN_CU"
-            echo "  Max CU:                   $MAX_CU"
+            # The structure of test-state-fiveprogram.json in token template is diverse
+            # We look for results block
+            INIT_MINT=$(jq '.results.initMint' "$REPORT_FILE" 2>/dev/null || echo "?")
+            TRANSFER=$(jq '.results.transfer' "$REPORT_FILE" 2>/dev/null || echo "?")
+            BURN=$(jq '.results.burn' "$REPORT_FILE" 2>/dev/null || echo "?")
+            
+            echo "  Init Mint:                $INIT_MINT"
+            echo "  Transfer:                 $TRANSFER"
+            echo "  Burn:                     $BURN"
             echo ""
         else
             print_info "Install jq for better report parsing: brew install jq"
-            cat "$REPORT_FILE" | head -20
+            # Just cat the file if no jq, but limit lines
+            cat "$REPORT_FILE" | grep "results" -A 10
         fi
     else
         print_warning "Report file not found: $REPORT_FILE"
@@ -481,9 +485,6 @@ main() {
     [ "$SKIP_BUILD" = true ] && echo "  Skip Build:     true"
     echo ""
 
-    # Ensure we are in the project root
-    cd "$PROJECT_ROOT"
-
     # Execute pipeline
     check_prerequisites
 
@@ -505,21 +506,10 @@ main() {
 
     if [ "$DEPLOY" = true ]; then
         deploy_to_localnet
-        
-        print_step "Running Targeted Init Mint Debug Test..."
-        node test_init_mint.mjs || echo "DEBUG TEST FAILED (Continuing...)"
     fi
 
     run_e2e_test
-    
-    print_step "Running On-Chain Verification..."
-    if node "$PROJECT_ROOT/verify-on-chain.mjs"; then
-        print_success "On-Chain Verification Passed"
-    else
-        print_error "On-Chain Verification Failed"
-        # Don't fail the whole script for now, as it's experimental
-    fi
-
+    run_verification
     show_test_report
     echo ""
     show_summary

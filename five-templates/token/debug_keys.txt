@@ -1,7 +1,0 @@
-  [0] 8Rug2CcdmYpwD4x7oYBN4Cs6Vj3bgrG9VnJZPtdbcBpK (Signer: false)
-  [1] 2a5BdFiSiBTQaeWpZA9UF1AwPF3penEmCRC6hkuWPxLk (Signer: false)
-  [2] fyxxFWYqPVVXheFL2dHAMysxqmnMXBo5fhr9eGheQBa (Signer: true)
-  [3] ASZ1KCgAXu7udQFBEtnT1ZSn6pDUyHPfYj5fR4ioUrC4 (Signer: true)
-  [4] 11111111111111111111111111111111 (Signer: false)
-  [5] SysvarRent111111111111111111111111111111111 (Signer: false)
-  [6] EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt (Signer: false)
