@@ -8,7 +8,7 @@ account Mint {
     decimals: u8;
     name: string<32>;
     symbol: string<32>;
-    uri: string<96>;
+    uri: string<32>;
 }
 
 account TokenAccount {
@@ -26,9 +26,9 @@ pub init_mint(
     authority: account @mut @signer,
     freeze_authority: pubkey,
     decimals: u8,
-    name: string,
-    symbol: string,
-    uri: string
+    name: string<32>,
+    symbol: string<32>,
+    uri: string<32>
 ) -> pubkey {
     require(decimals <= 20);
     mint_account.authority = authority.key;
@@ -43,7 +43,7 @@ pub init_mint(
 
 pub init_token_account(
     token_account: TokenAccount @mut @init(payer=owner, space=192) @signer,
-    owner: account @mut @signer,
+    owner: account @signer,
     mint: pubkey
 ) -> pubkey {
     token_account.owner = owner.key;
