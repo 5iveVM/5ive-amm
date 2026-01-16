@@ -125,7 +125,10 @@ impl ASTGenerator {
                             if field_info.is_parameter {
                                 // Generate direct LOAD_PARAM for function parameters
                                 // Use nibble immediate opcodes.
-                                let opcode_byte = match field_info.offset {
+                                // FIX: Use 1-based indexing for LOAD_PARAM (offset 0 -> index 1)
+                                let param_index = field_info.offset + 1;
+
+                                let opcode_byte = match param_index {
                                     1 => Some(LOAD_PARAM_1),
                                     2 => Some(LOAD_PARAM_2),
                                     3 => Some(LOAD_PARAM_3),
@@ -136,12 +139,12 @@ impl ASTGenerator {
                                     emitter.emit_opcode(op);
                                 } else {
                                     emitter.emit_opcode(LOAD_PARAM);
-                                    emitter.emit_u8(field_info.offset as u8);
+                                    emitter.emit_u8(param_index as u8);
                                 }
                                 #[cfg(debug_assertions)]
                                 println!(
                                     "DEBUG: Generated LOAD_PARAM {} for parameter '{}'",
-                                    field_info.offset, name
+                                    param_index, name
                                 );
                             } else {
                                 // Generate GET_LOCAL for actual local variables
