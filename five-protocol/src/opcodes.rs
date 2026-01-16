@@ -526,6 +526,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 3,
     },
     OpcodeInfo {
+        opcode: ASSERT,
+        name: "ASSERT",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
         opcode: RETURN,
         name: "RETURN",
         arg_type: ArgType::None,

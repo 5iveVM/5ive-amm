@@ -38,19 +38,19 @@
         },
         {
           "name": "name",
-          "param_type": "string",
+          "param_type": "string<32>",
           "is_account": false,
           "attributes": []
         },
         {
           "name": "symbol",
-          "param_type": "string",
+          "param_type": "string<32>",
           "is_account": false,
           "attributes": []
         },
         {
           "name": "uri",
-          "param_type": "string",
+          "param_type": "string<32>",
           "is_account": false,
           "attributes": []
         }
@@ -78,7 +78,6 @@
           "param_type": "Account",
           "is_account": true,
           "attributes": [
-            "mut",
             "signer"
           ]
         },
