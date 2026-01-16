@@ -63,24 +63,14 @@ export class ParameterEncoder {
       console.log(`[ParameterEncoder] Encoding parameter data: params=${parameters.length}`);
     }
 
-    try {
-      // Use existing VLE encoder if available
-      const vleData = await this.encodeParametersVLE(parameters, functionSignature);
+    // Use existing VLE encoder
+    const vleData = await this.encodeParametersVLE(parameters, functionSignature);
 
-      if (this.debug) {
-        console.log(`[ParameterEncoder] Encoded parameters: ${vleData.length} bytes, hex: ${vleData.toString('hex')}`);
-      }
-
-      return vleData;
-
-    } catch (error) {
-      // Fallback to manual encoding if VLE encoder fails
-      if (this.debug) {
-        console.log(`[ParameterEncoder] VLE encoding failed, using manual encoding: ${error}`);
-      }
-
-      return this.encodeParametersManual(parameters);
+    if (this.debug) {
+      console.log(`[ParameterEncoder] Encoded parameters: ${vleData.length} bytes, hex: ${vleData.toString('hex')}`);
     }
+
+    return vleData;
   }
 
   /**
@@ -200,31 +190,8 @@ export class ParameterEncoder {
       return Buffer.from(encoded);
 
     } catch (error) {
-      throw new Error(`VLE parameter encoding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`VLE parameter encoding failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }
-
-  /**
-   * Manual parameter encoding fallback (parameters only)
-   */
-  private encodeParametersManual(parameters: any[]): Buffer {
-    const parts = [];
-
-    // Encode parameter count as VLE
-    parts.push(this.encodeVLEU32(parameters.length));
-
-    // Encode each parameter
-    for (const param of parameters) {
-      const type = this.inferType(param);
-      const typeId = VLE_TYPE_IDS[type];
-      const encodedParam = this.encodeParameter(param, type, 0);
-
-      // Add type and value
-      parts.push(Buffer.from([typeId]));
-      parts.push(this.encodeValue(encodedParam.value, type));
-    }
-
-    return Buffer.concat(parts);
   }
 
   /**
@@ -402,68 +369,4 @@ export class ParameterEncoder {
 
   // ==================== VLE Encoding Utilities ====================
 
-  /**
-   * Encode u32 value using Variable Length Encoding
-   */
-  private encodeVLEU32(value: number): Buffer {
-    if (value < 128) {
-      return Buffer.from([value]);
-    } else if (value < 16384) {
-      return Buffer.from([
-        (value & 0x7F) | 0x80,
-        (value >> 7) & 0x7F
-      ]);
-    } else {
-      return Buffer.from([
-        (value & 0x7F) | 0x80,
-        ((value >> 7) & 0x7F) | 0x80,
-        (value >> 14) & 0x7F
-      ]);
-    }
-  }
-
-  /**
-   * Encode value based on type
-   */
-  private encodeValue(value: any, type: FiveType): Buffer {
-    switch (type) {
-      case 'u8':
-      case 'i8':
-        return Buffer.from([value]);
-
-      case 'u16':
-      case 'i16':
-        const buf16 = Buffer.allocUnsafe(2);
-        buf16.writeUInt16LE(value, 0);
-        return buf16;
-
-      case 'u32':
-      case 'i32':
-        const buf32 = Buffer.allocUnsafe(4);
-        buf32.writeUInt32LE(value, 0);
-        return buf32;
-
-      case 'u64':
-      case 'i64':
-        const buffer = Buffer.allocUnsafe(8);
-        if (typeof value === 'bigint') {
-          buffer.writeBigUInt64LE(value, 0);
-        } else {
-          buffer.writeUInt32LE(value, 0);
-          buffer.writeUInt32LE(0, 4);
-        }
-        return buffer;
-
-      case 'bool':
-        return Buffer.from([value ? 1 : 0]);
-
-      case 'string':
-        const str = Buffer.from(value, 'utf8');
-        const len = this.encodeVLEU32(str.length);
-        return Buffer.concat([len, str]);
-
-      default:
-        throw new Error(`Cannot encode value for type: ${type}`);
-    }
-  }
 }

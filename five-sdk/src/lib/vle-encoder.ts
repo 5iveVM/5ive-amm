@@ -145,31 +145,6 @@ export class VLEEncoder {
       return { param, value };
     });
 
-    const encodeVleU32 = (value: number): Buffer => {
-      const bytes: number[] = [];
-      let remaining = value >>> 0;
-      while (remaining >= 0x80) {
-        bytes.push((remaining & 0x7f) | 0x80);
-        remaining >>>= 7;
-      }
-      bytes.push(remaining);
-      return Buffer.from(bytes);
-    };
-
-    const encodeVleU64 = (value: number | bigint): Buffer => {
-      const bytes: number[] = [];
-      let remaining = BigInt(value);
-      if (remaining < BigInt(0)) {
-        throw new Error("Negative values not supported for unsigned VLE");
-      }
-      while (remaining >= BigInt(0x80)) {
-        bytes.push(Number((remaining & BigInt(0x7f)) | BigInt(0x80)));
-        remaining >>= BigInt(7);
-      }
-      bytes.push(Number(remaining));
-      return Buffer.from(bytes);
-    };
-
     if (options && (options as any).debug) {
       console.log(`[VLE] Parameters:`, paramValues.map(p => ({
         name: p.param.name,

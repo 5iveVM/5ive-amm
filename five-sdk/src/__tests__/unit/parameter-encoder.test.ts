@@ -118,30 +118,15 @@ describe('ParameterEncoder', () => {
     });
   });
 
-  describe('encodeParameterData (Manual Fallback)', () => {
-    it('should fallback to manual encoding if VLE encoder throws or fails to load', async () => {
-      // In this test environment, loading VLEEncoder fails due to import.meta usage.
-      // This conveniently forces the fallback path which we want to test here.
+  describe('encodeParameterData', () => {
+    it('should throw if VLE encoder fails (e.g. import failure)', async () => {
+      // In this environment, the dynamic import fails with SyntaxError due to import.meta.
+      // We verify that this error is propagated (wrapped) and not suppressed by a fallback.
+      const params = [10, true];
 
-      const params = [10, true]; // u64 (inferred), bool (inferred)
-      // u64 -> type 4
-      // bool -> type 9
-
-      // Expected manual encoding:
-      // VLE count (2) -> 0x02
-      // Param 1: Type(4), Value(10 as u64 LE) -> 04 0A 00 00 00 00 00 00 00
-      // Param 2: Type(9), Value(1) -> 09 01
-
-      const result = await encoder.encodeParameterData(params);
-
-      // We verify the result matches manual encoding expectation
-      expect(result.length).toBe(1 + (1 + 8) + (1 + 1)); // 1 (count) + 9 (param1) + 2 (param2) = 12 bytes
-
-      expect(result[0]).toBe(2); // Count
-      expect(result[1]).toBe(4); // Type u64
-      expect(result[2]).toBe(10); // Value 10
-      expect(result[10]).toBe(9); // Type bool
-      expect(result[11]).toBe(1); // Value true
+      await expect(encoder.encodeParameterData(params))
+        .rejects
+        .toThrow(/VLE parameter encoding failed/);
     });
   });
 });
