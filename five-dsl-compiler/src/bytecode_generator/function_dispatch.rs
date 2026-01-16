@@ -537,9 +537,9 @@ impl FunctionDispatcher {
                  
                  if !is_account {
                      // Data parameter: Load from parameters array using LOAD_PARAM
-                     // Index = param_idx + 1 (because index 0 is function index)
+                     // Index = data_param_count + 1 (because index 0 is function index, and we skip account parameters)
 
-                     let param_index = (param_idx + 1) as u8;
+                     let param_index = (data_param_count + 1) as u8;
 
                      // Use optimized opcodes if possible
                      match param_index {
