@@ -435,11 +435,10 @@ macro_rules! checked_overflow_op_impl {
 macro_rules! comparison_op_impl {
     ($type:ident, $a:expr, $b:expr, $ctx:expr, $op_name:literal, $op:tt) => {{
         let result = $a $op $b;
-        debug_log!("Comparison result: {}", result as u32);
+        debug_log!("Comp: {} {} {} result={}", $a, stringify!($op), $b, if result { 1 } else { 0 });
         vm_push_bool!($ctx, result);
     }};
 }
-
 
 // Rewritten polymorphic macros
 
@@ -486,6 +485,33 @@ macro_rules! polymorphic_comparison_op {
         debug_log!("Stack before: {}", $ctx.len() as u32);
         let b = $ctx.pop()?;
         let a = $ctx.pop()?;
+        #[cfg(feature = "debug-logs")]
+        {
+            debug_log!("LTE DEBUG: Comparing types...");
+            
+            // Explicitly verify U64/U8 match
+            if let (five_protocol::ValueRef::U64(av), five_protocol::ValueRef::U8(bv)) = (&a, &b) {
+                 debug_log!("LTE DEBUG: MATCHED U64({}) / U8({})", *av, *bv);
+            } else {
+                 debug_log!("LTE DEBUG: DATA MISMATCH or OTHER TYPE");
+                 // Attempt to identify type of A (limited)
+                 if let five_protocol::ValueRef::U64(v) = &a {
+                     debug_log!("  A is U64: {}", *v);
+                 } else if let five_protocol::ValueRef::U8(v) = &a {
+                     debug_log!("  A is U8: {}", *v);
+                 } else {
+                     debug_log!("  A is OTHER (Ref/Enum?)");
+                 }
+                 
+                 if let five_protocol::ValueRef::U64(v) = &b {
+                     debug_log!("  B is U64: {}", *v);
+                 } else if let five_protocol::ValueRef::U8(v) = &b {
+                     debug_log!("  B is U8: {}", *v);
+                 } else {
+                     debug_log!("  B is OTHER");
+                 }
+            }
+        }
         $crate::dispatch_polymorphic_op!($ctx, a, b, $crate::comparison_op_impl, $op_name, $op);
         debug_log!("Stack after: {}", $ctx.len() as u32);
     }};

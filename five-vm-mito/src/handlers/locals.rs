@@ -166,6 +166,12 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             ctx.push(param_value.clone())?;
             let val_u64 = param_value.as_u64().unwrap_or(0);
             debug_log!("MitoVM: LOAD_PARAM idx {} value_u64: {}", compiler_param_index, val_u64);
+            #[cfg(feature = "debug-logs")]
+            match &param_value {
+                ValueRef::U64(v) => debug_log!("LOAD_PARAM {} = U64({})", compiler_param_index, *v),
+                ValueRef::U8(v) => debug_log!("LOAD_PARAM {} = U8({})", compiler_param_index, *v),
+                _ => debug_log!("LOAD_PARAM {} = unknown", compiler_param_index),
+            }
 
                       // actual_param_index as u32, ctx.size() as u32);
         }
