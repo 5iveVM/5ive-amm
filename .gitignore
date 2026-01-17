@@ -44,10 +44,5 @@ five-surfpool/
 runbooks/
 /five-dex-frontend/.next
 /five-dex-frontend/out
-/test-ledger
-/five-templates/counter/test-ledger
-/five-templates/token/test-ledger
-/five-templates/token/test-ledger
-/five-templates/token/test-ledger
-/five-templates/token/test-ledger
-/five-templates/token/test-ledger
+test-ledger/
+test-ledger*/

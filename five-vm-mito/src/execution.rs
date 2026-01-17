@@ -340,15 +340,9 @@ impl MitoVM {
         accounts: &[AccountInfo],
         program_id: &Pubkey,
     ) -> Result<Option<Value>> {
-        #[cfg(target_os = "solana")]
-        use alloc::boxed::Box;
-
-        debug_log!("MitoVM: execute_direct ENTRY - script={} input={} accounts={}",
-            script.len() as u32, input_data.len() as u32, accounts.len() as u32);
-
-        // Allocate storage on HEAP to avoid BPF stack overflow
-        // BPF stack is 4KB, Heap is 32KB. StackStorage is >4KB with MAX_PARAMETERS=12.
-        let mut storage = Box::new(crate::stack::StackStorage::new(script));
+        // Allocate storage on HEAP using optimized initialization (no stack copy)
+        // This solves both the Stack Overflow (by using heap) and the 5k CU regression (by avoiding memcpy)
+        let mut storage = crate::stack::StackStorage::new_on_heap(script);
         
         let (mut ctx, _dispatch_ip) =
             Self::initialize_execution_context(script, input_data, accounts, program_id, &mut storage)?;

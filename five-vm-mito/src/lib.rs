@@ -60,7 +60,6 @@
 //! # Ok::<(), five_vm_mito::VMError>(())
 //! ```
 
-#[cfg(target_os = "solana")]
 extern crate alloc;
 
 pub mod context;
@@ -107,11 +106,12 @@ pub const FIVE_VM_PROGRAM_ID: [u8; 32] = [
 ];
 
 /// Enhanced stack size for function calls (reduced to fix SBF stack overflow)
+/// Enhanced stack size for function calls (reduced to fix SBF stack overflow)
 pub const STACK_SIZE: usize = 32;
 
 /// Enhanced local variables per script
 /// Maximum number of local variables allowed globally
-/// Reduced to 32 to fit within SBF 4KB stack limit (was 128, caused overflow)
+/// Reduced to 32 to fit within SBF 4KB stack limit (was 32, caused overflow with 32-byte ValueRef)
 pub const MAX_LOCALS: usize = 32;
 
 /// Maximum function parameters (limited by parameter array size)
@@ -125,7 +125,7 @@ pub const MAX_SCRIPT_SIZE: usize = 10_000;
 pub const MAX_CALL_DEPTH: usize = 8;
 
 /// Temporary buffer size for byte operations (heap-backed in context)
-pub const TEMP_BUFFER_SIZE: usize = five_protocol::TEMP_BUFFER_SIZE; // default 64
+pub const TEMP_BUFFER_SIZE: usize = five_protocol::TEMP_BUFFER_SIZE; // default 512
 
 pub use five_protocol::*;
 

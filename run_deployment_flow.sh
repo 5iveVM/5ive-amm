@@ -60,12 +60,12 @@ if [ -z "$PROGRAM_ID" ] || [ -z "$VM_STATE_PDA" ]; then
     exit 1
 fi
 
-# Update e2e-token-test.sh with new IDs
-# Using -i '' for macOS sed
-sed -i '' "s/VM_STATE_PDA=\".*\"/VM_STATE_PDA=\"$VM_STATE_PDA\"/" five-templates/token/e2e-token-test.sh
-sed -i '' "s/FIVE_PROGRAM_ID=\".*\"/FIVE_PROGRAM_ID=\"$PROGRAM_ID\"/" five-templates/token/e2e-token-test.sh
 
-echo "Updated e2e-token-test.sh with new IDs."
+# Export variables for e2e-token-test.sh
+export FIVE_PROGRAM_ID="$PROGRAM_ID"
+export VM_STATE_PDA="$VM_STATE_PDA"
+
+echo "Exported FIVE_PROGRAM_ID and VM_STATE_PDA."
 
 # Run Token Test
 echo "Running e2e-token-test.sh..."

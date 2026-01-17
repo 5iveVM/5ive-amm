@@ -92,13 +92,38 @@ async function sendInstruction(connection, instructionData, signers) {
             skipPreflight: true,
             commitment: 'confirmed'
         });
-        return { success: true, signature: sig };
+
+        // Fetch logs to extract CU usage
+        let logs = [];
+        let cu = -1;
+        try {
+            // wait a bit for confirmed state
+            await new Promise(r => setTimeout(r, 500));
+            const txDetails = await connection.getTransaction(sig, {
+                maxSupportedTransactionVersion: 0,
+                commitment: 'confirmed'
+            });
+            logs = txDetails?.meta?.logMessages || [];
+
+            // Extract CU
+            const cuLog = logs.find(l => l.includes('consumed'));
+            if (cuLog) {
+                const match = cuLog.match(/consumed (\d+) of/);
+                if (match) cu = match[1];
+                console.log(`   └─ ⚡ CU: ${cu}`);
+            }
+        } catch (e) {
+            console.log("   └─ (CU fetch failed)");
+        }
+
+        return { success: true, signature: sig, logs, cu };
     } catch (e) {
         let logs = [];
         if (e.signature) {
             try {
                 const txDetails = await connection.getTransaction(e.signature, {
-                    maxSupportedTransactionVersion: 0
+                    maxSupportedTransactionVersion: 0,
+                    commitment: 'confirmed'
                 });
                 logs = txDetails?.meta?.logMessages || [];
                 console.log(`\n❌ Transaction Logs:`);
@@ -491,6 +516,41 @@ async function main() {
     if (freezeRes.success) success(`freeze account successful (sig: ${freezeRes.signature})`);
     else { error('freeze failed'); console.error(freezeRes.error); }
 
+    // DEBUG: Inspect accounts before Thaw
+    const mintInfo = await connection.getAccountInfo(mintAccount.publicKey);
+    const tokenInfo = await connection.getAccountInfo(user2TokenAccount.publicKey);
+
+    console.log("DEBUG STATE BEFORE THAW:");
+    if (mintInfo) {
+        // Mint: authority(32), freeze_auth(32), supply(8), decimals(1)...
+        // Data layout:
+        // 0-32: authority
+        // 32-64: freeze_authority
+        // 64-72: supply (u64)
+        // 72: decimals (u8)
+        const auth = new PublicKey(mintInfo.data.subarray(0, 32));
+        const freezeAuth = new PublicKey(mintInfo.data.subarray(32, 64));
+        console.log(`  Mint Authority: ${auth.toBase58()}`);
+        console.log(`  Mint Freeze Auth: ${freezeAuth.toBase58()} (Expected: ${user1.publicKey.toBase58()})`);
+
+        // Supply is at offset 64
+        const supply = mintInfo.data.readBigUInt64LE(64);
+        console.log(`  Mint Supply: ${supply}`);
+    }
+    if (tokenInfo) {
+        // TokenAccount:
+        // 0-32: owner
+        // 32-64: mint
+        // 64-72: balance (u64)
+        // 72: is_frozen (bool)
+        const owner = new PublicKey(tokenInfo.data.subarray(0, 32));
+        const mint = new PublicKey(tokenInfo.data.subarray(32, 64));
+        const frozen = tokenInfo.data[72];
+        console.log(`  Token Owner: ${owner.toBase58()}`);
+        console.log(`  Token Mint: ${mint.toBase58()} (Expected: ${mintAccount.publicKey.toBase58()})`);
+        console.log(`  Token Frozen: ${frozen} (Expected: 1)`);
+    }
+
     const thawIx = await program
         .function('thaw_account')
         .accounts({
@@ -563,7 +623,7 @@ async function main() {
             error(`${label} NOT FOUND`);
             return;
         }
-        
+
         // Parse balance from offset 64 (after owner[32] and mint[32])
         // using u64 LE format
         const balance = Number(account.data.readBigUInt64LE(64));
@@ -578,7 +638,7 @@ async function main() {
     // User1: 1000 (mint) + 50 (transfer_from) - 100 (burn) = 950
     // User2: 500 (mint) - 100 (transfer) = 400
     // User3: 500 (mint) + 100 (transfer) - 50 (transfer_from) = 550
-    
+
     await verifyBalance(user1TokenAccount.publicKey, 950, 'User1 Token Account');
     await verifyBalance(user2TokenAccount.publicKey, 400, 'User2 Token Account');
     await verifyBalance(user3TokenAccount.publicKey, 550, 'User3 Token Account');

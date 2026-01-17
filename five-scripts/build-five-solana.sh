@@ -45,7 +45,7 @@ if [ "$BUILD_MODE" = "debug" ]; then
     cargo build-sbf --features debug-logs --sbf-out-dir target/deploy
 else
     echo -e "${BLUE}Building for production (optimized)...${NC}"
-    cargo build-sbf --sbf-out-dir target/deploy
+    cargo build-sbf --no-default-features --features production --sbf-out-dir target/deploy
 fi
 
 BUILD_RESULT=$?
