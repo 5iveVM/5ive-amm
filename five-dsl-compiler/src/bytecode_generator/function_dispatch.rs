@@ -521,57 +521,61 @@ impl FunctionDispatcher {
             // Retrieve parameters from cache
             let function_parameters = &self.parameter_cache[&name];
 
-            // 3. Prepare parameters for CALL
-            // CRITICAL: We only push DATA parameters to the stack.
-            // Account parameters are accessed globally via hardcoded indices (generated in function body).
-            // Data parameters are accessed via LOAD_PARAM and must be in the function's parameter slots.
+            // CALL-BASED DISPATCH:
+            // Push only DATA params onto stack using consecutive indices (1..N).
+            // CALL creates new frame where these become params[1..N].
+            // Function body uses data-only LOAD_PARAM indices to access them.
+            //
+            // This maintains proper frame isolation for recursion/nested calls
+            // while keeping param indexing consistent.
             
             let mut data_param_count: u8 = 0;
             
-            for (param_idx, param) in function_parameters.iter().enumerate() {
+            for param in function_parameters.iter() {
+                 // Check if this is an account parameter
                  let is_account = super::account_utils::is_account_parameter(
                      &param.param_type,
                      &param.attributes,
-                     Some(account_system.get_account_registry())
+                     None
                  );
                  
-                 if !is_account {
-                     // Data parameter: Load from parameters array using LOAD_PARAM
-                     // Index = data_param_count + 1 (because index 0 is function index, and we skip account parameters)
-
-                     let param_index = (data_param_count + 1) as u8;
-
-                     // Use optimized opcodes if possible
-                     match param_index {
-                         1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
-                         2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
-                         3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
-                         _ => {
-                             emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
-                             emitter.emit_u8(param_index);
-                         }
-                     }
-
-                     data_param_count += 1;
+                 if is_account {
+                     // Skip accounts - they're accessed via accounts[] array
+                     continue;
                  }
-                 // Account parameter: Skip (accessed globally)
+                 
+                 // Data parameter: increment counter and load from original params
+                 data_param_count += 1;
+                 
+                 // Load from the ORIGINAL params array at the SDK index
+                 // We need to find this param's position in ALL params
+                 let original_index = function_parameters.iter()
+                     .position(|p| p.name == param.name)
+                     .unwrap_or(0) as u8 + 1;
+
+                 // Use optimized opcodes if possible
+                 match original_index {
+                     1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
+                     2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
+                     3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
+                     _ => {
+                         emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
+                         emitter.emit_u8(original_index);
+                     }
+                 }
             }
 
-            // 4. Emit CALL instruction
-            // CALL takes (param_count, function_address_offset)
-            // It pops param_count items from stack and puts them into new frame params
+            // Emit CALL instruction
             emitter.emit_opcode(five_protocol::opcodes::CALL);
-            emitter.emit_u8(data_param_count);  // Number of data parameters
+            emitter.emit_u8(data_param_count);
             
-            // Record where the CALL's target offset is, so we can patch it 
-            // once the actual function bodies are generated later.
+            // Record position for patching the target address
             let call_offset_pos = emitter.get_position();
             self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
             
             emitter.emit_u16(0xFFFF); // Placeholder for function body offset
             
-            // 5. HALT after return
-            // When function returns, we halt the main script
+            // HALT after return
             emitter.emit_opcode(five_protocol::opcodes::HALT);
 
         }
@@ -799,34 +803,43 @@ impl FunctionDispatcher {
         // For account params: offset = account position (0-based among accounts only)
         // For data params: offset = position in params array (1-based, matching VLE)
 
-        // Initialize counters for offset assignment
-        // Accounts are 0-indexed in the VM's account array
-        // Data parameters are 0-indexed in the VM's parameter array
-        let mut account_param_counter: u32 = 0;
-        let mut data_param_counter: u32 = 0;
+        // CALL-BASED DISPATCH indexing:
+        // After CALL, the new frame has pushed data params at indices 1..N.
+        // The function body uses LOAD_PARAM with DATA-ONLY indices.
+        //
+        // - Account params: offset = position in accounts[] (0-based), is_parameter=false
+        // - Data params: offset = data_counter (0-based), is_parameter=true
+        //   LOAD_PARAM uses (offset+1) to access new frame's params array
+        //
+        // Example for init_mint(mint_account, authority, freeze_auth, decimals, ...):
+        // - mint_account: account_offset=0, is_parameter=false
+        // - authority: account_offset=1, is_parameter=false
+        // - freeze_authority: offset=0, is_parameter=true → LOAD_PARAM 1
+        // - decimals: offset=1, is_parameter=true → LOAD_PARAM 2  ← Correct!
         
-        for (index, param) in parameters.iter().enumerate() {
+        let mut account_counter: u32 = 0;
+        let mut data_counter: u32 = 0;
+        
+        for (_index, param) in parameters.iter().enumerate() {
             let param_type = self.type_node_to_string(&param.param_type);
             
-            // CRITICAL FIX: Use unified account detection logic from account_utils
-            // This ensures consistent behavior with ABI generation and handles built-ins like "Account" correctly
             let is_account = super::account_utils::is_account_parameter(
                 &param.param_type,
                 &param.attributes,
                 Some(account_system.get_account_registry())
             );
 
+            // Determine offset and access pattern
             let (offset, is_parameter) = if is_account {
-                // Account parameters: offset is 0-based account index (for STORE_FIELD, GET_KEY)
-                // account_index_from_param_offset will add ACCOUNT_INDEX_OFFSET
-                let acc_off = account_param_counter;
-                account_param_counter += 1;
+                // Accounts: use account-specific index for STORE_FIELD/GET_KEY
+                let acc_off = account_counter;
+                account_counter += 1;
                 (acc_off, false)
             } else {
-                // Data parameters: offset is 1-based unified index (for LOAD_PARAM)
-                // We use a dedicated counter to pack data parameters contiguously, skipping accounts
-                let data_off = data_param_counter;
-                data_param_counter += 1;
+                // Data params: use DATA-ONLY counter
+                // After CALL, new frame has data params at consecutive indices 1..N
+                let data_off = data_counter;
+                data_counter += 1;
                 (data_off, true)
             };
 
