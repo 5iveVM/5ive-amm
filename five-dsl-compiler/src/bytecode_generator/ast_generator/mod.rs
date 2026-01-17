@@ -49,6 +49,7 @@ impl ASTGenerator {
         emitter: &mut T,
         node: &AstNode,
     ) -> Result<(), VMError> {
+        
         #[cfg(debug_assertions)]
         println!("Processing node: {:?}", std::mem::discriminant(node));
 
@@ -123,6 +124,10 @@ impl ASTGenerator {
                         // Look up identifier in local symbol table first
                         if let Some(field_info) = self.local_symbol_table.get(name) {
                             if field_info.is_parameter {
+                                if name == "decimals" {
+                                    println!("DEBUG_COMPILER: Found parameter 'decimals' offset={} index={} is_param={}", 
+                                        field_info.offset, field_info.offset + 1, field_info.is_parameter);
+                                }
                                 // Generate direct LOAD_PARAM for function parameters
                                 // Use nibble immediate opcodes.
                                 // FIX: Use 1-based indexing for LOAD_PARAM (offset 0 -> index 1)
@@ -449,34 +454,26 @@ impl ASTGenerator {
                 self.field_counter = 0;
 
                 // Process function parameters and add them to the local symbol table
-                // Maintain separate counters for account indices and data parameter indices
-                // MitoVM/Solana entrypoint splits arguments into Accounts and Data.
-                let mut account_param_counter: u32 = 0;
-                let mut data_param_counter: u32 = 0;
-
+                // Unified parameter counter for both accounts and data
+                // This MUST match the VM's sequential storage of parameters in the stack/param array
+                let mut param_counter: u32 = 0;
+                
                 for (index, param) in parameters.iter().enumerate() {
                     // Generate @init account creation sequence if needed
                     self.generate_init_account_sequence(emitter, param, index)?;
 
-                    // Determine if this is an account parameter or data parameter
+                    // Determine if this is an account parameter (only for metadata generation, not offset)
                     let is_account = super::account_utils::is_account_parameter(
                         &param.param_type,
                         &param.attributes,
                         self.account_system.as_ref().map(|sys| sys.get_account_registry())
                     );
 
-                    let offset = if is_account {
-                        let off = account_param_counter;
-                        account_param_counter += 1;
-                        off
-                    } else {
-                        let off = data_param_counter;
-                        data_param_counter += 1;
-                        off
-                    };
+                    // Use unified offset for all parameters
+                    let offset = param_counter;
+                    param_counter += 1;
                     
-                    println!("DEBUG_MOD: Param '{}' is_account={} offset={} (acc_cnt={}, data_cnt={})", 
-                        param.name, is_account, offset, account_param_counter, data_param_counter);
+
 
                     let field_info = FieldInfo {
                         offset,

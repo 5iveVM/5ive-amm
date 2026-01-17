@@ -81,6 +81,10 @@ pub fn has_account_attributes(attributes: &[Attribute]) -> bool {
 ///
 /// This function combines type-based detection with attribute analysis for
 /// comprehensive account parameter identification
+/// Enhanced account type detection that also considers parameter attributes
+///
+/// This function combines type-based detection with attribute analysis for
+/// comprehensive account parameter identification
 pub fn is_account_parameter(
     type_node: &TypeNode,
     attributes: &[Attribute],
@@ -88,6 +92,7 @@ pub fn is_account_parameter(
 ) -> bool {
     // panic!("I AM NEW VERSION - DEBUGGING");
     // println!("DEBUG: checking is_account_parameter for type '{:?}' attrs '{:?}'", type_node, attributes);
+
     // Primary check: type-based detection
     if is_account_type(type_node, account_registry) {
         println!("DEBUG: type-based detection passed");
@@ -218,6 +223,7 @@ mod tests {
         assert!(is_account_parameter(
             &TypeNode::Named("StateAccount".to_string()),
             &[],
+            false,
             None
         ));
 
@@ -228,10 +234,18 @@ mod tests {
             None
         ));
 
+        // Init flag detection
+         assert!(is_account_parameter(
+            &TypeNode::Named("SomeType".to_string()),
+            &[],
+            None
+        ));
+
         // Neither type nor attributes indicate account
         assert!(!is_account_parameter(
             &TypeNode::Named("u64".to_string()),
             &[Attribute { name: "param".to_string(), args: vec![] }],
+             false,
             None
         ));
     }

@@ -36,6 +36,7 @@ fn main() {
     };
 
     println!("Debug compilation of: {}", file_path);
+    println!("DEBUG COMPILE VERSION 2 - FIX APPLIED");
     println!("Source code:");
     println!("{}", source);
     println!("{}", "=".repeat(60));
