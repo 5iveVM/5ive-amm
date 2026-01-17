@@ -2,7 +2,7 @@ use five_protocol::ValueRef;
 use five_vm_mito::{
     error::VMErrorCode, utils::ValueRefUtils, AccountInfo, ExecutionContext, MitoVM,
     StackStorage, Value,
-    systems::memory::MemoryManager,
+    systems::resource::ResourceManager,
 };
 use pinocchio::pubkey::Pubkey;
 
@@ -68,6 +68,9 @@ fn resolve_temp_ref_raw_bytes() {
 
 #[test]
 fn resolve_temp_ref_out_of_bounds() {
+    // Force a small buffer to verify OOB check
+    let mut small_buffer = [0u8; 10];
+
     let accounts: [AccountInfo; 0] = [];
     let mut storage = StackStorage::new(&[]);
     let mut ctx = ExecutionContext::new(
@@ -81,9 +84,7 @@ fn resolve_temp_ref_out_of_bounds() {
         0,
     );
 
-    // Force a small buffer to verify OOB check
-    let mut small_buffer = [0u8; 10];
-    ctx.memory = MemoryManager::new(&mut small_buffer);
+    ctx.memory = ResourceManager::new(&mut small_buffer);
 
     // Offset 10 is OOB (buffer size 10, index 0..9)
     let offset = 10u8;

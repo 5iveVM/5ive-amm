@@ -39,14 +39,10 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    unsafe {
-        pinocchio::log::sol_log("ENTRYPOINT_CONFIRMED_UNCONDITIONAL");
-    }
     #[cfg(feature = "debug-logs")]
     {
         unsafe { pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@"); }
         unsafe { pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START"); }
-        // pinocchio::log::sol_log_64(0, 0, 0, 0, instruction_data[0] as u64);
     }
 
     debug_log!(

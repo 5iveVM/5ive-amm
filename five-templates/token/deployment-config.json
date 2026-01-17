@@ -1,7 +1,7 @@
 {
-  "tokenScriptAccount": "24QTVkSagbMJRKqoMHdDt6zHGrPU5DdVuoyUZreMYWdL",
+  "tokenScriptAccount": "5eRgyDKP1pmFbs3nS131Q1NxbFHzzond4d6C7Nhm3H3K",
   "fiveProgramId": "G7NFhT9ZBbrM1oqtNnWgd8mbB7A5FbbNt4XChvaPhA3A",
   "vmStatePda": "1p5JMJ475unWyiCJuR96V4LewG1qbsS4J1Gzw6u6zGt",
   "rpcUrl": "http://127.0.0.1:8899",
-  "timestamp": "2026-01-17T13:38:25.659Z"
+  "timestamp": "2026-01-17T15:46:48.161Z"
 }

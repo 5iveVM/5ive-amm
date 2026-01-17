@@ -74,6 +74,9 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     );
 
     validate_call_depth(ctx, MAX_CALL_DEPTH, "CALL")?;
+    
+    // Check total stack size against BPF limits (approx 4KB)
+    ctx.check_stack_limit()?;
 
     let param_count = ctx.fetch_byte()?;
     let func_addr = ctx.fetch_u16()? as usize;
@@ -120,6 +123,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let caller_len = ctx.param_len();
 
     if ctx.size() < param_count as usize {
+        debug_log!("MitoVM: CALL STACK_ERROR - stack_size={} < param_count={}", ctx.size(), param_count);
         return Err(VMErrorCode::StackError);
     }
 

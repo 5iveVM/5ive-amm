@@ -25,7 +25,7 @@ use pinocchio::instruction::{AccountMeta, Seed};
 use crate::systems::{
     accounts::AccountManager,
     frame::FrameManager,
-    memory::MemoryManager,
+    resource::ResourceManager,
     stack::StackManager,
 };
 
@@ -47,7 +47,7 @@ pub(crate) const SHARED_PARAM_SIZE: usize = MAX_PARAMETERS + 1;
 pub struct ExecutionContext<'a> {
     // --- Systems ---
     pub stack: StackManager<'a>,
-    pub memory: MemoryManager<'a>,
+    pub memory: ResourceManager<'a>,
     pub accounts: AccountManager<'a>,
     pub frame: FrameManager<'a>,
 
@@ -129,7 +129,7 @@ impl<'a> ExecutionContext<'a> {
             bytecode,
             pc: start_pc,
             stack: StackManager::new(&mut storage.stack, &mut storage.registers),
-            memory: MemoryManager::new(&mut storage.temp_buffer),
+            memory: ResourceManager::new(&mut storage.temp_buffer),
             frame: FrameManager::new(&mut storage.call_stack, &mut storage.locals),
             accounts: AccountManager::new(accounts, program_id),
 
@@ -256,7 +256,7 @@ impl<'a> ExecutionContext<'a> {
         self.header_features = features;
     }
 
-    // --- Memory operations (delegated to MemoryManager) ---
+    // --- Memory operations (delegated to ResourceManager) ---
 
     #[inline(always)]
     pub fn alloc_temp(&mut self, size: u8) -> CompactResult<u8> {
@@ -307,11 +307,12 @@ impl<'a> ExecutionContext<'a> {
         self.memory.read_value_from_temp(offset)
     }
 
-    // --- Heap operations (delegated to MemoryManager) ---
+    // --- Heap operations (delegated to ResourceManager) ---
 
     #[inline]
     pub fn heap_alloc(&mut self, size: usize) -> CompactResult<u32> {
-        self.memory.heap_alloc(size)
+        // Use alloc_heap_unsafe for zero-copy chunked allocation
+        self.memory.alloc_heap_unsafe(size)
     }
 
     #[inline]
@@ -322,6 +323,16 @@ impl<'a> ExecutionContext<'a> {
     #[inline]
     pub fn get_heap_data(&self, offset: u32, size: u32) -> CompactResult<&[u8]> {
         self.memory.get_heap_data(offset, size)
+    }
+
+    #[inline(always)]
+    pub fn heap_usage(&self) -> usize {
+        self.memory.heap_usage()
+    }
+
+    #[inline(always)]
+    pub fn check_stack_limit(&self) -> CompactResult<()> {
+        self.memory.check_stack_limit()
     }
 
     // --- Call stack operations (delegated to FrameManager) ---
@@ -782,24 +793,19 @@ impl<'a> ExecutionContext<'a> {
                 Ok((len as u32, &temp_buf[data_start..data_end]))
             }
             ValueRef::HeapString(heap_id) => {
-                let start = *heap_id as usize;
-                let heap_storage = &self.memory.heap_storage;
+                let virtual_addr = *heap_id;
+                
+                // Read length prefix (4 bytes)
+                let len_bytes = self.memory.get_heap_data(virtual_addr, 4)?;
+                let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
 
-                if start + 4 > heap_storage.len() {
-                    return Err(VMErrorCode::MemoryError);
-                }
+                // Read string data
+                // Data starts at virtual_addr + 4. 
+                // Note: This relies on alloc_heap_unsafe guaranteeing contiguous allocation 
+                // for the requested size (len + 4), so (offset + 4) is valid within the chunk.
+                let data_slice = self.memory.get_heap_data(virtual_addr + 4, len)?;
 
-                let len_bytes = &heap_storage[start..start+4];
-                let len = u32::from_le_bytes(len_bytes.try_into().unwrap()) as usize;
-
-                let data_start = start + 4;
-                let data_end = data_start + len;
-
-                if data_end > heap_storage.len() {
-                    return Err(VMErrorCode::MemoryError);
-                }
-
-                Ok((len as u32, &heap_storage[data_start..data_end]))
+                Ok((len, data_slice))
             }
             ValueRef::U64(0) => Ok((0, &[])),
             _ => Err(VMErrorCode::TypeMismatch),
