@@ -115,7 +115,7 @@ pub const STACK_SIZE: usize = 32;
 pub const MAX_LOCALS: usize = 32;
 
 /// Maximum function parameters (limited by parameter array size)
-pub const MAX_PARAMETERS: usize = 7;
+pub const MAX_PARAMETERS: usize = 12;
 
 /// Maximum script size in bytes
 pub const MAX_SCRIPT_SIZE: usize = 10_000;

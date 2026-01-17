@@ -31,6 +31,11 @@ fn push_bool_instr(script: &mut Vec<u8>, value: bool) {
     script.push(value as u8);
 }
 
+fn push_u128_instr(script: &mut Vec<u8>, value: u128) {
+    script.push(PUSH_U128);
+    script.extend_from_slice(&value.to_le_bytes());
+}
+
 mod core_operations {
     use super::*;
 
@@ -295,4 +300,51 @@ mod type_operations {
 
     // NOTE: String operations test removed - Five VM may not support String return values
     // or the String type might be handled differently
+}
+
+mod mixed_type_operations {
+    use super::*;
+
+    #[test]
+    fn test_lte_u64_u128() {
+        // Test LTE: 6 (u64) <= 20 (u128)
+        // This reproduces the suspected bug scenario
+        let bytecode = build_script(|script| {
+            push_u64_instr(script, 6);
+            push_u128_instr(script, 20);
+            script.push(LTE);
+            script.push(HALT);
+        });
+
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        assert_eq!(result, Some(Value::Bool(true)), "6 (u64) <= 20 (u128) should be true");
+    }
+
+    #[test]
+    fn test_lte_u128_u64() {
+        // Test LTE: 6 (u128) <= 20 (u64)
+        let bytecode = build_script(|script| {
+            push_u128_instr(script, 6);
+            push_u64_instr(script, 20);
+            script.push(LTE);
+            script.push(HALT);
+        });
+
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        assert_eq!(result, Some(Value::Bool(true)), "6 (u128) <= 20 (u64) should be true");
+    }
+
+    #[test]
+    fn test_lte_u64_u64() {
+        // Test LTE: 6 (u64) <= 20 (u64)
+        let bytecode = build_script(|script| {
+            push_u64_instr(script, 6);
+            push_u64_instr(script, 20);
+            script.push(LTE);
+            script.push(HALT);
+        });
+
+        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        assert_eq!(result, Some(Value::Bool(true)), "6 (u64) <= 20 (u64) should be true");
+    }
 }
