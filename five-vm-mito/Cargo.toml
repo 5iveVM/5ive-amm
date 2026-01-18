@@ -28,7 +28,7 @@ five-dsl-compiler = { path = "../five-dsl-compiler" }
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
-default = ["debug-logs"]
+default = []
 # Feature for debugging support (adds execution tracing)
 debug-logs = []
 # Feature for granular execution tracing (opcode-by-opcode) - VERY VERBOSE
