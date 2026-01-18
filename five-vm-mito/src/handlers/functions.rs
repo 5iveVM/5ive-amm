@@ -76,7 +76,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     validate_call_depth(ctx, MAX_CALL_DEPTH, "CALL")?;
     
     // Check total stack size against BPF limits (approx 4KB)
-    ctx.check_stack_limit()?;
+    // ctx.check_stack_limit()?; // REMOVED: Implementation is empty/disabled, saving call overhead
 
     let param_count = ctx.fetch_byte()?;
     let func_addr = ctx.fetch_u16()? as usize;

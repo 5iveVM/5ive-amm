@@ -221,7 +221,8 @@ impl<'a> ResourceManager<'a> {
         // but safer for VM deterministic behavior if we assume zeroed.
         // However, user said "unsafe so its zero copy", implying performance.
         // We will zero it to be safe, or leave it if performance is critical.
-        // Let's zero it for safety.
+        // OPTIMIZATION: Only zero in debug builds, skip in release for performance
+        #[cfg(debug_assertions)]
         unsafe { ptr::write_bytes(ptr, 0, new_chunk_size) };
 
         // Add to chunks
