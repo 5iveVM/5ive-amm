@@ -24,7 +24,7 @@ pub type LocalVariables = [ValueRef; MAX_LOCALS];
 /// ```
 #[derive(Debug, Clone, Copy)]
 pub struct CallFrame<'a> {
-    pub return_address: usize,
+    pub return_address: u16,
     pub local_count: u8,
     pub local_base: u8,     // Base offset for this frame's locals in shared array
     pub param_start: u8,    // Start index of caller parameters in shared array
@@ -34,7 +34,7 @@ pub struct CallFrame<'a> {
 
 impl<'a> CallFrame<'a> {
     /// Create call frame with return address and local variable count.
-    pub fn new(return_address: usize, local_count: u8, local_base: u8, bytecode: &'a [u8]) -> Self {
+    pub fn new(return_address: u16, local_count: u8, local_base: u8, bytecode: &'a [u8]) -> Self {
         Self {
             return_address,
             local_count,
@@ -47,7 +47,7 @@ impl<'a> CallFrame<'a> {
 
     /// Create call frame with saved caller parameters for restoration on return.
     pub fn with_parameters(
-        return_address: usize,
+        return_address: u16,
         local_count: u8,
         local_base: u8,
         param_start: u8,

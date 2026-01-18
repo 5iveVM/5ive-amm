@@ -156,9 +156,11 @@ macro_rules! error_log {
     ($($arg:tt)*) => {
         #[cfg(target_os = "solana")]
         unsafe {
-            pinocchio::log::sol_log("VM ERROR:");
             #[cfg(feature = "debug-logs")]
-            pinocchio_log::log!($($arg)*);
+            {
+                pinocchio::log::sol_log("VM ERROR:");
+                pinocchio_log::log!($($arg)*);
+            }
         }
     };
 }

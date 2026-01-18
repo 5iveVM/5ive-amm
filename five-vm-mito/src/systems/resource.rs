@@ -18,12 +18,14 @@ pub struct ResourceManager<'a> {
     pub total_heap_usage: usize,
 
     /// Dynamic heap chunks: (pointer, capacity, used_size)
-    /// We use a Vec to track chunks, but the data itself is in raw allocations
-    /// to support zero-copy resizing (just adding new chunks).
-    heap_chunks: Vec<(*mut u8, usize, usize)>,
+    /// We use a fixed array to track chunks to avoid Vec allocation overhead.
+    heap_chunks: [(*mut u8, usize, usize); 4],
     
+    /// Number of active heap chunks
+    heap_chunk_count: u8,
+
     /// Index of the current active chunk
-    current_chunk: usize,
+    current_chunk: u8,
 
     /// Stack start address (approximate top of stack)
     stack_start: usize,
@@ -41,7 +43,8 @@ impl<'a> ResourceManager<'a> {
             temp_buffer,
             temp_pos: 0,
             total_heap_usage: 0,
-            heap_chunks: Vec::with_capacity(4), // Start with capacity for 4 chunks
+            heap_chunks: [(ptr::null_mut(), 0, 0); 4],
+            heap_chunk_count: 0,
             current_chunk: 0,
             stack_start,
         }
@@ -195,12 +198,12 @@ impl<'a> ResourceManager<'a> {
         const DEFAULT_CHUNK_SIZE: usize = 2048;
 
         // 1. Try to fit in current chunk
-        if !self.heap_chunks.is_empty() {
-            let (ptr, cap, used) = self.heap_chunks[self.current_chunk];
+        if self.heap_chunk_count > 0 {
+            let (ptr, cap, used) = self.heap_chunks[self.current_chunk as usize];
             if used + size <= cap {
                 // Fits!
                 let offset = used;
-                self.heap_chunks[self.current_chunk].2 += size; // Update used
+                self.heap_chunks[self.current_chunk as usize].2 += size; // Update used
                 
                 let virtual_addr = ((self.current_chunk as u32) << 24) | (offset as u32);
                 return Ok(virtual_addr);
@@ -208,6 +211,10 @@ impl<'a> ResourceManager<'a> {
         }
 
         // 2. Need new chunk
+        if self.heap_chunk_count >= 4 {
+             return Err(VMErrorCode::OutOfMemory);
+        }
+
         let new_chunk_size = size.max(DEFAULT_CHUNK_SIZE);
         let layout = Layout::from_size_align(new_chunk_size, 8)
             .map_err(|_| VMErrorCode::OutOfMemory)?;
@@ -226,14 +233,10 @@ impl<'a> ResourceManager<'a> {
         unsafe { ptr::write_bytes(ptr, 0, new_chunk_size) };
 
         // Add to chunks
-        let chunk_index = self.heap_chunks.len();
-        if chunk_index >= 256 {
-            // Too many chunks (virtual addr limit)
-            unsafe { dealloc(ptr, layout) };
-            return Err(VMErrorCode::OutOfMemory);
-        }
-
-        self.heap_chunks.push((ptr, new_chunk_size, size)); // Used = size
+        let chunk_index = self.heap_chunk_count;
+        
+        self.heap_chunks[chunk_index as usize] = (ptr, new_chunk_size, size); // Used = size
+        self.heap_chunk_count += 1;
         self.total_heap_usage += new_chunk_size;
         self.current_chunk = chunk_index;
 
@@ -248,7 +251,7 @@ impl<'a> ResourceManager<'a> {
         let offset = (virtual_addr & 0xFFFFFF) as usize;
         let len = size as usize;
 
-        if chunk_index >= self.heap_chunks.len() {
+        if chunk_index >= self.heap_chunk_count as usize {
             return Err(VMErrorCode::MemoryError);
         }
 
@@ -270,7 +273,7 @@ impl<'a> ResourceManager<'a> {
         let offset = (virtual_addr & 0xFFFFFF) as usize;
         let len = size as usize;
 
-        if chunk_index >= self.heap_chunks.len() {
+        if chunk_index >= self.heap_chunk_count as usize {
             return Err(VMErrorCode::MemoryError);
         }
 
@@ -294,7 +297,8 @@ impl<'a> ResourceManager<'a> {
 
 impl<'a> Drop for ResourceManager<'a> {
     fn drop(&mut self) {
-        for &(ptr, cap, _) in &self.heap_chunks {
+        for i in 0..self.heap_chunk_count as usize {
+            let (ptr, cap, _) = self.heap_chunks[i];
             if !ptr.is_null() && cap > 0 {
                 unsafe {
                     let layout = Layout::from_size_align(cap, 8).unwrap();

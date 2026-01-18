@@ -396,11 +396,16 @@ impl<'a> ExecutionContext<'a> {
     /// Get account for write access, checking authorization and writability
     #[inline(always)]
     pub fn get_account_for_write(&self, index: u8) -> CompactResult<&AccountInfo> {
-        // 1. Check bytecode authorization for this account
-        self.check_bytecode_authorization(index)?;
-
-        // 2. Get account
+        // 1. Get account once
         let account = self.accounts.get(index)?;
+
+        // 2. Check bytecode authorization inline (avoiding second get)
+        if account.data_len() > 0 {
+            if *account.owner() != self.program_id {
+                crate::debug_log!("Auth failed: owner mismatch");
+                return Err(VMErrorCode::ScriptNotAuthorized);
+            }
+        }
 
         // 3. Check writable
         if !account.is_writable() {

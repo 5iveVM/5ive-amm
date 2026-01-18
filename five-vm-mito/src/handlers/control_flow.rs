@@ -96,7 +96,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 let frame = ctx.pop_call_frame()?;
 
                 // Safety check: Validate return address
-                if frame.return_address >= ctx.script().len() {
+                if (frame.return_address as usize) >= ctx.script().len() {
                     debug_log!(
                         "MitoVM: ERROR - Invalid return address: {} (script length: {})",
                         frame.return_address as u32,
@@ -106,7 +106,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 }
 
                 // Restore previous state safely including local base offset
-                ctx.set_ip(frame.return_address);
+                ctx.set_ip(frame.return_address as usize);
                 ctx.set_local_count(frame.local_count);
                 ctx.set_local_base(frame.local_base); // Restore per-frame local window
                 ctx.set_script(frame.bytecode);
@@ -186,7 +186,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 let _new_call_depth = ctx.call_depth();
 
                 // Safety check: Validate return address
-                if frame.return_address >= ctx.script().len() {
+                if (frame.return_address as usize) >= ctx.script().len() {
                     debug_log!(
                         "MitoVM: ERROR - Invalid return address: {} (script length: {})",
                         frame.return_address as u32,
@@ -204,7 +204,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 // );
 
                 // Restore previous state safely - CRITICAL: Leave return value on stack untouched
-                ctx.set_ip(frame.return_address);
+                ctx.set_ip(frame.return_address as usize);
                 ctx.set_local_count(frame.local_count);
                 ctx.set_local_base(frame.local_base); // Restore per-frame local window
                 ctx.set_script(frame.bytecode);

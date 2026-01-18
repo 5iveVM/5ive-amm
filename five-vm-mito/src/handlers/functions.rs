@@ -157,7 +157,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Save caller's frame state including local base offset
     ctx.push_call_frame(CallFrame::with_parameters(
-        current_ip,
+        current_ip as u16,
         current_local_count,
         current_local_base,
         caller_start,
@@ -325,12 +325,12 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         return Err(VMErrorCode::AccountNotFound);
     }
 
+    // Optimization: Get account reference once
+    let account = ctx.get_account(account_index as u8)?;
+
     // Validate account has data
-    let (account_data_len, account_valid) = {
-        let account = ctx.get_account(account_index as u8)?;
-        (account.data_len(), account.data_len() > 0)
-    };
-    if !account_valid {
+    let account_data_len = account.data_len();
+    if account_data_len == 0 {
         debug_log!(
             "MitoVM: CALL_EXTERNAL account {} has no data",
             account_index as u32
@@ -348,18 +348,11 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         return Err(VMErrorCode::InvalidInstructionPointer);
     }
 
-    // Debug assertion: account data should be non-empty
-    debug_assert!(
-        account_data_len > 0,
-        "Account data length should be validated above"
-    );
-
     // SAFETY: Account has been validated (index check above). borrow_data_unchecked is safe
     // within Solana runtime context as account data is guaranteed to remain valid for the
     // duration of the transaction. Creating slice from valid data pointer.
     // NOTE: On Solana, all Five bytecode accounts start with a 64-byte ScriptAccountHeader
     let external_bytecode_raw = unsafe {
-        let account = ctx.get_account(account_index as u8)?;
         let data_slice = account.borrow_data_unchecked();
         core::slice::from_raw_parts(data_slice.as_ptr(), data_slice.len())
     };
@@ -426,10 +419,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     });
 
     if !ctx.import_metadata.verify_account(
-        {
-            let account = ctx.get_account(account_index as u8)?;
-            account.key()
-        },
+        account.key(),
         &ctx.program_id,
         pda_derivation_fn,
     ) {
@@ -459,7 +449,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Save caller's frame state including local base offset
     ctx.push_call_frame(CallFrame::with_parameters(
-        return_address,
+        return_address as u16,
         current_local_count,
         current_local_base,
         caller_start,

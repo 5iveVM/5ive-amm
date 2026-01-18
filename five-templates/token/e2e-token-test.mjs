@@ -105,6 +105,12 @@ async function sendInstruction(connection, instructionData, signers) {
             });
             logs = txDetails?.meta?.logMessages || [];
 
+            if (txDetails?.meta?.err) {
+                console.log(`❌ Transaction Failed on-chain: ${JSON.stringify(txDetails.meta.err)}`);
+                logs.forEach(log => console.log(`  ${log}`));
+                return { success: false, error: txDetails.meta.err, logs, cu: -1, signature: sig };
+            }
+
             // Extract CU
             const cuLog = logs.find(l => l.includes('consumed'));
             if (cuLog) {
@@ -113,7 +119,7 @@ async function sendInstruction(connection, instructionData, signers) {
                 console.log(`   └─ ⚡ CU: ${cu}`);
             }
         } catch (e) {
-            console.log("   └─ (CU fetch failed)");
+            console.log("   └─ (CU fetch failed or verification failed)", e);
         }
 
         return { success: true, signature: sig, logs, cu };
