@@ -11,7 +11,7 @@ use five_protocol::ValueRef;
 use pinocchio::syscalls;
 
 /// Handle sol_log syscall.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_log(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_LOG");
 
@@ -35,7 +35,7 @@ pub fn handle_syscall_log(ctx: &mut ExecutionManager) -> CompactResult<()> {
 }
 
 /// Handle sol_log_64 syscall.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_log_64(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_LOG_64");
 
@@ -58,7 +58,7 @@ pub fn handle_syscall_log_64(ctx: &mut ExecutionManager) -> CompactResult<()> {
 }
 
 /// Handle sol_log_compute_units syscall.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_log_compute_units(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_LOG_COMPUTE_UNITS");
 
@@ -75,7 +75,7 @@ pub fn handle_syscall_log_compute_units(_ctx: &mut ExecutionManager) -> CompactR
 }
 
 /// Handle sol_log_pubkey syscall.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_log_pubkey(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_LOG_PUBKEY");
 
@@ -95,7 +95,7 @@ pub fn handle_syscall_log_pubkey(ctx: &mut ExecutionManager) -> CompactResult<()
 }
 
 /// Handle sol_log_data syscall.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_log_data(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_LOG_DATA");
 

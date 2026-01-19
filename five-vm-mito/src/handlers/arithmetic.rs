@@ -137,6 +137,7 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
 /// assert_eq!(result, ValueRef::U128(15)); // Result is u128
 /// # Ok::<(), VMError>(())
 /// ```
+#[inline(always)]
 pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         ADD => {

@@ -80,7 +80,7 @@ fn parse_data_array(ctx: &mut ExecutionManager, data_ref: ValueRef) -> CompactRe
 
 macro_rules! impl_hash_syscall {
     ($name:ident, $syscall:path, $log_name:expr) => {
-        #[inline(never)]
+        #[inline(always)]
         pub fn $name(ctx: &mut ExecutionManager) -> CompactResult<()> {
             debug_log!($log_name);
 
@@ -160,7 +160,7 @@ impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: S
 // impl_hash_syscall!(handle_syscall_blake3, syscalls::sol_blake3, "MitoVM: SYSCALL_BLAKE3");
 
 // Poseidon has extra args
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_poseidon(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_POSEIDON");
     // poseidon(parameters, endianness, vals, val_len, hash_result)
@@ -222,7 +222,7 @@ pub fn handle_syscall_poseidon(ctx: &mut ExecutionManager) -> CompactResult<()> 
 }
 
 // Secp256k1 recover
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_secp256k1_recover(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_SECP256K1_RECOVER");
     // secp256k1_recover(hash, recovery_id, signature, result)
@@ -341,7 +341,7 @@ pub fn handle_syscall_secp256k1_recover(ctx: &mut ExecutionManager) -> CompactRe
 // macro_rules! impl_curve_syscall { ... } // Unused
 
 // Implementing one as example
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_alt_bn128_compression(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_ALT_BN128_COMPRESSION");
     // op, input, input_size, result
@@ -376,37 +376,37 @@ pub fn handle_syscall_alt_bn128_compression(ctx: &mut ExecutionManager) -> Compa
 
 
 // Remaining are placeholders for now to save space, but declared
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_alt_bn128_group_op(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_ALT_BN128_GROUP_OP - Stub");
     Ok(())
 }
 
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_big_mod_exp(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_BIG_MOD_EXP - Stub");
     Ok(())
 }
 
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_curve_group_op(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_CURVE_GROUP_OP - Stub");
     Ok(())
 }
 
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_curve_multiscalar_mul(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_CURVE_MULTISCALAR_MUL - Stub");
     Ok(())
 }
 
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_curve_pairing_map(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_CURVE_PAIRING_MAP - Stub");
     Ok(())
 }
 
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_curve_validate_point(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_CURVE_VALIDATE_POINT - Stub");
     Ok(())

@@ -48,6 +48,7 @@ fn extract_owner_pubkey(owner_ref: ValueRef, ctx: &ExecutionManager) -> CompactR
 }
 
 /// Handle account initialization operations
+#[inline(always)]
 pub fn handle_init_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         INIT_ACCOUNT => handle_init_account(ctx),

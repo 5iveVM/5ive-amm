@@ -13,7 +13,7 @@ use five_protocol::{opcodes::*, ValueRef};
 
 /// Handle register operations (0xB0-0xBF)
 /// 🎯 LOGICAL REORGANIZATION: Registers at 0xB0 (0xE0 is pattern fusion)
-#[inline(never)]
+#[inline(always)]
 pub fn handle_registers(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         LOAD_REG_U8 => {

@@ -20,7 +20,7 @@ pub fn serialize_clock_to_buffer(clock: &Clock, buffer: &mut [u8]) {
 }
 
 /// Handle system sysvar operations.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_sysvar_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         GET_CLOCK => {
@@ -54,7 +54,7 @@ pub fn handle_sysvar_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 }
 
 /// Handle sol_get_clock_sysvar syscall.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_get_clock_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_CLOCK_SYSVAR");
 
@@ -71,7 +71,7 @@ pub fn handle_syscall_get_clock_sysvar(ctx: &mut ExecutionManager) -> CompactRes
 }
 
 /// Handle sol_get_rent_sysvar syscall.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_get_rent_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_RENT_SYSVAR");
 

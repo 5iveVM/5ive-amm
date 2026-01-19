@@ -30,7 +30,7 @@ use crate::{
 use five_protocol::opcodes::*;
 
 /// Dispatch system-level operations including CPI, PDA operations, and account initialization.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_system_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         // Cross-program invocation operations (INVOKE, INVOKE_SIGNED)

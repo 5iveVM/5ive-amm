@@ -10,7 +10,7 @@ use crate::{
 use pinocchio::syscalls;
 
 /// Handle sol_invoke_signed_c syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_invoke_signed_c(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_INVOKE_SIGNED_C");
     // This expects raw pointers to C-structs.
@@ -25,7 +25,7 @@ pub fn handle_syscall_invoke_signed_c(_ctx: &mut ExecutionManager) -> CompactRes
 }
 
 /// Handle sol_invoke_signed_rust syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_invoke_signed_rust(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_INVOKE_SIGNED_RUST");
     // Same as above.

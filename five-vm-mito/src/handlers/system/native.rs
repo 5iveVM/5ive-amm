@@ -74,7 +74,7 @@ static SYSCALLS: &[SyscallEntry] = &[
 ];
 
 /// Dispatch CALL_NATIVE to the appropriate syscall handler.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_native_ops(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: CALL_NATIVE operation");
 

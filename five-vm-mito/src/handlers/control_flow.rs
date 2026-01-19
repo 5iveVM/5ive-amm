@@ -35,6 +35,7 @@ fn check_condition(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
 /// Execute control flow opcodes including jumps, conditionals, and program termination.
 /// Handles the 0x00-0x0F opcode range.
+#[inline(always)]
 pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         HALT => {

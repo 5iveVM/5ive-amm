@@ -15,7 +15,7 @@ use five_protocol::{opcodes::*, ValueRef};
 
 /// Execute zero-copy memory operations for account data and input parameter access.
 /// Handles the 0x40-0x4F opcode range including STORE, LOAD, and field operations.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         STORE => {

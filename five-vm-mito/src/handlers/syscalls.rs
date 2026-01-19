@@ -100,12 +100,14 @@ pub const SYSCALL_CURVE_VALIDATE_POINT: u8 = 91;
 // ===== CONTROL SYSCALLS =====
 
 /// Handle sol_abort syscall - immediate program termination.
+#[inline(always)]
 pub fn handle_syscall_abort(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_ABORT - terminating execution");
     Err(VMErrorCode::ExecutionTerminated)
 }
 
 /// Handle sol_panic_ syscall - program panic with optional message.
+#[inline(always)]
 pub fn handle_syscall_panic(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_PANIC - program panic");
 

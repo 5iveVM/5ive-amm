@@ -12,6 +12,7 @@ use crate::{
 };
 use five_protocol::{opcodes::*, FEATURE_FUNCTION_METADATA};
 
+#[inline(always)]
 pub fn handle_functions(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         CALL => {

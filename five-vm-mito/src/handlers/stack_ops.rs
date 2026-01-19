@@ -20,7 +20,7 @@ use five_protocol::{opcodes::*, ValueRef};
 
 /// Process stack manipulation opcodes including PUSH variants, POP, DUP, SWAP, and PICK.
 /// Handles the 0x10-0x1F opcode range exclusively.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         PUSH_U8 => {

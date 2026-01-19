@@ -17,7 +17,7 @@ use pinocchio::pubkey::Pubkey;
 
 /// Execute Solana account operations including creation, metadata access, and lamport management.
 /// Handles the 0x50-0x5F opcode range.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         CREATE_ACCOUNT => {

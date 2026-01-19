@@ -19,7 +19,7 @@ use pinocchio::{
 };
 
 /// Handle invoke operations for cross-program invocation
-#[inline(never)]
+#[inline(always)]
 pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     use crate::error_log;
     match opcode {

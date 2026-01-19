@@ -40,7 +40,7 @@ use five_protocol::{opcodes::*, ValueRef};
 
 /// Handle unified array and string operations (0x60-0x6F range)
 /// 🎯 LOGICAL REORGANIZATION: All array and string operations consolidated
-#[inline(never)]
+#[inline(always)]
 pub fn handle_arrays(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         // Array creation and management (0x60-0x65)
@@ -64,7 +64,7 @@ pub fn handle_arrays(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
 }
 
 /// Handle array literal creation (PUSH_ARRAY_LITERAL)
-#[inline(never)]
+#[inline(always)]
 fn handle_array_literals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         PUSH_ARRAY_LITERAL => {
@@ -176,7 +176,7 @@ fn handle_array_literals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 }
 
 /// Handle core array operations (ARRAY_INDEX, ARRAY_LENGTH, ARRAY_SET)
-#[inline(never)]
+#[inline(always)]
 fn handle_array_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         ARRAY_INDEX => {
@@ -391,7 +391,7 @@ fn handle_array_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
 
 /// Handle string operations (PUSH_STRING_LITERAL, PUSH_STRING)
 /// 🎯 LOGICAL REORGANIZATION: Consolidated string operations
-#[inline(never)]
+#[inline(always)]
 fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         PUSH_STRING_LITERAL => {
@@ -549,7 +549,7 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
 }
 
 /// Handle array creation (CREATE_ARRAY)
-#[inline(never)]
+#[inline(always)]
 fn handle_array_creation(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         CREATE_ARRAY => {
