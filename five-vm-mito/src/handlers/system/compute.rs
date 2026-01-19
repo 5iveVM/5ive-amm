@@ -16,13 +16,15 @@ pub fn handle_syscall_remaining_compute_units(ctx: &mut ExecutionManager) -> Com
     debug_log!("MitoVM: SYSCALL_REMAINING_COMPUTE_UNITS");
 
     let remaining;
-    #[cfg(target_os = "solana")]
+    // Only use the syscall if the feature is enabled AND we're on Solana
+    // The sol_remaining_compute_units syscall is not available on devnet v3.1.6 or earlier
+    #[cfg(all(target_os = "solana", feature = "remaining-cu-syscall"))]
     unsafe {
         remaining = syscalls::sol_remaining_compute_units();
     }
-    #[cfg(not(target_os = "solana"))]
+    #[cfg(not(all(target_os = "solana", feature = "remaining-cu-syscall")))]
     {
-        remaining = 200_000; // Mock value
+        remaining = 200_000; // Mock value for devnet compatibility
     }
 
     ctx.push(ValueRef::U64(remaining))?;
