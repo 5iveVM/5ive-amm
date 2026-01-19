@@ -41,7 +41,7 @@ macro_rules! match_result_status {
 }
 
 /// Handle Option and Result operations (0xF0-0xFF)
-#[inline(never)]
+#[inline(always)]
 pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         RESULT_OK => {

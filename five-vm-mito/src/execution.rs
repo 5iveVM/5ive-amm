@@ -130,74 +130,6 @@ impl MitoVM {
         Ok((ctx, dispatch_ip))
     }
 
-    /// Route opcodes to specialized handlers based on upper nibble (16 opcodes per group).
-    #[inline(never)]
-    fn dispatch_opcode_range(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
-        match opcode & 0xF0 {
-            0x00 => {
-                // Control flow operations (HALT, JUMP, etc.)
-                handle_control_flow(opcode, ctx)
-            }
-            0x10..=0x1F => {
-                handle_stack_ops(opcode, ctx)
-            }
-            0x20..=0x2F => {
-                handle_arithmetic(opcode, ctx)
-            }
-            0x30..=0x3F => {
-                handle_logical(opcode, ctx)
-            }
-            0x40..=0x4F => {
-                // Memory instructions (STORE/LOAD/STORE_FIELD etc)
-                handle_memory(opcode, ctx)
-            }
-            0x50..=0x5F => {
-                handle_accounts(opcode, ctx)
-            }
-            0x60..=0x6F => {
-                handle_arrays(opcode, ctx)
-            }
-            0x70..=0x7F => {
-                handle_constraints(opcode, ctx)
-            }
-            0x80..=0x8F => {
-                handle_system_ops(opcode, ctx)
-            }
-            0x90..=0x9F => {
-                handle_functions(opcode, ctx)
-            }
-            0xA0..=0xAF => {
-                handle_locals(opcode, ctx)
-            }
-            0xB0..=0xBF => {
-                handle_registers(opcode, ctx)
-            }
-            0xC0..=0xCF => {
-                // Account view operations removed - use zero-copy LOAD_FIELD/STORE_FIELD instead
-                debug_log!(
-                    "MitoVM: Account view opcode {} removed - use LOAD_FIELD/STORE_FIELD",
-                    opcode
-                );
-                Err(VMErrorCode::InvalidInstruction)
-            }
-            0xD0..=0xDF => {
-                handle_nibble_locals(opcode, ctx)
-            }
-            0xF0..=0xFF => {
-                // Option and Result operations
-                handle_option_result_ops(opcode, ctx)
-            }
-            _ => {
-                debug_log!(
-                    "MitoVM: FATAL_ERROR: UNKNOWN OPCODE RANGE {} at ip {}",
-                    opcode,
-                    (ctx.ip() - 1) as u32
-                );
-                Err(VMErrorCode::InvalidInstruction)
-            }
-        }
-    }
-
     /// Core execution loop that fetches and executes bytecode instructions until halt or error.
     #[inline(never)]
     fn execute_instruction_loop(ctx: &mut ExecutionManager) -> CompactResult<()> {
@@ -265,7 +197,42 @@ impl MitoVM {
             }
 
             // Dispatch opcode to appropriate handler
-            let result = Self::dispatch_opcode_range(opcode, ctx);
+            // 🎯 OPTIMIZATION: Flattened dispatch for better BPF performance
+            // The compiler will inline the handlers (due to #[inline(always)])
+            // and optimize this match into a single jump table or efficient tree,
+            // eliminating the double-dispatch overhead.
+            let result = match opcode {
+                0x00..=0x0F => handle_control_flow(opcode, ctx),
+                0x10..=0x1F => handle_stack_ops(opcode, ctx),
+                0x20..=0x2F => handle_arithmetic(opcode, ctx),
+                0x30..=0x3F => handle_logical(opcode, ctx),
+                0x40..=0x4F => handle_memory(opcode, ctx),
+                0x50..=0x5F => handle_accounts(opcode, ctx),
+                0x60..=0x6F => handle_arrays(opcode, ctx),
+                0x70..=0x7F => handle_constraints(opcode, ctx),
+                0x80..=0x8F => handle_system_ops(opcode, ctx),
+                0x90..=0x9F => handle_functions(opcode, ctx),
+                0xA0..=0xAF => handle_locals(opcode, ctx),
+                0xB0..=0xBF => handle_registers(opcode, ctx),
+                0xC0..=0xCF => {
+                    // Account view operations removed - use zero-copy LOAD_FIELD/STORE_FIELD instead
+                    debug_log!(
+                        "MitoVM: Account view opcode {} removed - use LOAD_FIELD/STORE_FIELD",
+                        opcode
+                    );
+                    Err(VMErrorCode::InvalidInstruction)
+                }
+                0xD0..=0xDF => handle_nibble_locals(opcode, ctx),
+                0xF0..=0xFF => handle_option_result_ops(opcode, ctx),
+                _ => {
+                    debug_log!(
+                        "MitoVM: FATAL_ERROR: UNKNOWN OPCODE RANGE {} at ip {}",
+                        opcode,
+                        (ctx.ip() - 1) as u32
+                    );
+                    Err(VMErrorCode::InvalidInstruction)
+                }
+            };
 
             // Check result and provide clear error context
             if let Err(e) = result {

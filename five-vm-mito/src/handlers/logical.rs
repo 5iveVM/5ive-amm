@@ -9,7 +9,7 @@ use crate::{
 use five_protocol::{opcodes::*, ValueRef};
 
 /// Handle logical operations (0x30-0x3F)
-#[inline(never)]
+#[inline(always)]
 pub fn handle_logical(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         AND => {

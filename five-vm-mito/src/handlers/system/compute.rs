@@ -11,7 +11,7 @@ use five_protocol::ValueRef;
 use pinocchio::syscalls;
 
 /// Handle sol_remaining_compute_units syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_remaining_compute_units(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_REMAINING_COMPUTE_UNITS");
 

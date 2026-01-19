@@ -31,7 +31,7 @@ macro_rules! check_constraint {
 }
 
 /// Handle constraint operations (0x70-0x7F)
-#[inline(never)]
+#[inline(always)]
 pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: handle_constraints opcode: {}", opcode);
     debug_log!("MitoVM: CHECK_SIGNER constant: {}", CHECK_SIGNER);

@@ -16,7 +16,7 @@ use five_protocol::{opcodes::*, ValueRef};
 /// Handle nibble immediate operations (0xD0-0xDF)
 /// 🎯 BPF OPTIMIZATION: Single-byte encoding for common operations
 /// Covers locals (0xD0-0xD7), constants (0xD8-0xDB), and parameters (0xDC-0xDF)
-#[inline(never)]
+#[inline(always)]
 pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         // Nibble immediate GET_LOCAL operations (0xD0-0xD3)
@@ -60,6 +60,7 @@ pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
 
 /// Handle local variable operations (0xA0-0xAF)
 /// 🎯 LOGICAL REORGANIZATION: Locals moved from 0x90 to 0xA0
+#[inline(always)]
 pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         ALLOC_LOCALS => {

@@ -59,7 +59,7 @@ fn get_ptr(ctx: &mut ExecutionManager, reference: ValueRef, len: u64) -> Compact
 
 
 /// Handle sol_memcpy syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_memcpy(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_MEMCPY");
 
@@ -92,7 +92,7 @@ pub fn handle_syscall_memcpy(ctx: &mut ExecutionManager) -> CompactResult<()> {
 }
 
 /// Handle sol_memmove syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_memmove(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_MEMMOVE");
 
@@ -118,7 +118,7 @@ pub fn handle_syscall_memmove(ctx: &mut ExecutionManager) -> CompactResult<()> {
 }
 
 /// Handle sol_memset syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_memset(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_MEMSET");
 
@@ -147,7 +147,7 @@ pub fn handle_syscall_memset(ctx: &mut ExecutionManager) -> CompactResult<()> {
 }
 
 /// Handle sol_memcmp syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_memcmp(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_MEMCMP");
 

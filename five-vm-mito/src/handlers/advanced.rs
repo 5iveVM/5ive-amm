@@ -17,7 +17,7 @@ use five_protocol::{opcodes::*, ValueRef};
 
 /// Handle advanced and experimental operations (0xF0-0xFF)
 /// 🎯 LOGICAL REORGANIZATION: Optional/Result + experimental features
-#[inline(never)]
+#[inline(always)]
 pub fn handle_advanced(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         // Optional/Result type operations (0xF0-0xF6)

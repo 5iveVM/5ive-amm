@@ -11,7 +11,7 @@ use five_protocol::ValueRef;
 use pinocchio::{syscalls, pubkey::Pubkey};
 
 /// Handle sol_get_return_data syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_RETURN_DATA");
 
@@ -79,7 +79,7 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
 }
 
 /// Handle sol_set_return_data syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_set_return_data(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_SET_RETURN_DATA");
 
@@ -100,7 +100,7 @@ pub fn handle_syscall_set_return_data(ctx: &mut ExecutionManager) -> CompactResu
 }
 
 /// Handle sol_get_stack_height syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_get_stack_height(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_STACK_HEIGHT");
 
@@ -119,7 +119,7 @@ pub fn handle_syscall_get_stack_height(ctx: &mut ExecutionManager) -> CompactRes
 }
 
 /// Handle sol_get_processed_sibling_instruction syscall
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_get_processed_sibling_instruction(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_PROCESSED_SIBLING_INSTRUCTION - Not Implemented Fully");
     // This syscall requires complex struct mapping (ProcessedSiblingInstruction).

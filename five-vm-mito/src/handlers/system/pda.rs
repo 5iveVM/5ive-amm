@@ -108,7 +108,7 @@ pub fn pop_and_process_seeds(
 }
 
 /// Handle sol_create_program_address syscall.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_create_program_address(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS");
 
@@ -149,7 +149,7 @@ pub fn handle_syscall_create_program_address(ctx: &mut ExecutionManager) -> Comp
 }
 
 /// Handle sol_try_find_program_address syscall.
-#[inline(never)]
+#[inline(always)]
 pub fn handle_syscall_try_find_program_address(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_TRY_FIND_PROGRAM_ADDRESS");
 
@@ -246,7 +246,7 @@ fn push_pda_result(ctx: &mut ExecutionManager, pda_pubkey: [u8; 32], bump: u8) -
 }
 
 /// Handle PDA operations for program derived addresses
-#[inline(never)]
+#[inline(always)]
 pub fn handle_pda_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         DERIVE_PDA => {
