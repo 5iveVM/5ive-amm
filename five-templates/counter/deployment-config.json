@@ -1,7 +1,7 @@
 {
-  "fiveProgramId": "Dk1bmmhyYXTiJmZPGX16mfYhd1or4tzZkgUkSSoytThv",
-  "vmStatePda": "ZVM9MibJQ4GeMFm8n1jKdZ4JeZnJsk9GNSCVQSUzu8d",
-  "counterScriptAccount": "CpM95CXmBi1RaAzSN3NiiikNeEgfG153apoFUrh9RqMq",
-  "rpcUrl": "http://127.0.0.1:8899",
-  "timestamp": "2026-01-15T17:40:46.567Z"
+  "counterScriptAccount": "59ZqvZXJydHcv4EveDYBef7piF12pzhNhDrLx4x38YRR",
+  "fiveProgramId": "DpZXefRzpehuoUnX93f3K3pnVGptmLaPt56rrvbBL83s",
+  "vmStatePda": "1p5JMJ475unWyiCJuR96V4LewG1qbsS4J1Gzw6u6zGt",
+  "rpcUrl": "https://api.devnet.solana.com",
+  "timestamp": "2026-01-19T20:45:08.075Z"
 }

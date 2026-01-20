@@ -42,8 +42,8 @@ async function deployTokenProgram() {
         console.log(`  Five Program: ${FIVE_PROGRAM_ID.toBase58()}\n`);
 
         const balance = await connection.getBalance(payer.publicKey);
-        if (balance < 1 * LAMPORTS_PER_SOL) {
-            console.log(`${RED}✗ Insufficient balance.${NC}`);
+        if (balance < 0.1 * LAMPORTS_PER_SOL) {
+            console.log(`${RED}✗ Insufficient balance (need at least 0.1 SOL).${NC}`);
             process.exit(1);
         }
 
@@ -122,7 +122,7 @@ async function deployTokenProgram() {
                         { pubkey: payer.publicKey, isSigner: true, isWritable: false },
                     ],
                     programId: FIVE_PROGRAM_ID,
-                    data: Buffer.from([0]), // Initialize discriminator
+                    data: Buffer.from([0, 255]), // Initialize discriminator + bump byte
                 })
             );
 
@@ -153,9 +153,8 @@ async function deployTokenProgram() {
         // Calculate actual rent needed for final script size
         const finalScriptSize = SCRIPT_HEADER_SIZE + bytecode.length;
         const rentRequired = await connection.getMinimumBalanceForRentExemption(finalScriptSize);
-        // Add conservative buffer to handle reallocation overhead
-        // Solana's safe_realloc may need additional lamports beyond the minimum balance
-        const REALLOCATION_BUFFER = 1.0 * LAMPORTS_PER_SOL;  // Huge buffer
+        // Add small buffer to handle reallocation overhead (bytecode is small, so buffer is small)
+        const REALLOCATION_BUFFER = 0.01 * LAMPORTS_PER_SOL;  // 0.01 SOL buffer
         const initialLamports = rentRequired + REALLOCATION_BUFFER;
 
         console.log(`${CYAN}▶ Creating Script Account...${NC}`);

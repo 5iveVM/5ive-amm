@@ -89,9 +89,9 @@ pub fn process_instruction(
 
     // Process each instruction type
     let result = match instruction {
-        FIVEInstruction::Initialize => {
-            debug_log!("Processing Initialize instruction");
-            instructions::initialize(program_id, accounts)
+        FIVEInstruction::Initialize { bump } => {
+            debug_log!("Processing Initialize instruction with bump {}", bump);
+            instructions::initialize(program_id, accounts, bump)
         }
         FIVEInstruction::InitLargeProgram { expected_size, chunk_data } => {
             debug_log!(
