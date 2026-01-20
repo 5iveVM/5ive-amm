@@ -295,6 +295,10 @@ export class WasmCompilationOptions {
    */
   with_compression(enabled: boolean): WasmCompilationOptions;
   /**
+   * Enable or disable module namespace qualification
+   */
+  with_module_namespaces(enabled: boolean): WasmCompilationOptions;
+  /**
    * Create production-optimized configuration
    */
   static production_optimized(): WasmCompilationOptions;

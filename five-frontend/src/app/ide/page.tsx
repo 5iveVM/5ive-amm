@@ -15,6 +15,8 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { WalletProvider, useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { loadFiveWasm } from "@/lib/five-wasm-loader";
+import { buildExecuteInstruction } from "@/lib/five-program-client";
+import { NETWORKS } from "@/lib/network-config";
 
 const MAINNET_RPC = "https://api.devnet.solana.com";
 const RENT_PER_BYTE_LAM = 6960;
@@ -110,7 +112,7 @@ export default function IdePage() {
   } = useIdeStore();
 
   const { connection } = useConnection();
-  const { publicKey, signTransaction } = useWallet();
+  const { publicKey, signTransaction, sendTransaction } = useWallet();
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   // WASM module references (useRef to avoid state proxying issues with native objects)
@@ -501,8 +503,24 @@ export default function IdePage() {
               console.warn("Failed to write ABI artifact:", abiArtifactErr);
             }
           }
-        } catch (e) {
-          console.warn("Failed to parse ABI:", e);
+        } catch (err: any) {
+          console.error("Compilation failed:", err);
+          setIsCompiling(false);
+
+          let errorMsg = "Internal compilation error";
+          if (err.message) {
+            errorMsg = err.message;
+          } else if (typeof err === "string") {
+            errorMsg = err;
+          } else if (typeof err === "object") {
+            try {
+              errorMsg = JSON.stringify(err);
+            } catch {
+              errorMsg = String(err);
+            }
+          }
+
+          appendLog(`Compilation error: ${errorMsg}`, 'error');
         }
 
       } else {
@@ -511,9 +529,22 @@ export default function IdePage() {
         if (result.errors && result.errors.length > 0) {
           errorMsg = Array.from(result.errors).join('\n');
         } else if (result.compiler_errors && result.compiler_errors.length > 0) {
-          errorMsg = Array.from(result.compiler_errors).map((e: any) => e.message || String(e)).join('\n');
+          errorMsg = Array.from(result.compiler_errors).map((e: any) => {
+            const msg = e.message || String(e);
+            const loc = e.location ? ` at line ${e.location.line}` : '';
+            return `${msg}${loc}`;
+          }).join('\n');
         } else if (result.error_message) {
           errorMsg = result.error_message;
+        } else {
+          // Fallback for generic result failure
+          try {
+            const json = JSON.stringify(result);
+            // If it's just successful: false with no error info, say that
+            errorMsg = json === "{}" ? "Unknown compilation failure" : json;
+          } catch {
+            errorMsg = String(result);
+          }
         }
 
         appendLog(`Compilation failed:\n${errorMsg}`, 'error');
@@ -561,27 +592,117 @@ export default function IdePage() {
           return;
         }
 
-        appendLog(`Executing on Localnet... Function #${selectedFunctionIndex}`, "info");
+        appendLog(`Executing on-chain... Function #${selectedFunctionIndex}`, "info");
 
         try {
-          const client = new OnChainClient(connection, {
-            publicKey,
-            signTransaction: async (tx) => signTransaction(tx)
-          });
+          // Get the ABI and selected function
+          const abi = useIdeStore.getState().abi;
+          const selectedNetwork = useIdeStore.getState().selectedNetwork || 'localnet';
+          const networkConfig = NETWORKS[selectedNetwork];
 
-          const result = await client.execute(
-            deployment.scriptAccount,
-            selectedFunctionIndex,
-            encodedParams
-          );
+          if (abi && abi.functions) {
+            // Use FiveProgram for execution (preferred path)
+            const functionList = Array.isArray(abi.functions) ? abi.functions : Object.values(abi.functions);
+            const selectedFunc = functionList.find((f: any) => f.index === selectedFunctionIndex);
 
-          if (result.success) {
+            if (!selectedFunc) {
+              appendLog(`Function with index ${selectedFunctionIndex} not found in ABI`, "error");
+              setIsExecuting(false);
+              return;
+            }
+
+            appendLog(`Using FiveProgram to execute '${selectedFunc.name}'...`, "info");
+
+            // Build accounts map from executionAccounts array
+            const accountsMap: Record<string, string> = {};
+            const accountParams = (selectedFunc.parameters || []).filter((p: any) => p.is_account);
+            accountParams.forEach((param: any, idx: number) => {
+              if (executionAccounts[idx]) {
+                accountsMap[param.name] = executionAccounts[idx];
+              }
+            });
+
+            // Build args map from executionParams array
+            const argsMap: Record<string, any> = {};
+            const dataParams = (selectedFunc.parameters || []).filter((p: any) => !p.is_account);
+            dataParams.forEach((param: any, idx: number) => {
+              if (executionParams[idx] !== undefined) {
+                argsMap[param.name] = executionParams[idx];
+              }
+            });
+
+            // Build instruction using FiveProgram
+            const { instruction } = await buildExecuteInstruction({
+              network: selectedNetwork,
+              scriptAccount: deployment.scriptAccount,
+              abi: abi,
+              functionName: selectedFunc.name,
+              accounts: accountsMap,
+              args: argsMap,
+              debug: true
+            });
+
+            // Create and send transaction
+            const { Transaction } = await import('@solana/web3.js');
+            const deployConnection = new Connection(networkConfig.rpcUrl, 'confirmed');
+
+            const transaction = new Transaction();
+            transaction.add(instruction);
+            transaction.feePayer = publicKey;
+
+            const latestBlockhash = await deployConnection.getLatestBlockhash();
+            transaction.recentBlockhash = latestBlockhash.blockhash;
+
+            let signature: string;
+            if (signTransaction) {
+              try {
+                const signedTx = await signTransaction(transaction);
+                signature = await deployConnection.sendRawTransaction(signedTx.serialize(), {
+                  skipPreflight: true
+                });
+              } catch (err: any) {
+                if (err.toString().includes("signTransaction is not a function") && sendTransaction) {
+                  console.warn("signTransaction failed, falling back to sendTransaction");
+                  signature = await sendTransaction(transaction, deployConnection);
+                } else {
+                  throw err;
+                }
+              }
+            } else if (sendTransaction) {
+              signature = await sendTransaction(transaction, deployConnection);
+            } else {
+              throw new Error("Wallet does not support signing or sending transactions");
+            }
+
+            await deployConnection.confirmTransaction(signature, 'confirmed');
+
             appendLog(`On-Chain Execution Successful!`, "success");
-            appendLog(`Tx: ${result.transactionId}`, "success");
+            appendLog(`Tx: ${signature}`, "success");
+
           } else {
-            appendLog(`On-Chain Execution Failed: ${result.error}`, "error");
-            if (result.logs && result.logs.length > 0) {
-              result.logs.forEach(l => appendLog(`${l}`, "info"));
+            // Fallback to OnChainClient if no ABI (legacy path)
+            appendLog(`No ABI available, using legacy execution...`, "warning");
+
+            const client = new OnChainClient(connection, {
+              publicKey,
+              signTransaction,
+              sendTransaction
+            });
+
+            const result = await client.execute(
+              deployment.scriptAccount,
+              selectedFunctionIndex,
+              encodedParams
+            );
+
+            if (result.success) {
+              appendLog(`On-Chain Execution Successful!`, "success");
+              appendLog(`Tx: ${result.transactionId}`, "success");
+            } else {
+              appendLog(`On-Chain Execution Failed: ${result.error}`, "error");
+              if (result.logs && result.logs.length > 0) {
+                result.logs.forEach(l => appendLog(`${l}`, "info"));
+              }
             }
           }
 

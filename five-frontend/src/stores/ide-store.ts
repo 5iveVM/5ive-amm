@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { parse as parseToml } from '@iarna/toml';
+import type { NetworkType } from '@/lib/network-config';
 
 const MAX_PERSISTED_FILE_BYTES = 200 * 1024;
 
@@ -97,6 +98,7 @@ interface IdeState {
     onChainLogs: string[];
     contractAddress: string | null; // Currently selected contract for execution
     rpcEndpoint: string;
+    selectedNetwork: NetworkType; // localnet or devnet
 
     // Cost State
     estimatedCost: number | null;
@@ -157,6 +159,7 @@ interface IdeState {
     appendOnChainLog: (log: string) => void;
     setContractAddress: (address: string | null) => void;
     setRpcEndpoint: (endpoint: string) => void;
+    setSelectedNetwork: (network: NetworkType) => void;
     resetProject: (initialFiles?: Record<string, string>, initialActive?: string) => void;
 }
 
@@ -237,6 +240,7 @@ export const useIdeStore = create<IdeState>()(
             onChainLogs: [],
             contractAddress: null,
             rpcEndpoint: 'http://127.0.0.1:8899', // Default to Localnet
+            selectedNetwork: 'localnet' as NetworkType,
 
             // Execution state
             selectedFunctionIndex: 0,
@@ -259,6 +263,7 @@ export const useIdeStore = create<IdeState>()(
 
             // Action Implementations
             setRpcEndpoint: (endpoint: string) => set({ rpcEndpoint: endpoint }),
+            setSelectedNetwork: (network: NetworkType) => set({ selectedNetwork: network }),
 
 
             setCode: (code) => set((state) => ({

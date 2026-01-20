@@ -14,13 +14,13 @@ import { randomBytes } from 'crypto';
  */
 export class PDAUtils {
   private static readonly PDA_MARKER = Buffer.from('ProgramDerivedAddress');
-  
+
   /**
    * Derive script account using seed-based derivation compatible with SystemProgram.createAccountWithSeed
    */
   static async deriveScriptAccount(
     bytecode: Uint8Array,
-    programId: string = 'J99pDwVh1PqcxyBGKRvPKk8MUvW8V8KF6TmVEavKnzaF' // Five VM Program ID
+    programId: string = '2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN' // Five VM Program ID
   ): Promise<{
     address: string;
     bump: number;
@@ -29,15 +29,15 @@ export class PDAUtils {
     try {
       // Use a simple seed for compatibility with createAccountWithSeed
       const seed = 'script';
-      
+
       // For seed-based account creation, we need to use PublicKey.createWithSeed approach
       // This matches what SystemProgram.createAccountWithSeed expects
       const crypto = await import('crypto');
-      
+
       // Simulate Solana's createWithSeed logic
       // address = base58(sha256(base_pubkey + seed + program_id))
       // For now, use a simplified approach - we'll need the actual deployer's pubkey
-      
+
       // Return seed-based result that's compatible with System Program
       return {
         address: 'EaHahm4bQSg6jkSqQWHZ15LZypaGF9z9Aj5YMiawQwCp', // Temporarily use the expected address from error
@@ -58,21 +58,21 @@ export class PDAUtils {
   ): Promise<{ address: string; bump: number }> {
     const crypto = await import('crypto');
     const programIdBytes = Base58Utils.decode(programId);
-    
+
     // Try bump values from 255 down to 1
     for (let bump = 255; bump >= 1; bump--) {
       const seedsWithBump = [...seeds, Buffer.from([bump])];
-      
+
       // Create the hash input
       let hashInput = Buffer.alloc(0);
       for (const seed of seedsWithBump) {
         hashInput = Buffer.concat([hashInput, seed]);
       }
       hashInput = Buffer.concat([hashInput, Buffer.from(programIdBytes), this.PDA_MARKER]);
-      
+
       // Hash and check if it's on curve (simplified check)
       const hash = crypto.createHash('sha256').update(hashInput).digest();
-      
+
       // Basic curve check (simplified - real Solana checks ed25519 curve)
       if (this.isOffCurve(hash)) {
         return {
@@ -81,10 +81,10 @@ export class PDAUtils {
         };
       }
     }
-    
+
     throw new Error('Unable to find valid program address');
   }
-  
+
   /**
    * Check if hash is off the Ed25519 curve (valid PDA)
    */
@@ -115,7 +115,7 @@ export class PDAUtils {
         [Buffer.from(scriptAccountBytes), Buffer.from('metadata', 'utf8')],
         programId
       );
-      
+
       return result;
     } catch (error) {
       throw new Error(`Failed to derive metadata account PDA: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -136,7 +136,7 @@ export class PDAUtils {
     try {
       const userBytes = Base58Utils.decode(userPublicKey);
       const scriptBytes = Base58Utils.decode(scriptAccount);
-      
+
       const result = await this.findProgramAddress(
         [
           Buffer.from(userBytes),
@@ -145,7 +145,7 @@ export class PDAUtils {
         ],
         programId
       );
-      
+
       return result;
     } catch (error) {
       throw new Error(`Failed to derive user state account PDA: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -157,7 +157,7 @@ export class PDAUtils {
    * TODO: Fix PDA derivation algorithm to match Solana exactly
    */
   static async deriveVMStatePDA(
-    programId: string = '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH' // Default to current localnet program id
+    programId: string = '2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN' // Default to current localnet program id
   ): Promise<{
     address: string;
     bump: number;
@@ -317,11 +317,11 @@ export class RentCalculator {
   static async calculateMinimumBalance(accountSize: number): Promise<number> {
     // Account header size (32 bytes for owner + 8 bytes for lamports + other metadata)
     const totalSize = accountSize + 128; // Account overhead
-    
+
     // Calculate rent exemption (simplified calculation)
     const rentPerYear = totalSize * this.RENT_PER_BYTE_YEAR;
     const rentExemption = Math.ceil((rentPerYear * this.RENT_EXEMPTION_THRESHOLD) / (365 * 24 * 60 * 60));
-    
+
     return rentExemption;
   }
 
@@ -339,11 +339,11 @@ export class RentCalculator {
   static calculateRentExemption(accountSize: number): number {
     // Account header size (32 bytes for owner + 8 bytes for lamports + other metadata)
     const totalSize = accountSize + 128; // Account overhead
-    
+
     // Calculate rent exemption (simplified calculation)
     const rentPerYear = totalSize * this.RENT_PER_BYTE_YEAR;
     const rentExemption = Math.ceil((rentPerYear * this.RENT_EXEMPTION_THRESHOLD) / (365 * 24 * 60 * 60));
-    
+
     return rentExemption;
   }
 
@@ -354,7 +354,7 @@ export class RentCalculator {
     // Script account includes: bytecode + metadata + ABI info
     const metadataSize = 256; // Estimated metadata size
     const totalAccountSize = bytecodeSize + metadataSize;
-    
+
     return this.calculateRentExemption(totalAccountSize);
   }
 
@@ -417,7 +417,7 @@ export class HashUtils {
   static async createSeed(inputs: (string | Uint8Array)[]): Promise<Uint8Array> {
     const crypto = await import('crypto');
     const hash = crypto.createHash('sha256');
-    
+
     for (const input of inputs) {
       if (typeof input === 'string') {
         hash.update(Buffer.from(input, 'utf8'));
@@ -425,7 +425,7 @@ export class HashUtils {
         hash.update(input);
       }
     }
-    
+
     return new Uint8Array(hash.digest());
   }
 
@@ -506,7 +506,7 @@ export class AccountValidator {
   } {
     const addressValidation = this.validateAddress(programId);
     if (!addressValidation.valid) {
-      return { 
+      return {
         isValid: false,
         error: addressValidation.errors[0] || 'Invalid program ID'
       };
@@ -514,7 +514,7 @@ export class AccountValidator {
 
     // Additional program ID validation could go here
     // (e.g., checking if it's a known program)
-    
+
     return { isValid: true };
   }
 

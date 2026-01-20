@@ -16,7 +16,8 @@ if (typeof window !== "undefined") {
     }
 }
 
-export const FIVE_VM_PROGRAM_ID = new PublicKey('J99pDwVh1PqcxyBGKRvPKk8MUvW8V8KF6TmVEavKnzaF'); // Default localnet program ID
+export const DEFAULT_PROGRAM_ID = '2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN'; // Default localnet program ID
+export const FIVE_VM_PROGRAM_ID = new PublicKey(DEFAULT_PROGRAM_ID);
 
 export interface DeploymentResult {
     success: boolean;
@@ -36,14 +37,27 @@ export interface ExecutionResult {
 
 export class OnChainClient {
     private connection: Connection;
-    private wallet: { publicKey: PublicKey; signTransaction: (tx: Transaction) => Promise<Transaction> } | Keypair;
+    private wallet: {
+        publicKey: PublicKey;
+        signTransaction?: (tx: Transaction) => Promise<Transaction>;
+        sendTransaction?: (tx: Transaction, connection: Connection) => Promise<string>;
+    } | Keypair;
+    private programId: PublicKey;
 
     constructor(
         connection: Connection,
-        wallet: { publicKey: PublicKey; signTransaction: (tx: Transaction) => Promise<Transaction> } | Keypair
+        wallet: {
+            publicKey: PublicKey;
+            signTransaction?: (tx: Transaction) => Promise<Transaction>;
+            sendTransaction?: (tx: Transaction, connection: Connection) => Promise<string>;
+        } | Keypair,
+        programId?: string | PublicKey
     ) {
         this.connection = connection;
         this.wallet = wallet;
+        this.programId = programId
+            ? (typeof programId === 'string' ? new PublicKey(programId) : programId)
+            : FIVE_VM_PROGRAM_ID;
     }
 
     /**
@@ -174,7 +188,7 @@ export class OnChainClient {
             const scriptPubkey = await PublicKey.createWithSeed(
                 deployerPubkey,
                 seed,
-                FIVE_VM_PROGRAM_ID
+                this.programId
             );
 
             console.log(`Derived Script Account: ${scriptPubkey.toBase58()} (seed: ${seed})`);
@@ -182,7 +196,7 @@ export class OnChainClient {
             // 2. Derive VM State PDA
             const [vmStatePDA] = await PublicKey.findProgramAddress(
                 [Buffer.from("vm_state", "utf8")],
-                FIVE_VM_PROGRAM_ID
+                this.programId
             );
             console.log(`VM State PDA: ${vmStatePDA.toBase58()}`);
 
@@ -207,7 +221,7 @@ export class OnChainClient {
                         seed: seed,
                         lamports: rentExemption,
                         space: space,
-                        programId: FIVE_VM_PROGRAM_ID
+                        programId: this.programId
                     })
                 );
 
@@ -228,7 +242,7 @@ export class OnChainClient {
 
                 const deployInstruction = new TransactionInstruction({
                     keys,
-                    programId: FIVE_VM_PROGRAM_ID,
+                    programId: this.programId,
                     data: Buffer.from(deployData)
                 });
 
@@ -262,7 +276,7 @@ export class OnChainClient {
                         seed: seed,
                         lamports: rentExemption,
                         space: space,
-                        programId: FIVE_VM_PROGRAM_ID
+                        programId: this.programId
                     })
                 );
 
@@ -281,7 +295,7 @@ export class OnChainClient {
 
                 const initInstruction = new TransactionInstruction({
                     keys: initKeys,
-                    programId: FIVE_VM_PROGRAM_ID,
+                    programId: this.programId,
                     data: Buffer.from(initData)
                 });
                 initTransaction.add(initInstruction);
@@ -313,7 +327,7 @@ export class OnChainClient {
 
                     const appendInstruction = new TransactionInstruction({
                         keys: appendKeys,
-                        programId: FIVE_VM_PROGRAM_ID,
+                        programId: this.programId,
                         data: Buffer.from(appendData)
                     });
                     chunkTransaction.add(appendInstruction);
@@ -336,10 +350,27 @@ export class OnChainClient {
 
         } catch (err: any) {
             console.error("Deployment failed:", err);
+
+            let errorMsg = "";
+            let logs: string[] = err.logs || [];
+
+            if (err instanceof Error) {
+                errorMsg = err.message;
+            } else if (typeof err === "string") {
+                errorMsg = err;
+            } else {
+                try {
+                    const json = JSON.stringify(err);
+                    errorMsg = json === "{}" ? String(err) : json;
+                } catch {
+                    errorMsg = String(err);
+                }
+            }
+
             return {
                 success: false,
-                error: err.toString(),
-                logs: [err.toString()]
+                error: errorMsg,
+                logs: logs.length > 0 ? logs : [errorMsg]
             };
         }
     }
@@ -359,10 +390,30 @@ export class OnChainClient {
             const latestBlockhash = await this.connection.getLatestBlockhash();
             transaction.recentBlockhash = latestBlockhash.blockhash;
 
-            const signedTx = await this.wallet.signTransaction(transaction);
-            const signature = await this.connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
-            await this.connection.confirmTransaction(signature, 'confirmed');
-            return signature;
+            // Prefer signTransaction + sendRawTransaction for more control (e.g. chunked deploy confirmation)
+            if (this.wallet.signTransaction) {
+                try {
+                    const signedTx = await this.wallet.signTransaction(transaction);
+                    const signature = await this.connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
+                    const confirmation = await this.connection.confirmTransaction(signature, 'confirmed');
+                    if (confirmation.value.err) {
+                        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+                    }
+                    return signature;
+                } catch (err: any) {
+                    // If signTransaction fails specifically with "not a function" (standard wallet issue), fallback
+                    if (err.toString().includes("signTransaction is not a function") && this.wallet.sendTransaction) {
+                        console.warn("signTransaction failed, falling back to sendTransaction");
+                        return await this.wallet.sendTransaction(transaction, this.connection);
+                    }
+                    throw err;
+                }
+            } else if (this.wallet.sendTransaction) {
+                // Fallback to sendTransaction (common for Standard Wallets)
+                return await this.wallet.sendTransaction(transaction, this.connection);
+            } else {
+                throw new Error("Wallet adapter does not support signTransaction or sendTransaction");
+            }
         }
     }
 
@@ -381,7 +432,7 @@ export class OnChainClient {
             // 1. Derive VM State PDA
             const [vmStatePDA] = await PublicKey.findProgramAddress(
                 [Buffer.from("vm_state", "utf8")],
-                FIVE_VM_PROGRAM_ID
+                this.programId
             );
 
             // 2. Build Transaction
@@ -410,7 +461,7 @@ export class OnChainClient {
 
             const executeInstruction = new TransactionInstruction({
                 keys,
-                programId: FIVE_VM_PROGRAM_ID,
+                programId: this.programId,
                 data: Buffer.from(executeData)
             });
 
@@ -435,8 +486,23 @@ export class OnChainClient {
                 const latestBlockhash = await this.connection.getLatestBlockhash();
                 transaction.recentBlockhash = latestBlockhash.blockhash;
 
-                const signedTx = await this.wallet.signTransaction(transaction);
-                signature = await this.connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
+                if (this.wallet.signTransaction) {
+                    try {
+                        const signedTx = await this.wallet.signTransaction(transaction);
+                        signature = await this.connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
+                    } catch (err: any) {
+                        if (err.toString().includes("signTransaction is not a function") && this.wallet.sendTransaction) {
+                            signature = await this.wallet.sendTransaction(transaction, this.connection);
+                        } else {
+                            throw err;
+                        }
+                    }
+                } else if (this.wallet.sendTransaction) {
+                    signature = await this.wallet.sendTransaction(transaction, this.connection);
+                } else {
+                    throw new Error("Wallet adapter does not support signTransaction or sendTransaction");
+                }
+
                 // We confirm with 'confirmed' to wait for logs
                 const confirmation = await this.connection.confirmTransaction(signature, 'confirmed');
                 if (confirmation.value.err) {
@@ -460,12 +526,25 @@ export class OnChainClient {
             console.error("Execution failed:", err);
 
             // Try to extract logs if it's a simulation error
-            let logs: string[] = [];
-            if (err.logs) logs = err.logs;
+            let logs: string[] = err.logs || [];
+
+            let errorMsg = "";
+            if (err instanceof Error) {
+                errorMsg = err.message;
+            } else if (typeof err === "string") {
+                errorMsg = err;
+            } else {
+                try {
+                    const json = JSON.stringify(err);
+                    errorMsg = json === "{}" ? String(err) : json;
+                } catch {
+                    errorMsg = String(err);
+                }
+            }
 
             return {
                 success: false,
-                error: err.toString(),
+                error: errorMsg,
                 logs
             };
         }

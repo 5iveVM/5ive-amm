@@ -13,7 +13,7 @@ export class PDAUtils {
     /**
      * Derive script account using seed-based derivation compatible with SystemProgram.createAccountWithSeed
      */
-    static async deriveScriptAccount(bytecode, programId = 'J99pDwVh1PqcxyBGKRvPKk8MUvW8V8KF6TmVEavKnzaF' // Five VM Program ID
+    static async deriveScriptAccount(bytecode, programId = '2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN' // Five VM Program ID
     ) {
         try {
             // Use a simple seed for compatibility with createAccountWithSeed
@@ -107,7 +107,7 @@ export class PDAUtils {
      * Derive VM state PDA - temporarily use known correct address
      * TODO: Fix PDA derivation algorithm to match Solana exactly
      */
-    static async deriveVMStatePDA(programId = '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH' // Default to current localnet program id
+    static async deriveVMStatePDA(programId = '2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN' // Default to current localnet program id
     ) {
         try {
             // Use algorithmic derivation; no hardcoded PDA

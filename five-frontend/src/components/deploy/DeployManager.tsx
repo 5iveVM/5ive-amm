@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { Connection } from "@solana/web3.js";
 import { useIdeStore } from "@/stores/ide-store";
 import { OnChainClient } from "@/lib/onchain-client";
+import { NETWORKS, type NetworkType, getExplorerUrl } from "@/lib/network-config";
 import { GlassCard, GlassHeader } from "@/components/ui/glass-card";
-import { Rocket, Loader2, CheckCircle, XCircle, AlertCircle, Copy, Globe, Coins } from "lucide-react";
+import { Rocket, Loader2, CheckCircle, XCircle, AlertCircle, Copy, Globe, Coins, ChevronDown } from "lucide-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 export default function DeployManager() {
     const { connection } = useConnection();
-    const { publicKey, signTransaction } = useWallet();
+    const { publicKey, signTransaction, sendTransaction } = useWallet();
     const {
         bytecode,
         abi,
@@ -24,7 +26,9 @@ export default function DeployManager() {
         estimatedRent,
         estimatedDeployFee,
         deployFeeBps,
-        solPrice
+        solPrice,
+        selectedNetwork,
+        setSelectedNetwork
     } = useIdeStore();
 
     const [isDeploying, setIsDeploying] = useState(false);
@@ -35,7 +39,7 @@ export default function DeployManager() {
     const handleDeploy = async () => {
         if (!bytecode) return;
 
-        if (!publicKey || !signTransaction) {
+        if (!publicKey) {
             setError("Please connect your wallet to deploy.");
             return;
         }
@@ -43,22 +47,25 @@ export default function DeployManager() {
         setIsDeploying(true);
         setError(null);
         setDeploymentResult(null);
-        appendLog("Preparing to deploy to Localnet...", "info");
+        const networkConfig = NETWORKS[selectedNetwork];
+        appendLog(`Preparing to deploy to ${networkConfig.name}...`, "info");
 
         try {
+            // Create connection for the selected network
+            const deployConnection = new Connection(networkConfig.rpcUrl, 'confirmed');
+
             // Check balance first
-            const balance = await connection.getBalance(publicKey);
+            const balance = await deployConnection.getBalance(publicKey);
             if (balance < 0.05 * LAMPORTS_PER_SOL) {
                 throw new Error("Insufficient funds. You need at least 0.05 SOL to deploy.");
             }
 
-            // Initialize OnChainClient
-            const client = new OnChainClient(connection, {
+            // Initialize OnChainClient with network-specific programId and both signing/sending methods
+            const client = new OnChainClient(deployConnection, {
                 publicKey,
-                signTransaction: async (tx) => {
-                    return await signTransaction(tx);
-                }
-            });
+                signTransaction,
+                sendTransaction
+            }, networkConfig.programId);
 
             // Execute deployment
             const result = await client.deploy(bytecode);
@@ -83,9 +90,23 @@ export default function DeployManager() {
                 transactionId: result.transactionId
             });
 
-        } catch (err) {
-            console.error(err);
-            const errorMessage = err instanceof Error ? err.message : "Deployment error";
+        } catch (err: any) {
+            console.error("DeployManager Error:", err);
+            let errorMessage = "Deployment error";
+
+            if (err instanceof Error) {
+                errorMessage = err.message;
+            } else if (typeof err === "string") {
+                errorMessage = err;
+            } else {
+                try {
+                    const json = JSON.stringify(err);
+                    errorMessage = json === "{}" ? String(err) : json;
+                } catch {
+                    errorMessage = String(err);
+                }
+            }
+
             setError(errorMessage);
             appendLog(`Deployment failed: ${errorMessage}`, "error");
         } finally {
@@ -121,53 +142,29 @@ export default function DeployManager() {
             <div className="p-5 space-y-6 overflow-y-auto custom-scrollbar flex-1">
                 {/* Deployment Controls */}
                 <div className="space-y-4">
-                    {/* Target Network Configuration */}
+                    {/* Network Selector */}
                     <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                            <label className="text-[10px] uppercase tracking-wider text-rose-pine-muted font-bold flex items-center gap-1.5 opacity-80">
-                                <Globe size={12} className="text-rose-pine-iris" />
-                                Target Network
-                            </label>
-                            <button
-                                onClick={() => setIsEditingRpc(!isEditingRpc)}
-                                className="text-[10px] text-rose-pine-subtle hover:text-rose-pine-text transition-colors px-2 py-0.5 hover:bg-white/5 rounded-full border border-transparent hover:border-white/5"
+                        <label className="text-[10px] uppercase tracking-wider text-rose-pine-muted font-bold flex items-center gap-1.5 opacity-80">
+                            <Globe size={12} className="text-rose-pine-iris" />
+                            Target Network
+                        </label>
+
+                        <div className="relative">
+                            <select
+                                value={selectedNetwork}
+                                onChange={(e) => setSelectedNetwork(e.target.value as NetworkType)}
+                                className="w-full appearance-none bg-rose-pine-surface/50 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-rose-pine-text focus:outline-none focus:border-rose-pine-iris/50 focus:ring-1 focus:ring-rose-pine-iris/20 transition-all cursor-pointer pr-8"
                             >
-                                {isEditingRpc ? "Done" : "Change"}
-                            </button>
+                                <option value="localnet">🟢 Localnet (127.0.0.1:8899)</option>
+                                <option value="devnet">🟡 Devnet (api.devnet.solana.com)</option>
+                            </select>
+                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-pine-subtle pointer-events-none" />
                         </div>
 
-                        {isEditingRpc ? (
-                            <div className="relative group animate-in fade-in zoom-in-95 duration-200">
-                                <input
-                                    type="text"
-                                    value={rpcEndpoint}
-                                    onChange={(e) => setRpcEndpoint(e.target.value)}
-                                    className="w-full bg-rose-pine-surface/50 border border-white/10 rounded-lg px-3 py-2 text-xs text-rose-pine-text focus:outline-none focus:border-rose-pine-iris/50 focus:ring-1 focus:ring-rose-pine-iris/20 font-mono transition-all shadow-inner"
-                                    placeholder="Enter RPC URL..."
-                                    autoFocus
-                                />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${rpcEndpoint.includes('localhost') || rpcEndpoint.includes('127.0.0.1') ? 'bg-emerald-400' : 'bg-rose-pine-gold'} animate-pulse`} />
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-black/20 border border-white/5 hover:border-rose-pine-iris/30 transition-all group cursor-default">
-                                <div className="relative">
-                                    <div className={`w-2 h-2 rounded-full ${rpcEndpoint.includes('localhost') || rpcEndpoint.includes('127.0.0.1') ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)]' : 'bg-rose-pine-gold shadow-[0_0_8px_rgba(246,193,119,0.4)]'} shrink-0 relative z-10`} />
-                                    <div className={`absolute inset-0 rounded-full ${rpcEndpoint.includes('localhost') || rpcEndpoint.includes('127.0.0.1') ? 'bg-emerald-400' : 'bg-rose-pine-gold'} blur-md opacity-20 group-hover:opacity-40 transition-opacity`} />
-                                </div>
-
-                                <span className="text-xs font-mono text-rose-pine-subtle truncate flex-1 tracking-tight">
-                                    {rpcEndpoint}
-                                </span>
-
-                                {rpcEndpoint.includes('localhost') || rpcEndpoint.includes('127.0.0.1') ? (
-                                    <span className="text-[10px] bg-emerald-500/5 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/10 font-medium">Localnet</span>
-                                ) : (
-                                    <span className="text-[10px] bg-rose-pine-gold/5 text-rose-pine-gold px-1.5 py-0.5 rounded border border-rose-pine-gold/10 font-medium">Custom</span>
-                                )}
-                            </div>
-                        )}
+                        <div className="flex items-center gap-2 text-[10px] text-rose-pine-muted">
+                            <div className={`w-1.5 h-1.5 rounded-full ${selectedNetwork === 'localnet' ? 'bg-emerald-400' : 'bg-rose-pine-gold'} animate-pulse`} />
+                            <span className="font-mono">{NETWORKS[selectedNetwork].rpcUrl}</span>
+                        </div>
                     </div>
 
                     {/* Cost Estimation */}
