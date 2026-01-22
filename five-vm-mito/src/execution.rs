@@ -160,17 +160,10 @@ impl MitoVM {
                 break;
             }
 
-            let opcode = match ctx.fetch_byte() {
-                Ok(op) => op,
-                Err(e) => {
-                    debug_log!(
-                        "MitoVM: Error fetching opcode at IP {}",
-                        current_ip as u32
-                    );
-                    return Err(e);
-                }
-            };
-            
+            // SAFETY: Bounds checked above (current_ip >= script_len)
+            let opcode = unsafe { *ctx.bytecode.get_unchecked(current_ip) };
+            ctx.pc += 1;
+
             /*
             #[cfg(feature = "trace-execution")]
             {
@@ -198,7 +191,7 @@ impl MitoVM {
 
             // Dispatch opcode to appropriate handler
             // 🎯 OPTIMIZATION: Flattened dispatch for better BPF performance
-            // The compiler will inline the handlers (due to #[inline(always)])
+            // The compiler will inline the handlers (due to #[inline(never)])
             // and optimize this match into a single jump table or efficient tree,
             // eliminating the double-dispatch overhead.
             let result = match opcode {
@@ -312,6 +305,22 @@ impl MitoVM {
                 CHECK_CACHED => handle_constraints(CHECK_CACHED, ctx),
                 CHECK_COMPLEXITY_GROUP => handle_constraints(CHECK_COMPLEXITY_GROUP, ctx),
                 CHECK_DEDUPE_MASK => handle_constraints(CHECK_DEDUPE_MASK, ctx),
+                REQUIRE_OWNER => handle_constraints(REQUIRE_OWNER, ctx),
+
+                // System Operations (0x80-0x8F)
+                // Universal Fused Operations (0xC0-0xCF)
+                REQUIRE_GTE_U64 => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_GTE_U64, ctx),
+                REQUIRE_NOT_BOOL => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_NOT_BOOL, ctx),
+                FIELD_ADD_PARAM => crate::handlers::fused_ops::handle_fused_ops(FIELD_ADD_PARAM, ctx),
+                FIELD_SUB_PARAM => crate::handlers::fused_ops::handle_fused_ops(FIELD_SUB_PARAM, ctx),
+                REQUIRE_PARAM_GT_ZERO => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_PARAM_GT_ZERO, ctx),
+                REQUIRE_EQ_PUBKEY => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_EQ_PUBKEY, ctx),
+                CHECK_SIGNER_WRITABLE => crate::handlers::fused_ops::handle_fused_ops(CHECK_SIGNER_WRITABLE, ctx),
+                // Tier 3 fused opcodes (0xC7-0xCA)
+                STORE_PARAM_TO_FIELD => crate::handlers::fused_ops::handle_fused_ops(STORE_PARAM_TO_FIELD, ctx),
+                STORE_FIELD_ZERO => crate::handlers::fused_ops::handle_fused_ops(STORE_FIELD_ZERO, ctx),
+                STORE_KEY_TO_FIELD => crate::handlers::fused_ops::handle_fused_ops(STORE_KEY_TO_FIELD, ctx),
+                REQUIRE_EQ_FIELDS => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_EQ_FIELDS, ctx),
 
                 // System Operations (0x80-0x8F)
                 INVOKE => handle_system_ops(INVOKE, ctx),
@@ -445,7 +454,7 @@ impl MitoVM {
     /// Convert ValueRef (zero-copy reference) to concrete Value using current execution state.
     /// Handles complex references like TempRef, OptionalRef, and AccountRef.
     #[allow(dead_code)]
-    #[inline(always)]
+    #[inline(never)]
     pub fn resolve_value_ref(value_ref: &ValueRef, ctx: &ExecutionManager<'_>) -> CompactResult<Value> {
         // Delegate to resolution module
         crate::resolution::resolve_value_ref(value_ref, ctx)
@@ -479,18 +488,16 @@ impl MitoVM {
     /// # Ok::<(), five_vm_mito::VMError>(())
     /// ```
     #[inline(never)]
-    pub fn execute_direct(
-        script: &[u8],
-        input_data: &[u8],
-        accounts: &[AccountInfo],
+    pub fn execute_direct<'a>(
+        script: &'a [u8],
+        input_data: &'a [u8],
+        accounts: &'a [AccountInfo],
         program_id: &Pubkey,
+        storage: &'a mut crate::stack::StackStorage<'a>,
     ) -> Result<Option<Value>> {
-        // Allocate storage on HEAP using optimized initialization (no stack copy)
-        // This solves both the Stack Overflow (by using heap) and the 5k CU regression (by avoiding memcpy)
-        let mut storage = crate::stack::StackStorage::new_on_heap(script);
-        
+        // Use provided storage buffer (caller controlled allocation)
         let (mut ctx, _dispatch_ip) =
-            Self::initialize_execution_context(script, input_data, accounts, program_id, &mut storage)?;
+            Self::initialize_execution_context(script, input_data, accounts, program_id, storage)?;
         let execution_result = Self::execute_instruction_loop(&mut ctx);
         match execution_result {
             Ok(()) => {

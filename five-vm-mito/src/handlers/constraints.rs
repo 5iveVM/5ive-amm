@@ -130,6 +130,38 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             })?;
         }
 
+        // ===== FUSED CONSTRAINT OPERATIONS (0x7A+) =====
+        // REQUIRE_OWNER: Fused LOAD_FIELD_PUBKEY + GET_KEY + EQ + REQUIRE
+        // Encoding: REQUIRE_OWNER account_idx(u8) signer_idx(u8) offset(VLE)
+        // Saves ~400 CU per call by avoiding 4 separate opcode dispatches
+        REQUIRE_OWNER => {
+            let account_idx = ctx.fetch_byte()?;      // Account containing the owner field
+            let signer_idx = ctx.fetch_byte()?;       // Account to compare key against
+            let field_offset = ctx.fetch_vle_u16()?;  // Offset of pubkey field in account data
+
+            // Get the owner/authority field from account data
+            let account = ctx.get_account_for_read(account_idx)?;
+            let data = unsafe { account.borrow_data_unchecked() };
+            
+            if (field_offset as usize) + 32 > data.len() {
+                debug_log!("MitoVM: REQUIRE_OWNER failed - field offset out of bounds");
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            
+            let field_pubkey = &data[field_offset as usize..field_offset as usize + 32];
+
+            // Get the signer's key
+            let signer = ctx.get_account_for_read(signer_idx)?;
+            let signer_key = signer.key();
+
+            // Compare and require equal
+            if field_pubkey != signer_key.as_ref() {
+                debug_log!("MitoVM: REQUIRE_OWNER failed - pubkey mismatch");
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+            debug_log!("MitoVM: REQUIRE_OWNER passed for acc {} signer {}", account_idx, signer_idx);
+        }
+
         _ => {
             debug_log!("MitoVM: Unknown constraint opcode: {}", opcode);
             return Err(VMErrorCode::InvalidInstruction);

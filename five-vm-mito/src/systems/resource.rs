@@ -29,17 +29,21 @@ pub struct ResourceManager<'a> {
 
     /// Stack start address (approximate top of stack)
     stack_start: usize,
+    
+    /// Track if a chunk is static (borrowed) or dynamic (owned/alloc'd)
+    /// If static, we DO NOT dealloc it on drop.
+    chunk_is_static: [bool; 4],
 }
 
 impl<'a> ResourceManager<'a> {
-    /// Create a new ResourceManager and capture current stack pointer
+    /// Create a new ResourceManager with pre-allocated buffers
     #[inline(always)]
-    pub fn new(temp_buffer: &'a mut [u8]) -> Self {
+    pub fn new(temp_buffer: &'a mut [u8], heap_buffer: &'a mut [u8]) -> Self {
         // Capture stack start approximation using a local variable
         let local_var = 0u8;
         let stack_start = &local_var as *const u8 as usize;
 
-        Self {
+        let mut mgr = Self {
             temp_buffer,
             temp_pos: 0,
             total_heap_usage: 0,
@@ -47,7 +51,33 @@ impl<'a> ResourceManager<'a> {
             heap_chunk_count: 0,
             current_chunk: 0,
             stack_start,
+            chunk_is_static: [false; 4],
+        };
+        
+        // Initialize the first chunk with the provided static heap buffer
+        let len = heap_buffer.len();
+        if len > 0 {
+            mgr.heap_chunks[0] = (heap_buffer.as_mut_ptr(), len, 0);
+            mgr.heap_chunk_count = 1;
+            mgr.current_chunk = 0;
+            mgr.chunk_is_static[0] = true;
+            // Note: total_heap_usage tracks AVAILABLE heap space or ALLOCATED?
+            // Usually "usage" means what we used. But here we might mean "capacity"?
+            // Wait, heap_usage() usually returns total dynamic bytes.
+            // Let's assume total_heap_usage only tracks what we requested/used?
+            // Actually, alloc_heap_unsafe increases total_heap_usage by CHUNK size.
+            // So we should track this initial chunk as available capacity?
+            // The alloc_heap_unsafe logic increases total_heap_usage when allocating NEW chunks.
+            // So we should probably count this as part of our capacity, or just ignore it until used?
+            // The existing `alloc_heap_unsafe` logic checks: if used + size <= cap.
+            // So the capacity is there.
+            // We'll set total_heap_usage to valid initial capacity?
+            // No, total_heap_usage seems to track TOTAL ALLOCATED BYTES (allocated from system).
+            // Let's increment it to reflect we have this memory "allocated" (even if static).
+            mgr.total_heap_usage = len;
         }
+        
+        mgr
     }
 
     // --- Stack Tracking ---
@@ -208,6 +238,20 @@ impl<'a> ResourceManager<'a> {
                 let virtual_addr = ((self.current_chunk as u32) << 24) | (offset as u32);
                 return Ok(virtual_addr);
             }
+            
+            // Try other chunks if current one is full?
+            // Simple Linear Scan:
+            for i in 0..self.heap_chunk_count {
+                if i == self.current_chunk { continue; }
+                let (ptr, cap, used) = self.heap_chunks[i as usize];
+                if used + size <= cap {
+                    let offset = used;
+                    self.heap_chunks[i as usize].2 += size;
+                    self.current_chunk = i; // Switch active chunk
+                    let virtual_addr = ((i as u32) << 24) | (offset as u32);
+                    return Ok(virtual_addr);
+                }
+            }
         }
 
         // 2. Need new chunk
@@ -239,6 +283,8 @@ impl<'a> ResourceManager<'a> {
         self.heap_chunk_count += 1;
         self.total_heap_usage += new_chunk_size;
         self.current_chunk = chunk_index;
+        // Static? No, this is dynamic
+        self.chunk_is_static[chunk_index as usize] = false;
 
         let virtual_addr = ((chunk_index as u32) << 24) | 0; // Offset 0 in new chunk
         Ok(virtual_addr)
@@ -298,6 +344,11 @@ impl<'a> ResourceManager<'a> {
 impl<'a> Drop for ResourceManager<'a> {
     fn drop(&mut self) {
         for i in 0..self.heap_chunk_count as usize {
+            // Check if chunk is static (borrowed) - DO NOT FREE
+            if self.chunk_is_static[i] {
+                continue;
+            }
+            
             let (ptr, cap, _) = self.heap_chunks[i];
             if !ptr.is_null() && cap > 0 {
                 unsafe {
