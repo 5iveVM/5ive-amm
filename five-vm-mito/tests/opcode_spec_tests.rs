@@ -4,7 +4,12 @@
 //! It focuses on edge cases, stack effects, and specific bit-level behaviors.
 
 use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + 16);
@@ -75,7 +80,7 @@ fn test_spec_control_flow_jumps() {
         script.push(HALT);
     });
 
-    let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let result = execute_test(&bytecode, &[], &[]).unwrap();
     assert_eq!(result, Some(Value::U64(1)), "JUMP should skip instructions");
 }
 
@@ -107,7 +112,7 @@ fn test_spec_control_flow_jump_if() {
         script.push(HALT);
     });
 
-    let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let result = execute_test(&bytecode, &[], &[]).unwrap();
     assert_eq!(result, Some(Value::U64(42)), "JUMP_IF should jump on true");
 }
 
@@ -123,7 +128,7 @@ fn test_spec_bitwise_operations() {
          script.push(HALT);
     });
 
-    let result = MitoVM::execute_direct(&bytecode_xor, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let result = execute_test(&bytecode_xor, &[], &[]).unwrap();
     assert_eq!(result, Some(Value::U64(0xF0)), "0xFF ^ 0x0F should be 0xF0");
 }
 
@@ -138,7 +143,7 @@ fn test_spec_bitwise_shifts() {
         script.push(SHIFT_LEFT);
         script.push(HALT);
     });
-    let res_shl = MitoVM::execute_direct(&bc_shl, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res_shl = execute_test(&bc_shl, &[], &[]).unwrap();
     assert_eq!(res_shl, Some(Value::U64(16)), "1 << 4 should be 16");
 
     // 2. Logical Right Shift: 0xF0 >> 4 = 0x0F
@@ -148,7 +153,7 @@ fn test_spec_bitwise_shifts() {
         script.push(SHIFT_RIGHT);
         script.push(HALT);
     });
-    let res_shr = MitoVM::execute_direct(&bc_shr, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res_shr = execute_test(&bc_shr, &[], &[]).unwrap();
     assert_eq!(res_shr, Some(Value::U64(0x0F)), "0xF0 >> 4 should be 0x0F");
 
     // 3. Arithmetic Right Shift (on signed value)
@@ -170,7 +175,7 @@ fn test_spec_bitwise_shifts() {
         script.push(HALT);
     });
 
-    let res_sar = MitoVM::execute_direct(&bc_sar, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res_sar = execute_test(&bc_sar, &[], &[]).unwrap();
 
     if let Some(val) = res_sar {
          match val {
@@ -195,7 +200,7 @@ fn test_spec_stack_ops_complex() {
         script.push(OVER);
         script.push(HALT); // Top should be 10
     });
-    let res_over = MitoVM::execute_direct(&bc_over, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res_over = execute_test(&bc_over, &[], &[]).unwrap();
     assert_eq!(res_over, Some(Value::U64(10)), "OVER should copy 2nd item to top");
 
     // 2. ROT: a b c -> b c a
@@ -207,7 +212,7 @@ fn test_spec_stack_ops_complex() {
         script.push(ROT);
         script.push(HALT); // Top should be 1
     });
-    let res_rot = MitoVM::execute_direct(&bc_rot, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res_rot = execute_test(&bc_rot, &[], &[]).unwrap();
     assert_eq!(res_rot, Some(Value::U64(1)), "ROT should move 3rd item to top");
 
     // 3. PICK: Copy N-th item to top
@@ -225,7 +230,7 @@ fn test_spec_stack_ops_complex() {
         script.push(2);
         script.push(HALT);
     });
-    let res_pick = MitoVM::execute_direct(&bc_pick, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res_pick = execute_test(&bc_pick, &[], &[]).unwrap();
     // Stack: [10, 20, 30, 40]
     // PICK 2: 0->40, 1->30, 2->20
     assert_eq!(res_pick, Some(Value::U64(20)), "PICK 2 should duplicate value 20");
@@ -244,7 +249,7 @@ fn test_spec_nibble_ops() {
         script.push(ADD); // 3 + 3 = 6
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_nibble, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_nibble, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(6)), "Nibble PUSH ops should work correctly");
 }
 
@@ -259,6 +264,6 @@ fn test_spec_byte_swap() {
         script.push(BYTE_SWAP_16);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_swap16, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_swap16, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(0x3412)), "BYTE_SWAP_16 failed");
 }

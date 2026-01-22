@@ -5,7 +5,12 @@
 //! are the same runtime functions used by validators, proper parameter validation
 //! is what determines success.
 
-use five_vm_mito::{error::VMError, FIVE_VM_PROGRAM_ID, MitoVM};
+use five_vm_mito::{error::VMError, FIVE_VM_PROGRAM_ID, MitoVM, stack::StackStorage, AccountInfo, Value};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 
 #[cfg(test)]
 mod pda_parameter_validation_tests {
@@ -25,7 +30,7 @@ mod pda_parameter_validation_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Ok(_) => println!("✅ DERIVE_PDA with empty seeds handled correctly"),
@@ -61,7 +66,7 @@ mod pda_parameter_validation_tests {
         bytecode.push(0x86); // DERIVE_PDA
         bytecode.push(0x00); // HALT
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Ok(_) => println!("✅ DERIVE_PDA with max seeds (8) handled correctly"),
@@ -96,7 +101,7 @@ mod pda_parameter_validation_tests {
         bytecode.push(0x86); // DERIVE_PDA
         bytecode.push(0x00); // HALT
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Err(VMError::TooManySeeds) => {
@@ -130,7 +135,7 @@ mod pda_parameter_validation_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Ok(_) => println!("✅ FIND_PDA parameter structure validated correctly"),
@@ -156,7 +161,7 @@ mod cpi_parameter_validation_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Err(VMError::StackError) => {
@@ -183,7 +188,7 @@ mod cpi_parameter_validation_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Err(VMError::StackError) => {
@@ -210,7 +215,7 @@ mod cpi_parameter_validation_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Ok(_) => println!("✅ INVOKE basic parameter structure accepted"),
@@ -248,7 +253,7 @@ mod account_initialization_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Ok(_) => println!("✅ INIT_ACCOUNT parameter validation working"),
@@ -279,7 +284,7 @@ mod account_initialization_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Err(VMError::InvalidParameter) => {
@@ -326,7 +331,7 @@ mod account_initialization_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Ok(_) => println!("✅ INIT_PDA_ACCOUNT seed validation working"),
@@ -360,7 +365,7 @@ mod error_handling_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
 
         match result {
             Err(VMError::InvalidAccountIndex) => {
@@ -397,7 +402,7 @@ mod error_handling_tests {
                 0x00,   // HALT
             ];
 
-            let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+            let result = execute_test(&bytecode, &[], &[]);
 
             match result {
                 Ok(_) => println!("   ✅ {} (0x{:02X}) - Handler accessible", name, opcode),

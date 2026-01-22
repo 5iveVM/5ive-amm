@@ -70,7 +70,7 @@ pub fn safe_realloc(account: &AccountInfo, payer: &AccountInfo, new_size: usize)
 
 /// Instruction enum
 pub enum FIVEInstruction<'a> {
-    Initialize,
+    Initialize { bump: u8 },
     InitLargeProgram { expected_size: u32, chunk_data: Option<&'a [u8]> },
     AppendBytecode { data: &'a [u8] },
     SetFees { deploy_fee_bps: u32, execute_fee_bps: u32 },
@@ -95,7 +95,11 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
         match data[0] {
             0 => {
                 debug_log!("FIVEInstruction::try_from - Initialize instruction");
-                Ok(FIVEInstruction::Initialize)
+                if data.len() < 2 {
+                    debug_log!("FIVEInstruction::try_from - Initialize: data too short (no bump)");
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                Ok(FIVEInstruction::Initialize { bump: data[1] })
             }
             4 => {
                 debug_log!("FIVEInstruction::try_from - InitLargeProgram instruction");

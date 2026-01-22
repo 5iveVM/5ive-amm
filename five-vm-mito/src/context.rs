@@ -129,7 +129,7 @@ impl<'a> ExecutionContext<'a> {
             bytecode,
             pc: start_pc,
             stack: StackManager::new(&mut storage.stack, &mut storage.registers),
-            memory: ResourceManager::new(&mut storage.temp_buffer),
+            memory: ResourceManager::new(&mut storage.temp_buffer, &mut storage.heap_buffer),
             frame: FrameManager::new(&mut storage.call_stack, &mut storage.locals),
             accounts: AccountManager::new(accounts, program_id),
 

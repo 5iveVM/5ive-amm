@@ -375,6 +375,68 @@ pub fn parse_instruction(
                 }
             }
         }
+        ArgType::AccountFieldParam => {
+            // acc(u8) + offset(VLE) + param(u8)
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let acc = bytecode[offset + total_size] as u64;
+            total_size += 1;
+
+            let field_offset = match VLE::decode_u32(&bytecode[offset + total_size..]) {
+                Some((value, consumed)) => {
+                    total_size += consumed;
+                    value as u64
+                }
+                None => return Err(ParseError::InvalidVLE),
+            };
+
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let param = bytecode[offset + total_size] as u64;
+            total_size += 1;
+
+            // Pack args: arg1 = (acc << 32) | offset, arg2 = param
+            arg1 = (acc << 32) | field_offset;
+            arg2 = param;
+        }
+        ArgType::FusedAccAcc => {
+            // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let acc1 = bytecode[offset + total_size] as u64;
+            total_size += 1;
+
+            let off1 = match VLE::decode_u32(&bytecode[offset + total_size..]) {
+                Some((value, consumed)) => {
+                    total_size += consumed;
+                    value as u64
+                }
+                None => return Err(ParseError::InvalidVLE),
+            };
+
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let acc2 = bytecode[offset + total_size] as u64;
+            total_size += 1;
+
+            let off2 = match VLE::decode_u32(&bytecode[offset + total_size..]) {
+                Some((value, consumed)) => {
+                    total_size += consumed;
+                    value as u64
+                }
+                None => return Err(ParseError::InvalidVLE),
+            };
+            
+            // Pack into args for inspection if needed: 
+            // arg1 = (acc1 << 32) | off1
+            // arg2 = (acc2 << 32) | off2
+            arg1 = (acc1 << 32) | off1;
+            arg2 = (acc2 << 32) | off2;
+        }
     }
 
     // Check bounds

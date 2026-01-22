@@ -2,7 +2,7 @@ mod support;
 
 use five_protocol::opcodes::*;
 use five_protocol::{FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
 use support::script_builder::{FunctionVisibility, ScriptBuilder, ScriptBuilderError};
 
 #[test]
@@ -17,7 +17,8 @@ fn builder_patches_call_addresses() -> Result<(), ScriptBuilderError> {
         })?;
 
     let script = builder.build()?;
-    let result = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let mut storage = StackStorage::new(&script);
+    let result = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap();
     assert_eq!(result, Some(Value::U64(12)));
     Ok(())
 }

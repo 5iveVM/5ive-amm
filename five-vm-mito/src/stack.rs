@@ -20,6 +20,8 @@ pub struct StackStorage<'a> {
     pub registers: [ValueRef; 8],
     /// Temporary byte buffer
     pub temp_buffer: [u8; TEMP_BUFFER_SIZE],
+    /// Static heap buffer (avoids initial alloc)
+    pub heap_buffer: [u8; 1024],
 }
 
 impl<'a> StackStorage<'a> {
@@ -29,9 +31,10 @@ impl<'a> StackStorage<'a> {
         Self {
             stack: [ValueRef::Empty; STACK_SIZE],
             call_stack: [CallFrame::new(0, 0, 0, bytecode); MAX_CALL_DEPTH],
-            locals: [ValueRef::Empty; MAX_LOCALS],
+            locals: [core::mem::MaybeUninit::uninit(); MAX_LOCALS],
             registers: [ValueRef::Empty; 8],
             temp_buffer: [0; TEMP_BUFFER_SIZE],
+            heap_buffer: [0; 1024],
         }
     }
 
@@ -69,10 +72,9 @@ impl<'a> StackStorage<'a> {
                 storage.call_stack[i] = CallFrame::new(0, 0, 0, bytecode);
             }
             
-            // 3. Locals
-            for i in 0..MAX_LOCALS {
-                storage.locals[i] = ValueRef::Empty;
-            }
+            // 3. Locals - Skipped for Zero-Cost Initialization
+            // We use MaybeUninit, so we don't need to initialize them.
+            // The FrameManager tracks valid locals via local_count.
             
             // 4. Registers
             for i in 0..8 {
@@ -83,7 +85,55 @@ impl<'a> StackStorage<'a> {
             // Zero out temp buffer efficiently
             ptr::write_bytes(storage.temp_buffer.as_mut_ptr(), 0, TEMP_BUFFER_SIZE);
             
+            // 6. Heap Buffer
+            ptr::write_bytes(storage.heap_buffer.as_mut_ptr(), 0, 1024);
+
             Box::from_raw(ptr)
         }
+    }
+
+    /// Create a new initialized storage block at a specific memory location.
+    ///
+    /// This allows using a pre-allocated static buffer (static mut) to avoid
+    /// BOTH stack limit issues and heap allocation/syscall overhead.
+    ///
+    /// # Safety
+    /// Caller must ensure `ptr` points to a valid memory region of sufficient size
+    /// and alignment for `StackStorage`.
+    pub unsafe fn new_at_ptr(ptr: *mut u8, bytecode: &'a [u8]) -> &'a mut Self {
+        use core::ptr;
+        
+        // Assert pointer alignment at runtime if needed, but we trust caller for now.
+        // StackStorage typically needs 8 or 16 byte alignment.
+        // VM_HEAP is u128 aligned (16 bytes), so it should be fine.
+        
+        let storage = &mut *(ptr as *mut Self);
+        
+        // Initialize fields one by one (In-Place)
+        
+        // 1. Stack
+        for i in 0..STACK_SIZE {
+            storage.stack[i] = ValueRef::Empty;
+        }
+        
+        // 2. Call Stack
+        for i in 0..MAX_CALL_DEPTH {
+            storage.call_stack[i] = CallFrame::new(0, 0, 0, bytecode);
+        }
+        
+        // 3. Locals (Skipped - MaybeUninit)
+        
+        // 4. Registers
+        for i in 0..8 {
+            storage.registers[i] = ValueRef::Empty;
+        }
+        
+        // 5. Temp Buffer
+        ptr::write_bytes(storage.temp_buffer.as_mut_ptr(), 0, TEMP_BUFFER_SIZE);
+        
+        // 6. Heap Buffer
+        ptr::write_bytes(storage.heap_buffer.as_mut_ptr(), 0, 1024);
+        
+        storage
     }
 }

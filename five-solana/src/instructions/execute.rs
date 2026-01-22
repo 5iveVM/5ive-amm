@@ -9,7 +9,7 @@ use crate::{
     debug_log,
     state::{FIVEVMState, ScriptAccountHeader},
 };
-use five_vm_mito::MitoVM;
+use five_vm_mito::{MitoVM, StackStorage};
 #[cfg(feature = "debug-logs")]
 use five_vm_mito::VMError;
 #[cfg(feature = "debug-logs")]
@@ -111,31 +111,52 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     #[cfg(feature = "debug-logs")]
     debug_log!("DEBUG: bytecode slice PASS len={}", bytecode.len());
 
-    // Execute main bytecode
-    #[cfg(feature = "debug-logs")]
-    debug_log!("DEBUG: Executing MAIN bytecode with VM accounts [VM State, param0, param1, ...]");
-    // MitoVM expects accounts starting from VM State.
+    // Initialize VM Storage (Static Buffer) to avoid Allocator overhead
+    unsafe {
+        use crate::VM_HEAP;
+        let ptr = VM_HEAP.as_mut_ptr() as *mut u8;
+        let storage = StackStorage::new_at_ptr(ptr, bytecode);
 
-    if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
-        #[cfg(feature = "debug-logs")]
-        debug_log!(
-            "MitoVM MAIN execution failed code={}",
-            VMErrorCode::from(vm_error.clone()).message()
-        );
-        return Err(vm_error.to_program_error());
-    }
-
-
-    // Run post-execution hook if permission is set
-    if has_permission(header.permissions, PERMISSION_POST_BYTECODE) {
-        debug_log!("Running POST-BYTECODE hook");
-        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id) {
+        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, storage) {
             #[cfg(feature = "debug-logs")]
             debug_log!(
-                "MitoVM POST hook failed code={}",
+                "MitoVM MAIN execution failed code={}",
                 VMErrorCode::from(vm_error.clone()).message()
             );
             return Err(vm_error.to_program_error());
+        }
+
+        // Run post-execution hook if permission is set
+        if has_permission(header.permissions, PERMISSION_POST_BYTECODE) {
+            debug_log!("Running POST-BYTECODE hook");
+            // Reuse storage buffer (reset automatically by execute_direct?)
+            // VM re-initializes storage via initialize_execution_context which calls StackStorage::new...
+            // Wait, new_at_ptr RESETS the buffer.
+            // So calling new_at_ptr again is safe/required?
+            // Yes, initialize_execution_context takes storage.
+            // But execute_direct calls init...
+            // Actually, execute_direct calls initialize_execution_context which sets up ctx.
+            // Does execute_direct RESET storage?
+            // StackStorage::new_at_ptr resets it.
+            // But execute_direct takes `&mut StackStorage`.
+            // It does NOT call new_at_ptr.
+            // So storage might contain garbage from previous run?
+            // `initialize_execution_context` calls `ExecutionManager::new`.
+            // `ExecutionManager` uses the storage.
+            // `StackStorage` fields (stack, locals, etc) are initialized by `new_at_ptr`.
+            // If we reuse `storage` pointer, we need to RE-INITIALIZE it or trust `ExecutionManager` to overwrite?
+            // `ExecutionManager` relies on `storage` already being initialized (e.g. registers set to Empty).
+            // So we MUST re-initialize `storage` before second call.
+            
+            let storage_retry = StackStorage::new_at_ptr(ptr, bytecode); // Re-init
+            if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, storage_retry) {
+                #[cfg(feature = "debug-logs")]
+                debug_log!(
+                    "MitoVM POST hook failed code={}",
+                    VMErrorCode::from(vm_error.clone()).message()
+                );
+                return Err(vm_error.to_program_error());
+            }
         }
     }
 

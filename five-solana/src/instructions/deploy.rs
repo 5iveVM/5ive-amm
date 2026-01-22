@@ -1,5 +1,7 @@
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+    instruction::{Seed, Signer, AccountMeta, Instruction},
+    program::invoke_signed, sysvars::Sysvar,
 };
 
 use crate::{
@@ -21,7 +23,7 @@ use super::{
 pub const MIN_DEPLOY_LEN: usize = 6;
 
 /// Initialize the VM state account
-pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> ProgramResult {
     debug_log!("Initializing FIVE VM");
 
     require_min_accounts(accounts, 2)?;
@@ -29,13 +31,80 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResul
     let vm_state_account = &accounts[0];
     let authority = &accounts[1];
 
-    // Verify ownership
-    verify_program_owned(vm_state_account, program_id)?;
+    // Check if the account is already owned by the program or needs to be created
+    if vm_state_account.owner() == &Pubkey::default() {
+        debug_log!("VM State account owned by System Program. Attempting to create PDA...");
+        
+        // Detailed log of provided accounts
+        debug_log!("Account count: {}", accounts.len());
+        
+        require_min_accounts(accounts, 4)?;
+        let payer = &accounts[2];
+        let system_program = &accounts[3];
+        
+        require_signer(payer)?;
+        
+        // Verify System Program ID
+        if system_program.key() != &Pubkey::default() {
+             debug_log!("Error: Provided System Program ID is incorrect");
+             return Err(ProgramError::InvalidAccountData);
+        }
+
+        // Calculate rent for VM state account
+        let rent = pinocchio::sysvars::rent::Rent::get()
+            .map_err(|_| ProgramError::AccountNotRentExempt)?;
+        let rent_lamports = rent.minimum_balance(FIVEVMState::LEN);
+
+        // Prepare CreateAccount instruction data
+        let mut create_account_data = [0u8; 52];
+        create_account_data[0..4].copy_from_slice(&0u32.to_le_bytes()); // CreateAccount discriminator
+        create_account_data[4..12].copy_from_slice(&rent_lamports.to_le_bytes());
+        create_account_data[12..20].copy_from_slice(&(FIVEVMState::LEN as u64).to_le_bytes());
+        create_account_data[20..52].copy_from_slice(program_id.as_ref());
+
+        let bump_seed = [bump];
+        let seeds: &[Seed] = &[
+            Seed::from(b"vm_state"),
+            Seed::from(&bump_seed),
+        ];
+        let signer = Signer::from(seeds);
+
+        let metas = [
+            AccountMeta {
+                pubkey: payer.key(),
+                is_signer: true,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: vm_state_account.key(),
+                is_signer: true, // PDA is signer
+                is_writable: true,
+            },
+        ];
+
+        let instruction = Instruction {
+            program_id: system_program.key(),
+            accounts: &metas,
+            data: &create_account_data,
+        };
+
+        debug_log!("Invoking System Program to create VM state account");
+        invoke_signed::<3>(&instruction, &[payer, vm_state_account, system_program], &[signer])
+            .map_err(|e| {
+                debug_log!("CreateAccount failed");
+                e
+            })?;
+        
+        debug_log!("VM state account created successfully via PDA seeds");
+    } else {
+        // Verify ownership for existing account
+        verify_program_owned(vm_state_account, program_id)?;
+    }
 
     require_signer(authority)?;
 
     // Initialize VM state
-    // SAFETY: Account verified owned by program, mutable borrow is safe.
+    // SAFETY: Account verified owned by program (either by check or creation), mutable borrow is safe.
     let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
     vm_state.initialize(*authority.key());

@@ -41,8 +41,8 @@ async function deployCounterProgram() {
         console.log(`  Five Program: ${FIVE_PROGRAM_ID.toBase58()}\n`);
 
         const balance = await connection.getBalance(payer.publicKey);
-        if (balance < 1 * LAMPORTS_PER_SOL) {
-            console.log(`${RED}✗ Insufficient balance.${NC}`);
+        if (balance < 0.1 * LAMPORTS_PER_SOL) {
+            console.log(`${RED}✗ Insufficient balance (need at least 0.1 SOL).${NC}`);
             process.exit(1);
         }
 

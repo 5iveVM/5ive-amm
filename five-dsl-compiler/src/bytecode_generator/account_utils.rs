@@ -223,7 +223,6 @@ mod tests {
         assert!(is_account_parameter(
             &TypeNode::Named("StateAccount".to_string()),
             &[],
-            false,
             None
         ));
 
@@ -237,7 +236,7 @@ mod tests {
         // Init flag detection
          assert!(is_account_parameter(
             &TypeNode::Named("SomeType".to_string()),
-            &[],
+            &[Attribute { name: "init".to_string(), args: vec![] }],
             None
         ));
 
@@ -245,7 +244,6 @@ mod tests {
         assert!(!is_account_parameter(
             &TypeNode::Named("u64".to_string()),
             &[Attribute { name: "param".to_string(), args: vec![] }],
-             false,
             None
         ));
     }

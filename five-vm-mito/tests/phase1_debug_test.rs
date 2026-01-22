@@ -38,7 +38,8 @@ fn test_phase1_return_value_debugging() {
     println!("Executing with MitoVM...");
     println!("========================================");
 
-    match MitoVM::execute_direct(&bytecode, &input_data, accounts, &FIVE_VM_PROGRAM_ID) {
+    let mut storage = five_vm_mito::stack::StackStorage::new(&bytecode);
+    match MitoVM::execute_direct(&bytecode, &input_data, accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("========================================");
             println!("Execution completed successfully!");

@@ -244,6 +244,9 @@ pub const CHECK_CACHED: u8 = 0x77;
 pub const CHECK_COMPLEXITY_GROUP: u8 = 0x78;
 pub const CHECK_DEDUPE_MASK: u8 = 0x79;
 
+// Fused constraint operations for CU optimization
+pub const REQUIRE_OWNER: u8 = 0x7A; // REQUIRE_OWNER account_u8 param_u8 - fused LOAD_FIELD_PUBKEY + GET_KEY + EQ + REQUIRE
+
 // 0x7A-0x7F available for additional constraint operations
 
 // ===== SYSTEM OPERATIONS (0x80-0x8F) =====
@@ -474,6 +477,8 @@ pub enum ArgType {
     CallExternal,   // account_index (u8) + function_offset (u16) + param_count (u8)
     CallInternal,   // param_count (u8) + function_address (u16)
     AccountField,   // account_index (u8) + field_offset (VLE)
+    AccountFieldParam, // account_index (u8) + field_offset (VLE) + param_index (u8)
+    FusedAccAcc,    // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -1693,6 +1698,85 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: -1,
         compute_cost: 2,
     },
+    // ===== TIER 1 UNIVERSAL FUSED OPCODES (0xC0-0xC6) =====
+    OpcodeInfo {
+        opcode: 0xC0, // REQUIRE_GTE_U64
+        name: "REQUIRE_GTE_U64",
+        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE) + param(u8) - reuse AccountField for acc+offset
+        stack_effect: 0,
+        compute_cost: 4,
+    },
+    OpcodeInfo {
+        opcode: 0xC1, // REQUIRE_NOT_BOOL
+        name: "REQUIRE_NOT_BOOL",
+        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE)
+        stack_effect: 0,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: 0xC2, // FIELD_ADD_PARAM
+        name: "FIELD_ADD_PARAM",
+        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE) + param(u8)
+        stack_effect: 0,
+        compute_cost: 4,
+    },
+    OpcodeInfo {
+        opcode: 0xC3, // FIELD_SUB_PARAM
+        name: "FIELD_SUB_PARAM",
+        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE) + param(u8)
+        stack_effect: 0,
+        compute_cost: 4,
+    },
+    OpcodeInfo {
+        opcode: 0xC4, // REQUIRE_PARAM_GT_ZERO
+        name: "REQUIRE_PARAM_GT_ZERO",
+        arg_type: ArgType::U8, // param(u8)
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: 0xC5, // REQUIRE_EQ_PUBKEY
+        name: "REQUIRE_EQ_PUBKEY",
+        arg_type: ArgType::FusedAccAcc,
+        stack_effect: 0,
+        compute_cost: 5,
+    },
+    OpcodeInfo {
+        opcode: 0xC6, // CHECK_SIGNER_WRITABLE
+        name: "CHECK_SIGNER_WRITABLE",
+        arg_type: ArgType::U8, // acc(u8)
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    // ===== TIER 3 UNIVERSAL FUSED OPCODES (0xC7-0xCA) =====
+    OpcodeInfo {
+        opcode: 0xC7, // STORE_PARAM_TO_FIELD
+        name: "STORE_PARAM_TO_FIELD",
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + param(u8)
+        stack_effect: 0,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: 0xC8, // STORE_FIELD_ZERO
+        name: "STORE_FIELD_ZERO",
+        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE)
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: 0xC9, // STORE_KEY_TO_FIELD
+        name: "STORE_KEY_TO_FIELD",
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + key_acc(u8)
+        stack_effect: 0,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: 0xCA, // REQUIRE_EQ_FIELDS
+        name: "REQUIRE_EQ_FIELDS",
+        arg_type: ArgType::FusedAccAcc,
+        stack_effect: 0,
+        compute_cost: 4,
+    },
 ];
 
 /// Get opcode information by opcode value (zero-allocation lookup)
@@ -1731,3 +1815,67 @@ pub const fn opcode_compute_cost(opcode: u8) -> u8 {
         None => 1, // Default minimal cost
     }
 }
+
+// ===== TIER 1 UNIVERSAL FUSED OPCODES (0xC0-0xCF) =====
+// High-impact universal patterns that apply across all DeFi contracts
+
+/// REQUIRE_GTE_U64: Fuses LOAD_FIELD + LOAD_PARAM + GTE + REQUIRE
+/// Encoding: REQUIRE_GTE_U64 acc(u8) offset(VLE) param(u8)
+/// Use: balance >= amount, collateral >= loan, liquidity >= withdraw
+pub const REQUIRE_GTE_U64: u8 = 0xC0;
+
+/// REQUIRE_NOT_BOOL: Fuses LOAD_FIELD + NOT + REQUIRE  
+/// Encoding: REQUIRE_NOT_BOOL acc(u8) offset(VLE)
+/// Use: !frozen, !paused, !locked, !liquidated
+pub const REQUIRE_NOT_BOOL: u8 = 0xC1;
+
+/// FIELD_ADD_PARAM: Fuses LOAD_FIELD + LOAD_PARAM + ADD + STORE_FIELD
+/// Encoding: FIELD_ADD_PARAM acc(u8) offset(VLE) param(u8)
+/// Use: credit balance, add liquidity, increase stake
+pub const FIELD_ADD_PARAM: u8 = 0xC2;
+
+/// FIELD_SUB_PARAM: Fuses LOAD_FIELD + LOAD_PARAM + SUB + STORE_FIELD  
+/// Encoding: FIELD_SUB_PARAM acc(u8) offset(VLE) param(u8)
+/// Use: debit balance, remove liquidity, decrease stake
+pub const FIELD_SUB_PARAM: u8 = 0xC3;
+
+/// REQUIRE_PARAM_GT_ZERO: Fuses LOAD_PARAM + PUSH_0 + GT + REQUIRE
+/// Encoding: REQUIRE_PARAM_GT_ZERO param(u8)
+/// Use: amount > 0 validation
+pub const REQUIRE_PARAM_GT_ZERO: u8 = 0xC4;
+
+/// REQUIRE_EQ_PUBKEY: Fuses LOAD_FIELD_PUBKEY + LOAD_FIELD_PUBKEY + EQ + REQUIRE
+/// Encoding: REQUIRE_EQ_PUBKEY acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+/// Use: source.mint == dest.mint
+pub const REQUIRE_EQ_PUBKEY: u8 = 0xC5;
+
+/// CHECK_SIGNER_WRITABLE: Fuses CHECK_SIGNER + CHECK_WRITABLE
+/// Encoding: CHECK_SIGNER_WRITABLE acc(u8)
+/// Use: @signer @mut constraint
+pub const CHECK_SIGNER_WRITABLE: u8 = 0xC6;
+
+// ===== TIER 3 UNIVERSAL FUSED OPCODES (0xC7-0xCF) =====
+// Initialization and assignment patterns
+
+/// STORE_PARAM_TO_FIELD: Fuses LOAD_PARAM + STORE_FIELD
+/// Encoding: STORE_PARAM_TO_FIELD acc(u8) offset(VLE) param(u8)
+/// Use: account.field = param (common in init functions)
+pub const STORE_PARAM_TO_FIELD: u8 = 0xC7;
+
+/// STORE_FIELD_ZERO: Fuses PUSH_0 + STORE_FIELD
+/// Encoding: STORE_FIELD_ZERO acc(u8) offset(VLE)
+/// Use: account.balance = 0 (field initialization)
+pub const STORE_FIELD_ZERO: u8 = 0xC8;
+
+/// STORE_KEY_TO_FIELD: Fuses GET_KEY + STORE_FIELD  
+/// Encoding: STORE_KEY_TO_FIELD acc(u8) offset(VLE) key_acc(u8)
+/// Use: account.owner = signer.key (ownership assignment)
+pub const STORE_KEY_TO_FIELD: u8 = 0xC9;
+
+/// REQUIRE_EQ_FIELDS: Fuses LOAD_FIELD + LOAD_FIELD + EQ + REQUIRE
+/// Encoding: REQUIRE_EQ_FIELDS acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+/// Use: source.mint == dest.mint (field-to-field comparison)
+pub const REQUIRE_EQ_FIELDS: u8 = 0xCA;
+
+// 0xCB-0xCF reserved for additional universal fused opcodes
+

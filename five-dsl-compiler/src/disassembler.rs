@@ -123,6 +123,23 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                                 len += 4;
                             } else { print!("(incomplete)"); }
                         },
+                        ArgType::AccountFieldParam => {
+                            // account_index(u8) + field_offset(VLE) + param(u8)
+                             if args_start < bytecode.len() {
+                                let acc = bytecode[args_start];
+                                print!("acc:{} ", acc);
+                                let mut current_offset = args_start + 1;
+                                if let Some((val, l)) = read_vle(&bytecode[current_offset..]) {
+                                     print!("offset:{} ", val);
+                                     current_offset += l;
+                                     if current_offset < bytecode.len() {
+                                         let param = bytecode[current_offset];
+                                         print!("param:{}", param);
+                                         len = (current_offset + 1) - args_start;
+                                     } else { print!("param:(incomplete)"); len = current_offset - args_start; }
+                                } else { print!("offset:(incomplete)"); len = current_offset - args_start; }
+                             } else { print!("(incomplete)"); }
+                        },
                         ArgType::AccountField => {
                             // account_index(u8) + field_offset(VLE)
                              if args_start < bytecode.len() {
@@ -133,6 +150,31 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                                      len += 1 + l;
                                 } else { print!("offset:(incomplete)"); len += 1; }
                              } else { print!("(incomplete)"); }
+                        },
+                        ArgType::FusedAccAcc => {
+                            // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
+                            if args_start < bytecode.len() {
+                                let acc1 = bytecode[args_start];
+                                print!("acc1:{} ", acc1);
+                                let mut current_offset = args_start + 1;
+                                
+                                if let Some((val1, l1)) = read_vle(&bytecode[current_offset..]) {
+                                    print!("offset1:{} ", val1);
+                                    current_offset += l1;
+                                    
+                                    if current_offset < bytecode.len() {
+                                        let acc2 = bytecode[current_offset];
+                                        print!("acc2:{} ", acc2);
+                                        current_offset += 1;
+                                        
+                                        if let Some((val2, l2)) = read_vle(&bytecode[current_offset..]) {
+                                            print!("offset2:{}", val2);
+                                            current_offset += l2;
+                                            len = current_offset - args_start;
+                                        } else { print!("offset2:(incomplete)"); len = current_offset - args_start; }
+                                    } else { print!("acc2:(incomplete)"); len = current_offset - args_start; }
+                                } else { print!("offset1:(incomplete)"); len = current_offset - args_start; }
+                            } else { print!("(incomplete)"); }
                         }
                     }
                 }

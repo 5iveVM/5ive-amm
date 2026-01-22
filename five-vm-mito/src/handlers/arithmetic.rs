@@ -141,22 +141,71 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
 pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         ADD => {
-            // ADD: Wrapping addition (overflow wraps around)
-            // Example: u64::MAX + 1 → 0
-            // For checked addition that errors on overflow, use ADD_CHECKED (planned)
-            polymorphic_binary_op!(ctx, "ADD", wrapping_add);
+            // Arithmetic Fast Paths (u64 optimization)
+            // Peek directly into the stack to avoid pop overhead
+            let sp = ctx.stack.sp as usize;
+            if sp >= 2 {
+                // Safety: Bounds checked by sp >= 2
+                // Stack grows up: [..., A, B] where B is at sp-1
+                let b_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 1) };
+                let a_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 2) };
+                
+                if let (ValueRef::U64(a), ValueRef::U64(b)) = (a_val, b_val) {
+                    // Fast path: u64 + u64
+                    let result = a.wrapping_add(b);
+                    // Update stack: Replace A (sp-2) with result
+                    unsafe {
+                        *ctx.stack.stack.get_unchecked_mut(sp - 2) = ValueRef::U64(result);
+                    }
+                    // Pop B (decrement sp)
+                    ctx.stack.sp -= 1;
+                } else {
+                     // Slow path: promotion
+                     polymorphic_binary_op!(ctx, "ADD", wrapping_add);
+                }
+            } else {
+                return Err(VMErrorCode::StackUnderflow.into());
+            }
         }
         SUB => {
             // SUB: Wrapping subtraction (underflow wraps around)
-            // Example: 0 - 1 → u64::MAX
-            // For checked subtraction that errors on underflow, use SUB_CHECKED (planned)
-            polymorphic_binary_op!(ctx, "SUB", wrapping_sub);
+            let sp = ctx.stack.sp as usize;
+            if sp >= 2 {
+                let b_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 1) };
+                let a_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 2) };
+                
+                if let (ValueRef::U64(a), ValueRef::U64(b)) = (a_val, b_val) {
+                    let result = a.wrapping_sub(b);
+                    unsafe {
+                        *ctx.stack.stack.get_unchecked_mut(sp - 2) = ValueRef::U64(result);
+                    }
+                    ctx.stack.sp -= 1;
+                } else {
+                     polymorphic_binary_op!(ctx, "SUB", wrapping_sub);
+                }
+            } else {
+                return Err(VMErrorCode::StackUnderflow.into());
+            }
         }
         MUL => {
             // MUL: Wrapping multiplication (overflow wraps around)
-            // Example: u64::MAX * 2 → u64::MAX - 1
-            // For checked multiplication that errors on overflow, use MUL_CHECKED (planned)
-            polymorphic_binary_op!(ctx, "MUL", wrapping_mul);
+            let sp = ctx.stack.sp as usize;
+            if sp >= 2 {
+                let b_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 1) };
+                let a_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 2) };
+                
+                if let (ValueRef::U64(a), ValueRef::U64(b)) = (a_val, b_val) {
+                    let result = a.wrapping_mul(b);
+                    unsafe {
+                        *ctx.stack.stack.get_unchecked_mut(sp - 2) = ValueRef::U64(result);
+                    }
+                    ctx.stack.sp -= 1;
+                } else {
+                     polymorphic_binary_op!(ctx, "MUL", wrapping_mul);
+                }
+            } else {
+                return Err(VMErrorCode::StackUnderflow.into());
+            }
         }
         DIV => {
             polymorphic_binary_op_checked!(ctx, "DIV", wrapping_div);

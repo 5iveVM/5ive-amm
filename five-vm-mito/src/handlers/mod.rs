@@ -37,3 +37,4 @@ pub use syscalls::*;
 pub use system::{
     handle_init_ops, handle_invoke_ops, handle_pda_ops, handle_system_ops, handle_sysvar_ops,
 };
+pub mod fused_ops;

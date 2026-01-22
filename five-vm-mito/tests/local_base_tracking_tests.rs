@@ -3,14 +3,15 @@
 mod support;
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
 use support::script_builder::ScriptBuilder;
 
 fn run_script(build: impl FnOnce(&mut ScriptBuilder)) -> Option<Value> {
     let mut builder = ScriptBuilder::new();
     build(&mut builder);
     let script = builder.build().expect("script assembly succeeds");
-    MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap()
+    let mut storage = StackStorage::new(&script);
+    MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap()
 }
 
 #[test]

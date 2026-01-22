@@ -3,7 +3,7 @@
 //! This example loads the compiled onchain_with_mito.bin and executes it
 //! using MitoVM to demonstrate zero-allocation execution.
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, stack::StackStorage};
 use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,7 +40,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Execute with MitoVM (no accounts needed for this simple test)
     println!("🚀 Executing with MitoVM...");
 
-    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
+    let mut storage = StackStorage::new(&bytecode);
+    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("✅ Execution successful!");
             match result {

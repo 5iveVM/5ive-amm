@@ -247,16 +247,24 @@ async function main() {
     info(`User1: ${user1.publicKey.toBase58()}`);
     info(`User2: ${user2.publicKey.toBase58()}`);
 
-    // Fund users
+    // Fund users using transfer from payer (works on devnet, unlike airdrop)
     subheader('Funding users with SOL...');
+    const fundAmount = 0.05 * LAMPORTS_PER_SOL; // 0.05 SOL each
     for (const user of [user1, user2]) {
-        const sig = await connection.requestAirdrop(user.publicKey, 1000 * LAMPORTS_PER_SOL);
+        const tx = new Transaction().add(
+            SystemProgram.transfer({
+                fromPubkey: payer.publicKey,
+                toPubkey: user.publicKey,
+                lamports: fundAmount,
+            })
+        );
+        const sig = await connection.sendTransaction(tx, [payer], { skipPreflight: true });
         await connection.confirmTransaction(sig, 'confirmed');
     }
     const user1Balance = await connection.getBalance(user1.publicKey);
     const user2Balance = await connection.getBalance(user2.publicKey);
-    info(`Funded User1: ${(user1Balance / LAMPORTS_PER_SOL).toFixed(2)} SOL`);
-    info(`Funded User2: ${(user2Balance / LAMPORTS_PER_SOL).toFixed(2)} SOL`);
+    info(`Funded User1: ${(user1Balance / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
+    info(`Funded User2: ${(user2Balance / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
 
     // ========================================================================
     // STEP 1: Derive Counter Account PDAs

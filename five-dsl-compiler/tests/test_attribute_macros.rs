@@ -7,7 +7,7 @@ use five_protocol::FIVE_MAGIC;
 fn test_attribute_macros_requires_desugaring() {
     let source = r#"
         script requires_test {
-            pub deposit(@requires(amount > 0) amount: u64) {
+            pub deposit(@requires(amount + 5 > 10) amount: u64) {
                 // Body
                 let x = amount;
             }

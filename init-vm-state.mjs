@@ -10,7 +10,7 @@ const RPC_URL = 'http://127.0.0.1:8899';
 const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
 
 // Program ID from our deployment
-const FIVE_PROGRAM_ID = new PublicKey('nnYRwyiHXRmsQbcq8u8VCeC2HAmfqy43xyRJew4TRin');
+const FIVE_PROGRAM_ID = new PublicKey('FVEyaZCqYaGLxmysFxQezRLbx8xtCQwSq4vK49ENzWUZ');
 
 // Instruction discriminator for Initialize (0x00)
 const INITIALIZE_DISCRIMINATOR = Buffer.from([0x00]);
@@ -74,7 +74,7 @@ async function main() {
             { pubkey: vmStateKeypair.publicKey, isSigner: false, isWritable: true },
             { pubkey: payer.publicKey, isSigner: true, isWritable: false }
         ],
-        data: INITIALIZE_DISCRIMINATOR
+        data: Buffer.concat([INITIALIZE_DISCRIMINATOR, Buffer.from([bump])])
     };
 
     // Send transaction

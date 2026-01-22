@@ -1,7 +1,7 @@
 //! Basic Option/Result tests using the production header format.
 
 use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, stack::StackStorage};
 
 fn build_script(body: &[u8]) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + body.len());
@@ -30,8 +30,9 @@ fn test_basic_option_creation() {
 
     let script = build_script(&body);
 
+    let mut storage = StackStorage::new(&script);
     let result =
-        MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID).expect("VM should execute option bytecode");
+        MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).expect("VM should execute option bytecode");
 
     assert_eq!(result, Some(Value::Bool(true)));
 }
@@ -49,8 +50,9 @@ fn test_basic_result_creation() {
 
     let script = build_script(&body);
 
+    let mut storage = StackStorage::new(&script);
     let result =
-        MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID).expect("VM should execute result bytecode");
+        MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).expect("VM should execute result bytecode");
 
     assert_eq!(result, Some(Value::Bool(true)));
 }

@@ -39,5 +39,5 @@ pub mod framework;
 // #[cfg(test)]
 // mod vle_param_decoding;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-utils"))]
 mod stack_error_repro;

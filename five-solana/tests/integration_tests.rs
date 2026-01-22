@@ -14,9 +14,9 @@ mod tests {
     #[test]
     fn test_instruction_deserialization() {
         // Test Initialize instruction
-        let init_data = vec![0u8; 1];
+        let init_data = vec![0u8; 2]; // 1 byte specifier + 1 byte bump
         let init_ix = FIVEInstruction::try_from(init_data.as_slice()).unwrap();
-        assert!(matches!(init_ix, FIVEInstruction::Initialize));
+        assert!(matches!(init_ix, FIVEInstruction::Initialize { bump: 0 }));
 
         // Test Deploy instruction (v4: now includes permissions byte)
         let bytecode = vec![0x35u8, 0x49, 0x56, 0x45, 0x00]; // 5IVE + HALT

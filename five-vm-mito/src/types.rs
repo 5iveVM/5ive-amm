@@ -9,7 +9,10 @@ use five_protocol::ValueRef;
 /// Stack-allocated local variable storage optimized for minimal memory usage.
 /// Each slot holds a single [`ValueRef`]; [`ValueRef::Empty`] marks
 /// uninitialized locals.
-pub type LocalVariables = [ValueRef; MAX_LOCALS];
+/// Stack-allocated local variable storage optimized for minimal memory usage.
+/// Each slot holds a single [`ValueRef`]; [`ValueRef::Empty`] marks
+/// uninitialized locals.
+pub type LocalVariables = [core::mem::MaybeUninit<ValueRef>; MAX_LOCALS];
 
 /// Function call frame containing return state and saved parameters.
 ///

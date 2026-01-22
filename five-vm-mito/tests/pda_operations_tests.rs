@@ -3,9 +3,14 @@
 //! Tests for PDA derivation, validation, and seed management functionality
 //! that mirror the failing blockchain integration test cases.
 
-use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
 use pinocchio::pubkey::Pubkey;
 use solana_sdk::pubkey::Pubkey as SolanaPubkey;
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &Pubkey) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
+}
 
 /// Real PDA derivation using Solana's find_program_address
 /// This replaces the mock implementation with actual Solana cryptographic PDA derivation
@@ -63,7 +68,7 @@ mod pda_derivation {
         ];
 
         // Execute with no input parameters
-        match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+        match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
             Ok(Some(result)) => {
                 // Should return a tuple (pubkey, bump) or similar structure
                 // The exact format depends on VM implementation
@@ -109,7 +114,7 @@ mod pda_derivation {
             0x00, // HALT
         ];
 
-        match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+        match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
             Ok(Some(result)) => {
                 println!("Complex PDA derivation result: {:?}", result);
             }
@@ -138,8 +143,8 @@ mod pda_derivation {
         ];
 
         // Execute twice and compare results
-        let result1 = MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
-        let result2 = MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
+        let result1 = execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
+        let result2 = execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
 
         match (result1, result2) {
             (Ok(res1), Ok(res2)) => {
@@ -173,7 +178,7 @@ mod pda_validation {
             0x00, // HALT
         ];
 
-        match MitoVM::execute_direct(find_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+        match execute_test(find_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
             Ok(Some(result)) => {
                 println!("FIND_PDA result: {:?}", result);
 
@@ -195,7 +200,7 @@ mod pda_validation {
             0x00, // HALT
         ];
 
-        match MitoVM::execute_direct(validate_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+        match execute_test(validate_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
             Ok(Some(result)) => {
                 println!("DERIVE_PDA validation result: {:?}", result);
             }
@@ -243,7 +248,7 @@ mod pda_validation {
         let name = "string";
         let bytecode = string_seed_bytecode;
         {
-            match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
                 Ok(result) => {
                     println!("PDA with {} seeds result: {:?}", name, result);
                 }
@@ -257,7 +262,7 @@ mod pda_validation {
         let name = "numeric";
         let bytecode = numeric_seed_bytecode;
         {
-            match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
                 Ok(result) => {
                     println!("PDA with {} seeds result: {:?}", name, result);
                 }
@@ -271,7 +276,7 @@ mod pda_validation {
         let name = "mixed";
         let bytecode = mixed_seed_bytecode;
         {
-            match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
                 Ok(result) => {
                     println!("PDA with {} seeds result: {:?}", name, result);
                 }
@@ -312,7 +317,7 @@ mod pda_integration {
             0x00, // HALT
         ];
 
-        match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+        match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
             Ok(Some(Value::U64(result))) => {
                 assert_eq!(result, 1, "PDA account creation should succeed");
             }
@@ -365,7 +370,7 @@ mod pda_integration {
         let name = "user_vault";
         let bytecode = user_vault_bytecode;
         {
-            match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
                 Ok(result) => {
                     println!("{} PDA pattern result: {:?}", name, result);
                 }
@@ -379,7 +384,7 @@ mod pda_integration {
         let name = "token_account";
         let bytecode = token_account_bytecode;
         {
-            match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
                 Ok(result) => {
                     println!("{} PDA pattern result: {:?}", name, result);
                 }
@@ -393,7 +398,7 @@ mod pda_integration {
         let name = "global_state";
         let bytecode = global_state_bytecode;
         {
-            match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
                 Ok(result) => {
                     println!("{} PDA pattern result: {:?}", name, result);
                 }
@@ -418,7 +423,7 @@ mod pda_integration {
             0x00, // HALT
         ];
 
-        match MitoVM::execute_direct(find_bump_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+        match execute_test(find_bump_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
             Ok(result) => {
                 println!("Canonical bump PDA result: {:?}", result);
 
@@ -441,7 +446,7 @@ mod pda_integration {
             0x00, // HALT
         ];
 
-        match MitoVM::execute_direct(validate_bump_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+        match execute_test(validate_bump_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
             Ok(result) => {
                 println!("Bump validation result: {:?}", result);
             }
@@ -476,8 +481,8 @@ mod pda_security {
             0x00, // HALT
         ];
 
-        let result_correct = MitoVM::execute_direct(correct_program_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
-        let result_wrong = MitoVM::execute_direct(wrong_program_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
+        let result_correct = execute_test(correct_program_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
+        let result_wrong = execute_test(wrong_program_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
 
         match (result_correct, result_wrong) {
             (Ok(res1), Ok(res2)) => {
@@ -528,7 +533,7 @@ mod pda_security {
         let name = "empty_seed";
         let bytecode = empty_seed_bytecode;
         {
-            match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
                 Ok(result) => {
                     println!("PDA {} test result: {:?}", name, result);
                 }
@@ -542,7 +547,7 @@ mod pda_security {
         let name = "max_seed";
         let bytecode = max_seed_bytecode;
         {
-            match MitoVM::execute_direct(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
                 Ok(result) => {
                     println!("PDA {} test result: {:?}", name, result);
                 }

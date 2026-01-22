@@ -35,32 +35,47 @@ impl VLE {
     ///
     /// Returns `(decoded_value, bytes_consumed)` where 1-5 bytes may be read.
     #[inline]
+    #[inline]
     pub const fn decode_u32(bytes: &[u8]) -> Option<(u32, usize)> {
-        let mut result = 0u32;
-        let mut shift = 0;
-        let mut i = 0;
-
-        while i < bytes.len() && i < 5 {
-            let byte = bytes[i];
-            let value = (byte & 0x7F) as u32;
-
-            // Ensure we don't overflow u32 by checking that the bits about to be
-            // shifted in fit within the remaining space.
-            if value > (u32::MAX >> shift) {
-                return None;
-            }
-
-            result |= value << shift;
-
-            if byte & 0x80 == 0 {
-                return Some((result, i + 1));
-            }
-
-            shift += 7;
-            i += 1;
+        if bytes.is_empty() { return None; }
+        
+        let b0 = bytes[0];
+        if b0 & 0x80 == 0 {
+            return Some((b0 as u32, 1));
+        }
+        
+        if bytes.len() < 2 { return None; }
+        let b1 = bytes[1];
+        let r1 = ((b0 & 0x7F) as u32) | ((b1 as u32 & 0x7F) << 7);
+        if b1 & 0x80 == 0 {
+            return Some((r1, 2));
         }
 
-        None
+        if bytes.len() < 3 { return None; }
+        let b2 = bytes[2];
+        let r2 = r1 | ((b2 as u32 & 0x7F) << 14);
+        if b2 & 0x80 == 0 {
+            return Some((r2, 3));
+        }
+
+        if bytes.len() < 4 { return None; }
+        let b3 = bytes[3];
+        let r3 = r2 | ((b3 as u32 & 0x7F) << 21);
+        if b3 & 0x80 == 0 {
+            return Some((r3, 4));
+        }
+
+        if bytes.len() < 5 { return None; }
+        let b4 = bytes[4];
+        // Check for overflow: last byte can only carry 4 bits (28..31)
+        if b4 & 0xF0 != 0 { return None; } 
+        let r4 = r3 | ((b4 as u32) << 28);
+        // Last byte must terminate (implied by 5 byte limit, but v4 format allows explicit termination check if needed, but here we assume 5th byte is end)
+        // Standard VLE for u32 implies max 5 bytes. 
+        // We should check if b4 indicates continuation (invalid for u32).
+        if b4 & 0x80 != 0 { return None; }
+
+        Some((r4, 5))
     }
 
     /// Calculate the encoded size of a u32 value without encoding it

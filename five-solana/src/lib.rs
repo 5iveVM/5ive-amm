@@ -21,6 +21,13 @@ macro_rules! debug_log {
     };
 }
 
+// Global static buffer for VM StackStorage to avoid heap allocation syscalls
+// Size: 4KB (Sufficient for StackStorage ~2.5KB + alignment)
+// Alignment: u128 to ensure proper alignment for StackStorage structs
+// SAFETY: Single-threaded Solana execution ensures no race conditions.
+// We must ensure reentrancy safety (no recursive calls to five program).
+pub(crate) static mut VM_HEAP: [u128; 512] = [0; 512]; // 512 * 16 = 8192 bytes
+
 mod common;
 mod error;
 pub use error::FIVEError;
@@ -44,6 +51,8 @@ pub fn process_instruction(
         unsafe { pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@"); }
         unsafe { pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START"); }
     }
+    #[cfg(feature = "debug-logs")]
+    unsafe { pinocchio::log::sol_log("FORCE LOG ENTRY: FIVE VM ALIVE"); }
 
     debug_log!(
         "FIVE Optimized: Processing instruction with no_allocator"
@@ -89,9 +98,9 @@ pub fn process_instruction(
 
     // Process each instruction type
     let result = match instruction {
-        FIVEInstruction::Initialize => {
-            debug_log!("Processing Initialize instruction");
-            instructions::initialize(program_id, accounts)
+        FIVEInstruction::Initialize { bump } => {
+            debug_log!("Processing Initialize instruction with bump {}", bump);
+            instructions::initialize(program_id, accounts, bump)
         }
         FIVEInstruction::InitLargeProgram { expected_size, chunk_data } => {
             debug_log!(

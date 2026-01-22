@@ -1,5 +1,10 @@
 use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Pubkey, VMError};
+use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Pubkey, VMError, stack::StackStorage, Value};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 use solana_sdk::system_program;
 
 fn build_script(body: &[u8]) -> Vec<u8> {
@@ -51,7 +56,7 @@ fn load_field_out_of_bounds() {
     body.push(HALT);
     let bytecode = build_script(&body);
 
-    let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &FIVE_VM_PROGRAM_ID);
+    let result = execute_test(&bytecode, &[], &accounts);
     assert!(matches!(result, Err(VMError::InvalidAccountData)));
 }
 
@@ -68,6 +73,6 @@ fn load_external_field_out_of_bounds() {
     body.push(HALT);
     let bytecode = build_script(&body);
 
-    let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &FIVE_VM_PROGRAM_ID);
+    let result = execute_test(&bytecode, &[], &accounts);
     assert!(matches!(result, Err(VMError::InvalidAccountData)));
 }

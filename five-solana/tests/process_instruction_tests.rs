@@ -30,9 +30,9 @@ mod tests {
     #[test]
     fn test_instruction_parsing() {
         // Test Initialize
-        let init_data = vec![0];
+        let init_data = vec![0, 0]; // Disc + Bump
         let init_ix = FIVEInstruction::try_from(init_data.as_slice()).unwrap();
-        assert!(matches!(init_ix, FIVEInstruction::Initialize));
+        assert!(matches!(init_ix, FIVEInstruction::Initialize { bump: _ }));
 
         // Test InitLargeProgram
         let mut init_large_data = vec![4];

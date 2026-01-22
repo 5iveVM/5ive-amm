@@ -30,13 +30,15 @@ criterion = { version = "0.5", features = ["html_reports"] }
 [features]
 default = []
 # Feature for debugging support (adds execution tracing)
-debug-logs = []
+debug-logs = ["dep:pinocchio-log"]
 # Feature for granular execution tracing (opcode-by-opcode) - VERY VERBOSE
 trace-execution = ["debug-logs"]
 # Feature for enhanced error diagnostics (development only - not for production)
 enhanced-errors = []
 # Feature for test utilities and Mollusk-style testing (development only)
 test-utils = []
+# Feature for sol_remaining_compute_units syscall (not available on devnet v3.1.6 or earlier)
+remaining-cu-syscall = []
 
 [lib]
 name = "five_vm_mito"

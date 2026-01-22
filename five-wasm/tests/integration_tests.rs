@@ -11,7 +11,7 @@
 mod tests {
     use five_dsl_compiler::DslCompiler;
     use five_protocol::MAX_SCRIPT_SIZE;
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
     use std::env;
     use std::fs;
     use std::path::Path;
@@ -228,7 +228,8 @@ use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
             data
         };
 
-        match MitoVM::execute_direct(bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID) {
+        let mut storage = StackStorage::new(bytecode);
+        match MitoVM::execute_direct(bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
             Ok(result) => {
                 let compute_units = 0; // MitoVM doesn't expose compute units in this interface
                 Ok((result, compute_units))

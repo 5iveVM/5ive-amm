@@ -310,10 +310,18 @@ async function main() {
     const user2 = Keypair.generate(); // Holder
     const user3 = Keypair.generate(); // Holder
 
-    // Fund users
+    // Fund users using transfer from payer (works on devnet, unlike airdrop)
+    const fundAmount = 0.05 * LAMPORTS_PER_SOL; // 0.05 SOL each
     for (const user of [user1, user2, user3]) {
-        const sig = await connection.requestAirdrop(user.publicKey, 5 * LAMPORTS_PER_SOL);
-        await connection.confirmTransaction(sig, 'confirmed');
+        const tx = new Transaction().add(
+            SystemProgram.transfer({
+                fromPubkey: payer.publicKey,
+                toPubkey: user.publicKey,
+                lamports: fundAmount,
+            })
+        );
+        const sig = await sendAndConfirmTransaction(connection, tx, [payer]);
+        info(`Funded ${user.publicKey.toBase58().slice(0, 8)}... with 0.05 SOL`);
     }
     info('Users created and funded');
 
