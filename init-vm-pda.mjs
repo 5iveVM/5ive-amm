@@ -10,7 +10,7 @@ const RPC_URL = 'http://127.0.0.1:8899';
 const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
 
 // Updated Program ID
-const FIVE_PROGRAM_ID = new PublicKey('2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN');
+const FIVE_PROGRAM_ID = new PublicKey('FVEyaZCqYaGLxmysFxQezRLbx8xtCQwSq4vK49ENzWUZ');
 
 async function deriveVMStatePDA(programId) {
     const seeds = [Buffer.from('vm_state', 'utf8')];
