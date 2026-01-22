@@ -125,7 +125,11 @@ async function sendInstruction(connection, instructionData, signers) {
         return { success: true, signature: sig, logs, cu };
     } catch (e) {
         let logs = [];
-        if (e.signature) {
+        if (e.logs) {
+            logs = e.logs;
+            console.log(`\n❌ Simulation Logs:`);
+            logs.forEach(log => console.log(`  ${log}`));
+        } else if (e.signature) {
             try {
                 const txDetails = await connection.getTransaction(e.signature, {
                     maxSupportedTransactionVersion: 0,

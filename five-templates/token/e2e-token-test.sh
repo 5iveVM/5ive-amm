@@ -150,14 +150,16 @@ check_prerequisites() {
     print_header "Checking Prerequisites"
 
     # Check Five CLI
-    print_step "Checking Five CLI..."
-    if command -v five &> /dev/null; then
-        FIVE_VERSION=$(five --version 2>/dev/null | head -1 || echo "unknown")
-        print_success "Five CLI installed: $FIVE_VERSION"
-    else
-        print_error "Five CLI not found. Install with: cargo install --git https://github.com/five-protocol/five-cli"
-        exit 1
-    fi
+    # print_step "Checking Five CLI..."
+    # if command -v five &> /dev/null; then
+    #     FIVE_VERSION=$(five --version 2>/dev/null | head -1 || echo "unknown")
+    #     print_success "Five CLI installed: $FIVE_VERSION"
+    # else
+    #     print_error "Five CLI not found. Install with: cargo install --git https://github.com/five-protocol/five-cli"
+    #     exit 1
+    # fi
+
+    export FIVE_PROGRAM_ID="FVEyaZCqYaGLxmysFxQezRLbx8xtCQwSq4vK49ENzWUZ"
 
     # Check Solana CLI
     print_step "Checking Solana CLI..."
