@@ -57,11 +57,11 @@ pub struct VMExecutionContext {
 ///     0x01,                   // total_count
 ///     0x11, 10,               // PUSH_U8 10
 ///     0x11, 5,                // PUSH_U8 5
-///     0x20,                   // ADD
 ///     0x07                    // RETURN_VALUE
 /// ];
 ///
-/// let result = MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default())?;
+/// let mut storage = five_vm_mito::StackStorage::new(bytecode);
+/// let result = MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default(), &mut storage)?;
 /// assert_eq!(result, Some(Value::U8(15)));
 /// # Ok::<(), five_vm_mito::VMError>(())
 /// ```
@@ -476,14 +476,14 @@ impl MitoVM {
     ///     0x00, 0x00, 0x00, 0x00, // features
     ///     0x01,                   // public_count
     ///     0x01,                   // total_count
-    ///     0x11, 42,               // PUSH_U8 42
     ///     0x07                    // RETURN_VALUE
     /// ];
     /// let input_data = &[];
     /// let accounts = &[];
     /// let program_id = Pubkey::default();
     ///
-    /// let result = MitoVM::execute_direct(bytecode, input_data, accounts, &program_id)?;
+    /// let mut storage = five_vm_mito::StackStorage::new(bytecode);
+    /// let result = MitoVM::execute_direct(bytecode, input_data, accounts, &program_id, &mut storage)?;
     /// assert_eq!(result, Some(five_protocol::Value::U8(42)));
     /// # Ok::<(), five_vm_mito::VMError>(())
     /// ```

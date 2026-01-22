@@ -3,7 +3,12 @@
 //! Comprehensive tests for Program Derived Address and Cross-Program Invocation
 //! functionality with realistic Solana account structures and stack management.
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 use pinocchio::pubkey::Pubkey;
 use solana_sdk::system_program;
 
@@ -60,7 +65,7 @@ mod enhanced_pda_tests {
 
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &input_data, &accounts);
 
         match result {
             Ok(_value) => {
@@ -133,7 +138,7 @@ mod enhanced_pda_tests {
 
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &input_data, &accounts);
 
         match result {
             Ok(value) => {
@@ -207,7 +212,7 @@ mod enhanced_cpi_tests {
 
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &input_data, &accounts);
 
         match result {
             Ok(value) => {
@@ -266,7 +271,7 @@ mod enhanced_cpi_tests {
 
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &input_data, &accounts);
 
         match result {
             Ok(value) => {
@@ -364,7 +369,7 @@ mod system_integration_tests {
 
         let input_data = [];
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &input_data, &accounts);
 
         match result {
             Ok(value) => {
@@ -409,7 +414,7 @@ mod system_integration_tests {
                 0x00,   // HALT
             ];
 
-            let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+            let result = execute_test(&bytecode, &[], &[]);
             match result {
                 Ok(_) => println!(
                     "   ✅ {} (0x{:02X}) - Handler reached successfully",

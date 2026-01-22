@@ -1,4 +1,4 @@
-use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
 
 #[test]
 fn test_multiply_debug() {
@@ -53,7 +53,8 @@ script TestMultiply {
     let input_data: &[u8] = &[];
     let accounts: &[AccountInfo] = &[];
 
-    match MitoVM::execute_direct(&bytecode, input_data, accounts, &FIVE_VM_PROGRAM_ID) {
+    let mut storage = StackStorage::new(&bytecode);
+    match MitoVM::execute_direct(&bytecode, input_data, accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("✅ Multiply test executed successfully!");
             println!("📋 Result: {:?}", result);
@@ -100,7 +101,8 @@ fn test_add_debug() {
     let input_data: &[u8] = &[];
     let accounts: &[AccountInfo] = &[];
 
-    match MitoVM::execute_direct(&bytecode, input_data, accounts, &FIVE_VM_PROGRAM_ID) {
+    let mut storage = StackStorage::new(&bytecode);
+    match MitoVM::execute_direct(&bytecode, input_data, accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("✅ Add test executed successfully!");
             println!("📋 Result: {:?}", result);

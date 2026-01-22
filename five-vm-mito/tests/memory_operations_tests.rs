@@ -13,7 +13,12 @@
 //! - STORE_GLOBAL (0x45) - Global state store
 //! - LOAD_GLOBAL (0x46) - Global state load
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 
 #[cfg(test)]
 mod basic_memory_tests {
@@ -35,7 +40,7 @@ mod basic_memory_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ Basic STORE/LOAD succeeded: {:?}", value);
@@ -64,7 +69,7 @@ mod basic_memory_tests {
         // Provide input data to load
         let input_data = vec![0x77, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]; // u64(119) in little endian
 
-        let result = MitoVM::execute_direct(&bytecode, &input_data, &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &input_data, &[]);
         match result {
             Ok(value) => {
                 println!("✅ LOAD_INPUT succeeded: {:?}", value);
@@ -97,7 +102,7 @@ mod field_operations_tests {
 
         // Create writable account with data space
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ STORE_FIELD succeeded: {:?}", value);
@@ -125,7 +130,7 @@ mod field_operations_tests {
         // Store u64(456) at offset 8
         account_data[8..16].copy_from_slice(&456u64.to_le_bytes());
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ LOAD_FIELD succeeded: {:?}", value);
@@ -152,7 +157,7 @@ mod field_operations_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ LOAD_FIELD lamports succeeded: {:?}", value);
@@ -187,7 +192,7 @@ mod field_operations_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!(
@@ -222,7 +227,7 @@ mod global_state_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ STORE_GLOBAL succeeded: {:?}", value);
@@ -244,7 +249,7 @@ mod global_state_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ LOAD_GLOBAL succeeded: {:?}", value);
@@ -270,7 +275,7 @@ mod global_state_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ Global state persistence succeeded: {:?}", value);
@@ -307,7 +312,7 @@ mod zero_copy_optimization_tests {
         let mut large_data = vec![0; 1024]; // 1KB of data
         large_data[0..8].copy_from_slice(&12345u64.to_le_bytes());
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ Zero-copy field access succeeded: {:?}", value);
@@ -333,7 +338,7 @@ mod zero_copy_optimization_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(_) => panic!("Field access should fail for out-of-bounds offset"),
             Err(e) => {
@@ -374,7 +379,7 @@ mod memory_coverage_tests {
                 0x00,   // HALT
             ];
 
-            let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+            let result = execute_test(&bytecode, &[], &[]);
             match result {
                 Ok(_) => println!("✅ {} (0x{:02X}) - IMPLEMENTED", name, opcode),
                 Err(_) => println!("⚠️ {} (0x{:02X}) - NOT IMPLEMENTED", name, opcode),

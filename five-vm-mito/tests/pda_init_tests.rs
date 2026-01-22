@@ -5,7 +5,12 @@
 
 mod support;
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, VMError, error::VMErrorCode};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, VMError, error::VMErrorCode, stack::StackStorage, AccountInfo, Value};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &pinocchio::pubkey::Pubkey) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
+}
 use pinocchio::pubkey::Pubkey;
 use support::accounts::{create_test_accounts, derive_pda_real, encode_vle};
 
@@ -62,7 +67,7 @@ fn test_init_pda_account_success() {
     bytecode.push(0x00);
 
     // 4. Execution
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &program_id);
+    let result = execute_test(&bytecode, &[], accounts, &program_id);
 
     match result {
         Ok(_) => {
@@ -126,7 +131,7 @@ fn test_init_pda_account_failure_address_mismatch() {
     bytecode.push(0x00);
 
     // 4. Execution
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &program_id);
+    let result = execute_test(&bytecode, &[], accounts, &program_id);
 
     // 5. Verification: Should fail with AccountError (address mismatch)
     match result {
@@ -192,7 +197,7 @@ fn test_init_pda_account_failure_invalid_bump() {
     bytecode.push(0x85); // INIT_PDA_ACCOUNT
     bytecode.push(0x00);
 
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &program_id);
+    let result = execute_test(&bytecode, &[], accounts, &program_id);
 
     match result {
         Err(VMError::AccountError) => {
@@ -273,7 +278,7 @@ fn test_init_pda_account_failure_space_limit() {
     let accounts_storage = create_test_accounts(&program_id, &pda_address, &mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
     let accounts = &accounts_storage;
 
-    let result = MitoVM::execute_direct(&bytecode, &[], accounts, &program_id);
+    let result = execute_test(&bytecode, &[], accounts, &program_id);
 
     match result {
         Err(VMError::InvalidParameter) => {

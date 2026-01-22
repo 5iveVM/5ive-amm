@@ -10,7 +10,12 @@
 //! - *_REG comparison (0xB9-0xBB) - Register comparison operations
 //! - Register-stack bridge (0xBC-0xBF) - Convert between registers and stack
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 
 #[cfg(test)]
 mod register_load_tests {
@@ -27,7 +32,7 @@ mod register_load_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ LOAD_REG_U8 succeeded: {:?}", value);
@@ -53,7 +58,7 @@ mod register_load_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ LOAD_REG_U32 succeeded: {:?}", value);
@@ -78,7 +83,7 @@ mod register_load_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ LOAD_REG_U64 succeeded: {:?}", value);
@@ -102,7 +107,7 @@ mod register_load_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ LOAD_REG_BOOL succeeded: {:?}", value);
@@ -133,7 +138,7 @@ mod register_load_tests {
         bytecode.extend_from_slice(&[0xBC, 0x04]); // PUSH_REG: reg=4
         bytecode.push(0x00); // HALT
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ LOAD_REG_PUBKEY succeeded: {:?}", value);
@@ -168,7 +173,7 @@ mod register_arithmetic_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ ADD_REG succeeded: {:?}", value);
@@ -198,7 +203,7 @@ mod register_arithmetic_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ SUB_REG succeeded: {:?}", value);
@@ -228,7 +233,7 @@ mod register_arithmetic_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ MUL_REG succeeded: {:?}", value);
@@ -258,7 +263,7 @@ mod register_arithmetic_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ DIV_REG succeeded: {:?}", value);
@@ -293,7 +298,7 @@ mod register_comparison_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ EQ_REG succeeded: {:?}", value);
@@ -323,7 +328,7 @@ mod register_comparison_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ GT_REG succeeded: {:?}", value);
@@ -353,7 +358,7 @@ mod register_comparison_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ LT_REG succeeded: {:?}", value);
@@ -386,7 +391,7 @@ mod register_stack_bridge_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ POP_REG succeeded: {:?}", value);
@@ -415,7 +420,7 @@ mod register_stack_bridge_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ COPY_REG succeeded: {:?}", value);
@@ -444,7 +449,7 @@ mod register_stack_bridge_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ CLEAR_REG succeeded: {:?}", value);
@@ -484,7 +489,7 @@ mod register_performance_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&register_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&register_bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ Register performance test succeeded: {:?}", value);
@@ -525,7 +530,7 @@ mod register_performance_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[]);
         match result {
             Ok(value) => {
                 println!("✅ Register complex calculation succeeded: {:?}", value);
@@ -580,7 +585,7 @@ mod register_coverage_tests {
                 0x00, // HALT
             ];
 
-            let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+            let result = execute_test(&bytecode, &[], &[]);
             match result {
                 Ok(_) => println!("✅ {} (0x{:02X}) - IMPLEMENTED", name, opcode),
                 Err(_) => println!("⚠️ {} (0x{:02X}) - NOT IMPLEMENTED", name, opcode),

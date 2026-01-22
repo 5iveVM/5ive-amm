@@ -2,7 +2,12 @@
 //! Validates overflow detection and error handling (Task 2.2)
 
 use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, VMError, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, VMError, Value, stack::StackStorage, AccountInfo};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 
 fn script_header(public_fn_count: u8, total_fn_count: u8) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE);
@@ -38,7 +43,7 @@ fn test_add_checked_success() {
         script.push(RETURN_VALUE);
     });
 
-    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
+    match execute_test(&bytecode, &[], &[]) {
         Ok(Some(Value::U64(result))) => assert_eq!(result, 150),
         Ok(r) => panic!("Expected U64(150), got {:?}", r),
         Err(e) => panic!("Should not error: {:?}", e),
@@ -54,7 +59,7 @@ fn test_add_checked_overflow() {
         script.push(RETURN_VALUE);
     });
 
-    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
+    match execute_test(&bytecode, &[], &[]) {
         Ok(r) => panic!("Should error on overflow, got {:?}", r),
         Err(VMError::ArithmeticOverflow) => {} // Expected
         Err(e) => panic!("Wrong error type: {:?}", e),
@@ -70,7 +75,7 @@ fn test_sub_checked_success() {
         script.push(RETURN_VALUE);
     });
 
-    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
+    match execute_test(&bytecode, &[], &[]) {
         Ok(Some(Value::U64(result))) => assert_eq!(result, 70),
         Ok(r) => panic!("Expected U64(70), got {:?}", r),
         Err(e) => panic!("Should not error: {:?}", e),
@@ -86,7 +91,7 @@ fn test_sub_checked_underflow() {
         script.push(RETURN_VALUE);
     });
 
-    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
+    match execute_test(&bytecode, &[], &[]) {
         Ok(r) => panic!("Should error on underflow, got {:?}", r),
         Err(VMError::ArithmeticOverflow) => {} // Expected
         Err(e) => panic!("Wrong error type: {:?}", e),
@@ -102,7 +107,7 @@ fn test_mul_checked_success() {
         script.push(RETURN_VALUE);
     });
 
-    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
+    match execute_test(&bytecode, &[], &[]) {
         Ok(Some(Value::U64(result))) => assert_eq!(result, 500),
         Ok(r) => panic!("Expected U64(500), got {:?}", r),
         Err(e) => panic!("Should not error: {:?}", e),
@@ -119,7 +124,7 @@ fn test_mul_checked_overflow() {
         script.push(RETURN_VALUE);
     });
 
-    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
+    match execute_test(&bytecode, &[], &[]) {
         Ok(r) => panic!("Should error on overflow, got {:?}", r),
         Err(VMError::ArithmeticOverflow) => {} // Expected
         Err(e) => panic!("Wrong error type: {:?}", e),
@@ -171,7 +176,7 @@ fn test_checked_arithmetic_in_nested_calls() {
         script
     };
 
-    match MitoVM::execute_direct(&bytecode, &[0], &[], &FIVE_VM_PROGRAM_ID) {
+    match execute_test(&bytecode, &[0], &[]) {
         Ok(Some(Value::U64(result))) => {
             // f2 returns 160, f1 returns 160, f0 returns 160 + 50 = 210
             assert_eq!(result, 210);
@@ -204,7 +209,7 @@ fn test_checked_arithmetic_with_locals() {
 
     // Provide dummy input parameters [0, 2, 0, 0] (Func=0, Count=2, Param1=0, Param2=0)
     // This forces allocation of 2 locals (Param 1->Local 0, Param 2->Local 1)
-    match MitoVM::execute_direct(&bytecode, &[0, 2, 0, 0], &[], &FIVE_VM_PROGRAM_ID) {
+    match execute_test(&bytecode, &[0, 2, 0, 0], &[]) {
         Ok(Some(Value::U64(result))) => assert_eq!(result, 160),
         Ok(r) => panic!("Expected U64(160), got {:?}", r),
         Err(e) => panic!("Should not error: {:?}", e),

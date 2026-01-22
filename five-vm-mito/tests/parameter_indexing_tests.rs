@@ -10,7 +10,7 @@
 mod support;
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value, stack::StackStorage};
 use support::script_builder::ScriptBuilder;
 
 fn execute_script(build: impl FnOnce(&mut ScriptBuilder)) -> VmResult<Option<Value>> {
@@ -24,7 +24,8 @@ fn execute_script_with_input(
     let mut builder = ScriptBuilder::new();
     build(&mut builder);
     let script = builder.build().expect("script assembly should succeed");
-    MitoVM::execute_direct(&script, input, &[], &FIVE_VM_PROGRAM_ID)
+    let mut storage = StackStorage::new(&script);
+    MitoVM::execute_direct(&script, input, &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
 mod parameter_indexing {

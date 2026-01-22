@@ -2,15 +2,17 @@ use five_vm_mito::{
     MitoVM,
     systems::resource::ResourceManager,
     error::VMErrorCode,
+    stack::StackStorage,
 };
 use pinocchio::pubkey::Pubkey;
 
 #[test]
 fn test_resource_manager_heap_tracking() {
     let mut temp_buffer = [0u8; 1024];
-    let mut manager = ResourceManager::new(&mut temp_buffer);
+    let mut heap_buffer = [0u8; 2048];
+    let mut manager = ResourceManager::new(&mut temp_buffer, &mut heap_buffer);
     
-    assert_eq!(manager.heap_usage(), 0, "Initial heap usage should be 0");
+    assert_eq!(manager.heap_usage(), 2048, "Initial heap usage should be 2048 (initial chunk)");
     
     // Allocate 100 bytes
     let _addr1 = manager.alloc_heap_unsafe(100).unwrap();
@@ -50,7 +52,8 @@ fn test_recursion_stack_overflow() {
     ]);
     
     // Execution should fail with StackOverflow or CallStackOverflow eventually
-    let result = MitoVM::execute_direct(&script, &[], &[], &Pubkey::default());
+    let mut storage = StackStorage::new(&script);
+    let result = MitoVM::execute_direct(&script, &[], &[], &Pubkey::default(), &mut storage);
     
     assert!(result.is_err());
     let err = result.err().unwrap();
@@ -69,7 +72,8 @@ fn test_recursion_stack_overflow() {
 #[test]
 fn test_temp_buffer_operations() {
     let mut temp_buffer = [0u8; 1024];
-    let mut manager = ResourceManager::new(&mut temp_buffer);
+    let mut heap_buffer = [0u8; 2048];
+    let mut manager = ResourceManager::new(&mut temp_buffer, &mut heap_buffer);
     
     // Test 1: Simple Allocation
     let offset1 = manager.alloc_temp(10).unwrap();
@@ -107,7 +111,8 @@ fn test_temp_buffer_operations() {
 #[test]
 fn test_temp_buffer_overflow() {
     let mut temp_buffer = [0u8; 100]; // Small buffer
-    let mut manager = ResourceManager::new(&mut temp_buffer);
+    let mut heap_buffer = [0u8; 2048];
+    let mut manager = ResourceManager::new(&mut temp_buffer, &mut heap_buffer);
     
     // Alloc 90
     manager.alloc_temp(90).unwrap();
@@ -121,7 +126,8 @@ fn test_temp_buffer_overflow() {
 #[test]
 fn test_heap_data_access() {
     let mut temp_buffer = [0u8; 1024];
-    let mut manager = ResourceManager::new(&mut temp_buffer);
+    let mut heap_buffer = [0u8; 2048];
+    let mut manager = ResourceManager::new(&mut temp_buffer, &mut heap_buffer);
     
     // Allocate heap chunk
     let addr = manager.alloc_heap_unsafe(50).unwrap();
@@ -144,7 +150,8 @@ fn test_heap_data_access() {
 #[test]
 fn test_heap_chunk_overflow() {
     let mut temp_buffer = [0u8; 1024];
-    let mut manager = ResourceManager::new(&mut temp_buffer);
+    let mut heap_buffer = [0u8; 2048]; // Need small heap to force overflow
+    let mut manager = ResourceManager::new(&mut temp_buffer, &mut heap_buffer);
     
     // Alloc 1: Matches default chunk (2048)
     let addr1 = manager.alloc_heap_unsafe(2000).unwrap();
@@ -167,7 +174,8 @@ fn test_heap_chunk_overflow() {
 #[test]
 fn test_stack_usage_reporting() {
     let mut temp_buffer = [0u8; 1024];
-    let manager = ResourceManager::new(&mut temp_buffer);
+    let mut heap_buffer = [0u8; 2048];
+    let manager = ResourceManager::new(&mut temp_buffer, &mut heap_buffer);
     
     // Just verify it doesn't panic and returns a plausible value (>= 0)
     let usage = manager.stack_usage();

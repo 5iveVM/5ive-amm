@@ -8,7 +8,7 @@
 //! - UNPACK_TUPLE (0xFA) - Unpack tuple to stack
 
 use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value, stack::StackStorage};
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + 64);
@@ -26,7 +26,8 @@ fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
 
 fn execute_script(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
     let script = build_script(build);
-    MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID)
+    let mut storage = StackStorage::new(&script);
+    MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
 fn push_u64(script: &mut Vec<u8>, value: u64) {

@@ -214,7 +214,8 @@ impl TestUtils {
 
     /// Execute bytecode with empty accounts and input
     pub fn execute_simple(bytecode: &[u8]) -> Result<Option<Value>> {
-        MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default())
+        let mut storage = crate::stack::StackStorage::new(bytecode);
+        MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default(), &mut storage)
     }
 
     /// Execute bytecode with provided accounts
@@ -222,12 +223,14 @@ impl TestUtils {
         bytecode: &[u8],
         accounts: &[AccountInfo],
     ) -> Result<Option<Value>> {
-        MitoVM::execute_direct(bytecode, &[], accounts, &Pubkey::default())
+        let mut storage = crate::stack::StackStorage::new(bytecode);
+        MitoVM::execute_direct(bytecode, &[], accounts, &Pubkey::default(), &mut storage)
     }
 
     /// Execute bytecode with input data (for function calls)
     pub fn execute_with_input(bytecode: &[u8], input_data: &[u8]) -> Result<Option<Value>> {
-        MitoVM::execute_direct(bytecode, input_data, &[], &Pubkey::default())
+        let mut storage = crate::stack::StackStorage::new(bytecode);
+        MitoVM::execute_direct(bytecode, input_data, &[], &Pubkey::default(), &mut storage)
     }
 
     /// Create VLE encoded input data for function calls
@@ -515,7 +518,8 @@ impl MolluskTestUtils {
             .collect();
 
         // Execute the VM script with real bytecode and filtered accounts
-        match MitoVM::execute_direct(script_bytecode, &[], account_infos.as_slice(), program_id) {
+        let mut storage = crate::stack::StackStorage::new(script_bytecode);
+        match MitoVM::execute_direct(script_bytecode, &[], account_infos.as_slice(), program_id, &mut storage) {
             Ok(_) => Ok(()),
             Err(vm_error) => Err(vm_error),
         }

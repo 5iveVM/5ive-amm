@@ -4,7 +4,12 @@
 //! and ensure Five VM meets its production-readiness goals.
 
 use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + 16);
@@ -49,7 +54,7 @@ mod core_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::U64(8)), "5 + 3 should equal 8");
     }
 
@@ -63,7 +68,7 @@ mod core_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::U64(6)), "10 - 4 should equal 6");
     }
 
@@ -77,7 +82,7 @@ mod core_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::U64(42)), "7 * 6 should equal 42");
     }
 
@@ -91,7 +96,7 @@ mod core_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::U64(5)), "20 / 4 should equal 5");
     }
 }
@@ -109,7 +114,7 @@ mod comparison_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "42 == 42 should be true");
     }
 
@@ -123,7 +128,7 @@ mod comparison_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::Bool(false)), "42 == 43 should be false");
     }
 
@@ -137,7 +142,7 @@ mod comparison_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "100 > 50 should be true");
     }
 
@@ -151,7 +156,7 @@ mod comparison_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "25 < 50 should be true");
     }
 }
@@ -169,7 +174,7 @@ mod stack_manipulation {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::U64(84)), "42 + 42 should equal 84");
     }
 
@@ -184,7 +189,7 @@ mod stack_manipulation {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(
             result,
             Some(Value::U64(5u64.wrapping_sub(10))),
@@ -202,7 +207,7 @@ mod stack_manipulation {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(
             result,
             Some(Value::U64(100)),
@@ -224,7 +229,7 @@ mod boolean_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(
             result,
             Some(Value::Bool(true)),
@@ -242,7 +247,7 @@ mod boolean_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(
             result,
             Some(Value::Bool(false)),
@@ -260,7 +265,7 @@ mod boolean_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(
             result,
             Some(Value::Bool(true)),
@@ -277,7 +282,7 @@ mod boolean_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "NOT false should be true");
     }
 }
@@ -294,7 +299,7 @@ mod type_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::U8(42)), "Should handle U8 values");
     }
 
@@ -316,7 +321,7 @@ mod mixed_type_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "6 (u64) <= 20 (u128) should be true");
     }
 
@@ -330,7 +335,7 @@ mod mixed_type_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "6 (u128) <= 20 (u64) should be true");
     }
 
@@ -344,7 +349,7 @@ mod mixed_type_operations {
             script.push(HALT);
         });
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+        let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "6 (u64) <= 20 (u64) should be true");
     }
 }

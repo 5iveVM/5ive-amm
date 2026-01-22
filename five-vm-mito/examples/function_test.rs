@@ -2,7 +2,7 @@
 //!
 //! This demonstrates MitoVM's basic arithmetic capabilities
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing MitoVM arithmetic...");
@@ -21,7 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Execute with MitoVM
     println!("🚀 Executing arithmetic with MitoVM...");
 
-    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID) {
+    let mut storage = StackStorage::new(&bytecode);
+    match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("✅ Execution successful!");
             match result {

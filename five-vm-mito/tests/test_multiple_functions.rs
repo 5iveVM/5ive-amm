@@ -4,7 +4,12 @@
 //! to verify that function calls work correctly in the MitoVM.
 
 use five_dsl_compiler::DslCompiler;
-use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 use std::{fs, path::Path};
 
 fn load_multiple_functions_bytecode() -> Vec<u8> {
@@ -41,7 +46,7 @@ fn test_multiple_functions_execution() {
 
     println!("Executing bytecode with MitoVM...");
 
-    match MitoVM::execute_direct(&vm_bytecode, input, accounts, &FIVE_VM_PROGRAM_ID) {
+    match execute_test(&vm_bytecode, input, accounts) {
         Ok(Some(Value::U64(result))) => {
             println!("✅ Execution successful! Result: {}", result);
             if result == expected_result {
@@ -101,7 +106,7 @@ fn test_multiple_functions_execution() {
 
             // Try with function index 2 (test function) - requires [2, 0]
             println!("Trying function index 2 (test function)...");
-            match MitoVM::execute_direct(&vm_bytecode, &[2, 0], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(&vm_bytecode, &[2, 0], accounts) {
                 Ok(Some(Value::U64(result))) => {
                     println!("✅ Function 2 (test) succeeded with result: {}", result);
                     return; // Exit successfully if this works
@@ -112,7 +117,7 @@ fn test_multiple_functions_execution() {
 
             // Try with function index 0 (add function - expects 2 parameters)
             println!("Trying function index 0 (add function - will fail without params)...");
-            match MitoVM::execute_direct(&vm_bytecode, &[0, 0], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(&vm_bytecode, &[0, 0], accounts) {
                 Ok(Some(Value::U64(result))) => {
                     println!("✅ Function 0 succeeded with result: {}", result);
                     return; // Exit successfully if this works
@@ -123,7 +128,7 @@ fn test_multiple_functions_execution() {
 
             // Try with empty input (default function dispatch)
             println!("Trying with no function dispatch (empty input)...");
-            match MitoVM::execute_direct(&vm_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID) {
+            match execute_test(&vm_bytecode, &[], accounts) {
                 Ok(Some(Value::U64(result))) => {
                     println!("✅ Default execution succeeded with result: {}", result);
                     return; // Exit successfully if this works

@@ -3,7 +3,12 @@
 //! This suite tests logical operations (AND, OR, NOT, XOR, BITWISE_*) and rotate operations.
 
 use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + 16);
@@ -39,7 +44,7 @@ fn test_bitwise_not() {
         script.push(BITWISE_NOT);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_not_zero, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_not_zero, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(0xFFFFFFFFFFFFFFFF)), "~0 should be 0xFFFFFFFFFFFFFFFF");
 
     // ~0xFFFFFFFFFFFFFFFF should be 0
@@ -48,7 +53,7 @@ fn test_bitwise_not() {
         script.push(BITWISE_NOT);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_not_max, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_not_max, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(0)), "~MAX should be 0");
 
     // ~0xF0F0F0F0F0F0F0F0 should be 0x0F0F0F0F0F0F0F0F
@@ -57,7 +62,7 @@ fn test_bitwise_not() {
         script.push(BITWISE_NOT);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_not_alt, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_not_alt, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(0x0F0F0F0F0F0F0F0F)), "~0xF0... should be 0x0F...");
 }
 
@@ -71,7 +76,7 @@ fn test_bitwise_and() {
         script.push(BITWISE_AND);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(0x0F)), "0xFF & 0x0F should be 0x0F");
 }
 
@@ -85,7 +90,7 @@ fn test_bitwise_or() {
         script.push(BITWISE_OR);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(0xFF)), "0xF0 | 0x0F should be 0xFF");
 }
 
@@ -99,7 +104,7 @@ fn test_bitwise_xor() {
         script.push(BITWISE_XOR);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(0xF0)), "0xFF ^ 0x0F should be 0xF0");
 }
 
@@ -113,7 +118,7 @@ fn test_rotate_left() {
         script.push(ROTATE_LEFT);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_1, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_1, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(2)), "1 rotl 1 should be 2");
 
     // 0x8000000000000000 rotl 1 = 1
@@ -123,7 +128,7 @@ fn test_rotate_left() {
         script.push(ROTATE_LEFT);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_wrap, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_wrap, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(1)), "MSB rotl 1 should wrap to 1");
 }
 
@@ -137,7 +142,7 @@ fn test_rotate_right() {
         script.push(ROTATE_RIGHT);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_1, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_1, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(1)), "2 rotr 1 should be 1");
 
     // 1 rotr 1 = 0x8000000000000000
@@ -147,7 +152,7 @@ fn test_rotate_right() {
         script.push(ROTATE_RIGHT);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_wrap, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_wrap, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::U64(0x8000000000000000)), "1 rotr 1 should wrap to MSB");
 }
 
@@ -161,7 +166,7 @@ fn test_logical_xor() {
         script.push(XOR);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_tt, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_tt, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::Bool(false)), "true ^ true should be false");
 
     // true ^ false = true
@@ -171,7 +176,7 @@ fn test_logical_xor() {
         script.push(XOR);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_tf, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_tf, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::Bool(true)), "true ^ false should be true");
 
     // false ^ false = false
@@ -181,6 +186,6 @@ fn test_logical_xor() {
         script.push(XOR);
         script.push(HALT);
     });
-    let res = MitoVM::execute_direct(&bc_ff, &[], &[], &FIVE_VM_PROGRAM_ID).unwrap();
+    let res = execute_test(&bc_ff, &[], &[]).unwrap();
     assert_eq!(res, Some(Value::Bool(false)), "false ^ false should be false");
 }

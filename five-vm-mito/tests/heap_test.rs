@@ -1,4 +1,4 @@
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
 
 fn build_bytecode(body: &[u8]) -> Vec<u8> {
     let mut bytecode = vec![
@@ -23,7 +23,8 @@ fn test_heap_string_allocation() {
 
     let bytecode = build_bytecode(&bytecode_body);
 
-    let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+    let mut storage = StackStorage::new(&bytecode);
+    let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
 
     match result {
         Ok(value) => {

@@ -3,7 +3,12 @@
 //! These tests use proven Five DSL scripts from five-cli/test-scripts to validate
 //! our PDA/CPI implementations with real compiled bytecode rather than manual opcodes.
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
 
 /// Test multiple function execution with function calls using real Five DSL bytecode
 /// Real bytecode from five-cli/test-scripts/01-language-basics/multiple-functions.v
@@ -49,7 +54,7 @@ fn test_multiple_functions_integration() {
     let accounts = [];
     let input_data = [];
 
-    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+    let result = execute_test(&bytecode, &input_data, &accounts);
 
     match result {
         Ok(Some(Value::U64(value))) => {
@@ -86,7 +91,7 @@ fn test_clock_access_integration() {
     let accounts = [];
     let input_data = [];
 
-    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+    let result = execute_test(&bytecode, &input_data, &accounts);
 
     match result {
         Ok(Some(Value::U64(timestamp))) => {
@@ -126,7 +131,7 @@ fn test_pda_derivation_integration() {
     let accounts = [];
     let input_data = [];
 
-    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+    let result = execute_test(&bytecode, &input_data, &accounts);
 
     match result {
         Ok(Some(value)) => {
@@ -167,7 +172,7 @@ fn test_pda_multiple_seeds_integration() {
     let accounts = [];
     let input_data = [];
 
-    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+    let result = execute_test(&bytecode, &input_data, &accounts);
 
     match result {
         Ok(Some(value)) => {
@@ -206,7 +211,7 @@ fn test_complex_pda_workflow_integration() {
     let accounts = [];
     let input_data = [];
 
-    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+    let result = execute_test(&bytecode, &input_data, &accounts);
 
     match result {
         Ok(Some(value)) => {
@@ -246,7 +251,7 @@ fn test_arithmetic_baseline_integration() {
     ]
     .concat();
 
-    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID);
+    let result = execute_test(&bytecode, &input_data, &accounts);
 
     match result {
         Ok(Some(Value::U64(300))) => {

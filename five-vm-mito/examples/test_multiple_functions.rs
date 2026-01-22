@@ -1,4 +1,4 @@
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, stack::StackStorage};
 
 fn main() {
     // Bytecode from multiple-functions.v
@@ -13,7 +13,8 @@ fn main() {
     let instruction_data = vec![0, 0]; // Call function 0, no params
 
     println!("Executing multiple-functions test...");
-    let result = MitoVM::execute_direct(&bytecode, &instruction_data, &[], &FIVE_VM_PROGRAM_ID);
+    let mut storage = StackStorage::new(&bytecode);
+    let result = MitoVM::execute_direct(&bytecode, &instruction_data, &[], &FIVE_VM_PROGRAM_ID, &mut storage);
 
     match result {
         Ok(value) => println!("Success! Result: {:?}", value),

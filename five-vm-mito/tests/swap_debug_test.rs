@@ -1,4 +1,4 @@
-use five_vm_mito::{MitoVM, Value, Pubkey};
+use five_vm_mito::{MitoVM, Value, Pubkey, stack::StackStorage};
 
 #[test]
 fn test_swap_debug() {
@@ -23,7 +23,7 @@ fn test_swap_debug() {
         0x00                    // HALT
     ];
 
-    let result = MitoVM::execute_direct(&bytecode, &[], &[], &program_id).unwrap();
+    let result = { let mut storage = StackStorage::new(&bytecode); MitoVM::execute_direct(&bytecode, &[], &[], &program_id, &mut storage) }.unwrap();
     println!("Result: {:?}", result);
     assert_eq!(result, Some(Value::U64(7)), "Expected 10 - 3 = 7 after swap");
 
@@ -40,7 +40,7 @@ fn test_swap_debug() {
         0x00                    // HALT
     ];
 
-    let result_no_swap = MitoVM::execute_direct(&bytecode_no_swap, &[], &[], &program_id).unwrap();
+    let result_no_swap = { let mut storage = StackStorage::new(&bytecode_no_swap); MitoVM::execute_direct(&bytecode_no_swap, &[], &[], &program_id, &mut storage) }.unwrap();
     println!("Result: {:?}", result_no_swap);
     assert_eq!(result_no_swap, Some(Value::U64(7)), "Expected 10 - 3 = 7 (direct)");
 }

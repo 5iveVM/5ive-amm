@@ -4,9 +4,14 @@
 
 mod support;
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, VMError};
+use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, VMError, stack::StackStorage, AccountInfo};
 use five_vm_mito::error::VMErrorCode;
 use pinocchio::pubkey::Pubkey;
+
+fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &Pubkey) -> five_vm_mito::Result<Option<Value>> {
+    let mut storage = StackStorage::new(bytecode);
+    MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
+}
 use support::accounts::{create_test_accounts, derive_pda_real};
 
 #[cfg(test)]
@@ -57,7 +62,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
+        let result = execute_test(&bytecode, &[], &accounts, &program_id);
         result.expect("CHECK_SIGNER should succeed for valid signer");
     }
 
@@ -79,7 +84,7 @@ mod basic_constraint_tests {
             0x00,
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
+        let result = execute_test(&bytecode, &[], &accounts, &program_id);
         match result {
             Err(_) => println!("✅ CHECK_SIGNER correctly failed"),
             Ok(_) => panic!("CHECK_SIGNER should fail for non-signer"),
@@ -104,7 +109,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
+        let result = execute_test(&bytecode, &[], &accounts, &program_id);
         result.expect("CHECK_WRITABLE should succeed for writable account");
     }
 
@@ -126,7 +131,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
+        let result = execute_test(&bytecode, &[], &accounts, &program_id);
         match result {
             Err(_) => println!("✅ CHECK_WRITABLE correctly failed for read-only"),
             Ok(_) => panic!("CHECK_WRITABLE should fail for read-only account"),
@@ -156,7 +161,7 @@ mod basic_constraint_tests {
         bytecode.extend_from_slice(expected_owner.as_ref());
         bytecode.push(0x00); // HALT
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
+        let result = execute_test(&bytecode, &[], &accounts, &program_id);
         result.expect("CHECK_OWNER should succeed");
     }
 
@@ -178,7 +183,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
+        let result = execute_test(&bytecode, &[], &accounts, &program_id);
         result.expect("CHECK_INITIALIZED should succeed for initialized account");
     }
 
@@ -204,7 +209,7 @@ mod basic_constraint_tests {
             0x00, // HALT
         ];
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
+        let result = execute_test(&bytecode, &[], &accounts, &program_id);
         result.expect("CHECK_UNINITIALIZED should succeed for uninitialized account");
     }
 }
@@ -253,7 +258,7 @@ mod pda_constraint_tests {
 
         bytecode.push(0x00); // HALT
 
-        let result = MitoVM::execute_direct(&bytecode, &[], &accounts, &program_id);
+        let result = execute_test(&bytecode, &[], &accounts, &program_id);
         result.expect("CHECK_PDA should succeed for valid PDA");
     }
 }
@@ -271,7 +276,7 @@ mod unimplemented_constraint_tests {
             0x76, // CHECK_DEDUPE_TABLE
             0x00,
         ];
-        let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
             Err(VMError::InvalidInstruction) => {}, // Correct
             _ => panic!("Expected InvalidInstruction for CHECK_DEDUPE_TABLE"),

@@ -1,4 +1,4 @@
-use five_vm_mito::{MitoVM, Pubkey, Value};
+use five_vm_mito::{MitoVM, Pubkey, Value, stack::StackStorage};
 
 #[test]
 fn test_debug_call() {
@@ -38,7 +38,8 @@ fn test_debug_call() {
     let input_data = vec![]; // Execute from start
 
     let program_id = Pubkey::default();
-    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &program_id);
+    let mut storage = StackStorage::new(&bytecode);
+    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &program_id, &mut storage);
 
     match result {
         Ok(res) => {
