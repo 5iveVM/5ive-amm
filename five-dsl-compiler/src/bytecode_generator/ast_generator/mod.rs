@@ -21,6 +21,7 @@ mod resources;
 mod symbol_table;
 pub mod types;
 mod utilities;
+mod fused_opcodes;
 
 // New modules
 mod program;
@@ -269,6 +270,11 @@ impl ASTGenerator {
             }
 
             AstNode::RequireStatement { condition } => {
+                // Try to emit fused opcode first for CU optimization
+                if self.try_emit_fused_require(emitter, condition)? {
+                    return Ok(());
+                }
+                // Fallback to standard require generation
                 self.generate_ast_node(emitter, condition)?;
                 emitter.emit_opcode(REQUIRE);
                 Ok(())
@@ -318,6 +324,11 @@ impl ASTGenerator {
                 field,
                 value,
             } => {
+                // Try to emit fused opcode first for CU optimization (Tier 2)
+                if self.try_emit_fused_field_assignment(emitter, object, field, value)? {
+                    return Ok(());
+                }
+                // Fallback to standard field assignment generation
                 self.generate_field_assignment(emitter, object, field, value)
             }
 

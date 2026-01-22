@@ -441,6 +441,87 @@ fn decode_operands(
                 analyzer.position += 3;
             }
         }
+        ArgType::AccountFieldParam => {
+            // acc(u8) + offset(VLE) + param(u8)
+            if analyzer.position < analyzer.bytecode.len() {
+                let acc = analyzer.bytecode[analyzer.position];
+                operands.push(OperandInfo {
+                    operand_type: "account_index".to_string(),
+                    raw_value: vec![acc],
+                    decoded_value: Some(format!("account_{}", acc)),
+                    size: 1,
+                    description: "Account index".to_string(),
+                });
+                analyzer.position += 1;
+
+                if analyzer.position < analyzer.bytecode.len() {
+                    let (val, bytes, size) = read_vle(analyzer)?;
+                    operands.push(OperandInfo {
+                        operand_type: "field_offset".to_string(),
+                        raw_value: bytes,
+                        decoded_value: Some(format!("offset_{}", val)),
+                        size: size,
+                        description: "Field offset (VLE)".to_string(),
+                    });
+
+                    if analyzer.position < analyzer.bytecode.len() {
+                        let param = analyzer.bytecode[analyzer.position];
+                        operands.push(OperandInfo {
+                            operand_type: "param_index".to_string(),
+                            raw_value: vec![param],
+                            decoded_value: Some(format!("param_{}", param)),
+                            size: 1,
+                            description: "Parameter index".to_string(),
+                        });
+                        analyzer.position += 1;
+                    }
+                }
+            }
+        }
+        ArgType::FusedAccAcc => {
+            // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
+            if analyzer.position < analyzer.bytecode.len() {
+                let acc1 = analyzer.bytecode[analyzer.position];
+                operands.push(OperandInfo {
+                    operand_type: "account_index".to_string(),
+                    raw_value: vec![acc1],
+                    decoded_value: Some(format!("acc1_{}", acc1)),
+                    size: 1,
+                    description: "First Account Index".to_string(),
+                });
+                analyzer.position += 1;
+
+                let (val1, bytes1, size1) = read_vle(analyzer)?;
+                operands.push(OperandInfo {
+                    operand_type: "field_offset".to_string(),
+                    raw_value: bytes1,
+                    decoded_value: Some(format!("offset1_{}", val1)),
+                    size: size1,
+                    description: "First Field Offset".to_string(),
+                });
+
+                if analyzer.position < analyzer.bytecode.len() {
+                    let acc2 = analyzer.bytecode[analyzer.position];
+                    operands.push(OperandInfo {
+                        operand_type: "account_index".to_string(),
+                        raw_value: vec![acc2],
+                        decoded_value: Some(format!("acc2_{}", acc2)),
+                        size: 1,
+                        description: "Second Account Index".to_string(),
+                    });
+                    analyzer.position += 1;
+
+                    let (val2, bytes2, size2) = read_vle(analyzer)?;
+                    operands.push(OperandInfo {
+                        operand_type: "field_offset".to_string(),
+                        raw_value: bytes2,
+                        decoded_value: Some(format!("offset2_{}", val2)),
+                        size: size2,
+                        description: "Second Field Offset".to_string(),
+                    });
+                }
+            }
+        }
     }
 
     // Handle special cases for specific opcodes that have unique operand patterns
