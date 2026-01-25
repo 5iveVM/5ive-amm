@@ -222,6 +222,22 @@ impl CompilerBridge {
             .and_then(|(_, symbol_table)| symbol_table.get(symbol_name).cloned())
     }
 
+    /// Get all symbols from the cached symbol table
+    ///
+    /// Returns a list of all symbol names currently defined in the source.
+    /// Useful for code completion and other features that need project symbols.
+    pub fn get_all_symbols(
+        &self,
+        uri: &Url,
+        source: &str,
+    ) -> Option<Vec<String>> {
+        let hash = Self::hash_source(source);
+        self.symbol_cache
+            .get(uri)
+            .filter(|(cached_hash, _)| *cached_hash == hash)
+            .map(|(_, symbol_table)| symbol_table.keys().cloned().collect())
+    }
+
     /// Clear all caches (useful after significant changes or for testing)
     pub fn clear_caches(&mut self) {
         self.ast_cache.clear();
