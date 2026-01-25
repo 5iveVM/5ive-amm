@@ -119,19 +119,33 @@ fn get_keyword_suggestions(prefix: &str) -> Vec<CompletionItem> {
 
 /// Get symbol suggestions from the symbol table
 fn get_symbol_suggestions(
-    _bridge: &CompilerBridge,
-    _source: &str,
-    _uri: &lsp_types::Url,
+    bridge: &CompilerBridge,
+    source: &str,
+    uri: &lsp_types::Url,
     prefix: &str,
 ) -> Vec<CompletionItem> {
     let mut suggestions = Vec::new();
 
-    // Try to get symbols from symbol table
-    // Note: This is a simplified implementation that shows all symbols
-    // In the future, we could filter by scope and context
-    // TODO: Integrate with bridge.resolve_symbol() to get actual project symbols
+    // Get all symbols from the compiled symbol table
+    // The bridge maintains a cached symbol table after successful compilation
+    if let Some(symbols) = bridge.get_all_symbols(uri, source) {
+        suggestions.extend(
+            symbols
+                .iter()
+                .filter(|name| name.starts_with(prefix))
+                .map(|name| CompletionItem {
+                    label: name.clone(),
+                    kind: Some(CompletionItemKind::VARIABLE),
+                    detail: Some(format!("Symbol: {}", name)),
+                    documentation: Some(lsp_types::Documentation::String(
+                        "User-defined symbol from project".to_string(),
+                    )),
+                    ..Default::default()
+                }),
+        );
+    }
 
-    // For now, we'll suggest common types and built-ins
+    // Always include common built-in types (in case bridge is unavailable)
     let common_types = vec![
         ("u64", "Unsigned 64-bit integer", CompletionItemKind::TYPE_PARAMETER),
         ("u32", "Unsigned 32-bit integer", CompletionItemKind::TYPE_PARAMETER),
