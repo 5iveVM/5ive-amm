@@ -16,7 +16,7 @@
 //! ```
 
 use crate::bridge::CompilerBridge;
-use crate::features::{hover, completion, goto_definition, find_references};
+use crate::features::{hover, completion, goto_definition, find_references, semantic, document_symbols, rename};
 use lsp_types::{Position, Url};
 use wasm_bindgen::prelude::*;
 
@@ -247,6 +247,88 @@ impl FiveLspWasm {
         // Convert to JSON for passing to JavaScript
         serde_json::to_string(&references)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Get semantic tokens for syntax highlighting
+    ///
+    /// Returns an array of semantic tokens for AST-based syntax highlighting.
+    /// Provides more accurate highlighting than regex-based approaches.
+    pub fn get_semantic_tokens(
+        &self,
+        uri: &str,
+        source: &str,
+    ) -> Result<String, JsValue> {
+        // Parse URI
+        let url = Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Get semantic tokens
+        let tokens = semantic::get_semantic_tokens(&self.bridge, source, &url);
+
+        // Convert to JSON
+        serde_json::to_string(&tokens)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Get document symbols for outline view
+    ///
+    /// Returns all top-level definitions (functions, variables, accounts) for
+    /// display in the editor's outline/navigator panel.
+    pub fn get_document_symbols(
+        &self,
+        uri: &str,
+        source: &str,
+    ) -> Result<String, JsValue> {
+        // Parse URI
+        let url = Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Get document symbols
+        let symbols = document_symbols::get_document_symbols(&self.bridge, source, &url);
+
+        // Convert to JSON
+        serde_json::to_string(&symbols)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Prepare a rename operation
+    ///
+    /// Validates that a symbol at the given position can be renamed and returns its name.
+    pub fn prepare_rename(
+        source: &str,
+        line: u32,
+        character: u32,
+    ) -> Result<Option<String>, JsValue> {
+        match rename::prepare_rename(source, line as usize, character as usize) {
+            Some(name) => Ok(Some(name)),
+            None => Ok(None),
+        }
+    }
+
+    /// Rename a symbol across all occurrences
+    ///
+    /// Performs a safe rename of a symbol, updating all references to it.
+    pub fn rename(
+        &self,
+        uri: &str,
+        source: &str,
+        line: u32,
+        character: u32,
+        new_name: &str,
+    ) -> Result<Option<String>, JsValue> {
+        // Parse URI
+        let url = Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Perform rename
+        match rename::rename(source, line as usize, character as usize, new_name, &url) {
+            Some(edit) => {
+                let json = serde_json::to_string(&edit)
+                    .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))?;
+                Ok(Some(json))
+            }
+            None => Ok(None),
+        }
     }
 
     /// Clear all caches
