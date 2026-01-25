@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export default function DeveloperExperience() {
     return (
-        <section className="relative py-32 px-4 overflow-hidden bg-[#191724]">
+        <section className="relative py-32 px-4 overflow-hidden bg-transparent">
             {/* Background Atmosphere */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-rose-pine-iris/5 rounded-full blur-[150px]" />
@@ -34,11 +34,11 @@ export default function DeveloperExperience() {
                                 </h2>
                             </div>
 
-                            <p className="text-xl text-rose-pine-muted font-light leading-relaxed mb-8">
+                            <p className="text-xl text-rose-pine-subtle leading-relaxed mb-8 text-contrast">
                                 Stop wrestling with CPI boilerplate. 5IVE treats other programs like native libraries.
                             </p>
 
-                            <ul className="space-y-4 mb-10">
+                            <ul className="space-y-4 mb-10 text-contrast">
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
                                     <XCircle className="mt-1 text-rose-pine-muted shrink-0 opacity-50" size={20} />
                                     <span>No manual account meta construction</span>
@@ -68,14 +68,14 @@ export default function DeveloperExperience() {
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ duration: 0.8 }}
-                                className="rounded-3xl border border-rose-pine-hl-low/20 bg-[#1f1d2e] overflow-hidden shadow-2xl shadow-rose-pine-iris/10"
+                                className="rounded-3xl border border-rose-pine-hl-low/20 bg-rose-pine-surface overflow-hidden shadow-2xl shadow-rose-pine-iris/10"
                             >
                                 {/* Header */}
                                 <div className="flex border-b border-rose-pine-hl-low/10">
-                                    <div className="flex-1 p-4 bg-[#232136] text-center text-xs font-mono uppercase tracking-widest text-rose-pine-subtle border-r border-rose-pine-hl-low/10 opacity-50">
+                                    <div className="flex-1 p-4 bg-rose-pine-base text-center text-xs font-mono uppercase tracking-widest text-rose-pine-subtle border-r border-rose-pine-hl-low/10 opacity-50 text-contrast">
                                         Legacy CPI
                                     </div>
-                                    <div className="flex-1 p-4 bg-[#2a273f] text-center text-xs font-bold font-mono uppercase tracking-widest text-rose-pine-iris">
+                                    <div className="flex-1 p-4 bg-rose-pine-surface text-center text-xs font-bold font-mono uppercase tracking-widest text-rose-pine-iris">
                                         5IVE Import
                                     </div>
                                 </div>
@@ -84,8 +84,8 @@ export default function DeveloperExperience() {
                                 <div className="grid grid-cols-2 divide-x divide-rose-pine-hl-low/10 font-mono text-[10px] md:text-xs leading-relaxed">
 
                                     {/* Legacy Code (Dimmed) */}
-                                    <div className="p-6 bg-[#1f1d2e] opacity-40 select-none overflow-hidden relative">
-                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#1f1d2e] z-10" />
+                                    <div className="p-6 bg-rose-pine-surface opacity-40 select-none overflow-hidden relative">
+                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-rose-pine-surface z-10" />
                                         <span className="text-rose-pine-love">let</span> ix = Instruction {"{"}<br />
                                         &nbsp;&nbsp;program_id: pid,<br />
                                         &nbsp;&nbsp;accounts: <span className="text-rose-pine-foam">vec!</span>[<br />
@@ -98,7 +98,7 @@ export default function DeveloperExperience() {
                                     </div>
 
                                     {/* 5IVE Code (Bright) */}
-                                    <div className="p-6 bg-[#2a273f]/50 relative">
+                                    <div className="p-6 bg-rose-pine-surface/50 relative">
                                         <div className="absolute top-0 right-0 p-2">
                                             <div className="flex gap-1.5">
                                                 <div className="w-2 h-2 rounded-full bg-rose-pine-foam animate-pulse" />
@@ -128,16 +128,16 @@ export default function DeveloperExperience() {
                             whileInView={{ opacity: 1, scale: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.8, ease: "circOut" }}
-                            className="relative w-full max-w-lg rounded-2xl border border-rose-pine-hl-low/20 bg-[#1f1d2e] shadow-[0_0_50px_rgba(196,167,231,0.1)] overflow-hidden z-10"
+                            className="relative w-full max-w-lg rounded-2xl border border-rose-pine-hl-low/20 bg-rose-pine-surface shadow-[0_0_50px_rgba(196,167,231,0.1)] overflow-hidden z-10"
                         >
                             {/* Window Title Bar */}
-                            <div className="h-10 bg-[#26233a] border-b border-white/5 flex items-center px-4 justify-between">
+                            <div className="h-10 bg-rose-pine-base border-b border-white/5 flex items-center px-4 justify-between">
                                 <div className="flex gap-2">
                                     <div className="w-3 h-3 rounded-full bg-rose-pine-love/50" />
                                     <div className="w-3 h-3 rounded-full bg-rose-pine-gold/50" />
                                     <div className="w-3 h-3 rounded-full bg-rose-pine-foam/50" />
                                 </div>
-                                <div className="text-[10px] font-mono text-rose-pine-subtle opacity-50 flex items-center gap-2">
+                                <div className="text-[10px] font-mono text-rose-pine-subtle opacity-50 flex items-center gap-2 text-contrast">
                                     <Globe size={10} />
                                     ide.five.org
                                 </div>
@@ -162,7 +162,7 @@ export default function DeveloperExperience() {
                                 </div>
 
                                 <div className="mt-8 pt-4 border-t border-white/5 flex justify-between items-center">
-                                    <div className="text-[10px] text-rose-pine-subtle flex items-center gap-2">
+                                    <div className="text-[10px] text-rose-pine-subtle flex items-center gap-2 text-contrast">
                                         <div className="w-2 h-2 rounded-full bg-rose-pine-foam animate-pulse" />
                                         Ready to deploy
                                     </div>
@@ -181,13 +181,13 @@ export default function DeveloperExperience() {
                             transition={{ duration: 0.8, delay: 0.3 }}
                             className="absolute -left-4 md:-left-12 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-20 pointer-events-none"
                         >
-                            <div className="px-4 py-2 rounded-lg bg-[#26233a]/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2">
+                            <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 text-contrast">
                                 rustup update
                             </div>
-                            <div className="px-4 py-2 rounded-lg bg-[#26233a]/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 ml-4">
+                            <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 ml-4 text-contrast">
                                 solana-install
                             </div>
-                            <div className="px-4 py-2 rounded-lg bg-[#26233a]/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2">
+                            <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 text-contrast">
                                 cargo build-bpf
                             </div>
                         </motion.div>
@@ -212,12 +212,12 @@ export default function DeveloperExperience() {
                                 </h2>
                             </div>
 
-                            <p className="text-xl text-rose-pine-muted font-light leading-relaxed mb-8">
+                            <p className="text-xl text-rose-pine-subtle leading-relaxed mb-8 text-contrast">
                                 No terminal to configure. No toolchain to break.
                                 <span className="block mt-2 text-rose-pine-text font-medium">Build, Deploy, and Execute from anywhere.</span>
                             </p>
 
-                            <ul className="space-y-4 mb-10">
+                            <ul className="space-y-4 mb-10 text-contrast">
                                 <li className="flex items-center gap-3 text-rose-pine-subtle">
                                     <CheckCircle2 className="text-rose-pine-foam shrink-0" size={20} />
                                     <span>Client-side WASM Compilation</span>

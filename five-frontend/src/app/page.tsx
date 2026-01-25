@@ -2,7 +2,12 @@ import dynamic from "next/dynamic";
 import Hero from "@/components/landing/Hero";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
-const Features = dynamic(() => import("@/components/landing/Features"));
+// Rich Landing Page Sections (Dynamic Imports for performance)
+const NapkinToMainnet = dynamic(() => import("@/components/landing/NapkinToMainnet"));
+
+const SuperPowers = dynamic(() => import("@/components/landing/SuperPowers"));
+const DeveloperExperience = dynamic(() => import("@/components/landing/DeveloperExperience"));
+
 import Background from "@/components/layout/Background";
 
 import Header from "@/components/layout/Header";
@@ -18,7 +23,10 @@ export default function LandingPage() {
 
             <main className="flex-1 relative z-10 w-full">
                 <Hero />
-                <Features />
+                <NapkinToMainnet />
+
+                <SuperPowers />
+                <DeveloperExperience />
             </main>
 
             {/* Simple Footer */}

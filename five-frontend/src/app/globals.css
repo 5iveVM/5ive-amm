@@ -60,52 +60,115 @@
 
 /* Orb Animations */
 @keyframes orb-move-1 {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(100px, -50px) scale(1.2); }
-  66% { transform: translate(-50px, 100px) scale(0.9); }
-  100% { transform: translate(0, 0) scale(1); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(100px, -50px) scale(1.2);
+  }
+
+  66% {
+    transform: translate(-50px, 100px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
 }
 
 @keyframes orb-move-2 {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-100px, 50px) scale(0.8); }
-  66% { transform: translate(50px, -100px) scale(1.1); }
-  100% { transform: translate(0, 0) scale(1); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(-100px, 50px) scale(0.8);
+  }
+
+  66% {
+    transform: translate(50px, -100px) scale(1.1);
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
 }
 
 @keyframes orb-move-3 {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(80px, -60px) scale(1.3); }
-  66% { transform: translate(-40px, 40px) scale(0.9); }
-  100% { transform: translate(0, 0) scale(1); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(80px, -60px) scale(1.3);
+  }
+
+  66% {
+    transform: translate(-40px, 40px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
 }
 
 @keyframes orb-move-4 {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-90px, 70px) scale(0.9); }
-  66% { transform: translate(45px, -30px) scale(1.2); }
-  100% { transform: translate(0, 0) scale(1); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(-90px, 70px) scale(0.9);
+  }
+
+  66% {
+    transform: translate(45px, -30px) scale(1.2);
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
 }
 
 @keyframes orb-center {
-  0% { transform: translate(0, 0) scale(1); opacity: 0.1; }
-  33% { transform: translate(200px, -150px) scale(1.1); opacity: 0.2; }
-  66% { transform: translate(-200px, 150px) scale(1); opacity: 0.1; }
-  100% { transform: translate(0, 0) scale(1); opacity: 0.1; }
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.1;
+  }
+
+  33% {
+    transform: translate(200px, -150px) scale(1.1);
+    opacity: 0.2;
+  }
+
+  66% {
+    transform: translate(-200px, 150px) scale(1);
+    opacity: 0.1;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.1;
+  }
 }
 
 .animate-orb-1 {
   animation: orb-move-1 20s infinite ease-in-out;
 }
+
 .animate-orb-2 {
   animation: orb-move-2 25s infinite ease-in-out 2s;
 }
+
 .animate-orb-3 {
   animation: orb-move-3 22s infinite ease-in-out 1s;
 }
+
 .animate-orb-4 {
   animation: orb-move-4 28s infinite ease-in-out 3s;
 }
+
 .animate-orb-center {
   animation: orb-center 30s infinite ease-in-out;
 }
@@ -130,9 +193,12 @@
 
   /* Holographic Glass Tokens (Dark - Refined Rose Pine) */
   /* Base: #232136 -> 35, 33, 54 */
-  --glass-bg: rgba(35, 33, 54, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(35, 33, 54, 0.5);
+  /* Very transparent */
+  --glass-border: rgba(255, 255, 255, 0.1);
   --glass-shine: rgba(255, 255, 255, 0.05);
+  --glass-reflection: rgba(255, 255, 255, 0.5);
+  /* Strong reflection */
   --prism-border-hover: linear-gradient(45deg, var(--rp-love), var(--rp-gold), var(--rp-iris));
 }
 
@@ -156,11 +222,14 @@
 
   /* Holographic Glass Tokens (Light - Refined Rose Pine Dawn) */
   /* Surface: #fffaf3 -> 255, 250, 243 */
-  --glass-bg: rgba(255, 250, 243, 0.7);
+  --glass-bg: rgba(255, 250, 243, 0.4);
+  /* Very transparent */
   /* Slightly more opaque for light mode */
-  --glass-border: rgba(87, 82, 121, 0.1);
+  --glass-border: rgba(87, 82, 121, 0.15);
   /* Text color at low opacity for softer border */
-  --glass-shine: rgba(255, 255, 255, 0.5);
+  --glass-shine: rgba(255, 255, 255, 0.6);
+  --glass-reflection: rgba(255, 255, 255, 0.9);
+  /* Max reflection for light mode */
   --prism-border-hover: linear-gradient(45deg, var(--rp-love), var(--rp-gold), var(--rp-iris));
 }
 
@@ -176,27 +245,58 @@ body {
   @apply antialiased relative;
 }
 
+h1,
+h2,
+h3,
+h4,
+.text-pop {
+  /* Apply text pop globally to headings */
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.3),
+    0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.light h1,
+.light h2,
+.light h3,
+.light h4,
+.light .text-pop {
+  text-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.1),
+    0 0 1px rgba(255, 255, 255, 0.4);
+}
+
 /* Static Noise Overlay */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 50;
+  /* Lower z-index so glass can sit on top if needed, but mainly reduce opacity */
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
-  opacity: 0.4;
+  opacity: 0.05;
+  /* Almost invisible, just texture */
   mix-blend-mode: overlay;
 }
 
 @layer utilities {
   .glass-panel {
-    @apply backdrop-blur-xl bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-xl will-change-transform backface-hidden translate-z-0;
+    @apply backdrop-blur-lg bg-[var(--glass-bg)] border border-[var(--glass-border)] transition-all duration-300 will-change-transform backface-hidden translate-z-0 relative z-10;
+    box-shadow:
+      0 4px 30px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 0 var(--glass-reflection);
+    /* macOS Liquid Glass Top Reflection */
   }
 
   /* Feature Card Specific - Dormant State */
   .holo-card {
-    @apply backdrop-blur-md bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-lg transition-all duration-500 ease-out;
+    @apply backdrop-blur-md bg-[var(--glass-bg)] border border-[var(--glass-border)] transition-all duration-500 ease-out;
     background-image: linear-gradient(145deg, var(--glass-shine) 0%, transparent 40%);
+    box-shadow:
+      0 4px 20px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 0 var(--glass-reflection);
+    /* Liquid Glass Top Edge */
   }
 
   /* Holographic Hover State handled in component via group-hover or JS for performance */
@@ -224,6 +324,26 @@ body::before {
 
   .translate-z-0 {
     transform: translateZ(0);
+  }
+
+  .text-contrast {
+    /* Drop Shadow + Subtle Inner Glow simulation */
+    text-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.4),
+      /* Drop Shadow */
+      0 0 1px rgba(255, 255, 255, 0.05);
+    /* Reduced Glow */
+  }
+
+  :global(.light) .text-contrast {
+    /* Lighter Drop Shadow + Stronger/Whiter Glow */
+    text-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.15),
+      /* Soft Drop Shadow */
+      0 0 1px rgba(255, 255, 255, 0.5);
+    /* Reduced Glow */
+    font-weight: 500;
+    /* Slightly heavier for light mode readability */
   }
 }
 

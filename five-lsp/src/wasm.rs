@@ -1,0 +1,259 @@
+//! WASM bindings for browser-based LSP (Monaco Editor integration)
+//!
+//! This module provides JavaScript/WebAssembly bindings that allow the LSP
+//! to run in the browser, communicating with Monaco Editor directly.
+//!
+//! The module exposes `FiveLspWasm` which wraps the compiler bridge and
+//! allows TypeScript to call diagnostics in real-time as the user edits.
+//!
+//! Usage (from TypeScript):
+//! ```typescript
+//! import * as wasmModule from 'five-lsp-wasm';
+//!
+//! const lsp = wasmModule.FiveLspWasm.new();
+//! const diagnostics = lsp.get_diagnostics('file:///test.v', sourceCode);
+//! console.log(diagnostics);  // Array of Diagnostic objects
+//! ```
+
+use crate::bridge::CompilerBridge;
+use crate::features::{hover, completion, goto_definition, find_references};
+use lsp_types::{Position, Url};
+use wasm_bindgen::prelude::*;
+
+/// WASM wrapper for the Five LSP compiler bridge
+///
+/// This is the main entry point for WASM clients. It wraps the Rust
+/// CompilerBridge and exposes it to JavaScript via wasm-bindgen.
+#[wasm_bindgen]
+pub struct FiveLspWasm {
+    bridge: CompilerBridge,
+}
+
+#[wasm_bindgen]
+impl FiveLspWasm {
+    /// Create a new LSP instance
+    ///
+    /// This initializes the compiler bridge and prepares it for use.
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> FiveLspWasm {
+        // Set up panic hooks for better error reporting in browser
+        #[cfg(feature = "console_error_panic_hook")]
+        console_error_panic_hook::set_once();
+
+        FiveLspWasm {
+            bridge: CompilerBridge::new(),
+        }
+    }
+
+    /// Get diagnostics for a Five DSL file
+    ///
+    /// # Arguments
+    /// * `uri` - File URI (e.g., "file:///test.v")
+    /// * `source` - The source code to analyze
+    ///
+    /// # Returns
+    /// A JSON string containing an array of diagnostics, or an error message
+    ///
+    /// # Example
+    /// ```typescript
+    /// const lsp = FiveLspWasm.new();
+    /// const result = lsp.get_diagnostics('file:///test.v', 'init { let x = 5; }');
+    /// const diagnostics = JSON.parse(result);
+    /// ```
+    pub fn get_diagnostics(&mut self, uri: &str, source: &str) -> Result<String, JsValue> {
+        // Parse URI
+        let url = lsp_types::Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Get diagnostics from bridge
+        let diagnostics = self
+            .bridge
+            .get_diagnostics(&url, source)
+            .map_err(|e| JsValue::from_str(&format!("Compilation error: {}", e)))?;
+
+        // Convert to JSON for passing to JavaScript
+        serde_json::to_string(&diagnostics)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Get hover information for a symbol at the given position
+    ///
+    /// # Arguments
+    /// * `uri` - File URI (e.g., "file:///test.v")
+    /// * `source` - The source code
+    /// * `line` - 0-indexed line number
+    /// * `character` - 0-indexed character position
+    ///
+    /// # Returns
+    /// A JSON string containing hover information, or error message
+    ///
+    /// # Example
+    /// ```typescript
+    /// const lsp = FiveLspWasm.new();
+    /// const result = lsp.get_hover('file:///test.v', 'let x = 5;', 0, 4);
+    /// const hover = result ? JSON.parse(result) : null;
+    /// ```
+    pub fn get_hover(
+        &mut self,
+        uri: &str,
+        source: &str,
+        line: u32,
+        character: u32,
+    ) -> Result<Option<String>, JsValue> {
+        // Parse URI
+        let url = lsp_types::Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Create position
+        let position = lsp_types::Position { line, character };
+
+        // Get hover from bridge
+        let hover_info = hover::get_hover(&self.bridge, source, position, &url);
+
+        // Convert to JSON for passing to JavaScript
+        if let Some(hover) = hover_info {
+            let json = serde_json::to_string(&hover)
+                .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))?;
+            Ok(Some(json))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get completion suggestions at the given position
+    ///
+    /// # Arguments
+    /// * `uri` - File URI (e.g., "file:///test.v")
+    /// * `source` - The source code
+    /// * `line` - 0-indexed line number
+    /// * `character` - 0-indexed character position
+    ///
+    /// # Returns
+    /// A JSON string containing CompletionList with suggestions
+    ///
+    /// # Example
+    /// ```typescript
+    /// const lsp = FiveLspWasm.new();
+    /// const result = lsp.get_completions('file:///test.v', 'let x = ', 0, 8);
+    /// const completions = JSON.parse(result);
+    /// ```
+    pub fn get_completions(
+        &self,
+        uri: &str,
+        source: &str,
+        line: u32,
+        character: u32,
+    ) -> Result<String, JsValue> {
+        // Parse URI
+        let url = lsp_types::Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Get completions from feature module
+        let completion_list = completion::get_completions(
+            &self.bridge,
+            source,
+            line as usize,
+            character as usize,
+            &url,
+        );
+
+        // Convert to JSON for passing to JavaScript
+        serde_json::to_string(&completion_list)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Get go-to-definition location for a symbol at the given position
+    ///
+    /// # Arguments
+    /// * `uri` - File URI (e.g., "file:///test.v")
+    /// * `source` - The source code
+    /// * `line` - 0-indexed line number
+    /// * `character` - 0-indexed character position
+    ///
+    /// # Returns
+    /// A JSON string containing Location if definition found, null otherwise
+    ///
+    /// # Example
+    /// ```typescript
+    /// const lsp = FiveLspWasm.new();
+    /// const result = lsp.get_definition('file:///test.v', 'function foo() {}', 0, 9);
+    /// const location = result ? JSON.parse(result) : null;
+    /// ```
+    pub fn get_definition(
+        &self,
+        uri: &str,
+        source: &str,
+        line: u32,
+        character: u32,
+    ) -> Result<Option<String>, JsValue> {
+        // Parse URI
+        let url = Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Get definition from feature module
+        let location = goto_definition::get_definition(
+            source,
+            line as usize,
+            character as usize,
+            &url,
+        );
+
+        // Convert to JSON for passing to JavaScript
+        if let Some(loc) = location {
+            let json = serde_json::to_string(&loc)
+                .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))?;
+            Ok(Some(json))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Find all references to a symbol at the given position
+    ///
+    /// # Arguments
+    /// * `uri` - File URI (e.g., "file:///test.v")
+    /// * `source` - The source code
+    /// * `line` - 0-indexed line number
+    /// * `character` - 0-indexed character position
+    ///
+    /// # Returns
+    /// A JSON string containing an array of Locations where the symbol is referenced
+    ///
+    /// # Example
+    /// ```typescript
+    /// const lsp = FiveLspWasm.new();
+    /// const result = lsp.find_references('file:///test.v', 'let x = 5; let y = x;', 0, 4);
+    /// const references = JSON.parse(result);  // Array of Location objects
+    /// ```
+    pub fn find_references(
+        &self,
+        uri: &str,
+        source: &str,
+        line: u32,
+        character: u32,
+    ) -> Result<String, JsValue> {
+        // Parse URI
+        let url = Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Get references from feature module
+        let references = find_references::find_references(
+            source,
+            line as usize,
+            character as usize,
+            &url,
+        );
+
+        // Convert to JSON for passing to JavaScript
+        serde_json::to_string(&references)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Clear all caches
+    ///
+    /// Useful after large changes or when memory needs to be freed.
+    /// This forces recompilation on the next analysis.
+    pub fn clear_caches(&mut self) {
+        self.bridge.clear_caches();
+    }
+}

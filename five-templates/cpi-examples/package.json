@@ -1,0 +1,26 @@
+{
+  "name": "five-cpi-examples",
+  "version": "1.0.0",
+  "description": "Five CPI (Cross-Program Invocation) example contracts",
+  "type": "module",
+  "scripts": {
+    "build": "five compile spl-token-mint.v && five compile anchor-program-call.v && five compile invoke-signed-pda.v",
+    "build:spl-token": "five compile spl-token-mint.v -o spl-token-mint.five",
+    "build:anchor": "five compile anchor-program-call.v -o anchor-program-call.five",
+    "build:pda": "five compile invoke-signed-pda.v -o invoke-signed-pda.five",
+    "test:local": "npm run build && npm run test:local:spl-token && npm run test:local:anchor && npm run test:local:pda",
+    "test:local:spl-token": "five local execute spl-token-mint.v 0",
+    "test:local:anchor": "five local execute anchor-program-call.v 0",
+    "test:local:pda": "five local execute invoke-signed-pda.v 0",
+    "test:spl-token-mint": "node e2e-spl-token-mint-test.mjs",
+    "test:anchor-program": "node e2e-anchor-program-test.mjs",
+    "test:pda-invoke": "node e2e-pda-invoke-test.mjs"
+  },
+  "keywords": ["five", "cpi", "solana", "smart-contracts"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "five-sdk": "workspace:*",
+    "@solana/web3.js": "^1.95.0"
+  }
+}

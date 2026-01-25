@@ -1,0 +1,23 @@
+{
+  "name": "five-cpi-integration-tests",
+  "version": "1.0.0",
+  "description": "Five CPI on-chain integration tests",
+  "type": "module",
+  "scripts": {
+    "test:localnet": "node test-localnet.mjs",
+    "test:devnet": "node test-devnet.mjs",
+    "build": "npm run build:spl-token && npm run build:pda",
+    "build:spl-token": "five compile test-spl-token-mint.v -o test-spl-token-mint.five",
+    "build:pda": "five compile test-pda-burn.v -o test-pda-burn.five",
+    "deploy:localnet": "npm run build && node deploy-localnet.mjs",
+    "deploy:devnet": "npm run build && node deploy-devnet.mjs"
+  },
+  "keywords": ["five", "cpi", "integration-test", "solana"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "five-sdk": "workspace:*",
+    "@solana/web3.js": "^1.95.0",
+    "@solana/spl-token": "^0.4.0"
+  }
+}

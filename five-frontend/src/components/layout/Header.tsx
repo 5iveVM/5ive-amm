@@ -16,7 +16,6 @@ export default function Header() {
         { href: "/#features", label: "Features", color: "bg-rose-pine-rose" },
         { href: "/docs", label: "Docs", color: "bg-rose-pine-iris" },
         { href: "/ide", label: "IDE", color: "bg-rose-pine-gold" },
-        { href: "/investor", label: "Investor", color: "bg-rose-pine-love" },
     ];
 
     return (

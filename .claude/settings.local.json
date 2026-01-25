@@ -30,7 +30,10 @@
       "Bash(chmod:*)",
       "Bash(solana program write-buffer:*)",
       "Bash(solana program show:*)",
-      "Bash(solana-test-validator:*)"
+      "Bash(solana-test-validator:*)",
+      "Bash(solana-keygen pubkey:*)",
+      "Bash(solana config set:*)",
+      "Bash(cargo build-sbf:*)"
     ]
   }
 }

@@ -5,7 +5,7 @@ import { Layers, Box, Cpu, Shield, Database, LayoutGrid } from "lucide-react";
 
 export default function TheMoat() {
     return (
-        <section className="relative py-32 px-4 overflow-hidden bg-[#191724]">
+        <section className="relative py-32 px-4 overflow-hidden bg-transparent">
             {/* Background Atmosphere */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-rose-pine-gold/5 rounded-full blur-[150px]" />
@@ -27,12 +27,12 @@ export default function TheMoat() {
                             className="relative aspect-square max-w-md mx-auto"
                         >
                             {/* The Container Border */}
-                            <div className="absolute inset-0 rounded-3xl border-2 border-rose-pine-gold/20 bg-[#1f1d2e]/80 shadow-[0_0_50px_rgba(246,193,119,0.1)] overflow-hidden flex flex-wrap content-start p-2 gap-1">
+                            <div className="absolute inset-0 rounded-3xl border-2 border-rose-pine-gold/20 bg-rose-pine-surface/80 shadow-[0_0_50px_rgba(246,193,119,0.1)] overflow-hidden flex flex-wrap content-start p-2 gap-1">
 
                                 {/* Header Bar of the Container */}
                                 <div className="w-full h-8 mb-2 flex items-center justify-between px-3 border-b border-rose-pine-gold/10">
-                                    <span className="text-[10px] font-mono text-rose-pine-gold uppercase tracking-widest">Account.bin</span>
-                                    <span className="text-[10px] font-mono text-rose-pine-subtle">10MB / 10MB</span>
+                                    <span className="text-[10px] font-mono text-rose-pine-gold uppercase tracking-widest text-contrast">Account.bin</span>
+                                    <span className="text-[10px] font-mono text-rose-pine-subtle text-contrast">10MB / 10MB</span>
                                 </div>
 
                                 {/* Protocol Blocks (Simulated Density) */}
@@ -77,19 +77,19 @@ export default function TheMoat() {
                                 </h2>
                             </div>
 
-                            <p className="text-xl text-rose-pine-muted font-light leading-relaxed mb-8">
+                            <p className="text-xl text-rose-pine-subtle leading-relaxed mb-8 text-contrast">
                                 A single 10MB account containing over 1000 distinct programs.
                                 <span className="block mt-2 text-rose-pine-text font-medium">Unlock entirely new crypto use cases.</span>
                             </p>
 
-                            <ul className="space-y-6 mb-10">
+                            <ul className="space-y-6 mb-10 text-contrast">
                                 <li className="flex gap-4">
                                     <div className="mt-1 p-1 bg-rose-pine-surface rounded text-rose-pine-gold shrink-0">
                                         <Database size={20} />
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-rose-pine-text text-lg">Massive State Capacity</h4>
-                                        <p className="text-sm text-rose-pine-muted leading-relaxed">
+                                        <p className="text-sm text-rose-pine-subtle leading-relaxed">
                                             Combine AMMs, Lending, Governance, and Identity in one high-performance memory space.
                                         </p>
                                     </div>
@@ -100,7 +100,7 @@ export default function TheMoat() {
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-rose-pine-text text-lg">Protocol Stability</h4>
-                                        <p className="text-sm text-rose-pine-muted leading-relaxed">
+                                        <p className="text-sm text-rose-pine-subtle leading-relaxed">
                                             Once a Moat is deployed, it becomes unstoppable infrastructure. Zero maintenance, infinite uptime.
                                         </p>
                                     </div>

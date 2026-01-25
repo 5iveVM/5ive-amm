@@ -5,6 +5,7 @@ members = [
     "five-solana",
     "five-vm-mito",
     "five-wasm",
+    "five-lsp",
 ]
 resolver = "2"
 
