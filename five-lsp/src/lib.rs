@@ -20,18 +20,15 @@ pub mod workspace;
 #[cfg(feature = "native")]
 pub mod server;
 
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
+
 pub use bridge::CompilerBridge;
 pub use error::LspError;
 
 #[cfg(feature = "native")]
 pub use server::FiveLanguageServer;
 
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    not(target_os = "emscripten"),
-    not(target_os = "wasi")
-))]
-pub mod native;
-
 #[cfg(target_arch = "wasm32")]
-pub mod wasm;
+pub use wasm::FiveLspWasm;
+

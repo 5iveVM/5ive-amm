@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["rlib"]
+crate-type = ["rlib", "cdylib"]
+name = "five_lsp"
+
+[package.metadata.wasm]
+wasm-opt = false
 
 # [[bin]]
 # name = "five-lsp"
@@ -16,23 +20,24 @@ crate-type = ["rlib"]
 lsp-types = "0.94"
 five-dsl-compiler = { path = "../five-dsl-compiler" }
 tokio = { version = "1.0", features = ["rt", "macros", "sync", "io-util"], optional = true }
-tower-lsp = "0.20"
+tower-lsp = { version = "0.20", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", optional = true }
 thiserror = "1.0"
-futures = "0.3"
+futures = { version = "0.3", optional = true }
 
 # WASM support
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
+console_error_panic_hook = { version = "0.1", optional = true }
 
 [features]
 default = []
-native = ["tokio", "tracing-subscriber"]  # Native binary uses tokio; WASM uses postMessage
+native = ["tokio", "tower-lsp", "futures", "tracing-subscriber"]  # Native binary uses tower-lsp
 
 [dev-dependencies]
 tempfile = "3.8"

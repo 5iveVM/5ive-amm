@@ -23,6 +23,7 @@ pub enum LspError {
     LspError(String),
 }
 
+#[cfg(feature = "native")]
 impl From<LspError> for tower_lsp::jsonrpc::Error {
     fn from(err: LspError) -> Self {
         tower_lsp::jsonrpc::Error {

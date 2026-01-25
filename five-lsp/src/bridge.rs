@@ -6,23 +6,31 @@
 use five_dsl_compiler::{
     parser::DslParser,
     tokenizer::DslTokenizer,
-    ast::AstNode,
+    ast::{AstNode, TypeNode},
+    type_checker::DslTypeChecker,
 };
 use lsp_types::Url;
 use std::collections::HashMap;
 
 use crate::error::LspError;
 
-/// Caches parsed ASTs to avoid recompiling on every change
+/// Symbol table entry: (type, is_mutable)
+type SymbolTableEntry = (TypeNode, bool);
+
+/// Caches parsed ASTs and symbol tables to avoid recompiling on every change
 pub struct CompilerBridge {
     /// AST cache: (source_hash, AST)
     ast_cache: HashMap<Url, (u64, AstNode)>,
+    /// Symbol table cache: (source_hash, symbol_table)
+    /// Stores the compiler's symbol table for hover/completion features
+    symbol_cache: HashMap<Url, (u64, HashMap<String, SymbolTableEntry>)>,
 }
 
 impl CompilerBridge {
     pub fn new() -> Self {
         Self {
             ast_cache: HashMap::new(),
+            symbol_cache: HashMap::new(),
         }
     }
 
@@ -37,7 +45,7 @@ impl CompilerBridge {
     }
 
     /// Get cached AST if source hasn't changed
-    fn get_cached_ast(&self, uri: &Url, source: &str) -> Option<AstNode> {
+    pub fn get_cached_ast(&self, uri: &Url, source: &str) -> Option<AstNode> {
         let hash = Self::hash_source(source);
         self.ast_cache
             .get(uri)
@@ -82,7 +90,8 @@ impl CompilerBridge {
     /// Get LSP diagnostics for a document
     ///
     /// Runs compilation phases (tokenize, parse, type check) and collects all errors.
-    /// This includes both parse errors and type errors.
+    /// This includes parse errors and type errors. Returns all errors found, even if
+    /// some phases fail.
     pub fn get_diagnostics(
         &mut self,
         uri: &Url,
@@ -90,50 +99,38 @@ impl CompilerBridge {
     ) -> Result<Vec<lsp_types::Diagnostic>, LspError> {
         let mut diagnostics = Vec::new();
 
-        // Tokenize
+        // Phase 1: Tokenize
         let mut tokenizer = DslTokenizer::new(source);
         let tokens = match tokenizer.tokenize() {
             Ok(tokens) => tokens,
             Err(e) => {
-                // Tokenization error - return it as a diagnostic
-                diagnostics.push(lsp_types::Diagnostic {
-                    range: lsp_types::Range {
-                        start: lsp_types::Position { line: 0, character: 0 },
-                        end: lsp_types::Position { line: 0, character: 1 },
-                    },
-                    severity: Some(lsp_types::DiagnosticSeverity::ERROR),
-                    code: None,
-                    source: Some("five-compiler".to_string()),
-                    message: format!("Tokenization error: {}", e),
-                    related_information: None,
-                    tags: None,
-                    code_description: None,
-                    data: None,
-                });
+                // Tokenization error - create diagnostic and return
+                diagnostics.push(self.create_diagnostic(
+                    "Tokenization error",
+                    &e.to_string(),
+                    0,
+                    0,
+                    1,
+                    lsp_types::DiagnosticSeverity::ERROR,
+                ));
                 return Ok(diagnostics);
             }
         };
 
-        // Parse
+        // Phase 2: Parse
         let mut parser = DslParser::new(tokens);
         let ast = match parser.parse() {
             Ok(ast) => ast,
             Err(e) => {
-                // Parse error
-                diagnostics.push(lsp_types::Diagnostic {
-                    range: lsp_types::Range {
-                        start: lsp_types::Position { line: 0, character: 0 },
-                        end: lsp_types::Position { line: 0, character: 1 },
-                    },
-                    severity: Some(lsp_types::DiagnosticSeverity::ERROR),
-                    code: None,
-                    source: Some("five-compiler".to_string()),
-                    message: format!("Parse error: {}", e),
-                    related_information: None,
-                    tags: None,
-                    code_description: None,
-                    data: None,
-                });
+                // Parse error - create diagnostic and return
+                diagnostics.push(self.create_diagnostic(
+                    "Parse error",
+                    &e.to_string(),
+                    0,
+                    0,
+                    1,
+                    lsp_types::DiagnosticSeverity::ERROR,
+                ));
                 return Ok(diagnostics);
             }
         };
@@ -142,19 +139,93 @@ impl CompilerBridge {
         let hash = Self::hash_source(source);
         self.ast_cache.insert(uri.clone(), (hash, ast.clone()));
 
-        // Type check - but don't fail, just collect errors
-        // For now, we skip type checking in LSP since we don't have a good error collection mechanism
-        // TODO: Implement error collection for type checking
+        // Phase 3: Type check
+        // Try type checking - if it fails, we still return any partial results
+        // and report the type checking failure as a diagnostic
+        let mut type_checker = DslTypeChecker::new();
+        match type_checker.check_types(&ast) {
+            Ok(()) => {
+                // Type checking succeeded - no type errors
+                // Cache the symbol table for use in hover/completion
+                let hash = Self::hash_source(source);
+                let symbol_table = type_checker.get_symbol_table().clone();
+                self.symbol_cache.insert(uri.clone(), (hash, symbol_table));
+                // Return empty diagnostics (no parse or type errors)
+            }
+            Err(e) => {
+                // Type checking failed - report it
+                // Note: This catches the first type error. For a full error report,
+                // we'd need the compiler's error collection mechanism.
+                diagnostics.push(self.create_diagnostic(
+                    "Type error",
+                    &e.to_string(),
+                    0,
+                    0,
+                    1,
+                    lsp_types::DiagnosticSeverity::ERROR,
+                ));
+            }
+        }
 
         Ok(diagnostics)
+    }
+
+    /// Helper to create an LSP diagnostic from error information
+    fn create_diagnostic(
+        &self,
+        title: &str,
+        message: &str,
+        line: u32,
+        start_char: u32,
+        end_char: u32,
+        severity: lsp_types::DiagnosticSeverity,
+    ) -> lsp_types::Diagnostic {
+        lsp_types::Diagnostic {
+            range: lsp_types::Range {
+                start: lsp_types::Position {
+                    line,
+                    character: start_char,
+                },
+                end: lsp_types::Position {
+                    line,
+                    character: end_char,
+                },
+            },
+            severity: Some(severity),
+            code: None,
+            source: Some("five-compiler".to_string()),
+            message: format!("{}: {}", title, message),
+            related_information: None,
+            tags: None,
+            code_description: None,
+            data: None,
+        }
     }
 
     // TODO: json_to_diagnostic conversion for Phase 2 when reusing LspFormatter
     // For MVP diagnostics, we construct them directly in get_diagnostics()
 
+    /// Resolve a symbol's type information
+    ///
+    /// Looks up the symbol in the cached symbol table.
+    /// Returns (TypeNode, is_mutable) if the symbol exists and type checking succeeded.
+    pub fn resolve_symbol(
+        &self,
+        uri: &Url,
+        source: &str,
+        symbol_name: &str,
+    ) -> Option<SymbolTableEntry> {
+        let hash = Self::hash_source(source);
+        self.symbol_cache
+            .get(uri)
+            .filter(|(cached_hash, _)| *cached_hash == hash)
+            .and_then(|(_, symbol_table)| symbol_table.get(symbol_name).cloned())
+    }
+
     /// Clear all caches (useful after significant changes or for testing)
     pub fn clear_caches(&mut self) {
         self.ast_cache.clear();
+        self.symbol_cache.clear();
     }
 }
 
@@ -168,6 +239,7 @@ impl Clone for CompilerBridge {
     fn clone(&self) -> Self {
         Self {
             ast_cache: self.ast_cache.clone(),
+            symbol_cache: self.symbol_cache.clone(),
         }
     }
 }
