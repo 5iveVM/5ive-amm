@@ -11,6 +11,7 @@ import { Play, Save, Box, Layers } from "lucide-react";
 import ProjectConfigModal from "./ProjectConfigModal";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { defineMonacoThemes, registerFiveLanguage } from "@/lib/monaco-theme";
+import { setupFiveLsp } from "@/lib/monaco-lsp";
 
 export default function GlassEditor() {
     const { code, setCode, currentFilename } = useIdeStore();
@@ -39,6 +40,11 @@ export default function GlassEditor() {
                 lineNumber: e.position.lineNumber,
                 column: e.position.column
             });
+        });
+
+        // Initialize Five LSP for real-time diagnostics
+        setupFiveLsp(monacoInstance).catch((error) => {
+            console.error('[GlassEditor] Failed to setup Five LSP:', error);
         });
     };
 
