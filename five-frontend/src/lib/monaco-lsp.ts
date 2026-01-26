@@ -103,9 +103,13 @@ function registerDiagnosticsProvider(
         const diagnostics = lspClient.getDiagnostics(uri, source);
 
         // Convert to Monaco Diagnostic format
-        const monacoDiagnostics = diagnostics.map((diag) =>
-          convertToMonacoDiagnostic(diag)
-        );
+        const monacoDiagnostics = diagnostics.map((diag) => {
+          const converted = convertToMonacoDiagnostic(diag);
+          console.log(
+            `[Monaco LSP] Diagnostic: "${diag.message}" at LSP line ${diag.range.start.line} -> Monaco line ${converted.startLineNumber}`
+          );
+          return converted;
+        });
 
         // Set diagnostics for this model
         monaco.editor.setModelMarkers(model, 'five-lsp', monacoDiagnostics);
@@ -132,7 +136,7 @@ function registerDiagnosticsProvider(
     // Initial diagnostic pass
     updateDiagnostics(model);
 
-    // Re-analyze on every change
+    // Re-analyze on every change (debounced)
     const listener = model.onDidChangeContent(() => {
       updateDiagnostics(model);
     });
