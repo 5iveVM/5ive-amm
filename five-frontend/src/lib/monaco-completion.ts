@@ -42,10 +42,23 @@ export function registerCompletionProvider(
 
                 // Parse and convert to Monaco format
                 const response = JSON.parse(completionsJson);
+                const items = response.items || [];
 
-                // Convert items to suggestions for Monaco compatibility
+                // Normalize completion items to ensure all required fields are present
+                const suggestions = items.map((item: any) => ({
+                    label: item.label || item.name || 'unknown',
+                    insertText: item.insertText || item.label || item.name || 'unknown',
+                    kind: item.kind || 5,  // Default to Class (5)
+                    detail: item.detail || item.description || undefined,
+                    documentation: item.documentation || undefined,
+                    sortText: item.sortText || item.label || item.name,
+                    filterText: item.filterText || item.label || item.name,
+                    isPreferred: item.isPreferred || false,
+                    preselect: item.preselect || false,
+                } as monaco.languages.CompletionItem));
+
                 return {
-                    suggestions: response.items || [],
+                    suggestions,
                     isIncomplete: response.isIncomplete || false
                 } as monaco.languages.CompletionList;
             } catch (error) {
