@@ -104,13 +104,16 @@ impl CompilerBridge {
         let tokens = match tokenizer.tokenize() {
             Ok(tokens) => tokens,
             Err(e) => {
-                // Tokenization error - create diagnostic and return
+                // Tokenization error - extract position and create diagnostic
+                let error_msg = e.to_string();
+                let (line, char_pos) = Self::extract_position_from_error(&error_msg, source);
+
                 diagnostics.push(self.create_diagnostic(
                     "Tokenization error",
-                    &e.to_string(),
-                    0,
-                    0,
-                    1,
+                    &error_msg,
+                    line,
+                    char_pos,
+                    char_pos.saturating_add(1),
                     lsp_types::DiagnosticSeverity::ERROR,
                 ));
                 return Ok(diagnostics);
@@ -122,13 +125,16 @@ impl CompilerBridge {
         let ast = match parser.parse() {
             Ok(ast) => ast,
             Err(e) => {
-                // Parse error - create diagnostic and return
+                // Parse error - extract line number from error message and create diagnostic
+                let error_msg = e.to_string();
+                let (line, char_pos) = Self::extract_position_from_error(&error_msg, source);
+
                 diagnostics.push(self.create_diagnostic(
                     "Parse error",
-                    &e.to_string(),
-                    0,
-                    0,
-                    1,
+                    &error_msg,
+                    line,
+                    char_pos,
+                    char_pos.saturating_add(1),
                     lsp_types::DiagnosticSeverity::ERROR,
                 ));
                 return Ok(diagnostics);
@@ -156,12 +162,15 @@ impl CompilerBridge {
                 // Type checking failed - report it
                 // Note: This catches the first type error. For a full error report,
                 // we'd need the compiler's error collection mechanism.
+                let error_msg = e.to_string();
+                let (line, char_pos) = Self::extract_position_from_error(&error_msg, source);
+
                 diagnostics.push(self.create_diagnostic(
                     "Type error",
-                    &e.to_string(),
-                    0,
-                    0,
-                    1,
+                    &error_msg,
+                    line,
+                    char_pos,
+                    char_pos.saturating_add(1),
                     lsp_types::DiagnosticSeverity::ERROR,
                 ));
             }
@@ -204,6 +213,37 @@ impl CompilerBridge {
 
     // TODO: json_to_diagnostic conversion for Phase 2 when reusing LspFormatter
     // For MVP diagnostics, we construct them directly in get_diagnostics()
+
+    /// Extract position information from error message and convert to line/column
+    ///
+    /// Parser errors include "at position X" in the message. We convert the character
+    /// position to line/column by counting newlines up to that position.
+    fn extract_position_from_error(error_msg: &str, source: &str) -> (u32, u32) {
+        // Try to extract "position N" from error message
+        let char_pos = error_msg
+            .split("position ")
+            .nth(1)
+            .and_then(|s| s.split(':').next())
+            .and_then(|s| s.trim().parse::<usize>().ok())
+            .unwrap_or(0);
+
+        // Convert character position to line/column
+        let mut line = 0u32;
+        let mut col = 0u32;
+        for (i, ch) in source.chars().enumerate() {
+            if i >= char_pos {
+                break;
+            }
+            if ch == '\n' {
+                line += 1;
+                col = 0;
+            } else {
+                col += 1;
+            }
+        }
+
+        (line, col)
+    }
 
     /// Resolve a symbol's type information
     ///
