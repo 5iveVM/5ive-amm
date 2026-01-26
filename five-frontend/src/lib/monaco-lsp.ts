@@ -20,6 +20,10 @@ import { registerHoverProvider } from './monaco-hover';
 import { registerCompletionProvider } from './monaco-completion';
 import { registerDefinitionProvider } from './monaco-goto-definition';
 import { registerReferencesProvider } from './monaco-find-references';
+import { registerSemanticTokensProvider } from './monaco-semantic-tokens';
+import { registerCodeActionsProvider } from './monaco-code-actions';
+import { registerDocumentSymbolsProvider } from './monaco-document-symbols';
+import { registerRenameProvider } from './monaco-rename';
 
 /**
  * Initialize and register all Five LSP providers with Monaco Editor
@@ -63,22 +67,20 @@ export async function setupFiveLsp(
     return;
   }
 
-  // Register diagnostic provider
+  // Register Phase 2 providers
   registerDiagnosticsProvider(monacoInstance, lspClient);
-
-  // Register hover provider
   registerHoverProvider(monacoInstance, lspClient);
-
-  // Register completion provider
   registerCompletionProvider(monacoInstance, lspClient);
-
-  // Register definition provider
   registerDefinitionProvider(monacoInstance, lspClient);
-
-  // Register references provider
   registerReferencesProvider(monacoInstance, lspClient);
 
-  console.log('[Monaco LSP Setup] Complete - All five providers registered (Diagnostics, Hover, Completion, Definition, References)');
+  // Register Phase 3 providers
+  registerSemanticTokensProvider(monacoInstance, lspClient);
+  registerCodeActionsProvider(monacoInstance, lspClient);
+  registerDocumentSymbolsProvider(monacoInstance, lspClient);
+  registerRenameProvider(monacoInstance, lspClient);
+
+  console.log('[Monaco LSP Setup] Complete - All providers registered (Phase 2: 5, Phase 3: 4)');
 }
 
 /**
@@ -90,13 +92,6 @@ function registerDiagnosticsProvider(
   monaco: typeof import('monaco-editor'),
   lspClient: FiveLspClient
 ): void {
-  monaco.languages.registerCodeActionProvider('five', {
-    provideCodeActions(model, range, context) {
-      // TODO: Phase 3 - Implement code actions
-      return { actions: [], dispose: () => {} };
-    },
-  });
-
   // Set up a debounced diagnostics update
   const updateDiagnostics = debounce(
     (model: monaco.editor.ITextModel) => {

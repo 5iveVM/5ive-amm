@@ -89,6 +89,58 @@ export class FiveLspWasm {
    */
   get_definition(uri: string, source: string, line: number, character: number): string | undefined;
   /**
+   * Find all references to a symbol at the given position
+   *
+   * # Arguments
+   * * `uri` - File URI (e.g., "file:///test.v")
+   * * `source` - The source code
+   * * `line` - 0-indexed line number
+   * * `character` - 0-indexed character position
+   *
+   * # Returns
+   * A JSON string containing an array of Locations where the symbol is referenced
+   *
+   * # Example
+   * ```typescript
+   * const lsp = FiveLspWasm.new();
+   * const result = lsp.find_references('file:///test.v', 'let x = 5; let y = x;', 0, 4);
+   * const references = JSON.parse(result);  // Array of Location objects
+   * ```
+   */
+  find_references(uri: string, source: string, line: number, character: number): string;
+  /**
+   * Get semantic tokens for syntax highlighting
+   *
+   * Returns an array of semantic tokens for AST-based syntax highlighting.
+   * Provides more accurate highlighting than regex-based approaches.
+   */
+  get_semantic_tokens(uri: string, source: string): string;
+  /**
+   * Get document symbols for outline view
+   *
+   * Returns all top-level definitions (functions, variables, accounts) for
+   * display in the editor's outline/navigator panel.
+   */
+  get_document_symbols(uri: string, source: string): string;
+  /**
+   * Get code actions for a diagnostic
+   *
+   * Provides quick fix suggestions for a diagnostic at the given position.
+   */
+  get_code_actions(uri: string, source: string, diagnostic_json: string): string;
+  /**
+   * Prepare a rename operation
+   *
+   * Validates that a symbol at the given position can be renamed and returns its name.
+   */
+  static prepare_rename(source: string, line: number, character: number): string | undefined;
+  /**
+   * Rename a symbol across all occurrences
+   *
+   * Performs a safe rename of a symbol, updating all references to it.
+   */
+  rename(uri: string, source: string, line: number, character: number, new_name: string): string | undefined;
+  /**
    * Clear all caches
    *
    * Useful after large changes or when memory needs to be freed.
@@ -103,15 +155,23 @@ export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly __wbg_fivelspwasm_free: (a: number, b: number) => void;
   readonly fivelspwasm_new: () => number;
-  readonly fivelspwasm_get_diagnostics: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-  readonly fivelspwasm_get_hover: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
-  readonly fivelspwasm_get_completions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
-  readonly fivelspwasm_get_definition: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+  readonly fivelspwasm_get_diagnostics: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+  readonly fivelspwasm_get_hover: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+  readonly fivelspwasm_get_completions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+  readonly fivelspwasm_get_definition: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+  readonly fivelspwasm_find_references: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+  readonly fivelspwasm_get_semantic_tokens: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+  readonly fivelspwasm_get_document_symbols: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+  readonly fivelspwasm_get_code_actions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+  readonly fivelspwasm_prepare_rename: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+  readonly fivelspwasm_rename: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number, number];
   readonly fivelspwasm_clear_caches: (a: number) => void;
-  readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
-  readonly __wbindgen_export: (a: number, b: number) => number;
-  readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbindgen_export3: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_externrefs: WebAssembly.Table;
+  readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+  readonly __externref_table_dealloc: (a: number) => void;
+  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_start: () => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

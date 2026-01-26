@@ -1,0 +1,15 @@
+{
+  "name": "five-lsp",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "five_lsp_bg.wasm",
+    "five_lsp.js",
+    "five_lsp.d.ts"
+  ],
+  "main": "five_lsp.js",
+  "types": "five_lsp.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

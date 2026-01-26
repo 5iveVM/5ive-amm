@@ -271,6 +271,127 @@ export class FiveLspClient {
   }
 
   /**
+   * Get semantic tokens for syntax highlighting
+   *
+   * @param uri - File URI (e.g., "file:///test.v")
+   * @param source - The source code
+   * @returns JSON string containing array of SemanticToken objects
+   * @throws Error if there's a compilation error
+   */
+  async getSemanticTokens(uri: string, source: string): Promise<string> {
+    this.ensureInitialized();
+
+    try {
+      const result = await this.lsp.get_semantic_tokens(uri, source);
+      return result;
+    } catch (error) {
+      console.error('[FiveLspClient] Error getting semantic tokens:', error);
+      throw new Error(`Failed to get semantic tokens: ${error}`);
+    }
+  }
+
+  /**
+   * Get code actions for a diagnostic at the given position
+   *
+   * @param uri - File URI (e.g., "file:///test.v")
+   * @param source - The source code
+   * @param diagnosticJson - JSON string of Diagnostic object
+   * @returns JSON string containing array of CodeAction objects
+   * @throws Error if there's a compilation error
+   */
+  async getCodeActions(
+    uri: string,
+    source: string,
+    diagnosticJson: string
+  ): Promise<string> {
+    this.ensureInitialized();
+
+    try {
+      const result = await this.lsp.get_code_actions(uri, source, diagnosticJson);
+      return result;
+    } catch (error) {
+      console.error('[FiveLspClient] Error getting code actions:', error);
+      throw new Error(`Failed to get code actions: ${error}`);
+    }
+  }
+
+  /**
+   * Get document symbols for outline/navigator view
+   *
+   * @param uri - File URI (e.g., "file:///test.v")
+   * @param source - The source code
+   * @returns JSON string containing array of DocumentSymbol objects
+   * @throws Error if there's a compilation error
+   */
+  async getDocumentSymbols(uri: string, source: string): Promise<string> {
+    this.ensureInitialized();
+
+    try {
+      const result = await this.lsp.get_document_symbols(uri, source);
+      return result;
+    } catch (error) {
+      console.error('[FiveLspClient] Error getting document symbols:', error);
+      throw new Error(`Failed to get document symbols: ${error}`);
+    }
+  }
+
+  /**
+   * Prepare a rename operation (check if identifier can be renamed)
+   *
+   * @param uri - File URI (e.g., "file:///test.v")
+   * @param source - The source code
+   * @param line - 0-indexed line number
+   * @param character - 0-indexed character position
+   * @returns The identifier name if can be renamed, or null if cannot
+   * @throws Error if there's a compilation error
+   */
+  async prepareRename(
+    uri: string,
+    source: string,
+    line: number,
+    character: number
+  ): Promise<string | null> {
+    this.ensureInitialized();
+
+    try {
+      const result = await this.lsp.prepare_rename(uri, source, line, character);
+      return result;
+    } catch (error) {
+      console.error('[FiveLspClient] Error preparing rename:', error);
+      throw new Error(`Failed to prepare rename: ${error}`);
+    }
+  }
+
+  /**
+   * Rename a symbol across all its occurrences
+   *
+   * @param uri - File URI (e.g., "file:///test.v")
+   * @param source - The source code
+   * @param line - 0-indexed line number
+   * @param character - 0-indexed character position
+   * @param newName - The new name for the symbol
+   * @returns JSON string containing WorkspaceEdit with all replacements, or null if cannot rename
+   * @throws Error if there's a compilation error
+   */
+  async rename(
+    uri: string,
+    source: string,
+    line: number,
+    character: number,
+    newName: string
+  ): Promise<string | null> {
+    this.ensureInitialized();
+
+    try {
+      const result = await this.lsp.rename(uri, source, line, character, newName);
+      return result;
+    } catch (error) {
+      console.error('[FiveLspClient] Error renaming symbol:', error);
+      throw new Error(`Failed to rename symbol: ${error}`);
+    }
+  }
+
+  /**
    * Clear all internal caches
    *
    * This forces recompilation on the next analysis call.

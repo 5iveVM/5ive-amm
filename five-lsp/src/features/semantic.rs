@@ -4,7 +4,17 @@
 //! the structure of Five DSL code for more accurate and contextual coloring.
 
 use crate::bridge::CompilerBridge;
-use lsp_types::SemanticToken;
+use serde::{Deserialize, Serialize};
+
+/// Serializable representation of a semantic token
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializableSemanticToken {
+    pub line: u32,
+    pub start_character: u32,
+    pub length: u32,
+    pub token_type: u32,
+    pub token_modifiers: u32,
+}
 
 /// Semantic token types for Five DSL
 pub const SEMANTIC_TOKEN_TYPES: &[&str] = &[
@@ -39,7 +49,7 @@ pub fn get_semantic_tokens(
     _bridge: &CompilerBridge,
     _source: &str,
     _uri: &lsp_types::Url,
-) -> Vec<SemanticToken> {
+) -> Vec<SerializableSemanticToken> {
     // MVP: Return empty tokens
     // Future: Parse AST and extract semantic information
     Vec::new()

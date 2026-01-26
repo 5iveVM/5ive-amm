@@ -16,8 +16,8 @@
 //! ```
 
 use crate::bridge::CompilerBridge;
-use crate::features::{hover, completion, goto_definition, find_references, semantic, document_symbols, rename};
-use lsp_types::{Position, Url};
+use crate::features::{hover, completion, goto_definition, find_references, semantic, code_actions, document_symbols, rename};
+use lsp_types::Url;
 use wasm_bindgen::prelude::*;
 
 /// WASM wrapper for the Five LSP compiler bridge
@@ -288,6 +288,31 @@ impl FiveLspWasm {
 
         // Convert to JSON
         serde_json::to_string(&symbols)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Get code actions for a diagnostic
+    ///
+    /// Provides quick fix suggestions for a diagnostic at the given position.
+    pub fn get_code_actions(
+        &self,
+        uri: &str,
+        source: &str,
+        diagnostic_json: &str,
+    ) -> Result<String, JsValue> {
+        // Parse URI
+        let url = Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Parse diagnostic from JSON
+        let diagnostic: lsp_types::Diagnostic = serde_json::from_str(diagnostic_json)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse diagnostic: {}", e)))?;
+
+        // Get code actions
+        let actions = code_actions::get_code_actions(source, &diagnostic, &url);
+
+        // Convert to JSON
+        serde_json::to_string(&actions)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
 

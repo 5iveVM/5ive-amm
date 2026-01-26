@@ -11,7 +11,7 @@ use lsp_types::{DocumentSymbol, SymbolKind, Range, Position};
 /// Returns all top-level functions and variables that can be
 /// displayed in the editor's outline panel for quick navigation.
 pub fn get_document_symbols(
-    bridge: &CompilerBridge,
+    _bridge: &CompilerBridge,
     source: &str,
     _uri: &lsp_types::Url,
 ) -> Vec<DocumentSymbol> {
