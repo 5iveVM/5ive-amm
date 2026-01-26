@@ -57,11 +57,22 @@ export class FiveLspClient {
     }
 
     try {
-      // Dynamically import the WASM module
-      // The WASM module should be served from /public/wasm/ or equivalent
-      this.wasmModule = await import(/* webpackIgnore: true */ '/wasm/five_lsp.js');
+      // Dynamically import the WASM module using absolute URL to avoid webpack interference
+      const wasmUrl = new URL('/wasm/five_lsp.js', window.location.href).href;
+      this.wasmModule = await import(/* webpackIgnore: true */ wasmUrl);
 
-      if (!this.wasmModule || !this.wasmModule.FiveLspWasm) {
+      if (!this.wasmModule) {
+        throw new Error('Failed to load WASM module');
+      }
+
+      // Initialize the WASM module first (the default export is the init function)
+      if (this.wasmModule.default) {
+        await this.wasmModule.default();
+        console.log('[FiveLspClient] WASM module initialized');
+      }
+
+      if (!this.wasmModule.FiveLspWasm) {
+        console.error('[FiveLspClient] WASM module exports:', Object.keys(this.wasmModule));
         throw new Error('Failed to load FiveLspWasm from WASM module');
       }
 
