@@ -178,19 +178,19 @@ function convertToMonacoDiagnostic(
  */
 function convertSeverity(
   lspSeverity: number | undefined
-): import('monaco-editor').MarkerSeverity {
-  const monaco = require('monaco-editor');
+): number {
+  // Use numeric constants instead of enum to avoid require() at runtime
   switch (lspSeverity) {
     case 1:
-      return monaco.MarkerSeverity.Error;
+      return 8; // MarkerSeverity.Error
     case 2:
-      return monaco.MarkerSeverity.Warning;
+      return 4; // MarkerSeverity.Warning
     case 3:
-      return monaco.MarkerSeverity.Info;
+      return 2; // MarkerSeverity.Info
     case 4:
-      return monaco.MarkerSeverity.Hint;
+      return 1; // MarkerSeverity.Hint
     default:
-      return monaco.MarkerSeverity.Error;
+      return 8; // Default to Error
   }
 }
 
