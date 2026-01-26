@@ -76,8 +76,8 @@ export class FiveLspClient {
         throw new Error('Failed to load FiveLspWasm from WASM module');
       }
 
-      // Create LSP instance
-      this.lsp = this.wasmModule.FiveLspWasm.new();
+      // Create LSP instance (FiveLspWasm is a constructor class)
+      this.lsp = new this.wasmModule.FiveLspWasm();
       this.initialized = true;
 
       console.log('[FiveLspClient] Initialized successfully');
