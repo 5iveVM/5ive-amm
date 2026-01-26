@@ -40,13 +40,18 @@ export function registerCompletionProvider(
                     position.column - 1       // Convert to 0-indexed
                 );
 
-                // Parse and return completion list
-                const completionList = JSON.parse(completionsJson);
-                return completionList as monaco.languages.CompletionList;
+                // Parse and convert to Monaco format
+                const response = JSON.parse(completionsJson);
+
+                // Convert items to suggestions for Monaco compatibility
+                return {
+                    suggestions: response.items || [],
+                    isIncomplete: response.isIncomplete || false
+                } as monaco.languages.CompletionList;
             } catch (error) {
                 console.error('[Monaco Completion] Error getting completions:', error);
                 // Return empty list on error (don't crash)
-                return { items: [], isIncomplete: false };
+                return { suggestions: [], isIncomplete: false };
             }
         }
     });
