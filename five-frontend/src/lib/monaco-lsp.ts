@@ -20,7 +20,6 @@ import { registerHoverProvider } from './monaco-hover';
 import { registerCompletionProvider } from './monaco-completion';
 import { registerDefinitionProvider } from './monaco-goto-definition';
 import { registerReferencesProvider } from './monaco-find-references';
-import { registerSemanticTokensProvider } from './monaco-semantic-tokens';
 import { registerCodeActionsProvider } from './monaco-code-actions';
 import { registerDocumentSymbolsProvider } from './monaco-document-symbols';
 import { registerRenameProvider } from './monaco-rename';
@@ -75,12 +74,13 @@ export async function setupFiveLsp(
   registerReferencesProvider(monacoInstance, lspClient);
 
   // Register Phase 3 providers
-  registerSemanticTokensProvider(monacoInstance, lspClient);
+  // Note: Semantic tokens disabled - Monaco version may not support this API
+  // registerSemanticTokensProvider(monacoInstance, lspClient);
   registerCodeActionsProvider(monacoInstance, lspClient);
   registerDocumentSymbolsProvider(monacoInstance, lspClient);
   registerRenameProvider(monacoInstance, lspClient);
 
-  console.log('[Monaco LSP Setup] Complete - All providers registered (Phase 2: 5, Phase 3: 4)');
+  console.log('[Monaco LSP Setup] Complete - All providers registered (Phase 2: 5, Phase 3: 3)');
 }
 
 /**
