@@ -33,7 +33,8 @@
       "Bash(solana-test-validator:*)",
       "Bash(solana-keygen pubkey:*)",
       "Bash(solana config set:*)",
-      "Bash(cargo build-sbf:*)"
+      "Bash(cargo build-sbf:*)",
+      "Bash(wasm-pack build:*)"
     ]
   }
 }

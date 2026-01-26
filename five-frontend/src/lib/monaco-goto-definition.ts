@@ -6,7 +6,7 @@
  *
  * Usage:
  * ```typescript
- * import * as monaco from 'monaco-editor';
+ * import type * as monaco from 'monaco-editor';
  * import { registerDefinitionProvider } from './lib/monaco-goto-definition';
  *
  * // After Monaco is initialized and LSP is set up
@@ -14,7 +14,7 @@
  * ```
  */
 
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { FiveLspClient } from './lsp-client';
 
 /**

@@ -4,7 +4,7 @@
  * Registers a semantic tokens provider with Monaco Editor for AST-based syntax highlighting.
  */
 
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { FiveLspClient } from './lsp-client';
 
 /**

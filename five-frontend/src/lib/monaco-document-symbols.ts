@@ -4,7 +4,7 @@
  * Registers a document symbols provider with Monaco Editor for outline/navigator view.
  */
 
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { FiveLspClient } from './lsp-client';
 
 /**

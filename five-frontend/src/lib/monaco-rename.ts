@@ -4,7 +4,7 @@
  * Registers a rename provider with Monaco Editor for safe symbol renaming.
  */
 
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { FiveLspClient } from './lsp-client';
 
 /**

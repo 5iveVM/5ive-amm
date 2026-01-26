@@ -4,7 +4,7 @@
  * Registers a code actions provider with Monaco Editor for quick fixes.
  */
 
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { FiveLspClient } from './lsp-client';
 
 /**

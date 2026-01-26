@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import webpack from "webpack";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["five-sdk"],
@@ -27,6 +28,13 @@ const nextConfig: NextConfig = {
       type: 'javascript/auto',
     });
 
+    // Handle Monaco Editor minified version NLS loader issue
+    // Disable AMD module parsing for Monaco to prevent NLS loader require errors
+    config.module.rules.push({
+      test: /monaco-editor\/min\/vs\/editor\/editor\.main\.js/,
+      parser: { amd: false },
+    });
+
     // Suppress Webpack warnings about dynamic requires in WASM loaders and async WASM
     config.ignoreWarnings = [
       {
@@ -35,6 +43,9 @@ const nextConfig: NextConfig = {
       },
       {
         message: /The generated code contains 'async\/await'/,
+      },
+      {
+        message: /Can't resolve 'vs\/nls\.messages-loader'/,
       },
     ];
 

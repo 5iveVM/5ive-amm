@@ -14,7 +14,7 @@
  * ```
  */
 
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { FiveLspClient, Diagnostic } from './lsp-client';
 import { registerHoverProvider } from './monaco-hover';
 import { registerCompletionProvider } from './monaco-completion';
