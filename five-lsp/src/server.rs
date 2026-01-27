@@ -78,16 +78,16 @@ impl LanguageServer for FiveLanguageServer {
                     TextDocumentSyncKind::FULL,
                 )),
 
-                // Phase 2 capabilities (hover and completion disabled, goto-definition enabled)
+                // Phase 2 capabilities (goto-definition and find-references enabled)
                 hover_provider: Some(HoverProviderCapability::Simple(false)),
                 completion_provider: None,
                 definition_provider: Some(OneOf::Left(true)),
-                references_provider: Some(OneOf::Left(false)),
+                references_provider: Some(OneOf::Left(true)),
 
-                // Phase 3 capabilities (future)
+                // Phase 3 capabilities (rename enabled)
                 semantic_tokens_provider: None,
                 code_action_provider: None,
-                rename_provider: Some(OneOf::Left(false)),
+                rename_provider: Some(OneOf::Left(true)),
                 document_symbol_provider: Some(OneOf::Left(false)),
 
                 // Phase 4 capabilities (future)
@@ -237,7 +237,55 @@ impl LanguageServer for FiveLanguageServer {
         Ok(location.map(GotoDefinitionResponse::Scalar))
     }
 
-    async fn references(&self, _params: ReferenceParams) -> Result<Option<Vec<Location>>> {
-        Ok(None)
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let uri = params.text_document_position.text_document.uri.clone();
+        let position = params.text_document_position.position;
+
+        // Get source code
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        // Use bridge to find references semantically
+        let mut bridge = self.bridge.write().await;
+        let references = features::find_references::find_references(
+            &mut bridge,
+            &uri,
+            &doc.content,
+            position.line as usize,
+            position.character as usize,
+        );
+
+        Ok(if references.is_empty() { None } else { Some(references) })
+    }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let uri = params.text_document_position.text_document.uri.clone();
+        let position = params.text_document_position.position;
+        let new_name = params.new_name;
+
+        // Get source code
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        // Use bridge to find and rename all references semantically
+        let mut bridge = self.bridge.write().await;
+        let workspace_edit = features::rename::rename(
+            &mut bridge,
+            &doc.content,
+            position.line as usize,
+            position.character as usize,
+            &new_name,
+            &uri,
+        );
+
+        Ok(workspace_edit)
     }
 }

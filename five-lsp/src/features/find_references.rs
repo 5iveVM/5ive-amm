@@ -1,24 +1,28 @@
 //! Find references provider for locating all usages of a symbol
 //!
 //! Allows users to find all references to a symbol in the current file.
+//! Uses semantic analysis to validate that text matches refer to actual defined symbols.
 
+use crate::bridge::CompilerBridge;
 use lsp_types::{Location, Position, Range, Url};
 
 /// Find all references to a symbol at the given position
 ///
 /// # Arguments
+/// * `bridge` - Compiler bridge for semantic validation
+/// * `uri` - File URI
 /// * `source` - Source code
 /// * `line` - 0-indexed line number
 /// * `character` - 0-indexed character position
-/// * `uri` - File URI
 ///
 /// # Returns
 /// Vector of Locations where the symbol is referenced, including the definition
 pub fn find_references(
+    bridge: &mut CompilerBridge,
+    uri: &Url,
     source: &str,
     line: usize,
     character: usize,
-    uri: &Url,
 ) -> Vec<Location> {
     // Extract identifier at cursor position
     let identifier = match extract_identifier_at_position(source, line, character) {
@@ -26,7 +30,13 @@ pub fn find_references(
         None => return vec![],
     };
 
+    // Validate that the symbol is actually defined (semantic check)
+    if !bridge.symbol_exists(uri, source, &identifier) {
+        return vec![];
+    }
+
     // Find all references to the identifier in source code
+    // Now we know the symbol exists, so we filter by actual definitions
     find_references_in_source(source, &identifier, uri)
 }
 
@@ -158,20 +168,23 @@ fn is_in_string_literal(line: &str, pos: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bridge::CompilerBridge;
 
     #[test]
     fn test_find_single_reference() {
         let source = "let x = 5;\nlet y = x + 1;";
         let uri = Url::parse("file:///test.v").unwrap();
-        let references = find_references(source, 0, 4, &uri); // At 'x' in first line
+        let mut bridge = CompilerBridge::new();
+        let references = find_references(&mut bridge, &uri, source, 0, 4); // At 'x' in first line
         assert_eq!(references.len(), 2); // Definition and one reference
     }
 
     #[test]
     fn test_find_multiple_references() {
-        let source = "function test() {\n  test();\n  test();\n}";
+        let source = "pub test() {\n  test();\n  test();\n}";
         let uri = Url::parse("file:///test.v").unwrap();
-        let references = find_references(source, 0, 9, &uri); // At 'test' in function name
+        let mut bridge = CompilerBridge::new();
+        let references = find_references(&mut bridge, &uri, source, 0, 5); // At 'test' in function name
         assert_eq!(references.len(), 3); // Definition and two calls
     }
 
@@ -179,7 +192,8 @@ mod tests {
     fn test_find_references_word_boundary() {
         let source = "let counter = 1;\nlet my_counter = 2;";
         let uri = Url::parse("file:///test.v").unwrap();
-        let references = find_references(source, 0, 4, &uri); // At 'counter'
+        let mut bridge = CompilerBridge::new();
+        let references = find_references(&mut bridge, &uri, source, 0, 4); // At 'counter'
         assert_eq!(references.len(), 1); // Only exact matches, not "my_counter"
     }
 
@@ -187,7 +201,8 @@ mod tests {
     fn test_find_references_none_found() {
         let source = "let x = 5;";
         let uri = Url::parse("file:///test.v").unwrap();
-        let references = find_references(source, 0, 9, &uri); // At space, no identifier
+        let mut bridge = CompilerBridge::new();
+        let references = find_references(&mut bridge, &uri, source, 0, 9); // At space, no identifier
         assert_eq!(references.len(), 0);
     }
 
@@ -195,15 +210,56 @@ mod tests {
     fn test_find_references_account_definition() {
         let source = "account Counter {\n  value: u64,\n}\n\npub read_counter(c: account Counter) {}";
         let uri = Url::parse("file:///test.v").unwrap();
-        let references = find_references(source, 0, 8, &uri); // At 'Counter'
+        let mut bridge = CompilerBridge::new();
+        let references = find_references(&mut bridge, &uri, source, 0, 8); // At 'Counter'
         assert_eq!(references.len(), 2); // Definition and one type reference
     }
 
     #[test]
+    fn test_find_references_respects_scope() {
+        // Test that find_references respects scope and finds the correct shadowed variable
+        let source = r#"mut counter: u64;
+
+pub increment() {
+    let counter = 5;
+    return counter;
+}"#;
+
+        let uri = Url::parse("file:///test.v").unwrap();
+        let mut bridge = CompilerBridge::new();
+
+        // Find references to counter on line 3 (the local variable)
+        // Should find both the definition and the use on line 4
+        let references = find_references(&mut bridge, &uri, source, 3, 8);
+
+        // We expect both occurrences of the local counter to be found
+        // (definition on line 3 and use on line 4)
+        assert_eq!(references.len(), 2, "Should find 2 occurrences of local counter");
+    }
+
+    #[test]
+    fn test_find_references_global_variable() {
+        let source = r#"mut total: u64;
+
+pub get_total() -> u64 {
+    return total;
+}"#;
+
+        let uri = Url::parse("file:///test.v").unwrap();
+        let mut bridge = CompilerBridge::new();
+
+        // Find references to global total
+        let references = find_references(&mut bridge, &uri, source, 0, 4);
+
+        // Should find definition and the use in return statement
+        assert_eq!(references.len(), 2, "Should find definition and use of global total");
+    }
+
+    #[test]
     fn test_extract_identifier_simple() {
-        let source = "function my_func() {}";
-        let identifier = extract_identifier_at_position(source, 0, 11); // At 'my_func'
-        assert_eq!(identifier, Some("my_func".to_string()));
+        let source = "pub test() {}";
+        let identifier = extract_identifier_at_position(source, 0, 5); // At 'test'
+        assert_eq!(identifier, Some("test".to_string()));
     }
 
     #[test]

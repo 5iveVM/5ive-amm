@@ -35,7 +35,8 @@
       "Bash(solana config set:*)",
       "Bash(cargo build-sbf:*)",
       "Bash(wasm-pack build:*)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "Bash(grep:*)"
     ]
   }
 }

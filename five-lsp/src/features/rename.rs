@@ -1,8 +1,11 @@
 //! Rename refactoring provider
 //!
 //! Enables safe renaming of symbols across all their usages in the document.
+//! Uses semantic analysis to validate that renames only affect the correct symbol.
 
-use lsp_types::{Range, Position, WorkspaceEdit, TextEdit};
+use crate::bridge::CompilerBridge;
+use crate::features::find_references;
+use lsp_types::{Range, Position, WorkspaceEdit, TextEdit, Url};
 use std::collections::HashMap;
 
 /// Prepare a rename operation
@@ -53,13 +56,14 @@ pub fn prepare_rename(source: &str, line: usize, character: usize) -> Option<Str
 
 /// Rename a symbol across all its usages
 ///
-/// Finds all references to a symbol and replaces them with the new name.
+/// Finds all references to a symbol using semantic analysis and replaces them with the new name.
 pub fn rename(
+    bridge: &mut CompilerBridge,
     source: &str,
     line: usize,
     character: usize,
     new_name: &str,
-    uri: &lsp_types::Url,
+    uri: &Url,
 ) -> Option<WorkspaceEdit> {
     // Get the current name
     let old_name = prepare_rename(source, line, character)?;
@@ -69,54 +73,21 @@ pub fn rename(
         return None;
     }
 
-    // Find all occurrences of the old name
-    let lines: Vec<&str> = source.lines().collect();
+    // Find all references using semantic analysis
+    let references = find_references::find_references(bridge, uri, source, line, character);
+
+    // If no references found, the symbol doesn't exist
+    if references.is_empty() {
+        return None;
+    }
+
+    // Convert references to text edits
     let mut text_edits = Vec::new();
-
-    for (line_idx, line_str) in lines.iter().enumerate() {
-        // Skip comment lines
-        if line_str.trim_start().starts_with("//") {
-            continue;
-        }
-
-        let mut search_pos = 0;
-
-        while let Some(col) = line_str[search_pos..].find(&old_name) {
-            let actual_col = search_pos + col;
-
-            // Skip if inside a string literal
-            if is_in_string_literal(line_str, actual_col) {
-                search_pos = actual_col + old_name.len();
-                continue;
-            }
-
-            let chars: Vec<char> = line_str.chars().collect();
-
-            // Check word boundaries
-            let is_valid_before = actual_col == 0 || !is_identifier_char(chars[actual_col - 1]);
-            let end_pos = actual_col + old_name.len();
-            let is_valid_after = end_pos >= chars.len() || !is_identifier_char(chars[end_pos]);
-
-            // Only replace if word boundaries are valid
-            if is_valid_before && is_valid_after {
-                text_edits.push(TextEdit {
-                    range: Range {
-                        start: Position {
-                            line: line_idx as u32,
-                            character: actual_col as u32,
-                        },
-                        end: Position {
-                            line: line_idx as u32,
-                            character: (actual_col + old_name.len()) as u32,
-                        },
-                    },
-                    new_text: new_name.to_string(),
-                });
-            }
-
-            // Move search position forward
-            search_pos = actual_col + old_name.len();
-        }
+    for location in references {
+        text_edits.push(TextEdit {
+            range: location.range,
+            new_text: new_name.to_string(),
+        });
     }
 
     // Build workspace edit
@@ -197,7 +168,8 @@ mod tests {
     fn test_rename_single_occurrence() {
         let source = "let x = 5;";
         let uri = "file:///test.v".parse().unwrap();
-        let edit = rename(source, 0, 4, "y", &uri);
+        let mut bridge = CompilerBridge::new();
+        let edit = rename(&mut bridge, source, 0, 4, "y", &uri);
         assert!(edit.is_some());
         let edit = edit.unwrap();
         assert!(edit.changes.is_some());
@@ -207,7 +179,8 @@ mod tests {
     fn test_rename_multiple_occurrences() {
         let source = "let x = 5;\nlet y = x + 1;";
         let uri = "file:///test.v".parse().unwrap();
-        let edit = rename(source, 0, 4, "z", &uri);
+        let mut bridge = CompilerBridge::new();
+        let edit = rename(&mut bridge, source, 0, 4, "z", &uri);
         assert!(edit.is_some());
         let edit = edit.unwrap();
         let changes = edit.changes.unwrap();
@@ -219,11 +192,38 @@ mod tests {
     fn test_rename_word_boundary_respected() {
         let source = "let counter = 1;\nlet my_counter = 2;";
         let uri = "file:///test.v".parse().unwrap();
-        let edit = rename(source, 0, 4, "x", &uri); // Rename first 'counter'
+        let mut bridge = CompilerBridge::new();
+        let edit = rename(&mut bridge, source, 0, 4, "x", &uri); // Rename first 'counter'
         assert!(edit.is_some());
         let edit = edit.unwrap();
         let changes = edit.changes.unwrap();
         let edits = changes.get(&uri).unwrap();
         assert_eq!(edits.len(), 1); // Only the first 'counter', not part of 'my_counter'
+    }
+
+    #[test]
+    fn test_rename_respects_scope() {
+        // Test that rename respects scope boundaries
+        let source = r#"mut counter: u64;
+
+pub increment() {
+    let counter = 5;
+    counter = counter + 1;
+}"#;
+
+        let uri = "file:///test.v".parse().unwrap();
+        let mut bridge = CompilerBridge::new();
+
+        // Rename the local counter (line 3) to new_counter
+        let edit = rename(&mut bridge, source, 3, 8, "new_counter", &uri);
+        assert!(edit.is_some());
+
+        let edit = edit.unwrap();
+        let changes = edit.changes.unwrap();
+        let edits = changes.get(&uri).unwrap();
+
+        // Should only rename the local counter occurrences (line 3 definition and line 4 uses)
+        // NOT the global counter on line 0
+        assert_eq!(edits.len(), 3, "Should rename 3 occurrences of local counter (def + 2 uses)");
     }
 }

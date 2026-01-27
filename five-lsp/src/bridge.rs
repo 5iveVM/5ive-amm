@@ -311,6 +311,38 @@ impl CompilerBridge {
 
         None
     }
+
+    /// Check if a symbol is defined (for find-references validation)
+    ///
+    /// Verifies that the symbol exists in the type checker's symbol table.
+    /// Used to filter out false positives from text-based searches.
+    pub fn symbol_exists(&mut self, uri: &Url, source: &str, symbol_name: &str) -> bool {
+        if let Ok(ast) = self.compile_to_ast(uri, source) {
+            let mut type_checker = DslTypeChecker::new();
+            if let Ok(()) = type_checker.check_types(&ast) {
+                return type_checker.get_definition(symbol_name).is_some();
+            }
+        }
+        false
+    }
+
+    /// Get all defined symbols in the source (for find-references scope validation)
+    ///
+    /// Returns the set of all symbols that have been defined in this source.
+    /// Used to validate that a text-based match refers to an actual symbol.
+    pub fn get_defined_symbols(&mut self, uri: &Url, source: &str) -> Vec<String> {
+        if let Ok(ast) = self.compile_to_ast(uri, source) {
+            let mut type_checker = DslTypeChecker::new();
+            if let Ok(()) = type_checker.check_types(&ast) {
+                return type_checker
+                    .get_all_definitions()
+                    .keys()
+                    .cloned()
+                    .collect();
+            }
+        }
+        vec![]
+    }
 }
 
 impl Default for CompilerBridge {
