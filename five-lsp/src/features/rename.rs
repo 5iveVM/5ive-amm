@@ -74,10 +74,22 @@ pub fn rename(
     let mut text_edits = Vec::new();
 
     for (line_idx, line_str) in lines.iter().enumerate() {
+        // Skip comment lines
+        if line_str.trim_start().starts_with("//") {
+            continue;
+        }
+
         let mut search_pos = 0;
 
         while let Some(col) = line_str[search_pos..].find(&old_name) {
             let actual_col = search_pos + col;
+
+            // Skip if inside a string literal
+            if is_in_string_literal(line_str, actual_col) {
+                search_pos = actual_col + old_name.len();
+                continue;
+            }
+
             let chars: Vec<char> = line_str.chars().collect();
 
             // Check word boundaries
@@ -121,6 +133,20 @@ pub fn rename(
 /// Check if a character is valid in an identifier
 fn is_identifier_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
+}
+
+/// Check if a position is inside a string literal (basic check)
+fn is_in_string_literal(line: &str, pos: usize) -> bool {
+    let mut in_string = false;
+    for (i, ch) in line.chars().enumerate() {
+        if i >= pos {
+            break;
+        }
+        if ch == '"' && (i == 0 || line.chars().nth(i - 1) != Some('\\')) {
+            in_string = !in_string;
+        }
+    }
+    in_string
 }
 
 /// Check if a string is a valid identifier
