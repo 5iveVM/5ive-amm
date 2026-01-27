@@ -30,8 +30,16 @@ pub fn workspace_symbols(
         }
 
         // Find instruction/function definitions
-        if let Some(pos) = find_symbol_definition(line, "instruction") {
-            if let Some(name) = extract_symbol_name(line, pos + "instruction ".len()) {
+        if let Some(_) = find_symbol_definition(line, "instruction") {
+            let trimmed = line.trim_start();
+            let indent = line.len() - trimmed.len();
+            let keyword_len = if trimmed.starts_with("pub instruction ") {
+                "pub instruction ".len()
+            } else {
+                "instruction ".len()
+            };
+
+            if let Some(name) = extract_symbol_name(line, indent + keyword_len) {
                 if name.to_lowercase().contains(&query_lower) {
                     symbols.push(SymbolInformation {
                         name: name.clone(),
@@ -41,11 +49,11 @@ pub fn workspace_symbols(
                             range: Range {
                                 start: Position {
                                     line: line_idx as u32,
-                                    character: (pos + "instruction ".len()) as u32,
+                                    character: (indent + keyword_len) as u32,
                                 },
                                 end: Position {
                                     line: line_idx as u32,
-                                    character: (pos + "instruction ".len() + name.len()) as u32,
+                                    character: (indent + keyword_len + name.len()) as u32,
                                 },
                             },
                         },
@@ -178,12 +186,17 @@ fn find_symbol_definition(line: &str, keyword: &str) -> Option<usize> {
     let trimmed = line.trim_start();
     let indent = line.len() - trimmed.len();
 
-    if let Some(pos) = trimmed.find(keyword) {
-        if pos == 0 {
-            // Verify it's a keyword (not part of a larger word)
-            let after = keyword.len();
-            if after >= trimmed.len() || trimmed.chars().nth(after).unwrap().is_whitespace() {
-                return Some(indent);
+    // Check for "pub keyword" or just "keyword"
+    let pub_pattern = format!("pub {}", keyword);
+
+    for pattern in &[keyword, pub_pattern.as_str()] {
+        if let Some(pos) = trimmed.find(*pattern) {
+            if pos == 0 {
+                // Verify it's a keyword (not part of a larger word)
+                let after = pattern.len();
+                if after >= trimmed.len() || trimmed.chars().nth(after).unwrap().is_whitespace() {
+                    return Some(indent);
+                }
             }
         }
     }

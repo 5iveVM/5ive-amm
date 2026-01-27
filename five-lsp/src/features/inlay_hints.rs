@@ -198,8 +198,7 @@ mod tests {
         let hints = get_inlay_hints(source, 0);
 
         // Should skip adding type hint if annotation already exists
-        // (in practice, implementation is simplified)
-        assert!(!hints.is_empty());
+        assert!(hints.is_empty());
     }
 
     #[test]
@@ -209,10 +208,10 @@ mod tests {
         add_parameter_hints("require", 0, 8, &mut hints);
 
         assert!(!hints.is_empty());
-        assert!(hints[0]
-            .label
-            .to_string()
-            .contains("condition"));
+        match &hints[0].label {
+            InlayHintLabel::String(s) => assert!(s.contains("condition")),
+            InlayHintLabel::LabelParts(_) => panic!("Expected string label"),
+        }
     }
 
     #[test]
