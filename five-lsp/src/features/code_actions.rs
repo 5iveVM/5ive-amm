@@ -9,51 +9,62 @@ use std::collections::HashMap;
 ///
 /// Analyzes the diagnostic message and provides relevant quick fixes.
 pub fn get_code_actions(
-    _source: &str,
+    source: &str,
     diagnostic: &Diagnostic,
-    _uri: &lsp_types::Url,
+    uri: &lsp_types::Url,
 ) -> Vec<CodeAction> {
     let mut actions = Vec::new();
 
     let message = diagnostic.message.to_lowercase();
+    let line_num = diagnostic.range.start.line as usize;
 
-    // Missing visibility modifier
+    // Missing visibility modifier - prepend 'pub ' at start of line
     if message.contains("public") || message.contains("visibility") {
-        actions.push(CodeAction {
-            title: "Add 'pub' modifier".to_string(),
-            kind: Some(CodeActionKind::QUICKFIX),
-            diagnostics: Some(vec![diagnostic.clone()]),
-            edit: Some(WorkspaceEdit {
-                changes: Some(HashMap::new()),
-                change_annotations: None,
-                document_changes: None,
-            }),
-            command: None,
-            is_preferred: Some(true),
-            disabled: None,
-            data: None,
-        });
+        if let Some(edit) = fix_missing_visibility(source, line_num) {
+            let mut changes = HashMap::new();
+            changes.insert(uri.clone(), vec![edit]);
+
+            actions.push(CodeAction {
+                title: "Add 'pub' modifier".to_string(),
+                kind: Some(CodeActionKind::QUICKFIX),
+                diagnostics: Some(vec![diagnostic.clone()]),
+                edit: Some(WorkspaceEdit {
+                    changes: Some(changes),
+                    change_annotations: None,
+                    document_changes: None,
+                }),
+                command: None,
+                is_preferred: Some(true),
+                disabled: None,
+                data: None,
+            });
+        }
     }
 
-    // Mutability issues
+    // Mutability issues - prepend 'mut ' before identifier
     if message.contains("mut") || message.contains("immutable") || message.contains("cannot assign") {
-        actions.push(CodeAction {
-            title: "Add 'mut' modifier".to_string(),
-            kind: Some(CodeActionKind::QUICKFIX),
-            diagnostics: Some(vec![diagnostic.clone()]),
-            edit: Some(WorkspaceEdit {
-                changes: Some(HashMap::new()),
-                change_annotations: None,
-                document_changes: None,
-            }),
-            command: None,
-            is_preferred: Some(true),
-            disabled: None,
-            data: None,
-        });
+        if let Some(edit) = fix_missing_mutability(source, line_num, &diagnostic.range) {
+            let mut changes = HashMap::new();
+            changes.insert(uri.clone(), vec![edit]);
+
+            actions.push(CodeAction {
+                title: "Add 'mut' modifier".to_string(),
+                kind: Some(CodeActionKind::QUICKFIX),
+                diagnostics: Some(vec![diagnostic.clone()]),
+                edit: Some(WorkspaceEdit {
+                    changes: Some(changes),
+                    change_annotations: None,
+                    document_changes: None,
+                }),
+                command: None,
+                is_preferred: Some(true),
+                disabled: None,
+                data: None,
+            });
+        }
     }
 
-    // Type mismatch hints
+    // Type mismatch hints - informational only, no fix available
     if message.contains("type mismatch") || message.contains("expected") {
         actions.push(CodeAction {
             title: "Show type information".to_string(),
@@ -67,37 +78,47 @@ pub fn get_code_actions(
         });
     }
 
-    // Missing account constraints
+    // Missing account constraints - add constraint after parameter name
     if message.contains("account") || message.contains("constraint") {
-        actions.push(CodeAction {
-            title: "Add @mut constraint".to_string(),
-            kind: Some(CodeActionKind::QUICKFIX),
-            diagnostics: Some(vec![diagnostic.clone()]),
-            edit: Some(WorkspaceEdit {
-                changes: Some(HashMap::new()),
-                change_annotations: None,
-                document_changes: None,
-            }),
-            command: None,
-            is_preferred: None,
-            disabled: None,
-            data: None,
-        });
+        if let Some(edit) = fix_missing_account_constraint(source, line_num, "@mut") {
+            let mut changes = HashMap::new();
+            changes.insert(uri.clone(), vec![edit]);
 
-        actions.push(CodeAction {
-            title: "Add @signer constraint".to_string(),
-            kind: Some(CodeActionKind::QUICKFIX),
-            diagnostics: Some(vec![diagnostic.clone()]),
-            edit: Some(WorkspaceEdit {
-                changes: Some(HashMap::new()),
-                change_annotations: None,
-                document_changes: None,
-            }),
-            command: None,
-            is_preferred: None,
-            disabled: None,
-            data: None,
-        });
+            actions.push(CodeAction {
+                title: "Add @mut constraint".to_string(),
+                kind: Some(CodeActionKind::QUICKFIX),
+                diagnostics: Some(vec![diagnostic.clone()]),
+                edit: Some(WorkspaceEdit {
+                    changes: Some(changes),
+                    change_annotations: None,
+                    document_changes: None,
+                }),
+                command: None,
+                is_preferred: None,
+                disabled: None,
+                data: None,
+            });
+        }
+
+        if let Some(edit) = fix_missing_account_constraint(source, line_num, "@signer") {
+            let mut changes = HashMap::new();
+            changes.insert(uri.clone(), vec![edit]);
+
+            actions.push(CodeAction {
+                title: "Add @signer constraint".to_string(),
+                kind: Some(CodeActionKind::QUICKFIX),
+                diagnostics: Some(vec![diagnostic.clone()]),
+                edit: Some(WorkspaceEdit {
+                    changes: Some(changes),
+                    change_annotations: None,
+                    document_changes: None,
+                }),
+                command: None,
+                is_preferred: None,
+                disabled: None,
+                data: None,
+            });
+        }
     }
 
     actions
@@ -166,6 +187,81 @@ pub fn fix_missing_visibility(source: &str, line: usize) -> Option<TextEdit> {
     None
 }
 
+/// Quick fix for adding mutability modifier
+///
+/// Inserts 'mut ' before the variable name on the specified line.
+/// Looks for 'let ' keyword and adds 'mut ' after it.
+pub fn fix_missing_mutability(source: &str, line: usize, _range: &Range) -> Option<TextEdit> {
+    let lines: Vec<&str> = source.lines().collect();
+
+    if line >= lines.len() {
+        return None;
+    }
+
+    let line_str = lines[line];
+
+    // Find 'let ' keyword and insert 'mut ' after it
+    if let Some(let_pos) = line_str.find("let ") {
+        let insert_pos = let_pos + 4; // Length of "let "
+
+        return Some(TextEdit {
+            range: Range {
+                start: Position {
+                    line: line as u32,
+                    character: insert_pos as u32,
+                },
+                end: Position {
+                    line: line as u32,
+                    character: insert_pos as u32,
+                },
+            },
+            new_text: "mut ".to_string(),
+        });
+    }
+
+    None
+}
+
+/// Quick fix for adding account constraints
+///
+/// Appends a constraint (e.g., '@mut', '@signer') after the account parameter.
+pub fn fix_missing_account_constraint(source: &str, line: usize, constraint: &str) -> Option<TextEdit> {
+    let lines: Vec<&str> = source.lines().collect();
+
+    if line >= lines.len() {
+        return None;
+    }
+
+    let line_str = lines[line];
+
+    // Look for 'account ' keyword - constraint should be added after the type name
+    if let Some(account_pos) = line_str.find("account ") {
+        // Find the next space or colon after 'account ', which marks the end of the account parameter name
+        let search_start = account_pos + 8; // Length of "account "
+        let remaining = &line_str[search_start..];
+
+        if let Some(end_pos) = remaining.find(|c| c == ' ' || c == ',' || c == ')') {
+            let insert_pos = search_start + end_pos;
+
+            return Some(TextEdit {
+                range: Range {
+                    start: Position {
+                        line: line as u32,
+                        character: insert_pos as u32,
+                    },
+                    end: Position {
+                        line: line as u32,
+                        character: insert_pos as u32,
+                    },
+                },
+                new_text: format!(" {}", constraint),
+            });
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,9 +289,12 @@ mod tests {
             data: None,
         };
 
-        let actions = get_code_actions("function test() {}", &diagnostic, &"file:///test.v".parse().unwrap());
+        let uri: lsp_types::Url = "file:///test.v".parse().unwrap();
+        let actions = get_code_actions("function test() {}", &diagnostic, &uri);
         assert!(!actions.is_empty());
         assert!(actions.iter().any(|a| a.title.contains("pub")));
+        // Verify the action has actual edits now
+        assert!(actions[0].edit.is_some());
     }
 
     #[test]
@@ -204,5 +303,44 @@ mod tests {
         let fix = fix_missing_semicolon(source, 0, 9);
         assert!(fix.is_some());
         assert_eq!(fix.unwrap().new_text, ";");
+    }
+
+    #[test]
+    fn test_fix_missing_visibility() {
+        let source = "function test() {}";
+        let fix = fix_missing_visibility(source, 0);
+        assert!(fix.is_some());
+        let edit = fix.unwrap();
+        assert_eq!(edit.new_text, "pub ");
+        assert_eq!(edit.range.start.character, 0);
+    }
+
+    #[test]
+    fn test_fix_missing_mutability() {
+        let source = "let x = 5;";
+        let range = Range {
+            start: Position {
+                line: 0,
+                character: 4,
+            },
+            end: Position {
+                line: 0,
+                character: 5,
+            },
+        };
+        let fix = fix_missing_mutability(source, 0, &range);
+        assert!(fix.is_some());
+        let edit = fix.unwrap();
+        assert_eq!(edit.new_text, "mut ");
+        assert_eq!(edit.range.start.character, 4); // After "let "
+    }
+
+    #[test]
+    fn test_fix_missing_account_constraint() {
+        let source = "account counter)";
+        let fix = fix_missing_account_constraint(source, 0, "@mut");
+        assert!(fix.is_some());
+        let edit = fix.unwrap();
+        assert_eq!(edit.new_text, " @mut");
     }
 }

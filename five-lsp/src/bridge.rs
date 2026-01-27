@@ -153,17 +153,18 @@ impl CompilerBridge {
         match type_checker.check_types(&ast) {
             Ok(()) => {
                 // Type checking succeeded - no type errors
-                // Cache the symbol table for use in hover/completion
-                let hash = Self::hash_source(source);
-                let symbol_table = type_checker.get_symbol_table().clone();
-                self.symbol_cache.insert(uri.clone(), (hash, symbol_table));
-                // Return empty diagnostics (no parse or type errors)
             }
             Err(_e) => {
                 // Type checking failed - skip reporting for now since error messages don't have positions
                 // TODO: Extract position information from AST when type errors occur
             }
         }
+
+        // ALWAYS cache the symbol table, even if type checking failed
+        // This enables hover and completion to work even when code has type errors
+        let hash = Self::hash_source(source);
+        let symbol_table = type_checker.get_symbol_table().clone();
+        self.symbol_cache.insert(uri.clone(), (hash, symbol_table));
 
         Ok(diagnostics)
     }
