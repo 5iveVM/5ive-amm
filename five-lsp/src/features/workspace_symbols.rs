@@ -2,13 +2,18 @@
 //!
 //! Enables quick symbol search across the entire workspace,
 //! allowing users to jump to any function, variable, account, or type definition.
+//!
+//! Infrastructure for multi-file support:
+//! - Use bridge.get_all_symbol_definitions() to get semantic symbols from any file
+//! - Loop over workspace.five_files() to search all registered .v files
+//! - Filter by query and convert SymbolDefinition to SymbolInformation for LSP response
 
 use lsp_types::{Location, Position, Range, SymbolInformation, SymbolKind, Url};
 
-/// Search for symbols matching a query across the entire workspace
+/// Search for symbols matching a query in a file
 ///
 /// Returns all matching symbols (functions, variables, accounts, types) in the current file.
-/// In a full multi-file implementation, this would search across all files.
+/// For cross-file workspace search, this can be called in a loop over all workspace files.
 pub fn workspace_symbols(
     source: &str,
     query: &str,

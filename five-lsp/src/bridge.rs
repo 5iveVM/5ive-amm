@@ -343,6 +343,30 @@ impl CompilerBridge {
         }
         vec![]
     }
+
+    /// Get all symbol definitions for workspace symbol search
+    ///
+    /// Returns all symbols defined in the source with their type information.
+    /// Used for cross-file workspace symbol search.
+    pub fn get_all_symbol_definitions(
+        &mut self,
+        uri: &Url,
+        source: &str,
+    ) -> Vec<(String, TypeNode, bool)> {
+        if let Ok(ast) = self.compile_to_ast(uri, source) {
+            let mut type_checker = DslTypeChecker::new();
+            if let Ok(()) = type_checker.check_types(&ast) {
+                return type_checker
+                    .get_all_definitions()
+                    .iter()
+                    .map(|(name, def)| {
+                        (name.clone(), def.type_info.clone(), def.is_mutable)
+                    })
+                    .collect();
+            }
+        }
+        vec![]
+    }
 }
 
 impl Default for CompilerBridge {
