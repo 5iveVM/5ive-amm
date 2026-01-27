@@ -15,6 +15,9 @@ pub mod code_actions;
 pub mod document_symbols;
 pub mod rename;
 pub mod workspace_symbols;
+pub mod signature_help;
+pub mod inlay_hints;
+pub mod formatting;
 
 pub use diagnostics::*;
 pub use hover::*;
@@ -26,3 +29,6 @@ pub use code_actions::*;
 pub use document_symbols::*;
 pub use rename::*;
 pub use workspace_symbols::*;
+pub use signature_help::*;
+pub use inlay_hints::*;
+pub use formatting::*;
