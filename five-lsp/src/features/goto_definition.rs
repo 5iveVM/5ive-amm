@@ -93,46 +93,86 @@ fn is_identifier_char(c: char) -> bool {
 /// Find the definition location of an identifier in source code
 ///
 /// Searches for definition patterns like:
-/// - `pub function name(...)`
-/// - `function name(...)`
+/// - `pub instruction name(...)`
+/// - `instruction name(...)`
 /// - `account name { ... }`
-/// - `pub let name = ...`
+/// - `let name = ...`
+///
+/// Avoids false positives by:
+/// - Only matching at line start (after whitespace)
+/// - Checking for word boundaries
+/// - Skipping matches in comments
 fn find_definition_in_source(source: &str, identifier: &str) -> Option<(usize, usize)> {
     let lines: Vec<&str> = source.lines().collect();
 
-    // Search patterns for definitions
-    let patterns = vec![
-        format!("pub function {}", identifier),  // pub function name
-        format!("function {}", identifier),      // function name
-        format!("pub {}", identifier),           // pub name (field/account)
-        format!("account {}", identifier),       // account name
-        format!("let {} ", identifier),          // let name =
-        format!("let {} =", identifier),         // let name=
-    ];
-
     for (line_idx, line) in lines.iter().enumerate() {
-        for pattern in &patterns {
-            if let Some(col) = line.find(pattern) {
-                // Extract the identifier position within the pattern
-                let identifier_pos = if pattern.contains("pub function") {
-                    col + 12  // "pub function ".len()
-                } else if pattern.contains("function") {
-                    col + 9   // "function ".len()
-                } else if pattern.contains("pub ") {
-                    col + 4   // "pub ".len()
-                } else if pattern.contains("account ") {
-                    col + 8   // "account ".len()
-                } else if pattern.contains("let ") {
-                    col + 4   // "let ".len()
-                } else {
-                    col
-                };
+        // Skip lines that are comments
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("//") {
+            continue;
+        }
 
-                return Some((line_idx, identifier_pos));
+        // Search for definition patterns in order of specificity
+        // Try: pub instruction identifier
+        if let Some(pos) = find_pattern_match(line, &format!("pub instruction {}", identifier)) {
+            return Some((line_idx, pos));
+        }
+
+        // Try: instruction identifier (Five DSL uses "instruction", not "function")
+        if let Some(pos) = find_pattern_match(line, &format!("instruction {}", identifier)) {
+            return Some((line_idx, pos));
+        }
+
+        // Try: account identifier
+        if let Some(pos) = find_pattern_match(line, &format!("account {}", identifier)) {
+            return Some((line_idx, pos));
+        }
+
+        // Try: let identifier = or let identifier ;
+        if let Some(pos) = find_pattern_match(line, &format!("let {}", identifier)) {
+            // Verify it's followed by space, = or ;
+            let after_ident = pos + 4 + identifier.len(); // "let " + identifier
+            if after_ident < line.len() {
+                let next_char = line.chars().nth(after_ident);
+                if matches!(next_char, Some(' ') | Some('=') | Some(';')) {
+                    return Some((line_idx, pos + 4)); // "let ".len()
+                }
             }
+        }
+
+        // Try: pub identifier (field/account definition)
+        if let Some(pos) = find_pattern_match(line, &format!("pub {}", identifier)) {
+            return Some((line_idx, pos + 4)); // "pub ".len()
         }
     }
 
+    None
+}
+
+/// Find a pattern match at the beginning of a line (after whitespace)
+///
+/// Returns the column position of the start of the identifier if found
+fn find_pattern_match(line: &str, pattern: &str) -> Option<usize> {
+    let trimmed = line.trim_start();
+    let indent = line.len() - trimmed.len();
+
+    if let Some(match_pos) = trimmed.find(pattern) {
+        // Only match if it's at the start of the trimmed line (after whitespace)
+        if match_pos == 0 {
+            // Verify word boundary after pattern
+            let after_pos = pattern.len();
+            if after_pos >= trimmed.len() {
+                // Pattern is at end of line - valid match
+                return Some(indent);
+            }
+            // Check if next character is a word boundary (space, =, (, {, ;, etc.)
+            if let Some(next_ch) = trimmed.chars().nth(after_pos) {
+                if !next_ch.is_alphanumeric() && next_ch != '_' {
+                    return Some(indent);
+                }
+            }
+        }
+    }
     None
 }
 

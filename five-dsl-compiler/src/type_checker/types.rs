@@ -1,8 +1,16 @@
 // Type definitions for the type checker
 
-use crate::ast::{StructField, TypeNode};
+use crate::ast::{StructField, TypeNode, SourceLocation};
 use crate::type_checker::ModuleScope;
 use std::collections::HashMap;
+
+/// Information about where a symbol is defined
+#[derive(Debug, Clone)]
+pub struct SymbolDefinition {
+    pub type_info: TypeNode,
+    pub is_mutable: bool,
+    pub location: Option<SourceLocation>,  // Where this symbol was defined
+}
 
 /// Interface method information for bytecode generation
 #[derive(Debug, Clone)]
@@ -32,6 +40,8 @@ pub struct InterfaceInfo {
 /// Type checker context for .five DSL
 pub struct TypeCheckerContext {
     pub symbol_table: HashMap<String, (TypeNode, bool)>, // Store (type, is_mutable)
+    /// Symbol definitions with source location for go-to-definition and hover
+    pub(crate) symbol_definitions: HashMap<String, SymbolDefinition>,
     pub(crate) account_definitions: HashMap<String, Vec<StructField>>,
     pub(crate) interface_registry: HashMap<String, InterfaceInfo>,
     /// Tracks which account parameters are writable (@mut) for the current function
@@ -56,6 +66,7 @@ impl TypeCheckerContext {
     pub fn new() -> Self {
         Self {
             symbol_table: HashMap::new(),
+            symbol_definitions: HashMap::new(),
             account_definitions: HashMap::new(),
             interface_registry: HashMap::new(),
             current_writable_accounts: None,
@@ -135,6 +146,25 @@ impl TypeCheckerContext {
     /// Check if module scope is active (for testing)
     pub fn has_module_scope(&self) -> bool {
         self.module_scope.is_some()
+    }
+
+    /// Record where a symbol was defined (for go-to-definition)
+    pub fn record_definition(&mut self, name: String, type_info: TypeNode, is_mutable: bool, location: Option<SourceLocation>) {
+        self.symbol_definitions.insert(name, SymbolDefinition {
+            type_info,
+            is_mutable,
+            location,
+        });
+    }
+
+    /// Get definition information for a symbol (includes source location)
+    pub fn get_definition(&self, name: &str) -> Option<&SymbolDefinition> {
+        self.symbol_definitions.get(name)
+    }
+
+    /// Get all symbol definitions (for workspace symbol search)
+    pub fn get_all_definitions(&self) -> &HashMap<String, SymbolDefinition> {
+        &self.symbol_definitions
     }
 
     /// Get mutable reference to module scope (for testing)

@@ -155,23 +155,21 @@ export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly __wbg_fivelspwasm_free: (a: number, b: number) => void;
   readonly fivelspwasm_new: () => number;
-  readonly fivelspwasm_get_diagnostics: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
-  readonly fivelspwasm_get_hover: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
-  readonly fivelspwasm_get_completions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
-  readonly fivelspwasm_get_definition: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
-  readonly fivelspwasm_find_references: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
-  readonly fivelspwasm_get_semantic_tokens: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
-  readonly fivelspwasm_get_document_symbols: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
-  readonly fivelspwasm_get_code_actions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
-  readonly fivelspwasm_prepare_rename: (a: number, b: number, c: number, d: number) => [number, number, number, number];
-  readonly fivelspwasm_rename: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number, number];
+  readonly fivelspwasm_get_diagnostics: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+  readonly fivelspwasm_get_hover: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+  readonly fivelspwasm_get_completions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+  readonly fivelspwasm_get_definition: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+  readonly fivelspwasm_find_references: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+  readonly fivelspwasm_get_semantic_tokens: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+  readonly fivelspwasm_get_document_symbols: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+  readonly fivelspwasm_get_code_actions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+  readonly fivelspwasm_prepare_rename: (a: number, b: number, c: number, d: number, e: number) => void;
+  readonly fivelspwasm_rename: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => void;
   readonly fivelspwasm_clear_caches: (a: number) => void;
-  readonly __wbindgen_externrefs: WebAssembly.Table;
-  readonly __wbindgen_malloc: (a: number, b: number) => number;
-  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
-  readonly __externref_table_dealloc: (a: number) => void;
-  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly __wbindgen_start: () => void;
+  readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
+  readonly __wbindgen_export: (a: number, b: number) => number;
+  readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbindgen_export3: (a: number, b: number, c: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

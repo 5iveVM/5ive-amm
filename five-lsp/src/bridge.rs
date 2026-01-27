@@ -17,6 +17,14 @@ use crate::error::LspError;
 /// Symbol table entry: (type, is_mutable)
 type SymbolTableEntry = (TypeNode, bool);
 
+/// Definition information for go-to-definition feature
+#[derive(Debug, Clone)]
+pub struct DefinitionInfo {
+    pub name: String,
+    pub type_info: TypeNode,
+    pub location: Option<five_dsl_compiler::ast::SourceLocation>,
+}
+
 /// Caches parsed ASTs and symbol tables to avoid recompiling on every change
 pub struct CompilerBridge {
     /// AST cache: (source_hash, AST)
@@ -280,6 +288,28 @@ impl CompilerBridge {
     pub fn clear_caches(&mut self) {
         self.ast_cache.clear();
         self.symbol_cache.clear();
+    }
+
+    /// Get definition information for a symbol (for go-to-definition)
+    ///
+    /// Returns the definition location if available.
+    /// Requires that compile_to_ast or get_diagnostics was called first.
+    pub fn get_definition(&mut self, uri: &Url, source: &str, symbol_name: &str) -> Option<DefinitionInfo> {
+        if let Ok(ast) = self.compile_to_ast(uri, source) {
+            let mut type_checker = DslTypeChecker::new();
+            let _ = type_checker.check_types(&ast);
+
+            // Get the definition from type checker
+            if let Some(def) = type_checker.get_definition(symbol_name) {
+                return Some(DefinitionInfo {
+                    name: symbol_name.to_string(),
+                    type_info: def.type_info.clone(),
+                    location: def.location,
+                });
+            }
+        }
+
+        None
     }
 }
 

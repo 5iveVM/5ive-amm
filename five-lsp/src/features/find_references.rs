@@ -80,17 +80,30 @@ fn is_identifier_char(c: char) -> bool {
 
 /// Find all references to an identifier in source code
 ///
-/// Returns all occurrences of the identifier, filtering to ensure word boundaries
-/// (i.e., the identifier is not part of a larger word).
+/// Returns all occurrences of the identifier, filtering to ensure:
+/// - Word boundaries (identifier not part of a larger word)
+/// - Not in comments (lines starting with //)
+/// - Not inside string literals
 fn find_references_in_source(source: &str, identifier: &str, uri: &Url) -> Vec<Location> {
     let mut references = Vec::new();
     let lines: Vec<&str> = source.lines().collect();
 
     for (line_idx, line) in lines.iter().enumerate() {
+        // Skip comment lines
+        if line.trim_start().starts_with("//") {
+            continue;
+        }
+
         let mut search_pos = 0;
 
         while let Some(col) = line[search_pos..].find(identifier) {
             let actual_col = search_pos + col;
+
+            // Skip if inside a string literal (basic check: count quotes before position)
+            if is_in_string_literal(line, actual_col) {
+                search_pos = actual_col + identifier.len();
+                continue;
+            }
 
             // Check for word boundaries to avoid false positives
             // (e.g., "counter" shouldn't match in "my_counter")
@@ -126,6 +139,20 @@ fn find_references_in_source(source: &str, identifier: &str, uri: &Url) -> Vec<L
     }
 
     references
+}
+
+/// Check if a position is inside a string literal (basic check)
+fn is_in_string_literal(line: &str, pos: usize) -> bool {
+    let mut in_string = false;
+    for (i, ch) in line.chars().enumerate() {
+        if i >= pos {
+            break;
+        }
+        if ch == '"' && (i == 0 || line.chars().nth(i - 1) != Some('\\')) {
+            in_string = !in_string;
+        }
+    }
+    in_string
 }
 
 #[cfg(test)]

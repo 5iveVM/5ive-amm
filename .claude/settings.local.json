@@ -34,7 +34,8 @@
       "Bash(solana-keygen pubkey:*)",
       "Bash(solana config set:*)",
       "Bash(cargo build-sbf:*)",
-      "Bash(wasm-pack build:*)"
+      "Bash(wasm-pack build:*)",
+      "Bash(cargo check:*)"
     ]
   }
 }
