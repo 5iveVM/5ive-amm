@@ -37,12 +37,18 @@ export function registerHoverProvider(
                     position.column - 1       // Convert to 0-indexed
                 );
 
+                console.log(
+                    `[Monaco Hover] Got response for line ${position.lineNumber} col ${position.column}:`,
+                    hoverJson ? 'Found hover data' : 'No hover data'
+                );
+
                 if (!hoverJson) {
                     return null;
                 }
 
                 // Parse and return hover information
                 const hover = JSON.parse(hoverJson);
+                console.log('[Monaco Hover] Parsed hover:', hover);
                 return hover as monaco.languages.Hover;
             } catch (error) {
                 console.error('[Monaco Hover] Error getting hover:', error);
