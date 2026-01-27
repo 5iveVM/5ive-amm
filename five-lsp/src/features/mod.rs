@@ -14,6 +14,7 @@ pub mod semantic;
 pub mod code_actions;
 pub mod document_symbols;
 pub mod rename;
+pub mod workspace_symbols;
 
 pub use diagnostics::*;
 pub use hover::*;
@@ -24,3 +25,4 @@ pub use semantic::*;
 pub use code_actions::*;
 pub use document_symbols::*;
 pub use rename::*;
+pub use workspace_symbols::*;
