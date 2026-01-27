@@ -78,10 +78,10 @@ impl LanguageServer for FiveLanguageServer {
                     TextDocumentSyncKind::FULL,
                 )),
 
-                // Phase 2 capabilities (future - disabled for MVP)
+                // Phase 2 capabilities (hover and completion disabled, goto-definition enabled)
                 hover_provider: Some(HoverProviderCapability::Simple(false)),
                 completion_provider: None,
-                definition_provider: Some(OneOf::Left(false)),
+                definition_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(false)),
 
                 // Phase 3 capabilities (future)
@@ -211,9 +211,30 @@ impl LanguageServer for FiveLanguageServer {
 
     async fn goto_definition(
         &self,
-        _params: GotoDefinitionParams,
+        params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        Ok(None)
+        let uri = params.text_document_position_params.text_document.uri.clone();
+        let position = params.text_document_position_params.position;
+
+        // Get source code
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        // Use bridge to find definition semantically
+        let mut bridge = self.bridge.write().await;
+        let location = features::goto_definition::get_definition(
+            &mut bridge,
+            &uri,
+            &doc.content,
+            position.line,
+            position.character,
+        );
+
+        Ok(location.map(GotoDefinitionResponse::Scalar))
     }
 
     async fn references(&self, _params: ReferenceParams) -> Result<Option<Vec<Location>>> {

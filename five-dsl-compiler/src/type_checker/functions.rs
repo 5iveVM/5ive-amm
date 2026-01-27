@@ -204,9 +204,17 @@ impl TypeCheckerContext {
             
             // Implicit mutability: @init implies mutable, or explicit @mut
             let is_mutable = param.is_init || param.attributes.iter().any(|a| a.name == "mut");
-            
+
             self.symbol_table
-                .insert(param.name.clone(), (param_type, is_mutable));
+                .insert(param.name.clone(), (param_type.clone(), is_mutable));
+
+            // Record definition for go-to-definition feature
+            self.record_definition(
+                param.name.clone(),
+                param_type,
+                is_mutable,
+                None, // TODO: Add position tracking to AST nodes
+            );
 
             // Record @mut on account parameters
             if is_mutable {
@@ -318,6 +326,15 @@ impl TypeCheckerContext {
         // Register field in symbol table for later reference
         self.symbol_table
             .insert(name.to_string(), (field_type.clone(), is_mutable));
+
+        // Record definition for go-to-definition feature (location info not available in AST yet)
+        self.record_definition(
+            name.to_string(),
+            field_type.clone(),
+            is_mutable,
+            None, // TODO: Add position tracking to AST nodes
+        );
+
         Ok(())
     }
 

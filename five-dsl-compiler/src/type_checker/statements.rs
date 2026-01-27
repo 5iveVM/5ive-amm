@@ -304,7 +304,16 @@ impl TypeCheckerContext {
                     inferred_type
                 };
                 self.symbol_table
-                    .insert(name.clone(), (final_type, *is_mutable));
+                    .insert(name.clone(), (final_type.clone(), *is_mutable));
+
+                // Record definition for go-to-definition feature
+                self.record_definition(
+                    name.clone(),
+                    final_type,
+                    *is_mutable,
+                    None, // TODO: Add position tracking to AST nodes
+                );
+
                 Ok(())
             }
             AstNode::TupleDestructuring { targets, value } => {
@@ -316,6 +325,14 @@ impl TypeCheckerContext {
                     for (target, element_type) in targets.iter().zip(elements) {
                         self.symbol_table
                             .insert(target.clone(), (element_type.clone(), false));
+
+                        // Record definition for go-to-definition feature
+                        self.record_definition(
+                            target.clone(),
+                            element_type.clone(),
+                            false, // Destructured targets are immutable
+                            None, // TODO: Add position tracking to AST nodes
+                        );
                     }
                 } else {
                     return Err(VMError::TypeMismatch);
