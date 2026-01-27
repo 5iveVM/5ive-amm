@@ -1,5 +1,6 @@
 use five_vm_mito::error::VMError;
 use std::fmt;
+use crate::ast::SourceLocation;
 
 /// Tokenization errors
 #[derive(Debug, Clone, PartialEq)]
@@ -236,4 +237,11 @@ define_token_types! {
 
     // Control
     Eof,
+}
+
+/// Token paired with its source location for error reporting and AST position tracking
+#[derive(Debug, Clone, PartialEq)]
+pub struct TokenWithPos {
+    pub token: Token,
+    pub position: SourceLocation,
 }

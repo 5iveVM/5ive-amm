@@ -5,6 +5,7 @@
 use five_vm_mito::error::VMError;
 use std::iter::Peekable;
 use std::str::Chars;
+use crate::ast::SourceLocation;
 
 pub mod tokens;
 pub use tokens::*;
@@ -13,6 +14,10 @@ pub use tokens::*;
 pub struct DslTokenizer<'a> {
     chars: Peekable<Chars<'a>>,
     current_char: Option<char>,
+    /// Current line number (0-indexed)
+    line: u32,
+    /// Current column number (0-indexed)
+    column: u32,
 }
 
 impl<'a> DslTokenizer<'a> {
@@ -23,6 +28,8 @@ impl<'a> DslTokenizer<'a> {
         Self {
             chars,
             current_char,
+            line: 0,
+            column: 0,
         }
     }
 
@@ -603,9 +610,22 @@ impl<'a> DslTokenizer<'a> {
         }
     }
 
-    /// Advance to next character
+    /// Advance to next character, tracking line and column positions
     fn advance(&mut self) {
+        if let Some(ch) = self.current_char {
+            if ch == '\n' {
+                self.line += 1;
+                self.column = 0;
+            } else {
+                self.column += 1;
+            }
+        }
         self.current_char = self.chars.next();
+    }
+
+    /// Get the current source location
+    fn current_location(&self, length: u32) -> SourceLocation {
+        SourceLocation::new(self.line, self.column, length)
     }
 
     /// Skip whitespace characters

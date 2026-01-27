@@ -20,6 +20,39 @@ pub use generated::{Expression, Statement, Definition};
 
 // Note: Conversions module provides From/Into implementations for compatibility
 
+/// Source location for error reporting and AST traversal
+///
+/// Tracks the position of an AST node in the source code for:
+/// - Accurate error messages with line/column information
+/// - Finding nodes at cursor position (for hover, go-to-def, etc.)
+/// - Scope-aware symbol resolution with position information
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct SourceLocation {
+    /// 0-indexed line number
+    pub line: u32,
+    /// 0-indexed column (character) number
+    pub column: u32,
+    /// Length of the token/span in characters
+    pub length: u32,
+}
+
+impl SourceLocation {
+    /// Create a new source location
+    pub fn new(line: u32, column: u32, length: u32) -> Self {
+        Self { line, column, length }
+    }
+
+    /// Get the end column of this span
+    pub fn end_column(&self) -> u32 {
+        self.column.saturating_add(self.length)
+    }
+
+    /// Check if this location contains a given position (for find-at-position)
+    pub fn contains(&self, line: u32, column: u32) -> bool {
+        line == self.line && column >= self.column && column < self.end_column()
+    }
+}
+
 /// Different kinds of code blocks
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BlockKind {
