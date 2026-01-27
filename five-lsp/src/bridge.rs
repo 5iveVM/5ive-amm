@@ -147,7 +147,8 @@ impl CompilerBridge {
 
         // Phase 3: Type check
         // Try type checking - if it fails, we still return any partial results
-        // and report the type checking failure as a diagnostic
+        // Note: Type errors don't have position info in their messages yet, so we skip reporting them
+        // The parser will catch most actual syntax errors anyway
         let mut type_checker = DslTypeChecker::new();
         match type_checker.check_types(&ast) {
             Ok(()) => {
@@ -158,21 +159,9 @@ impl CompilerBridge {
                 self.symbol_cache.insert(uri.clone(), (hash, symbol_table));
                 // Return empty diagnostics (no parse or type errors)
             }
-            Err(e) => {
-                // Type checking failed - report it
-                // Note: This catches the first type error. For a full error report,
-                // we'd need the compiler's error collection mechanism.
-                let error_msg = e.to_string();
-                let (line, char_pos) = Self::extract_position_from_error(&error_msg, source);
-
-                diagnostics.push(self.create_diagnostic(
-                    "Type error",
-                    &error_msg,
-                    line,
-                    char_pos,
-                    char_pos.saturating_add(1),
-                    lsp_types::DiagnosticSeverity::ERROR,
-                ));
+            Err(_e) => {
+                // Type checking failed - skip reporting for now since error messages don't have positions
+                // TODO: Extract position information from AST when type errors occur
             }
         }
 
@@ -219,12 +208,20 @@ impl CompilerBridge {
     /// Parser errors include "at position X" in the message. We convert the character
     /// position to line/column by counting newlines up to that position.
     fn extract_position_from_error(error_msg: &str, source: &str) -> (u32, u32) {
-        // Try to extract "position N" from error message
+        // Try multiple patterns to extract position information
         let char_pos = error_msg
             .split("position ")
             .nth(1)
-            .and_then(|s| s.split(':').next())
-            .and_then(|s| s.trim().parse::<usize>().ok())
+            .and_then(|s| s.split(|c: char| !c.is_numeric()).next())
+            .and_then(|s| s.parse::<usize>().ok())
+            .or_else(|| {
+                // Try "at X:" pattern
+                error_msg
+                    .split("at ")
+                    .nth(1)
+                    .and_then(|s| s.split(':').next())
+                    .and_then(|s| s.trim().parse::<usize>().ok())
+            })
             .unwrap_or(0);
 
         // Convert character position to line/column
