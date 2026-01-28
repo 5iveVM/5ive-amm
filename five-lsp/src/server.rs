@@ -79,21 +79,46 @@ impl LanguageServer for FiveLanguageServer {
                 )),
 
                 // Phase 2 capabilities (goto-definition and find-references enabled)
-                hover_provider: Some(HoverProviderCapability::Simple(false)),
-                completion_provider: None,
+                hover_provider: Some(HoverProviderCapability::Simple(true)),
+                completion_provider: Some(CompletionOptions {
+                    trigger_characters: Some(vec![".".to_string(), ":".to_string()]),
+                    ..Default::default()
+                }),
                 definition_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
 
                 // Phase 3 capabilities (rename enabled)
-                semantic_tokens_provider: None,
-                code_action_provider: None,
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensOptions(
+                        SemanticTokensOptions {
+                            legend: SemanticTokensLegend {
+                                token_types: features::semantic::SEMANTIC_TOKEN_TYPES.to_vec(),
+                                token_modifiers: features::semantic::SEMANTIC_TOKEN_MODIFIERS.to_vec(),
+                            },
+                            full: Some(SemanticTokensFullOptions::Bool(true)),
+                            range: None,
+                            ..Default::default()
+                        }
+                    )
+                ),
+                code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
                 rename_provider: Some(OneOf::Left(true)),
-                document_symbol_provider: Some(OneOf::Left(false)),
+                document_symbol_provider: Some(OneOf::Left(true)),
 
-                // Phase 4 capabilities (future)
-                signature_help_provider: None,
-                workspace_symbol_provider: Some(OneOf::Left(false)),
-                inlay_hint_provider: None,
+                // Phase 4 capabilities (now enabled)
+                signature_help_provider: Some(SignatureHelpOptions {
+                    trigger_characters: Some(vec!["(".to_string(), ",".to_string()]),
+                    retrigger_characters: None,
+                    ..Default::default()
+                }),
+                workspace_symbol_provider: Some(OneOf::Left(true)),
+                inlay_hint_provider: Some(OneOf::Left(InlayHintServerCapabilities::Options(
+                    InlayHintOptions {
+                        resolve_provider: Some(false),
+                        ..Default::default()
+                    }
+                ))),
+                document_formatting_provider: Some(OneOf::Left(true)),
 
                 ..Default::default()
             },
@@ -200,13 +225,54 @@ impl LanguageServer for FiveLanguageServer {
         }
     }
 
-    // Phase 2 features (disabled for MVP)
-    async fn hover(&self, _params: HoverParams) -> Result<Option<Hover>> {
-        Ok(None)
+    // Phase 1-2 features
+    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let uri = params.text_document_position_params.text_document.uri.clone();
+        let position = params.text_document_position_params.position;
+
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        let bridge = self.bridge.read().await;
+        let hover_info = features::hover::get_hover(
+            &bridge,
+            &doc.content,
+            position,
+            &uri,
+        );
+
+        Ok(hover_info)
     }
 
-    async fn completion(&self, _params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        Ok(None)
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri.clone();
+        let position = params.text_document_position.position;
+
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        let bridge = self.bridge.read().await;
+        let completion_list = features::completion::get_completions(
+            &bridge,
+            &doc.content,
+            position.line as usize,
+            position.character as usize,
+            &uri,
+        );
+
+        Ok(if completion_list.items.is_empty() {
+            None
+        } else {
+            Some(CompletionResponse::List(completion_list))
+        })
     }
 
     async fn goto_definition(
@@ -287,5 +353,204 @@ impl LanguageServer for FiveLanguageServer {
         );
 
         Ok(workspace_edit)
+    }
+
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        let uri = params.text_document.uri.clone();
+
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        let bridge = self.bridge.read().await;
+        let semantic_tokens = features::semantic::get_semantic_tokens(
+            &bridge,
+            &doc.content,
+            &uri,
+        );
+
+        // Convert SerializableSemanticToken to SemanticToken format (flat array)
+        let mut data = Vec::new();
+        let mut last_line = 0u32;
+        let mut last_start = 0u32;
+
+        for token in semantic_tokens {
+            let line_delta = if token.line >= last_line {
+                token.line - last_line
+            } else {
+                token.line - last_line
+            };
+            let start_delta = if token.line == last_line {
+                token.start_character - last_start
+            } else {
+                token.start_character
+            };
+
+            data.push(line_delta);
+            data.push(start_delta);
+            data.push(token.length);
+            data.push(token.token_type);
+            data.push(token.token_modifiers);
+
+            last_line = token.line;
+            last_start = token.start_character;
+        }
+
+        Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
+            result_id: None,
+            data,
+        })))
+    }
+
+    async fn signature_help(
+        &self,
+        params: SignatureHelpParams,
+    ) -> Result<Option<SignatureHelp>> {
+        let uri = params.text_document_position_params.text_document.uri.clone();
+        let position = params.text_document_position_params.position;
+
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        let bridge = self.bridge.read().await;
+        let signature = features::signature_help::get_signature_help(
+            &bridge,
+            &doc.content,
+            position.line as usize,
+            position.character as usize,
+        );
+
+        Ok(signature)
+    }
+
+    async fn document_symbol(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Option<DocumentSymbolResponse>> {
+        let uri = params.text_document.uri.clone();
+
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        let bridge = self.bridge.read().await;
+        let symbols = features::document_symbols::get_document_symbols(
+            &bridge,
+            &doc.content,
+            &uri,
+        );
+
+        Ok(if symbols.is_empty() {
+            None
+        } else {
+            Some(DocumentSymbolResponse::Nested(symbols))
+        })
+    }
+
+    async fn symbol(
+        &self,
+        params: WorkspaceSymbolParams,
+    ) -> Result<Option<Vec<SymbolInformation>>> {
+        let documents = self.documents.read().await;
+        let mut all_symbols = Vec::new();
+
+        for (uri, doc) in documents.iter() {
+            let symbols = features::workspace_symbols::workspace_symbols(
+                &doc.content,
+                &params.query,
+                uri,
+            );
+            all_symbols.extend(symbols);
+        }
+
+        Ok(if all_symbols.is_empty() {
+            None
+        } else {
+            Some(all_symbols)
+        })
+    }
+
+    async fn formatting(
+        &self,
+        params: DocumentFormattingParams,
+    ) -> Result<Option<Vec<TextEdit>>> {
+        let uri = params.text_document.uri.clone();
+
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        let edits = features::formatting::format_document(&doc.content);
+
+        Ok(if edits.is_empty() {
+            None
+        } else {
+            Some(edits)
+        })
+    }
+
+    async fn inlay_hint(
+        &self,
+        params: InlayHintParams,
+    ) -> Result<Option<Vec<InlayHint>>> {
+        let uri = params.text_document.uri.clone();
+
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        let hints = features::inlay_hints::get_inlay_hints(&doc.content, params.range.start.line as usize);
+
+        Ok(if hints.is_empty() {
+            None
+        } else {
+            Some(hints)
+        })
+    }
+
+    async fn code_action(
+        &self,
+        params: CodeActionParams,
+    ) -> Result<Option<CodeActionResponse>> {
+        let uri = params.text_document.uri.clone();
+
+        let documents = self.documents.read().await;
+        let doc = match documents.get(&uri) {
+            Some(d) => d.clone(),
+            None => return Ok(None),
+        };
+        drop(documents);
+
+        // Get diagnostics in the range to provide context for code actions
+        let mut actions = Vec::new();
+
+        // For now, provide general code actions without relying on diagnostics
+        // In a real implementation, we'd analyze the code in the range
+        // and potentially fetch diagnostics to provide better suggestions
+
+        Ok(if actions.is_empty() {
+            None
+        } else {
+            Some(actions.into_iter().map(CodeActionOrCommand::CodeAction).collect())
+        })
     }
 }
