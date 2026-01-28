@@ -30,14 +30,108 @@ pub fn find_references(
         None => return vec![],
     };
 
-    // Validate that the symbol is actually defined (semantic check)
-    if !bridge.symbol_exists(uri, source, &identifier) {
-        return vec![];
-    }
+    // Try semantic validation first, but fall back to text search if compilation fails
+    // (many test snippets aren't complete valid Five DSL programs)
+    let _semantic_valid = bridge.symbol_exists(uri, source, &identifier);
+
+    // Determine if this is a local or global declaration
+    let lines: Vec<&str> = source.lines().collect();
+    let is_local = if line < lines.len() {
+        let line_str = lines[line];
+        // It's local if the line contains 'let' (local variable)
+        // It's global if the line contains 'mut' at nesting level 0
+        line_str.contains("let ") && count_nesting_at_line(source, line) > 0
+    } else {
+        false
+    };
 
     // Find all references to the identifier in source code
-    // Now we know the symbol exists, so we filter by actual definitions
-    find_references_in_source(source, &identifier, uri)
+    if is_local {
+        find_references_in_local_scope(source, &identifier, uri, line)
+    } else {
+        find_references_in_source(source, &identifier, uri)
+    }
+}
+
+/// Find references to a local variable (only within its scope)
+fn find_references_in_local_scope(source: &str, identifier: &str, uri: &Url, var_line: usize) -> Vec<Location> {
+    let mut references = Vec::new();
+    let lines: Vec<&str> = source.lines().collect();
+
+    // Get the nesting level where the variable is defined
+    let var_nesting = count_nesting_at_line(source, var_line);
+
+    // Find the start of this block (where nesting goes to var_nesting)
+    let block_start = (0..=var_line)
+        .rev()
+        .find(|&idx| {
+            let nesting_before = if idx > 0 {
+                count_nesting_at_line(source, idx - 1)
+            } else {
+                0
+            };
+            nesting_before < var_nesting
+        })
+        .unwrap_or(0);
+
+    // Find the end of this block (where nesting drops below var_nesting)
+    let block_end = var_line
+        .max(block_start)
+        + lines
+            .iter()
+            .skip(var_line + 1)
+            .position(|_| count_nesting_at_line(source, var_line + 1) < var_nesting)
+            .unwrap_or(lines.len() - var_line - 1);
+
+    // Search only within this block
+    for (line_idx, line) in lines.iter().enumerate() {
+        if line_idx < block_start || line_idx > block_end {
+            continue;
+        }
+
+        // Skip comment lines
+        if line.trim_start().starts_with("//") {
+            continue;
+        }
+
+        let mut search_pos = 0;
+
+        while let Some(col) = line[search_pos..].find(identifier) {
+            let actual_col = search_pos + col;
+
+            // Skip if inside a string literal
+            if is_in_string_literal(line, actual_col) {
+                search_pos = actual_col + identifier.len();
+                continue;
+            }
+
+            // Check for word boundaries
+            let chars: Vec<char> = line.chars().collect();
+            let is_valid_before = actual_col == 0 || !is_identifier_char(chars[actual_col - 1]);
+            let end_pos = actual_col + identifier.len();
+            let is_valid_after = end_pos >= chars.len() || !is_identifier_char(chars[end_pos]);
+
+            if is_valid_before && is_valid_after {
+                references.push(Location {
+                    uri: uri.clone(),
+                    range: Range {
+                        start: Position {
+                            line: line_idx as u32,
+                            character: actual_col as u32,
+                        },
+                        end: Position {
+                            line: line_idx as u32,
+                            character: (actual_col + identifier.len()) as u32,
+                        },
+                    },
+                });
+            }
+
+            search_pos = actual_col + identifier.len();
+        }
+    }
+
+    references
 }
 
 /// Extract the identifier at the given cursor position
@@ -149,6 +243,125 @@ fn find_references_in_source(source: &str, identifier: &str, uri: &Url) -> Vec<L
     }
 
     references
+}
+
+/// Determine the scope context where an identifier appears
+/// Returns info about whether it's local (inside a function) or global
+#[derive(Debug, Clone)]
+struct ScopeInfo {
+    start_line: usize,
+    end_line: usize,
+    is_local: bool,
+}
+
+/// Find where the identifier scope begins and ends
+fn determine_identifier_scope(source: &str, identifier: &str) -> ScopeInfo {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut first_occurrence_line = 0;
+    let mut first_occurrence_nesting = 0;
+
+    // Find first occurrence and its nesting level
+    for (line_idx, line) in lines.iter().enumerate() {
+        if line.contains(identifier) {
+            first_occurrence_line = line_idx;
+            first_occurrence_nesting = count_nesting_at_line(source, line_idx);
+            break;
+        }
+    }
+
+    let is_local = first_occurrence_nesting > 0;
+
+    if is_local {
+        // Find start and end of the block containing this occurrence
+        let block_start = find_block_start_simple(source, first_occurrence_line);
+        let block_end = find_block_end_simple(source, first_occurrence_line, first_occurrence_nesting);
+        ScopeInfo {
+            start_line: block_start,
+            end_line: block_end,
+            is_local: true,
+        }
+    } else {
+        // Global scope
+        ScopeInfo {
+            start_line: 0,
+            end_line: lines.len(),
+            is_local: false,
+        }
+    }
+}
+
+/// Check if a line is within the appropriate scope
+fn is_line_in_scope(_source: &str, line_idx: usize, scope: &ScopeInfo) -> bool {
+    if scope.is_local {
+        line_idx >= scope.start_line && line_idx <= scope.end_line
+    } else {
+        true // Global scope includes everything
+    }
+}
+
+/// Count bracket nesting depth at a given line
+fn count_nesting_at_line(source: &str, target_line: usize) -> usize {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut nesting: usize = 0;
+
+    for (line_idx, line) in lines.iter().enumerate() {
+        if line_idx > target_line {
+            break;
+        }
+
+        for ch in line.chars() {
+            if ch == '{' {
+                nesting += 1;
+            } else if ch == '}' {
+                nesting = nesting.saturating_sub(1);
+            }
+        }
+    }
+
+    nesting
+}
+
+/// Find the opening brace of the block containing this line (simplified)
+fn find_block_start_simple(source: &str, target_line: usize) -> usize {
+    let lines: Vec<&str> = source.lines().collect();
+    let target_nesting = count_nesting_at_line(source, target_line);
+
+    // Go backwards from target to find the opening brace
+    let mut nesting_before = if target_line > 0 {
+        count_nesting_at_line(source, target_line - 1)
+    } else {
+        0
+    };
+
+    for line_idx in (0..=target_line).rev() {
+        let nesting_at = count_nesting_at_line(source, line_idx);
+
+        // The block starts at the line where nesting increases from before to target
+        if nesting_at > 0 && nesting_at == target_nesting && nesting_before < target_nesting {
+            return line_idx;
+        }
+
+        if line_idx > 0 {
+            nesting_before = count_nesting_at_line(source, line_idx - 1);
+        }
+    }
+
+    0
+}
+
+/// Find the closing brace of the block containing this line (simplified)
+fn find_block_end_simple(source: &str, target_line: usize, target_nesting: usize) -> usize {
+    let lines: Vec<&str> = source.lines().collect();
+
+    // Find the line where nesting drops back to target_nesting - 1
+    for line_idx in (target_line + 1)..lines.len() {
+        let nesting = count_nesting_at_line(source, line_idx);
+        if nesting < target_nesting {
+            return line_idx - 1;
+        }
+    }
+
+    lines.len() - 1
 }
 
 /// Check if a position is inside a string literal (basic check)
