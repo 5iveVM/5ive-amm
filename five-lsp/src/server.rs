@@ -237,7 +237,8 @@ impl LanguageServer for FiveLanguageServer {
         };
         drop(documents);
 
-        let bridge = self.bridge.read().await;
+        // Use write lock to ensure AST is compiled and cached
+        let mut bridge = self.bridge.write().await;
         let hover_info = features::hover::get_hover(
             &bridge,
             &doc.content,
@@ -259,7 +260,7 @@ impl LanguageServer for FiveLanguageServer {
         };
         drop(documents);
 
-        let bridge = self.bridge.read().await;
+        let mut bridge = self.bridge.write().await;
         let completion_list = features::completion::get_completions(
             &bridge,
             &doc.content,
