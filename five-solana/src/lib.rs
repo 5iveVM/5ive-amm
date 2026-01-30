@@ -26,7 +26,16 @@ macro_rules! debug_log {
 // Alignment: u128 to ensure proper alignment for StackStorage structs
 // SAFETY: Single-threaded Solana execution ensures no race conditions.
 // We must ensure reentrancy safety (no recursive calls to five program).
-pub(crate) static mut VM_HEAP: [u128; 512] = [0; 512]; // 512 * 16 = 8192 bytes
+// Using static mut allows write access for StackStorage initialization.
+// The link_section attribute is only applied on BPF targets to keep symbol names short.
+#[cfg_attr(target_os = "solana", link_section = ".bss.h")]
+pub(crate) static mut VM_HEAP: [u128; 512] = [0; 512];
+
+// Helper to get VM_HEAP as a mutable byte pointer
+#[inline(always)]
+pub(crate) fn get_vm_heap_ptr() -> *mut u8 {
+    unsafe { core::ptr::addr_of_mut!(VM_HEAP) as *mut u8 }
+}
 
 mod common;
 mod error;
@@ -53,6 +62,8 @@ pub fn process_instruction(
     }
     #[cfg(feature = "debug-logs")]
     unsafe { pinocchio::log::sol_log("FORCE LOG ENTRY: FIVE VM ALIVE"); }
+
+    unsafe { pinocchio::log::sol_log("@@@ UNCONDITIONAL LOG: FIVE VM ENTRY @@@"); }
 
     debug_log!(
         "FIVE Optimized: Processing instruction with no_allocator"
@@ -87,6 +98,30 @@ pub fn process_instruction(
     debug_log!("Instruction data length: {}", instruction_data.len());
     debug_log!("Instruction discriminator: {}", instruction_data[0]);
 
+    // 🎯 OPTIMIZATION: Hot path restructuring
+    // Handle EXECUTE instruction (9) immediately to maximize branch predictor efficiency
+    if instruction_data[0] == instructions::EXECUTE_INSTRUCTION {
+        #[cfg(feature = "debug-logs")]
+        {
+            pinocchio::log::sol_log("FIVE VM: EXECUTE START");
+            pinocchio::log::sol_log_64(0, 0, 0, 0, instruction_data.len() as u64 - 1);
+            pinocchio::log::sol_log_64(0, 0, 0, 0, accounts.len() as u64);
+        }
+        return instructions::execute(program_id, accounts, &instruction_data[1..]);
+    }
+
+    // Handle administrative and deployment instructions (cold path)
+    process_administrative_instruction(program_id, accounts, instruction_data)
+}
+
+/// Cold path for administrative and deployment instructions.
+/// Separated to keep the entrypoint hot path clean and cache-friendly.
+#[inline(never)]
+fn process_administrative_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
     // Deserialize instruction using zero-copy deserialization
     let instruction = match FIVEInstruction::try_from(instruction_data) {
         Ok(ix) => ix,
@@ -136,14 +171,9 @@ pub fn process_instruction(
             );
             instructions::deploy(program_id, accounts, bytecode, permissions)
         }
-        FIVEInstruction::Execute { params } => {
-            #[cfg(feature = "debug-logs")]
-            {
-                pinocchio::log::sol_log("FIVE VM: EXECUTE START");
-                pinocchio::log::sol_log_64(0, 0, 0, 0, params.len() as u64);
-                pinocchio::log::sol_log_64(0, 0, 0, 0, accounts.len() as u64);
-            }
-            instructions::execute(program_id, accounts, params)
+        FIVEInstruction::Execute { .. } => {
+            // Already handled in hot path
+            unreachable!()
         }
         FIVEInstruction::FinalizeScript => {
             debug_log!("Processing FinalizeScript instruction");

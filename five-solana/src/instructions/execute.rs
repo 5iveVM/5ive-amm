@@ -113,9 +113,8 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     // Initialize VM Storage (Static Buffer) to avoid Allocator overhead
     unsafe {
-        use crate::VM_HEAP;
-        let ptr = VM_HEAP.as_mut_ptr() as *mut u8;
-        let storage = StackStorage::new_at_ptr(ptr, bytecode);
+        use crate::get_vm_heap_ptr;
+        let storage = StackStorage::new_at_ptr(get_vm_heap_ptr(), bytecode);
 
         if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, storage) {
             #[cfg(feature = "debug-logs")]
@@ -147,8 +146,8 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
             // If we reuse `storage` pointer, we need to RE-INITIALIZE it or trust `ExecutionManager` to overwrite?
             // `ExecutionManager` relies on `storage` already being initialized (e.g. registers set to Empty).
             // So we MUST re-initialize `storage` before second call.
-            
-            let storage_retry = StackStorage::new_at_ptr(ptr, bytecode); // Re-init
+
+            let storage_retry = StackStorage::new_at_ptr(get_vm_heap_ptr(), bytecode); // Re-init
             if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, storage_retry) {
                 #[cfg(feature = "debug-logs")]
                 debug_log!(
