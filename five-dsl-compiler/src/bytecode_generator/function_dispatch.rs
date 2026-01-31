@@ -41,6 +41,9 @@ pub struct FunctionDispatcher {
     /// Stores both direct addresses and PDA seeds for imported Five bytecode
     /// NEW: For import verification feature flag
     import_table: ImportTable,
+
+    /// Whether to use register-based function calls
+    use_registers: bool,
 }
 
 impl FunctionDispatcher {
@@ -54,7 +57,13 @@ impl FunctionDispatcher {
             imported_fields: HashMap::new(),
             dispatch_patch_locations: HashMap::new(),
             import_table: ImportTable::new(),  // NEW: Initialize empty import table
+            use_registers: false,
         }
+    }
+
+    /// Enable or disable register-based optimization
+    pub fn set_use_registers(&mut self, enabled: bool) {
+        self.use_registers = enabled;
     }
 
     // Duplicate `get_functions` removed here. A single canonical `get_functions`
@@ -682,8 +691,8 @@ impl FunctionDispatcher {
                 } = instruction_def
                 {
                     println!("DEBUG: Processing instruction definition: {}", name);
-                    let function_offset = emitter.get_position();
-                    self.update_function_offset(name, function_offset)?;
+                    // Function offset will be recorded inside generate_single_function_body
+                    // before ALLOC_LOCALS is emitted
 
                     // Record function position in AST generator for CALL patching
                     ast_generator.record_function_position(emitter, name.clone());
@@ -748,6 +757,11 @@ impl FunctionDispatcher {
             parameters,
             account_system.get_account_registry(),
         )?;
+
+        // Record function start position BEFORE ALLOC_LOCALS
+        // The CALL instruction should jump to the start of the function, including ALLOC_LOCALS
+        let function_offset = emitter.get_position();
+        self.update_function_offset(&function_name, function_offset)?;
 
         // Connect ScopeAnalyzer optimizations to ASTGenerator
         let allocations_vec = scope_analyzer.optimize_register_allocation(function_name)?;
@@ -854,11 +868,8 @@ impl FunctionDispatcher {
             ast_generator.add_parameter_to_symbol_table(param.name.clone(), field_info);
         }
 
-        // Record function start position (including init sequences)
-        let function_offset = emitter.get_position();
-        self.update_function_offset(&function_name, function_offset)?;
-        
         // Add function start label for jumps
+        // Note: Function offset already recorded before ALLOC_LOCALS
         ast_generator.record_function_position(emitter, function_name.to_string());
 
         // Generate account initialization sequences AFTER adding all parameters to the symbol table.

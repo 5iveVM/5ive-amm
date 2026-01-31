@@ -73,12 +73,32 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
             Ok((inst, size)) => {
                 // Additional Semantic Checks
 
-                // Check CALL target bounds
-                if inst.opcode == opcodes::CALL {
-                    // For CallInternal, arg1 is the function address (offset)
-                    let func_addr = inst.arg1 as usize;
-                    if func_addr >= bytecode.len() {
-                        debug_log!("FIVE: CALL target OOB");
+                // Check CALL targets (Internal, External, Register-based)
+                if matches!(inst.opcode, opcodes::CALL | opcodes::CALL_REG | opcodes::CALL_EXTERNAL) {
+                    // For CALL and CALL_REG, arg1 is the function address (absolute offset)
+                    // For CALL_EXTERNAL, arg1 bits 0-23 contain the function offset in external script
+                    // We only validate internal targets here.
+                    if inst.opcode == opcodes::CALL || inst.opcode == opcodes::CALL_REG {
+                        let func_addr = inst.arg1 as usize;
+                        #[cfg(feature = "debug-logs")]
+                        debug_log!("FIVE: CALL at offset {} targets {}, bytecode len={}", offset, func_addr, bytecode.len());
+                        if func_addr >= bytecode.len() {
+                            #[cfg(feature = "debug-logs")]
+                            debug_log!("FIVE: CALL target OOB: {} >= {}", func_addr, bytecode.len());
+                            return Err(ProgramError::Custom(8122));
+                        }
+                    }
+                }
+
+                // Check JUMP target bounds (CRITICAL for Unchecked Execution)
+                if matches!(inst.opcode, 
+                    opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT |
+                    opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP
+                ) {
+                    let target = inst.arg1 as usize;
+                    if target >= bytecode.len() {
+                        #[cfg(feature = "debug-logs")]
+                        debug_log!("FIVE: JUMP target OOB: {} >= {}", target, bytecode.len());
                         return Err(ProgramError::Custom(8122));
                     }
                 }

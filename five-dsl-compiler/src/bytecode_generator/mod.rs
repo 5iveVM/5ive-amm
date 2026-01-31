@@ -52,6 +52,10 @@ pub mod performance;
 // Module merging for multi-file compilation
 pub mod module_merger;
 
+pub mod register_allocator;
+
+pub mod linear_scan_allocator;
+
 // Account indices in bytecode are offset by VM state account.
 // Script account is stripped by five-solana (&accounts[1..]).
 // VM View: Index 0=VM State, 1=param0, 2=param1
@@ -139,6 +143,12 @@ pub struct DslBytecodeGenerator {
 
     /// Whether to include debug info (function metadata) in bytecode
     pub(crate) include_debug_info: bool,
+
+    /// Whether to use register-based optimization
+    use_registers: bool,
+
+    /// Whether to use linear scan allocation
+    use_linear_scan_allocation: bool,
 }
 
 impl DslBytecodeGenerator {
@@ -186,6 +196,10 @@ impl DslBytecodeGenerator {
 
             // Default: include debug info in testing mode
             include_debug_info: matches!(mode, CompilationMode::Testing),
+
+            // Register-based optimization disabled by default
+            use_registers: false,
+            use_linear_scan_allocation: false,
         }
     }
 
@@ -718,6 +732,16 @@ impl DslBytecodeGenerator {
     /// Append an arbitrary entry to the compilation log (thread-local to this generator).
     pub fn push_compilation_log(&mut self, entry: String) {
         self.compilation_log.push(entry);
+    }
+
+    /// Enable or disable register-based optimization
+    pub fn set_use_registers(&mut self, enabled: bool) {
+        self.use_registers = enabled;
+    }
+
+    /// Enable or disable linear scan allocation
+    pub fn set_use_linear_scan_allocation(&mut self, enabled: bool) {
+        self.use_linear_scan_allocation = enabled;
     }
 }
 
