@@ -41,6 +41,15 @@ cargo build -p five-dsl-compiler
 cargo build -p five-vm-mito
 cargo build -p five --release  # Solana program (five-solana)
 
+# Build Solana program with register optimizations (recommended for production)
+cd five-solana
+cargo-build-sbf --no-default-features --features production --sbf-out-dir target/deploy
+
+# Build Solana program without register optimizations (fallback/debug)
+# Useful if encountering stack size limits or symbol length issues
+cd five-solana
+cargo-build-sbf --features debug-logs --sbf-out-dir target/deploy
+
 # Build WASM bindings
 cd five-wasm && ./build.sh
 

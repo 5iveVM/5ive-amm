@@ -77,6 +77,14 @@ pub struct ExecutionContext<'a> {
 
     // --- Import verification metadata ---
     pub import_metadata: ImportMetadata<'a>,
+
+    // --- Static Registers (16 x ValueRef for universal storage) ---
+    // Zero allocation overhead - direct array indexing
+    pub registers: [ValueRef; 16],
+
+    // --- Syscall Caching ---
+    pub cached_clock: Option<pinocchio::sysvars::clock::Clock>,
+    pub cached_rent: Option<pinocchio::sysvars::rent::Rent>,
 }
 
 // Helper trait for little-endian byte conversion without heap allocations
@@ -128,7 +136,7 @@ impl<'a> ExecutionContext<'a> {
         Self {
             bytecode,
             pc: start_pc,
-            stack: StackManager::new(&mut storage.stack, &mut storage.registers),
+            stack: StackManager::new(&mut storage.stack),
             memory: ResourceManager::new(&mut storage.temp_buffer, &mut storage.heap_buffer),
             frame: FrameManager::new(&mut storage.call_stack, &mut storage.locals),
             accounts: AccountManager::new(accounts, program_id),
@@ -147,6 +155,9 @@ impl<'a> ExecutionContext<'a> {
                 // If parsing fails, create empty metadata (backward compatible)
                 ImportMetadata::new(&[], 0).unwrap()
             }),
+            registers: [ValueRef::Empty; 16], // Static registers, zero-initialized
+            cached_clock: None,
+            cached_rent: None,
         }
     }
 
@@ -167,16 +178,42 @@ impl<'a> ExecutionContext<'a> {
         self.stack.peek()
     }
 
+    // --- Register operations (Direct u64 access) ---
+
+    #[inline(always)]
+    pub fn get_register(&self, reg: u8) -> CompactResult<ValueRef> {
+        // Mask to 15 (0-15) to guarantee bounds safety with zero branching
+        let idx = (reg & 0x0F) as usize;
+        unsafe { Ok(*self.registers.get_unchecked(idx)) }
+    }
+
+    #[inline(always)]
+    pub fn set_register(&mut self, reg: u8, value: ValueRef) -> CompactResult<()> {
+        let idx = (reg & 0x0F) as usize;
+        unsafe { *self.registers.get_unchecked_mut(idx) = value; }
+        Ok(())
+    }
+
     // --- Bytecode fetching ---
 
     #[inline]
     pub fn fetch_byte(&mut self) -> CompactResult<u8> {
-        if self.pc as usize >= self.bytecode.len() {
-            return Err(VMErrorCode::InvalidInstructionPointer);
+        #[cfg(feature = "unchecked-execution")]
+        unsafe {
+            // SAFETY: Verified at deploy time.
+            let byte = *self.bytecode.get_unchecked(self.pc as usize);
+            self.pc = self.pc.saturating_add(1);
+            Ok(byte)
         }
-        let byte = self.bytecode[self.pc as usize];
-        self.pc = self.pc.saturating_add(1);
-        Ok(byte)
+        #[cfg(not(feature = "unchecked-execution"))]
+        {
+            if self.pc as usize >= self.bytecode.len() {
+                return Err(VMErrorCode::InvalidInstructionPointer);
+            }
+            let byte = self.bytecode[self.pc as usize];
+            self.pc = self.pc.saturating_add(1);
+            Ok(byte)
+        }
     }
 
     #[inline(always)]
@@ -186,14 +223,26 @@ impl<'a> ExecutionContext<'a> {
     {
         let start = self.pc as usize;
         let end = start + N;
-        if end > self.bytecode.len() {
-            return Err(VMErrorCode::InvalidInstructionPointer);
+
+        #[cfg(feature = "unchecked-execution")]
+        unsafe {
+            // SAFETY: Verified at deploy time.
+            self.pc = end as u16;
+            let bytes: [u8; N] =
+                core::ptr::read_unaligned(self.bytecode.as_ptr().add(start) as *const [u8; N]);
+            Ok(T::from_le_bytes(bytes))
         }
-        self.pc = end as u16;
-        let bytes: [u8; N] = unsafe {
-            core::ptr::read_unaligned(self.bytecode.as_ptr().add(start) as *const [u8; N])
-        };
-        Ok(T::from_le_bytes(bytes))
+        #[cfg(not(feature = "unchecked-execution"))]
+        {
+            if end > self.bytecode.len() {
+                return Err(VMErrorCode::InvalidInstructionPointer);
+            }
+            self.pc = end as u16;
+            let bytes: [u8; N] = unsafe {
+                core::ptr::read_unaligned(self.bytecode.as_ptr().add(start) as *const [u8; N])
+            };
+            Ok(T::from_le_bytes(bytes))
+        }
     }
 
     #[inline]
@@ -362,18 +411,6 @@ impl<'a> ExecutionContext<'a> {
     #[inline(always)]
     pub fn clear_local(&mut self, index: u8) -> CompactResult<()> {
         self.frame.clear_local(index)
-    }
-
-    // --- Registers (delegated to StackManager) ---
-
-    #[inline(always)]
-    pub fn get_register(&self, index: u8) -> CompactResult<ValueRef> {
-        self.stack.get_register(index)
-    }
-
-    #[inline(always)]
-    pub fn set_register(&mut self, index: u8, value: ValueRef) -> CompactResult<()> {
-        self.stack.set_register(index, value)
     }
 
     // --- Account operations with lazy validation (delegated to AccountManager) ---

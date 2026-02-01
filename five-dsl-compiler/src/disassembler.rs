@@ -17,12 +17,26 @@ fn read_vle(data: &[u8]) -> Option<(u64, usize)> {
 }
 
 pub fn disassemble_bytecode(bytecode: &[u8]) {
-    // Magic bytes check
-    let start_offset = if bytecode.len() >= 4 && &bytecode[0..4] == b"5IVE" {
-        10 // Skip 10 byte header
-    } else {
-        0
+    // Use five_protocol::parse_header to correctly skip magic bytes, feature flags,
+    // and all metadata sections (function names, etc.)
+    let (header, start_offset) = match five_protocol::parse_header(bytecode) {
+        Ok(res) => res,
+        Err(_) => {
+            // Fallback for legacy scripts: skip 10 bytes if magic matches, else 0
+            let off = if bytecode.len() >= 4 && &bytecode[0..4] == b"5IVE" { 10 } else { 0 };
+            (five_protocol::OptimizedHeader {
+                magic: [0; 4],
+                features: 0,
+                public_function_count: 0,
+                total_function_count: 0,
+            }, off)
+        }
     };
+
+    if start_offset > 0 {
+        println!("HEADER: features=0x{:08X} public={} total={}", 
+            header.features, header.public_function_count, header.total_function_count);
+    }
 
     println!("Disassembly relative to offset {}:", start_offset);
     let mut pc = start_offset;
@@ -174,6 +188,43 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                                         } else { print!("offset2:(incomplete)"); len = current_offset - args_start; }
                                     } else { print!("acc2:(incomplete)"); len = current_offset - args_start; }
                                 } else { print!("offset1:(incomplete)"); len = current_offset - args_start; }
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::CallReg => {
+                            // function_index (u16)
+                            if args_start + 1 < bytecode.len() {
+                                let func_idx = u16::from_le_bytes([bytecode[args_start], bytecode[args_start+1]]);
+                                print!("func_idx:{}", func_idx);
+                                len += 2;
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::RegAccountField => {
+                            // reg(u8) + account_index(u8) + field_offset(VLE)
+                            if args_start + 1 < bytecode.len() {
+                                let reg = bytecode[args_start];
+                                let acc = bytecode[args_start + 1];
+                                print!("r{} acc:{} ", reg, acc);
+                                if let Some((val, l)) = read_vle(&bytecode[args_start + 2..]) {
+                                    print!("offset:{}", val);
+                                    len += 2 + l;
+                                } else { print!("offset:(incomplete)"); len += 2; }
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::U16Fixed => {
+                            if args_start + 1 < bytecode.len() {
+                                let val = u16::from_le_bytes([bytecode[args_start], bytecode[args_start+1]]);
+                                print!("{}", val);
+                                len += 2;
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::U32Fixed => {
+                            if args_start + 3 < bytecode.len() {
+                                let val = u32::from_le_bytes([
+                                    bytecode[args_start], bytecode[args_start+1],
+                                    bytecode[args_start+2], bytecode[args_start+3]
+                                ]);
+                                print!("{}", val);
+                                len += 4;
                             } else { print!("(incomplete)"); }
                         }
                     }

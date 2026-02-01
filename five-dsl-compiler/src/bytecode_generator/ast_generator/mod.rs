@@ -122,11 +122,22 @@ impl ASTGenerator {
                         });
                     }
                     _ => {
+                        // Check if identifier is mapped to a register
+                        if self.use_registers {
+                            if let Some(reg) = self.register_allocator.get_mapping(name) {
+                                #[cfg(debug_assertions)]
+                                println!("DEBUG: Resolved '{}' to register r{}", name, reg);
+                                emitter.emit_opcode(PUSH_REG);
+                                emitter.emit_u8(reg);
+                                return Ok(());
+                            }
+                        }
+
                         // Look up identifier in local symbol table first
                         if let Some(field_info) = self.local_symbol_table.get(name) {
                             if field_info.is_parameter {
                                 if name == "decimals" {
-                                    println!("DEBUG_COMPILER: Found parameter 'decimals' offset={} index={} is_param={}", 
+                                    println!("DEBUG_COMPILER: Found parameter 'decimals' offset={} index={} is_param={}",
                                         field_info.offset, field_info.offset + 1, field_info.is_parameter);
                                 }
                                 // Generate direct LOAD_PARAM for function parameters
@@ -458,6 +469,9 @@ impl ASTGenerator {
                 // Clear the local symbol table for the new function
                 self.local_symbol_table.clear();
 
+                // Reset register allocator for new function (static mapping, not dynamic)
+                self.register_allocator.reset();
+
                 // Track the return type for proper tuple return handling
                 self.current_function_return_type = return_type.as_ref().map(|rt| (**rt).clone());
 
@@ -468,7 +482,10 @@ impl ASTGenerator {
                 // Unified parameter counter for both accounts and data
                 // This MUST match the VM's sequential storage of parameters in the stack/param array
                 let mut param_counter: u32 = 0;
-                
+
+                // Separate counter for register mapping (only counts data parameters)
+                let mut data_param_idx: u8 = 0;
+
                 for (index, param) in parameters.iter().enumerate() {
                     // Generate @init account creation sequence if needed
                     self.generate_init_account_sequence(emitter, param, index)?;
@@ -483,7 +500,21 @@ impl ASTGenerator {
                     // Use unified offset for all parameters
                     let offset = param_counter;
                     param_counter += 1;
-                    
+
+
+                    // Map parameter to register if register optimization is enabled
+                    // CRITICAL: Only map DATA parameters to registers (accounts are not passed in registers)
+                    // We must match the dispatcher's packing logic (r0, r1, r2...)
+                    if self.use_registers && !is_account {
+                        if let Some(_reg) = self.register_allocator.map_parameter(&param.name, data_param_idx) {
+                            #[cfg(debug_assertions)]
+                            println!("DEBUG: Mapped parameter '{}' to register r{}", param.name, data_param_idx);
+                            
+                            data_param_idx += 1;
+                        } else {
+                            println!("WARN: Could not map parameter '{}' to register (out of registers?)", param.name);
+                        }
+                    }
 
 
                     let field_info = FieldInfo {

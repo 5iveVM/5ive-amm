@@ -7,7 +7,31 @@ use five_protocol::opcodes;
 /// Produce a textual disassembly (one line per instruction).
 pub fn disassemble(bytes: &[u8]) -> Vec<String> {
     let mut lines = Vec::new();
-    let mut pc = 0usize;
+    
+    // Header-aware disassembly: skip magic, features, counts, and metadata.
+    let (header, start_pc) = match five_protocol::parse_header(bytes) {
+        Ok(res) => res,
+        Err(_) => {
+            // Fallback for legacy V1 or invalid scripts: just start at 0
+            (five_protocol::OptimizedHeader {
+                magic: [0; 4],
+                features: 0,
+                public_function_count: 0,
+                total_function_count: 0,
+            }, 0)
+        }
+    };
+
+    if start_pc > 0 {
+        lines.push(format!("HEADER: magic=5IVE features=0x{:08X} public={} total={}", 
+            header.features, header.public_function_count, header.total_function_count));
+        
+        if (header.features & five_protocol::FEATURE_FUNCTION_NAMES) != 0 {
+            lines.push("METADATA: Function names section skipped".to_string());
+        }
+    }
+
+    let mut pc = start_pc;
     while pc < bytes.len() {
         let op = bytes[pc];
         match op {

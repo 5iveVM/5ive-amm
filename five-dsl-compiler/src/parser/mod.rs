@@ -153,8 +153,8 @@ impl DslParser {
                         field_definitions.push(structures::parse_field_definition(self)?);
                     }
                 }
-                TokenKind::Mut => {
-                    // Field definition starting with 'mut'
+                TokenKind::Mut | TokenKind::Field => {
+                    // Field definition starting with 'mut' or 'field'
                     field_definitions.push(structures::parse_field_definition(self)?);
                 }
                 _ => return Err(self.unexpected_token()),

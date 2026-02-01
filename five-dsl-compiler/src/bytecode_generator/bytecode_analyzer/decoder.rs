@@ -522,6 +522,91 @@ fn decode_operands(
                 }
             }
         }
+        ArgType::CallReg => {
+            if analyzer.position + 1 < analyzer.bytecode.len() {
+                let value = u16::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                ]);
+                operands.push(OperandInfo {
+                    operand_type: "function_index".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
+                    decoded_value: Some(format!("func_{}", value)),
+                    size: 2,
+                    description: "Function index for register call".to_string(),
+                });
+                analyzer.position += 2;
+            }
+        }
+        ArgType::RegAccountField => {
+            // reg(u8) + acc(u8) + offset(VLE)
+            if analyzer.position < analyzer.bytecode.len() {
+                let reg = analyzer.bytecode[analyzer.position];
+                operands.push(OperandInfo {
+                    operand_type: "register_index".to_string(),
+                    raw_value: vec![reg],
+                    decoded_value: Some(format!("r{}", reg)),
+                    size: 1,
+                    description: "Register Index".to_string(),
+                });
+                analyzer.position += 1;
+
+                if analyzer.position < analyzer.bytecode.len() {
+                    let acc = analyzer.bytecode[analyzer.position];
+                    operands.push(OperandInfo {
+                        operand_type: "account_index".to_string(),
+                        raw_value: vec![acc],
+                        decoded_value: Some(format!("account_{}", acc)),
+                        size: 1,
+                        description: "Account Index".to_string(),
+                    });
+                    analyzer.position += 1;
+
+                    let (val, bytes, size) = read_vle(analyzer)?;
+                    operands.push(OperandInfo {
+                        operand_type: "field_offset".to_string(),
+                        raw_value: bytes,
+                        decoded_value: Some(format!("offset_{}", val)),
+                        size: size,
+                        description: "Field Offset (VLE)".to_string(),
+                    });
+                }
+            }
+        }
+        ArgType::U16Fixed => {
+            if analyzer.position + 1 < analyzer.bytecode.len() {
+                let value = u16::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                ]);
+                operands.push(OperandInfo {
+                    operand_type: "u16_fixed".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
+                    decoded_value: Some(value.to_string()),
+                    size: 2,
+                    description: "16-bit unsigned integer (Fixed)".to_string(),
+                });
+                analyzer.position += 2;
+            }
+        }
+        ArgType::U32Fixed => {
+            if analyzer.position + 3 < analyzer.bytecode.len() {
+                let value = u32::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                    analyzer.bytecode[analyzer.position + 3],
+                ]);
+                operands.push(OperandInfo {
+                    operand_type: "u32_fixed".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
+                    decoded_value: Some(value.to_string()),
+                    size: 4,
+                    description: "32-bit unsigned integer (Fixed)".to_string(),
+                });
+                analyzer.position += 4;
+            }
+        }
     }
 
     // Handle special cases for specific opcodes that have unique operand patterns

@@ -37,6 +37,7 @@ pub fn handle_functions(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             res
         }
         CALL_NATIVE => handle_call_native(ctx),
+        CALL_REG => handle_call_reg(ctx),
         PREPARE_CALL | FINISH_CALL => {
             // Explicitly mark as unsupported in current VM
             Err(VMErrorCode::InvalidOpcode)
@@ -186,6 +187,109 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     Ok(())
 }
+
+/// Handle CALL_REG - Register-based calling convention
+/// Arguments are passed in registers r0-r7, no stack manipulation needed
+/// OPTIMIZATION: Automatically loads data parameters into registers during call setup
+fn handle_call_reg(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!(
+        "MitoVM: CALL_REG opcode encountered - call depth: {}",
+        ctx.call_depth() as u32
+    );
+
+    validate_call_depth(ctx, MAX_CALL_DEPTH, "CALL_REG")?;
+
+    let func_addr = ctx.fetch_u16()? as usize;
+
+    debug_log!(
+        "MitoVM: CALL_REG target_addr={}, current_depth={}",
+        func_addr as u32,
+        ctx.call_depth() as u32
+    );
+
+    // Validate function address is within bytecode bounds
+    if func_addr >= ctx.script().len() {
+        debug_log!(
+            "MitoVM: CALL_REG invalid function address {} >= script length {}",
+            func_addr as u32,
+            ctx.script().len() as u32
+        );
+        return Err(VMErrorCode::InvalidFunctionIndex);
+    }
+
+    // Skip inline CALL metadata if present
+    skip_call_metadata(ctx)?;
+
+    let caller_start = ctx.param_start();
+    let caller_len = ctx.param_len();
+
+    // Save current state
+    let current_ip = ctx.ip();
+    let current_local_count = ctx.local_count();
+    let current_local_base = ctx.local_base();
+    let current_script = {
+        let script_ref = ctx.script();
+        unsafe { core::slice::from_raw_parts(script_ref.as_ptr(), script_ref.len()) }
+    };
+
+    // Check if we have enough space for callee's locals
+    let new_local_base = current_local_base + current_local_count;
+    let locals_to_allocate = 3; // Default local allocation
+    if (new_local_base as usize + locals_to_allocate) > crate::MAX_LOCALS {
+        return Err(VMErrorCode::CallStackOverflow);
+    }
+
+    // Save caller's frame state
+    ctx.push_call_frame(CallFrame::with_parameters(
+        current_ip as u16,
+        current_local_count,
+        current_local_base,
+        caller_start,
+        caller_len,
+        current_script,
+    ))?;
+
+    // Set callee's local base
+    ctx.set_local_base(new_local_base);
+    ctx.set_local_count(0);
+    ctx.allocate_locals(locals_to_allocate as u8)?;
+    ctx.set_ip(func_addr);
+
+    // AUTO-LOAD: Copy data parameters into registers r0..rN-1
+    // Parameters are 1-indexed (params[1] = first param), registers are 0-indexed
+    // Skip params[0] which is function index
+    // Load up to 8 data parameters into r0..r7
+    let param_count = caller_len as usize;
+    let max_reg_params = 8.min(param_count); // Max 8 registers for params
+    
+    for i in 0..max_reg_params {
+        // params[1] -> r0, params[2] -> r1, etc.
+        let param_idx = i + 1;
+        if param_idx <= param_count {
+            let param_value = ctx.parameters()[param_idx];
+            // Only load non-empty params (skip account references which are handled differently)
+            if !param_value.is_empty() {
+                ctx.set_register(i as u8, param_value)?;
+                debug_log!(
+                    "MitoVM: CALL_REG auto-loaded param[{}] into r{}",
+                    param_idx,
+                    i
+                );
+            }
+        }
+    }
+
+    debug_log!(
+        "MitoVM: CALL_REG AFTER - local_base={}, local_count={}, new_IP={}, call_depth={}",
+        ctx.local_base() as u32,
+        ctx.local_count() as u32,
+        ctx.ip() as u32,
+        ctx.call_depth() as u32
+    );
+
+    Ok(())
+}
+
 
 #[inline(always)]
 fn skip_call_metadata(ctx: &mut ExecutionManager) -> CompactResult<()> {

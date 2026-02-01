@@ -269,6 +269,8 @@ pub const CALL_EXTERNAL: u8 = 0x91; // Call function in external account bytecod
 pub const CALL_NATIVE: u8 = 0x92; // MOVED FROM 0x82 (not implemented)
 pub const PREPARE_CALL: u8 = 0x93; // MOVED FROM 0x83 (not implemented)
 pub const FINISH_CALL: u8 = 0x94; // MOVED FROM 0x84 (not implemented)
+pub const CALL_REG: u8 = 0x95; // Call function with arguments in registers
+
 
 // ===== LOCAL VARIABLE OPERATIONS (0xA0-0xAF) =====
 // 🎯 MOVED FROM 0x90: Local variable operations moved to 0xA0 range
@@ -320,10 +322,10 @@ pub const POP_REG: u8 = 0xBD; // POP_REG reg (pop stack to register)
 pub const COPY_REG: u8 = 0xBE; // COPY_REG dest, src
 pub const CLEAR_REG: u8 = 0xBF; // CLEAR_REG reg
 
-// ===== [REMOVED] ACCOUNT VIEW OPERATIONS (0xC0-0xCF) =====
-// Account views were redundant with zero-copy LOAD_FIELD/STORE_FIELD operations
-// Range 0xC0-0xCF now available for Phase 6 Dynamic Pattern Fusion
-// Migration: Use LOAD_FIELD/STORE_FIELD for direct account field access
+// ===== FUSED REQUIRE OPERATIONS (0xC0-0xCF) =====
+// See definitions at end of file: REQUIRE_GTE_U64, REQUIRE_NOT_BOOL, etc.
+// Handlers implemented in five-vm-mito/src/handlers/fused_ops.rs
+
 
 // ===== NIBBLE IMMEDIATE OPERATIONS (0xD0-0xD7) =====
 // BPF optimization: single-byte encoding for common local variable operations
@@ -479,6 +481,10 @@ pub enum ArgType {
     AccountField,   // account_index (u8) + field_offset (VLE)
     AccountFieldParam, // account_index (u8) + field_offset (VLE) + param_index (u8)
     FusedAccAcc,    // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
+    CallReg,        // function_index (u16)
+    RegAccountField, // reg(u8) + account_index (u8) + field_offset (VLE)
+    U16Fixed,       // Fixed 2-byte u16 (for patching)
+    U32Fixed,       // Fixed 4-byte u32 (for patching)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -505,21 +511,21 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: JUMP,
         name: "JUMP",
-        arg_type: ArgType::U16,
+        arg_type: ArgType::U16Fixed,
         stack_effect: 0,
         compute_cost: 2,
     }, // Fixed u16 offset
     OpcodeInfo {
         opcode: JUMP_IF,
         name: "JUMP_IF",
-        arg_type: ArgType::U16,
+        arg_type: ArgType::U16Fixed,
         stack_effect: -1,
         compute_cost: 3,
     }, // Fixed u16 offset
     OpcodeInfo {
         opcode: JUMP_IF_NOT,
         name: "JUMP_IF_NOT",
-        arg_type: ArgType::U16,
+        arg_type: ArgType::U16Fixed,
         stack_effect: -1,
         compute_cost: 3,
     }, // Fixed u16 offset
@@ -754,6 +760,20 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::None,
         stack_effect: 1,
         compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: FINISH_CALL,
+        name: "FINISH_CALL",
+        arg_type: ArgType::None,
+        stack_effect: 0,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: CALL_REG,
+        name: "CALL_REG",
+        arg_type: ArgType::CallReg, // Uses u16 function index (params in regs)
+        stack_effect: 0,
+        compute_cost: 2,
     },
     OpcodeInfo {
         opcode: PUSH_PUBKEY,
@@ -1445,9 +1465,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 1,
         compute_cost: 2,
     },
-    // STRING_LENGTH entry removed - opcode was deleted (use ARRAY_LENGTH instead)
-    // ARRAY_CONCAT removed - use array operations in their dedicated range
-
     // V3 Pattern Fusion Opcodes (using freed slots)
     OpcodeInfo {
         opcode: PUSH_ZERO,
@@ -1494,7 +1511,7 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: EQ_ZERO_JUMP,
         name: "EQ_ZERO_JUMP",
-        arg_type: ArgType::U16,
+        arg_type: ArgType::U16Fixed,
         stack_effect: -1,
         compute_cost: 3,
     },
@@ -1512,7 +1529,41 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 0,
         compute_cost: 2,
     },
-    // SWAP_SUB removed - use individual SWAP + SUB operations
+    OpcodeInfo {
+        opcode: DUP_SUB,
+        name: "DUP_SUB",
+        arg_type: ArgType::None,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: DUP_MUL,
+        name: "DUP_MUL",
+        arg_type: ArgType::None,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: RETURN_ERROR,
+        name: "RETURN_ERROR",
+        arg_type: ArgType::None,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: GT_ZERO_JUMP,
+        name: "GT_ZERO_JUMP",
+        arg_type: ArgType::U16Fixed,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: LT_ZERO_JUMP,
+        name: "LT_ZERO_JUMP",
+        arg_type: ArgType::U16Fixed,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
 
     // Nibble immediate GET_LOCAL operations (0xD0-0xD3)
     OpcodeInfo {
@@ -1702,7 +1753,7 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: 0xC0, // REQUIRE_GTE_U64
         name: "REQUIRE_GTE_U64",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE) + param(u8) - reuse AccountField for acc+offset
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + param(u8)
         stack_effect: 0,
         compute_cost: 4,
     },
@@ -1716,14 +1767,14 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: 0xC2, // FIELD_ADD_PARAM
         name: "FIELD_ADD_PARAM",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE) + param(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + param(u8)
         stack_effect: 0,
         compute_cost: 4,
     },
     OpcodeInfo {
         opcode: 0xC3, // FIELD_SUB_PARAM
         name: "FIELD_SUB_PARAM",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE) + param(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + param(u8)
         stack_effect: 0,
         compute_cost: 4,
     },
@@ -1776,6 +1827,41 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::FusedAccAcc,
         stack_effect: 0,
         compute_cost: 4,
+    },
+    OpcodeInfo {
+        opcode: 0xCB, // LOAD_FIELD_REG
+        name: "LOAD_FIELD_REG",
+        arg_type: ArgType::RegAccountField,
+        stack_effect: 0,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: 0xCC, // REQUIRE_GTE_REG
+        name: "REQUIRE_GTE_REG",
+        arg_type: ArgType::TwoRegisters,
+        stack_effect: 0,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: 0xCD, // STORE_FIELD_REG
+        name: "STORE_FIELD_REG",
+        arg_type: ArgType::RegAccountField,
+        stack_effect: 0,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: 0xCE, // ADD_FIELD_REG
+        name: "ADD_FIELD_REG",
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + reg(u8)
+        stack_effect: 0,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: 0xCF, // SUB_FIELD_REG
+        name: "SUB_FIELD_REG",
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + reg(u8)
+        stack_effect: 0,
+        compute_cost: 3,
     },
 ];
 
@@ -1877,5 +1963,22 @@ pub const STORE_KEY_TO_FIELD: u8 = 0xC9;
 /// Use: source.mint == dest.mint (field-to-field comparison)
 pub const REQUIRE_EQ_FIELDS: u8 = 0xCA;
 
-// 0xCB-0xCF reserved for additional universal fused opcodes
+/// LOAD_FIELD_REG: Load an account field directly into a register
+/// Format: LOAD_FIELD_REG <reg>, <account_idx>, <field_offset>
+pub const LOAD_FIELD_REG: u8 = 0xCB;
 
+/// REQUIRE_GTE_REG: Compare two registers and fail if src1 < src2
+/// Format: REQUIRE_GTE_REG <src1>, <src2>
+pub const REQUIRE_GTE_REG: u8 = 0xCC;
+
+/// STORE_FIELD_REG: Store a register value directly into an account field
+/// Format: STORE_FIELD_REG <reg>, <account_idx>, <field_offset>
+pub const STORE_FIELD_REG: u8 = 0xCD;
+
+/// ADD_FIELD_REG: field = field + reg
+/// Format: ADD_FIELD_REG <account_idx>, <field_offset>, <reg>
+pub const ADD_FIELD_REG: u8 = 0xCE;
+
+/// SUB_FIELD_REG: field = field - reg
+/// Format: SUB_FIELD_REG <account_idx>, <field_offset>, <reg>
+pub const SUB_FIELD_REG: u8 = 0xCF;

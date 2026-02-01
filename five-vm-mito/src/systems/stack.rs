@@ -6,13 +6,12 @@ use crate::STACK_SIZE;
 pub struct StackManager<'a> {
     pub stack: &'a mut [ValueRef],
     pub sp: u8,
-    pub registers: &'a mut [ValueRef],
 }
 
 impl<'a> StackManager<'a> {
     #[inline(always)]
-    pub fn new(stack: &'a mut [ValueRef], registers: &'a mut [ValueRef]) -> Self {
-        Self { stack, sp: 0, registers }
+    pub fn new(stack: &'a mut [ValueRef]) -> Self {
+        Self { stack, sp: 0 }
     }
 
     #[inline(always)]
@@ -78,22 +77,5 @@ impl<'a> StackManager<'a> {
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.sp == 0
-    }
-
-    #[inline(always)]
-    pub fn get_register(&self, index: u8) -> CompactResult<ValueRef> {
-        if index >= 8 {
-            return Err(VMErrorCode::InvalidRegister);
-        }
-        Ok(self.registers[index as usize])
-    }
-
-    #[inline(always)]
-    pub fn set_register(&mut self, index: u8, value: ValueRef) -> CompactResult<()> {
-        if index >= 8 {
-            return Err(VMErrorCode::InvalidRegister);
-        }
-        self.registers[index as usize] = value;
-        Ok(())
     }
 }

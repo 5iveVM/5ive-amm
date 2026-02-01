@@ -71,7 +71,37 @@ impl ASTGenerator {
             return Ok(true);
         }
 
+        // NEW Pattern 5: Compare two registers (REQUIRE_GTE_REG)
+        if let Some((reg1, reg2)) = self.match_reg_gte_reg(condition) {
+            #[cfg(debug_assertions)]
+            println!("FUSED_DEBUG: EMITTING REQUIRE_GTE_REG! reg1={} reg2={}", reg1, reg2);
+            emitter.emit_opcode(REQUIRE_GTE_REG);
+            emitter.emit_u8(reg1);
+            emitter.emit_u8(reg2);
+            return Ok(true);
+        }
+
         Ok(false)
+    }
+
+    /// Match pattern: reg1 >= reg2
+    fn match_reg_gte_reg(&self, condition: &AstNode) -> Option<(u8, u8)> {
+        if let AstNode::BinaryExpression { left, operator, right } = condition {
+            if operator == ">=" {
+                let reg1 = self.match_register(left)?;
+                let reg2 = self.match_register(right)?;
+                return Some((reg1, reg2));
+            }
+        }
+        
+        if let AstNode::MethodCall { object, method, args } = condition {
+            if method == "gte" && args.len() == 1 {
+                let reg1 = self.match_register(object)?;
+                let reg2 = self.match_register(&args[0])?;
+                return Some((reg1, reg2));
+            }
+        }
+        None
     }
 
     /// Match pattern: field.gte(param) OR MethodCall with method="gte"
@@ -137,7 +167,7 @@ impl ASTGenerator {
     }
 
     /// Match a u64 field access: account.field
-    fn match_u64_field_access(&self, node: &AstNode) -> Option<(u8, u32)> {
+    pub(super) fn match_u64_field_access(&self, node: &AstNode) -> Option<(u8, u32)> {
         if let AstNode::FieldAccess { object, field } = node {
             if let AstNode::Identifier(account_name) = object.as_ref() {
                 if let Some(field_info) = self.local_symbol_table.get(account_name) {
@@ -230,6 +260,28 @@ impl ASTGenerator {
             _ => return Ok(false),
         };
 
+        // NEW: Pattern field = field.add(reg) -> ADD_FIELD_REG
+        if let Some(reg_idx) = self.match_field_reg_arithmetic_pattern(object, field, value, "add") {
+            #[cfg(debug_assertions)]
+            println!("FUSED_DEBUG: EMITTING ADD_FIELD_REG! acc={} offset={} reg={}", target_acc_idx, target_offset, reg_idx);
+            emitter.emit_opcode(ADD_FIELD_REG);
+            emitter.emit_u8(target_acc_idx);
+            emitter.emit_vle_u32(target_offset);
+            emitter.emit_u8(reg_idx);
+            return Ok(true);
+        }
+
+        // NEW: Pattern field = field.sub(reg) -> SUB_FIELD_REG
+        if let Some(reg_idx) = self.match_field_reg_arithmetic_pattern(object, field, value, "sub") {
+            #[cfg(debug_assertions)]
+            println!("FUSED_DEBUG: EMITTING SUB_FIELD_REG! acc={} offset={} reg={}", target_acc_idx, target_offset, reg_idx);
+            emitter.emit_opcode(SUB_FIELD_REG);
+            emitter.emit_u8(target_acc_idx);
+            emitter.emit_vle_u32(target_offset);
+            emitter.emit_u8(reg_idx);
+            return Ok(true);
+        }
+
         // Pattern: field = field.add(param) -> FIELD_ADD_PARAM
         if let Some(param_idx) = self.match_field_arithmetic_pattern(object, field, value, "add") {
             #[cfg(debug_assertions)]
@@ -275,6 +327,17 @@ impl ASTGenerator {
             return Ok(true);
         }
 
+        // NEW: Pattern field = reg -> STORE_FIELD_REG
+        if let Some(reg_idx) = self.match_register(value) {
+            #[cfg(debug_assertions)]
+            println!("FUSED_DEBUG: EMITTING STORE_FIELD_REG! acc={} offset={} reg={}", target_acc_idx, target_offset, reg_idx);
+            emitter.emit_opcode(STORE_FIELD_REG);
+            emitter.emit_u8(reg_idx);
+            emitter.emit_u8(target_acc_idx);
+            emitter.emit_vle_u32(target_offset);
+            return Ok(true);
+        }
+
         // Pattern: field = account.key -> STORE_KEY_TO_FIELD
         if let Some(key_acc_idx) = self.match_account_key_access(value) {
             #[cfg(debug_assertions)]
@@ -287,6 +350,62 @@ impl ASTGenerator {
         }
 
         Ok(false)
+    }
+
+    /// Match a register identifier (requires register allocator context)
+    pub(super) fn match_register(&self, node: &AstNode) -> Option<u8> {
+        if let AstNode::Identifier(name) = node {
+            // Check the static register allocator for mapped registers
+            self.register_allocator.get_mapping(name)
+        } else {
+            None
+        }
+    }
+
+    /// Match pattern: object.field.{add|sub}(reg) OR object.field +/- reg
+    fn match_field_reg_arithmetic_pattern(
+        &self,
+        target_object: &AstNode,
+        target_field: &str,
+        value: &AstNode,
+        operation: &str, // "add" or "sub"
+    ) -> Option<u8> {
+        // Pattern 1: MethodCall - object.field.add/sub(reg)
+        if let AstNode::MethodCall { object: method_obj, method, args } = value {
+            if method == operation && args.len() == 1 {
+                if let AstNode::FieldAccess { object: field_obj, field: field_name } = method_obj.as_ref() {
+                    if field_name == target_field {
+                        if let (AstNode::Identifier(target_name), AstNode::Identifier(source_name)) = (target_object, field_obj.as_ref()) {
+                            if target_name == source_name {
+                                return self.match_register(&args[0]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Pattern 2: BinaryExpression - object.field +/- reg
+        if let AstNode::BinaryExpression { left, operator, right } = value {
+            let expected_op = if operation == "add" { "+" } else { "-" };
+            if operator != expected_op {
+                return None;
+            }
+            
+            if let AstNode::FieldAccess { object: field_obj, field: field_name } = left.as_ref() {
+                if field_name != target_field {
+                    return None;
+                }
+                
+                if let (AstNode::Identifier(target_name), AstNode::Identifier(source_name)) = (target_object, field_obj.as_ref()) {
+                    if target_name == source_name {
+                        return self.match_register(right);
+                    }
+                }
+            }
+        }
+        
+        None
     }
 
     /// Match pattern: object.field.{add|sub}(param) OR object.field +/- param

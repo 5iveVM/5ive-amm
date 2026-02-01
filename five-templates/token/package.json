@@ -3,6 +3,8 @@
     "build": "node create-artifact.js",
     "deploy": "node deploy-to-five-vm.mjs",
     "test": "node e2e-token-test.mjs",
+    "test:e2e": "node e2e-token-test.mjs",
+    "test:debug-owner": "node debug-illegal-owner.mjs",
     "e2e": "./e2e-token-test.sh",
     "e2e:deploy": "./e2e-token-test.sh --deploy",
     "e2e:verbose": "./e2e-token-test.sh --deploy --verbose",

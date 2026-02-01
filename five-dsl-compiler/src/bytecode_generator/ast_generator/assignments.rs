@@ -19,9 +19,6 @@ impl ASTGenerator {
         is_mutable: &bool,
         value: &AstNode,
     ) -> Result<(), VMError> {
-        // Generate value first
-        self.generate_ast_node(emitter, value)?;
-
         // Determine field type
         let field_type = if let Some(type_node) = type_annotation {
             self.type_node_to_string(type_node)
@@ -57,6 +54,33 @@ impl ASTGenerator {
         };
 
         self.local_symbol_table.insert(name.clone(), field_info);
+
+        // If register optimization enabled, try to map local variable to register
+        if self.use_registers {
+            if let Some(reg) = self.register_allocator.map_local(name) {
+                // Try to generate value directly into register for field loads
+                if let Some((acc_idx, field_offset)) = self.match_u64_field_access(value) {
+                    #[cfg(debug_assertions)]
+                    println!("DEBUG: Mapping '{}' to register r{} with LOAD_FIELD_REG", name, reg);
+
+                    emitter.emit_opcode(LOAD_FIELD_REG);
+                    emitter.emit_u8(reg);
+                    emitter.emit_u8(acc_idx);
+                    emitter.emit_vle_u32(field_offset);
+                    return Ok(());
+                }
+
+                // For other values, generate to stack then move to register
+                self.generate_ast_node(emitter, value)?;
+                emitter.emit_opcode(POP_REG);
+                emitter.emit_u8(reg);
+                return Ok(());
+            }
+        }
+
+        // Fallback: stack-based local variable (no register optimization)
+        // Generate value first
+        self.generate_ast_node(emitter, value)?;
 
         // Generate local variable storage instruction with V2 optimization
         self.emit_set_local(

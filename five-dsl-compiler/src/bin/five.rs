@@ -54,6 +54,14 @@ enum Commands {
         #[arg(long)]
         v2_preview: bool,
 
+        /// Enable register-based optimization (experimental, disabled by default)
+        #[arg(long)]
+        enable_registers: bool,
+
+        /// Use linear scan register allocation (improves bytecode size, requires --enable-registers)
+        #[arg(long)]
+        use_linear_scan: bool,
+
         /// Collect detailed metrics
         #[arg(short = 'M', long)]
         metrics: bool,
@@ -98,6 +106,14 @@ enum Commands {
         /// Enable v2-preview features
         #[arg(long)]
         v2_preview: bool,
+
+        /// Enable register-based optimization (experimental, disabled by default)
+        #[arg(long)]
+        enable_registers: bool,
+
+        /// Use linear scan register allocation (improves bytecode size, requires --enable-registers)
+        #[arg(long)]
+        use_linear_scan: bool,
 
         /// Collect detailed metrics
         #[arg(short = 'M', long)]
@@ -145,6 +161,14 @@ enum Commands {
         /// Enable v2-preview features
         #[arg(long)]
         v2_preview: bool,
+
+        /// Enable register-based optimization (experimental, disabled by default)
+        #[arg(long)]
+        enable_registers: bool,
+
+        /// Use linear scan register allocation (improves bytecode size, requires --enable-registers)
+        #[arg(long)]
+        use_linear_scan: bool,
 
         /// Collect detailed metrics
         #[arg(short = 'M', long)]
@@ -382,12 +406,16 @@ fn main() {
             metrics_format,
             summary,
             debug_bytecode,
+            enable_registers,
+            use_linear_scan,
         } => handle_compile(
             source,
             output,
             mode.into(),
             constraint_cache,
             v2_preview,
+            enable_registers,
+            use_linear_scan,
             metrics,
             metrics_output,
             metrics_format.into(),
@@ -408,6 +436,8 @@ fn main() {
             metrics_format,
             summary,
             debug_bytecode,
+            enable_registers,
+            use_linear_scan,
         } => handle_compile_multi(
             main,
             modules,
@@ -415,6 +445,8 @@ fn main() {
             mode.into(),
             constraint_cache,
             v2_preview,
+            enable_registers,
+            use_linear_scan,
             metrics,
             metrics_output,
             metrics_format.into(),
@@ -434,12 +466,16 @@ fn main() {
             metrics_format,
             summary,
             debug_bytecode,
+            enable_registers,
+            use_linear_scan,
         } => handle_build(
             path,
             output,
             mode.into(),
             constraint_cache,
             v2_preview,
+            enable_registers,
+            use_linear_scan,
             metrics,
             metrics_output,
             metrics_format.into(),
@@ -514,6 +550,8 @@ fn handle_compile(
     mode: CompilationMode,
     constraint_cache: bool,
     v2_preview: bool,
+    enable_registers: bool,
+    use_linear_scan: bool,
     metrics: bool,
     metrics_output: Option<PathBuf>,
     metrics_format: ExportFormat,
@@ -548,7 +586,9 @@ fn handle_compile(
     // Create compilation configuration using builder pattern
     let config = CompilationConfig::new(mode)
         .with_constraint_cache(constraint_cache)
-        .with_v2_preview(v2_preview);
+        .with_v2_preview(v2_preview)
+        .with_use_registers(enable_registers)
+        .with_linear_scan_allocation(use_linear_scan && enable_registers);
 
     if metrics {
         // Compile with metrics (using config)
@@ -734,6 +774,8 @@ fn handle_compile_multi(
     mode: CompilationMode,
     constraint_cache: bool,
     v2_preview: bool,
+    enable_registers: bool,
+    use_linear_scan: bool,
     mut _metrics: bool,
     _metrics_output: Option<PathBuf>,
     _metrics_format: ExportFormat,
@@ -770,7 +812,9 @@ fn handle_compile_multi(
 
     let config = CompilationConfig::new(mode)
         .with_constraint_cache(constraint_cache)
-        .with_v2_preview(v2_preview);
+        .with_v2_preview(v2_preview)
+        .with_use_registers(enable_registers)
+        .with_linear_scan_allocation(use_linear_scan && enable_registers);
 
     let start_time = std::time::Instant::now();
 
@@ -811,6 +855,8 @@ fn handle_build(
     mode: CompilationMode,
     constraint_cache: bool,
     v2_preview: bool,
+    enable_registers: bool,
+    use_linear_scan: bool,
     metrics: bool,
     metrics_output: Option<PathBuf>,
     metrics_format: ExportFormat,
@@ -878,6 +924,8 @@ fn handle_build(
         mode,
         constraint_cache,
         v2_preview,
+        enable_registers,
+        use_linear_scan,
         metrics,
         metrics_output,
         metrics_format,

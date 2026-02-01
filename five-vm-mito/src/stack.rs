@@ -16,8 +16,6 @@ pub struct StackStorage<'a> {
     pub call_stack: [CallFrame<'a>; MAX_CALL_DEPTH],
     /// Local variables
     pub locals: LocalVariables,
-    /// General purpose registers
-    pub registers: [ValueRef; 8],
     /// Temporary byte buffer
     pub temp_buffer: [u8; TEMP_BUFFER_SIZE],
     /// Static heap buffer (avoids initial alloc)
@@ -32,7 +30,6 @@ impl<'a> StackStorage<'a> {
             stack: [ValueRef::Empty; STACK_SIZE],
             call_stack: [CallFrame::new(0, 0, 0, bytecode); MAX_CALL_DEPTH],
             locals: [core::mem::MaybeUninit::uninit(); MAX_LOCALS],
-            registers: [ValueRef::Empty; 8],
             temp_buffer: [0; TEMP_BUFFER_SIZE],
             heap_buffer: [0; 1024],
         }
@@ -76,11 +73,6 @@ impl<'a> StackStorage<'a> {
             // We use MaybeUninit, so we don't need to initialize them.
             // The FrameManager tracks valid locals via local_count.
             
-            // 4. Registers
-            for i in 0..8 {
-                storage.registers[i] = ValueRef::Empty;
-            }
-            
             // 5. Temp Buffer
             // Zero out temp buffer efficiently
             ptr::write_bytes(storage.temp_buffer.as_mut_ptr(), 0, TEMP_BUFFER_SIZE);
@@ -122,11 +114,6 @@ impl<'a> StackStorage<'a> {
         }
         
         // 3. Locals (Skipped - MaybeUninit)
-        
-        // 4. Registers
-        for i in 0..8 {
-            storage.registers[i] = ValueRef::Empty;
-        }
         
         // 5. Temp Buffer
         ptr::write_bytes(storage.temp_buffer.as_mut_ptr(), 0, TEMP_BUFFER_SIZE);

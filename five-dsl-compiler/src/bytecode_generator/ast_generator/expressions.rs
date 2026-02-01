@@ -83,6 +83,38 @@ impl ASTGenerator {
         right: &AstNode,
         operator: &str,
     ) -> Result<bool, VMError> {
+        // Try register-to-register arithmetic if both operands are register-mapped
+        if self.use_registers {
+            if let (AstNode::Identifier(left_name), AstNode::Identifier(right_name)) = (left, right) {
+                if let (Some(left_reg), Some(right_reg)) = (
+                    self.register_allocator.get_mapping(left_name),
+                    self.register_allocator.get_mapping(right_name),
+                ) {
+                    let opcode = match operator {
+                        "+" => ADD_REG,
+                        "-" => SUB_REG,
+                        "*" => MUL_REG,
+                        "/" => DIV_REG,
+                        _ => return Ok(false),
+                    };
+                    // Result goes to left_reg (in-place modification)
+                    emitter.emit_opcode(opcode);
+                    emitter.emit_u8(left_reg);  // dest
+                    emitter.emit_u8(left_reg);  // src1
+                    emitter.emit_u8(right_reg); // src2
+
+                    // Push result back to stack for compatibility with call sites
+                    emitter.emit_opcode(PUSH_REG);
+                    emitter.emit_u8(left_reg);
+
+                    #[cfg(debug_assertions)]
+                    println!("DEBUG: Emitted register arithmetic {} r{} r{}", operator, left_reg, right_reg);
+
+                    return Ok(true);
+                }
+            }
+        }
+
         // Check if both operands are simple (literals or identifiers)
         if self.is_simple_expression(left) && self.is_simple_expression(right) {
             // For simple expressions, try constant folding optimization
@@ -128,7 +160,8 @@ impl ASTGenerator {
             }
         }
 
-        Ok(false) // No optimization applied
+        // No temporary register allocation - static registers are for variables, not expressions
+        Ok(false)
     }
 
     /// Generate unary expression
@@ -244,5 +277,58 @@ impl ASTGenerator {
     /// Check if an expression is simple (literal or identifier)
     pub(super) fn is_simple_expression(&self, expr: &AstNode) -> bool {
         matches!(expr, AstNode::Literal(_) | AstNode::Identifier(_))
+    }
+
+    /// Helper to load an AST node result into a specific register
+    fn emit_load_to_register<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        node: &AstNode,
+        reg: u8,
+    ) -> Result<(), VMError> {
+        match node {
+            AstNode::Literal(value) => {
+                // Optimization: Load immediate values directly to register
+                match value {
+                    Value::U8(n) => {
+                         emitter.emit_opcode(LOAD_REG_U8);
+                         emitter.emit_u8(reg);
+                         emitter.emit_u8(*n);
+                    }
+                    Value::U64(n) => {
+                         emitter.emit_opcode(LOAD_REG_U64);
+                         emitter.emit_u8(reg);
+                         emitter.emit_u64(*n);
+                    }
+                    Value::Bool(b) => {
+                         // Missing LOAD_REG_BOOL in basic set, verify if exists
+                         // If not, use generic load (implied u8)
+                         emitter.emit_opcode(LOAD_REG_U8);
+                         emitter.emit_u8(reg);
+                         emitter.emit_u8(if *b { 1 } else { 0 });
+                    }
+                     _ => {
+                         // Fallback for complex literals (Pubkey etc): generate stack push then pop to reg
+                         self.emit_literal_value(emitter, value)?;
+                         emitter.emit_opcode(POP_REG);
+                         emitter.emit_u8(reg);
+                     }
+                }
+            }
+            AstNode::Identifier(_) => {
+                // Load identifier to stack then pop to register
+                // (Optimized LOAD_LOCAL_TO_REG doesn't exist yet)
+                self.generate_ast_node(emitter, node)?;
+                emitter.emit_opcode(POP_REG);
+                emitter.emit_u8(reg);
+            }
+            _ => {
+                // Generate arbitrary expression result to stack, then pop to register
+                self.generate_ast_node(emitter, node)?;
+                emitter.emit_opcode(POP_REG);
+                emitter.emit_u8(reg);
+            }
+        }
+        Ok(())
     }
 }

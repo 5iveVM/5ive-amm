@@ -27,6 +27,10 @@ mod register_load_tests {
         // 5IVE, LOAD_REG_U8(reg=0, value=42), PUSH_REG(0), HALT
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+           0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
+             0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             0xB0, 0x00, 0x2A, // LOAD_REG_U8: reg=0, value=42
             0xBC, 0x00, // PUSH_REG: reg=0 (push register to stack)
             0x00, // HALT
@@ -52,6 +56,10 @@ mod register_load_tests {
         // Test LOAD_REG_U32 for loading 32-bit values
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+           0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
+             0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             0xB1, 0x01, // LOAD_REG_U32: reg=1
             0x00, 0x10, 0x00, 0x00, // value=4096 (little endian)
             0xBC, 0x01, // PUSH_REG: reg=1
@@ -77,6 +85,10 @@ mod register_load_tests {
         // Test LOAD_REG_U64 for loading 64-bit values
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+           0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
+             0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             0xB2, 0x02, // LOAD_REG_U64: reg=2
             0x39, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=12345
             0xBC, 0x02, // PUSH_REG: reg=2
@@ -102,6 +114,10 @@ mod register_load_tests {
         // Test LOAD_REG_BOOL for loading boolean values
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+           0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
+             0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             0xB3, 0x03, 0x01, // LOAD_REG_BOOL: reg=3, value=true
             0xBC, 0x03, // PUSH_REG: reg=3
             0x00, // HALT
@@ -132,6 +148,10 @@ mod register_load_tests {
 
         let mut bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+           0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
+             0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             0xB4, 0x04, // LOAD_REG_PUBKEY: reg=4
         ];
         bytecode.extend_from_slice(&test_pubkey); // 32-byte pubkey
@@ -161,6 +181,8 @@ mod register_arithmetic_tests {
         // Load 100 into reg0, 25 into reg1, add them into reg2
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load values into registers
             0xB2, 0x00, // LOAD_REG_U64: reg=0
             0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=100
@@ -192,6 +214,8 @@ mod register_arithmetic_tests {
         // Test SUB_REG for register subtraction
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load 200 into reg0, 75 into reg1
             0xB2, 0x00, // LOAD_REG_U64: reg=0
             0xC8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=200
@@ -222,6 +246,8 @@ mod register_arithmetic_tests {
         // Test MUL_REG for register multiplication
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load 12 into reg0, 8 into reg1
             0xB2, 0x00, // LOAD_REG_U64: reg=0
             0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=12
@@ -252,6 +278,8 @@ mod register_arithmetic_tests {
         // Test DIV_REG for register division
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load 144 into reg0, 12 into reg1
             0xB2, 0x00, // LOAD_REG_U64: reg=0
             0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=144
@@ -287,6 +315,8 @@ mod register_comparison_tests {
         // Test EQ_REG for register equality comparison
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load same value into two registers
             0xB2, 0x00, // LOAD_REG_U64: reg=0
             0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=100
@@ -317,6 +347,8 @@ mod register_comparison_tests {
         // Test GT_REG for register greater-than comparison
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load 150 into reg0, 100 into reg1
             0xB2, 0x00, // LOAD_REG_U64: reg=0
             0x96, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=150
@@ -347,6 +379,8 @@ mod register_comparison_tests {
         // Test LT_REG for register less-than comparison
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load 50 into reg0, 100 into reg1
             0xB2, 0x00, // LOAD_REG_U64: reg=0
             0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=50
@@ -382,6 +416,8 @@ mod register_stack_bridge_tests {
         // Test POP_REG for moving stack values to registers
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Push value to stack
             0x1B, 0x7B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(123)
             // Pop from stack to register
@@ -410,6 +446,8 @@ mod register_stack_bridge_tests {
         // Test COPY_REG for register-to-register copying
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load value into reg6
             0xB2, 0x06, // LOAD_REG_U64: reg=6
             0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=511
@@ -439,6 +477,8 @@ mod register_stack_bridge_tests {
         // Test CLEAR_REG for register cleanup
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load value into reg8
             0xB2, 0x08, // LOAD_REG_U64: reg=8
             0x88, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=5000
@@ -474,6 +514,8 @@ mod register_performance_tests {
         // Register version should be faster for repeated operations
         let register_bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load initial values into registers
             0xB2, 0x00, // LOAD_REG_U64: reg=0
             0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value=1
@@ -514,6 +556,8 @@ mod register_performance_tests {
         // Result should be: (10 + 5) * (20 - 8) = 15 * 12 = 180
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
             // Load values: a=10, b=5, c=20, d=8
             0xB2, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reg0 = 10
             0xB2, 0x01, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reg1 = 5
@@ -580,7 +624,9 @@ mod register_coverage_tests {
             // Test each opcode individually with minimal setup
             let bytecode = vec![
                 0x35, 0x49, 0x56, 0x45, // 5IVE magic
-                opcode, 0x00, // Register opcode with reg=0
+                0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00, // public_count=0, total_count=0
+            opcode, 0x00, // Register opcode with reg=0
                 0x01, 0x00, 0x00, 0x00, // Additional parameters if needed
                 0x00, // HALT
             ];

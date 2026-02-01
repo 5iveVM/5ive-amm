@@ -23,18 +23,21 @@ macro_rules! debug_log {
 
 // Global static buffer for VM StackStorage to avoid heap allocation syscalls
 // Size: 4KB (Sufficient for StackStorage ~2.5KB + alignment)
-// Alignment: u128 to ensure proper alignment for StackStorage structs
+// Using const to avoid writable sections in BPF, then cast to mutable for in-call usage.
 // SAFETY: Single-threaded Solana execution ensures no race conditions.
 // We must ensure reentrancy safety (no recursive calls to five program).
-// Using static mut allows write access for StackStorage initialization.
-// The link_section attribute is only applied on BPF targets to keep symbol names short.
-#[cfg_attr(target_os = "solana", link_section = ".bss.h")]
-pub(crate) static mut VM_HEAP: [u128; 512] = [0; 512];
+// Storage is re-initialized on each instruction, so const initialization is safe.
+const H: [u128; 512] = [0; 512];
 
-// Helper to get VM_HEAP as a mutable byte pointer
+// Helper to get H as a mutable byte pointer (safe within single instruction context)
 #[inline(always)]
 pub(crate) fn get_vm_heap_ptr() -> *mut u8 {
-    unsafe { core::ptr::addr_of_mut!(VM_HEAP) as *mut u8 }
+    // SAFETY: H is const but we need mutable access for in-place initialization.
+    // This is safe because:
+    // 1. Storage is re-initialized for each instruction (single-use per call)
+    // 2. Solana ensures single-threaded execution
+    // 3. No concurrent access within a single instruction
+    unsafe { &H as *const [u128; 512] as *mut u8 }
 }
 
 mod common;

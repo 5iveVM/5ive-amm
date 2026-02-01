@@ -35,7 +35,6 @@ impl VLE {
     ///
     /// Returns `(decoded_value, bytes_consumed)` where 1-5 bytes may be read.
     #[inline]
-    #[inline]
     pub const fn decode_u32(bytes: &[u8]) -> Option<(u32, usize)> {
         if bytes.is_empty() { return None; }
         

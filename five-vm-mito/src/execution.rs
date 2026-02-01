@@ -321,6 +321,11 @@ impl MitoVM {
                 STORE_FIELD_ZERO => crate::handlers::fused_ops::handle_fused_ops(STORE_FIELD_ZERO, ctx),
                 STORE_KEY_TO_FIELD => crate::handlers::fused_ops::handle_fused_ops(STORE_KEY_TO_FIELD, ctx),
                 REQUIRE_EQ_FIELDS => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_EQ_FIELDS, ctx),
+                LOAD_FIELD_REG => crate::handlers::fused_ops::handle_fused_ops(LOAD_FIELD_REG, ctx),
+                REQUIRE_GTE_REG => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_GTE_REG, ctx),
+                STORE_FIELD_REG => crate::handlers::fused_ops::handle_fused_ops(STORE_FIELD_REG, ctx),
+                ADD_FIELD_REG => crate::handlers::fused_ops::handle_fused_ops(ADD_FIELD_REG, ctx),
+                SUB_FIELD_REG => crate::handlers::fused_ops::handle_fused_ops(SUB_FIELD_REG, ctx),
 
                 // System Operations (0x80-0x8F)
                 INVOKE => handle_system_ops(INVOKE, ctx),
