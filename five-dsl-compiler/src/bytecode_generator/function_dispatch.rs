@@ -833,10 +833,30 @@ impl FunctionDispatcher {
         
         let mut account_counter: u32 = 0;
         let mut data_counter: u32 = 0;
-        
+
+        // CRITICAL: Map data parameters to registers BEFORE adding to symbol table
+        // This ensures the register allocator knows about parameter mappings
+        if self.use_registers {
+            let mut reg_data_counter = 0u8;
+            for param in parameters.iter() {
+                let is_account = super::account_utils::is_account_parameter(
+                    &param.param_type,
+                    &param.attributes,
+                    Some(account_system.get_account_registry())
+                );
+
+                // Only map DATA parameters to registers (accounts are not register-allocated)
+                if !is_account {
+                    if let Some(_reg) = ast_generator.register_allocator.map_parameter(&param.name, reg_data_counter) {
+                        reg_data_counter += 1;
+                    }
+                }
+            }
+        }
+
         for (_index, param) in parameters.iter().enumerate() {
             let param_type = self.type_node_to_string(&param.param_type);
-            
+
             let is_account = super::account_utils::is_account_parameter(
                 &param.param_type,
                 &param.attributes,
@@ -858,7 +878,7 @@ impl FunctionDispatcher {
             };
 
             let field_info = super::types::FieldInfo {
-                offset, 
+                offset,
                 field_type: param_type,
                 // Implicit mutability: @init implies mutable, or explicit @mut
                 is_mutable: param.is_init || param.attributes.iter().any(|a| a.name == "mut"),

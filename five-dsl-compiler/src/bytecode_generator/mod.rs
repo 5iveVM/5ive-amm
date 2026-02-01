@@ -377,6 +377,8 @@ impl DslBytecodeGenerator {
     fn generate_internal(&mut self, ast: &AstNode) -> Result<Vec<u8>, VMError> {
             // Check if we need function dispatch to determine header format
             let mut dispatcher = FunctionDispatcher::new();
+            // CRITICAL: Propagate register optimization flags to dispatcher
+            dispatcher.set_use_registers(self.use_registers);
             let has_functions = dispatcher.has_callable_functions(ast);
 
             // Collect function count for OptimizedHeader
@@ -463,6 +465,10 @@ impl DslBytecodeGenerator {
                 let mut ast_generator =
                     ASTGenerator::with_optimization_level(self.optimization_level);
 
+                // CRITICAL: Propagate register optimization flags to AST generator
+                ast_generator.set_use_registers(self.use_registers);
+                ast_generator.set_use_linear_scan_allocation(self.use_linear_scan_allocation);
+
                 // Pass interface registry to AST generator if available
                 if let Some(ref interface_registry) = self.interface_registry {
                     ast_generator.set_interface_registry(interface_registry.clone());
@@ -493,6 +499,10 @@ impl DslBytecodeGenerator {
                 // Use direct AST generation for simple scripts
                 let mut ast_generator =
                     ASTGenerator::with_optimization_level(self.optimization_level);
+
+                // CRITICAL: Propagate register optimization flags to AST generator
+                ast_generator.set_use_registers(self.use_registers);
+                ast_generator.set_use_linear_scan_allocation(self.use_linear_scan_allocation);
 
                 // Pass interface registry to AST generator if available
                 if let Some(ref interface_registry) = self.interface_registry {

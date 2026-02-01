@@ -507,12 +507,7 @@ impl ASTGenerator {
                     // We must match the dispatcher's packing logic (r0, r1, r2...)
                     if self.use_registers && !is_account {
                         if let Some(_reg) = self.register_allocator.map_parameter(&param.name, data_param_idx) {
-                            #[cfg(debug_assertions)]
-                            println!("DEBUG: Mapped parameter '{}' to register r{}", param.name, data_param_idx);
-                            
                             data_param_idx += 1;
-                        } else {
-                            println!("WARN: Could not map parameter '{}' to register (out of registers?)", param.name);
                         }
                     }
 
