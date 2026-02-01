@@ -374,15 +374,13 @@ pub fn append_bytecode(
             return Err(ProgramError::Custom(8205)); // Invalid magic bytes
         }
 
-        // debug_log!("Verifying bytecode content...");
+        debug_log!("Verifying bytecode content with length={}", bytecode.len());
         if let Err(e) = verify_bytecode_content(bytecode) {
-            #[cfg(feature = "debug-logs")]
-            {
-                let code: u64 = e.into();
-                debug_log!("Bytecode verification failed: {}", code);
-            }
+            let code: u64 = e.into();
+            debug_log!("Bytecode verification failed with error code: {}", code);
             return Err(e);
         }
+        debug_log!("Bytecode verification passed");
         debug_log!("Verification successful.");
 
         // Collect deployment fee if configured

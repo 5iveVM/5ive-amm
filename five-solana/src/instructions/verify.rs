@@ -68,9 +68,12 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     }
 
     // Iterate and verify all instructions
+    let mut inst_count = 0u32;
     while offset < bytecode.len() {
         match parse_instruction(bytecode, offset) {
             Ok((inst, size)) => {
+                inst_count += 1;
+
                 // Additional Semantic Checks
 
                 // Check CALL targets (Internal, External, Register-based)
@@ -80,11 +83,10 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
                     // We only validate internal targets here.
                     if inst.opcode == opcodes::CALL || inst.opcode == opcodes::CALL_REG {
                         let func_addr = inst.arg1 as usize;
-                        #[cfg(feature = "debug-logs")]
-                        debug_log!("FIVE: CALL at offset {} targets {}, bytecode len={}", offset, func_addr, bytecode.len());
+                        // Log which CALL we're checking (use inst_count as unique ID)
+                        debug_log!("Checking CALL#{}: offset={} target={} bytecode_len={}", inst_count, offset, func_addr, bytecode.len());
                         if func_addr >= bytecode.len() {
-                            #[cfg(feature = "debug-logs")]
-                            debug_log!("FIVE: CALL target OOB: {} >= {}", func_addr, bytecode.len());
+                            debug_log!("ERROR CALL#{}: target {} >= len {}", inst_count, func_addr, bytecode.len());
                             return Err(ProgramError::Custom(8122));
                         }
                     }
