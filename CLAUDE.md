@@ -329,14 +329,42 @@ The Five SDK parameter encoding issue for functions with mixed account/data para
 
 **Test Results:** Parameters now encode with 77 bytes (previously 0), function calls reach VM bytecode execution
 
+### Register Optimization (In Progress)
+
+**Status:** Compiler fix ✅ complete, VM integration ❌ needs type tracking enhancement
+
+**Compiler Fix (COMPLETED):**
+- ✅ Register optimization flags (`--enable-registers`, `--use-linear-scan`) now properly propagated
+- ✅ FunctionDispatcher receives register flags
+- ✅ ASTGenerator receives register flags in both code paths
+- ✅ Parameter-to-register mapping implemented in dispatcher
+- ✅ Compiler successfully emits register opcodes: `ADD_REG`, `SUB_REG`, `PUSH_REG`, `POP_REG`, `LOAD_FIELD_REG`, etc.
+
+**Test Results:**
+- ✅ Baseline token contract: All 14 functions pass E2E tests
+- ❌ Register-optimized token contract: Fails due to VM type tracking issue
+
+**VM Issue:** Register operations lose type information when values are stored/retrieved:
+```
+PUSH_REG reg=1 → Stack gets type "OTHER" instead of "U8"
+LTE fails: Expected U8, got OTHER
+```
+
+**Fix Required:** VM must track types with register values. Modify:
+1. Register representation to include type metadata
+2. PUSH_REG handler to push with correct type information
+3. Consider type-aware register allocation in compiler
+
+**Files to Modify for VM Fix:**
+- `five-vm-mito/src/handlers/registers.rs` - Type-aware register operations
+- `five-vm-mito/src/context.rs` - Store type info in ExecutionContext registers
+
 ### Known Issues
 
-None currently known. The following were previously issues but have been resolved:
+Previously resolved:
 - ✅ **SDK parameter encoding** - Fixed by passing `scriptMetadata` ABI to SDK
 - ✅ **@init constraint** - Works correctly (counter template demonstrates this)
 - ✅ **Token template** - Was blocked by string parameter handling in DSL, not @init
-
-**Note on @init:** The `@init(payer=X, space=N)` constraint works correctly in Five and is demonstrated in the counter template. Previous token template issues were related to how the compiler handled string parameters (URI field), not account initialization itself.
 
 See `HANDOFF.md` for detailed current status and next steps.
 
