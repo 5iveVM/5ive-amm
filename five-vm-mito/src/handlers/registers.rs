@@ -18,8 +18,8 @@ pub fn handle_registers(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
     match opcode {
         LOAD_REG_U8 => {
             let reg = ctx.fetch_byte()?;
-            let value = ctx.fetch_byte()? as u64;
-            ctx.set_register(reg, ValueRef::U64(value))?;
+            let value = ctx.fetch_byte()?;
+            ctx.set_register(reg, ValueRef::U8(value))?;
             debug_log!("MitoVM: LOAD_REG_U8 reg={} value={}", reg, value);
         }
         LOAD_REG_U32 => {
@@ -167,7 +167,7 @@ pub fn handle_registers(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             
             let result = val1 == val2;
             ctx.set_register(dest, ValueRef::Bool(result))?;
-            debug_log!("MitoVM: EQ_REG dest={} src1={} src2={} result={}", dest, src1, src2, result);
+            debug_log!("MitoVM: EQ_REG dest={} src1={} src2={} result={}", dest, src1, src2, result as u8);
         }
         GT_REG => {
             let dest = ctx.fetch_byte()?;
@@ -192,7 +192,7 @@ pub fn handle_registers(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             
             let result = num1 > num2;
             ctx.set_register(dest, ValueRef::Bool(result))?;
-            debug_log!("MitoVM: GT_REG dest={} src1={} src2={} result={}", dest, src1, src2, result);
+            debug_log!("MitoVM: GT_REG dest={} src1={} src2={} result={}", dest, src1, src2, result as u8);
         }
         LT_REG => {
             let dest = ctx.fetch_byte()?;
@@ -217,7 +217,7 @@ pub fn handle_registers(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             
             let result = num1 < num2;
             ctx.set_register(dest, ValueRef::Bool(result))?;
-            debug_log!("MitoVM: LT_REG dest={} src1={} src2={} result={}", dest, src1, src2, result);
+            debug_log!("MitoVM: LT_REG dest={} src1={} src2={} result={}", dest, src1, src2, result as u8);
         }
         PUSH_REG => {
             let reg = ctx.fetch_byte()?;
