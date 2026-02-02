@@ -535,55 +535,67 @@ impl FunctionDispatcher {
             // CALL creates new frame where these become params[1..N].
             // Function body uses data-only LOAD_PARAM indices to access them.
             //
+            // REGISTER MODE: When use_registers=true and data_params <= 8,
+            // emit CALL_REG instead. VM auto-loads params to registers r0-r7.
+            // Function body uses PUSH_REG r0, r1, etc. (already implemented).
+            //
             // This maintains proper frame isolation for recursion/nested calls
             // while keeping param indexing consistent.
-            
-            let mut data_param_count: u8 = 0;
-            
-            for param in function_parameters.iter() {
-                 // Check if this is an account parameter
-                 let is_account = super::account_utils::is_account_parameter(
-                     &param.param_type,
-                     &param.attributes,
-                     None
-                 );
-                 
-                 if is_account {
-                     // Skip accounts - they're accessed via accounts[] array
-                     continue;
-                 }
-                 
-                 // Data parameter: increment counter and load from original params
-                 data_param_count += 1;
-                 
-                 // Load from the ORIGINAL params array at the SDK index
-                 // We need to find this param's position in ALL params
-                 let original_index = function_parameters.iter()
-                     .position(|p| p.name == param.name)
-                     .unwrap_or(0) as u8 + 1;
 
-                 // Use optimized opcodes if possible
-                 match original_index {
-                     1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
-                     2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
-                     3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
-                     _ => {
-                         emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
-                         emitter.emit_u8(original_index);
-                     }
-                 }
+            // Count data parameters first (needed for both modes)
+            let data_param_count: u8 = function_parameters.iter()
+                .filter(|p| !super::account_utils::is_account_parameter(
+                    &p.param_type, &p.attributes, None
+                ))
+                .count() as u8;
+
+            // Use register mode if enabled AND function has <= 8 data params
+            let use_registers_for_call = self.use_registers && data_param_count <= 8;
+
+            if use_registers_for_call {
+                // REGISTER MODE: Emit CALL_REG only (VM auto-loads params to registers)
+                emitter.emit_opcode(five_protocol::opcodes::CALL_REG);
+
+                let call_offset_pos = emitter.get_position();
+                self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
+                emitter.emit_u16(0xFFFF); // Placeholder for function offset
+            } else {
+                // STACK MODE: Original behavior - LOAD_PARAM + CALL
+                let mut actual_data_count: u8 = 0;
+
+                for param in function_parameters.iter() {
+                    let is_account = super::account_utils::is_account_parameter(
+                        &param.param_type,
+                        &param.attributes,
+                        None
+                    );
+                    if is_account { continue; }
+
+                    actual_data_count += 1;
+                    let original_index = function_parameters.iter()
+                        .position(|p| p.name == param.name)
+                        .unwrap_or(0) as u8 + 1;
+
+                    // Use optimized opcodes if possible
+                    match original_index {
+                        1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
+                        2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
+                        3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
+                        _ => {
+                            emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
+                            emitter.emit_u8(original_index);
+                        }
+                    }
+                }
+
+                emitter.emit_opcode(five_protocol::opcodes::CALL);
+                emitter.emit_u8(actual_data_count);
+
+                let call_offset_pos = emitter.get_position();
+                self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
+                emitter.emit_u16(0xFFFF); // Placeholder for function offset
             }
 
-            // Emit CALL instruction
-            emitter.emit_opcode(five_protocol::opcodes::CALL);
-            emitter.emit_u8(data_param_count);
-            
-            // Record position for patching the target address
-            let call_offset_pos = emitter.get_position();
-            self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
-            
-            emitter.emit_u16(0xFFFF); // Placeholder for function body offset
-            
             // HALT after return
             emitter.emit_opcode(five_protocol::opcodes::HALT);
 
