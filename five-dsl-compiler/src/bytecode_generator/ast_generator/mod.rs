@@ -469,8 +469,12 @@ impl ASTGenerator {
                 // Clear the local symbol table for the new function
                 self.local_symbol_table.clear();
 
-                // Reset register allocator for new function (static mapping, not dynamic)
-                self.register_allocator.reset();
+                // Reset register allocator for new function ONLY if NOT using registers
+                // When using registers, parameter mappings are pre-computed by the dispatcher
+                // and should not be cleared
+                if !self.use_registers {
+                    self.register_allocator.reset();
+                }
 
                 // Track the return type for proper tuple return handling
                 self.current_function_return_type = return_type.as_ref().map(|rt| (**rt).clone());
