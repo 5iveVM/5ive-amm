@@ -553,7 +553,33 @@ impl FunctionDispatcher {
             let use_registers_for_call = self.use_registers && data_param_count <= 8;
 
             if use_registers_for_call {
-                // REGISTER MODE: Emit CALL_REG only (VM auto-loads params to registers)
+                // REGISTER MODE: Push ALL parameters (accounts + data), then CALL_REG
+                // CALL_REG will auto-filter in the VM: load only data params to r0..r7, skip accounts
+                for param in function_parameters.iter() {
+                    // Generate parameter loading code for ALL parameters
+                    let is_account = super::account_utils::is_account_parameter(
+                        &param.param_type,
+                        &param.attributes,
+                        None
+                    );
+
+                    let original_index = function_parameters.iter()
+                        .position(|p| p.name == param.name)
+                        .unwrap_or(0) as u8 + 1;
+
+                    // Use optimized opcodes if possible
+                    match original_index {
+                        1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
+                        2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
+                        3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
+                        _ => {
+                            emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
+                            emitter.emit_u8(original_index);
+                        }
+                    }
+                }
+
+                // Emit CALL_REG (VM auto-loads data params to registers, skips accounts)
                 emitter.emit_opcode(five_protocol::opcodes::CALL_REG);
 
                 let call_offset_pos = emitter.get_position();
