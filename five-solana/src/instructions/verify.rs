@@ -68,17 +68,36 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     }
 
     // Iterate and verify all instructions
+    let mut inst_count = 0u32;
     while offset < bytecode.len() {
         match parse_instruction(bytecode, offset) {
             Ok((inst, size)) => {
+                inst_count += 1;
+
                 // Additional Semantic Checks
 
                 // Check CALL target bounds
                 if inst.opcode == opcodes::CALL {
                     // For CallInternal, arg1 is the function address (offset)
                     let func_addr = inst.arg1 as usize;
+                    debug_log!("Checking CALL#{}: offset={} target={} bytecode_len={}", inst_count, offset, func_addr, bytecode.len());
                     if func_addr >= bytecode.len() {
-                        debug_log!("FIVE: CALL target OOB");
+                        debug_log!("ERROR CALL#{}: target {} >= len {}", inst_count, func_addr, bytecode.len());
+                        return Err(ProgramError::Custom(8122));
+                    }
+                }
+
+                // Check JUMP target bounds (CRITICAL for Unchecked Execution)
+                // When unchecked-execution is enabled, we skip runtime bounds checks on IP,
+                // so all JUMP targets MUST be validated at deploy time.
+                if matches!(inst.opcode,
+                    opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT |
+                    opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP
+                ) {
+                    let target = inst.arg1 as usize;
+                    if target >= bytecode.len() {
+                        #[cfg(feature = "debug-logs")]
+                        debug_log!("FIVE: JUMP target OOB: {} >= {}", target, bytecode.len());
                         return Err(ProgramError::Custom(8122));
                     }
                 }
