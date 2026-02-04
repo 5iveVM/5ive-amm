@@ -184,6 +184,35 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
+            opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT => {
+                if pc + 3 <= bytes.len() {
+                    let target = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
+                    lines.push(format!("{:04X}: {} target=0x{:04X}", pc, opcode_name(op), target));
+                    pc += 3;
+                } else {
+                    lines.push(format!("{:04X}: {} <truncated>", pc, opcode_name(op)));
+                    break;
+                }
+            }
+            opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => {
+                if pc + 3 <= bytes.len() {
+                    let target = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
+                    lines.push(format!("{:04X}: {} target=0x{:04X}", pc, opcode_name(op), target));
+                    pc += 3;
+                } else {
+                    lines.push(format!("{:04X}: {} <truncated>", pc, opcode_name(op)));
+                    break;
+                }
+            }
+            opcodes::LOAD_PARAM => {
+                if pc + 2 <= bytes.len() {
+                    lines.push(format!("{:04X}: LOAD_PARAM idx={}", pc, bytes[pc + 1]));
+                    pc += 2;
+                } else {
+                    lines.push(format!("{:04X}: LOAD_PARAM <truncated>", pc));
+                    break;
+                }
+            }
             _ => {
                 lines.push(format!("{:04X}: {}", pc, opcode_name(op)));
                 pc += 1
