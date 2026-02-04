@@ -128,7 +128,7 @@ impl<'a> ExecutionContext<'a> {
         Self {
             bytecode,
             pc: start_pc,
-            stack: StackManager::new(&mut storage.stack, &mut storage.registers),
+            stack: StackManager::new(&mut storage.stack),
             memory: ResourceManager::new(&mut storage.temp_buffer, &mut storage.heap_buffer),
             frame: FrameManager::new(&mut storage.call_stack, &mut storage.locals),
             accounts: AccountManager::new(accounts, program_id),
@@ -171,12 +171,22 @@ impl<'a> ExecutionContext<'a> {
 
     #[inline]
     pub fn fetch_byte(&mut self) -> CompactResult<u8> {
-        if self.pc as usize >= self.bytecode.len() {
-            return Err(VMErrorCode::InvalidInstructionPointer);
+        #[cfg(feature = "unchecked-execution")]
+        unsafe {
+            // SAFETY: Verified at deploy time.
+            let byte = *self.bytecode.get_unchecked(self.pc as usize);
+            self.pc = self.pc.saturating_add(1);
+            Ok(byte)
         }
-        let byte = self.bytecode[self.pc as usize];
-        self.pc = self.pc.saturating_add(1);
-        Ok(byte)
+        #[cfg(not(feature = "unchecked-execution"))]
+        {
+            if self.pc as usize >= self.bytecode.len() {
+                return Err(VMErrorCode::InvalidInstructionPointer);
+            }
+            let byte = self.bytecode[self.pc as usize];
+            self.pc = self.pc.saturating_add(1);
+            Ok(byte)
+        }
     }
 
     #[inline(always)]
@@ -186,14 +196,26 @@ impl<'a> ExecutionContext<'a> {
     {
         let start = self.pc as usize;
         let end = start + N;
-        if end > self.bytecode.len() {
-            return Err(VMErrorCode::InvalidInstructionPointer);
+
+        #[cfg(feature = "unchecked-execution")]
+        unsafe {
+            // SAFETY: Verified at deploy time.
+            self.pc = end as u16;
+            let bytes: [u8; N] =
+                core::ptr::read_unaligned(self.bytecode.as_ptr().add(start) as *const [u8; N]);
+            Ok(T::from_le_bytes(bytes))
         }
-        self.pc = end as u16;
-        let bytes: [u8; N] = unsafe {
-            core::ptr::read_unaligned(self.bytecode.as_ptr().add(start) as *const [u8; N])
-        };
-        Ok(T::from_le_bytes(bytes))
+        #[cfg(not(feature = "unchecked-execution"))]
+        {
+            if end > self.bytecode.len() {
+                return Err(VMErrorCode::InvalidInstructionPointer);
+            }
+            self.pc = end as u16;
+            let bytes: [u8; N] = unsafe {
+                core::ptr::read_unaligned(self.bytecode.as_ptr().add(start) as *const [u8; N])
+            };
+            Ok(T::from_le_bytes(bytes))
+        }
     }
 
     #[inline]
@@ -365,16 +387,6 @@ impl<'a> ExecutionContext<'a> {
     }
 
     // --- Registers (delegated to StackManager) ---
-
-    #[inline(always)]
-    pub fn get_register(&self, index: u8) -> CompactResult<ValueRef> {
-        self.stack.get_register(index)
-    }
-
-    #[inline(always)]
-    pub fn set_register(&mut self, index: u8, value: ValueRef) -> CompactResult<()> {
-        self.stack.set_register(index, value)
-    }
 
     // --- Account operations with lazy validation (delegated to AccountManager) ---
 
