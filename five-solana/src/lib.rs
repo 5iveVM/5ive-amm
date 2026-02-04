@@ -21,12 +21,9 @@ macro_rules! debug_log {
     };
 }
 
-// Global static buffer for VM StackStorage to avoid heap allocation syscalls
-// Size: 4KB (Sufficient for StackStorage ~2.5KB + alignment)
-// Alignment: u128 to ensure proper alignment for StackStorage structs
-// SAFETY: Single-threaded Solana execution ensures no race conditions.
-// We must ensure reentrancy safety (no recursive calls to five program).
-pub(crate) static mut VM_HEAP: [u128; 512] = [0; 512]; // 512 * 16 = 8192 bytes
+// VM Storage is now allocated on the heap in execute.rs
+// This avoids the previous issue with static buffers causing ELF symbol name length violations
+// Heap allocation via StackStorage::new_on_heap() has zero BPF overhead and is properly scoped
 
 mod common;
 mod error;

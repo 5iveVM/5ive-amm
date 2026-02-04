@@ -39,6 +39,8 @@ enhanced-errors = []
 test-utils = []
 # Feature for sol_remaining_compute_units syscall (not available on devnet v3.1.6 or earlier)
 remaining-cu-syscall = []
+# Feature for unchecked execution (unsafe bounds check removal) - REQUIRES DEPLOY-TIME VERIFICATION
+unchecked-execution = []
 
 [lib]
 name = "five_vm_mito"
