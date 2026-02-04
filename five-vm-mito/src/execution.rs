@@ -13,7 +13,7 @@ use crate::{
     handlers::{
         handle_accounts, handle_arithmetic, handle_arrays, handle_constraints, handle_control_flow,
         handle_functions, handle_locals, handle_logical, handle_memory, handle_nibble_locals,
-        handle_option_result_ops, handle_registers, handle_stack_ops, handle_system_ops,
+        handle_option_result_ops, handle_stack_ops, handle_system_ops,
     },
     stack_error_context, // Import enhanced debugging macros
     FIVE_MAGIC,
@@ -359,23 +359,6 @@ impl MitoVM {
                 RESULT_GET_ERROR => handle_option_result_ops(RESULT_GET_ERROR, ctx),
                 CAST => handle_locals(CAST, ctx),
 
-                // Register Operations (0xB0-0xBF)
-                LOAD_REG_U8 => handle_registers(LOAD_REG_U8, ctx),
-                LOAD_REG_U32 => handle_registers(LOAD_REG_U32, ctx),
-                LOAD_REG_U64 => handle_registers(LOAD_REG_U64, ctx),
-                LOAD_REG_BOOL => handle_registers(LOAD_REG_BOOL, ctx),
-                LOAD_REG_PUBKEY => handle_registers(LOAD_REG_PUBKEY, ctx),
-                ADD_REG => handle_registers(ADD_REG, ctx),
-                SUB_REG => handle_registers(SUB_REG, ctx),
-                MUL_REG => handle_registers(MUL_REG, ctx),
-                DIV_REG => handle_registers(DIV_REG, ctx),
-                EQ_REG => handle_registers(EQ_REG, ctx),
-                GT_REG => handle_registers(GT_REG, ctx),
-                LT_REG => handle_registers(LT_REG, ctx),
-                PUSH_REG => handle_registers(PUSH_REG, ctx),
-                POP_REG => handle_registers(POP_REG, ctx),
-                COPY_REG => handle_registers(COPY_REG, ctx),
-                CLEAR_REG => handle_registers(CLEAR_REG, ctx),
 
                 // Nibble Locals (0xD0-0xDF)
                 GET_LOCAL_0 => handle_nibble_locals(GET_LOCAL_0, ctx),

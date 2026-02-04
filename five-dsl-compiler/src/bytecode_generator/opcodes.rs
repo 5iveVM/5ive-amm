@@ -402,22 +402,6 @@ impl OpcodeAnalyzer {
                 | opcodes::LOAD_PARAM
                 | opcodes::STORE_PARAM
                 | opcodes::CAST
-                | opcodes::LOAD_REG_U8
-                | opcodes::LOAD_REG_U32
-                | opcodes::LOAD_REG_U64
-                | opcodes::LOAD_REG_BOOL
-                | opcodes::LOAD_REG_PUBKEY
-                | opcodes::ADD_REG
-                | opcodes::SUB_REG
-                | opcodes::MUL_REG
-                | opcodes::DIV_REG
-                | opcodes::EQ_REG
-                | opcodes::GT_REG
-                | opcodes::LT_REG
-                | opcodes::PUSH_REG
-                | opcodes::POP_REG
-                | opcodes::COPY_REG
-                | opcodes::CLEAR_REG
                 | opcodes::TRANSFER_DEBIT
                 | opcodes::TRANSFER_CREDIT
                 | opcodes::EQ_ZERO_JUMP
@@ -447,10 +431,6 @@ impl OpcodeAnalyzer {
             opcodes::CHECK_SIGNER | opcodes::CHECK_WRITABLE | opcodes::CHECK_OWNER | opcodes::CHECK_INITIALIZED | opcodes::CHECK_PDA | opcodes::CHECK_UNINITIALIZED => 1, // u8 account index
             opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT | opcodes::GET_LAMPORTS | opcodes::SET_LAMPORTS | opcodes::GET_DATA | opcodes::GET_KEY | opcodes::GET_OWNER | opcodes::INIT_ACCOUNT | opcodes::INIT_PDA_ACCOUNT => 1, // u8 account index
             opcodes::SET_LOCAL | opcodes::GET_LOCAL | opcodes::LOAD_PARAM | opcodes::STORE_PARAM | opcodes::CAST => 1,
-            opcodes::LOAD_REG_U8 | opcodes::LOAD_REG_U32 | opcodes::LOAD_REG_U64 | opcodes::LOAD_REG_BOOL | opcodes::LOAD_REG_PUBKEY => 1, // Reg index
-            opcodes::ADD_REG | opcodes::SUB_REG | opcodes::MUL_REG | opcodes::DIV_REG | opcodes::EQ_REG | opcodes::GT_REG | opcodes::LT_REG => 3, // 3 Reg indices
-            opcodes::PUSH_REG | opcodes::POP_REG | opcodes::CLEAR_REG => 1,
-            opcodes::COPY_REG => 2,
             opcodes::TRANSFER_DEBIT | opcodes::TRANSFER_CREDIT => 1, // u8 account index
             opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => 2, // u16 offset
             _ => 0,
@@ -520,8 +500,6 @@ impl OpcodeAnalyzer {
                 | opcodes::GET_LOCAL
                 | opcodes::LOAD_PARAM
                 | opcodes::CAST
-                | opcodes::PUSH_REG
-                | opcodes::POP_REG
                 | opcodes::PUSH_ZERO
                 | opcodes::PUSH_ONE
                 | opcodes::PUSH_0

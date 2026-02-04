@@ -73,7 +73,7 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                 if let Some(info) = info {
                     match info.arg_type {
                         ArgType::None => {},
-                        ArgType::U8 | ArgType::FunctionIndex | ArgType::LocalIndex | ArgType::AccountIndex | ArgType::RegisterIndex => {
+                        ArgType::U8 | ArgType::FunctionIndex | ArgType::LocalIndex | ArgType::AccountIndex => {
                             if args_start < bytecode.len() {
                                 print!("{}", bytecode[args_start]);
                                 len += 1;
@@ -91,18 +91,6 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                                 print!("type={}", bytecode[args_start]);
                                 len += 1;
                             } else { print!("(incomplete)"); }
-                        },
-                        ArgType::TwoRegisters => {
-                             if args_start + 1 < bytecode.len() {
-                                 print!("r{}, r{}", bytecode[args_start], bytecode[args_start+1]);
-                                 len += 2;
-                             } else { print!("(incomplete)"); }
-                        },
-                        ArgType::ThreeRegisters => {
-                             if args_start + 2 < bytecode.len() {
-                                 print!("r{}, r{}, r{}", bytecode[args_start], bytecode[args_start+1], bytecode[args_start+2]);
-                                 len += 3;
-                             } else { print!("(incomplete)"); }
                         },
                         ArgType::CallInternal => {
                             // param_count(u8) + function_address(u16 fixed)
@@ -135,9 +123,9 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                                      if current_offset < bytecode.len() {
                                          let param = bytecode[current_offset];
                                          print!("param:{}", param);
-                                         len = (current_offset + 1) - args_start;
-                                     } else { print!("param:(incomplete)"); len = current_offset - args_start; }
-                                } else { print!("offset:(incomplete)"); len = current_offset - args_start; }
+                                         len = 1 + (current_offset + 1) - args_start;
+                                     } else { print!("param:(incomplete)"); len = 1 + current_offset - args_start; }
+                                } else { print!("offset:(incomplete)"); len = 1 + current_offset - args_start; }
                              } else { print!("(incomplete)"); }
                         },
                         ArgType::AccountField => {
@@ -170,10 +158,10 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                                         if let Some((val2, l2)) = read_vle(&bytecode[current_offset..]) {
                                             print!("offset2:{}", val2);
                                             current_offset += l2;
-                                            len = current_offset - args_start;
-                                        } else { print!("offset2:(incomplete)"); len = current_offset - args_start; }
-                                    } else { print!("acc2:(incomplete)"); len = current_offset - args_start; }
-                                } else { print!("offset1:(incomplete)"); len = current_offset - args_start; }
+                                            len = 1 + current_offset - args_start;
+                                        } else { print!("offset2:(incomplete)"); len = 1 + current_offset - args_start; }
+                                    } else { print!("acc2:(incomplete)"); len = 1 + current_offset - args_start; }
+                                } else { print!("offset1:(incomplete)"); len = 1 + current_offset - args_start; }
                             } else { print!("(incomplete)"); }
                         }
                     }

@@ -294,48 +294,6 @@ fn decode_operands(
                 analyzer.position += 1;
             }
         }
-        ArgType::RegisterIndex => {
-            if analyzer.position < analyzer.bytecode.len() {
-                let value = analyzer.bytecode[analyzer.position];
-                operands.push(OperandInfo {
-                    operand_type: "register_index".to_string(),
-                    raw_value: vec![value],
-                    decoded_value: Some(format!("r{}", value)),
-                    size: 1,
-                    description: "Register index (0-15)".to_string(),
-                });
-                analyzer.position += 1;
-            }
-        }
-        ArgType::TwoRegisters => {
-            if analyzer.position + 1 < analyzer.bytecode.len() {
-                let reg1 = analyzer.bytecode[analyzer.position];
-                let reg2 = analyzer.bytecode[analyzer.position + 1];
-                operands.push(OperandInfo {
-                    operand_type: "two_registers".to_string(),
-                    raw_value: vec![reg1, reg2],
-                    decoded_value: Some(format!("r{}, r{}", reg1, reg2)),
-                    size: 2,
-                    description: "Two register indices (dest, src)".to_string(),
-                });
-                analyzer.position += 2;
-            }
-        }
-        ArgType::ThreeRegisters => {
-            if analyzer.position + 2 < analyzer.bytecode.len() {
-                let reg1 = analyzer.bytecode[analyzer.position];
-                let reg2 = analyzer.bytecode[analyzer.position + 1];
-                let reg3 = analyzer.bytecode[analyzer.position + 2];
-                operands.push(OperandInfo {
-                    operand_type: "three_registers".to_string(),
-                    raw_value: vec![reg1, reg2, reg3],
-                    decoded_value: Some(format!("r{}, r{}, r{}", reg1, reg2, reg3)),
-                    size: 3,
-                    description: "Three register indices (dest, src1, src2)".to_string(),
-                });
-                analyzer.position += 3;
-            }
-        }
         ArgType::CallExternal => {
             if analyzer.position + 3 < analyzer.bytecode.len() {
                 let account_idx = analyzer.bytecode[analyzer.position];

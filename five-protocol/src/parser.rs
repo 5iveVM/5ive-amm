@@ -301,30 +301,6 @@ pub fn parse_instruction(
             arg1 = bytecode[offset + total_size] as u64;
             total_size += 1;
         }
-        ArgType::TwoRegisters => {
-            if offset + total_size + 1 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            arg1 = bytecode[offset + total_size] as u64;
-            arg2 = bytecode[offset + total_size + 1] as u64;
-            total_size += 2;
-        }
-        ArgType::ThreeRegisters => {
-            if offset + total_size + 2 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            arg1 = bytecode[offset + total_size] as u64;
-            arg2 = ((bytecode[offset + total_size + 1] as u64) << 8)
-                | bytecode[offset + total_size + 2] as u64;
-            total_size += 3;
-        }
-        ArgType::RegisterIndex => {
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            arg1 = bytecode[offset + total_size] as u64;
-            total_size += 1;
-        }
         ArgType::CallExternal => {
             if offset + total_size + 3 >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);

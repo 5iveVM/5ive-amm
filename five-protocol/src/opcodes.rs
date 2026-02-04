@@ -293,32 +293,9 @@ pub const GET_SIGNER_KEY: u8 = 0xAB;
 // NOTE: All scattered array operations have been moved to 0x60-0x6F range
 // NOTE: All pattern fusion operations will be moved to 0xE0-0xEF range
 
-// ===== REGISTER OPERATIONS (0xB0-0xBF) =====
-// Hybrid VM register operations for performance optimization (moved from 0xE0-0xEF)
-
-// Register load operations
-pub const LOAD_REG_U8: u8 = 0xB0; // LOAD_REG reg, u8_value
-pub const LOAD_REG_U32: u8 = 0xB1; // LOAD_REG reg, u32_value
-pub const LOAD_REG_U64: u8 = 0xB2; // LOAD_REG reg, u64_value
-pub const LOAD_REG_BOOL: u8 = 0xB3; // LOAD_REG reg, bool_value
-pub const LOAD_REG_PUBKEY: u8 = 0xB4; // LOAD_REG reg, pubkey_value
-
-// Register arithmetic operations
-pub const ADD_REG: u8 = 0xB5; // ADD_REG dest, src1, src2
-pub const SUB_REG: u8 = 0xB6; // SUB_REG dest, src1, src2
-pub const MUL_REG: u8 = 0xB7; // MUL_REG dest, src1, src2
-pub const DIV_REG: u8 = 0xB8; // DIV_REG dest, src1, src2
-
-// Register comparison operations
-pub const EQ_REG: u8 = 0xB9; // EQ_REG dest, src1, src2
-pub const GT_REG: u8 = 0xBA; // GT_REG dest, src1, src2
-pub const LT_REG: u8 = 0xBB; // LT_REG dest, src1, src2
-
-// Register-stack bridge operations
-pub const PUSH_REG: u8 = 0xBC; // PUSH_REG reg (push register to stack)
-pub const POP_REG: u8 = 0xBD; // POP_REG reg (pop stack to register)
-pub const COPY_REG: u8 = 0xBE; // COPY_REG dest, src
-pub const CLEAR_REG: u8 = 0xBF; // CLEAR_REG reg
+// ===== [REMOVED] REGISTER OPERATIONS (0xB0-0xBF) =====
+// Register operations have been removed from Five VM in favor of pure stack-based zero-copy design
+// Registers provided no performance benefit and added unnecessary complexity
 
 // ===== [REMOVED] ACCOUNT VIEW OPERATIONS (0xC0-0xCF) =====
 // Account views were redundant with zero-copy LOAD_FIELD/STORE_FIELD operations
@@ -471,9 +448,6 @@ pub enum ArgType {
     FunctionIndex,
     LocalIndex,
     AccountIndex,
-    RegisterIndex,  // Register index (0-15)
-    TwoRegisters,   // Two register indices
-    ThreeRegisters, // Three register indices (dest, src1, src2)
     CallExternal,   // account_index (u8) + function_offset (u16) + param_count (u8)
     CallInternal,   // param_count (u8) + function_address (u16)
     AccountField,   // account_index (u8) + field_offset (VLE)
@@ -1303,119 +1277,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     }, // VLE encoded value
     // Note: JUMP_TABLE (0xB0) opcode removed from protocol
 
-    // Register operations (hybrid VM performance optimization)
-    OpcodeInfo {
-        opcode: LOAD_REG_U8,
-        name: "LOAD_REG_U8",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_REG_U32,
-        name: "LOAD_REG_U32",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_REG_U64,
-        name: "LOAD_REG_U64",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_REG_BOOL,
-        name: "LOAD_REG_BOOL",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_REG_PUBKEY,
-        name: "LOAD_REG_PUBKEY",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: ADD_REG,
-        name: "ADD_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: SUB_REG,
-        name: "SUB_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: MUL_REG,
-        name: "MUL_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 2,
-    },
-    OpcodeInfo {
-        opcode: DIV_REG,
-        name: "DIV_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 3,
-    },
-    OpcodeInfo {
-        opcode: EQ_REG,
-        name: "EQ_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: GT_REG,
-        name: "GT_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LT_REG,
-        name: "LT_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: PUSH_REG,
-        name: "PUSH_REG",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: POP_REG,
-        name: "POP_REG",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: -1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: COPY_REG,
-        name: "COPY_REG",
-        arg_type: ArgType::TwoRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: CLEAR_REG,
-        name: "CLEAR_REG",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
     // Array and string operations
     OpcodeInfo {
         opcode: PUSH_ARRAY_LITERAL,
