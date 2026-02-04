@@ -373,7 +373,8 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
         // Two byte operands
         opcodes::COPY_REG |
         // Fused: two u8 operands
-        opcodes::REQUIRE_GTE_REG => 2, // src1(u8) + src2(u8)
+        // Fused: two u8 operands
+        opcodes::REQUIRE_GTE_REG | opcodes::REQUIRE_PARAM_LTE_IMM => 2, // src1(u8) + src2(u8) OR param(u8) + imm(u8)
 
         // Three byte operands (dest, src1, src2)
         opcodes::ADD_REG | opcodes::SUB_REG | opcodes::MUL_REG | opcodes::DIV_REG |
@@ -413,7 +414,8 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
         opcodes::STORE_PARAM_TO_FIELD | // acc(u8) offset(VLE) param(u8)
         opcodes::STORE_KEY_TO_FIELD |  // acc(u8) offset(VLE) key_acc(u8)
         opcodes::ADD_FIELD_REG |       // acc(u8) offset(VLE) reg(u8)
-        opcodes::SUB_FIELD_REG => {    // acc(u8) offset(VLE) reg(u8)
+        opcodes::SUB_FIELD_REG |       // acc(u8) offset(VLE) reg(u8)
+        opcodes::REQUIRE_FIELD_EQ_IMM => { // acc(u8) offset(VLE) imm(u8)
             2 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4)
         }
 
@@ -429,6 +431,13 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
             let vle1_size = decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4);
             let vle2_size = decode_vle_size(remaining.get(2 + vle1_size..).unwrap_or(&[]), 4);
             2 + vle1_size + vle2_size
+        }
+        
+        // FusedSubAdd: acc1(u8) off1(VLE) acc2(u8) off2(VLE) param(u8)
+        opcodes::FIELD_SUB_ADD_PARAM => {
+            let vle1_size = decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4);
+            let vle2_size = decode_vle_size(remaining.get(2 + vle1_size..).unwrap_or(&[]), 4);
+            3 + vle1_size + vle2_size
         }
 
         // PUSH_PUBKEY: 32 bytes

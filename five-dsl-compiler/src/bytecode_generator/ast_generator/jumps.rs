@@ -164,6 +164,13 @@ impl ASTGenerator {
                 .label_positions
                 .get(&patch.target_label)
                 .ok_or(VMError::InvalidScript)?; // Should not happen
+
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "JUMP_PATCH: patch_pos=0x{:04X} target_label={} target_pos=0x{:04X}",
+                patch.position, patch.target_label, *target_position
+            );
+
             self.patch_jump_offset(emitter, patch.position, *target_position)?;
         }
 

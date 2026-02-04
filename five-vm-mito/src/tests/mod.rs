@@ -41,3 +41,6 @@ pub mod framework;
 
 #[cfg(all(test, feature = "test-utils"))]
 mod stack_error_repro;
+
+#[cfg(all(test, feature = "test-utils"))]
+pub mod repro_issue;

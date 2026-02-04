@@ -37,6 +37,10 @@ pub use pretty::{get_disassembly, pretty_instruction};
 pub mod diagnostics;
 pub use diagnostics::inspect_failure;
 
+// Bytecode verification (JUMP target validation)
+pub mod verification;
+pub use verification::{verify_jump_targets, VerificationResult, VerificationError};
+
 // Macro definitions (for internal use)
 #[allow(unused_macros)]
 pub mod macros;

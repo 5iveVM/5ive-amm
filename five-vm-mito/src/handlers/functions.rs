@@ -176,6 +176,29 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     ctx.allocate_locals(locals_to_allocate)?;
     ctx.set_ip(func_addr);
 
+    // AUTO-LOAD: Copy data parameters into registers r0..r7
+    // This enables register-optimized function bodies to work with regular CALL
+    // Parameters are 1-indexed (params[1] = first param), registers are 0-indexed
+    // Skip AccountRefs (handled via account system/indices) and Empty values
+    let mut reg_idx = 0u8;
+    for i in 0..param_count as usize {
+        if reg_idx >= 8 {
+            break;
+        }
+        let param_idx = i + 1;
+        let param_value = ctx.parameters()[param_idx];
+        let is_account = matches!(param_value, five_protocol::ValueRef::AccountRef(_, _));
+        if !param_value.is_empty() && !is_account {
+            ctx.set_register(reg_idx, param_value)?;
+            debug_log!(
+                "MitoVM: CALL auto-loaded param[{}] into r{}",
+                param_idx,
+                reg_idx
+            );
+            reg_idx += 1;
+        }
+    }
+
     debug_log!(
         "MitoVM: CALL AFTER - SP={}, local_base={}, local_count={}, new_IP={}, call_depth={}",
         ctx.size() as u32,
@@ -220,26 +243,61 @@ fn handle_call_reg(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Skip inline CALL metadata if present
     skip_call_metadata(ctx)?;
 
+    // STACK-BASED PARAMETER PASSING for CALL_REG
+    // The compiler pushes arguments to the stack before CALL_REG (to support Accounts and mixed params).
+    // Unlike standard CALL, CALL_REG opcode doesn't carry param_count.
+    // We assume the stack contains ONLY the arguments for the call (stack-machine invariant).
+    // So we invoke `ctx.size()` to determine count, and pop them into the new frame's parameters.
+    let param_count = ctx.size();
+
+    #[cfg(feature = "debug-logs")]
+    debug_log!("MitoVM: internal CALL_REG params={} (from stack)", param_count as u64);
+
+    // Validate parameter count against protocol limits and u8 representation
+    if param_count > MAX_PARAMETERS {
+        debug_log!(
+            "MitoVM: CALL_REG invalid parameter count {} > MAX_PARAMETERS {}",
+            param_count,
+            MAX_PARAMETERS as u32
+        );
+        return Err(VMErrorCode::InvalidOperation);
+    }
+
+    // CRITICAL: Save caller's frame state BEFORE allocate_params zeroes param_start/param_len
     let caller_start = ctx.param_start();
     let caller_len = ctx.param_len();
 
-    // Save current state
+    // Allocate parameters for the new frame (clearing previous ones)
+    // Safe to cast to u8 now that we've validated param_count <= MAX_PARAMETERS
+    ctx.allocate_params(param_count as u8 + 1)?;
+
+    // Pop parameters from stack (Reverse order: Stack Top is Last Arg)
+    for i in 0..param_count {
+        let value = ctx.pop()?;
+        let idx = param_count - i;
+        ctx.parameters_mut()[idx] = value;
+    }
+
+    // Save current frame state for CallFrame restoration
     let current_ip = ctx.ip();
     let current_local_count = ctx.local_count();
     let current_local_base = ctx.local_base();
     let current_script = {
         let script_ref = ctx.script();
+        // SAFETY: script_ref is a valid slice from ctx, we're creating an independent
+        // slice with the same lifetime. Required to store in CallFrame for context restoration.
         unsafe { core::slice::from_raw_parts(script_ref.as_ptr(), script_ref.len()) }
     };
 
-    // Check if we have enough space for callee's locals
+    // Check if we have enough space for callee's locals before pushing frame
     let new_local_base = current_local_base + current_local_count;
-    let locals_to_allocate = 3; // Default local allocation
+    let locals_to_allocate = (param_count as usize).max(3);
     if (new_local_base as usize + locals_to_allocate) > crate::MAX_LOCALS {
+        // Return CallStackOverflow instead of LocalsOverflow to indicate call depth limit
         return Err(VMErrorCode::CallStackOverflow);
     }
 
-    // Save caller's frame state
+    // Save caller's frame state including local base offset
     ctx.push_call_frame(CallFrame::with_parameters(
         current_ip as u16,
         current_local_count,
@@ -249,35 +307,46 @@ fn handle_call_reg(ctx: &mut ExecutionManager) -> CompactResult<()> {
         current_script,
     ))?;
 
-    // Set callee's local base
+    // Set callee's local base to end of caller's locals (per-frame window)
     ctx.set_local_base(new_local_base);
     ctx.set_local_count(0);
-    ctx.allocate_locals(locals_to_allocate as u8)?;
-    ctx.set_ip(func_addr);
+    // Allocate locals for the callee frame
+    // Use max(param_count, 3) to allow functions to use at least 3 local slots by default
+    let locals_to_allocate = (param_count as u8).max(3);
+    ctx.allocate_locals(locals_to_allocate)?;
 
     // AUTO-LOAD: Copy data parameters into registers r0..rN-1
     // Parameters are 1-indexed (params[1] = first param), registers are 0-indexed
-    // Skip params[0] which is function index
-    // Load up to 8 data parameters into r0..r7
-    let param_count = caller_len as usize;
-    let max_reg_params = 8.min(param_count); // Max 8 registers for params
-    
-    for i in 0..max_reg_params {
-        // params[1] -> r0, params[2] -> r1, etc.
+    // Skip params[0] which is function index (or reserved)
+    // Load up to 8 data parameters into r0..r7, skipping AccountRefs (handled via account system)
+    let mut reg_idx = 0;
+
+    for i in 0..param_count {
+        if reg_idx >= 8 {
+            break;
+        }
+
+        // params[1] = first param
         let param_idx = i + 1;
-        if param_idx <= param_count {
-            let param_value = ctx.parameters()[param_idx];
-            // Only load non-empty params (skip account references which are handled differently)
-            if !param_value.is_empty() {
-                ctx.set_register(i as u8, param_value)?;
-                debug_log!(
-                    "MitoVM: CALL_REG auto-loaded param[{}] into r{}",
-                    param_idx,
-                    i
-                );
-            }
+        let param_value = ctx.parameters()[param_idx];
+
+        // Skip Empty values and AccountRefs (which are passed via account system/indices)
+        // We only load data values into registers to match compiler expectations
+        let is_account = matches!(param_value, five_protocol::ValueRef::AccountRef(_, _));
+
+        if !param_value.is_empty() && !is_account {
+            ctx.set_register(reg_idx as u8, param_value)?;
+            debug_log!(
+                "MitoVM: CALL_REG auto-loaded param[{}] into r{}",
+                param_idx,
+                reg_idx
+            );
+            reg_idx += 1;
         }
     }
+
+    // Jump to function (this is the critical missing operation)
+    ctx.set_ip(func_addr);
 
     debug_log!(
         "MitoVM: CALL_REG AFTER - local_base={}, local_count={}, new_IP={}, call_depth={}",

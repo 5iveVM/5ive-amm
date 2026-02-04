@@ -227,6 +227,56 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                                 len += 4;
                             } else { print!("(incomplete)"); }
                         }
+                        ArgType::FusedSubAdd => {
+                            // acc1(u8) + off1(VLE) + acc2(u8) + off2(VLE) + param(u8)
+                            if args_start < bytecode.len() {
+                                let acc1 = bytecode[args_start];
+                                print!("acc1:{} ", acc1);
+                                let mut curr = args_start + 1;
+                                if let Some((off1, l1)) = read_vle(&bytecode[curr..]) {
+                                    print!("off1:{} ", off1);
+                                    curr += l1;
+                                    if curr < bytecode.len() {
+                                        let acc2 = bytecode[curr];
+                                        print!("acc2:{} ", acc2);
+                                        curr += 1;
+                                        if let Some((off2, l2)) = read_vle(&bytecode[curr..]) {
+                                            print!("off2:{} ", off2);
+                                            curr += l2;
+                                            if curr < bytecode.len() {
+                                                let param = bytecode[curr];
+                                                print!("param:{}", param);
+                                                len = (curr + 1) - args_start;
+                                            } else { print!("param:(incomplete)"); len = curr - args_start; }
+                                        } else { print!("off2:(incomplete)"); len = curr - args_start; }
+                                    } else { print!("acc2:(incomplete)"); len = curr - args_start; }
+                                } else { print!("off1:(incomplete)"); len = curr - args_start; }
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::ParamImm => {
+                            // param(u8) + imm(u8)
+                            if args_start + 1 < bytecode.len() {
+                                print!("param:{} imm:{}", bytecode[args_start], bytecode[args_start+1]);
+                                len += 2;
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::FieldImm => {
+                            // acc(u8) + off(VLE) + imm(u8)
+                            if args_start < bytecode.len() {
+                                let acc = bytecode[args_start];
+                                print!("acc:{} ", acc);
+                                let mut curr = args_start + 1;
+                                if let Some((off, l)) = read_vle(&bytecode[curr..]) {
+                                    print!("off:{} ", off);
+                                    curr += l;
+                                    if curr < bytecode.len() {
+                                        let imm = bytecode[curr];
+                                        print!("imm:{}", imm);
+                                        len = (curr + 1) - args_start;
+                                    } else { print!("imm:(incomplete)"); len = curr - args_start; }
+                                } else { print!("off:(incomplete)"); len = curr - args_start; }
+                            } else { print!("(incomplete)"); }
+                        }
                     }
                 }
             }

@@ -549,8 +549,10 @@ impl FunctionDispatcher {
                 ))
                 .count() as u8;
 
-            // Use register mode if enabled AND function has <= 8 data params
-            let use_registers_for_call = self.use_registers && data_param_count <= 8;
+            // FIXED: Disable CALL_REG in dispatcher. Dispatcher uses explicit loading and
+            // manual parameter management that conflicts with CALL_REG's auto-collection logic.
+            // Dispatcher performance is negligible (once per tx), so we prioritize correctness.
+            let use_registers_for_call = false; // self.use_registers && data_param_count <= 8;
 
             if use_registers_for_call {
                 // REGISTER MODE: Push ALL parameters (accounts + data), then CALL_REG

@@ -445,6 +445,90 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                 acc_idx, offset, reg, current, reg_val, new_val);
         }
 
+        // FIELD_SUB_ADD_PARAM: acc1.field -= param; acc2.field += param
+        // Format: FIELD_SUB_ADD_PARAM acc1, off1, acc2, off2, param_idx
+        FIELD_SUB_ADD_PARAM => {
+            let acc1_idx = ctx.fetch_byte()?;
+            let off1 = ctx.fetch_vle_u16()?;
+            let acc2_idx = ctx.fetch_byte()?;
+            let off2 = ctx.fetch_vle_u16()?;
+            let param_idx = ctx.fetch_byte()?;
+
+            // 1. Load parameter
+            let param_value = ctx.parameters()[param_idx as usize]
+                .as_u64()
+                .ok_or(VMErrorCode::TypeMismatch)?;
+
+            // 2. Process Account 1 (Subtract)
+            {
+                let account1 = ctx.get_account_for_write(acc1_idx)?;
+                let data1 = unsafe { account1.borrow_mut_data_unchecked() };
+                
+                if (off1 as usize) + 8 > data1.len() {
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
+                
+                let current1 = u64::from_le_bytes(data1[off1 as usize..off1 as usize + 8].try_into().unwrap());
+                // Use wrapping sub for consistency with other ops, could use checked if desired
+                let new_val1 = current1.wrapping_sub(param_value);
+                data1[off1 as usize..off1 as usize + 8].copy_from_slice(&new_val1.to_le_bytes());
+            }
+
+            // 3. Process Account 2 (Add)
+            {
+                let account2 = ctx.get_account_for_write(acc2_idx)?;
+                let data2 = unsafe { account2.borrow_mut_data_unchecked() };
+                
+                if (off2 as usize) + 8 > data2.len() {
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
+                
+                let current2 = u64::from_le_bytes(data2[off2 as usize..off2 as usize + 8].try_into().unwrap());
+                let new_val2 = current2.wrapping_add(param_value);
+                data2[off2 as usize..off2 as usize + 8].copy_from_slice(&new_val2.to_le_bytes());
+            }
+            
+            debug_log!("MitoVM: FIELD_SUB_ADD_PARAM transferred {} from acc{} to acc{}", param_value, acc1_idx, acc2_idx);
+        }
+
+        // REQUIRE_PARAM_LTE_IMM: param <= immediate
+        // Format: REQUIRE_PARAM_LTE_IMM param_idx, imm_u8
+        REQUIRE_PARAM_LTE_IMM => {
+            let param_idx = ctx.fetch_byte()?;
+            let imm = ctx.fetch_byte()? as u64;
+
+            let param_value = ctx.parameters()[param_idx as usize]
+                .as_u64()
+                .ok_or(VMErrorCode::TypeMismatch)?;
+
+            if param_value > imm {
+                debug_log!("MitoVM: REQUIRE_PARAM_LTE_IMM failed: {} > {}", param_value, imm);
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+        }
+
+        // REQUIRE_FIELD_EQ_IMM: acc.field == immediate
+        // Format: REQUIRE_FIELD_EQ_IMM acc_idx, offset, imm_u8
+        REQUIRE_FIELD_EQ_IMM => {
+            let acc_idx = ctx.fetch_byte()?;
+            let offset = ctx.fetch_vle_u16()?;
+            let imm = ctx.fetch_byte()? as u64;
+
+            let account = ctx.get_account_for_read(acc_idx)?;
+            let data = unsafe { account.borrow_data_unchecked() };
+            
+            if (offset as usize) + 8 > data.len() {
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            
+            let field_val = u64::from_le_bytes(data[offset as usize..offset as usize + 8].try_into().unwrap());
+
+            if field_val != imm {
+                debug_log!("MitoVM: REQUIRE_FIELD_EQ_IMM failed: {} != {}", field_val, imm);
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+        }
+
         _ => {
             debug_log!("MitoVM: Unknown fused opcode: {}", opcode);
             return Err(VMErrorCode::InvalidInstruction);

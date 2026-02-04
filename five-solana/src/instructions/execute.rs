@@ -111,12 +111,11 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     #[cfg(feature = "debug-logs")]
     debug_log!("DEBUG: bytecode slice PASS len={}", bytecode.len());
 
-    // Initialize VM Storage (Static Buffer) to avoid Allocator overhead
+    // Initialize VM Storage using optimized heap allocation
+    // Uses new_on_heap() which constructs directly in heap memory to avoid stack overflow
+    let mut storage = StackStorage::new_on_heap(bytecode);
     unsafe {
-        use crate::get_vm_heap_ptr;
-        let storage = StackStorage::new_at_ptr(get_vm_heap_ptr(), bytecode);
-
-        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, storage) {
+        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage) {
             #[cfg(feature = "debug-logs")]
             debug_log!(
                 "MitoVM MAIN execution failed code={}",
@@ -128,27 +127,11 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         // Run post-execution hook if permission is set
         if has_permission(header.permissions, PERMISSION_POST_BYTECODE) {
             debug_log!("Running POST-BYTECODE hook");
-            // Reuse storage buffer (reset automatically by execute_direct?)
-            // VM re-initializes storage via initialize_execution_context which calls StackStorage::new...
-            // Wait, new_at_ptr RESETS the buffer.
-            // So calling new_at_ptr again is safe/required?
-            // Yes, initialize_execution_context takes storage.
-            // But execute_direct calls init...
-            // Actually, execute_direct calls initialize_execution_context which sets up ctx.
-            // Does execute_direct RESET storage?
-            // StackStorage::new_at_ptr resets it.
-            // But execute_direct takes `&mut StackStorage`.
-            // It does NOT call new_at_ptr.
-            // So storage might contain garbage from previous run?
-            // `initialize_execution_context` calls `ExecutionManager::new`.
-            // `ExecutionManager` uses the storage.
-            // `StackStorage` fields (stack, locals, etc) are initialized by `new_at_ptr`.
-            // If we reuse `storage` pointer, we need to RE-INITIALIZE it or trust `ExecutionManager` to overwrite?
-            // `ExecutionManager` relies on `storage` already being initialized (e.g. registers set to Empty).
-            // So we MUST re-initialize `storage` before second call.
 
-            let storage_retry = StackStorage::new_at_ptr(get_vm_heap_ptr(), bytecode); // Re-init
-            if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, storage_retry) {
+            // Allocate new optimized heap storage for retry
+            let mut storage_retry = StackStorage::new_on_heap(bytecode);
+
+            if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage_retry) {
                 #[cfg(feature = "debug-logs")]
                 debug_log!(
                     "MitoVM POST hook failed code={}",

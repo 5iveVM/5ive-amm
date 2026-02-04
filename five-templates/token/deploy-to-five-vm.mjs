@@ -47,7 +47,8 @@ async function deployTokenProgram() {
             process.exit(1);
         }
 
-        const bytecodeFile = path.join(__dirname, 'build/five-token-baseline.five');
+        const artifactName = process.env.FIVE_ARTIFACT || 'five-token-baseline.five';
+        const bytecodeFile = path.join(__dirname, 'build', artifactName);
         if (!fs.existsSync(bytecodeFile)) {
             console.log(`${RED}✗ File not found: ${bytecodeFile}${NC}`);
             process.exit(1);
@@ -174,7 +175,7 @@ async function deployTokenProgram() {
                 fromPubkey: payer.publicKey,
                 newAccountPubkey: scriptKeypair.publicKey,
                 lamports: initialLamports,
-                space: SCRIPT_HEADER_SIZE,  // Start with header size as expected
+                space: finalScriptSize,  // Allocate full size upfront to avoid realloc issues
                 programId: FIVE_PROGRAM_ID,
             }),
             new TransactionInstruction({

@@ -39,7 +39,15 @@
       "Bash(grep:*)",
       "Bash(cargo-build-sbf:*)",
       "Bash(rustup target:*)",
-      "Bash(npm run deploy:*)"
+      "Bash(npm run deploy:*)",
+      "Bash(ls:*)",
+      "Bash(./target/release/five compile:*)",
+      "Bash(npm run test:e2e:*)",
+      "Bash(1)",
+      "Bash(npm run test:*)",
+      "Bash(FIVE_PROGRAM_ID='6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k' FIVE_ARTIFACT='five-token-baseline.five' node:*)",
+      "Bash(FIVE_PROGRAM_ID=6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k npm run test:e2e:*)",
+      "Bash(FIVE_PROGRAM_ID=6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k FIVE_ARTIFACT=five-token-baseline.five node:*)"
     ]
   }
 }

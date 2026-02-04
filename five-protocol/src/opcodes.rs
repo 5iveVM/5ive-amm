@@ -386,11 +386,11 @@ pub const RETURN_ERROR: u8 = 0xEB; // return err() fusion
 pub const GT_ZERO_JUMP: u8 = 0xEC; // value > 0 ? jump : continue
 pub const LT_ZERO_JUMP: u8 = 0xED; // value < 0 ? jump : continue
 
-// LEGACY: Static precompile system (replaced by library accounts)
-#[cfg(feature = "precompiles")]
-pub const PRECOMPILE: u8 = 0xEE; // Execute precompiled pattern with parameters (LEGACY)
+// Universal bookkeeping optimizations
+pub const FIELD_SUB_ADD_PARAM: u8 = 0xEE; // acc1.x -= p; acc2.y += p (double-entry update)
+pub const REQUIRE_PARAM_LTE_IMM: u8 = 0xEF; // param <= imm (constant check)
 
-// 0xEF reserved for future pattern fusion opcodes
+// 0xF0-... ranges below
 
 // ===== ADVANCED/EXPERIMENTAL OPERATIONS (0xF0-0xFF) =====
 // 🎯 LOGICAL GROUPING: Optional/Result operations + experimental features
@@ -420,6 +420,10 @@ pub const UNPACK_TUPLE: u8 = 0xFA; // MOVED FROM 0x1A
 pub const OPTIONAL_IS_NONE: u8 = 0xFD; // Check if Optional is None
 pub const RESULT_IS_OK: u8 = 0xFE; // Check if Result is Ok
 pub const RESULT_IS_ERR: u8 = 0xFF; // Check if Result is Err
+
+// Additional fused check reused in Result range if needed, or define in unused range
+// We can use 0xAD-0xAF range if available, or replace unused ops
+pub const REQUIRE_FIELD_EQ_IMM: u8 = 0xAD; // acc.field == imm (state check)
 
 // Additional Result operations - using available slots in lower ranges
 pub const RESULT_UNWRAP: u8 = 0xAC; // Unwrap Result value (panic if Err)
@@ -484,7 +488,11 @@ pub enum ArgType {
     CallReg,        // function_index (u16)
     RegAccountField, // reg(u8) + account_index (u8) + field_offset (VLE)
     U16Fixed,       // Fixed 2-byte u16 (for patching)
+
     U32Fixed,       // Fixed 4-byte u32 (for patching)
+    FusedSubAdd,    // acc1(u8) + off1(VLE) + acc2(u8) + off2(VLE) + param(u8)
+    ParamImm,       // param(u8) + imm(u8)
+    FieldImm,       // acc(u8) + off(VLE) + imm(u8)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -790,6 +798,28 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     // PUSH_ACCOUNT removed due to conflict with ADD (0x20)
+    
+    OpcodeInfo {
+        opcode: FIELD_SUB_ADD_PARAM,
+        name: "FIELD_SUB_ADD_PARAM",
+        arg_type: ArgType::FusedSubAdd,
+        stack_effect: 0,
+        compute_cost: 5, // 2 loads + 2 stores + arithmetic
+    },
+    OpcodeInfo {
+        opcode: REQUIRE_PARAM_LTE_IMM,
+        name: "REQUIRE_PARAM_LTE_IMM",
+        arg_type: ArgType::ParamImm,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: REQUIRE_FIELD_EQ_IMM,
+        name: "REQUIRE_FIELD_EQ_IMM",
+        arg_type: ArgType::FieldImm,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
 
     // Arithmetic operations
     OpcodeInfo {

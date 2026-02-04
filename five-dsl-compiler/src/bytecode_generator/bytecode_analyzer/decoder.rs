@@ -607,6 +607,121 @@ fn decode_operands(
                 analyzer.position += 4;
             }
         }
+        ArgType::FusedSubAdd => {
+            // acc1(u8) + off1(VLE) + acc2(u8) + off2(VLE) + param(u8)
+            if analyzer.position < analyzer.bytecode.len() {
+                let acc1 = analyzer.bytecode[analyzer.position];
+                operands.push(OperandInfo {
+                    operand_type: "account_index".to_string(),
+                    raw_value: vec![acc1],
+                    decoded_value: Some(format!("acc1_{}", acc1)),
+                    size: 1,
+                    description: "First Account Index".to_string(),
+                });
+                analyzer.position += 1;
+
+                let (val1, bytes1, size1) = read_vle(analyzer)?;
+                operands.push(OperandInfo {
+                    operand_type: "field_offset".to_string(),
+                    raw_value: bytes1,
+                    decoded_value: Some(format!("offset1_{}", val1)),
+                    size: size1,
+                    description: "First Field Offset".to_string(),
+                });
+
+                if analyzer.position < analyzer.bytecode.len() {
+                    let acc2 = analyzer.bytecode[analyzer.position];
+                    operands.push(OperandInfo {
+                        operand_type: "account_index".to_string(),
+                        raw_value: vec![acc2],
+                        decoded_value: Some(format!("acc2_{}", acc2)),
+                        size: 1,
+                        description: "Second Account Index".to_string(),
+                    });
+                    analyzer.position += 1;
+
+                    let (val2, bytes2, size2) = read_vle(analyzer)?;
+                    operands.push(OperandInfo {
+                        operand_type: "field_offset".to_string(),
+                        raw_value: bytes2,
+                        decoded_value: Some(format!("offset2_{}", val2)),
+                        size: size2,
+                        description: "Second Field Offset".to_string(),
+                    });
+
+                    if analyzer.position < analyzer.bytecode.len() {
+                        let param = analyzer.bytecode[analyzer.position];
+                        operands.push(OperandInfo {
+                            operand_type: "param_index".to_string(),
+                            raw_value: vec![param],
+                            decoded_value: Some(format!("param_{}", param)),
+                            size: 1,
+                            description: "Parameter Index".to_string(),
+                        });
+                        analyzer.position += 1;
+                    }
+                }
+            }
+        }
+        ArgType::ParamImm => {
+            // param(u8) + imm(u8)
+            if analyzer.position + 1 < analyzer.bytecode.len() {
+                let param = analyzer.bytecode[analyzer.position];
+                let imm = analyzer.bytecode[analyzer.position + 1];
+                
+                operands.push(OperandInfo {
+                    operand_type: "param_index".to_string(),
+                    raw_value: vec![param],
+                    decoded_value: Some(format!("param_{}", param)),
+                    size: 1,
+                    description: "Parameter Index".to_string(),
+                });
+
+                operands.push(OperandInfo {
+                    operand_type: "u8_imm".to_string(),
+                    raw_value: vec![imm],
+                    decoded_value: Some(imm.to_string()),
+                    size: 1,
+                    description: "Immediate Value (u8)".to_string(),
+                });
+                analyzer.position += 2;
+            }
+        }
+        ArgType::FieldImm => {
+            // acc(u8) + off(VLE) + imm(u8)
+            if analyzer.position < analyzer.bytecode.len() {
+                let acc = analyzer.bytecode[analyzer.position];
+                operands.push(OperandInfo {
+                    operand_type: "account_index".to_string(),
+                    raw_value: vec![acc],
+                    decoded_value: Some(format!("acc_{}", acc)),
+                    size: 1,
+                    description: "Account Index".to_string(),
+                });
+                analyzer.position += 1;
+
+                let (val, bytes, size) = read_vle(analyzer)?;
+                operands.push(OperandInfo {
+                    operand_type: "field_offset".to_string(),
+                    raw_value: bytes,
+                    decoded_value: Some(format!("offset_{}", val)),
+                    size: size,
+                    description: "Field Offset".to_string(),
+                });
+
+                if analyzer.position < analyzer.bytecode.len() {
+                    let imm = analyzer.bytecode[analyzer.position];
+                    operands.push(OperandInfo {
+                        operand_type: "u8_imm".to_string(),
+                        raw_value: vec![imm],
+                        decoded_value: Some(imm.to_string()),
+                        size: 1,
+                        description: "Immediate Value (u8)".to_string(),
+                    });
+                    analyzer.position += 1;
+                }
+            }
+        }
     }
 
     // Handle special cases for specific opcodes that have unique operand patterns

@@ -13,6 +13,9 @@ pub mod opcodes;
 // ABI generation for client-side integration
 pub mod abi_generator;
 
+// Fused Opcode optimizations for CU reduction
+
+
 // Constraint optimization for account validation
 
 
@@ -527,6 +530,30 @@ impl DslBytecodeGenerator {
 
             // Finalize bytecode
             self.finalize_bytecode();
+
+            // CRITICAL: Verify bytecode JUMP targets before deployment
+            // This catches register optimization bugs where bytecode structure changes
+            // cause JUMP offsets to become invalid (error 8122: CallTargetOutOfBounds)
+            let verification_result = disassembler::verify_jump_targets(&self.bytecode);
+            if !verification_result.is_valid {
+                eprintln!("BYTECODE VERIFICATION FAILED:");
+                eprintln!("{}", verification_result.error_summary());
+                
+                // In debug builds, we panic to make the error highly visible
+                #[cfg(debug_assertions)]
+                {
+                    panic!("Bytecode contains invalid JUMP targets - check disassembler/verification.rs or jumps.rs");
+                }
+                
+                // In release builds, return error
+                #[cfg(not(debug_assertions))]
+                {
+                    return Err(VMError::InvalidInstructionPointer);
+                }
+            } else {
+                eprintln!("BYTECODE VERIFICATION: {} jumps validated, all within {} bytes", 
+                    verification_result.jump_count, verification_result.bytecode_length);
+            }
 
             // Emit import verification metadata if imports exist
             self.emit_import_metadata(&import_table)

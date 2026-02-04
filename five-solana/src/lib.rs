@@ -21,24 +21,9 @@ macro_rules! debug_log {
     };
 }
 
-// Global static buffer for VM StackStorage to avoid heap allocation syscalls
-// Size: 4KB (Sufficient for StackStorage ~2.5KB + alignment)
-// Using const to avoid writable sections in BPF, then cast to mutable for in-call usage.
-// SAFETY: Single-threaded Solana execution ensures no race conditions.
-// We must ensure reentrancy safety (no recursive calls to five program).
-// Storage is re-initialized on each instruction, so const initialization is safe.
-const H: [u128; 512] = [0; 512];
-
-// Helper to get H as a mutable byte pointer (safe within single instruction context)
-#[inline(always)]
-pub(crate) fn get_vm_heap_ptr() -> *mut u8 {
-    // SAFETY: H is const but we need mutable access for in-place initialization.
-    // This is safe because:
-    // 1. Storage is re-initialized for each instruction (single-use per call)
-    // 2. Solana ensures single-threaded execution
-    // 3. No concurrent access within a single instruction
-    unsafe { &H as *const [u128; 512] as *mut u8 }
-}
+// VM Storage is now allocated on the stack in execute.rs
+// This avoids the previous issue with const buffers in read-only memory
+// Stack allocation is writable and has zero syscall overhead
 
 mod common;
 mod error;
@@ -60,13 +45,14 @@ pub fn process_instruction(
 ) -> ProgramResult {
     #[cfg(feature = "debug-logs")]
     {
-        unsafe { pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@"); }
-        unsafe { pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START"); }
+        pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@");
+        pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START");
     }
     #[cfg(feature = "debug-logs")]
-    unsafe { pinocchio::log::sol_log("FORCE LOG ENTRY: FIVE VM ALIVE"); }
+    pinocchio::log::sol_log("FORCE LOG ENTRY: FIVE VM ALIVE");
 
-    unsafe { pinocchio::log::sol_log("@@@ UNCONDITIONAL LOG: FIVE VM ENTRY @@@"); }
+    #[cfg(feature = "debug-logs")]
+    pinocchio::log::sol_log("@@@ UNCONDITIONAL LOG: FIVE VM ENTRY @@@");
 
     debug_log!(
         "FIVE Optimized: Processing instruction with no_allocator"

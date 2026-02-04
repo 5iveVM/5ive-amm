@@ -225,8 +225,99 @@ impl ASTGenerator {
         false
     }
 
-    // ===== TIER 2: Field Assignment Fused Opcodes =====
+    // ===== TIER 3: Multi-Statement Fused Opcodes (Block Level) =====
 
+    /// Try to emit a fused opcode for a block of assignment statements.
+    /// This handles multi-statement patterns like "double entry bookkeeping"
+    /// Returns Ok(Some(consumed_count)) if a fused pattern was matched and emitted.
+    /// Returns Ok(None) if no pattern matched.
+    pub(super) fn try_emit_fused_assignment_block<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        statements: &[AstNode],
+        index: usize,
+    ) -> Result<Option<usize>, VMError> {
+        // Ensure we have at least 2 statements remaining for the smallest pattern
+        if index + 1 >= statements.len() {
+            return Ok(None);
+        }
+
+        // Pattern: FIELD_SUB_ADD_PARAM
+        // stmt1: acc1.field -= param (or acc1.field = acc1.field - param)
+        // stmt2: acc2.field += param (or acc2.field = acc2.field + param)
+        
+        let stmt1 = &statements[index];
+        let stmt2 = &statements[index + 1];
+
+        if let (
+            AstNode::FieldAssignment { object: obj1, field: field1, value: val1 },
+            AstNode::FieldAssignment { object: obj2, field: field2, value: val2 }
+        ) = (stmt1, stmt2) {
+            // Check first statement is SUB using param
+            if let Some((acc1_idx, offset1, param1_idx)) = self.match_field_sub_param(obj1, field1, val1) {
+                // Check second statement is ADD using SAME param
+                if let Some((acc2_idx, offset2, param2_idx)) = self.match_field_add_param(obj2, field2, val2) {
+                    if param1_idx == param2_idx {
+                        #[cfg(debug_assertions)]
+                        println!("FUSED_DEBUG: EMITTING FIELD_SUB_ADD_PARAM! acc1={} off1={} acc2={} off2={} param={}", 
+                            acc1_idx, offset1, acc2_idx, offset2, param1_idx);
+                        
+                        emitter.emit_opcode(FIELD_SUB_ADD_PARAM);
+                        emitter.emit_u8(acc1_idx);
+                        emitter.emit_vle_u16(offset1 as u16);
+                        emitter.emit_u8(acc2_idx);
+                        emitter.emit_vle_u16(offset2 as u16);
+                        emitter.emit_u8(param1_idx);
+                        
+                        return Ok(Some(2)); // Consumed 2 statements
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Match field assignment with SUB param pattern: field -= param
+    fn match_field_sub_param(&self, object: &AstNode, field: &str, value: &AstNode) -> Option<(u8, u32, u8)> {
+        // Resolve target account/field first
+        let (acc_idx, offset) = self.resolve_account_field(object, field)?;
+        
+        // Match value expression: field - param
+        let param_idx = self.match_field_arithmetic_pattern(object, field, value, "sub")?;
+        
+        Some((acc_idx, offset, param_idx))
+    }
+
+    /// Match field assignment with ADD param pattern: field += param
+    fn match_field_add_param(&self, object: &AstNode, field: &str, value: &AstNode) -> Option<(u8, u32, u8)> {
+        // Resolve target account/field first
+        let (acc_idx, offset) = self.resolve_account_field(object, field)?;
+        
+        // Match value expression: field + param
+        let param_idx = self.match_field_arithmetic_pattern(object, field, value, "add")?;
+        
+        Some((acc_idx, offset, param_idx))
+    }
+
+    /// Helper to resolve account field info
+    fn resolve_account_field(&self, object: &AstNode, field: &str) -> Option<(u8, u32)> {
+        if let AstNode::Identifier(account_name) = object {
+            if let Some(field_info) = self.local_symbol_table.get(account_name) {
+                let account_type = &field_info.field_type;
+                if let Ok(offset) = self.calculate_account_field_offset(account_type, field) {
+                    let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
+                        field_info.offset
+                    );
+                    return Some((acc_idx, offset));
+                }
+            }
+        }
+        None
+    }
+
+    // ===== TIER 2: Field Assignment Fused Opcodes =====
+    
     /// Try to emit a fused opcode for a field assignment.
     /// Matches patterns like: account.field = account.field + param
     /// Returns Ok(true) if a fused opcode was emitted, Ok(false) if not.
@@ -266,7 +357,7 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING ADD_FIELD_REG! acc={} offset={} reg={}", target_acc_idx, target_offset, reg_idx);
             emitter.emit_opcode(ADD_FIELD_REG);
             emitter.emit_u8(target_acc_idx);
-            emitter.emit_vle_u32(target_offset);
+            emitter.emit_vle_u16(target_offset as u16);
             emitter.emit_u8(reg_idx);
             return Ok(true);
         }
@@ -277,7 +368,7 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING SUB_FIELD_REG! acc={} offset={} reg={}", target_acc_idx, target_offset, reg_idx);
             emitter.emit_opcode(SUB_FIELD_REG);
             emitter.emit_u8(target_acc_idx);
-            emitter.emit_vle_u32(target_offset);
+            emitter.emit_vle_u16(target_offset as u16);
             emitter.emit_u8(reg_idx);
             return Ok(true);
         }
@@ -334,7 +425,7 @@ impl ASTGenerator {
             emitter.emit_opcode(STORE_FIELD_REG);
             emitter.emit_u8(reg_idx);
             emitter.emit_u8(target_acc_idx);
-            emitter.emit_vle_u32(target_offset);
+            emitter.emit_vle_u16(target_offset as u16);
             return Ok(true);
         }
 

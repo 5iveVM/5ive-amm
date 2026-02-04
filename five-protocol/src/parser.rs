@@ -489,6 +489,57 @@ pub fn parse_instruction(
                 None => return Err(ParseError::InvalidVLE),
             }
         }
+        ArgType::FusedSubAdd => {
+            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            let acc1 = bytecode[offset + total_size] as u64;
+            total_size += 1;
+            
+            let off1 = match VLE::decode_u32(&bytecode[offset + total_size..]) {
+                 Some((val, len)) => { total_size += len; val as u64 },
+                 None => return Err(ParseError::InvalidVLE)
+            };
+            
+            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            let acc2 = bytecode[offset + total_size] as u64;
+            total_size += 1;
+            
+            let off2 = match VLE::decode_u32(&bytecode[offset + total_size..]) {
+                 Some((val, len)) => { total_size += len; val as u64 },
+                 None => return Err(ParseError::InvalidVLE)
+            };
+            
+            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            let param = bytecode[offset + total_size] as u64;
+            total_size += 1;
+            
+            // Pack: Arg1 = (param << 56) | (acc1 << 32) | off1
+            // Arg2 = (acc2 << 32) | off2
+            arg1 = (param << 56) | (acc1 << 32) | off1;
+            arg2 = (acc2 << 32) | off2;
+        }
+        ArgType::ParamImm => {
+            if offset + total_size + 1 >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            arg1 = bytecode[offset + total_size] as u64;
+            arg2 = bytecode[offset + total_size + 1] as u64;
+            total_size += 2;
+        }
+        ArgType::FieldImm => {
+            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            let acc = bytecode[offset + total_size] as u64;
+            total_size += 1;
+            
+            let off = match VLE::decode_u32(&bytecode[offset + total_size..]) {
+                Some((val, len)) => { total_size += len; val as u64 },
+                None => return Err(ParseError::InvalidVLE)
+            };
+            
+            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            let imm = bytecode[offset + total_size] as u64;
+            total_size += 1;
+            
+            arg1 = (acc << 32) | off;
+            arg2 = imm;
+        }
     }
 
     // Check bounds

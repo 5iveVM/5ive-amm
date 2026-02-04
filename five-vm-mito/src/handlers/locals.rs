@@ -40,15 +40,20 @@ pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
         LOAD_PARAM_0..=LOAD_PARAM_3 => {
             let index = opcode - LOAD_PARAM_0;
             let value = ctx.parameters()[index as usize];
-            let val_u64 = value.as_u64().unwrap_or(999);
-            // EXFILTRATE DATA: Return custom error with value + (index << 16)
-            // Error code = (index * 10000) + val_u64
-            // e.g. Index 1, Val 6 -> 10006
+            
             if value.is_empty() {
-                ctx.push(ValueRef::U64(0))?;
-            } else {
-                ctx.push(value)?;
+                // PARAM 0 is often special (FuncIdx), but strict validation requires
+                // parameters to be valid/initialized. Returning 0 hides bugs.
+                // NOTE: If p[0] is truly empty in some contexts, logic might need adjustment,
+                // but usually p[0] is FuncIdx or initialized.
+                debug_log!(
+                    "MitoVM: LOAD_PARAM_{} ERROR - parameter is empty/uninitialized",
+                    index
+                );
+                return Err(VMErrorCode::InvalidParameter);
             }
+            
+            ctx.push(value)?;
         }
         _ => {
             debug_log!("MitoVM: Unknown nibble immediate opcode: {}", opcode);

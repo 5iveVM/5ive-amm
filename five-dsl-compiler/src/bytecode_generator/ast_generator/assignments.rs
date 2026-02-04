@@ -66,7 +66,7 @@ impl ASTGenerator {
                     emitter.emit_opcode(LOAD_FIELD_REG);
                     emitter.emit_u8(reg);
                     emitter.emit_u8(acc_idx);
-                    emitter.emit_vle_u32(field_offset);
+                    emitter.emit_vle_u16(field_offset as u16);
                     return Ok(());
                 }
 

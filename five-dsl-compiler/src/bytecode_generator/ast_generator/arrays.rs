@@ -51,8 +51,20 @@ impl ASTGenerator {
         emitter: &mut T,
         statements: &[AstNode],
     ) -> Result<(), VMError> {
-        for statement in statements {
-            self.generate_ast_node(emitter, statement)?;
+        let mut i = 0;
+        while i < statements.len() {
+            // Tier 3 Optimization: Check for multi-statement fusion patterns
+            // Example: double-entry bookkeeping (sub/add pairs) -> FIELD_SUB_ADD_PARAM
+            if let Some(consumed) = self.try_emit_fused_assignment_block(emitter, statements, i)? {
+                #[cfg(debug_assertions)]
+                println!("FUSED_DEBUG: Consumed {} statements for fused block pattern", consumed);
+                i += consumed;
+                continue;
+            }
+
+            // Fallback: Generate single statement
+            self.generate_ast_node(emitter, &statements[i])?;
+            i += 1;
         }
         Ok(())
     }

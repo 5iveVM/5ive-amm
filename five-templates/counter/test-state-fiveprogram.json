@@ -6,10 +6,10 @@
     "counterScriptAccount": "59ZqvZXJydHcv4EveDYBef7piF12pzhNhDrLx4x38YRR"
   },
   "accounts": {
-    "counter1": "J1L94EFFgPPLhCLsRkKZf2zEk6uGEN6NYyE57EDUjh7N",
-    "counter2": "9HqNvtX6UJ1ZfuybE6Zt34TgyhuLGw9V9rByQGVFagXX",
-    "user1": "FYsUhNNVSM441JYtC7obVBiZPHnNWfF5Xivo12vt9Pds",
-    "user2": "5zqDj5NRwhwwTTpKYsQX5aXmC869Wj2KFhDRyjQhYLB8",
+    "counter1": "DZ7HbcqezYs9wR1Xe9KcityYXSp8n3CEAgwTieGtbw9v",
+    "counter2": "AujjJqY4NVvSdKwpUmPCbbdmCgpZ2K6Zt28ShyTyGztU",
+    "user1": "FZdcLbCgeyXa1vbSXvH8i2GyLQoLGhkuYhDCRjNACFch",
+    "user2": "22aLnSyUSuDr6hwsYwzzY9Wh8btRY2dXhX3Gx4NJ2mUb",
     "payer": "EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt"
   },
   "expected": {
@@ -18,9 +18,9 @@
   },
   "results": {
     "totalTests": 13,
-    "passed": 2,
-    "failed": 11,
-    "totalComputeUnits": 30818,
-    "allPassed": false
+    "passed": 13,
+    "failed": 0,
+    "totalComputeUnits": 75199,
+    "allPassed": true
   }
 }

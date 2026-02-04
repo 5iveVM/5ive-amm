@@ -343,6 +343,7 @@ impl MitoVM {
                 CALL => handle_functions(CALL, ctx),
                 CALL_EXTERNAL => handle_functions(CALL_EXTERNAL, ctx),
                 CALL_NATIVE => handle_functions(CALL_NATIVE, ctx),
+                CALL_REG => handle_functions(CALL_REG, ctx),
                 PREPARE_CALL => handle_functions(PREPARE_CALL, ctx),
                 FINISH_CALL => handle_functions(FINISH_CALL, ctx),
 

@@ -352,7 +352,8 @@ impl TestUtils {
         bytecode: &[u8],
         accounts: &[AccountInfo],
     ) -> Result<Option<Value>> {
-        MitoVM::execute_direct(bytecode, &[], accounts, &Pubkey::default())
+        let mut storage = crate::stack::StackStorage::new(bytecode);
+        MitoVM::execute_direct(bytecode, &[], accounts, &Pubkey::default(), &mut storage)
     }
 
     /// Run account constraint validation test
