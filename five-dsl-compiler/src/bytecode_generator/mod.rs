@@ -55,10 +55,6 @@ pub mod performance;
 // Module merging for multi-file compilation
 pub mod module_merger;
 
-pub mod register_allocator;
-
-pub mod linear_scan_allocator;
-
 // Account indices in bytecode are offset by VM state account.
 // Script account is stripped by five-solana (&accounts[1..]).
 // VM View: Index 0=VM State, 1=param0, 2=param1
@@ -147,11 +143,6 @@ pub struct DslBytecodeGenerator {
     /// Whether to include debug info (function metadata) in bytecode
     pub(crate) include_debug_info: bool,
 
-    /// Whether to use register-based optimization
-    use_registers: bool,
-
-    /// Whether to use linear scan allocation
-    use_linear_scan_allocation: bool,
 }
 
 impl DslBytecodeGenerator {
@@ -199,10 +190,6 @@ impl DslBytecodeGenerator {
 
             // Default: include debug info in testing mode
             include_debug_info: matches!(mode, CompilationMode::Testing),
-
-            // Register-based optimization disabled by default
-            use_registers: false,
-            use_linear_scan_allocation: false,
         }
     }
 
@@ -380,8 +367,6 @@ impl DslBytecodeGenerator {
     fn generate_internal(&mut self, ast: &AstNode) -> Result<Vec<u8>, VMError> {
             // Check if we need function dispatch to determine header format
             let mut dispatcher = FunctionDispatcher::new();
-            // CRITICAL: Propagate register optimization flags to dispatcher
-            dispatcher.set_use_registers(self.use_registers);
             let has_functions = dispatcher.has_callable_functions(ast);
 
             // Collect function count for OptimizedHeader
@@ -468,10 +453,6 @@ impl DslBytecodeGenerator {
                 let mut ast_generator =
                     ASTGenerator::with_optimization_level(self.optimization_level);
 
-                // CRITICAL: Propagate register optimization flags to AST generator
-                ast_generator.set_use_registers(self.use_registers);
-                ast_generator.set_use_linear_scan_allocation(self.use_linear_scan_allocation);
-
                 // Pass interface registry to AST generator if available
                 if let Some(ref interface_registry) = self.interface_registry {
                     ast_generator.set_interface_registry(interface_registry.clone());
@@ -502,10 +483,6 @@ impl DslBytecodeGenerator {
                 // Use direct AST generation for simple scripts
                 let mut ast_generator =
                     ASTGenerator::with_optimization_level(self.optimization_level);
-
-                // CRITICAL: Propagate register optimization flags to AST generator
-                ast_generator.set_use_registers(self.use_registers);
-                ast_generator.set_use_linear_scan_allocation(self.use_linear_scan_allocation);
 
                 // Pass interface registry to AST generator if available
                 if let Some(ref interface_registry) = self.interface_registry {
@@ -771,15 +748,6 @@ impl DslBytecodeGenerator {
         self.compilation_log.push(entry);
     }
 
-    /// Enable or disable register-based optimization
-    pub fn set_use_registers(&mut self, enabled: bool) {
-        self.use_registers = enabled;
-    }
-
-    /// Enable or disable linear scan allocation
-    pub fn set_use_linear_scan_allocation(&mut self, enabled: bool) {
-        self.use_linear_scan_allocation = enabled;
-    }
 }
 
 impl Default for DslBytecodeGenerator {

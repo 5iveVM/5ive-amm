@@ -78,10 +78,6 @@ pub struct ExecutionContext<'a> {
     // --- Import verification metadata ---
     pub import_metadata: ImportMetadata<'a>,
 
-    // --- Static Registers (16 x ValueRef for universal storage) ---
-    // Zero allocation overhead - direct array indexing
-    pub registers: [ValueRef; 16],
-
     // --- Syscall Caching ---
     pub cached_clock: Option<pinocchio::sysvars::clock::Clock>,
     pub cached_rent: Option<pinocchio::sysvars::rent::Rent>,
@@ -155,7 +151,6 @@ impl<'a> ExecutionContext<'a> {
                 // If parsing fails, create empty metadata (backward compatible)
                 ImportMetadata::new(&[], 0).unwrap()
             }),
-            registers: [ValueRef::Empty; 16], // Static registers, zero-initialized
             cached_clock: None,
             cached_rent: None,
         }
@@ -176,22 +171,6 @@ impl<'a> ExecutionContext<'a> {
     #[inline(always)]
     pub fn peek(&self) -> CompactResult<ValueRef> {
         self.stack.peek()
-    }
-
-    // --- Register operations (Direct u64 access) ---
-
-    #[inline(always)]
-    pub fn get_register(&self, reg: u8) -> CompactResult<ValueRef> {
-        // Mask to 15 (0-15) to guarantee bounds safety with zero branching
-        let idx = (reg & 0x0F) as usize;
-        unsafe { Ok(*self.registers.get_unchecked(idx)) }
-    }
-
-    #[inline(always)]
-    pub fn set_register(&mut self, reg: u8, value: ValueRef) -> CompactResult<()> {
-        let idx = (reg & 0x0F) as usize;
-        unsafe { *self.registers.get_unchecked_mut(idx) = value; }
-        Ok(())
     }
 
     // --- Bytecode fetching ---

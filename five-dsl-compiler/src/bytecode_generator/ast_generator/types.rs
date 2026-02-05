@@ -118,16 +118,7 @@ pub struct ASTGenerator {
     /// External imports for CALL_EXTERNAL generation
     /// Maps module name to ExternalImport info
     pub(crate) external_imports: HashMap<String, ExternalImport>,
-    
-    /// Register allocator for optimized math operations
-    pub(crate) register_allocator: crate::bytecode_generator::register_allocator::RegisterAllocator,
-
-    /// Flag to enable register-based optimization
-    pub(crate) use_registers: bool,
 
     /// Scope analyzer for variable lifetime tracking
     pub(crate) scope_analyzer: crate::bytecode_generator::scope_analyzer::ScopeAnalyzer,
-
-    /// Flag to enable linear scan register allocation
-    pub(crate) use_linear_scan_allocation: bool,
 }

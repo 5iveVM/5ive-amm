@@ -453,10 +453,6 @@ pub const ARITHMETIC_CHAIN: u8 = 0xE2;
 /// Account access optimizations - using standard LOAD_FIELD/STORE_FIELD with VLE + zero-copy by default
 pub const BATCH_ACCOUNT_ACCESS: u8 = 0xE5;
 
-/// Register optimization opcodes
-pub const REGISTER_SPILL: u8 = 0xE6;
-pub const REGISTER_RESTORE: u8 = 0xE7;
-
 /// Scope management opcodes
 pub const SCOPE_ALLOC: u8 = 0xE8;
 pub const SCOPE_DEALLOC: u8 = 0xE9;

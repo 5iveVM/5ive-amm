@@ -76,12 +76,12 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
 
                 // Additional Semantic Checks
 
-                // Check CALL targets (Internal, External, Register-based)
-                if matches!(inst.opcode, opcodes::CALL | opcodes::CALL_REG | opcodes::CALL_EXTERNAL) {
-                    // For CALL and CALL_REG, arg1 is the function address (absolute offset)
+                // Check CALL targets (Internal, External)
+                if matches!(inst.opcode, opcodes::CALL | opcodes::CALL_EXTERNAL) {
+                    // For CALL, arg1 is the function address (absolute offset)
                     // For CALL_EXTERNAL, arg1 bits 0-23 contain the function offset in external script
                     // We only validate internal targets here.
-                    if inst.opcode == opcodes::CALL || inst.opcode == opcodes::CALL_REG {
+                    if inst.opcode == opcodes::CALL {
                         let func_addr = inst.arg1 as usize;
                         // Log which CALL we're checking (use inst_count as unique ID)
                         debug_log!("Checking CALL#{}: offset={} target={} bytecode_len={}", inst_count, offset, func_addr, bytecode.len());

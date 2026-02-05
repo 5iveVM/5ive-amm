@@ -11,7 +11,6 @@ use crate::type_checker::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 use five_vm_mito::error::VMError;
 
 use std::collections::HashMap;
-use crate::bytecode_generator::register_allocator::RegisterAllocator;
 use crate::bytecode_generator::scope_analyzer::ScopeAnalyzer;
 
 impl ASTGenerator {
@@ -50,15 +49,8 @@ impl ASTGenerator {
             precomputed_allocations: None,
             // External imports for CALL_EXTERNAL generation
             external_imports: HashMap::new(),
-            // Initialize register allocator
-            register_allocator: RegisterAllocator::new(),
-            // Default to false - register optimization is experimental and disabled by default
-            // Use --enable-registers CLI flag to opt-in to register-based optimization
-            use_registers: false,
             // Initialize scope analyzer for variable lifetime tracking
             scope_analyzer: ScopeAnalyzer::new(),
-            // Default to false - linear scan is opt-in
-            use_linear_scan_allocation: false,
         }
     }
 
@@ -243,13 +235,4 @@ impl ASTGenerator {
         }
     }
 
-    /// Enable or disable register-based optimization
-    pub fn set_use_registers(&mut self, enabled: bool) {
-        self.use_registers = enabled;
-    }
-
-    /// Enable or disable linear scan register allocation
-    pub fn set_use_linear_scan_allocation(&mut self, enabled: bool) {
-        self.use_linear_scan_allocation = enabled;
-    }
 }

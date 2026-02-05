@@ -194,42 +194,6 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                 offset += super::call_decoder::call_size(bytecode, offset);
             }
 
-            // CALL_REG instruction (register mode): function_address(u16 fixed)
-            // Format: opcode(1) + function_address(u16)
-            opcodes::CALL_REG => {
-                jump_count += 1;
-
-                if offset + 3 > bytecode_len {
-                    errors.push(VerificationError {
-                        offset,
-                        opcode,
-                        opcode_name: "CALL_REG",
-                        target: 0,
-                        reason: "Truncated: missing CALL_REG function address".to_string(),
-                    });
-                    break;
-                }
-
-                // Read function_address (2 bytes, fixed u16)
-                let target = u16::from_le_bytes([bytecode[offset + 1], bytecode[offset + 2]]);
-
-                if target as usize >= bytecode_len {
-                    errors.push(VerificationError {
-                        offset,
-                        opcode,
-                        opcode_name: "CALL_REG",
-                        target,
-                        reason: format!(
-                            "Out of bounds: target {} >= bytecode length {} ({}% overflow)",
-                            target,
-                            bytecode_len,
-                            (target as usize * 100) / bytecode_len
-                        ),
-                    });
-                }
-
-                offset += 3; // opcode + u16
-            }
 
             // BR_EQ_U8: compare_value(u8) + vle_offset
             opcodes::BR_EQ_U8 => {
@@ -360,7 +324,7 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
         opcodes::CHECK_UNINITIALIZED |
         opcodes::SET_LOCAL | opcodes::GET_LOCAL | opcodes::LOAD_PARAM | opcodes::STORE_PARAM |
         opcodes::ALLOC_LOCALS | opcodes::DEALLOC_LOCALS |
-        opcodes::PUSH_REG | opcodes::POP_REG | opcodes::CLEAR_REG | opcodes::CAST |
+        opcodes::CAST |
         opcodes::CREATE_ARRAY | opcodes::PUSH_ARRAY_LITERAL |
         // Account opcodes taking 1 byte account index
         opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT | 
@@ -371,25 +335,7 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
         opcodes::REQUIRE_PARAM_GT_ZERO => 1, // param(u8)
 
         // Two byte operands
-        opcodes::COPY_REG |
-        // Fused: two u8 operands
-        // Fused: two u8 operands
-        opcodes::REQUIRE_GTE_REG | opcodes::REQUIRE_PARAM_LTE_IMM => 2, // src1(u8) + src2(u8) OR param(u8) + imm(u8)
-
-        // Three byte operands (dest, src1, src2)
-        opcodes::ADD_REG | opcodes::SUB_REG | opcodes::MUL_REG | opcodes::DIV_REG |
-        opcodes::EQ_REG | opcodes::GT_REG | opcodes::LT_REG => 3,
-
-        // LOAD_REG variants: reg(1) + immediate value
-        opcodes::LOAD_REG_U8 => 2,   // reg + u8
-        opcodes::LOAD_REG_BOOL => 2, // reg + bool
-        opcodes::LOAD_REG_U32 => { // reg + u32 (VLE)
-            1 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4)
-        }
-        opcodes::LOAD_REG_U64 => { // reg + u64 (VLE)
-            1 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 9)
-        }
-        opcodes::LOAD_REG_PUBKEY => 33, // reg + 32 bytes
+        opcodes::REQUIRE_PARAM_LTE_IMM => 2, // param(u8) + imm(u8)
 
         // VLE-encoded operands - need to parse VLE to know actual size
         opcodes::PUSH_U16 => decode_vle_size(remaining, 2),
@@ -413,16 +359,8 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
         opcodes::FIELD_SUB_PARAM |     // acc(u8) offset(VLE) param(u8)
         opcodes::STORE_PARAM_TO_FIELD | // acc(u8) offset(VLE) param(u8)
         opcodes::STORE_KEY_TO_FIELD |  // acc(u8) offset(VLE) key_acc(u8)
-        opcodes::ADD_FIELD_REG |       // acc(u8) offset(VLE) reg(u8)
-        opcodes::SUB_FIELD_REG |       // acc(u8) offset(VLE) reg(u8)
         opcodes::REQUIRE_FIELD_EQ_IMM => { // acc(u8) offset(VLE) imm(u8)
             2 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4)
-        }
-
-        // Fused opcodes with reg(u8) + acc(u8) + offset(VLE) format
-        opcodes::LOAD_FIELD_REG |      // reg(u8) acc(u8) offset(VLE) 
-        opcodes::STORE_FIELD_REG => {  // reg(u8) acc(u8) offset(VLE)
-            2 + decode_vle_size(remaining.get(2..).unwrap_or(&[]), 4)
         }
 
         // Fused opcodes with acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE) format
