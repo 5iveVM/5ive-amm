@@ -41,9 +41,6 @@ pub struct FunctionDispatcher {
     /// Stores both direct addresses and PDA seeds for imported Five bytecode
     /// NEW: For import verification feature flag
     import_table: ImportTable,
-
-    /// Whether to use register-based function calls
-    use_registers: bool,
 }
 
 impl FunctionDispatcher {
@@ -57,13 +54,7 @@ impl FunctionDispatcher {
             imported_fields: HashMap::new(),
             dispatch_patch_locations: HashMap::new(),
             import_table: ImportTable::new(),  // NEW: Initialize empty import table
-            use_registers: false,
         }
-    }
-
-    /// Enable or disable register-based optimization
-    pub fn set_use_registers(&mut self, enabled: bool) {
-        self.use_registers = enabled;
     }
 
     // Duplicate `get_functions` removed here. A single canonical `get_functions`
@@ -535,94 +526,40 @@ impl FunctionDispatcher {
             // CALL creates new frame where these become params[1..N].
             // Function body uses data-only LOAD_PARAM indices to access them.
             //
-            // REGISTER MODE: When use_registers=true and data_params <= 8,
-            // emit CALL_REG instead. VM auto-loads params to registers r0-r7.
-            // Function body uses PUSH_REG r0, r1, etc. (already implemented).
-            //
-            // This maintains proper frame isolation for recursion/nested calls
-            // while keeping param indexing consistent.
+            // STACK MODE: Original behavior - LOAD_PARAM + CALL
+            let mut actual_data_count: u8 = 0;
 
-            // Count data parameters first (needed for both modes)
-            let _data_param_count: u8 = function_parameters.iter()
-                .filter(|p| !super::account_utils::is_account_parameter(
-                    &p.param_type, &p.attributes, None
-                ))
-                .count() as u8;
+            for param in function_parameters.iter() {
+                let is_account = super::account_utils::is_account_parameter(
+                    &param.param_type,
+                    &param.attributes,
+                    None
+                );
+                if is_account { continue; }
 
-            // FIXED: Disable CALL_REG in dispatcher. Dispatcher uses explicit loading and
-            // manual parameter management that conflicts with CALL_REG's auto-collection logic.
-            // Dispatcher performance is negligible (once per tx), so we prioritize correctness.
-            let use_registers_for_call = false; // self.use_registers && data_param_count <= 8;
+                actual_data_count += 1;
+                let original_index = function_parameters.iter()
+                    .position(|p| p.name == param.name)
+                    .unwrap_or(0) as u8 + 1;
 
-            if use_registers_for_call {
-                // REGISTER MODE: Push ALL parameters (accounts + data), then CALL_REG
-                // CALL_REG will auto-filter in the VM: load only data params to r0..r7, skip accounts
-                for param in function_parameters.iter() {
-                    // Generate parameter loading code for ALL parameters
-                    let _is_account = super::account_utils::is_account_parameter(
-                        &param.param_type,
-                        &param.attributes,
-                        None
-                    );
-
-                    let original_index = function_parameters.iter()
-                        .position(|p| p.name == param.name)
-                        .unwrap_or(0) as u8 + 1;
-
-                    // Use optimized opcodes if possible
-                    match original_index {
-                        1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
-                        2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
-                        3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
-                        _ => {
-                            emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
-                            emitter.emit_u8(original_index);
-                        }
+                // Use optimized opcodes if possible
+                match original_index {
+                    1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
+                    2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
+                    3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
+                    _ => {
+                        emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
+                        emitter.emit_u8(original_index);
                     }
                 }
-
-                // Emit CALL_REG (VM auto-loads data params to registers, skips accounts)
-                emitter.emit_opcode(five_protocol::opcodes::CALL_REG);
-
-                let call_offset_pos = emitter.get_position();
-                self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
-                emitter.emit_u16(0xFFFF); // Placeholder for function offset
-            } else {
-                // STACK MODE: Original behavior - LOAD_PARAM + CALL
-                let mut actual_data_count: u8 = 0;
-
-                for param in function_parameters.iter() {
-                    let is_account = super::account_utils::is_account_parameter(
-                        &param.param_type,
-                        &param.attributes,
-                        None
-                    );
-                    if is_account { continue; }
-
-                    actual_data_count += 1;
-                    let original_index = function_parameters.iter()
-                        .position(|p| p.name == param.name)
-                        .unwrap_or(0) as u8 + 1;
-
-                    // Use optimized opcodes if possible
-                    match original_index {
-                        1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
-                        2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
-                        3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
-                        _ => {
-                            emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
-                            emitter.emit_u8(original_index);
-                        }
-                    }
-                }
-
-                emitter.emit_opcode(five_protocol::opcodes::CALL);
-                emitter.emit_u8(actual_data_count);
-
-                let call_offset_pos = emitter.get_position();
-                self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
-                emitter.emit_u16(0xFFFF); // Placeholder for function offset
             }
+
+            emitter.emit_opcode(five_protocol::opcodes::CALL);
+            emitter.emit_u8(actual_data_count);
+
+            let call_offset_pos = emitter.get_position();
+            self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
+            emitter.emit_u16(0xFFFF); // Placeholder for function offset
 
             // HALT after return
             emitter.emit_opcode(five_protocol::opcodes::HALT);
@@ -873,26 +810,6 @@ impl FunctionDispatcher {
         
         let mut account_counter: u32 = 0;
         let mut data_counter: u32 = 0;
-
-        // CRITICAL: Map data parameters to registers BEFORE adding to symbol table
-        // This ensures the register allocator knows about parameter mappings
-        if self.use_registers {
-            let mut reg_data_counter = 0u8;
-            for param in parameters.iter() {
-                let is_account = super::account_utils::is_account_parameter(
-                    &param.param_type,
-                    &param.attributes,
-                    Some(account_system.get_account_registry())
-                );
-
-                // Only map DATA parameters to registers (accounts are not register-allocated)
-                if !is_account {
-                    if let Some(_reg) = ast_generator.register_allocator.map_parameter(&param.name, reg_data_counter) {
-                        reg_data_counter += 1;
-                    }
-                }
-            }
-        }
 
         for (_index, param) in parameters.iter().enumerate() {
             let param_type = self.type_node_to_string(&param.param_type);

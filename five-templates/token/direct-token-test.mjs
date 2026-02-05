@@ -45,21 +45,6 @@ async function testToken() {
 
         console.log(`✓ Compiled bytecode available (${bytecodeBuffer.length} bytes)`);
 
-        // Check for register opcodes (0xB0-0xBF and 0xCB-0xCF)
-        let registerOpcodes = 0;
-        for (let i = 0; i < bytecodeBuffer.length; i++) {
-            const opcode = bytecodeBuffer[i];
-            if ((opcode >= 0xB0 && opcode <= 0xBF) || (opcode >= 0xCB && opcode <= 0xCF)) {
-                registerOpcodes++;
-            }
-        }
-
-        console.log(`  Register opcodes found: ${registerOpcodes}`);
-        if (registerOpcodes > 0) {
-            console.log(`  ✓ Register optimizations are present in bytecode!`);
-        } else {
-            console.log(`  ⚠ No register opcodes found (compilation may not have registers enabled)`);
-        }
     }
 
     console.log('');
@@ -68,7 +53,7 @@ async function testToken() {
     console.log('✓ Token script is deployed');
     console.log('✓ All prerequisites verified');
     console.log('');
-    console.log('The register-optimized token template is ready for execution!');
+    console.log('The token template is ready for execution!');
 }
 
 testToken().catch(console.error);

@@ -321,30 +321,6 @@ pub fn parse_instruction(
             arg1 = bytecode[offset + total_size] as u64;
             total_size += 1;
         }
-        ArgType::TwoRegisters => {
-            if offset + total_size + 1 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            arg1 = bytecode[offset + total_size] as u64;
-            arg2 = bytecode[offset + total_size + 1] as u64;
-            total_size += 2;
-        }
-        ArgType::ThreeRegisters => {
-            if offset + total_size + 2 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            arg1 = bytecode[offset + total_size] as u64;
-            arg2 = ((bytecode[offset + total_size + 1] as u64) << 8)
-                | bytecode[offset + total_size + 2] as u64;
-            total_size += 3;
-        }
-        ArgType::RegisterIndex => {
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            arg1 = bytecode[offset + total_size] as u64;
-            total_size += 1;
-        }
         ArgType::CallExternal => {
             if offset + total_size + 3 >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
@@ -456,38 +432,6 @@ pub fn parse_instruction(
             // arg2 = (acc2 << 32) | off2
             arg1 = (acc1 << 32) | off1;
             arg2 = (acc2 << 32) | off2;
-        }
-        ArgType::CallReg => {
-            // CALL_REG: function_index (u16)
-            if offset + total_size + 1 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let addr_bytes = [
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-            ];
-            arg1 = u16::from_le_bytes(addr_bytes) as u64;
-            total_size += 2;
-        }
-        ArgType::RegAccountField => {
-            // reg(u8) + account_index(u8) + field_offset(VLE)
-            if offset + total_size + 1 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let reg = bytecode[offset + total_size] as u64;
-            let acc = bytecode[offset + total_size + 1] as u64;
-            total_size += 2;
-
-            match VLE::decode_u32(&bytecode[offset + total_size..]) {
-                Some((value, consumed)) => {
-                    let field_offset = value as u64;
-                    total_size += consumed;
-                    
-                    // Pack into args: arg1 = (reg << 40) | (acc << 32) | field_offset
-                    arg1 = (reg << 40) | (acc << 32) | field_offset;
-                }
-                None => return Err(ParseError::InvalidVLE),
-            }
         }
         ArgType::FusedSubAdd => {
             if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }

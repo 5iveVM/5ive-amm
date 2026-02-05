@@ -269,7 +269,6 @@ pub const CALL_EXTERNAL: u8 = 0x91; // Call function in external account bytecod
 pub const CALL_NATIVE: u8 = 0x92; // MOVED FROM 0x82 (not implemented)
 pub const PREPARE_CALL: u8 = 0x93; // MOVED FROM 0x83 (not implemented)
 pub const FINISH_CALL: u8 = 0x94; // MOVED FROM 0x84 (not implemented)
-pub const CALL_REG: u8 = 0x95; // Call function with arguments in registers
 
 
 // ===== LOCAL VARIABLE OPERATIONS (0xA0-0xAF) =====
@@ -294,33 +293,6 @@ pub const GET_SIGNER_KEY: u8 = 0xAB;
 
 // NOTE: All scattered array operations have been moved to 0x60-0x6F range
 // NOTE: All pattern fusion operations will be moved to 0xE0-0xEF range
-
-// ===== REGISTER OPERATIONS (0xB0-0xBF) =====
-// Hybrid VM register operations for performance optimization (moved from 0xE0-0xEF)
-
-// Register load operations
-pub const LOAD_REG_U8: u8 = 0xB0; // LOAD_REG reg, u8_value
-pub const LOAD_REG_U32: u8 = 0xB1; // LOAD_REG reg, u32_value
-pub const LOAD_REG_U64: u8 = 0xB2; // LOAD_REG reg, u64_value
-pub const LOAD_REG_BOOL: u8 = 0xB3; // LOAD_REG reg, bool_value
-pub const LOAD_REG_PUBKEY: u8 = 0xB4; // LOAD_REG reg, pubkey_value
-
-// Register arithmetic operations
-pub const ADD_REG: u8 = 0xB5; // ADD_REG dest, src1, src2
-pub const SUB_REG: u8 = 0xB6; // SUB_REG dest, src1, src2
-pub const MUL_REG: u8 = 0xB7; // MUL_REG dest, src1, src2
-pub const DIV_REG: u8 = 0xB8; // DIV_REG dest, src1, src2
-
-// Register comparison operations
-pub const EQ_REG: u8 = 0xB9; // EQ_REG dest, src1, src2
-pub const GT_REG: u8 = 0xBA; // GT_REG dest, src1, src2
-pub const LT_REG: u8 = 0xBB; // LT_REG dest, src1, src2
-
-// Register-stack bridge operations
-pub const PUSH_REG: u8 = 0xBC; // PUSH_REG reg (push register to stack)
-pub const POP_REG: u8 = 0xBD; // POP_REG reg (pop stack to register)
-pub const COPY_REG: u8 = 0xBE; // COPY_REG dest, src
-pub const CLEAR_REG: u8 = 0xBF; // CLEAR_REG reg
 
 // ===== FUSED REQUIRE OPERATIONS (0xC0-0xCF) =====
 // See definitions at end of file: REQUIRE_GTE_U64, REQUIRE_NOT_BOOL, etc.
@@ -477,16 +449,11 @@ pub enum ArgType {
     FunctionIndex,
     LocalIndex,
     AccountIndex,
-    RegisterIndex,  // Register index (0-15)
-    TwoRegisters,   // Two register indices
-    ThreeRegisters, // Three register indices (dest, src1, src2)
     CallExternal,   // account_index (u8) + function_offset (u16) + param_count (u8)
     CallInternal,   // param_count (u8) + function_address (u16)
     AccountField,   // account_index (u8) + field_offset (VLE)
     AccountFieldParam, // account_index (u8) + field_offset (VLE) + param_index (u8)
     FusedAccAcc,    // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
-    CallReg,        // function_index (u16)
-    RegAccountField, // reg(u8) + account_index (u8) + field_offset (VLE)
     U16Fixed,       // Fixed 2-byte u16 (for patching)
 
     U32Fixed,       // Fixed 4-byte u32 (for patching)
@@ -775,13 +742,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::None,
         stack_effect: 0,
         compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: CALL_REG,
-        name: "CALL_REG",
-        arg_type: ArgType::CallReg, // Uses u16 function index (params in regs)
-        stack_effect: 0,
-        compute_cost: 2,
     },
     OpcodeInfo {
         opcode: PUSH_PUBKEY,
@@ -1353,119 +1313,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     }, // VLE encoded value
     // Note: JUMP_TABLE (0xB0) opcode removed from protocol
 
-    // Register operations (hybrid VM performance optimization)
-    OpcodeInfo {
-        opcode: LOAD_REG_U8,
-        name: "LOAD_REG_U8",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_REG_U32,
-        name: "LOAD_REG_U32",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_REG_U64,
-        name: "LOAD_REG_U64",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_REG_BOOL,
-        name: "LOAD_REG_BOOL",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LOAD_REG_PUBKEY,
-        name: "LOAD_REG_PUBKEY",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: ADD_REG,
-        name: "ADD_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: SUB_REG,
-        name: "SUB_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: MUL_REG,
-        name: "MUL_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 2,
-    },
-    OpcodeInfo {
-        opcode: DIV_REG,
-        name: "DIV_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 3,
-    },
-    OpcodeInfo {
-        opcode: EQ_REG,
-        name: "EQ_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: GT_REG,
-        name: "GT_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: LT_REG,
-        name: "LT_REG",
-        arg_type: ArgType::ThreeRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: PUSH_REG,
-        name: "PUSH_REG",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: POP_REG,
-        name: "POP_REG",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: -1,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: COPY_REG,
-        name: "COPY_REG",
-        arg_type: ArgType::TwoRegisters,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
-    OpcodeInfo {
-        opcode: CLEAR_REG,
-        name: "CLEAR_REG",
-        arg_type: ArgType::RegisterIndex,
-        stack_effect: 0,
-        compute_cost: 1,
-    },
     // Array and string operations
     OpcodeInfo {
         opcode: PUSH_ARRAY_LITERAL,
@@ -1858,41 +1705,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 0,
         compute_cost: 4,
     },
-    OpcodeInfo {
-        opcode: 0xCB, // LOAD_FIELD_REG
-        name: "LOAD_FIELD_REG",
-        arg_type: ArgType::RegAccountField,
-        stack_effect: 0,
-        compute_cost: 3,
-    },
-    OpcodeInfo {
-        opcode: 0xCC, // REQUIRE_GTE_REG
-        name: "REQUIRE_GTE_REG",
-        arg_type: ArgType::TwoRegisters,
-        stack_effect: 0,
-        compute_cost: 3,
-    },
-    OpcodeInfo {
-        opcode: 0xCD, // STORE_FIELD_REG
-        name: "STORE_FIELD_REG",
-        arg_type: ArgType::RegAccountField,
-        stack_effect: 0,
-        compute_cost: 3,
-    },
-    OpcodeInfo {
-        opcode: 0xCE, // ADD_FIELD_REG
-        name: "ADD_FIELD_REG",
-        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + reg(u8)
-        stack_effect: 0,
-        compute_cost: 3,
-    },
-    OpcodeInfo {
-        opcode: 0xCF, // SUB_FIELD_REG
-        name: "SUB_FIELD_REG",
-        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + reg(u8)
-        stack_effect: 0,
-        compute_cost: 3,
-    },
 ];
 
 /// Get opcode information by opcode value (zero-allocation lookup)
@@ -1992,23 +1804,3 @@ pub const STORE_KEY_TO_FIELD: u8 = 0xC9;
 /// Encoding: REQUIRE_EQ_FIELDS acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
 /// Use: source.mint == dest.mint (field-to-field comparison)
 pub const REQUIRE_EQ_FIELDS: u8 = 0xCA;
-
-/// LOAD_FIELD_REG: Load an account field directly into a register
-/// Format: LOAD_FIELD_REG <reg>, <account_idx>, <field_offset>
-pub const LOAD_FIELD_REG: u8 = 0xCB;
-
-/// REQUIRE_GTE_REG: Compare two registers and fail if src1 < src2
-/// Format: REQUIRE_GTE_REG <src1>, <src2>
-pub const REQUIRE_GTE_REG: u8 = 0xCC;
-
-/// STORE_FIELD_REG: Store a register value directly into an account field
-/// Format: STORE_FIELD_REG <reg>, <account_idx>, <field_offset>
-pub const STORE_FIELD_REG: u8 = 0xCD;
-
-/// ADD_FIELD_REG: field = field + reg
-/// Format: ADD_FIELD_REG <account_idx>, <field_offset>, <reg>
-pub const ADD_FIELD_REG: u8 = 0xCE;
-
-/// SUB_FIELD_REG: field = field - reg
-/// Format: SUB_FIELD_REG <account_idx>, <field_offset>, <reg>
-pub const SUB_FIELD_REG: u8 = 0xCF;

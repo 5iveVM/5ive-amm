@@ -15,7 +15,6 @@ pub mod arrays;
 pub mod functions;
 pub mod locals;
 pub mod option_result;
-pub mod registers;
 pub mod syscalls;
 pub mod system;
 
@@ -32,7 +31,6 @@ pub use arrays::handle_arrays;
 pub use functions::handle_functions;
 pub use locals::{handle_locals, handle_nibble_locals};
 pub use option_result::handle_option_result_ops;
-pub use registers::handle_registers;
 pub use syscalls::*;
 pub use system::{
     handle_init_ops, handle_invoke_ops, handle_pda_ops, handle_system_ops, handle_sysvar_ops,

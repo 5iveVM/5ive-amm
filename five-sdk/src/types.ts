@@ -33,7 +33,6 @@ export interface ProjectConfig {
 export interface ProjectOptimizations {
   enableVLE?: boolean;
   enableCompression?: boolean;
-  enableRegisterAllocation?: boolean;
   enableConstraintOptimization?: boolean;
   optimizationLevel?: 'production' | 'development';
 }

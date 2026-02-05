@@ -293,48 +293,6 @@ fn decode_operands(
                 analyzer.position += 1;
             }
         }
-        ArgType::RegisterIndex => {
-            if analyzer.position < analyzer.bytecode.len() {
-                let value = analyzer.bytecode[analyzer.position];
-                operands.push(OperandInfo {
-                    operand_type: "register_index".to_string(),
-                    raw_value: vec![value],
-                    decoded_value: Some(format!("r{}", value)),
-                    size: 1,
-                    description: "Register index (0-15)".to_string(),
-                });
-                analyzer.position += 1;
-            }
-        }
-        ArgType::TwoRegisters => {
-            if analyzer.position + 1 < analyzer.bytecode.len() {
-                let reg1 = analyzer.bytecode[analyzer.position];
-                let reg2 = analyzer.bytecode[analyzer.position + 1];
-                operands.push(OperandInfo {
-                    operand_type: "two_registers".to_string(),
-                    raw_value: vec![reg1, reg2],
-                    decoded_value: Some(format!("r{}, r{}", reg1, reg2)),
-                    size: 2,
-                    description: "Two register indices (dest, src)".to_string(),
-                });
-                analyzer.position += 2;
-            }
-        }
-        ArgType::ThreeRegisters => {
-            if analyzer.position + 2 < analyzer.bytecode.len() {
-                let reg1 = analyzer.bytecode[analyzer.position];
-                let reg2 = analyzer.bytecode[analyzer.position + 1];
-                let reg3 = analyzer.bytecode[analyzer.position + 2];
-                operands.push(OperandInfo {
-                    operand_type: "three_registers".to_string(),
-                    raw_value: vec![reg1, reg2, reg3],
-                    decoded_value: Some(format!("r{}, r{}, r{}", reg1, reg2, reg3)),
-                    size: 3,
-                    description: "Three register indices (dest, src1, src2)".to_string(),
-                });
-                analyzer.position += 3;
-            }
-        }
         ArgType::CallExternal => {
             if analyzer.position + 3 < analyzer.bytecode.len() {
                 let account_idx = analyzer.bytecode[analyzer.position];
@@ -517,57 +475,6 @@ fn decode_operands(
                         decoded_value: Some(format!("offset2_{}", val2)),
                         size: size2,
                         description: "Second Field Offset".to_string(),
-                    });
-                }
-            }
-        }
-        ArgType::CallReg => {
-            if analyzer.position + 1 < analyzer.bytecode.len() {
-                let value = u16::from_le_bytes([
-                    analyzer.bytecode[analyzer.position],
-                    analyzer.bytecode[analyzer.position + 1],
-                ]);
-                operands.push(OperandInfo {
-                    operand_type: "function_index".to_string(),
-                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
-                    decoded_value: Some(format!("func_{}", value)),
-                    size: 2,
-                    description: "Function index for register call".to_string(),
-                });
-                analyzer.position += 2;
-            }
-        }
-        ArgType::RegAccountField => {
-            // reg(u8) + acc(u8) + offset(VLE)
-            if analyzer.position < analyzer.bytecode.len() {
-                let reg = analyzer.bytecode[analyzer.position];
-                operands.push(OperandInfo {
-                    operand_type: "register_index".to_string(),
-                    raw_value: vec![reg],
-                    decoded_value: Some(format!("r{}", reg)),
-                    size: 1,
-                    description: "Register Index".to_string(),
-                });
-                analyzer.position += 1;
-
-                if analyzer.position < analyzer.bytecode.len() {
-                    let acc = analyzer.bytecode[analyzer.position];
-                    operands.push(OperandInfo {
-                        operand_type: "account_index".to_string(),
-                        raw_value: vec![acc],
-                        decoded_value: Some(format!("account_{}", acc)),
-                        size: 1,
-                        description: "Account Index".to_string(),
-                    });
-                    analyzer.position += 1;
-
-                    let (val, bytes, size) = read_vle(analyzer)?;
-                    operands.push(OperandInfo {
-                        operand_type: "field_offset".to_string(),
-                        raw_value: bytes,
-                        decoded_value: Some(format!("offset_{}", val)),
-                        size: size,
-                        description: "Field Offset (VLE)".to_string(),
                     });
                 }
             }
@@ -1065,7 +972,8 @@ pub(crate) fn categorize_instruction(opcode: u8) -> InstructionCategory {
         SYSTEM_BASE..=0x8F => InstructionCategory::System,
         FUNCTION_BASE..=0x9F => InstructionCategory::Function,
         LOCAL_BASE..=0xAF => InstructionCategory::Local,
-        REGISTER_BASE..=0xBF => InstructionCategory::Register,
+        // REGISTER_BASE removed
+        0xB0..=0xBF => InstructionCategory::Unknown,
         0xC0..=0xCF => InstructionCategory::Unknown, // Removed account views
         0xD0..=0xD7 => InstructionCategory::Local,   // Nibble locals
         0xD8..=0xDF => InstructionCategory::Test,    // Test framework

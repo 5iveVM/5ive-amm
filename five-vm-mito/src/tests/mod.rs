@@ -40,7 +40,4 @@ pub mod framework;
 // mod vle_param_decoding;
 
 #[cfg(all(test, feature = "test-utils"))]
-mod stack_error_repro;
-
-#[cfg(all(test, feature = "test-utils"))]
 pub mod repro_issue;
