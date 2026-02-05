@@ -741,7 +741,7 @@ impl FunctionDispatcher {
         self.update_function_offset(&function_name, function_offset)?;
 
         // Connect ScopeAnalyzer optimizations to ASTGenerator
-        let allocations_vec = scope_analyzer.optimize_register_allocation(function_name)?;
+        let allocations_vec = scope_analyzer.optimize_local_slots(function_name)?;
         let mut allocations_map = HashMap::new();
         let mut max_local_index: i32 = -1;
         for (name, slot) in allocations_vec {

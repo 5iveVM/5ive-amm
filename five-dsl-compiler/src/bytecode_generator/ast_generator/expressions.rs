@@ -20,8 +20,8 @@ impl ASTGenerator {
         right: &AstNode,
         operator: &str,
     ) -> Result<(), VMError> {
-        // Try register-optimized binary expression first
-        if self.try_register_binary_expression(emitter, left, right, operator)? {
+        // Try optimized binary expression first
+        if self.try_optimized_binary_expression(emitter, left, right, operator)? {
             return Ok(());
         }
 
@@ -75,8 +75,8 @@ impl ASTGenerator {
         Ok(())
     }
 
-    /// Try to generate register-optimized binary expression
-    pub(super) fn try_register_binary_expression<T: OpcodeEmitter>(
+    /// Try to generate optimized binary expression
+    pub(super) fn try_optimized_binary_expression<T: OpcodeEmitter>(
         &mut self,
         emitter: &mut T,
         left: &AstNode,

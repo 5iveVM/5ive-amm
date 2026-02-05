@@ -103,16 +103,6 @@ impl CompilationConfig {
         self
     }
 
-    /// Enable or disable register-based optimization (Removed)
-    pub fn with_use_registers(self, _enable: bool) -> Self {
-        self
-    }
-
-    /// Enable or disable linear scan register allocation (Removed)
-    pub fn with_linear_scan_allocation(self, _enable: bool) -> Self {
-        self
-    }
-
     /// Parse optimization level from string (for CLI integration)
     pub fn parse_optimization_level(level_str: &str) -> Result<OptimizationLevel, String> {
         match level_str.to_lowercase().as_str() {

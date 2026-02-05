@@ -395,7 +395,7 @@ pub const RESULT_IS_ERR: u8 = 0xFF; // Check if Result is Err
 
 // Additional fused check reused in Result range if needed, or define in unused range
 // We can use 0xAD-0xAF range if available, or replace unused ops
-pub const REQUIRE_FIELD_EQ_IMM: u8 = 0xAD; // acc.field == imm (state check)
+pub const REQUIRE_FIELD_EQ_IMM: u8 = 0xCB; // acc.field == imm (state check)
 
 // Additional Result operations - using available slots in lower ranges
 pub const RESULT_UNWRAP: u8 = 0xAC; // Unwrap Result value (panic if Err)
