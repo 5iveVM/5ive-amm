@@ -73,8 +73,6 @@ pub enum VMErrorCode {
     CallStackUnderflow = 22,
     /// Data buffer overflow
     DataBufferOverflow = 23,
-    /// Invalid register index
-    InvalidRegister = 24,
     /// Invalid operation
     InvalidOperation = 25,
     /// Parse error during compilation
@@ -174,7 +172,6 @@ impl VMErrorCode {
             Self::CallStackOverflow => "Function call stack overflow",
             Self::CallStackUnderflow => "Function call stack underflow",
             Self::DataBufferOverflow => "Data buffer overflow",
-            Self::InvalidRegister => "Invalid register index",
             Self::InvalidOperation => "Invalid operation",
             Self::ParseError => "Parse error during compilation",
             Self::UnexpectedToken => "Unexpected token during parsing",
@@ -249,7 +246,6 @@ impl From<VMErrorCode> for ProgramError {
             VMErrorCode::CallStackOverflow => ProgramError::InvalidInstructionData,
             VMErrorCode::CallStackUnderflow => ProgramError::InvalidInstructionData,
             VMErrorCode::DataBufferOverflow => ProgramError::Custom(9005),
-            VMErrorCode::InvalidRegister => ProgramError::InvalidInstructionData,
             VMErrorCode::InvalidOperation => ProgramError::InvalidInstructionData,
             VMErrorCode::ParseError => ProgramError::InvalidInstructionData,
             VMErrorCode::UnexpectedToken => ProgramError::InvalidInstructionData,
@@ -354,8 +350,6 @@ pub enum VMError {
     CallStackUnderflow,
     /// Data buffer overflow
     DataBufferOverflow,
-    /// Invalid register index
-    InvalidRegister,
     /// Invalid operation
     InvalidOperation,
     /// Parse error during compilation with detailed context
@@ -479,7 +473,6 @@ impl VMError {
             VMError::CallStackOverflow => ProgramError::InvalidInstructionData,
             VMError::CallStackUnderflow => ProgramError::InvalidInstructionData,
             VMError::DataBufferOverflow => ProgramError::Custom(9005),
-            VMError::InvalidRegister => ProgramError::InvalidInstructionData,
             VMError::InvalidOperation => ProgramError::InvalidInstructionData,
             VMError::ParseError { .. } => ProgramError::InvalidInstructionData,
             VMError::UnexpectedToken => ProgramError::InvalidInstructionData,
@@ -546,7 +539,6 @@ impl From<VMError> for VMErrorCode {
             VMError::CallStackOverflow => VMErrorCode::CallStackOverflow,
             VMError::CallStackUnderflow => VMErrorCode::CallStackUnderflow,
             VMError::DataBufferOverflow => VMErrorCode::DataBufferOverflow,
-            VMError::InvalidRegister => VMErrorCode::InvalidRegister,
             VMError::InvalidOperation => VMErrorCode::InvalidOperation,
             VMError::ParseError { .. } => VMErrorCode::ParseError,
             VMError::UnexpectedToken => VMErrorCode::UnexpectedToken,
@@ -619,7 +611,6 @@ impl From<VMErrorCode> for VMError {
             VMErrorCode::CallStackOverflow => VMError::CallStackOverflow,
             VMErrorCode::CallStackUnderflow => VMError::CallStackUnderflow,
             VMErrorCode::DataBufferOverflow => VMError::DataBufferOverflow,
-            VMErrorCode::InvalidRegister => VMError::InvalidRegister,
             VMErrorCode::InvalidOperation => VMError::InvalidOperation,
             VMErrorCode::ParseError => VMError::UnexpectedToken,
             VMErrorCode::UnexpectedToken => VMError::UnexpectedToken,
@@ -780,7 +771,6 @@ impl std::fmt::Display for VMError {
                 msg("Function call stack underflow (return without call)")
             }
             VMError::DataBufferOverflow => msg("Data buffer overflow"),
-            VMError::InvalidRegister => msg("Invalid register index"),
             VMError::InvalidOperation => msg("Invalid operation"),
             VMError::ParseError {
                 expected,
