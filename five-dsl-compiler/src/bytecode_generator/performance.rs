@@ -460,8 +460,6 @@ impl Default for ZeroCopyOptimizer {
 
 /// Main performance optimizer that orchestrates all optimization techniques
 pub struct PerformanceOptimizer {
-    /// Register allocation system
-    register_allocator: RegisterAllocator,
     /// Advanced constraint optimization engine
     constraint_optimizer: AdvancedConstraintOptimization,
     /// Scope analysis system
@@ -471,7 +469,6 @@ pub struct PerformanceOptimizer {
     /// Zero-copy account system
     zerocopy_optimizer: ZeroCopyOptimizer,
     /// Performance optimization flags
-    enable_register_optimization: bool,
     enable_constraint_optimization: bool,
     enable_scope_optimization: bool,
     enable_bulk_optimization: bool,
@@ -482,7 +479,6 @@ impl PerformanceOptimizer {
     /// Create a new performance optimizer
     pub fn new() -> Self {
         Self {
-            register_allocator: RegisterAllocator::new(),
             constraint_optimizer: AdvancedConstraintOptimization {
                 global_patterns: HashMap::new(),
                 constraint_lifting: ConstraintLifting {
@@ -499,7 +495,6 @@ impl PerformanceOptimizer {
             scope_analyzer: super::scope_analyzer::ScopeAnalyzer::new(),
             bulk_optimizer: BulkOperationOptimizer::new(),
             zerocopy_optimizer: ZeroCopyOptimizer::new(),
-            enable_register_optimization: true,
             enable_constraint_optimization: true,
             enable_scope_optimization: true,
             enable_bulk_optimization: true,
@@ -510,13 +505,12 @@ impl PerformanceOptimizer {
     /// Configure performance optimizations
     pub fn configure(
         &mut self,
-        register_opt: bool,
+        _register_opt: bool,
         constraint_opt: bool,
         scope_opt: bool,
         bulk_opt: bool,
         zerocopy_opt: bool,
     ) {
-        self.enable_register_optimization = register_opt;
         self.enable_constraint_optimization = constraint_opt;
         self.enable_scope_optimization = scope_opt;
         self.enable_bulk_optimization = bulk_opt;
@@ -535,12 +529,6 @@ impl PerformanceOptimizer {
         if self.enable_scope_optimization {
             let scope_savings = self.optimize_scopes(ast)?;
             report.scope_optimization_savings = scope_savings;
-        }
-
-        // Phase 2: Register allocation optimization
-        if self.enable_register_optimization {
-            let register_savings = self.optimize_registers(emitter, ast)?;
-            report.register_optimization_savings = register_savings;
         }
 
         // Phase 3: Constraint optimization
@@ -590,17 +578,6 @@ impl PerformanceOptimizer {
         Ok(total_savings)
     }
 
-    /// Optimize register allocation
-    fn optimize_registers<T: OpcodeEmitter>(
-        &mut self,
-        _emitter: &mut T,
-        _ast: &AstNode,
-    ) -> Result<u32, VMError> {
-        // Register optimization happens during code generation
-        // Estimate savings based on available registers
-        let available_registers = self.register_allocator.available_register_count() as u32;
-        Ok(available_registers * 3) // ~3 CU saved per register use
-    }
 
     /// Optimize constraint checking
     fn optimize_constraints<T: OpcodeEmitter>(
@@ -726,10 +703,6 @@ impl PerformanceOptimizer {
 
         report.push_str("Enabled optimizations:\n");
         report.push_str(&format!(
-            "  Register optimization: {}\n",
-            self.enable_register_optimization
-        ));
-        report.push_str(&format!(
             "  Constraint optimization: {}\n",
             self.enable_constraint_optimization
         ));
@@ -747,10 +720,6 @@ impl PerformanceOptimizer {
         ));
 
         report.push_str("\nOptimization statistics:\n");
-        report.push_str(&format!(
-            "  Available registers: {}\n",
-            self.register_allocator.available_register_count()
-        ));
         report.push_str(&format!(
             "  Global constraint patterns: {}\n",
             self.constraint_optimizer.global_patterns.len()
@@ -771,15 +740,6 @@ impl PerformanceOptimizer {
         report
     }
 
-    /// Get register allocator reference
-    pub fn get_register_allocator(&self) -> &RegisterAllocator {
-        &self.register_allocator
-    }
-
-    /// Get mutable register allocator reference
-    pub fn get_register_allocator_mut(&mut self) -> &mut RegisterAllocator {
-        &mut self.register_allocator
-    }
 
     /// Get constraint optimizer reference
     pub fn get_constraint_optimizer(&self) -> &AdvancedConstraintOptimization {
@@ -811,7 +771,6 @@ impl Default for PerformanceOptimizer {
 /// Performance optimization report
 #[derive(Debug, Clone)]
 pub struct PerformanceReport {
-    pub register_optimization_savings: u32,
     pub constraint_optimization_savings: u32,
     pub scope_optimization_savings: u32,
     pub bulk_optimization_savings: u32,
@@ -822,7 +781,6 @@ pub struct PerformanceReport {
 impl PerformanceReport {
     pub fn new() -> Self {
         Self {
-            register_optimization_savings: 0,
             constraint_optimization_savings: 0,
             scope_optimization_savings: 0,
             bulk_optimization_savings: 0,
@@ -832,8 +790,7 @@ impl PerformanceReport {
     }
 
     pub fn calculate_total_savings(&mut self) {
-        self.total_savings = self.register_optimization_savings
-            + self.constraint_optimization_savings
+        self.total_savings = self.constraint_optimization_savings
             + self.scope_optimization_savings
             + self.bulk_optimization_savings
             + self.zerocopy_optimization_savings;
@@ -869,13 +826,11 @@ impl super::DslBytecodeGenerator {
         let report = optimizer.optimize_performance(&mut dummy_generator, ast)?;
         Ok(format!(
             "Performance Optimization Summary\n\
-             Register optimization: {} CU saved\n\
              Constraint optimization: {} CU saved\n\
              Scope optimization: {} CU saved\n\
              Bulk optimization: {} CU saved\n\
              Zero-copy optimization: {} CU saved\n\
              Total savings: {} CU",
-            report.register_optimization_savings,
             report.constraint_optimization_savings,
             report.scope_optimization_savings,
             report.bulk_optimization_savings,
@@ -894,7 +849,6 @@ mod tests {
     #[test]
     fn test_performance_optimizer_creation() {
         let optimizer = PerformanceOptimizer::new();
-        assert!(optimizer.enable_register_optimization);
         assert!(optimizer.enable_constraint_optimization);
         assert!(optimizer.enable_scope_optimization);
         assert!(optimizer.enable_bulk_optimization);
@@ -919,14 +873,13 @@ mod tests {
     #[test]
     fn test_performance_report() {
         let mut report = PerformanceReport::new();
-        report.register_optimization_savings = 10;
         report.constraint_optimization_savings = 20;
         report.scope_optimization_savings = 15;
         report.bulk_optimization_savings = 25;
         report.zerocopy_optimization_savings = 30;
 
         report.calculate_total_savings();
-        assert_eq!(report.total_savings, 100);
+        assert_eq!(report.total_savings, 90);
     }
 
     #[test]

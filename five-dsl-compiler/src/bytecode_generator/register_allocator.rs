@@ -15,7 +15,7 @@
 // - Without linear scan: variables stay in registers throughout function scope
 
 use std::collections::HashMap;
-use crate::bytecode_generator::linear_scan_allocator::{LinearScanAllocator, LiveInterval};
+use crate::bytecode_generator::linear_scan_allocator::LinearScanAllocator;
 
 /// Represents a VM register index (0-15)
 pub type RegisterIndex = u8;
