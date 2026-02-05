@@ -72,21 +72,6 @@ pub enum Instruction {
         offset: usize,
         len: usize,
     },
-    LoadRegU8 {
-        offset: usize,
-        reg: u8,
-        value: u8,
-    },
-    LoadRegU32 {
-        offset: usize,
-        reg: u8,
-        value: u32,
-    },
-    LoadRegU64 {
-        offset: usize,
-        reg: u8,
-        value: u64,
-    },
     CheckSigner {
         offset: usize,
         account_index: u8,

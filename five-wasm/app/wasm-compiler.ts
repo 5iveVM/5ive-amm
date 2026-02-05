@@ -344,10 +344,6 @@ export class WasmCompilerService {
             opcode === ops.CREATE_ARRAY || opcode === ops.SET_LOCAL ||
             opcode === ops.GET_LOCAL || opcode === ops.LOAD_PARAM ||
             opcode === ops.STORE_PARAM || opcode === ops.CAST ||
-            opcode === ops.LOAD_REG_U8 || opcode === ops.LOAD_REG_U32 ||
-            opcode === ops.LOAD_REG_U64 || opcode === ops.LOAD_REG_BOOL ||
-            opcode === ops.LOAD_REG_PUBKEY || opcode === ops.PUSH_REG ||
-            opcode === ops.POP_REG || opcode === ops.CLEAR_REG ||
             opcode === ops.TRANSFER_DEBIT || opcode === ops.TRANSFER_CREDIT ||
             opcode === ops.BULK_LOAD_FIELD_N) {
             return 2; // opcode + u8
@@ -420,17 +416,6 @@ export class WasmCompilerService {
             // u8 val + u16 off (VLE encoded? parser says ArgType::U8, but emitter emits VLE u16 too)
             // Assuming 1 + 1 + VLE size
             return 2 + decodeVLESize(ip + 2);
-        }
-
-        if (opcode === ops.COPY_REG) {
-             return 3; // opcode + 2 reg indices
-        }
-
-        if (opcode === ops.ADD_REG || opcode === ops.SUB_REG ||
-            opcode === ops.MUL_REG || opcode === ops.DIV_REG ||
-            opcode === ops.EQ_REG || opcode === ops.GT_REG ||
-            opcode === ops.LT_REG) {
-            return 4; // opcode + 3 reg indices
         }
 
         // 1 byte opcodes

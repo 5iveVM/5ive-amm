@@ -219,30 +219,7 @@ Standard arithmetic on U64/I64 values.
 | 0xAB | `GET_SIGNER_KEY` | None | +1 | Get signer pubkey. | Auth utility. |
 | 0xAF | `CAST` | `type` (U8) | 0 | Type cast value. | Type system safety/conversion. |
 
-#### 12. Register Operations (0xB0-0xBF)
-
-Hybrid VM optimizations to reduce stack traffic.
-
-| Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
-|:---:|:---|:---|:---:|:---|:---|
-| 0xB0 | `LOAD_REG_U8` | `reg`, `val` | 0 | Load immediate U8 to reg. | Fast constant access. |
-| 0xB1 | `LOAD_REG_U32` | `reg`, `val` | 0 | Load immediate U32. | Fast constant access. |
-| 0xB2 | `LOAD_REG_U64` | `reg`, `val` | 0 | Load immediate U64. | Fast constant access. |
-| 0xB3 | `LOAD_REG_BOOL` | `reg`, `val` | 0 | Load immediate Bool. | Fast constant access. |
-| 0xB4 | `LOAD_REG_PUBKEY` | `reg`, `val` | 0 | Load immediate Pubkey. | Fast constant access. |
-| 0xB5 | `ADD_REG` | `dest`, `s1`, `s2` | 0 | Register addition. | **Performance**: Math without stack pop/push overhead. |
-| 0xB6 | `SUB_REG` | `dest`, `s1`, `s2` | 0 | Register subtraction. | Performance optimization. |
-| 0xB7 | `MUL_REG` | `dest`, `s1`, `s2` | 0 | Register multiplication. | Performance optimization. |
-| 0xB8 | `DIV_REG` | `dest`, `s1`, `s2` | 0 | Register division. | Performance optimization. |
-| 0xB9 | `EQ_REG` | `dest`, `s1`, `s2` | 0 | Register equality. | Performance optimization. |
-| 0xBA | `GT_REG` | `dest`, `s1`, `s2` | 0 | Register > check. | Performance optimization. |
-| 0xBB | `LT_REG` | `dest`, `s1`, `s2` | 0 | Register < check. | Performance optimization. |
-| 0xBC | `PUSH_REG` | `reg` | +1 | Push register to stack. | Moving from fast registers to stack. |
-| 0xBD | `POP_REG` | `reg` | -1 | Pop stack to register. | Moving from stack to fast registers. |
-| 0xBE | `COPY_REG` | `dest`, `src` | 0 | Copy register. | Fast local data movement. |
-| 0xBF | `CLEAR_REG` | `reg` | 0 | Zero register. | Cleanup. |
-
-#### 13. Nibble/Compressed Operations (0xD0-0xDF)
+#### 12. Nibble/Compressed Operations (0xD0-0xDF)
 
 Highly optimized single-byte instructions for common operations.
 
@@ -253,7 +230,7 @@ Highly optimized single-byte instructions for common operations.
 | 0xD8-DB| `PUSH_0..3` | None | +1 | Push 0, 1, 2, or 3. | **Compression**: Replaces `PUSH_U64 + val` (2-9 bytes) with 1 byte. Huge savings for counters/indices. |
 | 0xDC-DF| `LOAD_PARAM_0..3`| None | +1 | Load param 0-3. | **Compression**: 50% savings for argument access. |
 
-#### 14. Advanced/Experimental (0xF0-0xFF)
+#### 13. Advanced/Experimental (0xF0-0xFF)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
@@ -281,7 +258,7 @@ The design of the Five VM opcode set balances several competing requirements:
 1.  **Compactness**: Instructions like `JUMP_IF`, `REQUIRE`, and the nibble operations (0xD0-0xDF) are designed to minimize binary size, which translates to lower deployment costs on Solana.
 2.  **Solana Alignment**: Account operations map directly to Solana's account model, efficiently using CPIs and local state management.
 3.  **Safety**: Checked arithmetic and explicit constraint opcodes (`CHECK_SIGNER`, `CHECK_WRITABLE`) allow for robust security assertions.
-4.  **Performance**: Zero-copy operations (`LOAD_FIELD`) and register operations reduce the overhead of memory copying and stack manipulation.
+4.  **Performance**: Zero-copy operations (`LOAD_FIELD`) reduce the overhead of memory copying and stack manipulation.
 
 ## Backwards Compatibility
 

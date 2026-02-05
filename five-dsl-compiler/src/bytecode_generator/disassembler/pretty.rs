@@ -57,15 +57,6 @@ pub fn pretty_instruction(instr: &Instruction) -> String {
         Instruction::PushArrayLiteral { offset, len } => {
             format!("{:04X}: PUSH_ARRAY_LITERAL len={}", offset, len)
         }
-        Instruction::LoadRegU8 { offset, reg, value } => {
-            format!("{:04X}: LOAD_REG_U8 reg={} value={}", offset, reg, value)
-        }
-        Instruction::LoadRegU32 { offset, reg, value } => {
-            format!("{:04X}: LOAD_REG_U32 reg={} value={}", offset, reg, value)
-        }
-        Instruction::LoadRegU64 { offset, reg, value } => {
-            format!("{:04X}: LOAD_REG_U64 reg={} value={}", offset, reg, value)
-        }
         Instruction::CheckSigner {
             offset,
             account_index,
