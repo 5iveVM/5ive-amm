@@ -167,7 +167,6 @@ impl ErrorUtils {
             VMError::CallStackOverflow => "Call stack overflow",
             VMError::CallStackUnderflow => "Call stack underflow",
             VMError::DataBufferOverflow => "Data buffer overflow",
-            VMError::InvalidRegister => "Invalid register",
             VMError::InvalidOperation => "Invalid operation",
             VMError::ParseError { .. } => "Parse error",
             VMError::UnexpectedToken => "Unexpected token",
@@ -223,8 +222,7 @@ impl ErrorUtils {
             | VMError::InvalidInstruction
             | VMError::TypeMismatch
             | VMError::DivisionByZero
-            | VMError::InvalidVariableIndex(_)
-            | VMError::InvalidRegister => true,
+            | VMError::InvalidVariableIndex(_) => true,
             _ => false,
         }
     }

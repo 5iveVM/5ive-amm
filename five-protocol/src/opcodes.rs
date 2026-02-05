@@ -73,9 +73,8 @@ pub mod ranges {
 
     // GENERAL_OPS_BASE removed - merged with LOCAL_BASE range
 
-    /// Register operations: 0xB0-0xBF
-    /// Hybrid VM register operations for performance optimization
-    pub const REGISTER_BASE: u8 = 0xB0;
+    /// [REMOVED] Register operations: 0xB0-0xBF
+    /// Register functionality removed - Pure Stack Machine only
 
     /// [REMOVED] Account view operations - use zero-copy LOAD_FIELD/STORE_FIELD instead.
     /// Range 0xC0-0xCF now available for future features.
@@ -420,7 +419,7 @@ pub const JZ: u8 = JUMP_IF_NOT;
 
 // DEPRECATED OPERATIONS REMOVED:
 // - RLE/Compact encoding operations (VLE-only architecture)
-// - Duplicate register definitions (moved to 0xB0-0xBF range)
+// - Register operations (system is now pure stack machine)
 // - Compression markers (not used with VLE-only approach)
 
 // ===== COMPACT FIELD IDs FOR BUILT-IN ACCOUNT PROPERTIES =====
