@@ -1,5 +1,4 @@
 use super::{AdvancedBytecodeAnalyzer, ControlFlowInfo, InstructionAnalysis, InstructionCategory, OperandInfo};
-use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
 /// Decode all instructions with full semantic understanding

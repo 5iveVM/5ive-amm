@@ -432,7 +432,7 @@ impl FunctionDispatcher {
         emitter: &mut T,
         ast: &AstNode,
         _ast_generator: &mut super::ASTGenerator,
-        account_system: &AccountSystem, // Add account_system parameter
+        _account_system: &AccountSystem, // Add account_system parameter
     ) -> Result<(), VMError> {
         // Only generate dispatcher if we have functions to dispatch
         if !self.has_callable_functions(ast) {
@@ -543,7 +543,7 @@ impl FunctionDispatcher {
             // while keeping param indexing consistent.
 
             // Count data parameters first (needed for both modes)
-            let data_param_count: u8 = function_parameters.iter()
+            let _data_param_count: u8 = function_parameters.iter()
                 .filter(|p| !super::account_utils::is_account_parameter(
                     &p.param_type, &p.attributes, None
                 ))
@@ -559,7 +559,7 @@ impl FunctionDispatcher {
                 // CALL_REG will auto-filter in the VM: load only data params to r0..r7, skip accounts
                 for param in function_parameters.iter() {
                     // Generate parameter loading code for ALL parameters
-                    let is_account = super::account_utils::is_account_parameter(
+                    let _is_account = super::account_utils::is_account_parameter(
                         &param.param_type,
                         &param.attributes,
                         None

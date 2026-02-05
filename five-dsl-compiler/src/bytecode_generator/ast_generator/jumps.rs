@@ -214,7 +214,7 @@ impl ASTGenerator {
     /// changes from register optimization while remaining fast (<100ms overhead).
     pub fn recalculate_label_positions<T: OpcodeEmitter>(
         &mut self,
-        emitter: &mut T,
+        _emitter: &mut T,
     ) -> Result<(), VMError> {
         // For now, this is a no-op because the label_positions should be reasonably accurate.
         // If bytecode verification shows issues, we would implement full position recalculation here.

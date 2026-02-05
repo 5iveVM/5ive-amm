@@ -6,7 +6,6 @@
 use crate::ast::AstNode;
 use crate::bytecode_generator::{types::FIVEABI, DslBytecodeGenerator};
 use crate::error::{integration, CompilerError, ErrorCategory};
-use crate::execute_phase;
 use crate::interface_registry::InterfaceRegistry;
 use crate::metrics::{CompilerMetrics, MetricsCollector};
 use crate::parser::DslParser;
@@ -58,10 +57,6 @@ pub struct CompilationConfig {
     pub include_debug_info: bool,
     /// Enable module namespace qualification (module::function)
     pub enable_module_namespaces: bool,
-    /// Enable register-based optimization
-    pub use_registers: bool,
-    /// Use linear scan allocation instead of sequential (for register optimization)
-    pub use_linear_scan_allocation: bool,
 }
 
 impl CompilationConfig {
@@ -75,8 +70,6 @@ impl CompilationConfig {
             include_debug_info: matches!(mode, CompilationMode::Testing),
 
             enable_module_namespaces: true, // Enabled: critical for multi-module compilation
-            use_registers: false,
-            use_linear_scan_allocation: false, // Disabled by default, opt-in
         }
     }
 
@@ -110,15 +103,13 @@ impl CompilationConfig {
         self
     }
 
-    /// Enable or disable register-based optimization
-    pub fn with_use_registers(mut self, enable: bool) -> Self {
-        self.use_registers = enable;
+    /// Enable or disable register-based optimization (Removed)
+    pub fn with_use_registers(self, _enable: bool) -> Self {
         self
     }
 
-    /// Enable or disable linear scan register allocation
-    pub fn with_linear_scan_allocation(mut self, enable: bool) -> Self {
-        self.use_linear_scan_allocation = enable;
+    /// Enable or disable linear scan register allocation (Removed)
+    pub fn with_linear_scan_allocation(self, _enable: bool) -> Self {
         self
     }
 
@@ -328,8 +319,6 @@ impl<'a> CompilationPipeline<'a> {
             ErrorCategory::Codegen,
             {
                 let mut generator = DslBytecodeGenerator::with_optimization_config(config);
-                generator.set_use_registers(config.use_registers);
-                generator.set_use_linear_scan_allocation(config.use_linear_scan_allocation);
                 generator.generate(ast)
             }
         )
@@ -355,8 +344,6 @@ impl<'a> CompilationPipeline<'a> {
             ErrorCategory::Codegen,
             {
                 let mut generator = DslBytecodeGenerator::with_optimization_config(config);
-                generator.set_use_registers(config.use_registers);
-                generator.set_use_linear_scan_allocation(config.use_linear_scan_allocation);
                 generator.set_interface_registry(interface_registry);
                 generator.generate(ast)
             }
@@ -382,8 +369,6 @@ impl<'a> CompilationPipeline<'a> {
             ErrorCategory::Codegen,
             {
                 let mut generator = DslBytecodeGenerator::with_optimization_config(config);
-                generator.set_use_registers(config.use_registers);
-                generator.set_use_linear_scan_allocation(config.use_linear_scan_allocation);
                 if let Some(registry) = interface_registry {
                     generator.set_interface_registry(registry);
                 }
