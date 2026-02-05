@@ -2775,8 +2775,6 @@ impl WasmFiveCompiler {
             enable_constraint_cache: options.enable_constraint_cache,
             enable_module_namespaces: options.enable_module_namespaces,
             include_debug_info: options.include_debug_info,
-            use_registers: false,
-            use_linear_scan_allocation: false,
         };
 
         let mut metrics_format = if options.metrics_format.is_empty() {
@@ -2953,8 +2951,6 @@ impl WasmFiveCompiler {
             enable_constraint_cache: options.enable_constraint_cache,
             enable_module_namespaces: options.enable_module_namespaces,
             include_debug_info: options.include_debug_info,
-            use_registers: false,
-            use_linear_scan_allocation: false,
         };
 
         // Use the new method that returns FiveFile (Bytecode + ABI)
@@ -3076,8 +3072,6 @@ impl WasmFiveCompiler {
             enable_constraint_cache: options.enable_constraint_cache,
             enable_module_namespaces: options.enable_module_namespaces, // Pass explicitly, though `with_module_namespaces` below overrides
             include_debug_info: options.include_debug_info,
-            use_registers: false,
-            use_linear_scan_allocation: false,
         };
         // Ensure module namespaces is propagated
         let config = config.with_module_namespaces(options.enable_module_namespaces);
@@ -3492,8 +3486,6 @@ impl WasmFiveCompiler {
                     enable_constraint_cache: options.enable_constraint_cache,
                     enable_module_namespaces: options.enable_module_namespaces,
                     include_debug_info: options.include_debug_info,
-                    use_registers: false,
-                    use_linear_scan_allocation: false,
                 };
 
                 // Generate Bytecode

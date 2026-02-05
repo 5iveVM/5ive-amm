@@ -505,7 +505,6 @@ impl PerformanceOptimizer {
     /// Configure performance optimizations
     pub fn configure(
         &mut self,
-        _register_opt: bool,
         constraint_opt: bool,
         scope_opt: bool,
         bulk_opt: bool,

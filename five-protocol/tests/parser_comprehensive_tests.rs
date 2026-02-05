@@ -22,19 +22,21 @@ fn test_arg_type_u8() {
 
 #[test]
 fn test_arg_type_u16() {
-    // PUSH_U16 (0x19) takes ArgType::U16 (Fixed 2 bytes LE)
+    // PUSH_U16 (0x19) takes ArgType::U16 (VLE)
     let mut builder = BytecodeBuilder::new();
-    builder.emit_u8(PUSH_U16).emit_u16(0x1234);
+    let (len, bytes) = VLE::encode_u16(0x1234);
+    builder.emit_u8(PUSH_U16).emit_bytes(&bytes[..len]);
     let bytecode = builder.build();
 
     let (inst, size) = parse_instruction(&bytecode, 0).expect("Failed to parse PUSH_U16");
+    println!("DEBUG: PUSH_U16 arg1={}, expected={}", inst.arg1, 0x1234);
     assert_eq!(inst.opcode, PUSH_U16);
     assert_eq!(inst.arg1, 0x1234);
-    assert_eq!(inst.size, 3); // 1 opcode + 2 arg
-    assert_eq!(size, 3);
+    assert_eq!(inst.size, 1 + len);
+    assert_eq!(size, 1 + len);
 
-    // Error case: truncated (1 byte)
-    assert_eq!(parse_instruction(&[PUSH_U16, 0x34], 0), Err(ParseError::InstructionOutOfBounds));
+    // Error case: truncated VLE
+    assert_eq!(parse_instruction(&[PUSH_U16, 0x80], 0), Err(ParseError::InvalidVLE));
 }
 
 #[test]
@@ -109,55 +111,6 @@ fn test_arg_type_local_index() {
     assert_eq!(size, 1 + len);
 }
 
-#[test]
-fn test_arg_type_register_index() {
-    // LOAD_REG_U8 (0xB0) takes ArgType::RegisterIndex (U8)
-    let mut builder = BytecodeBuilder::new();
-    builder.emit_u8(LOAD_REG_U8).emit_u8(5);
-    let bytecode = builder.build();
-
-    let (inst, size) = parse_instruction(&bytecode, 0).expect("Failed to parse LOAD_REG_U8");
-    assert_eq!(inst.opcode, LOAD_REG_U8);
-    assert_eq!(inst.arg1, 5);
-    assert_eq!(size, 2);
-
-    assert_eq!(parse_instruction(&[LOAD_REG_U8], 0), Err(ParseError::InstructionOutOfBounds));
-}
-
-#[test]
-fn test_arg_type_two_registers() {
-    // COPY_REG (0xBE) takes ArgType::TwoRegisters (U8, U8)
-    let mut builder = BytecodeBuilder::new();
-    builder.emit_u8(COPY_REG).emit_u8(1).emit_u8(2);
-    let bytecode = builder.build();
-
-    let (inst, size) = parse_instruction(&bytecode, 0).expect("Failed to parse COPY_REG");
-    assert_eq!(inst.opcode, COPY_REG);
-    assert_eq!(inst.arg1, 1);
-    assert_eq!(inst.arg2, 2);
-    assert_eq!(size, 3);
-
-    assert_eq!(parse_instruction(&[COPY_REG, 1], 0), Err(ParseError::InstructionOutOfBounds));
-}
-
-#[test]
-fn test_arg_type_three_registers() {
-    // ADD_REG (0xB5) takes ArgType::ThreeRegisters (U8, U8, U8)
-    // Parser packs arg2 and arg3 into inst.arg2:
-    // arg2 = ((byte2 as u32) << 8) | byte3 as u32
-    let mut builder = BytecodeBuilder::new();
-    builder.emit_u8(ADD_REG).emit_u8(10).emit_u8(20).emit_u8(30);
-    let bytecode = builder.build();
-
-    let (inst, size) = parse_instruction(&bytecode, 0).expect("Failed to parse ADD_REG");
-    assert_eq!(inst.opcode, ADD_REG);
-    assert_eq!(inst.arg1, 10);
-    // arg2 = (20 << 8) | 30 = 5120 + 30 = 5150
-    assert_eq!(inst.arg2, (20 << 8) | 30);
-    assert_eq!(size, 4);
-
-    assert_eq!(parse_instruction(&[ADD_REG, 10, 20], 0), Err(ParseError::InstructionOutOfBounds));
-}
 
 #[test]
 fn test_arg_type_call_internal() {
