@@ -33,7 +33,7 @@ impl<'a> AccountManager<'a> {
     }
 
     #[inline(always)]
-    pub fn get(&self, index: u8) -> CompactResult<&AccountInfo> {
+    pub fn get(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         self.lazy_validator.ensure_validated(index, self.accounts)?;
 
         if index as usize >= self.accounts.len() {
@@ -43,7 +43,7 @@ impl<'a> AccountManager<'a> {
     }
 
     #[inline(always)]
-    pub fn get_unchecked(&self, index: u8) -> CompactResult<&AccountInfo> {
+    pub fn get_unchecked(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         if index as usize >= self.accounts.len() {
             return Err(VMErrorCode::InvalidAccountIndex);
         }

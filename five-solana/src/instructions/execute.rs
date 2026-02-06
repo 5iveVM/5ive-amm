@@ -113,7 +113,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     // Initialize VM Storage using optimized heap allocation
     // Uses new_on_heap() which constructs directly in heap memory to avoid stack overflow
-    let mut storage = StackStorage::new_on_heap(bytecode);
+    let mut storage = StackStorage::new_on_heap();
     unsafe {
         if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage) {
             #[cfg(feature = "debug-logs")]
@@ -129,7 +129,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
             debug_log!("Running POST-BYTECODE hook");
 
             // Allocate new optimized heap storage for retry
-            let mut storage_retry = StackStorage::new_on_heap(bytecode);
+            let mut storage_retry = StackStorage::new_on_heap();
 
             if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage_retry) {
                 #[cfg(feature = "debug-logs")]

@@ -60,7 +60,7 @@ pub struct VMExecutionContext {
 ///     0x07                    // RETURN_VALUE
 /// ];
 ///
-/// let mut storage = five_vm_mito::StackStorage::new(bytecode);
+/// let mut storage = five_vm_mito::StackStorage::new();
 /// let result = MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default(), &mut storage)?;
 /// assert_eq!(result, Some(Value::U8(15)));
 /// # Ok::<(), five_vm_mito::VMError>(())
@@ -76,7 +76,7 @@ impl MitoVM {
         input_data: &'a [u8],
         accounts: &'a [AccountInfo],
         program_id: &Pubkey,
-        storage: &'a mut crate::stack::StackStorage<'a>,
+        storage: &'a mut crate::stack::StackStorage,
     ) -> CompactResult<(ExecutionManager<'a>, usize)> {
         #[cfg(feature = "debug-logs")]
         use core::fmt::Write;
@@ -467,7 +467,7 @@ impl MitoVM {
     /// let accounts = &[];
     /// let program_id = Pubkey::default();
     ///
-    /// let mut storage = five_vm_mito::StackStorage::new(bytecode);
+    /// let mut storage = five_vm_mito::StackStorage::new();
     /// let result = MitoVM::execute_direct(bytecode, input_data, accounts, &program_id, &mut storage)?;
     /// assert_eq!(result, Some(five_protocol::Value::U8(42)));
     /// # Ok::<(), five_vm_mito::VMError>(())
@@ -478,7 +478,7 @@ impl MitoVM {
         input_data: &'a [u8],
         accounts: &'a [AccountInfo],
         program_id: &Pubkey,
-        storage: &'a mut crate::stack::StackStorage<'a>,
+        storage: &'a mut crate::stack::StackStorage,
     ) -> Result<Option<Value>> {
         // Use provided storage buffer (caller controlled allocation)
         let (mut ctx, _dispatch_ip) =
@@ -529,7 +529,7 @@ impl MitoVM {
         accounts: &[AccountInfo],
         program_id: &Pubkey,
     ) -> std::result::Result<(Option<Value>, VMExecutionContext), (VMError, VMExecutionContext)> {
-        let mut storage = crate::stack::StackStorage::new(script);
+        let mut storage = crate::stack::StackStorage::new();
         // Map initialization error to (VMError, EmptyContext) since we can't create a meaningful context yet
         let (mut ctx, _dispatch_ip) =
             Self::initialize_execution_context(script, input_data, accounts, program_id, &mut storage).map_err(

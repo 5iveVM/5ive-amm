@@ -53,6 +53,9 @@ pub struct ExecutionContext<'a> {
 
     // --- Core execution state ---
     pub bytecode: &'a [u8],
+    /// Original root bytecode for context restoration
+    pub root_bytecode: &'a [u8],
+    pub current_context: u8,
     pub pc: u16,
 
     // --- Function metadata (optimized header V2) ---
@@ -125,16 +128,19 @@ impl<'a> ExecutionContext<'a> {
         program_id: Pubkey,
         instruction_data: &'a [u8],
         start_pc: u16,
-        storage: &'a mut StackStorage<'a>,
+        storage: &'a mut StackStorage,
         public_function_count: u8,
         total_function_count: u8,
     ) -> Self {
+        let (stack, call_stack, locals, temp, heap) = storage.split_mut();
         Self {
             bytecode,
+            root_bytecode: bytecode,
+            current_context: crate::types::ROOT_CONTEXT,
             pc: start_pc,
-            stack: StackManager::new(&mut storage.stack),
-            memory: ResourceManager::new(&mut storage.temp_buffer, &mut storage.heap_buffer),
-            frame: FrameManager::new(&mut storage.call_stack, &mut storage.locals),
+            stack: StackManager::new(stack),
+            memory: ResourceManager::new(temp, heap),
+            frame: FrameManager::new(call_stack, locals),
             accounts: AccountManager::new(accounts, program_id),
 
             public_function_count,
@@ -366,12 +372,12 @@ impl<'a> ExecutionContext<'a> {
     // --- Call stack operations (delegated to FrameManager) ---
 
     #[inline(always)]
-    pub fn push_call_frame(&mut self, frame: CallFrame<'a>) -> Result<()> {
+    pub fn push_call_frame(&mut self, frame: CallFrame) -> Result<()> {
         self.frame.push_call_frame(frame)
     }
 
     #[inline(always)]
-    pub fn pop_call_frame(&mut self) -> CompactResult<CallFrame<'a>> {
+    pub fn pop_call_frame(&mut self) -> CompactResult<CallFrame> {
         self.frame.pop_call_frame()
     }
 
@@ -395,13 +401,13 @@ impl<'a> ExecutionContext<'a> {
     // --- Account operations with lazy validation (delegated to AccountManager) ---
 
     #[inline(always)]
-    pub fn get_account(&self, index: u8) -> CompactResult<&AccountInfo> {
+    pub fn get_account(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         self.accounts.get(index)
     }
 
     /// Get account for read access, ensuring pointer freshness
     #[inline(always)]
-    pub fn get_account_for_read(&self, index: u8) -> CompactResult<&AccountInfo> {
+    pub fn get_account_for_read(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         let account = self.accounts.get(index)?;
         // CRITICAL FIX: Force refresh of account pointers before data access
         // to handle stale pointers after CPI.
@@ -411,7 +417,7 @@ impl<'a> ExecutionContext<'a> {
 
     /// Get account for write access, checking authorization and writability
     #[inline(always)]
-    pub fn get_account_for_write(&self, index: u8) -> CompactResult<&AccountInfo> {
+    pub fn get_account_for_write(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         // 1. Get account once
         let account = self.accounts.get(index)?;
 
@@ -436,7 +442,7 @@ impl<'a> ExecutionContext<'a> {
 
     /// Get account without lazy validation (for internal VM use)
     #[inline(always)]
-    pub fn get_account_unchecked(&self, index: u8) -> CompactResult<&AccountInfo> {
+    pub fn get_account_unchecked(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         self.accounts.get_unchecked(index)
     }
 
@@ -526,12 +532,12 @@ impl<'a> ExecutionContext<'a> {
     }
 
     #[inline(always)]
-    pub fn get_call_frame(&self, index: usize) -> CompactResult<&CallFrame<'a>> {
+    pub fn get_call_frame(&self, index: usize) -> CompactResult<&CallFrame> {
         self.frame.get_call_frame(index)
     }
 
     #[inline(always)]
-    pub fn set_call_frame(&mut self, index: usize, frame: CallFrame<'a>) -> CompactResult<()> {
+    pub fn set_call_frame(&mut self, index: usize, frame: CallFrame) -> CompactResult<()> {
         self.frame.set_call_frame(index, frame)
     }
 
@@ -1118,7 +1124,7 @@ mod tests {
             0,
         );
         let accounts = [account];
-        let mut storage = StackStorage::new(&[]);
+        let mut storage = StackStorage::new();
         let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0);
         let metas = [
             AccountMeta {
@@ -1152,7 +1158,7 @@ mod tests {
             0,
         );
         let accounts = [account];
-        let mut storage = StackStorage::new(&[]);
+        let mut storage = StackStorage::new();
         let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0);
         let metas = [
             AccountMeta {
