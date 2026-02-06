@@ -46,31 +46,14 @@ impl BytecodeInspector {
         // If metadata is present, skip it
         if (features & FEATURE_FUNCTION_NAMES) != 0 && offset < bytes.len() {
             // Skip metadata section
-            // Format: [VLE u16 section_size] [u8 name_count] [u8 name_len, bytes...]*
-            // Try to decode the section size
-            if let Some((section_size, bytes_read)) = Self::decode_vle_u16(&bytes[offset..]) {
-                offset += bytes_read + section_size as usize;
+            // Format: [u16 section_size] [u8 name_count] [u8 name_len, bytes...]*
+            if offset + 2 <= bytes.len() {
+                let section_size = u16::from_le_bytes([bytes[offset], bytes[offset+1]]);
+                offset += 2 + section_size as usize;
             }
         }
 
         offset.min(bytes.len())
-    }
-
-    /// Simple VLE u16 decoder
-    fn decode_vle_u16(bytes: &[u8]) -> Option<(u16, usize)> {
-        if bytes.is_empty() {
-            return None;
-        }
-
-        let first = bytes[0];
-        if first < 128 {
-            Some((first as u16, 1))
-        } else if bytes.len() >= 2 {
-            let value = ((first & 0x7F) as u16) | ((bytes[1] as u16) << 7);
-            Some((value, 2))
-        } else {
-            None
-        }
     }
 
     /// Return true if the given raw opcode exists anywhere in the bytecode.
@@ -89,9 +72,6 @@ impl BytecodeInspector {
     }
 
     /// Find all u64-like pushes and return metadata.
-    ///
-    /// This is intentionally forgiving: it tries VLE decoding then falls back to
-    /// fixed-width immediates where the opcode historically permitted them.
     pub fn find_pushes_u64(&self) -> Vec<PushInfo> {
         let mut out = Vec::new();
         let b = &self.bytes;
@@ -114,85 +94,62 @@ impl BytecodeInspector {
                     }
                 }
 
-                opcodes::PUSH_U16 | opcodes::PUSH_U32 | opcodes::PUSH_U64 => {
-                    if let Some((v, c)) = decode_vle_u128(&b[i + 1..]) {
-                        out.push(PushInfo {
-                            offset: i,
-                            opcode: op,
-                            value: v as u64,
-                            width: c,
-                        });
-                        i += 1 + c;
-                    } else {
-                        // fallback fixed-width
-                        match op {
-                            opcodes::PUSH_U16 => {
-                                if i + 3 <= b.len() {
-                                    if let Some(raw) = read_le_u16(b, i + 1) {
-                                        out.push(PushInfo {
-                                            offset: i,
-                                            opcode: op,
-                                            value: raw as u64,
-                                            width: 2,
-                                        });
-                                        i += 3;
-                                    } else {
-                                        break;
-                                    }
-                                } else {
-                                    break;
-                                }
-                            }
-                            opcodes::PUSH_U32 => {
-                                if i + 5 <= b.len() {
-                                    if let Some(raw) = read_le_u32(b, i + 1) {
-                                        out.push(PushInfo {
-                                            offset: i,
-                                            opcode: op,
-                                            value: raw as u64,
-                                            width: 4,
-                                        });
-                                        i += 5;
-                                    } else {
-                                        break;
-                                    }
-                                } else {
-                                    break;
-                                }
-                            }
-                            opcodes::PUSH_U64 => {
-                                if i + 9 <= b.len() {
-                                    if let Some(raw) = read_le_u64(b, i + 1) {
-                                        out.push(PushInfo {
-                                            offset: i,
-                                            opcode: op,
-                                            value: raw,
-                                            width: 8,
-                                        });
-                                        i += 9;
-                                    } else {
-                                        break;
-                                    }
-                                } else {
-                                    break;
-                                }
-                            }
-                            _ => i += 1,
+                opcodes::PUSH_U16 => {
+                    if i + 3 <= b.len() {
+                        if let Some(raw) = read_le_u16(b, i + 1) {
+                            out.push(PushInfo {
+                                offset: i,
+                                opcode: op,
+                                value: raw as u64,
+                                width: 2,
+                            });
+                            i += 3;
+                        } else {
+                            break;
                         }
+                    } else {
+                        break;
+                    }
+                }
+
+                opcodes::PUSH_U32 => {
+                    if i + 5 <= b.len() {
+                        if let Some(raw) = read_le_u32(b, i + 1) {
+                            out.push(PushInfo {
+                                offset: i,
+                                opcode: op,
+                                value: raw as u64,
+                                width: 4,
+                            });
+                            i += 5;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
+                opcodes::PUSH_U64 => {
+                    if i + 9 <= b.len() {
+                        if let Some(raw) = read_le_u64(b, i + 1) {
+                            out.push(PushInfo {
+                                offset: i,
+                                opcode: op,
+                                value: raw,
+                                width: 8,
+                            });
+                            i += 9;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
                     }
                 }
 
                 opcodes::PUSH_I64 => {
-                    if let Some((v, c)) = decode_vle_u128(&b[i + 1..]) {
-                        let as_i = v as i128 as i64;
-                        out.push(PushInfo {
-                            offset: i,
-                            opcode: op,
-                            value: as_i as u64,
-                            width: c,
-                        });
-                        i += 1 + c;
-                    } else if i + 9 <= b.len() {
+                    if i + 9 <= b.len() {
                         if let Some(raw) = read_le_u64(b, i + 1) {
                             out.push(PushInfo {
                                 offset: i,
@@ -252,29 +209,36 @@ impl BytecodeInspector {
                 opcodes::PUSH_STRING
                 | opcodes::PUSH_STRING_LITERAL
                 | opcodes::PUSH_ARRAY_LITERAL => {
-                    if let Some((len, c)) = decode_vle_u128(&b[i + 1..]) {
-                        let start = i + 1 + c;
-                        if start + (len as usize) <= b.len() {
-                            i = start + (len as usize);
-                            continue;
-                        } else {
-                            break;
+                    // PUSH_STRING uses fixed u32 length
+                    if op == opcodes::PUSH_STRING {
+                        if i + 5 <= b.len() {
+                            if let Some(len) = read_le_u32(b, i + 1) {
+                                let start = i + 5;
+                                if start + (len as usize) <= b.len() {
+                                    i = start + (len as usize);
+                                    continue;
+                                }
+                            }
                         }
-                    } else {
+                        break;
+                    }
+                    // PUSH_STRING_LITERAL / ARRAY_LITERAL use u8 length
+                    else {
+                        if i + 1 < b.len() {
+                            let len = b[i+1] as usize;
+                            if i + 2 + len <= b.len() {
+                                i += 2 + len;
+                                continue;
+                            }
+                        }
                         break;
                     }
                 }
 
                 opcodes::LOAD_FIELD | opcodes::STORE_FIELD => {
-                    if i + 2 <= b.len() {
-                        let after = i + 2;
-                        if let Some((_v, c)) = decode_vle_u128(&b[after..]) {
-                            i = after + c;
-                        } else if after + 4 <= b.len() {
-                            i = after + 4;
-                        } else {
-                            break;
-                        }
+                    // acc(u8) + offset(u32)
+                    if i + 6 <= b.len() {
+                        i += 6;
                     } else {
                         break;
                     }
@@ -289,19 +253,17 @@ impl BytecodeInspector {
                     }
                 }
 
-                opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT | opcodes::BR_EQ_U8 => {
-                    if op == opcodes::BR_EQ_U8 {
-                        if i + 2 <= b.len() {
-                            if let Some((_v, c)) = decode_vle_u128(&b[i + 2..]) {
-                                i += 2 + c;
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        }
-                    } else if let Some((_v, c)) = decode_vle_u128(&b[i + 1..]) {
-                        i += 1 + c;
+                opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT => {
+                    if i + 3 <= b.len() {
+                        i += 3;
+                    } else {
+                        break;
+                    }
+                }
+
+                opcodes::BR_EQ_U8 => {
+                    if i + 2 <= b.len() {
+                        i += 2;
                     } else {
                         break;
                     }
@@ -359,54 +321,32 @@ impl BytecodeInspector {
                     None
                 }
             }
-            opcodes::PUSH_U16 | opcodes::PUSH_U32 | opcodes::PUSH_U64 => {
-                if let Some((v, c)) = decode_vle_u128(&b[offset + 1..]) {
-                    Some(Instruction::PushU64(PushInfo {
-                        offset,
-                        opcode: op,
-                        value: v as u64,
-                        width: c,
-                    }))
-                } else {
-                    match op {
-                        opcodes::PUSH_U16 => read_le_u16(b, offset + 1).map(|raw| {
-                            Instruction::PushU64(PushInfo {
-                                offset,
-                                opcode: op,
-                                value: raw as u64,
-                                width: 2,
-                            })
-                        }),
-                        opcodes::PUSH_U32 => read_le_u32(b, offset + 1).map(|raw| {
-                            Instruction::PushU64(PushInfo {
-                                offset,
-                                opcode: op,
-                                value: raw as u64,
-                                width: 4,
-                            })
-                        }),
-                        opcodes::PUSH_U64 => read_le_u64(b, offset + 1).map(|raw| {
-                            Instruction::PushU64(PushInfo {
-                                offset,
-                                opcode: op,
-                                value: raw,
-                                width: 8,
-                            })
-                        }),
-                        _ => None,
-                    }
-                }
-            }
+            opcodes::PUSH_U16 => read_le_u16(b, offset + 1).map(|raw| {
+                Instruction::PushU64(PushInfo {
+                    offset,
+                    opcode: op,
+                    value: raw as u64,
+                    width: 2,
+                })
+            }),
+            opcodes::PUSH_U32 => read_le_u32(b, offset + 1).map(|raw| {
+                Instruction::PushU64(PushInfo {
+                    offset,
+                    opcode: op,
+                    value: raw as u64,
+                    width: 4,
+                })
+            }),
+            opcodes::PUSH_U64 => read_le_u64(b, offset + 1).map(|raw| {
+                Instruction::PushU64(PushInfo {
+                    offset,
+                    opcode: op,
+                    value: raw,
+                    width: 8,
+                })
+            }),
             opcodes::PUSH_I64 => {
-                if let Some((v, c)) = decode_vle_u128(&b[offset + 1..]) {
-                    let as_i = v as i128 as i64;
-                    Some(Instruction::PushU64(PushInfo {
-                        offset,
-                        opcode: op,
-                        value: as_i as u64,
-                        width: c,
-                    }))
-                } else if offset + 9 <= b.len() {
+                if offset + 9 <= b.len() {
                     read_le_u64(b, offset + 1).map(|raw| {
                         Instruction::PushU64(PushInfo {
                             offset,
@@ -454,40 +394,34 @@ impl BytecodeInspector {
             opcodes::ALLOC_LOCALS => Some(Instruction::AllocLocals { offset }),
             opcodes::DEALLOC_LOCALS => Some(Instruction::DeallocLocals { offset }),
             opcodes::LOAD_FIELD | opcodes::STORE_FIELD => {
-                if offset + 2 <= b.len() {
+                // acc(u8) + offset(u32)
+                if offset + 6 <= b.len() {
                     let account_index = b[offset + 1];
-                    let after = offset + 2;
-                    if let Some((v, _)) = decode_vle_u128(&b[after..]) {
-                        Some(Instruction::LoadField {
-                            instr_offset: offset,
-                            account_index,
-                            field_offset: v as u32,
-                        })
-                    } else { read_le_u32(b, after).map(|raw| Instruction::LoadField {
-                            instr_offset: offset,
-                            account_index,
-                            field_offset: raw,
-                        }) }
+                    read_le_u32(b, offset + 2).map(|raw| Instruction::LoadField {
+                        instr_offset: offset,
+                        account_index,
+                        field_offset: raw,
+                    })
                 } else {
                     None
                 }
             }
             opcodes::CALL => decode_call_at(b, offset).map(Instruction::Call),
             opcodes::CHECK_SIGNER => {
-                if let Some((v, _)) = decode_vle_u128(&b[offset + 1..]) {
+                if offset + 1 < b.len() {
                     Some(Instruction::CheckSigner {
                         offset,
-                        account_index: v as u8,
+                        account_index: b[offset + 1],
                     })
                 } else {
                     None
                 }
             }
             opcodes::CHECK_WRITABLE => {
-                if let Some((v, _)) = decode_vle_u128(&b[offset + 1..]) {
+                if offset + 1 < b.len() {
                     Some(Instruction::CheckWritable {
                         offset,
-                        account_index: v as u8,
+                        account_index: b[offset + 1],
                     })
                 } else {
                     None

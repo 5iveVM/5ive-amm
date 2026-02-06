@@ -16,7 +16,6 @@ use alloc::vec::Vec;
 
 pub mod bytecode_builder;
 pub mod call_convention;
-pub mod encoding;
 pub mod opcodes;
 pub mod parser;
 pub mod transport;
@@ -28,7 +27,6 @@ pub mod test_fixtures;
 
 pub use bytecode_builder::*;
 pub use call_convention::*;
-pub use encoding::*;
 pub use opcodes::*;
 pub use parser::*;
 pub use transport::*;

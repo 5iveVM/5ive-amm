@@ -3,13 +3,13 @@ import { ScriptMetadataParser } from "../metadata/index.js";
 import { normalizeAbiFunctions } from "../utils/abi.js";
 import { loadWasmVM } from "../wasm/instance.js";
 
-export async function fetchAccountAndDeserializeVLE(
+export async function fetchAccountAndDeserialize(
   accountAddress: string,
   connection: any, // Solana Connection object
   options: {
     debug?: boolean;
     parseMetadata?: boolean; // Parse full script metadata or just raw data
-    validateVLE?: boolean; // Validate VLE encoding format
+    validateEncoding?: boolean; // Validate encoding format
   } = {},
 ): Promise<{
   success: boolean;
@@ -21,7 +21,7 @@ export async function fetchAccountAndDeserializeVLE(
   };
   scriptMetadata?: ScriptMetadata;
   rawBytecode?: Uint8Array;
-  vleData?: {
+  decodedData?: {
     header: any;
     bytecode: Uint8Array;
     abi?: any;
@@ -33,7 +33,7 @@ export async function fetchAccountAndDeserializeVLE(
   try {
     if (options.debug) {
       console.log(
-        `[FiveSDK] Fetching account and deserializing VLE data: ${accountAddress}`,
+        `[FiveSDK] Fetching account and deserializing data: ${accountAddress}`,
       );
     }
 
@@ -105,7 +105,7 @@ export async function fetchAccountAndDeserializeVLE(
         result.scriptMetadata = scriptMetadata;
         result.rawBytecode = scriptMetadata.bytecode;
 
-        result.vleData = {
+        result.decodedData = {
           header: {
             version: scriptMetadata.version,
             deployedAt: scriptMetadata.deployedAt,
@@ -121,7 +121,7 @@ export async function fetchAccountAndDeserializeVLE(
             parameters: func.parameters || [],
           })),
         };
-        const parsedFunctions = result.vleData.functions;
+        const parsedFunctions = result.decodedData.functions;
 
         if (options.debug) {
           console.log(`[FiveSDK] Script metadata parsed successfully:`);
@@ -157,30 +157,30 @@ export async function fetchAccountAndDeserializeVLE(
       logs.push("Raw account data returned (metadata parsing disabled)");
     }
 
-    if (options.validateVLE && result.rawBytecode) {
+    if (options.validateEncoding && result.rawBytecode) {
       try {
-        const validation = await validateVLEEncoding(
+        const validation = await validateBytecodeEncoding(
           result.rawBytecode,
           options.debug,
         );
         if (validation.valid) {
-          logs.push("VLE encoding validation: PASSED");
+          logs.push("Encoding validation: PASSED");
           if (options.debug) {
             console.log(
-              `[FiveSDK] VLE validation passed: ${validation.info}`,
+              `[FiveSDK] Validation passed: ${validation.info}`,
             );
           }
         } else {
-          logs.push(`VLE encoding validation: FAILED - ${validation.error}`);
+          logs.push(`Encoding validation: FAILED - ${validation.error}`);
           if (options.debug) {
             console.warn(
-              `[FiveSDK] VLE validation failed: ${validation.error}`,
+              `[FiveSDK] Validation failed: ${validation.error}`,
             );
           }
         }
-      } catch (vleError) {
+      } catch (validationError) {
         logs.push(
-          `VLE validation error: ${vleError instanceof Error ? vleError.message : "Unknown error"}`,
+          `Validation error: ${validationError instanceof Error ? validationError.message : "Unknown error"}`,
         );
       }
     }
@@ -192,7 +192,7 @@ export async function fetchAccountAndDeserializeVLE(
 
     if (options.debug) {
       console.error(
-        `[FiveSDK] Account fetch and VLE deserialization failed: ${errorMessage}`,
+        `[FiveSDK] Account fetch and deserialization failed: ${errorMessage}`,
       );
     }
 
@@ -204,13 +204,13 @@ export async function fetchAccountAndDeserializeVLE(
   }
 }
 
-export async function fetchMultipleAccountsAndDeserializeVLE(
+export async function fetchMultipleAccountsAndDeserialize(
   accountAddresses: string[],
   connection: any,
   options: {
     debug?: boolean;
-    parseMetadata?: boolean;
-    validateVLE?: boolean;
+    parseMetadata?: boolean; // Parse full script metadata or just raw data
+    validateEncoding?: boolean; // Validate encoding format
     batchSize?: number; // Solana RPC batch limit
   } = {},
 ): Promise<
@@ -221,7 +221,7 @@ export async function fetchMultipleAccountsAndDeserializeVLE(
       accountInfo?: any;
       scriptMetadata?: ScriptMetadata;
       rawBytecode?: Uint8Array;
-      vleData?: any;
+      decodedData?: any;
       error?: string;
       logs?: string[];
     }
@@ -246,10 +246,10 @@ export async function fetchMultipleAccountsAndDeserializeVLE(
     }
 
     const batchPromises = batch.map((address) =>
-      fetchAccountAndDeserializeVLE(address, connection, {
+      fetchAccountAndDeserialize(address, connection, {
         debug: false,
         parseMetadata: options.parseMetadata,
-        validateVLE: options.validateVLE,
+        validateEncoding: options.validateEncoding,
       }),
     );
 
@@ -281,7 +281,7 @@ export async function fetchMultipleAccountsAndDeserializeVLE(
   return results;
 }
 
-export async function deserializeVLEParameters(
+export async function deserializeParameters(
   instructionData: Uint8Array,
   expectedTypes: string[] = [],
   options: { debug?: boolean } = {},
@@ -295,7 +295,7 @@ export async function deserializeVLEParameters(
   try {
     if (options.debug) {
       console.log(
-        `[FiveSDK] Deserializing VLE parameters from ${instructionData.length} bytes:`,
+        `[FiveSDK] Deserializing parameters from ${instructionData.length} bytes:`,
       );
       console.log(
         `[FiveSDK] Instruction data (hex):`,
@@ -312,14 +312,14 @@ export async function deserializeVLEParameters(
       );
 
       if (options.debug) {
-        console.log(`[FiveSDK] Using WASM ParameterEncoder for VLE decoding`);
+        console.log(`[FiveSDK] Using WASM ParameterEncoder for decoding`);
       }
 
       const decodedResult =
-        wasmModule.ParameterEncoder.decode_vle_instruction(instructionData);
+        wasmModule.ParameterEncoder.decode_instruction_data(instructionData);
 
       if (options.debug) {
-        console.log(`[FiveSDK] VLE decoding result:`, decodedResult);
+        console.log(`[FiveSDK] Decoding result:`, decodedResult);
       }
 
       const parameters: Array<{ type: string; value: any }> = [];
@@ -342,7 +342,7 @@ export async function deserializeVLEParameters(
     } catch (wasmError) {
       if (options.debug) {
         console.warn(
-          `[FiveSDK] WASM VLE decoding failed:`,
+          `[FiveSDK] WASM decoding failed:`,
           wasmError,
         );
       }
@@ -352,11 +352,11 @@ export async function deserializeVLEParameters(
     const errorMessage =
       error instanceof Error
         ? error.message
-        : "Unknown VLE deserialization error";
+        : "Unknown deserialization error";
 
     if (options.debug) {
       console.error(
-        `[FiveSDK] VLE parameter deserialization failed: ${errorMessage}`,
+        `[FiveSDK] Parameter deserialization failed: ${errorMessage}`,
       );
     }
 
@@ -367,13 +367,13 @@ export async function deserializeVLEParameters(
   }
 }
 
-export async function validateVLEEncoding(
+export async function validateBytecodeEncoding(
   bytecode: Uint8Array,
   debug: boolean = false,
 ): Promise<{ valid: boolean; error?: string; info?: string }> {
   try {
-    if (bytecode.length < 6) {
-      return { valid: false, error: "Bytecode too short for Five VM format" };
+    if (bytecode.length < 10) {
+      return { valid: false, error: "Bytecode too short for Five VM format (min 10 bytes)" };
     }
 
     const magicBytes = bytecode.slice(0, 4);
@@ -394,23 +394,32 @@ export async function validateVLEEncoding(
       };
     }
 
-    const features = bytecode[4];
-    const functionCount = bytecode[5];
+    // Optimized Header V3:
+    // 0-3: Magic
+    // 4-7: Features (u32 LE)
+    // 8: Public Function Count (u8)
+    // 9: Total Function Count (u8)
+
+    // Read features as u32 LE
+    const features = bytecode[4] | (bytecode[5] << 8) | (bytecode[6] << 16) | (bytecode[7] << 24);
+
+    const publicFunctionCount = bytecode[8];
+    const totalFunctionCount = bytecode[9];
 
     if (debug) {
       console.log(
-        `[FiveSDK] VLE validation - Magic: "5IVE", Features: ${features}, Functions: ${functionCount}`,
+        `[FiveSDK] Validation - Magic: "5IVE", Features: ${features}, PublicFuncs: ${publicFunctionCount}, TotalFuncs: ${totalFunctionCount}`,
       );
     }
 
     return {
       valid: true,
-      info: `Valid Five VM bytecode with ${functionCount} functions (features: ${features})`,
+      info: `Valid Five VM bytecode with ${publicFunctionCount}/${totalFunctionCount} functions (features: ${features})`,
     };
   } catch (error) {
     return {
       valid: false,
-      error: error instanceof Error ? error.message : "VLE validation error",
+      error: error instanceof Error ? error.message : "Validation error",
     };
   }
 }

@@ -1,6 +1,6 @@
 import { ScriptMetadata } from "../metadata/index.js";
 import { executeOnSolana } from "./execute.js";
-import { fetchMultipleAccountsAndDeserializeVLE } from "./accounts.js";
+import { fetchMultipleAccountsAndDeserialize } from "./accounts.js";
 import { PDAUtils } from "../crypto/index.js";
 import { FIVE_VM_PROGRAM_ID } from "../types.js";
 
@@ -86,13 +86,13 @@ export async function executeWithStateDiff(
       );
     }
 
-    const beforeState = await fetchMultipleAccountsAndDeserializeVLE(
+    const beforeState = await fetchMultipleAccountsAndDeserialize(
       accountsToTrack,
       connection,
       {
         debug: false,
         parseMetadata: true,
-        validateVLE: false,
+        validateEncoding: false,
       },
     );
 
@@ -162,13 +162,13 @@ export async function executeWithStateDiff(
       console.log(`[FiveSDK] Fetching AFTER state...`);
     }
 
-    const afterState = await fetchMultipleAccountsAndDeserializeVLE(
+    const afterState = await fetchMultipleAccountsAndDeserialize(
       accountsToTrack,
       connection,
       {
         debug: false,
         parseMetadata: true,
-        validateVLE: false,
+        validateEncoding: false,
       },
     );
 

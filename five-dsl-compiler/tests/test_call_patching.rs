@@ -52,30 +52,6 @@ impl OpcodeEmitter for TestEmitter {
         self.bytecode.extend_from_slice(bytes);
     }
 
-    fn emit_vle_u32(&mut self, value: u32) {
-        use five_protocol::VLE;
-        let (size, bytes) = VLE::encode_u32(value);
-        for i in 0..size {
-            self.emit_u8(bytes[i]);
-        }
-    }
-
-    fn emit_vle_u16(&mut self, value: u16) {
-        use five_protocol::VLE;
-        let (size, bytes) = VLE::encode_u16(value);
-        for i in 0..size {
-            self.emit_u8(bytes[i]);
-        }
-    }
-
-    fn emit_vle_u64(&mut self, value: u64) {
-        use five_protocol::VLE;
-        let (size, bytes) = VLE::encode_u64(value);
-        for i in 0..size {
-            self.emit_u8(bytes[i]);
-        }
-    }
-
     fn get_position(&self) -> usize {
         self.bytecode.len()
     }

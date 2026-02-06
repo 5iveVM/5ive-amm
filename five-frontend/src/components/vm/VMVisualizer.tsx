@@ -12,7 +12,7 @@ const UNKNOWN_OP = { name: 'UNKNOWN', args: 0 };
 const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     // Control Flow
     0x00: { name: 'HALT', args: 'none' },
-    0x01: { name: 'JUMP', args: 'u16_fixed' }, // Protocol says U16 arg type but VLE encoded offset comment. Wait, parser.rs says ArgType::U16 is fixed 2 bytes.
+    0x01: { name: 'JUMP', args: 'u16_fixed' },
     0x02: { name: 'JUMP_IF', args: 'u16_fixed' },
     0x03: { name: 'JUMP_IF_NOT', args: 'u16_fixed' },
     0x04: { name: 'REQUIRE', args: 'none' },
@@ -20,38 +20,7 @@ const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     0x06: { name: 'RETURN', args: 'none' },
     0x07: { name: 'RETURN_VALUE', args: 'none' },
     0x08: { name: 'NOP', args: 'none' },
-    0x09: { name: 'BR_EQ_U8', args: 'br_eq_u8' }, // Special handling: u8 + vle_u16? Wait, parser.rs says ArgType::U8 (1 byte). But OpcodePatterns emit u8 + vle_u16.
-                                                 // Check parser.rs: ArgType::U8 -> reads 1 byte.
-                                                 // Wait, if parser says ArgType::U8, it only consumes 1 byte.
-                                                 // five-protocol/src/opcodes.rs: BR_EQ_U8 has ArgType::U8.
-                                                 // OpcodePatterns::emit_br_eq_u8 emits u8 + vle_u16.
-                                                 // This means OpcodePatterns is emitting MORE than the opcode definition expects if it's just U8.
-                                                 // Or maybe the relative jump is implicit? No.
-                                                 // Actually if ArgType::U8 is used, the parser only advances 1 byte.
-                                                 // If BR_EQ_U8 is supposed to jump, it needs an offset.
-                                                 // If the protocol definition is wrong (ArgType::U8), then the parser will be desync with the emitter.
-                                                 // Let's assume the emitter is correct about intent (compare & jump) but the parser implementation in five-protocol depends on `ArgType`.
-                                                 // If `ArgType` is `U8`, parser reads 1 byte.
-                                                 // If `OpcodePatterns` emits 3 bytes (u8 + u16), the VM execution loop must handle fetching the extra bytes manually if `ArgType` doesn't cover it.
-                                                 // But `five-protocol` parser is "Canonical Parser". If it parses it as 1 arg, then the next bytes are treated as next opcode.
-                                                 // This suggests `BR_EQ_U8` might NOT be fully implemented or there is a bug in `five-protocol` definition if it takes 2 args.
-                                                 // HOWEVER, for `VMVisualizer`, I should stick to what `five-protocol` says to avoid desync, OR if I know it's a bug, I should maybe fix it or note it.
-                                                 // Given `OpcodeInfo` says `ArgType::U8`, `VMVisualizer` should probably treat it as `u8`.
-                                                 // But `OpcodePatterns` is what generates the bytecode.
-                                                 // I will trust `five-protocol`'s `ArgType` for now for the "Standard" visualization, but `five-dsl-compiler` seems to emit more.
-                                                 // Wait, `five-protocol` comment says: `BR_EQ_U8: u8 = 0x09; // Fused compare-and-branch: compare with u8, jump if equal`.
-                                                 // It implies a jump.
-                                                 // If I look at `five-vm-mito`, it delegates to protocol.
-                                                 // Let's look at `five-vm-mito` execution loop if possible? No, I shouldn't dig too deep if not needed.
-                                                 // I will treat it as `u8` for now to match `five-protocol`.
-                                                 // Wait, if I treat it as `u8`, the next bytes (the offset) will be visualized as opcodes, which will look like garbage.
-                                                 // If `five-dsl-compiler` emits it, it expects the VM to consume it.
-                                                 // I will assume `ArgType::U8` is the metadata, but maybe the VM handles it specially?
-                                                 // Actually, `five-protocol/src/parser.rs` uses `get_opcode_info` to determine size.
-                                                 // If `ArgType` is `U8`, it consumes 1 byte.
-                                                 // So `five-protocol` parser effectively breaks on `BR_EQ_U8` if it's supposed to have a jump offset.
-                                                 // This looks like a discrepancy I should probably fix in `five-protocol` if I could, but my task is to sync opcodes.
-                                                 // I'll stick to `five-protocol` definition for the Visualizer: `u8`.
+    0x09: { name: 'BR_EQ_U8', args: 'br_eq_u8' }, // u8 val + u16 offset
 
     // Stack
     0x10: { name: 'POP', args: 'none' },
@@ -85,15 +54,14 @@ const OPCODE_MAP: Record<number, { name: string, args: string }> = {
 
     // Pushes
     0x18: { name: 'PUSH_U8', args: 'u8' },
-    0x19: { name: 'PUSH_U16', args: 'u16_fixed' }, // Protocol ArgType::U16 (fixed 2 bytes usually, but check comments/usage. parser says fixed)
-    0x1A: { name: 'PUSH_U32', args: 'u32_vle' }, // Protocol ArgType::U32 (VLE)
-    0x1B: { name: 'PUSH_U64', args: 'u64_vle' }, // Protocol ArgType::U64 (VLE)
-    0x1C: { name: 'PUSH_I64', args: 'u64_vle' }, // Protocol ArgType::U64 (VLE)
-    0x1D: { name: 'PUSH_BOOL', args: 'u8' }, // Adjusted to match OpcodePatterns emission
-    0x1E: { name: 'PUSH_PUBKEY', args: 'pubkey' }, // Adjusted to match reality (32 bytes) despite protocol ArgType::None
-    0x1F: { name: 'PUSH_U128', args: 'u128' }, // Adjusted to match reality (16 bytes)
-    0x67: { name: 'PUSH_STRING', args: 'u8' }, // Protocol ArgType::U8 (Length? Or string index? OpcodePatterns emits u8. Protocol says `length_vle + string_data`. But ArgType is U8.)
-                                               // This visualizer is based on the parser logic which drives the view.
+    0x19: { name: 'PUSH_U16', args: 'u16_fixed' },
+    0x1A: { name: 'PUSH_U32', args: 'u32_fixed' },
+    0x1B: { name: 'PUSH_U64', args: 'u64_fixed' },
+    0x1C: { name: 'PUSH_I64', args: 'u64_fixed' }, // i64 as u64
+    0x1D: { name: 'PUSH_BOOL', args: 'u8' },
+    0x1E: { name: 'PUSH_PUBKEY', args: 'pubkey' },
+    0x1F: { name: 'PUSH_U128', args: 'u128' },
+    0x67: { name: 'PUSH_STRING', args: 'string_fixed' }, // u32 len + bytes
 
     // Arithmetic
     0x20: { name: 'ADD', args: 'none' },
@@ -124,7 +92,7 @@ const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     0x38: { name: 'SHIFT_LEFT', args: 'none' },
     0x39: { name: 'SHIFT_RIGHT', args: 'none' },
     0x3A: { name: 'SHIFT_RIGHT_ARITH', args: 'none' },
-    0x3B: { name: 'ROTATE_LEFT', args: 'none' }, // Wait, ROTATE_LEFT is 0x3B in protocol? Yes.
+    0x3B: { name: 'ROTATE_LEFT', args: 'none' },
     0x3C: { name: 'ROTATE_RIGHT', args: 'none' },
 
     // Byte Manipulation
@@ -133,27 +101,25 @@ const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     0x3F: { name: 'BYTE_SWAP_64', args: 'none' },
 
     // Memory
-    0x40: { name: 'STORE', args: 'u32_vle' }, // Protocol ArgType::U32 (VLE)
-    0x41: { name: 'LOAD', args: 'u32_vle' }, // Protocol ArgType::U32 (VLE)
-    0x42: { name: 'STORE_FIELD', args: 'account_field' }, // Protocol ArgType::AccountField (u32 account_index + u32 field_offset VLE) -> wait parser says: u32 arg1 (account_idx), u32 arg2 (vle field_offset)
-                                                          // ArgType::AccountField in parser: consumes 1 byte (u8 account_index) + VLE u32.
-                                                          // Visualizer needs to handle this.
+    0x40: { name: 'STORE', args: 'u32_fixed' },
+    0x41: { name: 'LOAD', args: 'u32_fixed' },
+    0x42: { name: 'STORE_FIELD', args: 'account_field' },
     0x43: { name: 'LOAD_FIELD', args: 'account_field' },
     0x44: { name: 'LOAD_INPUT', args: 'u8' },
-    0x45: { name: 'STORE_GLOBAL', args: 'u16_fixed' }, // Protocol ArgType::U16 (Fixed)
+    0x45: { name: 'STORE_GLOBAL', args: 'u16_fixed' },
     0x46: { name: 'LOAD_GLOBAL', args: 'u16_fixed' },
     0x47: { name: 'LOAD_EXTERNAL_FIELD', args: 'none' },
 
     // Account
     0x50: { name: 'CREATE_ACCOUNT', args: 'none' },
-    0x51: { name: 'LOAD_ACCOUNT', args: 'u32_vle' }, // ArgType::AccountIndex (VLE u32)
-    0x52: { name: 'SAVE_ACCOUNT', args: 'u32_vle' },
-    0x53: { name: 'GET_ACCOUNT', args: 'u32_vle' },
-    0x54: { name: 'GET_LAMPORTS', args: 'u32_vle' },
-    0x55: { name: 'SET_LAMPORTS', args: 'u32_vle' },
-    0x56: { name: 'GET_DATA', args: 'u32_vle' },
-    0x57: { name: 'GET_KEY', args: 'u32_vle' },
-    0x58: { name: 'GET_OWNER', args: 'u32_vle' },
+    0x51: { name: 'LOAD_ACCOUNT', args: 'u32_fixed' },
+    0x52: { name: 'SAVE_ACCOUNT', args: 'u32_fixed' },
+    0x53: { name: 'GET_ACCOUNT', args: 'u32_fixed' },
+    0x54: { name: 'GET_LAMPORTS', args: 'u32_fixed' },
+    0x55: { name: 'SET_LAMPORTS', args: 'u32_fixed' },
+    0x56: { name: 'GET_DATA', args: 'u32_fixed' },
+    0x57: { name: 'GET_KEY', args: 'u32_fixed' },
+    0x58: { name: 'GET_OWNER', args: 'u32_fixed' },
     0x59: { name: 'TRANSFER', args: 'none' },
     0x5A: { name: 'TRANSFER_SIGNED', args: 'none' },
 
@@ -165,16 +131,15 @@ const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     0x64: { name: 'ARRAY_SET', args: 'none' },
     0x65: { name: 'ARRAY_GET', args: 'none' },
     0x66: { name: 'PUSH_STRING_LITERAL', args: 'u8' },
-    // 0x67 PUSH_STRING already listed
 
     // Constraints
-    0x70: { name: 'CHECK_SIGNER', args: 'u32_vle' }, // ArgType::AccountIndex
-    0x71: { name: 'CHECK_WRITABLE', args: 'u32_vle' },
-    0x72: { name: 'CHECK_OWNER', args: 'u32_vle' },
-    0x73: { name: 'CHECK_INITIALIZED', args: 'u32_vle' },
-    0x74: { name: 'CHECK_PDA', args: 'u32_vle' },
-    0x75: { name: 'CHECK_UNINITIALIZED', args: 'u32_vle' },
-    0x76: { name: 'CHECK_DEDUPE_TABLE', args: 'none' }, // Protocol doesn't specify ArgType in snippet, assumig None or check parser. Parser doesn't list it explicitly in my snippet.
+    0x70: { name: 'CHECK_SIGNER', args: 'u32_fixed' },
+    0x71: { name: 'CHECK_WRITABLE', args: 'u32_fixed' },
+    0x72: { name: 'CHECK_OWNER', args: 'u32_fixed' },
+    0x73: { name: 'CHECK_INITIALIZED', args: 'u32_fixed' },
+    0x74: { name: 'CHECK_PDA', args: 'u32_fixed' },
+    0x75: { name: 'CHECK_UNINITIALIZED', args: 'u32_fixed' },
+    0x76: { name: 'CHECK_DEDUPE_TABLE', args: 'none' },
     0x77: { name: 'CHECK_CACHED', args: 'none' },
     0x78: { name: 'CHECK_COMPLEXITY_GROUP', args: 'none' },
     0x79: { name: 'CHECK_DEDUPE_MASK', args: 'none' },
@@ -183,16 +148,16 @@ const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     0x80: { name: 'INVOKE', args: 'none' },
     0x81: { name: 'INVOKE_SIGNED', args: 'none' },
     0x82: { name: 'GET_CLOCK', args: 'none' },
-    0x83: { name: 'GET_RENT', args: 'none' }, // Was missing in protocol file I read? No, it's there.
-    0x84: { name: 'INIT_ACCOUNT', args: 'u32_vle' }, // ArgType::AccountIndex
-    0x85: { name: 'INIT_PDA_ACCOUNT', args: 'u32_vle' },
+    0x83: { name: 'GET_RENT', args: 'none' },
+    0x84: { name: 'INIT_ACCOUNT', args: 'u32_fixed' },
+    0x85: { name: 'INIT_PDA_ACCOUNT', args: 'u32_fixed' },
     0x86: { name: 'DERIVE_PDA', args: 'none' },
-    0x87: { name: 'FIND_PDA', args: 'none' }, // Protocol says nothing about args? Assuming None.
+    0x87: { name: 'FIND_PDA', args: 'none' },
     0x88: { name: 'DERIVE_PDA_PARAMS', args: 'none' },
     0x89: { name: 'FIND_PDA_PARAMS', args: 'none' },
 
-    0x90: { name: 'CALL', args: 'u32_vle' }, // ArgType::FunctionIndex (VLE u32)
-    0x91: { name: 'CALL_EXTERNAL', args: 'call_external' }, // ArgType::CallExternal
+    0x90: { name: 'CALL', args: 'u32_fixed' },
+    0x91: { name: 'CALL_EXTERNAL', args: 'call_external' },
     0x92: { name: 'CALL_NATIVE', args: 'none' },
     0x93: { name: 'PREPARE_CALL', args: 'none' },
     0x94: { name: 'FINISH_CALL', args: 'none' },
@@ -202,7 +167,7 @@ const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     0xA1: { name: 'DEALLOC_LOCALS', args: 'none' },
     0xA2: { name: 'SET_LOCAL', args: 'u8' },
     0xA3: { name: 'GET_LOCAL', args: 'u8' },
-    0xA4: { name: 'CLEAR_LOCAL', args: 'u32_vle' }, // ArgType::LocalIndex
+    0xA4: { name: 'CLEAR_LOCAL', args: 'u32_fixed' },
     0xA5: { name: 'LOAD_PARAM', args: 'u8' },
     0xA6: { name: 'STORE_PARAM', args: 'u8' },
     0xA7: { name: 'WRITE_DATA', args: 'none' },
@@ -210,25 +175,7 @@ const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     0xA9: { name: 'EMIT_EVENT', args: 'none' },
     0xAA: { name: 'LOG_DATA', args: 'none' },
     0xAB: { name: 'GET_SIGNER_KEY', args: 'none' },
-    0xAF: { name: 'CAST', args: 'u8' }, // ArgType not listed but usually CAST takes type. Assuming u8.
-
-    // Registers (0xB0 - 0xBF)
-    0xB0: { name: 'LOAD_REG_U8', args: 'u8' }, // ArgType::RegisterIndex -> u8? Parser says RegisterIndex -> 1 byte.
-    0xB1: { name: 'LOAD_REG_U32', args: 'u8' },
-    0xB2: { name: 'LOAD_REG_U64', args: 'u8' },
-    0xB3: { name: 'LOAD_REG_BOOL', args: 'u8' },
-    0xB4: { name: 'LOAD_REG_PUBKEY', args: 'u8' },
-    0xB5: { name: 'ADD_REG', args: 'u24_3reg' }, // ArgType::ThreeRegisters (3 bytes)
-    0xB6: { name: 'SUB_REG', args: 'u24_3reg' },
-    0xB7: { name: 'MUL_REG', args: 'u24_3reg' },
-    0xB8: { name: 'DIV_REG', args: 'u24_3reg' },
-    0xB9: { name: 'EQ_REG', args: 'u24_3reg' },
-    0xBA: { name: 'GT_REG', args: 'u24_3reg' },
-    0xBB: { name: 'LT_REG', args: 'u24_3reg' },
-    0xBC: { name: 'PUSH_REG', args: 'u8' },
-    0xBD: { name: 'POP_REG', args: 'u8' },
-    0xBE: { name: 'COPY_REG', args: 'u16_2reg' }, // ArgType::TwoRegisters (2 bytes)
-    0xBF: { name: 'CLEAR_REG', args: 'u8' },
+    0xAF: { name: 'CAST', args: 'u8' },
 
     // Nibble Ops (Optimizations)
     0xD0: { name: 'GET_LOCAL_0', args: 'none' },
@@ -256,13 +203,13 @@ const OPCODE_MAP: Record<number, { name: string, args: string }> = {
     0xE4: { name: 'DUP_MUL', args: 'none' },
     0xE5: { name: 'VALIDATE_AMOUNT_NONZERO', args: 'none' },
     0xE6: { name: 'VALIDATE_SUFFICIENT', args: 'none' },
-    0xE7: { name: 'EQ_ZERO_JUMP', args: 'u16_fixed' }, // ArgType::U16 (Fixed)
+    0xE7: { name: 'EQ_ZERO_JUMP', args: 'u16_fixed' },
     0xE8: { name: 'TRANSFER_DEBIT', args: 'u8' },
     0xE9: { name: 'TRANSFER_CREDIT', args: 'u8' },
     0xEA: { name: 'RETURN_SUCCESS', args: 'none' },
     0xEB: { name: 'RETURN_ERROR', args: 'none' },
-    0xEC: { name: 'GT_ZERO_JUMP', args: 'u16_fixed' }, // Assuming U16
-    0xED: { name: 'LT_ZERO_JUMP', args: 'u16_fixed' }, // Assuming U16
+    0xEC: { name: 'GT_ZERO_JUMP', args: 'u16_fixed' },
+    0xED: { name: 'LT_ZERO_JUMP', args: 'u16_fixed' },
     0xF7: { name: 'BULK_LOAD_FIELD_N', args: 'u8' },
 };
 
@@ -274,20 +221,23 @@ interface DisassembledOp {
     bytes: number[];
 }
 
-// VLE Decoder Helper
-const decodeVLE = (bytes: Uint8Array, offset: number): { value: number, length: number } => {
-    let result = 0;
-    let shift = 0;
-    let length = 0;
+// Helpers for decoding fixed-size little-endian integers
+const decodeU16 = (bytes: Uint8Array, offset: number): number => {
+    return bytes[offset] | (bytes[offset + 1] << 8);
+};
 
-    while (offset + length < bytes.length) {
-        const byte = bytes[offset + length];
-        result |= (byte & 0x7f) << shift;
-        length++;
-        if ((byte & 0x80) === 0) break;
-        shift += 7;
-    }
-    return { value: result, length };
+const decodeU32 = (bytes: Uint8Array, offset: number): number => {
+    return (
+        bytes[offset] |
+        (bytes[offset + 1] << 8) |
+        (bytes[offset + 2] << 16) |
+        (bytes[offset + 3] << 24)
+    ) >>> 0; // Ensure unsigned
+};
+
+const decodeU64 = (bytes: Uint8Array, offset: number): bigint => {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return view.getBigUint64(offset, true); // true = little endian
 };
 
 export default function VMVisualizer() {
@@ -327,31 +277,39 @@ export default function VMVisualizer() {
                     }
                 } else if (opDef.args === 'u16_fixed') {
                     if (pc + 1 < bytecode.length) {
-                        const val = bytecode[pc] | (bytecode[pc + 1] << 8);
+                        const val = decodeU16(bytecode, pc);
                         argsStr = `0x${val.toString(16).toUpperCase()}`;
                         pc += 2;
                     }
-                } else if (opDef.args === 'u32_vle' || opDef.args === 'u64_vle' || opDef.args === 'vle') {
-                    const { value, length } = decodeVLE(bytecode, pc);
-                    argsStr = `#${value}`;
-                    pc += length;
+                } else if (opDef.args === 'u32_fixed') {
+                    if (pc + 3 < bytecode.length) {
+                        const val = decodeU32(bytecode, pc);
+                        argsStr = `#${val}`;
+                        pc += 4;
+                    }
+                } else if (opDef.args === 'u64_fixed') {
+                     if (pc + 7 < bytecode.length) {
+                         const val = decodeU64(bytecode, pc);
+                         argsStr = `#${val}`;
+                         pc += 8;
+                     }
                 } else if (opDef.args === 'account_field') {
-                    // u8 account_index + vle field_offset
-                    if (pc < bytecode.length) {
+                    // u8 account_index + u32 field_offset
+                    if (pc + 4 < bytecode.length) {
                         const accIdx = bytecode[pc];
                         pc++;
-                        const { value: fieldOffset, length } = decodeVLE(bytecode, pc);
+                        const fieldOffset = decodeU32(bytecode, pc);
                         argsStr = `Acc:${accIdx} Field:${fieldOffset}`;
-                        pc += length;
+                        pc += 4;
                     }
                 } else if (opDef.args === 'br_eq_u8') {
-                    // u8 val + vle offset
-                    if (pc < bytecode.length) {
+                    // u8 val + u16 offset
+                    if (pc + 2 < bytecode.length) {
                         const val = bytecode[pc];
                         pc++;
-                        const { value: offset, length } = decodeVLE(bytecode, pc);
+                        const offset = decodeU16(bytecode, pc);
                         argsStr = `Val:${val} Offset:+${offset}`;
-                        pc += length;
+                        pc += 2;
                     }
                 } else if (opDef.args === 'pubkey') {
                     if (pc + 32 <= bytecode.length) {
@@ -369,7 +327,7 @@ export default function VMVisualizer() {
                     // account_index(u8) + func_offset(u16) + param_count(u8)
                     if (pc + 3 < bytecode.length) {
                         const accIdx = bytecode[pc];
-                        const funcOffset = bytecode[pc+1] | (bytecode[pc+2] << 8);
+                        const funcOffset = decodeU16(bytecode, pc+1);
                         const paramCount = bytecode[pc+3];
                         argsStr = `Acc:${accIdx} Fn:+${funcOffset} Params:${paramCount}`;
                         pc += 4;
@@ -389,6 +347,21 @@ export default function VMVisualizer() {
                        argsStr = `r${r1}, r${r2}, r${r3}`;
                        pc += 3;
                    }
+                } else if (opDef.args === 'string_fixed') {
+                    // u32 length + bytes
+                    if (pc + 3 < bytecode.length) {
+                        const len = decodeU32(bytecode, pc);
+                        pc += 4;
+                        if (pc + len <= bytecode.length) {
+                             const strBytes = bytecode.slice(pc, pc + len);
+                             const str = new TextDecoder().decode(strBytes);
+                             // Truncate long strings for display
+                             argsStr = `"${str.length > 20 ? str.substring(0, 17) + '...' : str}"`;
+                             pc += len;
+                        } else {
+                            argsStr = `<TRUNCATED STRING len=${len}>`;
+                        }
+                    }
                 }
             }
 

@@ -47,7 +47,7 @@ pub mod bytecode_analyzer;
 pub mod disassembler;
 
 // Compression and size optimization
-pub mod compression;
+// pub mod compression;
 
 // Performance and runtime optimization
 pub mod performance;
@@ -77,7 +77,7 @@ pub use account_utils::*;
 pub use ast_generator::*;
 pub use bytecode_analyzer::*;
 pub use call::*;
-pub use compression::*;
+// pub use compression::*;
 
 pub use disassembler::*;
 pub use function_dispatch::*;
@@ -277,7 +277,7 @@ impl DslBytecodeGenerator {
 
     /// Emit function name metadata section for public functions
     pub fn emit_function_name_metadata(&mut self) -> Result<(), String> {
-        use five_protocol::{FunctionNameEntry, VLE};
+        use five_protocol::FunctionNameEntry;
 
         // Collect public functions with their indices
         let public_functions = self
@@ -308,14 +308,12 @@ impl DslBytecodeGenerator {
 
         let section_size_u16 = section_size as u16;
 
-        // Emit section_size as VLE u16
-        let (size_bytes, bytes) = VLE::encode_u16(section_size_u16);
-        self.emit_bytes(&bytes[..size_bytes]);
+        // Emit section_size as fixed u16
+        self.emit_u16(section_size_u16);
 
         // Emit name_count as raw u8 (max 255 entries)
         let name_count_u8 = names.len() as u8;
-        let (size, bytes) = VLE::encode_u8(name_count_u8);
-        self.emit_bytes(&bytes[..size]);
+        self.emit_u8(name_count_u8);
 
         // Emit each name
         for name_entry in names {
@@ -324,8 +322,7 @@ impl DslBytecodeGenerator {
                 return Err("Function name exceeds maximum length of 255 characters".to_string());
             }
             let name_len_u8 = name_entry.name.len() as u8;
-            let (size, bytes) = VLE::encode_u8(name_len_u8);
-            self.emit_bytes(&bytes[..size]);
+            self.emit_u8(name_len_u8);
 
             // name bytes
             self.emit_bytes(name_entry.name.as_bytes());

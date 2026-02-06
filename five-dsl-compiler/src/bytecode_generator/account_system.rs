@@ -155,7 +155,7 @@ impl AccountSystem {
                     // For now, fall back to standard access until zerocopy is implemented
                     emitter.emit_opcode(LOAD_FIELD);
                     emitter.emit_u8(account_index);
-                    emitter.emit_vle_u32(field_info.offset);
+                    emitter.emit_u32(field_info.offset);
                     if field_info.is_optional {
                         emitter.emit_opcode(OPTIONAL_UNWRAP);
                     }
@@ -163,7 +163,7 @@ impl AccountSystem {
                     // Standard account field access
                     emitter.emit_opcode(LOAD_FIELD);
                     emitter.emit_u8(account_index);
-                    emitter.emit_vle_u32(field_info.offset);
+                    emitter.emit_u32(field_info.offset);
                     if field_info.is_optional {
                         emitter.emit_opcode(OPTIONAL_UNWRAP);
                     }
@@ -205,7 +205,7 @@ impl AccountSystem {
                 // For now, fall back to standard field access until register optimization is implemented
                 emitter.emit_opcode(LOAD_FIELD);
                 emitter.emit_u8(account_index);
-                emitter.emit_vle_u32(field_info.offset);
+                emitter.emit_u32(field_info.offset);
 
                 return Ok(());
             }
@@ -252,12 +252,12 @@ impl AccountSystem {
                     // For now, fall back to standard access until zerocopy is implemented
                     emitter.emit_opcode(STORE_FIELD);
                     emitter.emit_u8(account_index);
-                    emitter.emit_vle_u32(field_info.offset);
+                    emitter.emit_u32(field_info.offset);
                 } else {
                     // Standard account field storage
                     emitter.emit_opcode(STORE_FIELD);
                     emitter.emit_u8(account_index);
-                    emitter.emit_vle_u32(field_info.offset);
+                    emitter.emit_u32(field_info.offset);
                 }
 
                 if field_info.is_optional {
@@ -369,7 +369,7 @@ impl AccountSystem {
                 // Data modification uses generic store field with account index
                 emitter.emit_opcode(STORE_FIELD);
                 emitter.emit_u8(account_index); // Use resolved account index
-                emitter.emit_vle_u32(0); // Data field offset
+                emitter.emit_u32(0); // Data field offset
             }
             "owner" | "key" => {
                 // These are typically read-only

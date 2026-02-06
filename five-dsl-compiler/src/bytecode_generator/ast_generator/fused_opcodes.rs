@@ -32,7 +32,7 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING REQUIRE_GTE_U64! acc={} offset={} param={}", acc_idx, offset, param_idx);
             emitter.emit_opcode(REQUIRE_GTE_U64);
             emitter.emit_u8(acc_idx);
-            emitter.emit_vle_u32(offset);
+            emitter.emit_u32(offset);
             emitter.emit_u8(param_idx);
             return Ok(true);
         }
@@ -43,7 +43,7 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING REQUIRE_NOT_BOOL! acc={} offset={}", acc_idx, offset);
             emitter.emit_opcode(REQUIRE_NOT_BOOL);
             emitter.emit_u8(acc_idx);
-            emitter.emit_vle_u32(offset);
+            emitter.emit_u32(offset);
             return Ok(true);
         }
 
@@ -65,9 +65,9 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING REQUIRE_EQ_PUBKEY! acc1={} offset1={} acc2={} offset2={}", acc1_idx, offset1, acc2_idx, offset2);
             emitter.emit_opcode(REQUIRE_EQ_PUBKEY);
             emitter.emit_u8(acc1_idx);
-            emitter.emit_vle_u32(offset1);
+            emitter.emit_u32(offset1);
             emitter.emit_u8(acc2_idx);
-            emitter.emit_vle_u32(offset2);
+            emitter.emit_u32(offset2);
             return Ok(true);
         }
 
@@ -234,9 +234,9 @@ impl ASTGenerator {
                         
                         emitter.emit_opcode(FIELD_SUB_ADD_PARAM);
                         emitter.emit_u8(acc1_idx);
-                        emitter.emit_vle_u16(offset1 as u16);
+                        emitter.emit_u16(offset1 as u16);
                         emitter.emit_u8(acc2_idx);
-                        emitter.emit_vle_u16(offset2 as u16);
+                        emitter.emit_u16(offset2 as u16);
                         emitter.emit_u8(param1_idx);
                         
                         return Ok(Some(2)); // Consumed 2 statements
@@ -328,7 +328,7 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING FIELD_ADD_PARAM! acc={} offset={} param={}", target_acc_idx, target_offset, param_idx);
             emitter.emit_opcode(FIELD_ADD_PARAM);
             emitter.emit_u8(target_acc_idx);
-            emitter.emit_vle_u32(target_offset);
+            emitter.emit_u32(target_offset);
             emitter.emit_u8(param_idx);
             return Ok(true);
         }
@@ -339,7 +339,7 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING FIELD_SUB_PARAM! acc={} offset={} param={}", target_acc_idx, target_offset, param_idx);
             emitter.emit_opcode(FIELD_SUB_PARAM);
             emitter.emit_u8(target_acc_idx);
-            emitter.emit_vle_u32(target_offset);
+            emitter.emit_u32(target_offset);
             emitter.emit_u8(param_idx);
             return Ok(true);
         }
@@ -352,7 +352,7 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING STORE_FIELD_ZERO! acc={} offset={}", target_acc_idx, target_offset);
             emitter.emit_opcode(STORE_FIELD_ZERO);
             emitter.emit_u8(target_acc_idx);
-            emitter.emit_vle_u32(target_offset);
+            emitter.emit_u32(target_offset);
             return Ok(true);
         }
 
@@ -362,7 +362,7 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING STORE_PARAM_TO_FIELD! acc={} offset={} param={}", target_acc_idx, target_offset, param_idx);
             emitter.emit_opcode(STORE_PARAM_TO_FIELD);
             emitter.emit_u8(target_acc_idx);
-            emitter.emit_vle_u32(target_offset);
+            emitter.emit_u32(target_offset);
             emitter.emit_u8(param_idx);
             return Ok(true);
         }
@@ -374,7 +374,7 @@ impl ASTGenerator {
             println!("FUSED_DEBUG: EMITTING STORE_KEY_TO_FIELD! acc={} offset={} key_acc={}", target_acc_idx, target_offset, key_acc_idx);
             emitter.emit_opcode(STORE_KEY_TO_FIELD);
             emitter.emit_u8(target_acc_idx);
-            emitter.emit_vle_u32(target_offset);
+            emitter.emit_u32(target_offset);
             emitter.emit_u8(key_acc_idx);
             return Ok(true);
         }

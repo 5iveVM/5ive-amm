@@ -12,11 +12,10 @@ fn map_parse_error(e: ParseError) -> ProgramError {
     match e {
         ParseError::HeaderTooShort => ProgramError::Custom(8102),
         ParseError::InvalidMagic => ProgramError::Custom(8003),
-        ParseError::InvalidFunctionCount => ProgramError::Custom(8103),
         ParseError::InstructionOutOfBounds => ProgramError::Custom(8130),
         ParseError::InvalidOpcode => ProgramError::Custom(8107), // Generic invalid opcode
         ParseError::CallTargetOutOfBounds => ProgramError::Custom(8122),
-        ParseError::InvalidVLE => ProgramError::Custom(8115),
+        ParseError::InvalidFunctionCount => ProgramError::Custom(8103),
         ParseError::BytecodeTooShort => ProgramError::Custom(8130),
     }
 }

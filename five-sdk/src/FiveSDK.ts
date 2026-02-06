@@ -609,35 +609,35 @@ export class FiveSDK {
     return Deploy.deployLargeProgramOptimizedToSolana(bytecode, connection, deployerKeypair, options);
   }
 
-  static async fetchAccountAndDeserializeVLE(
+  static async fetchAccountAndDeserialize(
     accountAddress: string,
     connection: any,
     options: any = {},
   ) {
-    return Accounts.fetchAccountAndDeserializeVLE(accountAddress, connection, options);
+    return Accounts.fetchAccountAndDeserialize(accountAddress, connection, options);
   }
 
-  static async fetchMultipleAccountsAndDeserializeVLE(
+  static async fetchMultipleAccountsAndDeserialize(
     accountAddresses: string[],
     connection: any,
     options: any = {},
   ) {
-    return Accounts.fetchMultipleAccountsAndDeserializeVLE(accountAddresses, connection, options);
+    return Accounts.fetchMultipleAccountsAndDeserialize(accountAddresses, connection, options);
   }
 
-  static async deserializeVLEParameters(
+  static async deserializeParameters(
     instructionData: Uint8Array,
     expectedTypes: string[] = [],
     options: any = {},
   ) {
-    return Accounts.deserializeVLEParameters(instructionData, expectedTypes, options);
+    return Accounts.deserializeParameters(instructionData, expectedTypes, options);
   }
 
-  static async validateVLEEncoding(
+  static async validateBytecodeEncoding(
     bytecode: Uint8Array,
     debug: boolean = false,
   ) {
-    return Accounts.validateVLEEncoding(bytecode, debug);
+    return Accounts.validateBytecodeEncoding(bytecode, debug);
   }
 
   static async executeWithStateDiff(

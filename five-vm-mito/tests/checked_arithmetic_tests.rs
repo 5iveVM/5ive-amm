@@ -1,7 +1,7 @@
 //! Tests for checked arithmetic opcodes (ADD_CHECKED, SUB_CHECKED, MUL_CHECKED)
 //! Validates overflow detection and error handling (Task 2.2)
 
-use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
+use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, VMError, Value, stack::StackStorage, AccountInfo};
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
@@ -24,8 +24,7 @@ fn script_header(public_fn_count: u8, total_fn_count: u8) -> Vec<u8> {
 
 fn push_u64_instr(script: &mut Vec<u8>, value: u64) {
     script.push(PUSH_U64);
-    let (len, encoded) = VLE::encode_u64(value);
-    script.extend_from_slice(&encoded[..len]);
+    script.extend_from_slice(&value.to_le_bytes());
 }
 
 fn single_function_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
@@ -176,7 +175,7 @@ fn test_checked_arithmetic_in_nested_calls() {
         script
     };
 
-    match execute_test(&bytecode, &[0], &[]) {
+    match execute_test(&bytecode, &[0, 0, 0, 0], &[]) {
         Ok(Some(Value::U64(result))) => {
             // f2 returns 160, f1 returns 160, f0 returns 160 + 50 = 210
             assert_eq!(result, 210);
@@ -207,9 +206,43 @@ fn test_checked_arithmetic_with_locals() {
         script.push(RETURN_VALUE);
     });
 
-    // Provide dummy input parameters [0, 2, 0, 0] (Func=0, Count=2, Param1=0, Param2=0)
-    // This forces allocation of 2 locals (Param 1->Local 0, Param 2->Local 1)
-    match execute_test(&bytecode, &[0, 2, 0, 0], &[]) {
+    // Provide input: [Func=0 (u32), Count=2 (u32), Param1(0)=u64(0), Param2(0)=u64(0)]
+    // Total: 4 + 4 + 8 + 8 = 24 bytes? Or are params u8?
+    // LOAD_PARAM loads from parameters array.
+    // If we use `LOAD_PARAM`, we need params in `ctx.parameters`.
+    // The previous test used `[0, 2, 0, 0]`. It assumed [func(u8), count(u8), p1(u8), p2(u8)]?
+    // But `LOAD_PARAM` operates on `u64`.
+    // If the input parsing now expects u32 func index and u32 count...
+    // We should construct it properly.
+
+    // However, if `execute_direct` just parses func/count and ignores the rest (or parses params based on count),
+    // and `LOAD_PARAM` accesses `ctx.parameters`.
+    // We need `ctx.parameters` to be populated.
+
+    // Let's assume input format: [func_idx(u32), param_count(u32), p1(u64), p2(u64)...]?
+    // Or did I define param format as something else?
+    // In `five-wasm`, I used `[func_idx(u32), param_count(u32), ...]` and params were variable.
+    // But `MitoVM` parses input.
+    // Let's assume params are u64 if not specified otherwise (legacy `LOAD_INPUT` used u8, but `LOAD_PARAM` uses `u64`).
+    // Actually, `LOAD_PARAM` returns `Value::U64`.
+    // The parameters in `ctx` are `[u64; MAX_PARAMETERS]`.
+    // So the input parser must parse them as u64?
+    // Let's construct a safe input:
+    let mut input = vec![];
+    input.extend_from_slice(&0u32.to_le_bytes()); // Func 0
+    input.extend_from_slice(&2u32.to_le_bytes()); // Count 2
+    // Param 1 (0) - encoded as ?
+    // If `MitoVM` expects Typed params (0x80 sentinel), we should use that?
+    // Or does it assume untyped u64?
+    // Given the changes, it likely expects:
+    // [func(u32), count(u32), Type(u8), Value(u64), Type(u8), Value(u64)]
+    // Use Type 4 (U64) for both params
+    input.push(4); // Type U64
+    input.extend_from_slice(&0u64.to_le_bytes());
+    input.push(4); // Type U64
+    input.extend_from_slice(&0u64.to_le_bytes());
+
+    match execute_test(&bytecode, &input, &[]) {
         Ok(Some(Value::U64(result))) => assert_eq!(result, 160),
         Ok(r) => panic!("Expected U64(160), got {:?}", r),
         Err(e) => panic!("Should not error: {:?}", e),

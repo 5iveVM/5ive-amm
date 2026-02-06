@@ -7,12 +7,12 @@
 //!
 //! **10 redundant opcodes have been REMOVED** to minimize on-chain binary size and prepare for V3 optimizations:
 //!
-//! ## Removed Constraint Immediates (use VLE variants):
+//! ## Removed Constraint Immediates (use fixed-size variants):
 //! - `CHECK_SIGNER_IMM` (0x65) → use `CHECK_SIGNER` + u8 account_index
 //! - `CHECK_WRITABLE_IMM` (0x66) → use `CHECK_WRITABLE` + u8 account_index
-//! - `CHECK_OWNER_IMM` (0x67) → use `CHECK_OWNER` + VLE account_index + pubkey
+//! - `CHECK_OWNER_IMM` (0x67) → use `CHECK_OWNER` + account_index + pubkey
 //! - `CHECK_INITIALIZED_IMM` (0x68) → use `CHECK_INITIALIZED` + u8 account_index
-//! - `CHECK_PDA_IMM` (0x69) → use `CHECK_PDA` + VLE account_index
+//! - `CHECK_PDA_IMM` (0x69) → use `CHECK_PDA` + account_index
 //! - `CHECK_BATCH_IMM` (0x6A) → use multiple individual constraint checks
 //! - `CHECK_UNINITIALIZED_IMM` (0x6B) → use `CHECK_UNINITIALIZED` + u8 account_index
 //!
@@ -27,7 +27,7 @@
 //! - 🚀 **10 opcode slots freed** for V3 pattern fusion optimizations
 //! - 📦 **Smaller on-chain binary** (~300 bytes handler code removed)
 //! - 🎯 **Consistent API** - single way to do each operation
-//! - ⚡ **Better flexibility** - VLE encoding supports dynamic parameters
+//! - ⚡ **Better flexibility** - fixed-size encoding supports dynamic parameters
 
 /// Opcode allocation table - single source of truth
 /// Each range is 16 opcodes (0x0-0xF) for future expansion
@@ -93,9 +93,9 @@ pub mod ranges {
 
 // ===== CONTROL FLOW OPERATIONS (0x00-0x0F) =====
 pub const HALT: u8 = 0x00;
-pub const JUMP: u8 = 0x01; // JUMP offset_vle (VLE encoded for optimal space)
-pub const JUMP_IF: u8 = 0x02; // JUMP_IF offset_vle (VLE encoded for optimal space)
-pub const JUMP_IF_NOT: u8 = 0x03; // JUMP_IF_NOT offset_vle (VLE encoded for optimal space)
+pub const JUMP: u8 = 0x01; // JUMP offset_u16
+pub const JUMP_IF: u8 = 0x02; // JUMP_IF offset_u16
+pub const JUMP_IF_NOT: u8 = 0x03; // JUMP_IF_NOT offset_u16
 pub const REQUIRE: u8 = 0x04;
 pub const ASSERT: u8 = 0x05;
 pub const RETURN: u8 = 0x06;
@@ -116,12 +116,12 @@ pub const ROT: u8 = 0x15; // Rotate top 3 items on stack
 pub const DROP: u8 = 0x16; // Drop top item from stack
 pub const OVER: u8 = 0x17; // Copy second item to top of stack
 
-// ALL PUSH operations (consolidated from 0xE0-0xEF VLE range)
+// ALL PUSH operations (consolidated)
 pub const PUSH_U8: u8 = 0x18; // PUSH_U8 value_u8 (2 bytes total)
-pub const PUSH_U16: u8 = 0x19; // PUSH_U16 value_vle (2-3 bytes, optimized for small values)
-pub const PUSH_U32: u8 = 0x1A; // PUSH_U32 value_vle (2-5 bytes, optimized for small values)
-pub const PUSH_U64: u8 = 0x1B; // PUSH_U64 value_vle (2-9 bytes, optimized for small values)
-pub const PUSH_I64: u8 = 0x1C; // PUSH_I64 value_vle (2-9 bytes, optimized for small values)
+pub const PUSH_U16: u8 = 0x19; // PUSH_U16 value_u16 (3 bytes total)
+pub const PUSH_U32: u8 = 0x1A; // PUSH_U32 value_u32 (5 bytes total)
+pub const PUSH_U64: u8 = 0x1B; // PUSH_U64 value_u64 (9 bytes total)
+pub const PUSH_I64: u8 = 0x1C; // PUSH_I64 value_i64 (9 bytes total)
 pub const PUSH_BOOL: u8 = 0x1D; // PUSH_BOOL value_u8 (2 bytes total)
 pub const PUSH_PUBKEY: u8 = 0x1E; // PUSH_PUBKEY value_32bytes (33 bytes total)
 pub const PUSH_U128: u8 = 0x1F; // PUSH_U128 value_16bytes (17 bytes total) - MITO-style BPF-optimized
@@ -182,8 +182,8 @@ pub const BYTE_SWAP_64: u8 = 0x3F; // Swap bytes in u64 (endian conversion)
 // All memory operations use zero-copy by default where possible
 pub const STORE: u8 = 0x40;
 pub const LOAD: u8 = 0x41;
-pub const STORE_FIELD: u8 = 0x42; // STORE_FIELD account_index_u8, offset_vle (VLE + zero-copy optimized)
-pub const LOAD_FIELD: u8 = 0x43; // LOAD_FIELD account_index_u8, offset_vle (VLE + zero-copy optimized)
+pub const STORE_FIELD: u8 = 0x42; // STORE_FIELD account_index_u8, offset_u32
+pub const LOAD_FIELD: u8 = 0x43; // LOAD_FIELD account_index_u8, offset_u32
 pub const LOAD_INPUT: u8 = 0x44;
 pub const STORE_GLOBAL: u8 = 0x45;
 pub const LOAD_GLOBAL: u8 = 0x46;
@@ -191,7 +191,7 @@ pub const LOAD_GLOBAL: u8 = 0x46;
 // External field operations (MITO-style zero-copy)
 pub const LOAD_EXTERNAL_FIELD: u8 = 0x47; // LOAD_EXTERNAL_FIELD (stack: account_pubkey, field_name) -> value
                                           // Note: No STORE_EXTERNAL_FIELD - external state is read-only for security
-pub const LOAD_FIELD_PUBKEY: u8 = 0x48; // LOAD_FIELD_PUBKEY account_index_u8, offset_vle -> PubkeyRef
+pub const LOAD_FIELD_PUBKEY: u8 = 0x48; // LOAD_FIELD_PUBKEY account_index_u8, offset_u32 -> PubkeyRef
 
 // ===== ACCOUNT OPERATIONS (0x50-0x5F) =====
 pub const CREATE_ACCOUNT: u8 = 0x50;
@@ -219,7 +219,7 @@ pub const ARRAY_GET: u8 = 0x65; // Array element access
 
 // String operations (strings are byte arrays)
 pub const PUSH_STRING_LITERAL: u8 = 0x66; // Push string literal to temp buffer
-pub const PUSH_STRING: u8 = 0x67; // PUSH_STRING length_vle + string_data (VLE encoded)
+pub const PUSH_STRING: u8 = 0x67; // PUSH_STRING length_u32 + string_data
 
 // Array utility operations
 // DUP_ADD moved to 0xE2 - slot 0x68 available
@@ -445,20 +445,19 @@ pub enum ArgType {
     U32,
     U64,
     ValueType,
-    FunctionIndex,
-    LocalIndex,
-    AccountIndex,
+    FunctionIndex, // u32 fixed
+    LocalIndex, // u8 fixed
+    AccountIndex, // u8 fixed
     CallExternal,   // account_index (u8) + function_offset (u16) + param_count (u8)
     CallInternal,   // param_count (u8) + function_address (u16)
-    AccountField,   // account_index (u8) + field_offset (VLE)
-    AccountFieldParam, // account_index (u8) + field_offset (VLE) + param_index (u8)
-    FusedAccAcc,    // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
+    AccountField,   // account_index (u8) + field_offset (u32)
+    AccountFieldParam, // account_index (u8) + field_offset (u32) + param_index (u8)
+    FusedAccAcc,    // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
     U16Fixed,       // Fixed 2-byte u16 (for patching)
-
     U32Fixed,       // Fixed 4-byte u32 (for patching)
-    FusedSubAdd,    // acc1(u8) + off1(VLE) + acc2(u8) + off2(VLE) + param(u8)
+    FusedSubAdd,    // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
     ParamImm,       // param(u8) + imm(u8)
-    FieldImm,       // acc(u8) + off(VLE) + imm(u8)
+    FieldImm,       // acc(u8) + off(u32) + imm(u8)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -720,14 +719,14 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::U64,
         stack_effect: 1,
         compute_cost: 1,
-    }, // VLE encoded value
+    },
     OpcodeInfo {
         opcode: PUSH_I64,
         name: "PUSH_I64",
         arg_type: ArgType::U64,
         stack_effect: 1,
         compute_cost: 1,
-    }, // VLE encoded value
+    },
     OpcodeInfo {
         opcode: PUSH_BOOL,
         name: "PUSH_BOOL",
@@ -1302,14 +1301,14 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::U32,
         stack_effect: 1,
         compute_cost: 1,
-    }, // VLE encoded value
+    },
     OpcodeInfo {
         opcode: PUSH_U16,
         name: "PUSH_U16",
         arg_type: ArgType::U16,
         stack_effect: 1,
         compute_cost: 1,
-    }, // VLE encoded value
+    },
     // Note: JUMP_TABLE (0xB0) opcode removed from protocol
 
     // Array and string operations
@@ -1629,28 +1628,28 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: 0xC0, // REQUIRE_GTE_U64
         name: "REQUIRE_GTE_U64",
-        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + param(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + param(u8)
         stack_effect: 0,
         compute_cost: 4,
     },
     OpcodeInfo {
         opcode: 0xC1, // REQUIRE_NOT_BOOL
         name: "REQUIRE_NOT_BOOL",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE)
+        arg_type: ArgType::AccountField, // acc(u8) + offset(u32)
         stack_effect: 0,
         compute_cost: 3,
     },
     OpcodeInfo {
         opcode: 0xC2, // FIELD_ADD_PARAM
         name: "FIELD_ADD_PARAM",
-        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + param(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + param(u8)
         stack_effect: 0,
         compute_cost: 4,
     },
     OpcodeInfo {
         opcode: 0xC3, // FIELD_SUB_PARAM
         name: "FIELD_SUB_PARAM",
-        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + param(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + param(u8)
         stack_effect: 0,
         compute_cost: 4,
     },
@@ -1679,21 +1678,21 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: 0xC7, // STORE_PARAM_TO_FIELD
         name: "STORE_PARAM_TO_FIELD",
-        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + param(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + param(u8)
         stack_effect: 0,
         compute_cost: 3,
     },
     OpcodeInfo {
         opcode: 0xC8, // STORE_FIELD_ZERO
         name: "STORE_FIELD_ZERO",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE)
+        arg_type: ArgType::AccountField, // acc(u8) + offset(u32)
         stack_effect: 0,
         compute_cost: 2,
     },
     OpcodeInfo {
         opcode: 0xC9, // STORE_KEY_TO_FIELD
         name: "STORE_KEY_TO_FIELD",
-        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + key_acc(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + key_acc(u8)
         stack_effect: 0,
         compute_cost: 3,
     },
@@ -1747,22 +1746,22 @@ pub const fn opcode_compute_cost(opcode: u8) -> u8 {
 // High-impact universal patterns that apply across all DeFi contracts
 
 /// REQUIRE_GTE_U64: Fuses LOAD_FIELD + LOAD_PARAM + GTE + REQUIRE
-/// Encoding: REQUIRE_GTE_U64 acc(u8) offset(VLE) param(u8)
+/// Encoding: REQUIRE_GTE_U64 acc(u8) offset(u32) param(u8)
 /// Use: balance >= amount, collateral >= loan, liquidity >= withdraw
 pub const REQUIRE_GTE_U64: u8 = 0xC0;
 
 /// REQUIRE_NOT_BOOL: Fuses LOAD_FIELD + NOT + REQUIRE  
-/// Encoding: REQUIRE_NOT_BOOL acc(u8) offset(VLE)
+/// Encoding: REQUIRE_NOT_BOOL acc(u8) offset(u32)
 /// Use: !frozen, !paused, !locked, !liquidated
 pub const REQUIRE_NOT_BOOL: u8 = 0xC1;
 
 /// FIELD_ADD_PARAM: Fuses LOAD_FIELD + LOAD_PARAM + ADD + STORE_FIELD
-/// Encoding: FIELD_ADD_PARAM acc(u8) offset(VLE) param(u8)
+/// Encoding: FIELD_ADD_PARAM acc(u8) offset(u32) param(u8)
 /// Use: credit balance, add liquidity, increase stake
 pub const FIELD_ADD_PARAM: u8 = 0xC2;
 
 /// FIELD_SUB_PARAM: Fuses LOAD_FIELD + LOAD_PARAM + SUB + STORE_FIELD  
-/// Encoding: FIELD_SUB_PARAM acc(u8) offset(VLE) param(u8)
+/// Encoding: FIELD_SUB_PARAM acc(u8) offset(u32) param(u8)
 /// Use: debit balance, remove liquidity, decrease stake
 pub const FIELD_SUB_PARAM: u8 = 0xC3;
 
@@ -1772,7 +1771,7 @@ pub const FIELD_SUB_PARAM: u8 = 0xC3;
 pub const REQUIRE_PARAM_GT_ZERO: u8 = 0xC4;
 
 /// REQUIRE_EQ_PUBKEY: Fuses LOAD_FIELD_PUBKEY + LOAD_FIELD_PUBKEY + EQ + REQUIRE
-/// Encoding: REQUIRE_EQ_PUBKEY acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+/// Encoding: REQUIRE_EQ_PUBKEY acc1(u8) offset1(u32) acc2(u8) offset2(u32)
 /// Use: source.mint == dest.mint
 pub const REQUIRE_EQ_PUBKEY: u8 = 0xC5;
 
@@ -1785,21 +1784,21 @@ pub const CHECK_SIGNER_WRITABLE: u8 = 0xC6;
 // Initialization and assignment patterns
 
 /// STORE_PARAM_TO_FIELD: Fuses LOAD_PARAM + STORE_FIELD
-/// Encoding: STORE_PARAM_TO_FIELD acc(u8) offset(VLE) param(u8)
+/// Encoding: STORE_PARAM_TO_FIELD acc(u8) offset(u32) param(u8)
 /// Use: account.field = param (common in init functions)
 pub const STORE_PARAM_TO_FIELD: u8 = 0xC7;
 
 /// STORE_FIELD_ZERO: Fuses PUSH_0 + STORE_FIELD
-/// Encoding: STORE_FIELD_ZERO acc(u8) offset(VLE)
+/// Encoding: STORE_FIELD_ZERO acc(u8) offset(u32)
 /// Use: account.balance = 0 (field initialization)
 pub const STORE_FIELD_ZERO: u8 = 0xC8;
 
 /// STORE_KEY_TO_FIELD: Fuses GET_KEY + STORE_FIELD  
-/// Encoding: STORE_KEY_TO_FIELD acc(u8) offset(VLE) key_acc(u8)
+/// Encoding: STORE_KEY_TO_FIELD acc(u8) offset(u32) key_acc(u8)
 /// Use: account.owner = signer.key (ownership assignment)
 pub const STORE_KEY_TO_FIELD: u8 = 0xC9;
 
 /// REQUIRE_EQ_FIELDS: Fuses LOAD_FIELD + LOAD_FIELD + EQ + REQUIRE
-/// Encoding: REQUIRE_EQ_FIELDS acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+/// Encoding: REQUIRE_EQ_FIELDS acc1(u8) offset1(u32) acc2(u8) offset2(u32)
 /// Use: source.mint == dest.mint (field-to-field comparison)
 pub const REQUIRE_EQ_FIELDS: u8 = 0xCA;

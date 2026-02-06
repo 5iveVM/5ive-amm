@@ -9,7 +9,7 @@
 export { FiveVM } from './vm.js';
 export { FiveCompiler } from './compiler/index.js';
 
-// VLE encoder from lib
-export { VLEEncoder } from '../lib/vle-encoder.js';
+// Bytecode encoder from lib
+export { BytecodeEncoder } from '../lib/bytecode-encoder.js';
 
 // Simple WASM utilities (no over-engineering)

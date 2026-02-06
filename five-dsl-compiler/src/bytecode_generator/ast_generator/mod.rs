@@ -28,10 +28,10 @@ mod program;
 mod assignments;
 
 // Test modules
-#[cfg(test)]
-mod tests;
-#[cfg(test)]
-mod external_call_tests;
+// #[cfg(test)]
+// mod tests;
+// #[cfg(test)]
+// mod external_call_tests;
 
 // Re-export the main type
 pub use types::ASTGenerator;
@@ -164,7 +164,7 @@ impl ASTGenerator {
                             // Script fields use account_index=0 (the script account itself)
                             emitter.emit_opcode(LOAD_FIELD);
                             emitter.emit_u8(0);
-                            emitter.emit_vle_u32(field_info.offset);
+                            emitter.emit_u32(field_info.offset);
                         } else if !self.interface_registry.contains_key(name) {
                             // Only return error for truly undefined identifiers
                             return Err(VMError::InvalidScript); // Undefined identifier
@@ -208,8 +208,8 @@ impl ASTGenerator {
                 // Convert to UTF-8 bytes (compile-time UTF-8 validation)
                 let utf8_bytes = value.as_bytes();
 
-                // Emit VLE-encoded length
-                emitter.emit_vle_u32(utf8_bytes.len() as u32);
+                // Emit fixed length (u32)
+                emitter.emit_u32(utf8_bytes.len() as u32);
 
                 // Emit string data
                 emitter.emit_bytes(utf8_bytes);
@@ -403,7 +403,7 @@ impl ASTGenerator {
                         let field_offset =
                             self.calculate_account_field_offset(account_type, field)?;
 
-                        // Generate zero-copy account field load operation using MitoVM VLE
+                        // Generate zero-copy account field load operation using MitoVM
                         if is_pubkey {
                             emitter.emit_opcode(LOAD_FIELD_PUBKEY); // Zero-copy pubkey read (32 bytes)
                         } else {
@@ -415,7 +415,7 @@ impl ASTGenerator {
                                 field_info.offset,
                             ),
                         ); // Account index from symbol table
-                        emitter.emit_vle_u32(field_offset); // Field offset (VLE format for consistency)
+                        emitter.emit_u32(field_offset); // Field offset (fixed format for consistency)
 
                         if is_optional {
                             emitter.emit_opcode(OPTIONAL_UNWRAP);

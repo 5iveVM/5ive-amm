@@ -236,7 +236,8 @@ mod pda_constraint_tests {
 
         // 1. Push seeds "test"
         // PUSH_STRING "test"
-        bytecode.extend_from_slice(&[0x67, 0x04, b't', b'e', b's', b't']);
+        // Length 4 (u32 LE) + bytes
+        bytecode.extend_from_slice(&[0x67, 0x04, 0x00, 0x00, 0x00, b't', b'e', b's', b't']);
 
         // 2. Push bump (u8) - as a seed
         bytecode.push(0x18); // PUSH_U8

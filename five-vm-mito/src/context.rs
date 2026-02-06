@@ -12,7 +12,7 @@ use crate::{
 };
 
 use crate::debug_log;
-use five_protocol::{ValueRef, VLE, types};
+use five_protocol::{ValueRef, types};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Instruction, Signer},
@@ -635,53 +635,6 @@ impl<'a> ExecutionContext<'a> {
         self.fetch_le::<u32, 4>()
     }
 
-    #[inline(always)]
-    pub fn fetch_vle_u16(&mut self) -> CompactResult<u16> {
-        let first_byte = self.fetch_byte()?;
-        if first_byte & 0x80 == 0 {
-            Ok(first_byte as u16)
-        } else {
-            let second_byte = self.fetch_byte()?;
-            Ok(((first_byte & 0x7F) as u16) | ((second_byte as u16) << 7))
-        }
-    }
-
-    #[inline]
-    pub fn fetch_vle_u32(&mut self) -> CompactResult<u32> {
-        let mut result = 0u32;
-        let mut shift = 0;
-        loop {
-            let byte = self.fetch_byte()?;
-            result |= ((byte & 0x7F) as u32) << shift;
-            if byte & 0x80 == 0 {
-                break;
-            }
-            shift += 7;
-            if shift >= 32 {
-                return Err(VMErrorCode::InvalidInstruction);
-            }
-        }
-        Ok(result)
-    }
-
-    #[inline]
-    pub fn fetch_vle_u64(&mut self) -> CompactResult<u64> {
-        let mut result = 0u64;
-        let mut shift = 0;
-        loop {
-            let byte = self.fetch_byte()?;
-            result |= ((byte & 0x7F) as u64) << shift;
-            if byte & 0x80 == 0 {
-                break;
-            }
-            shift += 7;
-            if shift >= 64 {
-                return Err(VMErrorCode::InvalidInstruction);
-            }
-        }
-        Ok(result)
-    }
-
     #[inline]
     pub fn fetch_input_u8(&mut self) -> CompactResult<u8> {
         if self.input_ptr as usize >= self.instruction_data.len() {
@@ -948,7 +901,7 @@ impl<'a> ExecutionContext<'a> {
         self.accounts.validate_bitwise_constraints(constraints)
     }
 
-    /// Parse VLE parameters directly into parameters array with zero copy
+    /// Parse parameters directly into parameters array with zero copy (Fixed Size Encoding)
     pub fn parse_parameters(&mut self) -> CompactResult<()> {
         // Clear params first not needed as we overwrite
         self.reset_temp_buffer();
@@ -959,118 +912,114 @@ impl<'a> ExecutionContext<'a> {
             return Ok(());
         }
 
-        // 1. Function Index
-        let function_index = if let Some((func_index, consumed)) =
-            VLE::decode_u32(&self.instruction_data[offset..])
-        {
-            offset += consumed;
-            func_index
-        } else {
-            return Err(VMErrorCode::InvalidInstructionPointer);
-        };
+        // 1. Function Index (u32)
+        if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+        let function_index = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+        offset += 4;
 
         // Store function index at params[0]
         self.frame.set_parameter(0, ValueRef::U64(function_index as u64))?;
 
-        // 2. Parameter Count
-        if offset >= input_len {
-            return Ok(());
-        }
+        // 2. Parameter Count (u32)
+        if offset + 4 > input_len { return Ok(()); }
+        let param_count = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+        offset += 4;
 
-        // Check for typed mode sentinel
-        let is_typed_mode = if self.instruction_data[offset] == 0x80 {
-            offset += 1;
-            true
-        } else {
-            false
-        };
+        // Limit count to available slots (MAX_PARAMETERS - 1 for func index)
+        // params[0] is func index. params[1..8] are arguments.
+        let count = (param_count as usize).min(MAX_PARAMETERS - 1);
 
-        if let Some((param_count, consumed)) = VLE::decode_u32(&self.instruction_data[offset..]) {
-            offset += consumed;
+        // Check for typed mode sentinel is removed or assumed to be handled by higher level protocol.
+        // Assuming strictly typed mode or pure u64s? The original code had a sentinel check.
+        // For simplicity and strictness, let's assume we read typed values if typed mode was intended,
+        // or just read u64s if not.
+        // The previous code had `is_typed_mode` check.
+        // I'll implement a simple loop reading 8-byte values for now as a baseline,
+        // OR reproduce the typed logic with fixed sizes.
+        // Given "remove ALL VLE", I will assume we use fixed size encoding for everything.
+        // The sentinel `0x80` is a single byte.
 
-            // Limit count to available slots (MAX_PARAMETERS - 1 for func index)
-            // But we actually have SHARED_PARAM_SIZE slots.
-            // params[0] is func index. params[1..8] are arguments.
-            let count = (param_count as usize).min(MAX_PARAMETERS - 1);
+        // Let's implement typed parsing with fixed sizes.
 
-            for i in 0..count {
-                if is_typed_mode {
-                     if offset >= input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                     let type_id = self.instruction_data[offset];
-                     offset += 1;
+        for i in 0..count {
+             if offset >= input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+             let type_id = self.instruction_data[offset];
+             offset += 1;
 
-                     match type_id {
-                        t if t == types::STRING => {
-                            let (len, len_consumed) = VLE::decode_u32(&self.instruction_data[offset..])
-                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
-                            offset += len_consumed;
-                            let len = len as usize;
+             match type_id {
+                t if t == types::STRING => {
+                    if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                    let len = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap()) as usize;
+                    offset += 4;
 
-                            // Check bounds
-                            if offset + len > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                    // Check bounds
+                    if offset + len > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
 
-                            // Alloc temp buffer: [len:u8, type:u8, bytes...]
-                            let total_size = 2 + len;
-                            if total_size > crate::TEMP_BUFFER_SIZE { return Err(VMErrorCode::OutOfMemory); }
+                    // Alloc temp buffer: [len:u8, type:u8, bytes...]
+                    // WARNING: temp buffer format expects len as u8?
+                    // Previous code: `self.memory.temp_buffer[array_id as usize] = len as u8;`
+                    // This implies strings > 255 length are truncated in temp buffer metadata?
+                    // I will keep this behavior for now to avoid breaking VM internals if they expect this format.
+                    let total_size = 2 + len;
+                    if total_size > crate::TEMP_BUFFER_SIZE { return Err(VMErrorCode::OutOfMemory); }
 
-                            let array_id = self.alloc_temp(total_size as u8)?;
+                    let array_id = self.alloc_temp(total_size as u8)?;
 
-                            self.memory.temp_buffer[array_id as usize] = len as u8;
-                            self.memory.temp_buffer[array_id as usize + 1] = 1; // Type 1 (String?) or just marker
+                    self.memory.temp_buffer[array_id as usize] = len as u8;
+                    self.memory.temp_buffer[array_id as usize + 1] = 1; // Type 1 (String?)
 
-                            // Copy bytes
-                            self.memory.temp_buffer[array_id as usize + 2..array_id as usize + 2 + len]
-                                .copy_from_slice(&self.instruction_data[offset..offset + len]);
+                    // Copy bytes
+                    self.memory.temp_buffer[array_id as usize + 2..array_id as usize + 2 + len]
+                        .copy_from_slice(&self.instruction_data[offset..offset + len]);
 
-                            offset += len;
-                            self.frame.set_parameter(i + 1, ValueRef::StringRef(array_id as u16))?;
-                        }
-                        t if t == types::BOOL => {
-                            let (val, consumed) = VLE::decode_u32(&self.instruction_data[offset..])
-                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
-                            offset += consumed;
-                            self.frame.set_parameter(i + 1, ValueRef::Bool(val != 0))?;
-                        }
-                        t if t == types::U8 => {
-                             let (val, consumed) = VLE::decode_u32(&self.instruction_data[offset..])
-                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
-                            offset += consumed;
-                            self.frame.set_parameter(i + 1, ValueRef::U8(val as u8))?;
-                        }
-                        t if t == types::U32 || t == types::U64 => {
-                             let (val, consumed) = VLE::decode_u32(&self.instruction_data[offset..])
-                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
-                            offset += consumed;
-                            self.frame.set_parameter(i + 1, ValueRef::U64(val as u64))?;
-                        }
-                        t if t == types::PUBKEY => {
-                             if offset + 32 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                             let temp_offset = self.alloc_temp(32)?;
-                             self.memory.temp_buffer[temp_offset as usize..temp_offset as usize + 32]
-                                .copy_from_slice(&self.instruction_data[offset..offset + 32]);
-                             offset += 32;
-                             self.frame.set_parameter(i + 1, ValueRef::TempRef(temp_offset, 32))?;
-                        }
-                        t if t == types::ACCOUNT => {
-                            let (idx, consumed) = VLE::decode_u32(&self.instruction_data[offset..])
-                                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
-                            offset += consumed;
-                            self.frame.set_parameter(i + 1, ValueRef::AccountRef(idx as u8, 0))?;
-                        }
-                        _ => return Err(VMErrorCode::TypeMismatch),
-                     }
-                } else {
-                    // Pure VLE
-                    if let Some((val, consumed)) = VLE::decode_u64(&self.instruction_data[offset..]) {
-                        offset += consumed;
-                        self.frame.set_parameter(i + 1, ValueRef::U64(val))?;
-                    } else {
-                        return Err(VMErrorCode::InvalidInstructionPointer);
-                    }
+                    offset += len;
+                    self.frame.set_parameter(i + 1, ValueRef::StringRef(array_id as u16))?;
                 }
-            }
-        } else {
-             return Err(VMErrorCode::InvalidInstructionPointer);
+                t if t == types::BOOL => {
+                    if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                    let val = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+                    offset += 4;
+                    self.frame.set_parameter(i + 1, ValueRef::Bool(val != 0))?;
+                }
+                t if t == types::U8 => {
+                     if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                     let val = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+                     offset += 4;
+                     self.frame.set_parameter(i + 1, ValueRef::U8(val as u8))?;
+                }
+                t if t == types::U32 => {
+                     if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                     let val = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+                     offset += 4;
+                     self.frame.set_parameter(i + 1, ValueRef::U64(val as u64))?;
+                }
+                t if t == types::U64 => {
+                     if offset + 8 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                     let val = u64::from_le_bytes(self.instruction_data[offset..offset+8].try_into().unwrap());
+                     offset += 8;
+                     self.frame.set_parameter(i + 1, ValueRef::U64(val))?;
+                }
+                t if t == types::PUBKEY => {
+                     if offset + 32 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                     let temp_offset = self.alloc_temp(32)?;
+                     self.memory.temp_buffer[temp_offset as usize..temp_offset as usize + 32]
+                        .copy_from_slice(&self.instruction_data[offset..offset + 32]);
+                     offset += 32;
+                     self.frame.set_parameter(i + 1, ValueRef::TempRef(temp_offset, 32))?;
+                }
+                t if t == types::ACCOUNT => {
+                    if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                    let idx = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+                    offset += 4;
+                    self.frame.set_parameter(i + 1, ValueRef::AccountRef(idx as u8, 0))?;
+                }
+                _ => {
+                    // Fallback to U64 if type unknown or generic (assuming 8 bytes)
+                    // The previous code had a "Pure VLE" branch.
+                    // Here we'll just error or assume U64.
+                    return Err(VMErrorCode::TypeMismatch);
+                }
+             }
         }
 
         Ok(())

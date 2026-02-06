@@ -445,7 +445,7 @@ impl FunctionDispatcher {
 
             // Compare with current function index (use VLE encoding to match VM's PUSH_U16)
             emitter.emit_opcode(five_protocol::opcodes::PUSH_U16);
-            emitter.emit_vle_u16(i as u16);
+            emitter.emit_u16(i as u16);
             
             emitter.emit_opcode(five_protocol::opcodes::EQ);
             

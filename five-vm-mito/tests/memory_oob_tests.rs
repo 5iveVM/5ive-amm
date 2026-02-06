@@ -49,10 +49,10 @@ fn load_field_out_of_bounds() {
     let accounts = [account];
 
     // Bytecode: LOAD_FIELD account_index=0 offset=32 (VLE encoded); HALT
-    // Protocol V3 format: LOAD_FIELD account_index_u8, offset_vle
+    // Protocol V3 format: LOAD_FIELD account_index_u8, offset_u32
     let mut body = vec![LOAD_FIELD];
     body.push(0); // account_index = 0
-    body.push(32); // VLE-encoded offset (32 fits in 1 byte for VLE)
+    body.extend_from_slice(&32u32.to_le_bytes()); // Fixed size offset
     body.push(HALT);
     let bytecode = build_script(&body);
 

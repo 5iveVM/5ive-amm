@@ -2,10 +2,10 @@
  * Five Parameter Encoder
  * 
  * Handles parameter encoding for Five VM:
- * - VLE (Variable Length Encoding) for efficient bytecode
+ * - Fixed-size encoding for efficient bytecode
  * - Type coercion based on ABI information
  * - Parameter validation and error handling
- * - Integration with existing VLE encoder
+ * - Integration with BytecodeEncoder
  */
 
 import {
@@ -18,9 +18,9 @@ import {
 } from '../types.js';
 
 /**
- * VLE Type ID mapping (matches Five VM protocol)
+ * Type ID mapping (matches Five VM protocol)
  */
-const VLE_TYPE_IDS: Record<FiveType, number> = {
+const TYPE_IDS: Record<FiveType, number> = {
   'u8': 1,
   'u16': 2,
   'u32': 3,
@@ -63,14 +63,13 @@ export class ParameterEncoder {
       console.log(`[ParameterEncoder] Encoding parameter data: params=${parameters.length}`);
     }
 
-    // Use existing VLE encoder
-    const vleData = await this.encodeParametersVLE(parameters, functionSignature);
+    const encodedData = await this.encodeParametersInternal(parameters, functionSignature);
 
     if (this.debug) {
-      console.log(`[ParameterEncoder] Encoded parameters: ${vleData.length} bytes, hex: ${vleData.toString('hex')}`);
+      console.log(`[ParameterEncoder] Encoded parameters: ${encodedData.length} bytes, hex: ${encodedData.toString('hex')}`);
     }
 
-    return vleData;
+    return encodedData;
   }
 
   /**
@@ -164,15 +163,15 @@ export class ParameterEncoder {
   // ==================== Private Methods ====================
 
   /**
-   * Use existing VLE encoder for parameter data only
+   * Use BytecodeEncoder for parameter data only
    */
-  private async encodeParametersVLE(parameters: any[], functionSignature?: FiveFunction): Promise<Buffer> {
+  private async encodeParametersInternal(parameters: any[], functionSignature?: FiveFunction): Promise<Buffer> {
     try {
-      // Import existing VLE encoder
-      const { VLEEncoder } = await import('../lib/vle-encoder.js');
+      // Import BytecodeEncoder
+      const { BytecodeEncoder } = await import('../lib/bytecode-encoder.js');
 
-      // Convert parameters to VLE format
-      const vleParams = parameters.map((value, index) => {
+      // Convert parameters to format expected by encoder
+      const params = parameters.map((value, index) => {
         const paramDef = functionSignature?.parameters[index];
         return {
           name: paramDef?.name || `param_${index}`,
@@ -181,16 +180,16 @@ export class ParameterEncoder {
       });
 
       const values: Record<string, any> = {};
-      vleParams.forEach((param, index) => {
+      params.forEach((param, index) => {
         values[param.name] = parameters[index];
       });
 
       // Encode parameters only; function index is handled by the SDK when building instruction data
-      const encoded = await VLEEncoder.encodeExecuteVLE(0, vleParams, values);
+      const encoded = await BytecodeEncoder.encodeExecute(0, params, values);
       return Buffer.from(encoded);
 
     } catch (error) {
-      throw new Error(`VLE parameter encoding failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Parameter encoding failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -199,7 +198,7 @@ export class ParameterEncoder {
    */
   private encodeParameter(value: any, type: FiveType, index: number): EncodedParameter {
     const coercedValue = this.coerceValue(value, type);
-    const typeId = VLE_TYPE_IDS[type];
+    const typeId = TYPE_IDS[type];
 
     return {
       type: typeId,
@@ -232,7 +231,7 @@ export class ParameterEncoder {
   }
 
   /**
-   * Infer type as string for VLE encoder compatibility
+   * Infer type as string
    */
   private inferTypeString(value: any): string {
     const type = this.inferType(value);
@@ -366,7 +365,4 @@ export class ParameterEncoder {
     }
     throw new Error(`Value ${value} cannot be coerced to array`);
   }
-
-  // ==================== VLE Encoding Utilities ====================
-
 }

@@ -188,15 +188,15 @@ impl ASTGenerator {
                 } else if *n <= u16::MAX as u64 {
                     // Fits in u16
                     emitter.emit_opcode(PUSH_U16);
-                    emitter.emit_vle_u16(*n as u16);
+                    emitter.emit_u16(*n as u16);
                 } else if *n <= u32::MAX as u64 {
                     // Fits in u32
                     emitter.emit_opcode(PUSH_U32);
-                    emitter.emit_vle_u32(*n as u32);
+                    emitter.emit_u32(*n as u32);
                 } else {
                     // Requires u64
                     emitter.emit_opcode(PUSH_U64);
-                    emitter.emit_vle_u64(*n);
+                    emitter.emit_u64(*n);
                 }
             }
             Value::U128(n) => {
@@ -225,7 +225,7 @@ impl ASTGenerator {
             }
             Value::I64(n) => {
                 emitter.emit_opcode(PUSH_I64);
-                emitter.emit_vle_u64(*n as u64);
+                emitter.emit_u64(*n as u64);
             }
             Value::Account(idx) => {
                 OpcodePatterns::emit_push_account(emitter, *idx);

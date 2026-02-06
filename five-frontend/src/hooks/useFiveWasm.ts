@@ -120,25 +120,21 @@ export function useFiveWasm() {
 
             // Simple execution payload for now (calling init or 0-index function)
             // For docs examples, we mostly just want to init or run the first function.
-            // Construct payload: [Discriminator(9)] + [VLE(Index)] + [EncodedParams]
+            // Construct payload: [Discriminator(9)] + [Index(u32)] + [EncodedParams]
 
             // For simplicity in docs, let's assume no params or handle them simply if needed later.
             // Using 0 as default function index (usually 'main' or first defined)
 
-            // VLE encoding helper for index
-            const encodeVLE = (value: number) => {
-                const bytes: number[] = [];
-                do {
-                    let byte = value & 0x7f;
-                    value >>>= 7;
-                    if (value !== 0) byte |= 0x80;
-                    bytes.push(byte);
-                } while (value !== 0);
-                return new Uint8Array(bytes);
+            // Fixed u32 encoding helper for index
+            const encodeU32 = (value: number) => {
+                const buffer = new ArrayBuffer(4);
+                const view = new DataView(buffer);
+                view.setUint32(0, value, true); // Little Endian
+                return new Uint8Array(buffer);
             };
 
             const discriminator = new Uint8Array([9]);
-            const indexBytes = encodeVLE(functionIndex);
+            const indexBytes = encodeU32(functionIndex);
 
             // Empty params for now
             const encodedParams = new Uint8Array([]);
