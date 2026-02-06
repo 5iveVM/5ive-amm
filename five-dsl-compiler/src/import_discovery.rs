@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn test_discover_functions() {
         // Create bytecode with optimized header and function name metadata
-        use five_protocol::{BytecodeBuilder, VLE};
+        use five_protocol::BytecodeBuilder;
 
         let mut builder = BytecodeBuilder::new();
         builder.emit_header(2, 2); // 2 public functions
@@ -203,8 +203,8 @@ mod tests {
 
         // Emit function name metadata
         let section_size = 1 + (1 + 7) + (1 + 8); // name_count + (len + "swap_AB") + (len + "get_rate")
-        let (size_bytes, bytes) = VLE::encode_u16(section_size as u16);
-        builder.emit_bytes(&bytes[..size_bytes]);
+        // Emit section size as fixed u16
+        builder.emit_u16(section_size as u16);
         builder.emit_u8(2); // 2 function names
 
         // swap_AB

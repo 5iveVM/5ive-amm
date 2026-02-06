@@ -2,7 +2,7 @@
 //!
 //! Additional tests for edge cases and error conditions in Option/Result operations.
 
-use five_protocol::{encoding::VLE, opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
+use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
@@ -27,8 +27,7 @@ fn execute(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
 
 fn push_u64_instr(script: &mut Vec<u8>, value: u64) {
     script.push(PUSH_U64);
-    let (len, encoded) = VLE::encode_u64(value);
-    script.extend_from_slice(&encoded[..len]);
+    script.extend_from_slice(&value.to_le_bytes());
 }
 
 #[test]

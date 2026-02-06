@@ -1,5 +1,4 @@
 use five_dsl_compiler::DslCompiler;
-use five_protocol::encoding::VLE;
 use five_protocol::opcodes;
 use std::collections::VecDeque;
 
@@ -78,16 +77,17 @@ fn golden_arithmetic_mul_then_add() {
         for &push_opcode in &PUSH_OPCODES {
             let push_positions = find_opcode_positions(&bytecode, push_opcode);
             for &p in &push_positions {
-                // VLE decode the immediate after PUSH_U64 opcode
-                if p + 1 < bytecode.len() {
-                    if let Some((val, _consumed)) = VLE::decode_u64(&bytecode[p + 1..]) {
-                        if val == 12 {
-                            // Check there is an ADD after this push
-                            let add_after = add_positions.iter().any(|&ap| ap > p);
-                            if add_after {
-                                found_folded = true;
-                                break;
-                            }
+                // Decode the fixed-size immediate after PUSH_U64 opcode
+                if p + 9 <= bytecode.len() {
+                    let mut bytes = [0u8; 8];
+                    bytes.copy_from_slice(&bytecode[p + 1..p + 9]);
+                    let val = u64::from_le_bytes(bytes);
+                    if val == 12 {
+                        // Check there is an ADD after this push
+                        let add_after = add_positions.iter().any(|&ap| ap > p);
+                        if add_after {
+                            found_folded = true;
+                            break;
                         }
                     }
                 }

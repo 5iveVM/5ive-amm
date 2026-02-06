@@ -28,11 +28,11 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             push_u8!(ctx, val);
         }
         PUSH_U64 => {
-            let val = ctx.fetch_vle_u64()?;
+            let val = ctx.fetch_u64()?;
             vm_push_u64!(ctx, val);
         }
         PUSH_I64 => {
-            let val = ctx.fetch_vle_u64()?;
+            let val = ctx.fetch_u64()?;
             push_i64!(ctx, val as i64);
         }
         PUSH_U128 => {
@@ -49,11 +49,11 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
         // ===== PUSH OPERATIONS (0x18-0x1F) =====
         PUSH_U16 => {
-            let val = ctx.fetch_vle_u32()?;
+            let val = ctx.fetch_u16()?;
             vm_push_u64!(ctx, val as u64);
         }
         PUSH_U32 => {
-            let val = ctx.fetch_vle_u32()?;
+            let val = ctx.fetch_u32()?;
             vm_push_u64!(ctx, val as u64);
         }
         // ===== BASIC STACK OPERATIONS (0x10-0x17) =====

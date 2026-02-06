@@ -170,7 +170,7 @@ fn emit_has_check<T: OpcodeEmitter>(
         // A. Load Account Field -> Stack
         emitter.emit_opcode(LOAD_FIELD);
         emitter.emit_u8(account_idx);
-        emitter.emit_vle_u32(field_offset);
+        emitter.emit_u32(field_offset);
 
         // B. Load Target Argument -> Stack
         // If target is an Account, we compare KEYS.

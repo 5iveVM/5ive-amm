@@ -1,10 +1,9 @@
 //! Canonical Parser for Five Bytecode
 //!
 //! This module provides a shared bytecode parser that interprets the optimized header,
-//! VLE-encoded immediates, and validates CALL targets and instruction bounds.
+//! fixed-size immediates, and validates CALL targets and instruction bounds.
 //! Used by both compilers and on-chain verifiers to ensure consistent parsing.
 
-use crate::encoding::VLE;
 use crate::opcodes::{get_opcode_info, ArgType};
 use crate::OptimizedHeader;
 use crate::{FunctionNameEntry, FunctionNameMetadata};
@@ -49,7 +48,6 @@ pub enum ParseError {
     HeaderTooShort,
     BytecodeTooShort,
     InvalidOpcode,
-    InvalidVLE,
     InstructionOutOfBounds,
     CallTargetOutOfBounds,
     InvalidFunctionCount,
@@ -64,7 +62,6 @@ impl ParseError {
             ParseError::HeaderTooShort => "Bytecode too short for header",
             ParseError::BytecodeTooShort => "Bytecode too short for instruction",
             ParseError::InvalidOpcode => "Invalid opcode",
-            ParseError::InvalidVLE => "Invalid VLE encoding",
             ParseError::InstructionOutOfBounds => "Instruction out of bounds",
             ParseError::CallTargetOutOfBounds => "CALL target out of bounds",
             ParseError::InvalidFunctionCount => "Invalid function count",
@@ -108,21 +105,14 @@ pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseEr
 
     // Skip function names metadata if present
     if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0 {
-        // Read section size (VLE u16)
-        if offset >= bytecode.len() {
-             // Incomplete metadata
-             // If we just have the header and claim metadata but no bytes, that's technically OOB for metadata
-             return Ok((header, offset)); // Let caller decide if OOB matter
+        // Read section size (fixed u16)
+        if offset + 2 > bytecode.len() {
+             return Ok((header, offset));
         }
 
-        match VLE::decode_u16(&bytecode[offset..]) {
-            Some((section_size, consumed)) => {
-                offset += consumed;
-                // Skip the section content
-                offset += section_size as usize;
-            }
-            None => return Err(ParseError::InvalidVLE),
-        }
+        let section_size = u16::from_le_bytes([bytecode[offset], bytecode[offset+1]]);
+        offset += 2;
+        offset += section_size as usize;
     }
 
     // Ensure start offset is within bounds (or exactly at end if empty script)
@@ -228,91 +218,62 @@ pub fn parse_instruction(
                 total_size += str_len;
             }
         }
-        ArgType::U16 => match VLE::decode_u16(&bytecode[offset + total_size..]) {
-            Some((value, consumed)) => {
-                arg1 = value as u64;
-                total_size += consumed;
-            }
-            None => return Err(ParseError::InvalidVLE),
-        },
-        ArgType::U32 => match VLE::decode_u32(&bytecode[offset + total_size..]) {
-            Some((value, consumed)) => {
-                arg1 = value as u64;
-                total_size += consumed;
-
-                // Special handling for PUSH_STRING (0x67)
-                // ArgType::U32 consumes VLE length. We must also skip the string bytes.
-                if opcode == crate::opcodes::PUSH_STRING {
-                    let str_len = arg1 as usize;
-                    if offset + total_size + str_len > bytecode.len() {
-                        return Err(ParseError::InstructionOutOfBounds);
-                    }
-                    total_size += str_len;
-                }
-            }
-            None => {
-                return Err(ParseError::InvalidVLE);
-            }
-        },
-        ArgType::U16Fixed => {
-            if offset + total_size + 1 >= bytecode.len() {
+        ArgType::U16 | ArgType::U16Fixed => {
+            if offset + total_size + 2 > bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            let bytes = [
+            let val = u16::from_le_bytes([
                 bytecode[offset + total_size],
                 bytecode[offset + total_size + 1],
-            ];
-            arg1 = u16::from_le_bytes(bytes) as u64;
+            ]);
+            arg1 = val as u64;
             total_size += 2;
         }
-        ArgType::U32Fixed => {
-            if offset + total_size + 3 >= bytecode.len() {
+        ArgType::U32 | ArgType::U32Fixed | ArgType::FunctionIndex => {
+            if offset + total_size + 4 > bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            let bytes = [
+            let val = u32::from_le_bytes([
                 bytecode[offset + total_size],
                 bytecode[offset + total_size + 1],
                 bytecode[offset + total_size + 2],
                 bytecode[offset + total_size + 3],
-            ];
-            arg1 = u32::from_le_bytes(bytes) as u64;
+            ]);
+            arg1 = val as u64;
             total_size += 4;
-        }
-        ArgType::FunctionIndex => match VLE::decode_u32(&bytecode[offset + total_size..]) {
-            Some((value, consumed)) => {
-                arg1 = value as u64;
-                total_size += consumed;
-            }
-            None => {
-                return Err(ParseError::InvalidVLE);
-            }
-        },
-        ArgType::LocalIndex => match VLE::decode_u32(&bytecode[offset + total_size..]) {
-            Some((value, consumed)) => {
-                arg1 = value as u64;
-                total_size += consumed;
-            }
-            None => {
-                return Err(ParseError::InvalidVLE);
-            }
-        },
-        ArgType::AccountIndex => match VLE::decode_u32(&bytecode[offset + total_size..]) {
-            Some((value, consumed)) => {
-                arg1 = value as u64;
-                total_size += consumed;
-            }
-            None => {
-                return Err(ParseError::InvalidVLE);
-            }
-        },
-        ArgType::U64 => {
-            match VLE::decode_u64(&bytecode[offset + total_size..]) {
-                Some((value, consumed)) => {
-                    arg1 = value;
-                    total_size += consumed;
+
+            // Special handling for PUSH_STRING (0x67) - uses ArgType::U32 for length
+            if opcode == crate::opcodes::PUSH_STRING {
+                let str_len = arg1 as usize;
+                if offset + total_size + str_len > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
                 }
-                None => return Err(ParseError::InvalidVLE),
+                total_size += str_len;
             }
+        }
+        ArgType::U64 => {
+            if offset + total_size + 8 > bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let val = u64::from_le_bytes([
+                bytecode[offset + total_size],
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+                bytecode[offset + total_size + 3],
+                bytecode[offset + total_size + 4],
+                bytecode[offset + total_size + 5],
+                bytecode[offset + total_size + 6],
+                bytecode[offset + total_size + 7],
+            ]);
+            arg1 = val;
+            total_size += 8;
+        }
+        ArgType::LocalIndex | ArgType::AccountIndex => {
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            arg1 = bytecode[offset + total_size] as u64;
+            total_size += 1;
         }
         ArgType::ValueType => {
             if offset + total_size >= bytecode.len() {
@@ -355,37 +316,43 @@ pub fn parse_instruction(
             total_size += 3;
         }
         ArgType::AccountField => {
+            // acc(u8) + offset(u32)
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
             arg1 = bytecode[offset + total_size] as u64; // account_index
             total_size += 1;
 
-            match VLE::decode_u32(&bytecode[offset + total_size..]) {
-                Some((value, consumed)) => {
-                    arg2 = value as u64; // field_offset
-                    total_size += consumed;
-                }
-                None => {
-                    return Err(ParseError::InvalidVLE);
-                }
+            if offset + total_size + 4 > bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
             }
+            let val = u32::from_le_bytes([
+                bytecode[offset + total_size],
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+                bytecode[offset + total_size + 3],
+            ]);
+            arg2 = val as u64; // field_offset
+            total_size += 4;
         }
         ArgType::AccountFieldParam => {
-            // acc(u8) + offset(VLE) + param(u8)
+            // acc(u8) + offset(u32) + param(u8)
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
             let acc = bytecode[offset + total_size] as u64;
             total_size += 1;
 
-            let field_offset = match VLE::decode_u32(&bytecode[offset + total_size..]) {
-                Some((value, consumed)) => {
-                    total_size += consumed;
-                    value as u64
-                }
-                None => return Err(ParseError::InvalidVLE),
-            };
+            if offset + total_size + 4 > bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let field_offset = u32::from_le_bytes([
+                bytecode[offset + total_size],
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+                bytecode[offset + total_size + 3],
+            ]) as u64;
+            total_size += 4;
 
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
@@ -398,20 +365,23 @@ pub fn parse_instruction(
             arg2 = param;
         }
         ArgType::FusedAccAcc => {
-            // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
+            // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
             let acc1 = bytecode[offset + total_size] as u64;
             total_size += 1;
 
-            let off1 = match VLE::decode_u32(&bytecode[offset + total_size..]) {
-                Some((value, consumed)) => {
-                    total_size += consumed;
-                    value as u64
-                }
-                None => return Err(ParseError::InvalidVLE),
-            };
+            if offset + total_size + 4 > bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let off1 = u32::from_le_bytes([
+                bytecode[offset + total_size],
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+                bytecode[offset + total_size + 3],
+            ]) as u64;
+            total_size += 4;
 
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
@@ -419,13 +389,16 @@ pub fn parse_instruction(
             let acc2 = bytecode[offset + total_size] as u64;
             total_size += 1;
 
-            let off2 = match VLE::decode_u32(&bytecode[offset + total_size..]) {
-                Some((value, consumed)) => {
-                    total_size += consumed;
-                    value as u64
-                }
-                None => return Err(ParseError::InvalidVLE),
-            };
+            if offset + total_size + 4 > bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let off2 = u32::from_le_bytes([
+                bytecode[offset + total_size],
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+                bytecode[offset + total_size + 3],
+            ]) as u64;
+            total_size += 4;
             
             // Pack into args for inspection if needed: 
             // arg1 = (acc1 << 32) | off1
@@ -434,23 +407,32 @@ pub fn parse_instruction(
             arg2 = (acc2 << 32) | off2;
         }
         ArgType::FusedSubAdd => {
+            // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
             if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
             let acc1 = bytecode[offset + total_size] as u64;
             total_size += 1;
             
-            let off1 = match VLE::decode_u32(&bytecode[offset + total_size..]) {
-                 Some((val, len)) => { total_size += len; val as u64 },
-                 None => return Err(ParseError::InvalidVLE)
-            };
+            if offset + total_size + 4 > bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            let off1 = u32::from_le_bytes([
+                bytecode[offset + total_size],
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+                bytecode[offset + total_size + 3],
+            ]) as u64;
+            total_size += 4;
             
             if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
             let acc2 = bytecode[offset + total_size] as u64;
             total_size += 1;
             
-            let off2 = match VLE::decode_u32(&bytecode[offset + total_size..]) {
-                 Some((val, len)) => { total_size += len; val as u64 },
-                 None => return Err(ParseError::InvalidVLE)
-            };
+            if offset + total_size + 4 > bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            let off2 = u32::from_le_bytes([
+                bytecode[offset + total_size],
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+                bytecode[offset + total_size + 3],
+            ]) as u64;
+            total_size += 4;
             
             if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
             let param = bytecode[offset + total_size] as u64;
@@ -468,14 +450,19 @@ pub fn parse_instruction(
             total_size += 2;
         }
         ArgType::FieldImm => {
+            // acc(u8) + off(u32) + imm(u8)
             if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
             let acc = bytecode[offset + total_size] as u64;
             total_size += 1;
             
-            let off = match VLE::decode_u32(&bytecode[offset + total_size..]) {
-                Some((val, len)) => { total_size += len; val as u64 },
-                None => return Err(ParseError::InvalidVLE)
-            };
+            if offset + total_size + 4 > bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            let off = u32::from_le_bytes([
+                bytecode[offset + total_size],
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+                bytecode[offset + total_size + 3],
+            ]) as u64;
+            total_size += 4;
             
             if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
             let imm = bytecode[offset + total_size] as u64;
@@ -509,29 +496,36 @@ fn parse_function_names(
     bytecode: &[u8],
     offset: &mut usize,
 ) -> Result<(FunctionNameMetadata, usize), String> {
-    use crate::VLE;
-
     let _start_offset = *offset;
 
-    // Read section size
-    let (section_size, bytes_read) =
-        VLE::decode_u16(&bytecode[*offset..]).ok_or("Invalid VLE for section_size")?;
-    *offset += bytes_read;
+    // Read section size (u16)
+    if *offset + 2 > bytecode.len() {
+        return Err("Section size OOB".to_string());
+    }
+    let section_size = u16::from_le_bytes([bytecode[*offset], bytecode[*offset + 1]]);
+    *offset += 2;
 
-    // Read name count (u8, always 1 byte)
-    let (name_count, bytes_read) =
-        VLE::decode_u8(&bytecode[*offset..]).ok_or("Invalid VLE for name_count")?;
-    *offset += bytes_read;
+    // Read name count (u8)
+    if *offset >= bytecode.len() {
+        return Err("Name count OOB".to_string());
+    }
+    let name_count = bytecode[*offset];
+    *offset += 1;
 
     let mut names = Vec::with_capacity(name_count as usize);
 
     for idx in 0..name_count {
-        // Read name length (u8, always 1 byte)
-        let (name_len, bytes_read) =
-            VLE::decode_u8(&bytecode[*offset..]).ok_or("Invalid VLE for name_len")?;
-        *offset += bytes_read;
+        // Read name length (u8)
+        if *offset >= bytecode.len() {
+            return Err("Name len OOB".to_string());
+        }
+        let name_len = bytecode[*offset];
+        *offset += 1;
 
         // Read name bytes
+        if *offset + name_len as usize > bytecode.len() {
+            return Err("Name bytes OOB".to_string());
+        }
         let name_bytes = &bytecode[*offset..*offset + name_len as usize];
         *offset += name_len as usize;
 
@@ -561,8 +555,8 @@ pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String>
     {
         // If parse_header returned start_offset that already skipped metadata, we might need to backtrack
         // if we want to extract names.
-        // However, parse_header logic simply skips it.
-        // If we want names, we have to parse them.
+        // parse_header returns the instruction start, which is AFTER metadata.
+        // We know metadata starts at fixed offset 10.
         let mut offset = crate::FIVE_HEADER_OPTIMIZED_SIZE;
         let (metadata, final_offset) = parse_function_names(bytecode, &mut offset)?;
         (Some(metadata), final_offset)
@@ -600,7 +594,6 @@ pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String>
 mod tests {
     use super::*;
     use crate::bytecode_builder::BytecodeBuilder;
-    use crate::encoding::VLE;
     use crate::opcodes::*;
     use crate::{FunctionNameEntry, FEATURE_FUNCTION_NAMES};
 
@@ -703,19 +696,16 @@ mod tests {
             section_size += name_entry.name.len();
         }
         let section_size_u16 = section_size as u16;
-        let (size_bytes, bytes) = VLE::encode_u16(section_size_u16);
-        builder.emit_bytes(&bytes[..size_bytes]);
+        builder.emit_u16(section_size_u16);
 
-        // Emit name_count as VLE u8
+        // Emit name_count as u8
         let name_count_u8 = names.len() as u8;
-        let (size, bytes) = VLE::encode_u8(name_count_u8);
-        builder.emit_bytes(&bytes[..size]);
+        builder.emit_u8(name_count_u8);
 
         // Emit each name
         for name_entry in names {
             let name_len_u8 = name_entry.name.len() as u8;
-            let (size, bytes) = VLE::encode_u8(name_len_u8);
-            builder.emit_bytes(&bytes[..size]);
+            builder.emit_u8(name_len_u8);
             builder.emit_bytes(name_entry.name.as_bytes());
         }
 

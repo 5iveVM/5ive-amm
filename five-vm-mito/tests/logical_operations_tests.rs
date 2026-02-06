@@ -2,7 +2,7 @@
 //!
 //! This suite tests logical operations (AND, OR, NOT, XOR, BITWISE_*) and rotate operations.
 
-use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
+use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
@@ -26,8 +26,7 @@ fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
 
 fn push_u64(script: &mut Vec<u8>, value: u64) {
     script.push(PUSH_U64);
-    let (len, encoded) = VLE::encode_u64(value);
-    script.extend_from_slice(&encoded[..len]);
+    script.extend_from_slice(&value.to_le_bytes());
 }
 
 fn push_bool(script: &mut Vec<u8>, value: bool) {

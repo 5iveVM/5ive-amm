@@ -7,7 +7,7 @@
 //! - TUPLE_GET (0xF9) - Get tuple element
 //! - UNPACK_TUPLE (0xFA) - Unpack tuple to stack
 
-use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
+use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value, stack::StackStorage};
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
@@ -32,8 +32,7 @@ fn execute_script(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
 
 fn push_u64(script: &mut Vec<u8>, value: u64) {
     script.push(PUSH_U64);
-    let (len, encoded) = VLE::encode_u64(value);
-    script.extend_from_slice(&encoded[..len]);
+    script.extend_from_slice(&value.to_le_bytes());
 }
 
 fn push_u8(script: &mut Vec<u8>, value: u8) {

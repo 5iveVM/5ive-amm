@@ -556,7 +556,7 @@ impl ASTGenerator {
                             .or(val.as_u64())
                             .ok_or(VMError::TypeMismatch)?;
                         emitter.emit_opcode(PUSH_U64);
-                        emitter.emit_vle_u64(v);
+                        emitter.emit_u64(v);
                     } else {
                         self.generate_ast_node(emitter, arg)?;
                     }
@@ -578,7 +578,7 @@ impl ASTGenerator {
                      // Calculate byte: val % 256
                      // val - (val/256 * 256)
                      emitter.emit_opcode(DUP); // val, val
-                     emitter.emit_opcode(PUSH_U64); emitter.emit_vle_u64(256); // val, val, 256
+                     emitter.emit_opcode(PUSH_U64); emitter.emit_u64(256); // val, val, 256
                      emitter.emit_opcode(DIV); // val, val/256
                      emitter.emit_opcode(DUP); // val, val/256, val/256 (for next iter update)
                      
@@ -612,11 +612,11 @@ impl ASTGenerator {
                  for _ in 0..8 {
                      self.emit_get_local(emitter, temp_idx, "__temp_u64_ser"); // Val
                      emitter.emit_opcode(DUP); // Val, Val
-                     emitter.emit_opcode(PUSH_U64); emitter.emit_vle_u64(256); // Val, Val, 256
+                     emitter.emit_opcode(PUSH_U64); emitter.emit_u64(256); // Val, Val, 256
                      emitter.emit_opcode(DIV); // Val, Quotient
                      emitter.emit_opcode(DUP); // Val, Quotient, Quotient
                      self.emit_set_local(emitter, temp_idx, "__temp_u64_ser"); // Val, Quotient (temp updated)
-                     emitter.emit_opcode(PUSH_U64); emitter.emit_vle_u64(256); // Val, Quotient, 256
+                     emitter.emit_opcode(PUSH_U64); emitter.emit_u64(256); // Val, Quotient, 256
                      emitter.emit_opcode(MUL); // Val, Product
                      emitter.emit_opcode(SUB); // Remainder (Byte as U64)
                       

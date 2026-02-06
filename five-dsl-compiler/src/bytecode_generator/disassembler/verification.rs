@@ -118,8 +118,7 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
         let opcode = bytecode[offset];
 
         match opcode {
-            // JUMP instructions use fixed u16 offset (despite protocol comment saying VLE)
-            // The VM's control_flow.rs uses ctx.fetch_u16() for JUMP/JUMP_IF/JUMP_IF_NOT
+            // JUMP instructions use fixed u16 offset
             opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT => {
                 jump_count += 1;
                 
@@ -195,16 +194,10 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
             }
 
 
-            // BR_EQ_U8: compare_value(u8) + vle_offset
+            // BR_EQ_U8: compare_value(u8) + offset(u16)
             opcodes::BR_EQ_U8 => {
-                jump_count += 1;
-                // Skip: opcode(1) + compare_value(1) + VLE offset
-                if offset + 2 < bytecode_len {
-                    let vle_size = decode_vle_size(&bytecode[offset + 2..], 9);
-                    offset += 2 + vle_size;
-                } else {
-                    break;
-                }
+                // Opcode(1) + Val(1) + Offset(2) = 4
+                offset += 4;
             }
 
             // CALL_EXTERNAL: account_index(1) + offset(2) + param_count(1)
@@ -241,52 +234,14 @@ fn find_instructions_start(bytes: &[u8]) -> usize {
     // If metadata is present, skip it
     if (features & FEATURE_FUNCTION_NAMES) != 0 && offset < bytes.len() {
         // Skip metadata section
-        // Format: [VLE u16 section_size] [u8 name_count] [u8 name_len, bytes...]*
-        if let Some((section_size, bytes_read)) = decode_vle_u16_simple(&bytes[offset..]) {
-            offset += bytes_read + section_size as usize;
+        // Format: [u16 section_size] [u8 name_count] [u8 name_len, bytes...]*
+        if offset + 2 <= bytes.len() {
+            let section_size = u16::from_le_bytes([bytes[offset], bytes[offset+1]]);
+            offset += 2 + section_size as usize;
         }
     }
 
     offset.min(bytes.len())
-}
-
-/// Simple VLE u16 decoder for header parsing
-fn decode_vle_u16_simple(bytes: &[u8]) -> Option<(u16, usize)> {
-    if bytes.is_empty() {
-        return None;
-    }
-
-    let first = bytes[0];
-    if first < 128 {
-        Some((first as u16, 1))
-    } else if bytes.len() >= 2 {
-        let value = ((first & 0x7F) as u16) | ((bytes[1] as u16) << 7);
-        Some((value, 2))
-    } else {
-        None
-    }
-}
-
-/// Decode VLE u128 (same as in decoder.rs but local for verification)
-fn decode_vle_u128(bytes: &[u8]) -> Option<(u128, usize)> {
-    let mut value: u128 = 0;
-    let mut shift = 0;
-    for (i, &b) in bytes.iter().enumerate() {
-        value |= ((b & 0x7F) as u128) << shift;
-        if b & 0x80 == 0 {
-            return Some((value, i + 1));
-        }
-        shift += 7;
-        if shift > 127 {
-            break;
-        }
-    }
-    // If we got here without a terminator, return what we have
-    if !bytes.is_empty() {
-        Some((value, bytes.len()))
-    } else {
-        None
-    }
 }
 
 /// Get human-readable opcode name
@@ -302,8 +257,8 @@ fn opcode_name(opcode: u8) -> &'static str {
     }
 }
 
-/// Get operand size for an opcode (simplified for verification purposes)
-fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
+/// Get operand size for an opcode
+fn get_operand_size(opcode: u8, _remaining: &[u8]) -> usize {
     match opcode {
         // No operands
         opcodes::HALT | opcodes::RETURN | opcodes::RETURN_VALUE |
@@ -337,45 +292,40 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
         // Two byte operands
         opcodes::REQUIRE_PARAM_LTE_IMM => 2, // param(u8) + imm(u8)
 
-        // VLE-encoded operands - need to parse VLE to know actual size
-        opcodes::PUSH_U16 => decode_vle_size(remaining, 2),
-        opcodes::PUSH_U32 => decode_vle_size(remaining, 4),
-        opcodes::PUSH_U64 | opcodes::PUSH_I64 => decode_vle_size(remaining, 9),
+        opcodes::PUSH_U16 => 2,
+        opcodes::PUSH_U32 => 4,
+        opcodes::PUSH_U64 | opcodes::PUSH_I64 => 8,
 
-        // LOAD_FIELD/STORE_FIELD: account_index(1) + field_offset(VLE)
+        // LOAD_FIELD/STORE_FIELD: account_index(1) + field_offset(4)
         opcodes::LOAD_FIELD | opcodes::STORE_FIELD | opcodes::LOAD_FIELD_PUBKEY => {
-            1 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4)
+            1 + 4
         }
 
-        // Fused opcodes with acc(u8) + offset(VLE) format
-        opcodes::REQUIRE_NOT_BOOL |  // acc(u8) offset(VLE)
-        opcodes::STORE_FIELD_ZERO => {  // acc(u8) offset(VLE)
-            1 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4)
+        // Fused opcodes with acc(u8) + offset(u32) format
+        opcodes::REQUIRE_NOT_BOOL |  // acc(u8) offset(u32)
+        opcodes::STORE_FIELD_ZERO => {  // acc(u8) offset(u32)
+            1 + 4
         }
 
-        // Fused opcodes with acc(u8) + offset(VLE) + param/acc(u8) format
-        opcodes::REQUIRE_GTE_U64 |     // acc(u8) offset(VLE) param(u8)
-        opcodes::FIELD_ADD_PARAM |     // acc(u8) offset(VLE) param(u8)
-        opcodes::FIELD_SUB_PARAM |     // acc(u8) offset(VLE) param(u8)
-        opcodes::STORE_PARAM_TO_FIELD | // acc(u8) offset(VLE) param(u8)
-        opcodes::STORE_KEY_TO_FIELD |  // acc(u8) offset(VLE) key_acc(u8)
-        opcodes::REQUIRE_FIELD_EQ_IMM => { // acc(u8) offset(VLE) imm(u8)
-            2 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4)
+        // Fused opcodes with acc(u8) + offset(u32) + param/acc(u8) format
+        opcodes::REQUIRE_GTE_U64 |     // acc(u8) offset(u32) param(u8)
+        opcodes::FIELD_ADD_PARAM |     // acc(u8) offset(u32) param(u8)
+        opcodes::FIELD_SUB_PARAM |     // acc(u8) offset(u32) param(u8)
+        opcodes::STORE_PARAM_TO_FIELD | // acc(u8) offset(u32) param(u8)
+        opcodes::STORE_KEY_TO_FIELD |  // acc(u8) offset(u32) key_acc(u8)
+        opcodes::REQUIRE_FIELD_EQ_IMM => { // acc(u8) offset(u32) imm(u8)
+            2 + 4
         }
 
-        // Fused opcodes with acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE) format
-        opcodes::REQUIRE_EQ_PUBKEY |   // acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
-        opcodes::REQUIRE_EQ_FIELDS => {  // acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
-            let vle1_size = decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4);
-            let vle2_size = decode_vle_size(remaining.get(2 + vle1_size..).unwrap_or(&[]), 4);
-            2 + vle1_size + vle2_size
+        // Fused opcodes with acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32) format
+        opcodes::REQUIRE_EQ_PUBKEY |   // acc1(u8) offset1(u32) acc2(u8) offset2(u32)
+        opcodes::REQUIRE_EQ_FIELDS => {  // acc1(u8) offset1(u32) acc2(u8) offset2(u32)
+            2 + 4 + 4
         }
         
-        // FusedSubAdd: acc1(u8) off1(VLE) acc2(u8) off2(VLE) param(u8)
+        // FusedSubAdd: acc1(u8) off1(u32) acc2(u8) off2(u32) param(u8)
         opcodes::FIELD_SUB_ADD_PARAM => {
-            let vle1_size = decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4);
-            let vle2_size = decode_vle_size(remaining.get(2 + vle1_size..).unwrap_or(&[]), 4);
-            3 + vle1_size + vle2_size
+            3 + 4 + 4
         }
 
         // PUSH_PUBKEY: 32 bytes
@@ -384,15 +334,15 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
         // PUSH_U128: 16 bytes
         opcodes::PUSH_U128 => 16,
 
-        // PUSH_STRING: VLE length + string bytes
+        // PUSH_STRING: fixed u32 length + string bytes
         opcodes::PUSH_STRING => {
-            let vle_size = decode_vle_size(remaining, 4);
-            if vle_size > 0 && remaining.len() >= vle_size {
-                // Parse the VLE length
-                let (len, _) = decode_vle_value(&remaining[..vle_size]);
-                vle_size + len as usize
+            // Need to read the length.
+            // If remaining is short, return what we can or just length size
+            if _remaining.len() >= 4 {
+                let len = u32::from_le_bytes([_remaining[0], _remaining[1], _remaining[2], _remaining[3]]);
+                4 + len as usize
             } else {
-                1 // Fallback: just skip 1 byte
+                4 // At least 4 bytes for length
             }
         }
 
@@ -402,35 +352,6 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
         // Default: assume no operands
         _ => 0,
     }
-}
-
-/// Decode VLE size from bytes (returns actual byte count used)
-fn decode_vle_size(bytes: &[u8], max_size: usize) -> usize {
-    let mut size = 0;
-    for (i, &b) in bytes.iter().take(max_size).enumerate() {
-        size = i + 1;
-        if b & 0x80 == 0 {
-            break;
-        }
-    }
-    size
-}
-
-/// Decode VLE value and return (value, bytes_consumed)
-fn decode_vle_value(bytes: &[u8]) -> (u64, usize) {
-    let mut value: u64 = 0;
-    let mut shift = 0;
-    for (i, &b) in bytes.iter().enumerate() {
-        value |= ((b & 0x7F) as u64) << shift;
-        if b & 0x80 == 0 {
-            return (value, i + 1);
-        }
-        shift += 7;
-        if shift > 63 {
-            break;
-        }
-    }
-    (value, bytes.len())
 }
 
 #[cfg(test)]

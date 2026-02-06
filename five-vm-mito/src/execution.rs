@@ -675,20 +675,16 @@ impl MitoVM {
 
         // Metadata format was validated at deploy-time
         let mut offset = FIVE_HEADER_OPTIMIZED_SIZE;
-        let mut section_size = 0u16;
-        let mut shift = 0;
 
-        while offset < script.len() && shift < 16 {
-            let byte = script[offset];
-            section_size |= ((byte & 0x7F) as u16) << shift;
-            offset += 1;
-            if byte & 0x80 == 0 {
-                break;
-            }
-            shift += 7;
+        // Use fixed u16 for section size
+        if offset + 2 <= script.len() {
+            let section_size = u16::from_le_bytes([script[offset], script[offset + 1]]);
+            offset += 2;
+            (offset + section_size as usize).min(script.len())
+        } else {
+            // Malformed but we sanitize bounds
+            script.len()
         }
-
-        (offset + section_size as usize).min(script.len())
     }
 
 }

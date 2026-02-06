@@ -31,7 +31,6 @@ export interface ProjectConfig {
 }
 
 export interface ProjectOptimizations {
-  enableVLE?: boolean;
   enableCompression?: boolean;
   enableConstraintOptimization?: boolean;
   optimizationLevel?: 'production' | 'development';
@@ -74,9 +73,6 @@ export interface CompilationOptions {
   /** Max allowed bytecode size in bytes */
   maxBytecodeSize?: number;
   maxSize?: number;
-
-  /** Enable VLE compression */
-  enableVLE?: boolean;
 
   /** Enable general compression */
   enableCompression?: boolean;

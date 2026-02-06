@@ -6,7 +6,7 @@ mod script_header_v3_tests {
     };
     use five_protocol::{
         bytecode, parser,
-        test_fixtures::{invalid_call_target, valid_header, vle_truncation},
+        test_fixtures::{invalid_call_target, valid_header, operand_truncation},
         HALT,
     };
 
@@ -126,8 +126,8 @@ mod script_header_v3_tests {
         let parsed_invalid = parser::parse_bytecode(&invalid_bc);
         assert!(!parsed_invalid.errors.is_empty());
 
-        // Verifier should reject VLE truncation
-        let truncated_bc = vle_truncation();
+        // Verifier should reject operand truncation
+        let truncated_bc = operand_truncation();
         assert!(verify_bytecode_content(&truncated_bc).is_err());
         let parsed_truncated = parser::parse_bytecode(&truncated_bc);
         assert!(!parsed_truncated.errors.is_empty());

@@ -49,10 +49,7 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 }
             }
             opcodes::PUSH_U64 => {
-                if let Some((v, c)) = decode_vle_u128(&bytes[pc + 1..]) {
-                    lines.push(format!("{:04X}: PUSH_U64 (vle) {}", pc, v));
-                    pc += 1 + c;
-                } else if pc + 9 <= bytes.len() {
+                if pc + 9 <= bytes.len() {
                     if let Some(raw) = read_le_u64(bytes, pc + 1) {
                         lines.push(format!("{:04X}: PUSH_U64 {}", pc, raw));
                         pc += 9;
@@ -66,10 +63,7 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 }
             }
             opcodes::PUSH_I64 => {
-                if let Some((v, c)) = decode_vle_u128(&bytes[pc + 1..]) {
-                    lines.push(format!("{:04X}: PUSH_I64 (vle) {}", pc, v as i128 as i64));
-                    pc += 1 + c;
-                } else if pc + 9 <= bytes.len() {
+                if pc + 9 <= bytes.len() {
                     if let Some(raw) = read_le_u64(bytes, pc + 1) {
                         lines.push(format!("{:04X}: PUSH_I64 {}", pc, raw as i64));
                         pc += 9;
@@ -117,47 +111,43 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 }
             }
             opcodes::JUMP => {
-                if pc + 1 < bytes.len() {
-                    let after = pc + 1;
-                    if let Some((v, c)) = decode_vle_u128(&bytes[after..]) {
-                        lines.push(format!("{:04X}: JUMP offset_vle={}", pc, v));
-                        pc = after + c;
-                    } else {
-                        lines.push(format!("{:04X}: JUMP <truncated>", pc));
-                        break;
-                    }
+                if pc + 3 <= bytes.len() {
+                    let offset = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
+                    lines.push(format!("{:04X}: JUMP offset={}", pc, offset));
+                    pc += 3;
                 } else {
                     lines.push(format!("{:04X}: JUMP <truncated>", pc));
                     break;
                 }
             }
             opcodes::JUMP_IF => {
-                if pc + 1 < bytes.len() {
-                    let after = pc + 1;
-                    if let Some((v, c)) = decode_vle_u128(&bytes[after..]) {
-                        lines.push(format!("{:04X}: JUMP_IF offset_vle={}", pc, v));
-                        pc = after + c;
-                    } else {
-                        lines.push(format!("{:04X}: JUMP_IF <truncated>", pc));
-                        break;
-                    }
+                if pc + 3 <= bytes.len() {
+                    let offset = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
+                    lines.push(format!("{:04X}: JUMP_IF offset={}", pc, offset));
+                    pc += 3;
                 } else {
                     lines.push(format!("{:04X}: JUMP_IF <truncated>", pc));
                     break;
                 }
             }
             opcodes::JUMP_IF_NOT => {
-                if pc + 1 < bytes.len() {
-                    let after = pc + 1;
-                    if let Some((v, c)) = decode_vle_u128(&bytes[after..]) {
-                        lines.push(format!("{:04X}: JUMP_IF_NOT offset_vle={}", pc, v));
-                        pc = after + c;
-                    } else {
-                        lines.push(format!("{:04X}: JUMP_IF_NOT <truncated>", pc));
-                        break;
-                    }
+                if pc + 3 <= bytes.len() {
+                    let offset = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
+                    lines.push(format!("{:04X}: JUMP_IF_NOT offset={}", pc, offset));
+                    pc += 3;
                 } else {
                     lines.push(format!("{:04X}: JUMP_IF_NOT <truncated>", pc));
+                    break;
+                }
+            }
+            opcodes::BR_EQ_U8 => {
+                if pc + 4 <= bytes.len() {
+                    let val = bytes[pc + 1];
+                    let offset = u16::from_le_bytes([bytes[pc + 2], bytes[pc + 3]]);
+                    lines.push(format!("{:04X}: BR_EQ_U8 val={} offset={}", pc, val, offset));
+                    pc += 4;
+                } else {
+                    lines.push(format!("{:04X}: BR_EQ_U8 <truncated>", pc));
                     break;
                 }
             }
@@ -172,82 +162,51 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             }
             // Fused operations (0xC0-0xCF)
             opcodes::REQUIRE_GTE_U64 => {
-                if pc + 2 <= bytes.len() {
+                // acc(u8) + offset(u32) + param(u8)
+                if pc + 6 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let after = pc + 2;
-                    if let Some((offset, c)) = decode_vle_u128(&bytes[after..]) {
-                        if after + c < bytes.len() {
-                            let param = bytes[after + c];
-                            lines.push(format!("{:04X}: REQUIRE_GTE_U64 acc={} offset_vle={} param={}", pc, acc, offset, param));
-                            pc = after + c + 1;
-                        } else {
-                            lines.push(format!("{:04X}: REQUIRE_GTE_U64 <truncated>", pc));
-                            break;
-                        }
-                    } else {
-                        lines.push(format!("{:04X}: REQUIRE_GTE_U64 <truncated>", pc));
-                        break;
-                    }
+                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let param = bytes[pc + 6];
+                    lines.push(format!("{:04X}: REQUIRE_GTE_U64 acc={} offset={} param={}", pc, acc, offset, param));
+                    pc += 7;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_GTE_U64 <truncated>", pc));
                     break;
                 }
             }
             opcodes::REQUIRE_NOT_BOOL => {
-                if pc + 2 <= bytes.len() {
+                // acc(u8) + offset(u32)
+                if pc + 6 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let after = pc + 2;
-                    if let Some((offset, c)) = decode_vle_u128(&bytes[after..]) {
-                        lines.push(format!("{:04X}: REQUIRE_NOT_BOOL acc={} offset_vle={}", pc, acc, offset));
-                        pc = after + c;
-                    } else {
-                        lines.push(format!("{:04X}: REQUIRE_NOT_BOOL <truncated>", pc));
-                        break;
-                    }
+                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    lines.push(format!("{:04X}: REQUIRE_NOT_BOOL acc={} offset={}", pc, acc, offset));
+                    pc += 6;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_NOT_BOOL <truncated>", pc));
                     break;
                 }
             }
             opcodes::FIELD_ADD_PARAM => {
-                if pc + 2 <= bytes.len() {
+                // acc(u8) + offset(u32) + param(u8)
+                if pc + 7 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let after = pc + 2;
-                    if let Some((offset, c)) = decode_vle_u128(&bytes[after..]) {
-                        if after + c < bytes.len() {
-                            let param = bytes[after + c];
-                            lines.push(format!("{:04X}: FIELD_ADD_PARAM acc={} offset_vle={} param={}", pc, acc, offset, param));
-                            pc = after + c + 1;
-                        } else {
-                            lines.push(format!("{:04X}: FIELD_ADD_PARAM <truncated>", pc));
-                            break;
-                        }
-                    } else {
-                        lines.push(format!("{:04X}: FIELD_ADD_PARAM <truncated>", pc));
-                        break;
-                    }
+                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let param = bytes[pc + 6];
+                    lines.push(format!("{:04X}: FIELD_ADD_PARAM acc={} offset={} param={}", pc, acc, offset, param));
+                    pc += 7;
                 } else {
                     lines.push(format!("{:04X}: FIELD_ADD_PARAM <truncated>", pc));
                     break;
                 }
             }
             opcodes::FIELD_SUB_PARAM => {
-                if pc + 2 <= bytes.len() {
+                // acc(u8) + offset(u32) + param(u8)
+                if pc + 7 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let after = pc + 2;
-                    if let Some((offset, c)) = decode_vle_u128(&bytes[after..]) {
-                        if after + c < bytes.len() {
-                            let param = bytes[after + c];
-                            lines.push(format!("{:04X}: FIELD_SUB_PARAM acc={} offset_vle={} param={}", pc, acc, offset, param));
-                            pc = after + c + 1;
-                        } else {
-                            lines.push(format!("{:04X}: FIELD_SUB_PARAM <truncated>", pc));
-                            break;
-                        }
-                    } else {
-                        lines.push(format!("{:04X}: FIELD_SUB_PARAM <truncated>", pc));
-                        break;
-                    }
+                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let param = bytes[pc + 6];
+                    lines.push(format!("{:04X}: FIELD_SUB_PARAM acc={} offset={} param={}", pc, acc, offset, param));
+                    pc += 7;
                 } else {
                     lines.push(format!("{:04X}: FIELD_SUB_PARAM <truncated>", pc));
                     break;
@@ -263,29 +222,14 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 }
             }
             opcodes::REQUIRE_EQ_PUBKEY => {
-                if pc + 2 <= bytes.len() {
+                // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
+                if pc + 11 <= bytes.len() {
                     let acc1 = bytes[pc + 1];
-                    let after1 = pc + 2;
-                    if let Some((offset1, c1)) = decode_vle_u128(&bytes[after1..]) {
-                        let after2 = after1 + c1;
-                        if after2 < bytes.len() {
-                            let acc2 = bytes[after2];
-                            let after3 = after2 + 1;
-                            if let Some((offset2, c2)) = decode_vle_u128(&bytes[after3..]) {
-                                lines.push(format!("{:04X}: REQUIRE_EQ_PUBKEY acc1={} offset1_vle={} acc2={} offset2_vle={}", pc, acc1, offset1, acc2, offset2));
-                                pc = after3 + c2;
-                            } else {
-                                lines.push(format!("{:04X}: REQUIRE_EQ_PUBKEY <truncated>", pc));
-                                break;
-                            }
-                        } else {
-                            lines.push(format!("{:04X}: REQUIRE_EQ_PUBKEY <truncated>", pc));
-                            break;
-                        }
-                    } else {
-                        lines.push(format!("{:04X}: REQUIRE_EQ_PUBKEY <truncated>", pc));
-                        break;
-                    }
+                    let offset1 = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let acc2 = bytes[pc + 6];
+                    let offset2 = u32::from_le_bytes([bytes[pc + 7], bytes[pc + 8], bytes[pc + 9], bytes[pc + 10]]);
+                    lines.push(format!("{:04X}: REQUIRE_EQ_PUBKEY acc1={} offset1={} acc2={} offset2={}", pc, acc1, offset1, acc2, offset2));
+                    pc += 11;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_EQ_PUBKEY <truncated>", pc));
                     break;
@@ -301,154 +245,97 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 }
             }
             opcodes::STORE_PARAM_TO_FIELD => {
-                if pc + 2 <= bytes.len() {
+                // acc(u8) + offset(u32) + param(u8)
+                if pc + 7 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let after = pc + 2;
-                    if let Some((offset, c)) = decode_vle_u128(&bytes[after..]) {
-                        if after + c < bytes.len() {
-                            let param = bytes[after + c];
-                            lines.push(format!("{:04X}: STORE_PARAM_TO_FIELD acc={} offset_vle={} param={}", pc, acc, offset, param));
-                            pc = after + c + 1;
-                        } else {
-                            lines.push(format!("{:04X}: STORE_PARAM_TO_FIELD <truncated>", pc));
-                            break;
-                        }
-                    } else {
-                        lines.push(format!("{:04X}: STORE_PARAM_TO_FIELD <truncated>", pc));
-                        break;
-                    }
+                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let param = bytes[pc + 6];
+                    lines.push(format!("{:04X}: STORE_PARAM_TO_FIELD acc={} offset={} param={}", pc, acc, offset, param));
+                    pc += 7;
                 } else {
                     lines.push(format!("{:04X}: STORE_PARAM_TO_FIELD <truncated>", pc));
                     break;
                 }
             }
             opcodes::STORE_FIELD_ZERO => {
-                if pc + 2 <= bytes.len() {
+                // acc(u8) + offset(u32)
+                if pc + 6 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let after = pc + 2;
-                    if let Some((offset, c)) = decode_vle_u128(&bytes[after..]) {
-                        lines.push(format!("{:04X}: STORE_FIELD_ZERO acc={} offset_vle={}", pc, acc, offset));
-                        pc = after + c;
-                    } else {
-                        lines.push(format!("{:04X}: STORE_FIELD_ZERO <truncated>", pc));
-                        break;
-                    }
+                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    lines.push(format!("{:04X}: STORE_FIELD_ZERO acc={} offset={}", pc, acc, offset));
+                    pc += 6;
                 } else {
                     lines.push(format!("{:04X}: STORE_FIELD_ZERO <truncated>", pc));
                     break;
                 }
             }
             opcodes::STORE_KEY_TO_FIELD => {
-                if pc + 2 <= bytes.len() {
+                // acc(u8) + offset(u32) + key_acc(u8)
+                if pc + 7 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let after = pc + 2;
-                    if let Some((offset, c)) = decode_vle_u128(&bytes[after..]) {
-                        if after + c < bytes.len() {
-                            let key_acc = bytes[after + c];
-                            lines.push(format!("{:04X}: STORE_KEY_TO_FIELD acc={} offset_vle={} key_acc={}", pc, acc, offset, key_acc));
-                            pc = after + c + 1;
-                        } else {
-                            lines.push(format!("{:04X}: STORE_KEY_TO_FIELD <truncated>", pc));
-                            break;
-                        }
-                    } else {
-                        lines.push(format!("{:04X}: STORE_KEY_TO_FIELD <truncated>", pc));
-                        break;
-                    }
+                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let key_acc = bytes[pc + 6];
+                    lines.push(format!("{:04X}: STORE_KEY_TO_FIELD acc={} offset={} key_acc={}", pc, acc, offset, key_acc));
+                    pc += 7;
                 } else {
                     lines.push(format!("{:04X}: STORE_KEY_TO_FIELD <truncated>", pc));
                     break;
                 }
             }
             opcodes::REQUIRE_EQ_FIELDS => {
-                if pc + 2 <= bytes.len() {
+                // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
+                if pc + 11 <= bytes.len() {
                     let acc1 = bytes[pc + 1];
-                    let after1 = pc + 2;
-                    if let Some((offset1, c1)) = decode_vle_u128(&bytes[after1..]) {
-                        let after2 = after1 + c1;
-                        if after2 < bytes.len() {
-                            let acc2 = bytes[after2];
-                            let after3 = after2 + 1;
-                            if let Some((offset2, c2)) = decode_vle_u128(&bytes[after3..]) {
-                                lines.push(format!("{:04X}: REQUIRE_EQ_FIELDS acc1={} offset1_vle={} acc2={} offset2_vle={}", pc, acc1, offset1, acc2, offset2));
-                                pc = after3 + c2;
-                            } else {
-                                lines.push(format!("{:04X}: REQUIRE_EQ_FIELDS <truncated>", pc));
-                                break;
-                            }
-                        } else {
-                            lines.push(format!("{:04X}: REQUIRE_EQ_FIELDS <truncated>", pc));
-                            break;
-                        }
-                    } else {
-                        lines.push(format!("{:04X}: REQUIRE_EQ_FIELDS <truncated>", pc));
-                        break;
-                    }
+                    let offset1 = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let acc2 = bytes[pc + 6];
+                    let offset2 = u32::from_le_bytes([bytes[pc + 7], bytes[pc + 8], bytes[pc + 9], bytes[pc + 10]]);
+                    lines.push(format!("{:04X}: REQUIRE_EQ_FIELDS acc1={} offset1={} acc2={} offset2={}", pc, acc1, offset1, acc2, offset2));
+                    pc += 11;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_EQ_FIELDS <truncated>", pc));
                     break;
                 }
             }
             opcodes::LOAD_FIELD => {
-                if pc + 2 <= bytes.len() {
+                // acc(u8) + offset(u32)
+                if pc + 5 < bytes.len() {
                     let acc = bytes[pc + 1];
-                    let after = pc + 2;
-                    if let Some((v, c)) = decode_vle_u128(&bytes[after..]) {
-                        lines.push(format!(
-                            "{:04X}: LOAD_FIELD acc={} offset_vle={}",
-                            pc, acc, v
-                        ));
-                        pc = after + c;
-                    } else if let Some(raw) = read_le_u32(bytes, after) {
-                        lines.push(format!("{:04X}: LOAD_FIELD acc={} offset={}", pc, acc, raw));
-                        pc = after + 4;
-                    } else {
-                        lines.push(format!("{:04X}: LOAD_FIELD <truncated>", pc));
-                        break;
-                    }
+                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    lines.push(format!("{:04X}: LOAD_FIELD acc={} offset={}", pc, acc, offset));
+                    pc += 6;
                 } else {
                     lines.push(format!("{:04X}: LOAD_FIELD <truncated>", pc));
                     break;
                 }
             }
             opcodes::STORE_FIELD => {
-                if pc + 2 <= bytes.len() {
+                // acc(u8) + offset(u32)
+                if pc + 5 < bytes.len() {
                     let acc = bytes[pc + 1];
-                    let after = pc + 2;
-                    if let Some((v, c)) = decode_vle_u128(&bytes[after..]) {
-                        lines.push(format!(
-                            "{:04X}: STORE_FIELD acc={} offset_vle={}",
-                            pc, acc, v
-                        ));
-                        pc = after + c
-                    } else if let Some(raw) = read_le_u32(bytes, after) {
-                        lines.push(format!(
-                            "{:04X}: STORE_FIELD acc={} offset={}",
-                            pc, acc, raw
-                        ));
-                        pc = after + 4
-                    } else {
-                        lines.push(format!("{:04X}: STORE_FIELD <truncated>", pc));
-                        break;
-                    }
+                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    lines.push(format!(
+                        "{:04X}: STORE_FIELD acc={} offset={}",
+                        pc, acc, offset
+                    ));
+                    pc += 6;
                 } else {
                     lines.push(format!("{:04X}: STORE_FIELD <truncated>", pc));
                     break;
                 }
             }
             opcodes::CHECK_SIGNER => {
-                if let Some((v, c)) = decode_vle_u128(&bytes[pc + 1..]) {
-                    lines.push(format!("{:04X}: CHECK_SIGNER acc={}", pc, v));
-                    pc += 1 + c;
+                if pc + 1 < bytes.len() {
+                    lines.push(format!("{:04X}: CHECK_SIGNER acc={}", pc, bytes[pc + 1]));
+                    pc += 2;
                 } else {
                     lines.push(format!("{:04X}: CHECK_SIGNER <truncated>", pc));
                     break;
                 }
             }
             opcodes::CHECK_WRITABLE => {
-                if let Some((v, c)) = decode_vle_u128(&bytes[pc + 1..]) {
-                    lines.push(format!("{:04X}: CHECK_WRITABLE acc={}", pc, v));
-                    pc += 1 + c;
+                if pc + 1 < bytes.len() {
+                    lines.push(format!("{:04X}: CHECK_WRITABLE acc={}", pc, bytes[pc + 1]));
+                    pc += 2;
                 } else {
                     lines.push(format!("{:04X}: CHECK_WRITABLE <truncated>", pc));
                     break;
@@ -493,4 +380,21 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
 /// Human-friendly opcode name lookup.
 fn opcode_name(op: u8) -> &'static str {
     five_protocol::opcodes::opcode_name(op)
+}
+
+/// Alias for disassemble to fix build issues
+pub fn get_disassembly(bytes: &[u8]) -> Vec<String> {
+    disassemble(bytes)
+}
+
+/// Helper to inspect bytecode around a failure (hex dump)
+pub fn inspect_failure(bytes: &[u8], pos: usize, context: usize) -> String {
+    let start = pos.saturating_sub(context);
+    let end = (pos + context).min(bytes.len());
+    if start >= end {
+        return "Empty bytecode".to_string();
+    }
+    let chunk = &bytes[start..end];
+    let hex: Vec<String> = chunk.iter().map(|b| format!("{:02X}", b)).collect();
+    format!("... {} ... (at offset {})", hex.join(" "), pos)
 }

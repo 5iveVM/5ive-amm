@@ -3,7 +3,7 @@
 //! This suite verifies that opcodes strictly adhere to the behavior defined in `OPCODE_SPEC.md`.
 //! It focuses on edge cases, stack effects, and specific bit-level behaviors.
 
-use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
+use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
@@ -27,14 +27,12 @@ fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
 
 fn push_u64(script: &mut Vec<u8>, value: u64) {
     script.push(PUSH_U64);
-    let (len, encoded) = VLE::encode_u64(value);
-    script.extend_from_slice(&encoded[..len]);
+    script.extend_from_slice(&value.to_le_bytes());
 }
 
 fn push_u16(script: &mut Vec<u8>, value: u16) {
     script.push(PUSH_U16);
-    let (len, encoded) = VLE::encode_u64(value as u64);
-    script.extend_from_slice(&encoded[..len]);
+    script.extend_from_slice(&value.to_le_bytes());
 }
 
 #[test]
@@ -75,8 +73,7 @@ fn test_spec_control_flow_jumps() {
 
         // Success
         script.push(PUSH_U64);
-        let (len, encoded) = VLE::encode_u64(1);
-        script.extend_from_slice(&encoded[..len]);
+        script.extend_from_slice(&1u64.to_le_bytes());
         script.push(HALT);
     });
 
@@ -162,11 +159,10 @@ fn test_spec_bitwise_shifts() {
     // NOTE: PUSH_I64 implementation casts raw bits to i64.
     let bc_sar = build_script(|script| {
         // PUSH -8 as I64 using raw bytes
-        // Note: VLE::encode_u64 encodes the u64 bits. PUSH_I64 reads them and casts to i64.
+        // Note: Fixed encoding
         script.push(PUSH_I64);
         let neg_eight: i64 = -8;
-        let (len, encoded) = VLE::encode_u64(neg_eight as u64); // Encode raw bits
-        script.extend_from_slice(&encoded[..len]);
+        script.extend_from_slice(&(neg_eight as u64).to_le_bytes());
 
         // PUSH 1 as U64 (shift amount)
         push_u64(script, 1);

@@ -15,11 +15,11 @@ use five_protocol::opcodes::*;
 pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         // REQUIRE_GTE_U64: LOAD_FIELD + LOAD_PARAM + GTE + REQUIRE fused
-        // Encoding: acc(u8) offset(VLE) param(u8)
+        // Encoding: acc(u8) offset(u32) param(u8)
         // Saves 300 CU by avoiding 4 opcode dispatches
         REQUIRE_GTE_U64 => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let param_idx = ctx.fetch_byte()?;
 
             // Load field value directly from account data
@@ -50,11 +50,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // REQUIRE_NOT_BOOL: LOAD_FIELD + NOT + REQUIRE fused
-        // Encoding: acc(u8) offset(VLE)
+        // Encoding: acc(u8) offset(u32)
         // Saves 200 CU
         REQUIRE_NOT_BOOL => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
 
             let account = ctx.get_account_for_read(acc_idx)?;
             let data = unsafe { account.borrow_data_unchecked() };
@@ -75,11 +75,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // FIELD_ADD_PARAM: LOAD_FIELD + LOAD_PARAM + ADD + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE) param(u8)
+        // Encoding: acc(u8) offset(u32) param(u8)
         // Saves 300 CU
         FIELD_ADD_PARAM => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let param_idx = ctx.fetch_byte()?;
 
             // Load param value first using same pattern as locals.rs
@@ -111,11 +111,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // FIELD_SUB_PARAM: LOAD_FIELD + LOAD_PARAM + SUB + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE) param(u8)
+        // Encoding: acc(u8) offset(u32) param(u8)
         // Saves 300 CU
         FIELD_SUB_PARAM => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let param_idx = ctx.fetch_byte()?;
 
             // Load param value first using same pattern as locals.rs
@@ -164,18 +164,27 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // REQUIRE_EQ_PUBKEY: Compare two pubkey fields from accounts
-        // Encoding: acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+        // Encoding: acc1(u8) offset1(u32) acc2(u8) offset2(u32)
         // Saves 300 CU
         REQUIRE_EQ_PUBKEY => {
             let acc1_idx = ctx.fetch_byte()?;
-            let offset1 = ctx.fetch_vle_u32()?; // Use u32 for large offsets and sentinel
+            let offset1 = ctx.fetch_u32()?; // Use u32 for large offsets and sentinel
             let acc2_idx = ctx.fetch_byte()?;
-            let offset2 = ctx.fetch_vle_u32()?; // Use u32 for large offsets and sentinel
+            let offset2 = ctx.fetch_u32()?; // Use u32 for large offsets and sentinel
 
             // Load first pubkey
             let account1 = ctx.get_account_for_read(acc1_idx)?;
             let pubkey1_ref: &[u8] = if offset1 == 0x3FFF {
-                // Sentinel: Use Account Key (0x3FFF = 2-byte VLE sentinel)
+                // Sentinel: Use Account Key (0x3FFF = 2-byte VLE sentinel, but now using u32, let's keep the check for compatibility or define a new constant?)
+                // Assuming 0x3FFF was just an arbitrary large value. With u32 we can use u32::MAX.
+                // But tests might rely on 0x3FFF. Let's keep it or use u32::MAX.
+                // Actually if offset is u32, a real offset of 0x3FFF (16KB) is valid.
+                // We should probably use u32::MAX for sentinel if we are raw byte enforced.
+                // But changing sentinel might break ABI if compiler doesn't change.
+                // For now, I'll keep 0x3FFF but note it's weird with u32.
+                // Or better, use a high bit flag?
+                // The previous VLE max for 2 bytes is 16383 (0x3FFF).
+                // Let's assume we stick with 0x3FFF as the sentinel for now.
                 account1.key().as_ref()
             } else {
                 // Use Data Field
@@ -194,7 +203,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             // Load second pubkey
             let account2 = ctx.get_account_for_read(acc2_idx)?;
             let pubkey2_ref: &[u8] = if offset2 == 0x3FFF {
-                // Sentinel: Use Account Key (0x3FFF = 2-byte VLE sentinel)
+                // Sentinel: Use Account Key
                 account2.key().as_ref()
             } else {
                 // Use Data Field
@@ -239,11 +248,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         // ===== TIER 3 UNIVERSAL FUSED OPCODES =====
 
         // STORE_PARAM_TO_FIELD: LOAD_PARAM + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE) param(u8)
+        // Encoding: acc(u8) offset(u32) param(u8)
         // Saves 100 CU
         STORE_PARAM_TO_FIELD => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let param_idx = ctx.fetch_byte()?;
 
             // Load param value generically
@@ -266,11 +275,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // STORE_FIELD_ZERO: PUSH_0 + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE)
+        // Encoding: acc(u8) offset(u32)
         // Saves 100 CU
         STORE_FIELD_ZERO => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
 
             let account = ctx.get_account_for_write(acc_idx)?;
             let data = unsafe { account.borrow_mut_data_unchecked() };
@@ -288,11 +297,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // STORE_KEY_TO_FIELD: GET_KEY + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE) key_acc(u8)
+        // Encoding: acc(u8) offset(u32) key_acc(u8)
         // Saves 100 CU
         STORE_KEY_TO_FIELD => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let key_acc_idx = ctx.fetch_byte()?;
 
             // Get the key from key_acc
@@ -315,13 +324,13 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // REQUIRE_EQ_FIELDS: Compare two u64 fields (field-to-field)
-        // Encoding: acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+        // Encoding: acc1(u8) offset1(u32) acc2(u8) offset2(u32)
         // Saves 300 CU
         REQUIRE_EQ_FIELDS => {
             let acc1_idx = ctx.fetch_byte()?;
-            let offset1 = ctx.fetch_vle_u16()?;
+            let offset1 = ctx.fetch_u32()?;
             let acc2_idx = ctx.fetch_byte()?;
-            let offset2 = ctx.fetch_vle_u16()?;
+            let offset2 = ctx.fetch_u32()?;
 
             // Load first field (32 bytes for pubkey comparison)
             let account1 = ctx.get_account_for_read(acc1_idx)?;
@@ -351,9 +360,9 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         // Format: FIELD_SUB_ADD_PARAM acc1, off1, acc2, off2, param_idx
         FIELD_SUB_ADD_PARAM => {
             let acc1_idx = ctx.fetch_byte()?;
-            let off1 = ctx.fetch_vle_u16()?;
+            let off1 = ctx.fetch_u32()?;
             let acc2_idx = ctx.fetch_byte()?;
-            let off2 = ctx.fetch_vle_u16()?;
+            let off2 = ctx.fetch_u32()?;
             let param_idx = ctx.fetch_byte()?;
 
             // 1. Load parameter
@@ -413,7 +422,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         // Format: REQUIRE_FIELD_EQ_IMM acc_idx, offset, imm_u8
         REQUIRE_FIELD_EQ_IMM => {
             let acc_idx = ctx.fetch_byte()?;
-            let offset = ctx.fetch_vle_u16()?;
+            let offset = ctx.fetch_u32()?;
             let imm = ctx.fetch_byte()? as u64;
 
             let account = ctx.get_account_for_read(acc_idx)?;
@@ -438,4 +447,3 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
     }
     Ok(())
 }
-

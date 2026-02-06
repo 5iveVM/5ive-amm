@@ -466,10 +466,10 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
             );
         }
         PUSH_STRING => {
-            // PUSH_STRING with VLE encoding - similar to PUSH_STRING_LITERAL but with VLE length
-            let string_length = ctx.fetch_vle_u32()?; // Fetch VLE encoded length (u32)
+            // PUSH_STRING - similar to PUSH_STRING_LITERAL but with u32 length
+            let string_length = ctx.fetch_u32()?; // Fetch fixed length (u32)
             debug_log!(
-                "MitoVM: PUSH_STRING with {} bytes (VLE encoded)",
+                "MitoVM: PUSH_STRING with {} bytes",
                 string_length
             );
 

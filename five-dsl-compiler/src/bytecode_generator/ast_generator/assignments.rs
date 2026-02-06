@@ -177,7 +177,7 @@ impl ASTGenerator {
             // Script fields use account_index=0 (the script account itself)
             emitter.emit_opcode(STORE_FIELD);
             emitter.emit_u8(0); // Script account is always index 0
-            emitter.emit_vle_u32(field_info.offset);
+            emitter.emit_u32(field_info.offset);
         } else {
             // Create new local variable (original fallback when no dispatcher)
             let field_info = FieldInfo {
@@ -255,7 +255,7 @@ impl ASTGenerator {
                             )?; // Pass account_type string
                             emitter.emit_opcode(STORE_FIELD); // Use STORE_FIELD for now, assuming it handles account fields
                             emitter.emit_u8(field_info.offset as u8);
-                            emitter.emit_vle_u32(field_offset);
+                            emitter.emit_u32(field_offset);
                         } else {
                             return Err(VMError::InvalidScript); // Undefined account
                         }
@@ -416,7 +416,7 @@ impl ASTGenerator {
                 // Generate account field store operation using zero-copy account field store
                 emitter.emit_opcode(STORE_FIELD); // MitoVM zero-copy account field store
                 emitter.emit_u8(account_offset); // Account index from symbol table
-                emitter.emit_vle_u32(field_offset); // Field offset (VLE format for consistency)
+                emitter.emit_u32(field_offset); // Field offset (fixed format for consistency)
             } else {
                 // ENHANCED ERROR HANDLING: Check if this might be a script field assignment
                 #[cfg(debug_assertions)]
@@ -449,7 +449,7 @@ impl ASTGenerator {
                         // Protocol V3: STORE_FIELD account_index_u8, offset_vle
                         emitter.emit_opcode(STORE_FIELD);
                         emitter.emit_u8(0); // Script account is always index 0
-                        emitter.emit_vle_u32(script_field_info.offset);
+                        emitter.emit_u32(script_field_info.offset);
 
                         #[cfg(debug_assertions)]
                         println!("AST Generator: Generated script field store for '{}' at offset {}", account_name, script_field_info.offset);

@@ -197,7 +197,7 @@ export interface SerializedExecution {
 export interface EncodedParameters {
     /** Function name or index */
     function: string | number;
-    /** Raw VLE-encoded parameter bytes */
+    /** Raw encoded parameter bytes */
     data: Uint8Array;
     /** Parameter count */
     count: number;
@@ -311,7 +311,7 @@ export interface ExecutionOptions {
     trace?: boolean;
 }
 /**
- * VLE-encoded parameter for Five VM
+ * Encoded parameter for Five VM
  */
 export interface EncodedParameter {
     type: number;

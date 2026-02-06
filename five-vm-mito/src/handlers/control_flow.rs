@@ -279,7 +279,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
         BR_EQ_U8 => {
             // Fused compare-and-branch: compare top stack value with u8, jump if equal
             let compare_value = ctx.fetch_byte()?;
-            let offset = ctx.fetch_vle_u16()? as i32;
+            let offset = ctx.fetch_u16()? as i32;
             let stack_value = ctx.pop()?;
 
             let is_equal = match stack_value {

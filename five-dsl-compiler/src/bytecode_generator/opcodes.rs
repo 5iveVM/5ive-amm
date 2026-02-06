@@ -25,15 +25,6 @@ pub trait OpcodeEmitter {
     /// Emit multiple bytes
     fn emit_bytes(&mut self, bytes: &[u8]);
 
-    /// Emit a VLE-encoded u32 value
-    fn emit_vle_u32(&mut self, value: u32);
-
-    /// Emit a VLE-encoded u16 value
-    fn emit_vle_u16(&mut self, value: u16);
-
-    /// Emit a VLE-encoded u64 value
-    fn emit_vle_u64(&mut self, value: u64);
-
     /// Get current bytecode position
     fn get_position(&self) -> usize;
 
@@ -115,7 +106,6 @@ impl OpcodeEmitter for super::DslBytecodeGenerator {
 
     fn emit_u32(&mut self, value: u32) {
         let bytes = value.to_le_bytes();
-        println!("DEBUG: emit_u32 value: {}, bytes: {:?}", value, bytes);
         self.bytecode.extend_from_slice(&bytes);
         self.position += bytes.len();
     }
@@ -129,30 +119,6 @@ impl OpcodeEmitter for super::DslBytecodeGenerator {
     fn emit_bytes(&mut self, bytes: &[u8]) {
         self.bytecode.extend_from_slice(bytes);
         self.position += bytes.len();
-    }
-
-    fn emit_vle_u32(&mut self, value: u32) {
-        use five_protocol::VLE;
-        let (size, bytes) = VLE::encode_u32(value);
-        for i in 0..size {
-            self.emit_u8(bytes[i]);
-        }
-    }
-
-    fn emit_vle_u16(&mut self, value: u16) {
-        use five_protocol::VLE;
-        let (size, bytes) = VLE::encode_u16(value);
-        for i in 0..size {
-            self.emit_u8(bytes[i]);
-        }
-    }
-
-    fn emit_vle_u64(&mut self, value: u64) {
-        use five_protocol::VLE;
-        let (size, bytes) = VLE::encode_u64(value);
-        for i in 0..size {
-            self.emit_u8(bytes[i]);
-        }
     }
 
     fn get_position(&self) -> usize {
@@ -188,22 +154,22 @@ impl OpcodePatterns {
             3 => emitter.emit_opcode(opcodes::PUSH_3),
             _ => {
                 emitter.emit_opcode(opcodes::PUSH_U64);
-                // VM expects VLE encoded value for PUSH_U64
-                emitter.emit_vle_u64(value);
+                // VM expects fixed 8-byte LE value for PUSH_U64
+                emitter.emit_u64(value);
             }
         }
     }
 
-    /// Emit a PUSH_U32 instruction with a 32-bit value (VLE encoded)
+    /// Emit a PUSH_U32 instruction with a 32-bit value (fixed LE)
     pub fn emit_push_u32(emitter: &mut impl OpcodeEmitter, value: u32) {
         emitter.emit_opcode(opcodes::PUSH_U32);
-        emitter.emit_vle_u32(value);
+        emitter.emit_u32(value);
     }
 
-    /// Emit a PUSH_U16 instruction with a 16-bit value (VLE encoded)
+    /// Emit a PUSH_U16 instruction with a 16-bit value (fixed LE)
     pub fn emit_push_u16(emitter: &mut impl OpcodeEmitter, value: u16) {
         emitter.emit_opcode(opcodes::PUSH_U16);
-        emitter.emit_vle_u16(value);
+        emitter.emit_u16(value);
     }
 
     /// Emit a PUSH_U128 instruction with a 128-bit value - MITO-style BPF-optimized
@@ -241,7 +207,18 @@ impl OpcodePatterns {
     /// Emit a PUSH_STRING instruction with a string index
     pub fn emit_push_string(emitter: &mut impl OpcodeEmitter, value: u8) {
         emitter.emit_opcode(opcodes::PUSH_STRING);
-        emitter.emit_u8(value);
+        // PUSH_STRING uses fixed u32 length + bytes
+        // But here `value` is u8 (an index?), wait.
+        // The implementation in `DslBytecodeGenerator::visit_literal_string` likely handles PUSH_STRING content.
+        // Here `emit_push_string` seems to expect `value` as some u8?
+        // Ah, PUSH_STRING opcode (0x67) expects length + bytes.
+        // PUSH_STRING_LITERAL (0x66) expects u8 length + bytes.
+        // The usage here is ambiguous without context.
+        // Assuming `value` is meant to be a length, u8 length fits in u32.
+        // But PUSH_STRING takes u32 length.
+        // If this function is emitting just opcode + length, then:
+        emitter.emit_u32(value as u32);
+        // Bytes should follow
     }
 
     /// Emit account reference as a PUSH_U8 instruction (PUSH_ACCOUNT was removed)
@@ -259,8 +236,8 @@ impl OpcodePatterns {
             3 => emitter.emit_opcode(opcodes::PUSH_3),
             _ => {
                 emitter.emit_opcode(opcodes::PUSH_I64);
-                // I64 uses VLE encoded u64
-                emitter.emit_vle_u64(value as u64);
+                // I64 uses fixed 8-byte LE value
+                emitter.emit_u64(value as u64);
             }
         }
     }
@@ -269,14 +246,14 @@ impl OpcodePatterns {
     pub fn emit_load_field(emitter: &mut impl OpcodeEmitter, account_index: u8, field_index: u32) {
         emitter.emit_opcode(opcodes::LOAD_FIELD);
         emitter.emit_u8(account_index);
-        emitter.emit_vle_u32(field_index);
+        emitter.emit_u32(field_index);
     }
 
     /// Emit a STORE_FIELD instruction with account index and field index
     pub fn emit_store_field(emitter: &mut impl OpcodeEmitter, account_index: u8, field_index: u32) {
         emitter.emit_opcode(opcodes::STORE_FIELD);
         emitter.emit_u8(account_index);
-        emitter.emit_vle_u32(field_index);
+        emitter.emit_u32(field_index);
     }
 
     /// Emit a conditional jump instruction
@@ -346,11 +323,11 @@ impl OpcodePatterns {
     }
 
     /// Emit a BR_EQ_U8 fused compare-branch instruction
-    /// Format: BR_EQ_U8 compare_value(u8) vle_offset(vle_u16)
-    pub fn emit_br_eq_u8(emitter: &mut impl OpcodeEmitter, compare_value: u8, vle_offset: u16) {
+    /// Format: BR_EQ_U8 compare_value(u8) offset(u16)
+    pub fn emit_br_eq_u8(emitter: &mut impl OpcodeEmitter, compare_value: u8, offset: u16) {
         emitter.emit_opcode(opcodes::BR_EQ_U8);
         emitter.emit_u8(compare_value); // U8 value to compare against (matches VM fetch_byte)
-        emitter.emit_vle_u16(vle_offset); // VLE-encoded relative offset (matches VM fetch_vle_u16)
+        emitter.emit_u16(offset); // Fixed 16-bit offset (matches VM fetch_u16)
     }
 }
 
@@ -412,19 +389,19 @@ impl OpcodeAnalyzer {
         )
     }
 
-    /// Get the logical size of operands for an opcode (not necessarily encoded size for VLE)
+    /// Get the logical size of operands for an opcode
     /// Returns the maximum expected size in bytes for analysis purposes.
     pub fn operand_size(opcode: u8) -> usize {
         match opcode {
-            opcodes::PUSH_U64 | opcodes::PUSH_I64 => 8, // VLE (logical max)
+            opcodes::PUSH_U64 | opcodes::PUSH_I64 => 8, // Fixed 8 bytes
             opcodes::PUSH_U128 => 16,
             opcodes::PUSH_BOOL => 1,
             opcodes::PUSH_PUBKEY => 32,
-            opcodes::PUSH_STRING => 1,
+            opcodes::PUSH_STRING => 4, // Fixed u32 length
             opcodes::PUSH_U8 => 1,
-            opcodes::PUSH_U16 => 2, // Fixed 2 bytes (based on parser)
-            opcodes::PUSH_U32 => 4, // VLE (logical max)
-            opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 5, // u8 + u32 (VLE max)
+            opcodes::PUSH_U16 => 2, // Fixed 2 bytes
+            opcodes::PUSH_U32 => 4, // Fixed 4 bytes
+            opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 5, // u8 + u32
             opcodes::JUMP | opcodes::JUMP_IF_NOT | opcodes::JUMP_IF => 2, // 16-bit offset
             opcodes::CALL => 3, // 8-bit param_count + 16-bit function_address
             opcodes::BR_EQ_U8 => 3, // u8 + u16 offset

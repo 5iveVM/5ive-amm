@@ -34,10 +34,6 @@ fn test_init_pda_account_success() {
     let accounts = &accounts_storage; // Slice
 
     // 3. Bytecode: Simulate INIT_PDA_ACCOUNT with correct parameters
-    let bytecode_utils_vle_0 = encode_vle(0);
-    let bytecode_utils_vle_1m = encode_vle(1_000_000);
-    let bytecode_utils_vle_100 = encode_vle(100);
-
     let mut bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
@@ -46,20 +42,20 @@ fn test_init_pda_account_success() {
 
     // Push bump
     bytecode.push(0x18); bytecode.push(bump);
-    // Push seed 1: "vault"
-    bytecode.extend_from_slice(&[0x67, 0x05, b'v', b'a', b'u', b'l', b't']);
-    // Push seed 2: [1, 2, 3]
-    bytecode.extend_from_slice(&[0x67, 0x03, 0x01, 0x02, 0x03]);
+    // Push seed 1: "vault" (len 5 u32)
+    bytecode.extend_from_slice(&[0x67, 0x05, 0x00, 0x00, 0x00, b'v', b'a', b'u', b'l', b't']);
+    // Push seed 2: [1, 2, 3] (len 3 u32)
+    bytecode.extend_from_slice(&[0x67, 0x03, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03]);
     // Push seeds count (2)
     bytecode.push(0x18); bytecode.push(0x02);
-    // Push owner (0)
-    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_0);
+    // Push owner (0) - U64 8 bytes
+    bytecode.push(0x1B); bytecode.extend_from_slice(&0u64.to_le_bytes());
     // Push lamports (1_000_000)
-    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_1m);
+    bytecode.push(0x1B); bytecode.extend_from_slice(&1_000_000u64.to_le_bytes());
     // Push payer_idx (0)
     bytecode.push(0x18); bytecode.push(0x00);
     // Push space (100)
-    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_100);
+    bytecode.push(0x1B); bytecode.extend_from_slice(&100u64.to_le_bytes());
     // Push account_idx (1)
     bytecode.push(0x18); bytecode.push(0x01);
     // Call INIT_PDA_ACCOUNT
@@ -98,10 +94,6 @@ fn test_init_pda_account_failure_address_mismatch() {
     let accounts = &accounts_storage;
 
     // 3. Bytecode: Same as success case, but account #1 key doesn't match
-    let bytecode_utils_vle_0 = encode_vle(0);
-    let bytecode_utils_vle_1m = encode_vle(1_000_000);
-    let bytecode_utils_vle_100 = encode_vle(100);
-
     let mut bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
@@ -111,19 +103,19 @@ fn test_init_pda_account_failure_address_mismatch() {
     // Push bump
     bytecode.push(0x18); bytecode.push(bump);
     // Push seed 1
-    bytecode.extend_from_slice(&[0x67, 0x05, b'v', b'a', b'u', b'l', b't']);
+    bytecode.extend_from_slice(&[0x67, 0x05, 0x00, 0x00, 0x00, b'v', b'a', b'u', b'l', b't']);
     // Push seed 2
-    bytecode.extend_from_slice(&[0x67, 0x03, 0x01, 0x02, 0x03]);
+    bytecode.extend_from_slice(&[0x67, 0x03, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03]);
     // Push seeds count
     bytecode.push(0x18); bytecode.push(0x02);
     // Push owner
-    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_0);
+    bytecode.push(0x1B); bytecode.extend_from_slice(&0u64.to_le_bytes());
     // Push lamports
-    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_1m);
+    bytecode.push(0x1B); bytecode.extend_from_slice(&1_000_000u64.to_le_bytes());
     // Push payer_idx (0)
     bytecode.push(0x18); bytecode.push(0x00);
     // Push space
-    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_100);
+    bytecode.push(0x1B); bytecode.extend_from_slice(&100u64.to_le_bytes());
     // Push account_idx
     bytecode.push(0x18); bytecode.push(0x01);
     
@@ -167,10 +159,6 @@ fn test_init_pda_account_failure_invalid_bump() {
     // Bytecode with WRONG bump
     let wrong_bump = valid_bump.wrapping_add(1);
 
-    let bytecode_utils_vle_0 = encode_vle(0);
-    let bytecode_utils_vle_1m = encode_vle(1_000_000);
-    let bytecode_utils_vle_100 = encode_vle(100);
-
     let mut bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
@@ -180,17 +168,17 @@ fn test_init_pda_account_failure_invalid_bump() {
     // Push bump
     bytecode.push(0x18); bytecode.push(wrong_bump);
     // Push seed 1
-    bytecode.extend_from_slice(&[0x67, 0x05, b'v', b'a', b'u', b'l', b't']);
+    bytecode.extend_from_slice(&[0x67, 0x05, 0x00, 0x00, 0x00, b'v', b'a', b'u', b'l', b't']);
     // Push seeds count (1)
     bytecode.push(0x18); bytecode.push(0x01);
     // Push owner
-    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_0);
+    bytecode.push(0x1B); bytecode.extend_from_slice(&0u64.to_le_bytes());
     // Push lamports
-    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_1m);
+    bytecode.push(0x1B); bytecode.extend_from_slice(&1_000_000u64.to_le_bytes());
     // Push payer_idx (0)
     bytecode.push(0x18); bytecode.push(0x00);
     // Push space
-    bytecode.push(0x1B); bytecode.extend_from_slice(&bytecode_utils_vle_100);
+    bytecode.push(0x1B); bytecode.extend_from_slice(&100u64.to_le_bytes());
     // Push account_idx
     bytecode.push(0x18); bytecode.push(0x01);
 
@@ -242,19 +230,19 @@ fn test_init_pda_account_failure_space_limit() {
     bytecode.push(bump);
 
     // Push seed 1 ("vault")
-    bytecode.extend_from_slice(&[0x67, 0x05, b'v', b'a', b'u', b'l', b't']);
+    bytecode.extend_from_slice(&[0x67, 0x05, 0x00, 0x00, 0x00, b'v', b'a', b'u', b'l', b't']);
 
     // Push seeds count
     bytecode.push(0x18);
     bytecode.push(0x01);
 
-    // Push owner (0) - VLE(0) is 0x00
+    // Push owner (0)
     bytecode.push(0x1B); // PUSH_U64
-    bytecode.push(0x00);
+    bytecode.extend_from_slice(&0u64.to_le_bytes());
 
     // Push lamports (1_000_000)
     bytecode.push(0x1B); // PUSH_U64
-    bytecode.extend_from_slice(&encode_vle(1_000_000));
+    bytecode.extend_from_slice(&1_000_000u64.to_le_bytes());
 
     // Push payer_idx (0)
     bytecode.push(0x18);
@@ -262,7 +250,7 @@ fn test_init_pda_account_failure_space_limit() {
 
     // Push Excessive Space
     bytecode.push(0x1B); // PUSH_U64
-    bytecode.extend_from_slice(&encode_vle(excessive_space)); 
+    bytecode.extend_from_slice(&excessive_space.to_le_bytes());
     
     // Push account_idx
     bytecode.push(0x18);

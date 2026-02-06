@@ -91,11 +91,11 @@ use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
         // Execute instruction discriminator (removed by Five program before passing to MitoVM)
         data.push(2);
 
-        // VLE-encode function index 0 (since 0 < 128, it's just [0])
-        data.push(0);
+        // Function index 0 (u32)
+        data.extend_from_slice(&0u32.to_le_bytes());
 
-        // VLE-encode parameter count (since count < 128, it's just the count)
-        data.push(params.len() as u8);
+        // Parameter count (u32)
+        data.extend_from_slice(&(params.len() as u32).to_le_bytes());
 
         for param in params {
             match param {
@@ -203,20 +203,19 @@ use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
             // Format: [function_index (VLE), param_count (VLE), param1 (VLE), param2 (VLE), ...]
             let mut data = vec![];
 
-            // VLE-encode function index 0 (since 0 < 128, it's just [0])
-            data.push(0);
+            // Function index 0 (u32)
+            data.extend_from_slice(&0u32.to_le_bytes());
 
-            // VLE-encode parameter count (since count < 128, it's just the count)
-            data.push(params.len() as u8);
+            // Parameter count (u32)
+            data.extend_from_slice(&(params.len() as u32).to_le_bytes());
 
             for param in params {
                 match param {
                     Value::U64(val) => {
-                        // Encode as pure VLE value (no type marker needed)
-                        // parse_vle_parameters_unified expects pure VLE values
-                        use five_protocol::VLE;
-                        let (size, bytes) = VLE::encode_u32(*val as u32);
-                        data.extend_from_slice(&bytes[..size]);
+                        // Encode as pure value (no type marker needed)
+                        // parse_parameters_unified expects pure values
+                        let bytes = (*val as u32).to_le_bytes();
+                        data.extend_from_slice(&bytes);
                     }
                     Value::Bool(val) => {
                         // Encode bool as 0 or 1

@@ -138,46 +138,6 @@ impl BytecodeBuilder {
         self
     }
 
-    /// Emit variable-length encoded u32 (VLE format used by Five VM)
-    /// This is optimized for small values (common case)
-    #[inline]
-    pub fn emit_vle_u32(&mut self, mut value: u32) -> &mut Self {
-        // VLE encoding: continuation bit in MSB
-        loop {
-            let byte = (value & 0x7F) as u8;
-            value >>= 7;
-            if value == 0 {
-                self.bytecode.push(byte);
-                break;
-            } else {
-                self.bytecode.push(byte | 0x80);
-            }
-        }
-        self
-    }
-
-    /// Emit partial variable-length encoded u32 for testing purposes
-    /// This allows creating truncated VLE encodings by limiting the number of bytes emitted
-    #[inline]
-    pub fn emit_partial_vle_u32(&mut self, mut value: u32, max_bytes: usize) -> &mut Self {
-        let mut count = 0;
-        loop {
-            if count >= max_bytes {
-                break;
-            }
-            let byte = (value & 0x7F) as u8;
-            value >>= 7;
-            if value == 0 {
-                self.bytecode.push(byte);
-                break;
-            } else {
-                self.bytecode.push(byte | 0x80);
-            }
-            count += 1;
-        }
-        self
-    }
-
     /// Emit common opcodes with their immediate values.
     /// These are convenience methods for frequently-used patterns.
     ///
@@ -395,43 +355,6 @@ mod tests {
             ]),
             42
         );
-    }
-
-    #[test]
-    fn test_vle_encoding_small() {
-        // Small value should be 1 byte
-        let bytecode = {
-            let mut b = BytecodeBuilder::new();
-            b.emit_vle_u32(5);
-            b.build()
-        };
-        assert_eq!(bytecode.len(), 1);
-        assert_eq!(bytecode[0], 5);
-    }
-
-    #[test]
-    fn test_vle_encoding_large() {
-        // Value > 127 should use 2 bytes
-        let bytecode = {
-            let mut b = BytecodeBuilder::new();
-            b.emit_vle_u32(128);
-            b.build()
-        };
-        assert_eq!(bytecode.len(), 2);
-        assert_eq!(bytecode[0], 0x80);
-        assert_eq!(bytecode[1], (128 >> 7) & 0x7F);
-    }
-
-    #[test]
-    fn test_partial_vle_encoding() {
-        // Partial VLE: emit only first byte of 128 (which would normally be 2 bytes)
-        let bytecode = {
-            let mut b = BytecodeBuilder::new();
-            b.emit_partial_vle_u32(128, 1);
-            b.build()
-        };
-        assert_eq!(bytecode.len(), 1);
-        assert_eq!(bytecode[0], 0x80); // Only the first byte, truncated
     }
 
     #[test]

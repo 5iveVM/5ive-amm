@@ -1,11 +1,11 @@
 /**
- * VLE (Variable Length Encoding) Encoder for Five VM Protocol
+ * Bytecode Encoder for Five VM Protocol
  * 
- * Uses the existing WASM VLE and Parameter encoders for protocol-compliant
- * encoding of execute instructions.
+ * Uses the existing WASM Parameter encoders for protocol-compliant
+ * encoding of execute instructions using fixed-size encoding.
  * 
  * Execute instruction format:
- * [discriminator(2), vle_function_index, vle_param_count, ...vle_parameters]
+ * [discriminator(1), function_index(u32), param_count(u32), ...parameters]
  */
 
 import { getWasmModule } from '../wasm/loader.js';
@@ -25,7 +25,7 @@ export interface ParameterValue {
 }
 
 /**
- * Type mapping for VLE encoding - matches Five protocol types
+ * Type mapping for encoding - matches Five protocol types
  */
 const TYPE_IDS: Record<string, number> = {
   'u8': 1,
@@ -44,27 +44,37 @@ const TYPE_IDS: Record<string, number> = {
   'array': 13
 };
 
-const TYPED_PARAM_SENTINEL = 0x80;
-
 /**
- * VLE Encoder utility class that uses WASM module for protocol compliance
+ * Bytecode Encoder utility class that uses WASM module for protocol compliance
  */
-export class VLEEncoder {
+export class BytecodeEncoder {
   /**
-   * Get type ID for VLE encoding
+   * Get type ID for encoding
    */
   static getTypeId(type: string): number {
     const typeId = TYPE_IDS[type.toLowerCase()];
     if (typeId === undefined) {
-      throw new Error(`Unknown type for VLE encoding: ${type}`);
+      throw new Error(`Unknown type for encoding: ${type}`);
     }
     return typeId;
   }
 
   /**
+   * Encode a 32-bit unsigned integer (Little Endian)
+   */
+  static encodeU32(value: number): Uint8Array {
+      const buffer = new Uint8Array(4);
+      buffer[0] = value & 0xff;
+      buffer[1] = (value >> 8) & 0xff;
+      buffer[2] = (value >> 16) & 0xff;
+      buffer[3] = (value >>> 24) & 0xff;
+      return buffer;
+  }
+
+  /**
    * Encode execute instruction data using WASM ParameterEncoder
    */
-  static async encodeExecuteVLE(
+  static async encodeExecute(
     functionIndex: number,
     parameters: ParameterDefinition[] = [],
     values: ParameterValue = {},
@@ -86,9 +96,9 @@ export class VLEEncoder {
         if (wasmModule && wasmModule.ParameterEncoder) {
           try {
             // Health check: Try to encode empty params
-            wasmModule.ParameterEncoder.encode_execute_vle(0, []);
+            wasmModule.ParameterEncoder.encode_execute(0, []);
           } catch (e: any) {
-            console.warn("[VLE] Module validation failed, falling back:", e.message);
+            console.warn("[BytecodeEncoder] Module validation failed, falling back:", e.message);
             wasmModule = null; // Force retry with inline loader
           }
         } else {
@@ -101,7 +111,7 @@ export class VLEEncoder {
 
       // Fallback: Import the proper wasm-pack generated module for Node.js
       if (!wasmModule && typeof process !== 'undefined') {
-        console.log("[DEBUG VLE] (SRC) Attempting wasm-pack module import...");
+        console.log("[DEBUG] (SRC) Attempting wasm-pack module import...");
         try {
           const fs = await import('fs');
           const path = await import('path');
@@ -113,29 +123,26 @@ export class VLEEncoder {
           const moduleEntryPath = path.resolve(__dirname, '../assets/vm/five_vm_wasm.js');
 
           if (fs.existsSync(moduleEntryPath)) {
-            console.log("[DEBUG VLE] Found WASM module at:", moduleEntryPath);
+            console.log("[DEBUG] Found WASM module at:", moduleEntryPath);
             const wasmMod = await import(moduleEntryPath);
 
             // The wasm-pack module exports the initialized module directly
             if (wasmMod && wasmMod.ParameterEncoder) {
               wasmModule = wasmMod;
-              console.log("[DEBUG VLE] WASM module imported and initialized successfully!");
+              console.log("[DEBUG] WASM module imported and initialized successfully!");
             } else {
-              console.error("[DEBUG VLE] WASM module missing expected exports");
+              console.error("[DEBUG] WASM module missing expected exports");
             }
           } else {
-            console.error("[DEBUG VLE] WASM module not found at:", moduleEntryPath);
+            console.error("[DEBUG] WASM module not found at:", moduleEntryPath);
           }
         } catch (err) {
-          console.error("[DEBUG VLE] Module import FAILED:", err);
+          console.error("[DEBUG] Module import FAILED:", err);
           // Don't throw - let it fall through to error handling below
         }
       }
     }
 
-    // Do not filter out account parameters. 
-    // Even if the VM handles them specially via AccountRef, they should still be 
-    // part of the parameter list for correct parameter counting and displacement.
     const filteredParams = normalizedParameters;
     const paramValues = filteredParams.map(param => {
       const value = values[param.name];
@@ -146,7 +153,7 @@ export class VLEEncoder {
     });
 
     if (options && (options as any).debug) {
-      console.log(`[VLE] Parameters:`, paramValues.map(p => ({
+      console.log(`[BytecodeEncoder] Parameters:`, paramValues.map(p => ({
         name: p.param.name,
         type: p.param.type || (p.param as any).param_type,
         normalized: this.normalizeType(p.param),
@@ -155,8 +162,7 @@ export class VLEEncoder {
     }
 
     // Always use WASM encoder for all parameter types (accounts, pubkeys, strings, etc.)
-    // The WASM encoder handles mixed-type parameters correctly via VLE encoding
-    // This avoids the complexity and unreliability of manual typed params handling
+    // The WASM encoder handles mixed-type parameters correctly
 
     // Build parameter array with metadata for WASM encoder to distinguish account vs pubkey types
     const paramArray = paramValues.map(({ param, value }) => {
@@ -170,18 +176,18 @@ export class VLEEncoder {
     });
 
     try {
-      const encoded = wasmModule.ParameterEncoder.encode_execute_vle(functionIndex, paramArray);
+      const encoded = wasmModule.ParameterEncoder.encode_execute(functionIndex, paramArray);
       if (options && (options as any).debug) {
         const buf = Buffer.from(encoded);
-        console.log(`[VLE] WASM encoded ${paramArray.length} parameters: ${buf.length} bytes`);
+        console.log(`[BytecodeEncoder] WASM encoded ${paramArray.length} parameters: ${buf.length} bytes`);
       }
       return Buffer.from(encoded);
     } catch (e) {
-      console.warn("[VLE] Encode failed via WASM:", e);
+      console.warn("[BytecodeEncoder] Encode failed via WASM:", e);
       if (retry) {
-        console.warn("[VLE] Reloading WASM module and retrying...");
+        console.warn("[BytecodeEncoder] Reloading WASM module and retrying...");
         wasmModule = null; // Force reload
-        return this.encodeExecuteVLE(functionIndex, parameters, values, false, options);
+        return this.encodeExecute(functionIndex, parameters, values, false, options);
       }
       throw e;
     }

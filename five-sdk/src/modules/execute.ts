@@ -7,7 +7,7 @@ import {
   ExecutionSDKError,
   CompilationOptions,
 } from "../types.js";
-import { VLEEncoder } from "../lib/vle-encoder.js";
+import { BytecodeEncoder } from "../lib/bytecode-encoder.js";
 import { PDAUtils, Base58Utils } from "../crypto/index.js";
 import { ScriptMetadataParser } from "../metadata/index.js";
 import { resolveFunctionIndex, normalizeAbiFunctions } from "../utils/abi.js";
@@ -16,10 +16,9 @@ import { calculateExecuteFee } from "./fees.js";
 import { loadWasmVM } from "../wasm/instance.js";
 import { BytecodeCompiler } from "../compiler/BytecodeCompiler.js";
 
-// Helper function to initialize ParameterEncoder if needed (though VLEEncoder is preferred)
-// For now we assume VLEEncoder handles it or we call it if needed.
-// FiveSDK had `private static parameterEncoder`.
-// VLEEncoder uses WASM module directly via loader.
+// Helper function to initialize ParameterEncoder if needed (though BytecodeEncoder is preferred)
+// For now we assume BytecodeEncoder handles it or we call it if needed.
+// BytecodeEncoder uses WASM module directly via loader.
 
 export async function execute(
   compiler: BytecodeCompiler,
@@ -324,7 +323,7 @@ export async function generateExecuteInstruction(
   } catch (metadataError) {
     if (options.debug) {
       console.log(
-        `[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types`,
+        `[FiveSDK] Metadata not available, using fixed encoding with assumed parameter types`,
       );
       console.log(`[FiveSDK] ABI processing error:`, metadataError);
     }
@@ -342,7 +341,7 @@ export async function generateExecuteInstruction(
     });
 
     actualParamCount = paramDefs.length;
-    encodedParams = await VLEEncoder.encodeExecuteVLE(
+    encodedParams = await BytecodeEncoder.encodeExecute(
       functionIndex,
       paramDefs,
       paramValues,
@@ -810,12 +809,14 @@ function encodeExecuteInstruction(
 
   const parts = [];
   parts.push(new Uint8Array([9]));
-  parts.push(encodeVLENumber(functionIndex));
+  // Function index as fixed u32
+  parts.push(encodeU32(functionIndex));
 
   if (isTypedParams) {
     parts.push(encodedParams);
   } else {
-    parts.push(encodeVLENumber(paramCount));
+    // Param count as fixed u32
+    parts.push(encodeU32(paramCount));
     parts.push(encodedParams);
   }
 
@@ -830,17 +831,11 @@ function encodeExecuteInstruction(
   return result;
 }
 
-function encodeVLENumber(value: number): Uint8Array {
-  const bytes = [];
-  let num = value;
-
-  while (num >= 0x80) {
-    bytes.push((num & 0x7f) | 0x80);
-    num >>>= 7;
-  }
-  bytes.push(num & 0x7f);
-
-  return new Uint8Array(bytes);
+function encodeU32(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(4);
+  const view = new DataView(buffer);
+  view.setUint32(0, value, true); // Little Endian
+  return new Uint8Array(buffer);
 }
 
 function inferParameterType(value: any): string {
@@ -925,7 +920,7 @@ async function encodeParametersWithABI(
     }
   });
 
-  const encoded = await VLEEncoder.encodeExecuteVLE(
+  const encoded = await BytecodeEncoder.encodeExecute(
     functionIndex,
     paramDefs,
     paramValues,

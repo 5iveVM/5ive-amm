@@ -585,26 +585,15 @@ macro_rules! opcodes {
     };
 }
 
-/// Macro for creating PUSH_U64 instruction with VLE encoding
+/// Macro for creating PUSH_U64 instruction with Fixed encoding
 /// Feature-gated to exclude from production builds
 #[cfg(feature = "test-utils")]
 #[macro_export]
 macro_rules! push_u64 {
     ($val:expr) => {{
         let mut ops = vec![0x1B]; // PUSH_U64 opcode
-        // VLE encode the value
-        let mut value = $val as u64;
-        loop {
-            let mut byte = (value & 0x7F) as u8;
-            value >>= 7;
-            if value != 0 {
-                byte |= 0x80; // continuation bit
-            }
-            ops.push(byte);
-            if value == 0 {
-                break;
-            }
-        }
+        // Fixed size little endian encoding
+        ops.extend_from_slice(&($val as u64).to_le_bytes());
         ops
     }};
 }

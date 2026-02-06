@@ -231,7 +231,7 @@ impl BulkOperationOptimizer {
                 // Emit account index (simplified)
                 emitter.emit_u8(0); // Account index
                                     // Emit field offset (simplified)
-                emitter.emit_vle_u32(0); // Field offset (VLE format)
+                emitter.emit_u32(0); // Field offset (fixed format)
             }
         }
         Ok(())
@@ -394,7 +394,7 @@ impl ZeroCopyOptimizer {
         // Use standard LOAD_FIELD - already optimized with VLE + zero-copy by default
         emitter.emit_opcode(LOAD_FIELD);
         emitter.emit_u8(0); // Account index
-        emitter.emit_vle_u32(0); // Field offset (VLE format)
+        emitter.emit_u32(0); // Field offset (fixed format)
         Ok(true)
     }
 
@@ -417,7 +417,7 @@ impl ZeroCopyOptimizer {
                 emitter.emit_u8(pattern.fields_accessed.len() as u8);
                 // Emit field offsets
                 for _ in &pattern.fields_accessed {
-                    emitter.emit_vle_u32(0); // Field offset (VLE format)
+                    emitter.emit_u32(0); // Field offset (fixed format)
                 }
             }
         }

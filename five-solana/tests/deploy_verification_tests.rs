@@ -84,7 +84,7 @@ mod deploy_verification_tests {
         // CALL with incomplete bytes
         let bytecode_data = bytecode!(
             emit_header(0, 0),
-            emit_u8(CALL) // incomplete - needs VLE-encoded function index
+            emit_u8(CALL) // incomplete - needs fixed-size function index
         );
         assert!(verify_bytecode_content(&bytecode_data).is_err());
     }

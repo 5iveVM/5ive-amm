@@ -4,7 +4,7 @@
 //! It focuses on syscalls that are not covered by other specific test suites, such as
 //! cryptographic operations and compute unit management.
 
-use five_protocol::{encoding::VLE, opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
+use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
 
 // Syscall IDs (must match five-vm-mito/src/handlers/syscalls.rs)
@@ -36,8 +36,7 @@ fn execute(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
 
 fn push_string_buffer(script: &mut Vec<u8>, length: u32) {
     script.push(PUSH_STRING);
-    let (len_len, encoded_len) = VLE::encode_u64(length as u64);
-    script.extend_from_slice(&encoded_len[..len_len]);
+    script.extend_from_slice(&(length as u32).to_le_bytes());
     // Append zeros for the string content
     for _ in 0..length {
         script.push(0);
@@ -46,8 +45,7 @@ fn push_string_buffer(script: &mut Vec<u8>, length: u32) {
 
 fn push_u64_instr(script: &mut Vec<u8>, value: u64) {
     script.push(PUSH_U64);
-    let (len, encoded) = VLE::encode_u64(value);
-    script.extend_from_slice(&encoded[..len]);
+    script.extend_from_slice(&value.to_le_bytes());
 }
 
 #[test]

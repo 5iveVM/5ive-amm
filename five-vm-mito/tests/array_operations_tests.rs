@@ -63,16 +63,22 @@ mod array_creation_tests {
     fn test_array_with_initial_elements() {
         // Test array creation with initial elements
         // 5IVE, PUSH_U64(10), PUSH_U64(20), PUSH_U64(30), PUSH_U8(3), CREATE_ARRAY, HALT
-        let bytecode = build_bytecode(&[
-            // Push initial elements
-            0x1B, 0x0A, // PUSH_U64(10)
-            0x1B, 0x14, // PUSH_U64(20)
-            0x1B, 0x1E, // PUSH_U64(30)
-            // Create array with 3 elements
-            0x18, 0x03, // PUSH_U8(3) - element count
-            0x60, // CREATE_ARRAY
-            0x00, // HALT
-        ]);
+        let mut body = vec![];
+        // PUSH_U64(10)
+        body.push(0x1B);
+        body.extend_from_slice(&10u64.to_le_bytes());
+        // PUSH_U64(20)
+        body.push(0x1B);
+        body.extend_from_slice(&20u64.to_le_bytes());
+        // PUSH_U64(30)
+        body.push(0x1B);
+        body.extend_from_slice(&30u64.to_le_bytes());
+
+        body.push(0x18); body.push(0x03); // PUSH_U8(3)
+        body.push(0x60); // CREATE_ARRAY
+        body.push(0x00); // HALT
+
+        let bytecode = build_bytecode(&body);
 
         let result = execute_test(&bytecode, &[], &[]);
         match result {
@@ -122,18 +128,24 @@ mod array_access_tests {
     fn test_array_index_access() {
         // Test ARRAY_INDEX for element access
         // Create array, then access element at index 1
-        let bytecode = build_bytecode(&[
-            // Create array with elements [100, 200, 300]
-            0x1B, 0x64, // PUSH_U64(100)
-            0x1B, 0xC8, 0x01, // PUSH_U64(200)
-            0x1B, 0xAC, 0x02, // PUSH_U64(300)
-            0x18, 0x03, // PUSH_U8(3) - element count
-            0x60, // CREATE_ARRAY
-            // Access element at index 1 (should be 200)
-            0x18, 0x01, // PUSH_U8(1) - index
-            0x62, // ARRAY_INDEX
-            0x00, // HALT
-        ]);
+        let mut body = vec![];
+        // PUSH_U64(100)
+        body.push(0x1B);
+        body.extend_from_slice(&100u64.to_le_bytes());
+        // PUSH_U64(200)
+        body.push(0x1B);
+        body.extend_from_slice(&200u64.to_le_bytes());
+        // PUSH_U64(300)
+        body.push(0x1B);
+        body.extend_from_slice(&300u64.to_le_bytes());
+
+        body.push(0x18); body.push(0x03); // PUSH_U8(3)
+        body.push(0x60); // CREATE_ARRAY
+        body.push(0x18); body.push(0x01); // PUSH_U8(1)
+        body.push(0x62); // ARRAY_INDEX
+        body.push(0x00); // HALT
+
+        let bytecode = build_bytecode(&body);
 
         let result = execute_test(&bytecode, &[], &[]);
         match result {
@@ -172,18 +184,22 @@ mod array_access_tests {
     #[test]
     fn test_array_length() {
         // Test ARRAY_LENGTH to get array size
-        let bytecode = build_bytecode(&[
-            // Create array with 4 elements
-            0x1B, 0x0A, // PUSH_U64(10)
-            0x1B, 0x14, // PUSH_U64(20)
-            0x1B, 0x1E, // PUSH_U64(30)
-            0x1B, 0x28, // PUSH_U64(40)
-            0x18, 0x04, // PUSH_U8(4) - element count
-            0x60, // CREATE_ARRAY
-            // Get array length
-            0x63, // ARRAY_LENGTH
-            0x00, // HALT
-        ]);
+        let mut body = vec![];
+        // PUSH_U64(10)
+        body.push(0x1B); body.extend_from_slice(&10u64.to_le_bytes());
+        // PUSH_U64(20)
+        body.push(0x1B); body.extend_from_slice(&20u64.to_le_bytes());
+        // PUSH_U64(30)
+        body.push(0x1B); body.extend_from_slice(&30u64.to_le_bytes());
+        // PUSH_U64(40)
+        body.push(0x1B); body.extend_from_slice(&40u64.to_le_bytes());
+
+        body.push(0x18); body.push(0x04); // PUSH_U8(4)
+        body.push(0x60); // CREATE_ARRAY
+        body.push(0x63); // ARRAY_LENGTH
+        body.push(0x00); // HALT
+
+        let bytecode = build_bytecode(&body);
 
         let result = execute_test(&bytecode, &[], &[]);
         match result {
@@ -203,18 +219,23 @@ mod array_access_tests {
     #[test]
     fn test_array_set_operation() {
         // Test ARRAY_SET for element modification
-        let bytecode = build_bytecode(&[
-            // Create array with initial values
-            0x1B, 0x0A, // PUSH_U64(10)
-            0x1B, 0x14, // PUSH_U64(20)
-            0x18, 0x02, // PUSH_U8(2) - element count
-            0x60, // CREATE_ARRAY
-            // Modify element at index 1
-            0x18, 0x01, // PUSH_U8(1) - index
-            0x1B, 0x64, // PUSH_U64(100) - new value
-            0x64, // ARRAY_SET
-            0x00, // HALT
-        ]);
+        let mut body = vec![];
+        // PUSH_U64(10)
+        body.push(0x1B); body.extend_from_slice(&10u64.to_le_bytes());
+        // PUSH_U64(20)
+        body.push(0x1B); body.extend_from_slice(&20u64.to_le_bytes());
+
+        body.push(0x18); body.push(0x02); // PUSH_U8(2)
+        body.push(0x60); // CREATE_ARRAY
+
+        body.push(0x18); body.push(0x01); // PUSH_U8(1)
+        // PUSH_U64(100)
+        body.push(0x1B); body.extend_from_slice(&100u64.to_le_bytes());
+
+        body.push(0x64); // ARRAY_SET
+        body.push(0x00); // HALT
+
+        let bytecode = build_bytecode(&body);
 
         let result = execute_test(&bytecode, &[], &[]);
         match result {
@@ -361,16 +382,17 @@ mod array_edge_cases_tests {
     #[test]
     fn test_array_bounds_checking() {
         // Test array access with out-of-bounds index
-        let bytecode = build_bytecode(&[
-            // Create small array
-            0x1B, 0x01, // PUSH_U64(1)
-            0x18, 0x01, // PUSH_U8(1) - one element
-            0x60, // CREATE_ARRAY
-            // Try to access index 5 (out of bounds)
-            0x18, 0x05, // PUSH_U8(5) - invalid index
-            0x62, // ARRAY_INDEX
-            0x00, // HALT
-        ]);
+        let mut body = vec![];
+        // PUSH_U64(1)
+        body.push(0x1B); body.extend_from_slice(&1u64.to_le_bytes());
+        body.push(0x18); body.push(0x01); // PUSH_U8(1)
+        body.push(0x60); // CREATE_ARRAY
+
+        body.push(0x18); body.push(0x05); // PUSH_U8(5)
+        body.push(0x62); // ARRAY_INDEX
+        body.push(0x00); // HALT
+
+        let bytecode = build_bytecode(&body);
 
         let result = execute_test(&bytecode, &[], &[]);
         match result {
