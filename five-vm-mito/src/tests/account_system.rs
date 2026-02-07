@@ -471,7 +471,7 @@ mod account_system_tests {
 
             // Execute with context to inspect temp buffer
             let accounts = [account_info];
-            let mut storage = StackStorage::new(&bytecode);
+            let mut storage = StackStorage::new();
             let mut _ctx =
                 ExecutionContext::new(&bytecode, &accounts, owner, &[], 0, &mut storage, 0, 0);
             // NOTE: This test was using an internal API that is no longer exposed.

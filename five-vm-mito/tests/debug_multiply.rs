@@ -53,7 +53,7 @@ script TestMultiply {
     let input_data: &[u8] = &[];
     let accounts: &[AccountInfo] = &[];
 
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     match MitoVM::execute_direct(&bytecode, input_data, accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("✅ Multiply test executed successfully!");
@@ -101,7 +101,7 @@ fn test_add_debug() {
     let input_data: &[u8] = &[];
     let accounts: &[AccountInfo] = &[];
 
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     match MitoVM::execute_direct(&bytecode, input_data, accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("✅ Add test executed successfully!");

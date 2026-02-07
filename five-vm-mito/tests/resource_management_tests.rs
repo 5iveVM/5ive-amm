@@ -52,7 +52,7 @@ fn test_recursion_stack_overflow() {
     ]);
     
     // Execution should fail with StackOverflow or CallStackOverflow eventually
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&script, &[], &[], &Pubkey::default(), &mut storage);
     
     assert!(result.is_err());

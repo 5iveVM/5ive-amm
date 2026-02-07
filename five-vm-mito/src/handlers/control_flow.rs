@@ -159,7 +159,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 }
 
                 // Verify IP against restored script
-                if ctx.ip() >= ctx.script().len() {
+                if ctx.ip() > ctx.script().len() {
                     return Err(VMErrorCode::InvalidInstructionPointer);
                 }
 

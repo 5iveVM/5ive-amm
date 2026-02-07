@@ -26,7 +26,7 @@ fn test_get_clock_complete_data_structure() {
     let accounts = [];
     let input_data = [];
 
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID, &mut storage);
 
     match result {

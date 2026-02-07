@@ -23,7 +23,7 @@ fn test_heap_string_allocation() {
 
     let bytecode = build_bytecode(&bytecode_body);
 
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
 
     match result {

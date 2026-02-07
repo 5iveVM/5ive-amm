@@ -40,7 +40,7 @@ fn test_debug_call() {
     let input_data = vec![]; // Execute from start
 
     let program_id = Pubkey::default();
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &program_id, &mut storage);
 
     match result {

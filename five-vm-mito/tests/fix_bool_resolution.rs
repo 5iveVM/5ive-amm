@@ -27,7 +27,7 @@ fn test_resolve_bool_from_account_ref() {
     let program_id = Pubkey::default();
     let instruction_data = &[];
 
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     
     // 2. Create ExecutionContext
     let mut ctx = ExecutionContext::new(

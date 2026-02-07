@@ -8,7 +8,7 @@ mod support;
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, VMError, error::VMErrorCode, stack::StackStorage, AccountInfo, Value};
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &pinocchio::pubkey::Pubkey) -> five_vm_mito::Result<Option<Value>> {
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
 }
 use pinocchio::pubkey::Pubkey;

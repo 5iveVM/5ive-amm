@@ -227,7 +227,7 @@ use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
             data
         };
 
-        let mut storage = StackStorage::new(bytecode);
+        let mut storage = StackStorage::new();
         match MitoVM::execute_direct(bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
             Ok(result) => {
                 let compute_units = 0; // MitoVM doesn't expose compute units in this interface

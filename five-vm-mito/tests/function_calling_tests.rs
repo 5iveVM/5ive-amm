@@ -20,7 +20,7 @@ fn execute_script_with_input(
     let mut builder = ScriptBuilder::new();
     build(&mut builder);
     let script = builder.build().expect("script assembly should succeed");
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(&script, input, &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
@@ -386,13 +386,13 @@ mod error_handling {
             builder.build().expect("script")
         };
 
-        let mut storage = StackStorage::new(&script);
+        let mut storage = StackStorage::new();
         // Input: Func 0 (u32), ParamCount 0 (u32)
         let public_input = [0, 0, 0, 0, 0, 0, 0, 0];
         let public_result = MitoVM::execute_direct(&script, &public_input, &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap();
         assert_eq!(public_result, Some(Value::U64(42)));
 
-        let mut storage2 = StackStorage::new(&script);
+        let mut storage2 = StackStorage::new();
         // Input: Func 1 (u32), ParamCount 0 (u32)
         let private_input = [1, 0, 0, 0, 0, 0, 0, 0];
         let err = MitoVM::execute_direct(&script, &private_input, &[], &FIVE_VM_PROGRAM_ID, &mut storage2).unwrap_err();

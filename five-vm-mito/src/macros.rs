@@ -13,7 +13,7 @@
 /// # use five_protocol::ValueRef;
 /// # use five_vm_mito::StackStorage;
 /// # let bytecode: &[u8] = &[b'5', b'I', b'V', b'E', 0, 0, 0, 0, 1, 1];
-/// # let mut storage = StackStorage::new(bytecode);
+/// # let mut storage = StackStorage::new();
 /// # let mut ctx = ExecutionManager::new(bytecode, &[], pinocchio::pubkey::Pubkey::default(), &[], 0, &mut storage, 1, 1);
 /// # ctx.push(ValueRef::U64(42)).unwrap();
 /// let value = pop_u64!(ctx);
@@ -90,7 +90,7 @@ macro_rules! logical_binary_op {
 /// # use five_vm_mito::*;
 /// # use five_vm_mito::StackStorage;
 /// # let bytecode: &[u8] = &[b'5', b'I', b'V', b'E', 0, 0, 0, 0, 1, 1];
-/// # let mut storage = StackStorage::new(bytecode);
+/// # let mut storage = StackStorage::new();
 /// # let mut ctx = ExecutionManager::new(bytecode, &[], pinocchio::pubkey::Pubkey::default(), &[], 0, &mut storage, 1, 1);
 /// vm_push_u64!(ctx, 42);
 /// assert_eq!(ctx.size(), 1);
@@ -144,7 +144,7 @@ macro_rules! vm_push_u128 {
 /// # use five_protocol::ValueRef;
 /// # use crate::StackStorage;
 /// # let bytecode: &[u8] = &[];
-/// # let mut storage = StackStorage::new(bytecode);
+/// # let mut storage = StackStorage::new();
 /// # let mut ctx = ExecutionContext::new(bytecode, &[], Default::default(), &[], 0, &mut storage, 0, 0);
 /// # ctx.push(ValueRef::U64(10)).unwrap();
 /// # ctx.push(ValueRef::U64(5)).unwrap();
@@ -574,7 +574,7 @@ mod tests {
 
     #[test]
     fn test_pop_push_macros() -> CompactResult<()> {
-        let mut storage = StackStorage::new(&[]);
+        let mut storage = StackStorage::new();
         let mut ctx =
             ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
@@ -596,7 +596,7 @@ mod tests {
 
     #[test]
     fn test_binary_op_macro() -> CompactResult<()> {
-        let mut storage = StackStorage::new(&[]);
+        let mut storage = StackStorage::new();
         let mut ctx =
             ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 

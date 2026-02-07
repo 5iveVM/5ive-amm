@@ -9,7 +9,7 @@ use pinocchio::pubkey::Pubkey;
 #[test]
 fn resolve_temp_ref_valid() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
 
     // Temp buffer size is 64 bytes (typically).
 
@@ -39,7 +39,7 @@ fn resolve_temp_ref_valid() {
 #[test]
 fn resolve_temp_ref_raw_bytes() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -72,7 +72,7 @@ fn resolve_temp_ref_out_of_bounds() {
     let mut small_buffer = [0u8; 10];
 
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut heap_buffer = [0u8; 2048];
     let mut ctx = ExecutionContext::new(
         &[],
@@ -98,7 +98,7 @@ fn resolve_temp_ref_out_of_bounds() {
 #[test]
 fn resolve_tuple_ref() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -118,7 +118,7 @@ fn resolve_tuple_ref() {
 #[test]
 fn resolve_optional_some() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -146,7 +146,7 @@ fn resolve_optional_some() {
 #[test]
 fn resolve_optional_none() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -168,7 +168,7 @@ fn resolve_optional_none() {
 #[test]
 fn resolve_optional_invalid_size() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -193,7 +193,7 @@ fn resolve_optional_invalid_size() {
 #[test]
 fn resolve_result_ok() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -220,7 +220,7 @@ fn resolve_result_ok() {
 #[test]
 fn resolve_recursion_limit() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -300,7 +300,7 @@ fn resolve_account_ref_valid() {
         0,
     );
     let accounts = [account];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let ctx = ExecutionContext::new(
         &[],
         &accounts,

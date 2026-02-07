@@ -24,7 +24,7 @@ fn build_simple_call_script() -> Vec<u8> {
 fn test_simple_function_call() {
     let bytecode = build_simple_call_script();
     let accounts: &[AccountInfo] = &[];
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID, &mut storage).unwrap();
     assert_eq!(
         result,
@@ -37,7 +37,7 @@ fn test_simple_function_call() {
 fn test_basic_vm_execution() {
     let bytecode = build_simple_call_script();
     let accounts: &[AccountInfo] = &[];
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID, &mut storage);
     assert!(
         result.is_ok(),

@@ -9,7 +9,7 @@ use five_protocol::{opcodes::*, ValueRef};
 /// Test u64×u64 operations maintain fast path and u64 results
 #[test]
 fn test_u64_arithmetic_fast_path() -> Result<()> {
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
     // Test ADD: 10 + 5 = 15
@@ -58,7 +58,7 @@ fn test_u64_arithmetic_fast_path() -> Result<()> {
 /// Test u128×u128 operations produce u128 results
 #[test]
 fn test_u128_arithmetic() -> Result<()> {
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
     // Test ADD: large u128 values
@@ -90,7 +90,7 @@ fn test_u128_arithmetic() -> Result<()> {
 /// Test mixed u64×u128 operations with automatic promotion
 #[test]
 fn test_mixed_arithmetic_promotion() -> Result<()> {
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
     // Test u64 + u128 → u128
@@ -129,7 +129,7 @@ fn test_mixed_arithmetic_promotion() -> Result<()> {
 /// Test division with mixed types and zero checking
 #[test]
 fn test_mixed_division() -> Result<()> {
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
     // Test u64 / u128 → u128
@@ -158,7 +158,7 @@ fn test_mixed_division() -> Result<()> {
 /// Test division by zero detection in mixed types
 #[test]
 fn test_division_by_zero_mixed() {
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
     // Test u64 / u128(0) → DivisionByZero error
@@ -179,7 +179,7 @@ fn test_division_by_zero_mixed() {
 /// Test comparison operations with mixed types
 #[test]
 fn test_mixed_comparisons() -> Result<()> {
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
     // Test u64 < u128
@@ -218,7 +218,7 @@ fn test_mixed_comparisons() -> Result<()> {
 /// Test narrowing u128 to u64 with overflow detection
 #[test]
 fn test_u128_to_u64_narrowing() -> Result<()> {
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
     // Test successful narrowing (value fits in u64)
@@ -245,7 +245,7 @@ fn test_u128_to_u64_narrowing() -> Result<()> {
 /// Test edge cases and boundary conditions
 #[test]
 fn test_arithmetic_edge_cases() -> Result<()> {
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
     // Test u64::MAX + u64(1) → u128 (promotion prevents overflow)
@@ -275,7 +275,7 @@ fn test_arithmetic_edge_cases() -> Result<()> {
 /// Test that type mismatch still produces errors for invalid types
 #[test]
 fn test_type_mismatch_errors() {
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
 
     // Test arithmetic with Bool (should fail)

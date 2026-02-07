@@ -7,7 +7,7 @@ use five_dsl_compiler::DslCompiler;
 use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 use std::{fs, path::Path};
@@ -40,9 +40,12 @@ fn test_multiple_functions_execution() {
 
     // Call function 0 (test function) - the only public function
     // Compiler orders functions as: 0=test (pub), 1=add (private), 2=multiply (private)
-    // Expected: [func_index (VLE), param_count (VLE)]
+    // Expected: [func_index (u32), param_count (u32)] (Fixed Size)
     // Function 0 (test) has 0 parameters.
-    let input: &[u8] = &[0, 0]; // func_index=0, param_count=0
+    let input: &[u8] = &[
+        0, 0, 0, 0, // func_index = 0
+        0, 0, 0, 0  // param_count = 0
+    ];
 
     println!("Executing bytecode with MitoVM...");
 
@@ -106,7 +109,11 @@ fn test_multiple_functions_execution() {
 
             // Try with function index 2 (test function) - requires [2, 0]
             println!("Trying function index 2 (test function)...");
-            match execute_test(&vm_bytecode, &[2, 0], accounts) {
+            let input_2: &[u8] = &[
+                2, 0, 0, 0, // func_index = 2
+                0, 0, 0, 0  // param_count = 0
+            ];
+            match execute_test(&vm_bytecode, input_2, accounts) {
                 Ok(Some(Value::U64(result))) => {
                     println!("✅ Function 2 (test) succeeded with result: {}", result);
                     return; // Exit successfully if this works
@@ -117,7 +124,11 @@ fn test_multiple_functions_execution() {
 
             // Try with function index 0 (add function - expects 2 parameters)
             println!("Trying function index 0 (add function - will fail without params)...");
-            match execute_test(&vm_bytecode, &[0, 0], accounts) {
+            let input_0: &[u8] = &[
+                0, 0, 0, 0, // func_index = 0
+                0, 0, 0, 0  // param_count = 0 (but it expects 2, so this might fail differently, but encoding is valid)
+            ];
+            match execute_test(&vm_bytecode, input_0, accounts) {
                 Ok(Some(Value::U64(result))) => {
                     println!("✅ Function 0 succeeded with result: {}", result);
                     return; // Exit successfully if this works
