@@ -6,7 +6,7 @@
 
 use super::scope_analyzer;
 use super::types::*;
-use super::{AccountSystem, OpcodeEmitter};
+use super::{AccountSystem, OpcodeEmitter, OpcodePatterns};
 use super::import_table::ImportTable;  // NEW: Import the ImportTable module
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::bytecode_generator::types; // Import the module directly
@@ -37,6 +37,10 @@ pub struct FunctionDispatcher {
     /// Map: function_name -> bytecode_offset_of_jump_target
     dispatch_patch_locations: HashMap<String, usize>,
 
+    /// Locations in bytecode that need to be patched with dispatcher jump targets
+    /// Vec of (patch_position, target_position) within the code section
+    dispatch_jump_patches: Vec<(usize, usize)>,
+
     /// Import verification table for Five bytecode accounts
     /// Stores both direct addresses and PDA seeds for imported Five bytecode
     /// NEW: For import verification feature flag
@@ -53,6 +57,7 @@ impl FunctionDispatcher {
             imported_functions: HashMap::new(),
             imported_fields: HashMap::new(),
             dispatch_patch_locations: HashMap::new(),
+            dispatch_jump_patches: Vec::new(),
             import_table: ImportTable::new(),  // NEW: Initialize empty import table
         }
     }
@@ -163,10 +168,6 @@ impl FunctionDispatcher {
             ast_generator,
             symbol_table,
         )?;
-
-        // Phase 5: Patch dispatch logic
-        // RESTORED: Patching required for dispatch logic
-        self.patch_dispatch_logic(emitter)?;
 
         // After generating functions, also generate the constraints block (if present).
         // Constraints often reference instruction parameters and global fields; generating
@@ -443,9 +444,8 @@ impl FunctionDispatcher {
             // Load function index from parameter 0 using nibble immediate to avoid LOAD_PARAM 0 rejection
             emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_0);
 
-            // Compare with current function index (use VLE encoding to match VM's PUSH_U16)
-            emitter.emit_opcode(five_protocol::opcodes::PUSH_U16);
-            emitter.emit_u16(i as u16);
+            // Compare with current function index using constant pool
+            OpcodePatterns::emit_push_u16(emitter, i as u16)?;
             
             emitter.emit_opcode(five_protocol::opcodes::EQ);
             
@@ -475,7 +475,7 @@ impl FunctionDispatcher {
             // Patch the JUMP_IF to point here (start of Call Block)
             let call_block_start = emitter.get_position();
             println!("DEBUG: Patching {} at {} to point to Call Block at {}", name, patch_pos, call_block_start);
-            emitter.patch_u16(patch_pos, call_block_start as u16);
+            self.dispatch_jump_patches.push((patch_pos, call_block_start));
 
             // For functions with parameters, we need to move them from the input parameters
             // to the stack before jumping. But wait - the function expects parameters in
@@ -570,15 +570,33 @@ impl FunctionDispatcher {
     }
 
     /// Patch the dispatch logic with actual function offsets
-    pub fn patch_dispatch_logic(
+    pub fn patch_dispatch_logic_with_base(
         &self,
         emitter: &mut impl OpcodeEmitter,
+        base_offset: usize,
     ) -> Result<(), VMError> {
+        for (patch_pos, target_pos) in &self.dispatch_jump_patches {
+            let absolute_target = target_pos
+                .checked_add(base_offset)
+                .ok_or(VMError::InvalidInstructionPointer)?;
+            if absolute_target > five_protocol::MAX_U16_ADDRESS {
+                return Err(VMError::InvalidInstructionPointer);
+            }
+            emitter.patch_u16(*patch_pos, absolute_target as u16);
+        }
+
         for (name, patch_pos) in &self.dispatch_patch_locations {
             let function = self.functions.iter().find(|f| f.name == *name)
                 .ok_or(VMError::InvalidScript)?;
-                
-            emitter.patch_u16(*patch_pos, function.offset as u16);
+
+            let absolute_target = function
+                .offset
+                .checked_add(base_offset)
+                .ok_or(VMError::InvalidInstructionPointer)?;
+            if absolute_target > five_protocol::MAX_U16_ADDRESS {
+                return Err(VMError::InvalidFunctionIndex);
+            }
+            emitter.patch_u16(*patch_pos, absolute_target as u16);
         }
         Ok(())
     }

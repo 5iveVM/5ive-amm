@@ -466,7 +466,54 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
             );
         }
         PUSH_STRING => {
-            // PUSH_STRING - similar to PUSH_STRING_LITERAL but with u32 length
+            if ctx.pool_enabled() {
+                let idx = ctx.fetch_byte()? as u16;
+                let slot = ctx.read_pool_slot_u64(idx)?;
+                let string_offset = (slot & 0xFFFF_FFFF) as u32;
+                let string_length = (slot >> 32) as u32;
+                debug_log!(
+                    "MitoVM: PUSH_STRING (pool) len={} offset={}",
+                    string_length,
+                    string_offset
+                );
+
+                if string_length == 0 {
+                    let array_id = ctx.alloc_temp(2)?;
+                    ctx.temp_buffer_mut()[array_id as usize] = 0;
+                    ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
+                    ctx.push(ValueRef::StringRef(array_id as u16))?;
+                    return Ok(());
+                }
+
+                let string_bytes = ctx.read_string_blob(string_offset, string_length)?.to_vec();
+                let total_size = 2 + string_length as usize;
+                if total_size > 62 {
+                    let heap_total_size = 4 + string_length as usize;
+                    let heap_id = ctx.heap_alloc(heap_total_size)?;
+                    let length_bytes = string_length.to_le_bytes();
+                    ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
+                    ctx.get_heap_data_mut(heap_id + 4, string_length)?
+                        .copy_from_slice(&string_bytes);
+                    if core::str::from_utf8(&string_bytes).is_err() {
+                        return Err(VMErrorCode::InvalidOperation);
+                    }
+                    ctx.push(ValueRef::HeapString(heap_id))?;
+                    return Ok(());
+                }
+
+                let array_id = ctx.alloc_temp(total_size as u8)?;
+                ctx.temp_buffer_mut()[array_id as usize] = string_length as u8;
+                ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
+                ctx.temp_buffer_mut()[array_id as usize + 2..array_id as usize + 2 + string_length as usize]
+                    .copy_from_slice(&string_bytes);
+                if core::str::from_utf8(&string_bytes).is_err() {
+                    return Err(VMErrorCode::InvalidOperation);
+                }
+                ctx.push(ValueRef::StringRef(array_id as u16))?;
+                return Ok(());
+            }
+
+            // Legacy PUSH_STRING - similar to PUSH_STRING_LITERAL but with u32 length
             let string_length = ctx.fetch_u32()?; // Fetch fixed length (u32)
             debug_log!(
                 "MitoVM: PUSH_STRING with {} bytes",
@@ -539,6 +586,54 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                 array_id,
                 string_length
             );
+        }
+        PUSH_STRING_W => {
+            if !ctx.pool_enabled() {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let idx = ctx.fetch_u16()?;
+            let slot = ctx.read_pool_slot_u64(idx)?;
+            let string_offset = (slot & 0xFFFF_FFFF) as u32;
+            let string_length = (slot >> 32) as u32;
+            debug_log!(
+                "MitoVM: PUSH_STRING_W (pool) len={} offset={}",
+                string_length,
+                string_offset
+            );
+
+            if string_length == 0 {
+                let array_id = ctx.alloc_temp(2)?;
+                ctx.temp_buffer_mut()[array_id as usize] = 0;
+                ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
+                ctx.push(ValueRef::StringRef(array_id as u16))?;
+                return Ok(());
+            }
+
+            let string_bytes = ctx.read_string_blob(string_offset, string_length)?.to_vec();
+            let total_size = 2 + string_length as usize;
+            if total_size > 62 {
+                let heap_total_size = 4 + string_length as usize;
+                let heap_id = ctx.heap_alloc(heap_total_size)?;
+                let length_bytes = string_length.to_le_bytes();
+                ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
+                ctx.get_heap_data_mut(heap_id + 4, string_length)?
+                    .copy_from_slice(&string_bytes);
+                if core::str::from_utf8(&string_bytes).is_err() {
+                    return Err(VMErrorCode::InvalidOperation);
+                }
+                ctx.push(ValueRef::HeapString(heap_id))?;
+                return Ok(());
+            }
+
+            let array_id = ctx.alloc_temp(total_size as u8)?;
+            ctx.temp_buffer_mut()[array_id as usize] = string_length as u8;
+            ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
+            ctx.temp_buffer_mut()[array_id as usize + 2..array_id as usize + 2 + string_length as usize]
+                .copy_from_slice(&string_bytes);
+            if core::str::from_utf8(&string_bytes).is_err() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            ctx.push(ValueRef::StringRef(array_id as u16))?;
         }
         _ => {
             debug_log!("MitoVM: Invalid string operation opcode {}", opcode);

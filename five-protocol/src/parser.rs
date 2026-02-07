@@ -5,7 +5,7 @@
 //! Used by both compilers and on-chain verifiers to ensure consistent parsing.
 
 use crate::opcodes::{get_opcode_info, ArgType};
-use crate::OptimizedHeader;
+use crate::{ConstantPoolDescriptor, OptimizedHeader};
 use crate::{FunctionNameEntry, FunctionNameMetadata};
 use alloc::format;
 use alloc::string::String;
@@ -120,6 +120,59 @@ pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseEr
         return Err(ParseError::HeaderTooShort); // Metadata claimed to be larger than bytecode
     }
 
+    // If constant pool is present, parse descriptor and compute code offset
+    if (header.features & crate::FEATURE_CONSTANT_POOL) != 0 {
+        let desc_size = core::mem::size_of::<ConstantPoolDescriptor>();
+        if offset + desc_size > bytecode.len() {
+            return Err(ParseError::HeaderTooShort);
+        }
+
+        let desc = ConstantPoolDescriptor {
+            pool_offset: u32::from_le_bytes([
+                bytecode[offset],
+                bytecode[offset + 1],
+                bytecode[offset + 2],
+                bytecode[offset + 3],
+            ]),
+            string_blob_offset: u32::from_le_bytes([
+                bytecode[offset + 4],
+                bytecode[offset + 5],
+                bytecode[offset + 6],
+                bytecode[offset + 7],
+            ]),
+            string_blob_len: u32::from_le_bytes([
+                bytecode[offset + 8],
+                bytecode[offset + 9],
+                bytecode[offset + 10],
+                bytecode[offset + 11],
+            ]),
+            pool_slots: u16::from_le_bytes([bytecode[offset + 12], bytecode[offset + 13]]),
+            reserved: u16::from_le_bytes([bytecode[offset + 14], bytecode[offset + 15]]),
+        };
+
+        let pool_offset = desc.pool_offset as usize;
+        if pool_offset % 8 != 0 {
+            return Err(ParseError::HeaderTooShort);
+        }
+
+        let pool_size = (desc.pool_slots as usize) * 8;
+        let code_offset = pool_offset + pool_size;
+
+        if code_offset > bytecode.len() {
+            return Err(ParseError::HeaderTooShort);
+        }
+
+        if desc.string_blob_len > 0 {
+            let blob_offset = desc.string_blob_offset as usize;
+            let blob_end = blob_offset.saturating_add(desc.string_blob_len as usize);
+            if blob_end > bytecode.len() {
+                return Err(ParseError::HeaderTooShort);
+            }
+        }
+
+        return Ok((header, code_offset));
+    }
+
     Ok((header, offset))
 }
 
@@ -150,7 +203,7 @@ pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode<'_> {
     // Parse instructions
     let mut offset = start_offset;
     while offset < bytecode.len() {
-        match parse_instruction(bytecode, offset) {
+        match parse_instruction_with_features(bytecode, offset, header.features) {
             Ok((inst, size)) => {
                 // Validate CALL targets (arg1 is function address/offset)
                 if inst.opcode == crate::opcodes::CALL && inst.arg1 as usize >= bytecode.len() {
@@ -182,6 +235,14 @@ pub fn parse_instruction(
     bytecode: &[u8],
     offset: usize,
 ) -> Result<(ParsedInstruction, usize), ParseError> {
+    parse_instruction_with_features(bytecode, offset, 0)
+}
+
+fn parse_instruction_with_features(
+    bytecode: &[u8],
+    offset: usize,
+    features: u32,
+) -> Result<(ParsedInstruction, usize), ParseError> {
     if offset >= bytecode.len() {
         return Err(ParseError::InstructionOutOfBounds);
     }
@@ -197,6 +258,67 @@ pub fn parse_instruction(
     let mut arg1 = 0u64;
     let mut arg2 = 0u64;
     let mut total_size = 1; // opcode size
+
+    // Constant pool mode: PUSH_* operands are indices (u8 or u16 for _W)
+    if (features & crate::FEATURE_CONSTANT_POOL) != 0 {
+        match opcode {
+            crate::opcodes::PUSH_U8
+            | crate::opcodes::PUSH_U16
+            | crate::opcodes::PUSH_U32
+            | crate::opcodes::PUSH_U64
+            | crate::opcodes::PUSH_I64
+            | crate::opcodes::PUSH_BOOL
+            | crate::opcodes::PUSH_PUBKEY
+            | crate::opcodes::PUSH_U128
+            | crate::opcodes::PUSH_STRING => {
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                arg1 = bytecode[offset + total_size] as u64;
+                total_size += 1;
+                return Ok((
+                    ParsedInstruction {
+                        offset,
+                        opcode,
+                        arg1,
+                        arg2,
+                        size: total_size,
+                    },
+                    total_size,
+                ));
+            }
+            crate::opcodes::PUSH_U8_W
+            | crate::opcodes::PUSH_U16_W
+            | crate::opcodes::PUSH_U32_W
+            | crate::opcodes::PUSH_U64_W
+            | crate::opcodes::PUSH_I64_W
+            | crate::opcodes::PUSH_BOOL_W
+            | crate::opcodes::PUSH_PUBKEY_W
+            | crate::opcodes::PUSH_U128_W
+            | crate::opcodes::PUSH_STRING_W => {
+                if offset + total_size + 2 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let val = u16::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                ]);
+                arg1 = val as u64;
+                total_size += 2;
+                return Ok((
+                    ParsedInstruction {
+                        offset,
+                        opcode,
+                        arg1,
+                        arg2,
+                        size: total_size,
+                    },
+                    total_size,
+                ));
+            }
+            _ => {}
+        }
+    }
 
     // Decode arg1 based on arg_type
     match arg_type {
@@ -567,7 +689,7 @@ pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String>
     let mut instructions = Vec::new();
     let mut offset = bytecode_start;
     while offset < bytecode.len() {
-        match parse_instruction(bytecode, offset) {
+        match parse_instruction_with_features(bytecode, offset, header.features) {
             Ok((inst, size)) => {
                 // Validate CALL targets (arg1 is function address/offset)
                 if inst.opcode == crate::opcodes::CALL

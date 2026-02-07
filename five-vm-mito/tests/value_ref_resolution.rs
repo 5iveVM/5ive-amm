@@ -7,7 +7,7 @@ fn resolve_input_ref_to_u64() {
     let program_id = Pubkey::default();
     let accounts: [AccountInfo; 0] = [];
     let mut storage = StackStorage::new();
-    let ctx = ExecutionContext::new(&[], &accounts, program_id, &data, 0, &mut storage, 0, 0);
+    let ctx = ExecutionContext::new(&[], &accounts, program_id, &data, 0, &mut storage, 0, 0, 0, 0, 0, 0);
     let value = MitoVM::resolve_value_ref(&ValueRef::InputRef(0), &ctx).unwrap();
     assert_eq!(value, Value::U64(42));
 }
@@ -24,6 +24,10 @@ fn resolve_pubkey_ref() {
         &pk_bytes,
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -45,6 +49,10 @@ fn input_ref_out_of_bounds() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
     let err = MitoVM::resolve_value_ref(&ValueRef::InputRef(1), &ctx).unwrap_err();
     assert_eq!(err, VMErrorCode::InvalidOperation);
@@ -61,6 +69,10 @@ fn pubkey_ref_out_of_bounds() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );

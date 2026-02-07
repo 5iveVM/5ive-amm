@@ -182,30 +182,21 @@ impl ASTGenerator {
                 }
 
                 if *n <= u8::MAX as u64 {
-                   // Fits in u8 - specific optimization
-                   emitter.emit_opcode(PUSH_U8);
-                   emitter.emit_u8(*n as u8);
+                   emitter.emit_const_u8(*n as u8)?;
                 } else if *n <= u16::MAX as u64 {
-                    // Fits in u16
-                    emitter.emit_opcode(PUSH_U16);
-                    emitter.emit_u16(*n as u16);
+                    emitter.emit_const_u16(*n as u16)?;
                 } else if *n <= u32::MAX as u64 {
-                    // Fits in u32
-                    emitter.emit_opcode(PUSH_U32);
-                    emitter.emit_u32(*n as u32);
+                    emitter.emit_const_u32(*n as u32)?;
                 } else {
-                    // Requires u64
-                    emitter.emit_opcode(PUSH_U64);
-                    emitter.emit_u64(*n);
+                    emitter.emit_const_u64(*n)?;
                 }
             }
             Value::U128(n) => {
                 // Native U128 literal - MITO-style BPF-optimized
-                OpcodePatterns::emit_push_u128(emitter, *n);
+                OpcodePatterns::emit_push_u128(emitter, *n)?;
             }
             Value::Bool(b) => {
-                emitter.emit_opcode(PUSH_BOOL);
-                emitter.emit_u8(if *b { 1 } else { 0 });
+                emitter.emit_const_bool(*b)?;
             }
             Value::String(_idx) => {
                 // String table approach eliminated in favor of unified Array<u8> representation
@@ -216,19 +207,16 @@ impl ASTGenerator {
                 });
             }
             Value::Pubkey(key) => {
-                emitter.emit_opcode(PUSH_PUBKEY);
-                emitter.emit_bytes(key);
+                emitter.emit_const_pubkey(key)?;
             }
             Value::U8(n) => {
-                emitter.emit_opcode(PUSH_U8);
-                emitter.emit_u8(*n);
+                emitter.emit_const_u8(*n)?;
             }
             Value::I64(n) => {
-                emitter.emit_opcode(PUSH_I64);
-                emitter.emit_u64(*n as u64);
+                emitter.emit_const_i64(*n)?;
             }
             Value::Account(idx) => {
-                OpcodePatterns::emit_push_account(emitter, *idx);
+                OpcodePatterns::emit_push_account(emitter, *idx)?;
             }
             Value::Empty => {
                 // Empty value - emit NOP or default value

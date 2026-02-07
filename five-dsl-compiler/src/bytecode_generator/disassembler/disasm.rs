@@ -21,6 +21,7 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             }, 0)
         }
     };
+    let pool_enabled = (header.features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
 
     if start_pc > 0 {
         lines.push(format!("HEADER: magic=5IVE features=0x{:08X} public={} total={}", 
@@ -41,15 +42,61 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             }
             opcodes::PUSH_U8 => {
                 if pc + 1 < bytes.len() {
-                    lines.push(format!("{:04X}: PUSH_U8 {}", pc, bytes[pc + 1]));
+                    let idx = bytes[pc + 1];
+                    if pool_enabled {
+                        lines.push(format!("{:04X}: PUSH_U8 idx={}", pc, idx));
+                    } else {
+                        lines.push(format!("{:04X}: PUSH_U8 {}", pc, idx));
+                    }
                     pc += 2;
                 } else {
                     lines.push(format!("{:04X}: PUSH_U8 <truncated>", pc));
                     break;
                 }
             }
+            opcodes::PUSH_U16 => {
+                if pc + 1 < bytes.len() {
+                    let idx = bytes[pc + 1];
+                    if pool_enabled {
+                        lines.push(format!("{:04X}: PUSH_U16 idx={}", pc, idx));
+                    } else {
+                        lines.push(format!("{:04X}: PUSH_U16 {}", pc, idx));
+                    }
+                    pc += 2;
+                } else {
+                    lines.push(format!("{:04X}: PUSH_U16 <truncated>", pc));
+                    break;
+                }
+            }
+            opcodes::PUSH_U32 => {
+                if pc + 1 < bytes.len() {
+                    let idx = bytes[pc + 1];
+                    if pool_enabled {
+                        lines.push(format!("{:04X}: PUSH_U32 idx={}", pc, idx));
+                        pc += 2;
+                    } else if pc + 5 <= bytes.len() {
+                        let raw = u32::from_le_bytes([bytes[pc + 1], bytes[pc + 2], bytes[pc + 3], bytes[pc + 4]]);
+                        lines.push(format!("{:04X}: PUSH_U32 {}", pc, raw));
+                        pc += 5;
+                    } else {
+                        lines.push(format!("{:04X}: PUSH_U32 <truncated>", pc));
+                        break;
+                    }
+                } else {
+                    lines.push(format!("{:04X}: PUSH_U32 <truncated>", pc));
+                    break;
+                }
+            }
             opcodes::PUSH_U64 => {
-                if pc + 9 <= bytes.len() {
+                if pool_enabled {
+                    if pc + 1 < bytes.len() {
+                        lines.push(format!("{:04X}: PUSH_U64 idx={}", pc, bytes[pc + 1]));
+                        pc += 2;
+                    } else {
+                        lines.push(format!("{:04X}: PUSH_U64 <truncated>", pc));
+                        break;
+                    }
+                } else if pc + 9 <= bytes.len() {
                     if let Some(raw) = read_le_u64(bytes, pc + 1) {
                         lines.push(format!("{:04X}: PUSH_U64 {}", pc, raw));
                         pc += 9;
@@ -63,7 +110,15 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 }
             }
             opcodes::PUSH_I64 => {
-                if pc + 9 <= bytes.len() {
+                if pool_enabled {
+                    if pc + 1 < bytes.len() {
+                        lines.push(format!("{:04X}: PUSH_I64 idx={}", pc, bytes[pc + 1]));
+                        pc += 2;
+                    } else {
+                        lines.push(format!("{:04X}: PUSH_I64 <truncated>", pc));
+                        break;
+                    }
+                } else if pc + 9 <= bytes.len() {
                     if let Some(raw) = read_le_u64(bytes, pc + 1) {
                         lines.push(format!("{:04X}: PUSH_I64 {}", pc, raw as i64));
                         pc += 9;
@@ -78,19 +133,85 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             }
             opcodes::PUSH_BOOL => {
                 if pc + 1 < bytes.len() {
-                    lines.push(format!("{:04X}: PUSH_BOOL {}", pc, bytes[pc + 1]));
+                    let idx = bytes[pc + 1];
+                    if pool_enabled {
+                        lines.push(format!("{:04X}: PUSH_BOOL idx={}", pc, idx));
+                    } else {
+                        lines.push(format!("{:04X}: PUSH_BOOL {}", pc, idx));
+                    }
                     pc += 2;
                 } else {
                     lines.push(format!("{:04X}: PUSH_BOOL <truncated>", pc));
                     break;
                 }
             }
+            opcodes::PUSH_U128 => {
+                if pool_enabled {
+                    if pc + 1 < bytes.len() {
+                        lines.push(format!("{:04X}: PUSH_U128 idx={}", pc, bytes[pc + 1]));
+                        pc += 2;
+                    } else {
+                        lines.push(format!("{:04X}: PUSH_U128 <truncated>", pc));
+                        break;
+                    }
+                } else if pc + 17 <= bytes.len() {
+                    lines.push(format!("{:04X}: PUSH_U128 <16 bytes>", pc));
+                    pc += 17;
+                } else {
+                    lines.push(format!("{:04X}: PUSH_U128 <truncated>", pc));
+                    break;
+                }
+            }
             opcodes::PUSH_PUBKEY => {
-                if pc + 33 <= bytes.len() {
+                if pool_enabled {
+                    if pc + 1 < bytes.len() {
+                        lines.push(format!("{:04X}: PUSH_PUBKEY idx={}", pc, bytes[pc + 1]));
+                        pc += 2;
+                    } else {
+                        lines.push(format!("{:04X}: PUSH_PUBKEY <truncated>", pc));
+                        break;
+                    }
+                } else if pc + 33 <= bytes.len() {
                     lines.push(format!("{:04X}: PUSH_PUBKEY <32 bytes>", pc));
                     pc += 33
                 } else {
                     lines.push(format!("{:04X}: PUSH_PUBKEY <truncated>", pc));
+                    break;
+                }
+            }
+            opcodes::PUSH_STRING => {
+                if pool_enabled {
+                    if pc + 1 < bytes.len() {
+                        lines.push(format!("{:04X}: PUSH_STRING idx={}", pc, bytes[pc + 1]));
+                        pc += 2;
+                    } else {
+                        lines.push(format!("{:04X}: PUSH_STRING <truncated>", pc));
+                        break;
+                    }
+                } else if pc + 5 <= bytes.len() {
+                    let len = u32::from_le_bytes([bytes[pc + 1], bytes[pc + 2], bytes[pc + 3], bytes[pc + 4]]);
+                    lines.push(format!("{:04X}: PUSH_STRING len={}", pc, len));
+                    pc += 5 + len as usize;
+                } else {
+                    lines.push(format!("{:04X}: PUSH_STRING <truncated>", pc));
+                    break;
+                }
+            }
+            opcodes::PUSH_U8_W
+            | opcodes::PUSH_U16_W
+            | opcodes::PUSH_U32_W
+            | opcodes::PUSH_U64_W
+            | opcodes::PUSH_I64_W
+            | opcodes::PUSH_BOOL_W
+            | opcodes::PUSH_U128_W
+            | opcodes::PUSH_PUBKEY_W
+            | opcodes::PUSH_STRING_W => {
+                if pc + 2 < bytes.len() {
+                    let idx = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
+                    lines.push(format!("{:04X}: {} idx={}", pc, five_protocol::opcodes::opcode_name(op), idx));
+                    pc += 3;
+                } else {
+                    lines.push(format!("{:04X}: {} <truncated>", pc, five_protocol::opcodes::opcode_name(op)));
                     break;
                 }
             }

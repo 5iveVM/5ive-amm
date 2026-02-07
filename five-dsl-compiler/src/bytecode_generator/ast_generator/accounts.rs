@@ -211,8 +211,7 @@ impl ASTGenerator {
                     }
 
                     // Push seeds count
-                    emitter.emit_opcode(PUSH_U8);
-                    emitter.emit_u8(seeds.len() as u8);
+                    emitter.emit_const_u8(seeds.len() as u8)?;
 
                     // Push Five VM program ID as current program (0 -> Program ID in VM)
                     // This relies on extract_pubkey handling PUSH_0 (U64(0)) correctly
@@ -236,15 +235,13 @@ impl ASTGenerator {
                 }
 
                 // 3. Push Seeds Count
-                emitter.emit_opcode(PUSH_U8);
-                emitter.emit_u8(seeds.len() as u8); // Checked MAX_SEEDS in VM
+                emitter.emit_const_u8(seeds.len() as u8)?; // Checked MAX_SEEDS in VM
 
                 // 4. Push Owner (0 -> Current Program ID)
                 emitter.emit_opcode(PUSH_0); // 0xD8 (ValueRef::U64(0))
 
                 // 5. Push Lamports (Calculate using GET_RENT based on space)
-                emitter.emit_opcode(PUSH_U64);
-                emitter.emit_u64(space);
+                emitter.emit_const_u64(space)?;
                 emitter.emit_opcode(GET_RENT); // Consumes space, pushes lamports
 
                 // 6. Push Payer Index
@@ -253,16 +250,13 @@ impl ASTGenerator {
                 } else {
                     self.find_first_signer_account_index()?
                 };
-                emitter.emit_opcode(PUSH_U8);
-                emitter.emit_u8(payer_idx);
+                emitter.emit_const_u8(payer_idx)?;
 
                 // 7. Push Space
-                emitter.emit_opcode(PUSH_U64);
-                emitter.emit_u64(space);
+                emitter.emit_const_u64(space)?;
 
                 // 8. Push Account Index (Top of stack)
-                emitter.emit_opcode(PUSH_U8);
-                emitter.emit_u8(account_index);
+                emitter.emit_const_u8(account_index)?;
 
                 // 9. Emit Opcode
                 emitter.emit_opcode(INIT_PDA_ACCOUNT);
@@ -275,8 +269,7 @@ impl ASTGenerator {
                 emitter.emit_opcode(PUSH_0);
 
                 // 2. Push Lamports (GET_RENT)
-                emitter.emit_opcode(PUSH_U64);
-                emitter.emit_u64(space);
+                emitter.emit_const_u64(space)?;
                 emitter.emit_opcode(GET_RENT);
 
                 // 3. Push Payer Index
@@ -285,16 +278,13 @@ impl ASTGenerator {
                 } else {
                     self.find_first_signer_account_index()?
                 };
-                emitter.emit_opcode(PUSH_U8);
-                emitter.emit_u8(payer_idx);
+                emitter.emit_const_u8(payer_idx)?;
 
                 // 4. Push Space
-                emitter.emit_opcode(PUSH_U64);
-                emitter.emit_u64(space);
+                emitter.emit_const_u64(space)?;
 
                 // 5. Push Account Index
-                emitter.emit_opcode(PUSH_U8);
-                emitter.emit_u8(account_index);
+                emitter.emit_const_u8(account_index)?;
 
                 emitter.emit_opcode(INIT_ACCOUNT);
             }

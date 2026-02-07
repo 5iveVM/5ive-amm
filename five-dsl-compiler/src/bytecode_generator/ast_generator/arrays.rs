@@ -16,8 +16,7 @@ impl ASTGenerator {
         node: &AstNode,
     ) -> Result<(), VMError> {
         if let AstNode::ArrayLiteral { elements } = node {
-            emitter.emit_opcode(PUSH_U8);
-            emitter.emit_u8(elements.len() as u8);
+            emitter.emit_const_u8(elements.len() as u8)?;
             for element in elements {
                 self.generate_ast_node(emitter, element)?;
             }
@@ -34,8 +33,7 @@ impl ASTGenerator {
         node: &AstNode,
     ) -> Result<(), VMError> {
         if let AstNode::ArrayLiteral { elements } = node {
-            emitter.emit_opcode(PUSH_U8);
-            emitter.emit_u8(elements.len() as u8);
+            emitter.emit_const_u8(elements.len() as u8)?;
             for element in elements {
                 self.generate_ast_node(emitter, element)?;
             }

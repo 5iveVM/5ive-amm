@@ -61,6 +61,9 @@ pub const FEATURE_MINIMAL_ERRORS: u32 = 1 << 2;
 pub const FEATURE_COLD_START_OPT: u32 = 1 << 3;
 pub const FEATURE_IMPORT_VERIFICATION: u32 = 1 << 4;  // Import verification metadata present
 pub const FEATURE_FUNCTION_CONSTRAINTS: u32 = 1 << 9;  // Function constraint metadata present
+// Constant pool features
+pub const FEATURE_CONSTANT_POOL: u32 = 1 << 10; // Constant pool descriptor + pool data present
+pub const FEATURE_CONSTANT_POOL_STRINGS: u32 = 1 << 11; // String blob present (fat pointers in pool)
 
 // Address constants
 pub const MAX_U16_ADDRESS: usize = u16::MAX as usize;
@@ -91,6 +94,17 @@ pub struct OptimizedHeader {
     pub features: u32,
     pub public_function_count: u8,
     pub total_function_count: u8,
+}
+
+/// Constant pool descriptor (aligned to 16 bytes)
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConstantPoolDescriptor {
+    pub pool_offset: u32,        // 8-byte aligned offset to pool data
+    pub string_blob_offset: u32, // Offset to string blob (0 if none)
+    pub string_blob_len: u32,    // Length of string blob
+    pub pool_slots: u16,         // Number of 8-byte slots in pool
+    pub reserved: u16,           // Padding / future use
 }
 
 /// Function name metadata table entry

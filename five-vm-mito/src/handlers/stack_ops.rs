@@ -22,39 +22,165 @@ use five_protocol::{opcodes::*, ValueRef};
 /// Handles the 0x10-0x1F opcode range exclusively.
 #[inline(always)]
 pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+    let pool_enabled = ctx.pool_enabled();
     match opcode {
         PUSH_U8 => {
-            let val = ctx.fetch_byte()?;
-            push_u8!(ctx, val);
+            if pool_enabled {
+                let idx = ctx.fetch_byte()? as u16;
+                let val = ctx.read_pool_slot_u64(idx)? as u8;
+                push_u8!(ctx, val);
+            } else {
+                let val = ctx.fetch_byte()?;
+                push_u8!(ctx, val);
+            }
         }
         PUSH_U64 => {
-            let val = ctx.fetch_u64()?;
-            vm_push_u64!(ctx, val);
+            if pool_enabled {
+                let idx = ctx.fetch_byte()? as u16;
+                let val = ctx.read_pool_slot_u64(idx)?;
+                vm_push_u64!(ctx, val);
+            } else {
+                let val = ctx.fetch_u64()?;
+                vm_push_u64!(ctx, val);
+            }
         }
         PUSH_I64 => {
-            let val = ctx.fetch_u64()?;
-            push_i64!(ctx, val as i64);
+            if pool_enabled {
+                let idx = ctx.fetch_byte()? as u16;
+                let val = ctx.read_pool_slot_u64(idx)?;
+                push_i64!(ctx, val as i64);
+            } else {
+                let val = ctx.fetch_u64()?;
+                push_i64!(ctx, val as i64);
+            }
         }
         PUSH_U128 => {
-            let val = ctx.fetch_u128()?;
-            vm_push_u128!(ctx, val);
+            if pool_enabled {
+                let idx = ctx.fetch_byte()? as u16;
+                let bytes = ctx.read_pool_bytes(idx, 2)?;
+                let mut buf = [0u8; 16];
+                buf.copy_from_slice(bytes);
+                let val = u128::from_le_bytes(buf);
+                vm_push_u128!(ctx, val);
+            } else {
+                let val = ctx.fetch_u128()?;
+                vm_push_u128!(ctx, val);
+            }
         }
         PUSH_BOOL => {
-            let val = ctx.fetch_byte()? != 0;
-            vm_push_bool!(ctx, val);
+            if pool_enabled {
+                let idx = ctx.fetch_byte()? as u16;
+                let val = ctx.read_pool_slot_u64(idx)? != 0;
+                vm_push_bool!(ctx, val);
+            } else {
+                let val = ctx.fetch_byte()? != 0;
+                vm_push_bool!(ctx, val);
+            }
         }
         PUSH_PUBKEY => {
-            let offset = ctx.fetch_pubkey_to_temp()?;
-            ctx.push(ValueRef::TempRef(offset, 32))?;
+            if pool_enabled {
+                let idx = ctx.fetch_byte()? as u16;
+                let bytes = ctx.read_pool_bytes(idx, 4)?.to_vec();
+                let offset = ctx.alloc_temp(32)?;
+                ctx.temp_buffer_mut()[offset as usize..offset as usize + 32]
+                    .copy_from_slice(&bytes);
+                ctx.push(ValueRef::TempRef(offset, 32))?;
+            } else {
+                let offset = ctx.fetch_pubkey_to_temp()?;
+                ctx.push(ValueRef::TempRef(offset, 32))?;
+            }
         }
         // ===== PUSH OPERATIONS (0x18-0x1F) =====
         PUSH_U16 => {
-            let val = ctx.fetch_u16()?;
-            vm_push_u64!(ctx, val as u64);
+            if pool_enabled {
+                let idx = ctx.fetch_byte()? as u16;
+                let val = ctx.read_pool_slot_u64(idx)? as u16;
+                vm_push_u64!(ctx, val as u64);
+            } else {
+                let val = ctx.fetch_u16()?;
+                vm_push_u64!(ctx, val as u64);
+            }
         }
         PUSH_U32 => {
-            let val = ctx.fetch_u32()?;
+            if pool_enabled {
+                let idx = ctx.fetch_byte()? as u16;
+                let val = ctx.read_pool_slot_u64(idx)? as u32;
+                vm_push_u64!(ctx, val as u64);
+            } else {
+                let val = ctx.fetch_u32()?;
+                vm_push_u64!(ctx, val as u64);
+            }
+        }
+        // ===== WIDE PUSH OPERATIONS (u16 index) =====
+        PUSH_U8_W => {
+            if !pool_enabled {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let idx = ctx.fetch_u16()?;
+            let val = ctx.read_pool_slot_u64(idx)? as u8;
+            push_u8!(ctx, val);
+        }
+        PUSH_U16_W => {
+            if !pool_enabled {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let idx = ctx.fetch_u16()?;
+            let val = ctx.read_pool_slot_u64(idx)? as u16;
             vm_push_u64!(ctx, val as u64);
+        }
+        PUSH_U32_W => {
+            if !pool_enabled {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let idx = ctx.fetch_u16()?;
+            let val = ctx.read_pool_slot_u64(idx)? as u32;
+            vm_push_u64!(ctx, val as u64);
+        }
+        PUSH_U64_W => {
+            if !pool_enabled {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let idx = ctx.fetch_u16()?;
+            let val = ctx.read_pool_slot_u64(idx)?;
+            vm_push_u64!(ctx, val);
+        }
+        PUSH_I64_W => {
+            if !pool_enabled {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let idx = ctx.fetch_u16()?;
+            let val = ctx.read_pool_slot_u64(idx)?;
+            push_i64!(ctx, val as i64);
+        }
+        PUSH_BOOL_W => {
+            if !pool_enabled {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let idx = ctx.fetch_u16()?;
+            let val = ctx.read_pool_slot_u64(idx)? != 0;
+            vm_push_bool!(ctx, val);
+        }
+        PUSH_U128_W => {
+            if !pool_enabled {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let idx = ctx.fetch_u16()?;
+            let bytes = ctx.read_pool_bytes(idx, 2)?;
+            let mut buf = [0u8; 16];
+            buf.copy_from_slice(bytes);
+            let val = u128::from_le_bytes(buf);
+            vm_push_u128!(ctx, val);
+        }
+        PUSH_PUBKEY_W => {
+            if !pool_enabled {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let idx = ctx.fetch_u16()?;
+            let bytes = ctx.read_pool_bytes(idx, 4)?.to_vec();
+            let offset = ctx.alloc_temp(32)?;
+            ctx.temp_buffer_mut()[offset as usize..offset as usize + 32]
+                .copy_from_slice(&bytes);
+            ctx.push(ValueRef::TempRef(offset, 32))?;
         }
         // ===== BASIC STACK OPERATIONS (0x10-0x17) =====
         POP => {

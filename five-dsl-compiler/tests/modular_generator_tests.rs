@@ -79,7 +79,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Check emitted bytecode
-        let bytecode = generator.get_bytecode();
+        let bytecode = generator.get_metadata_bytes();
 
         // Parse the emitted data (simplified check)
         // Section size (VLE u16) - approximately 2 bytes

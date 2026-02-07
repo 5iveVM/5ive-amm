@@ -5,7 +5,8 @@ use five_protocol::opcodes::{GT, PUSH_U16, PUSH_U32, PUSH_U64, PUSH_U8, REQUIRE}
 const PUSH_LITERAL_OPCODES: [u8; 4] = [PUSH_U8, PUSH_U16, PUSH_U32, PUSH_U64];
 use five_protocol::{
     Value, FEATURE_COLD_START_OPT, FEATURE_FUNCTION_NAMES,
-    FEATURE_FUSED_BRANCH, FEATURE_MINIMAL_ERRORS, FEATURE_NO_VALIDATION, FIVE_MAGIC,
+    FEATURE_FUSED_BRANCH, FEATURE_MINIMAL_ERRORS, FEATURE_NO_VALIDATION,
+    FEATURE_CONSTANT_POOL, FIVE_MAGIC,
 };
 use five_vm_mito::error::VMError;
 
@@ -355,7 +356,8 @@ fn test_bytecode_uses_optimized_header_v2() {
         | FEATURE_NO_VALIDATION
         | FEATURE_MINIMAL_ERRORS
         | FEATURE_COLD_START_OPT
-        | FEATURE_FUNCTION_NAMES; // Includes function names metadata table
+        | FEATURE_FUNCTION_NAMES
+        | FEATURE_CONSTANT_POOL; // Includes function names metadata table + constant pool
 
     #[cfg(feature = "call-metadata")]
     {

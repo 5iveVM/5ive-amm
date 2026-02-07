@@ -111,10 +111,52 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
     let mut jump_count = 0;
     let bytecode_len = bytecode.len();
 
-    // Use the same instructions start logic as BytecodeInspector
-    let mut offset = find_instructions_start(bytecode);
+    let (features, start_offset) = match five_protocol::parse_header(bytecode) {
+        Ok((header, start)) => (header.features, start),
+        Err(_) => (0, 0),
+    };
+    let pool_enabled = (features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+    let mut offset = start_offset;
+
+    // If constant pool is enabled, cap scan length at the end of the code section
+    let mut scan_len = bytecode_len;
+    if pool_enabled {
+        let metadata_end = find_instructions_start(bytecode);
+        let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
+        if metadata_end + desc_size <= bytecode_len {
+            let base = metadata_end;
+            let pool_offset = u32::from_le_bytes([
+                bytecode[base],
+                bytecode[base + 1],
+                bytecode[base + 2],
+                bytecode[base + 3],
+            ]) as usize;
+            let string_blob_offset = u32::from_le_bytes([
+                bytecode[base + 4],
+                bytecode[base + 5],
+                bytecode[base + 6],
+                bytecode[base + 7],
+            ]) as usize;
+            let string_blob_len = u32::from_le_bytes([
+                bytecode[base + 8],
+                bytecode[base + 9],
+                bytecode[base + 10],
+                bytecode[base + 11],
+            ]) as usize;
+            let pool_slots = u16::from_le_bytes([bytecode[base + 12], bytecode[base + 13]]) as usize;
+            let code_offset = pool_offset + pool_slots * 8;
+            let code_end = if string_blob_len > 0 {
+                string_blob_offset
+            } else {
+                string_blob_offset.max(code_offset)
+            };
+            if code_end > 0 && code_end <= bytecode_len {
+                scan_len = code_end;
+            }
+        }
+    }
     
-    while offset < bytecode_len {
+    while offset < scan_len {
         let opcode = bytecode[offset];
 
         match opcode {
@@ -123,7 +165,7 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                 jump_count += 1;
                 
                 // Need at least 2 more bytes for the u16 target
-                if offset + 2 >= bytecode_len {
+                if offset + 2 >= scan_len {
                     errors.push(VerificationError {
                         offset,
                         opcode,
@@ -138,7 +180,7 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                 let target = u16::from_le_bytes([bytecode[offset + 1], bytecode[offset + 2]]);
 
                 // Validate target is within bytecode bounds
-                if target as usize >= bytecode_len {
+                if target as usize >= scan_len {
                     errors.push(VerificationError {
                         offset,
                         opcode,
@@ -147,8 +189,8 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                         reason: format!(
                             "Out of bounds: target {} >= bytecode length {} ({}% overflow)",
                             target,
-                            bytecode_len,
-                            (target as usize * 100) / bytecode_len
+                            scan_len,
+                            (target as usize * 100) / scan_len
                         ),
                     });
                 }
@@ -160,7 +202,7 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
             opcodes::CALL => {
                 jump_count += 1;
 
-                if offset + 4 > bytecode_len {
+                if offset + 4 > scan_len {
                     errors.push(VerificationError {
                         offset,
                         opcode,
@@ -174,7 +216,7 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                 // Skip param_count (1 byte), read function_address (2 bytes, fixed u16)
                 let target = u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]);
 
-                if target as usize >= bytecode_len {
+                if target as usize >= scan_len {
                     errors.push(VerificationError {
                         offset,
                         opcode,
@@ -183,8 +225,8 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                         reason: format!(
                             "Out of bounds: target {} >= bytecode length {} ({}% overflow)",
                             target,
-                            bytecode_len,
-                            (target as usize * 100) / bytecode_len
+                            scan_len,
+                            (target as usize * 100) / scan_len
                         ),
                     });
                 }
@@ -207,7 +249,7 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
 
             // Handle other opcodes - use get_operand_size
             _ => {
-                offset += 1 + get_operand_size(opcode, bytecode.get(offset + 1..).unwrap_or(&[]));
+                offset += 1 + get_operand_size(opcode, bytecode.get(offset + 1..).unwrap_or(&[]), pool_enabled);
             }
         }
     }
@@ -258,7 +300,7 @@ fn opcode_name(opcode: u8) -> &'static str {
 }
 
 /// Get operand size for an opcode
-fn get_operand_size(opcode: u8, _remaining: &[u8]) -> usize {
+fn get_operand_size(opcode: u8, _remaining: &[u8], pool_enabled: bool) -> usize {
     match opcode {
         // No operands
         opcodes::HALT | opcodes::RETURN | opcodes::RETURN_VALUE |
@@ -288,6 +330,26 @@ fn get_operand_size(opcode: u8, _remaining: &[u8]) -> usize {
         // Fused: single byte operands
         opcodes::CHECK_SIGNER_WRITABLE |  // acc(u8)
         opcodes::REQUIRE_PARAM_GT_ZERO => 1, // param(u8)
+
+        // Constant pool indexed pushes (u8 index)
+        opcodes::PUSH_U16
+        | opcodes::PUSH_U32
+        | opcodes::PUSH_U64
+        | opcodes::PUSH_I64
+        | opcodes::PUSH_PUBKEY
+        | opcodes::PUSH_U128
+        | opcodes::PUSH_STRING if pool_enabled => 1,
+
+        // Constant pool wide pushes (u16 index)
+        opcodes::PUSH_U8_W
+        | opcodes::PUSH_U16_W
+        | opcodes::PUSH_U32_W
+        | opcodes::PUSH_U64_W
+        | opcodes::PUSH_I64_W
+        | opcodes::PUSH_BOOL_W
+        | opcodes::PUSH_PUBKEY_W
+        | opcodes::PUSH_U128_W
+        | opcodes::PUSH_STRING_W => 2,
 
         // Two byte operands
         opcodes::REQUIRE_PARAM_LTE_IMM => 2, // param(u8) + imm(u8)

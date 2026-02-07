@@ -19,6 +19,10 @@ fn test_alloc_temp_overflow() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     // TEMP_BUFFER_SIZE is 512

@@ -28,6 +28,10 @@ fn resolve_temp_ref_valid() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     ctx.temp_buffer_mut()[..serialized_len].copy_from_slice(&temp_buffer[..serialized_len]);
@@ -47,6 +51,10 @@ fn resolve_temp_ref_raw_bytes() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -83,6 +91,10 @@ fn resolve_temp_ref_out_of_bounds() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     ctx.memory = ResourceManager::new(&mut small_buffer, &mut heap_buffer);
@@ -108,6 +120,10 @@ fn resolve_tuple_ref() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     // TupleRef should resolve to Value::Array
@@ -126,6 +142,10 @@ fn resolve_optional_some() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -156,6 +176,10 @@ fn resolve_optional_none() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     // Write None at offset 50
@@ -176,6 +200,10 @@ fn resolve_optional_invalid_size() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -203,6 +231,10 @@ fn resolve_result_ok() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     let inner_val = ValueRef::U8(77);
@@ -228,6 +260,10 @@ fn resolve_recursion_limit() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -308,6 +344,10 @@ fn resolve_account_ref_valid() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );

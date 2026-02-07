@@ -308,7 +308,7 @@ mod tests {
         use pinocchio::pubkey::Pubkey;
         let program_id = Pubkey::default();
         let storage = Box::leak(Box::new(StackStorage::new()));
-        ExecutionManager::new(script, accounts, program_id, input_data, 0, storage, 0, 0)
+        ExecutionManager::new(script, accounts, program_id, input_data, 0, storage, 0, 0, 0, 0, 0, 0)
     }
 
     #[test]

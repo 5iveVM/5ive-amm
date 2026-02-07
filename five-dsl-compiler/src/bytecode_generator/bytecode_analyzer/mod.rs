@@ -22,6 +22,12 @@ pub struct AdvancedBytecodeAnalyzer {
     /// Current position during analysis
     pub(crate) position: usize,
 
+    /// Parsed header feature flags (0 if no header)
+    pub(crate) features: u32,
+
+    /// Start offset of instruction stream
+    pub(crate) start_offset: usize,
+
     /// Decoded instructions with full analysis
     pub(crate) instructions: Vec<InstructionAnalysis>,
 
@@ -38,6 +44,8 @@ impl AdvancedBytecodeAnalyzer {
         Self {
             bytecode,
             position: 0,
+            features: 0,
+            start_offset: 0,
             instructions: Vec::new(),
             control_flow: ControlFlowGraph {
                 basic_blocks: Vec::new(),

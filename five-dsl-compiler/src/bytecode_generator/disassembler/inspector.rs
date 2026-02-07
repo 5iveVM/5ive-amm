@@ -12,24 +12,31 @@ use five_protocol::opcodes;
 pub struct BytecodeInspector {
     bytes: Vec<u8>,
     instructions_start: usize,
+    pool_enabled: bool,
+    pool_offset: usize,
+    pool_slots: u16,
 }
 
 impl BytecodeInspector {
     /// Create a new inspector from bytes.
     pub fn new(bytes: &[u8]) -> Self {
         // Skip the optimized header (10 bytes) and any metadata section
-        let instructions_start = Self::find_instructions_start(bytes);
+        let (instructions_start, pool_enabled, pool_offset, pool_slots) =
+            Self::find_instructions_start(bytes);
         Self {
             bytes: bytes.to_vec(),
             instructions_start,
+            pool_enabled,
+            pool_offset,
+            pool_slots,
         }
     }
 
     /// Find where instructions start by skipping header and metadata
-    fn find_instructions_start(bytes: &[u8]) -> usize {
+    fn find_instructions_start(bytes: &[u8]) -> (usize, bool, usize, u16) {
         // Minimum header size is 10 bytes
         if bytes.len() < 10 {
-            return bytes.len();
+            return (bytes.len(), false, 0, 0);
         }
 
         // Check for FEATURE_FUNCTION_NAMES at offset [4..8]
@@ -42,6 +49,9 @@ impl BytecodeInspector {
         const FEATURE_FUNCTION_NAMES: u32 = 1 << 8;
 
         let mut offset = 10; // After header
+        let pool_enabled = (features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+        let mut pool_offset = 0usize;
+        let mut pool_slots = 0u16;
 
         // If metadata is present, skip it
         if (features & FEATURE_FUNCTION_NAMES) != 0 && offset < bytes.len() {
@@ -52,8 +62,35 @@ impl BytecodeInspector {
                 offset += 2 + section_size as usize;
             }
         }
+        if pool_enabled {
+            let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
+            if offset + desc_size <= bytes.len() {
+                pool_offset = u32::from_le_bytes([
+                    bytes[offset],
+                    bytes[offset + 1],
+                    bytes[offset + 2],
+                    bytes[offset + 3],
+                ]) as usize;
+                pool_slots = u16::from_le_bytes([bytes[offset + 12], bytes[offset + 13]]);
+                let code_offset = pool_offset + pool_slots as usize * 8;
+                return (code_offset.min(bytes.len()), pool_enabled, pool_offset, pool_slots);
+            }
+        }
 
-        offset.min(bytes.len())
+        (offset.min(bytes.len()), pool_enabled, pool_offset, pool_slots)
+    }
+
+    fn read_pool_slot_u64(&self, index: u16) -> Option<u64> {
+        if index >= self.pool_slots {
+            return None;
+        }
+        let start = self.pool_offset + index as usize * 8;
+        if start + 8 > self.bytes.len() {
+            return None;
+        }
+        let mut buf = [0u8; 8];
+        buf.copy_from_slice(&self.bytes[start..start + 8]);
+        Some(u64::from_le_bytes(buf))
     }
 
     /// Return true if the given raw opcode exists anywhere in the bytecode.
@@ -74,10 +111,37 @@ impl BytecodeInspector {
     /// Return the size of the instruction at the given offset.
     /// Returns 1 for unknown instructions to ensure forward progress.
     pub fn instruction_size(bytes: &[u8], offset: usize) -> usize {
+        Self::instruction_size_with_pool(bytes, offset, false)
+    }
+
+    pub fn instruction_size_with_pool(bytes: &[u8], offset: usize, pool_enabled: bool) -> usize {
         if offset >= bytes.len() {
             return 0;
         }
         let op = bytes[offset];
+        if pool_enabled {
+            match op {
+                opcodes::PUSH_U8
+                | opcodes::PUSH_U16
+                | opcodes::PUSH_U32
+                | opcodes::PUSH_U64
+                | opcodes::PUSH_I64
+                | opcodes::PUSH_BOOL
+                | opcodes::PUSH_PUBKEY
+                | opcodes::PUSH_U128
+                | opcodes::PUSH_STRING => return 2,
+                opcodes::PUSH_U8_W
+                | opcodes::PUSH_U16_W
+                | opcodes::PUSH_U32_W
+                | opcodes::PUSH_U64_W
+                | opcodes::PUSH_I64_W
+                | opcodes::PUSH_BOOL_W
+                | opcodes::PUSH_PUBKEY_W
+                | opcodes::PUSH_U128_W
+                | opcodes::PUSH_STRING_W => return 3,
+                _ => {}
+            }
+        }
         match op {
             opcodes::PUSH_U8 => 2,
             opcodes::PUSH_U16 => 3,
@@ -87,6 +151,15 @@ impl BytecodeInspector {
             opcodes::PUSH_BOOL => 2,
             opcodes::PUSH_PUBKEY => 33,
             opcodes::PUSH_U128 => 17,
+            opcodes::PUSH_U8_W
+            | opcodes::PUSH_U16_W
+            | opcodes::PUSH_U32_W
+            | opcodes::PUSH_U64_W
+            | opcodes::PUSH_I64_W
+            | opcodes::PUSH_BOOL_W
+            | opcodes::PUSH_PUBKEY_W
+            | opcodes::PUSH_U128_W
+            | opcodes::PUSH_STRING_W => 3,
 
             // Variable length instructions
             opcodes::PUSH_STRING => {
@@ -173,22 +246,46 @@ impl BytecodeInspector {
 
         while i < b.len() {
             let op = b[i];
-            let size = Self::instruction_size(b, i);
+            let size = Self::instruction_size_with_pool(b, i, self.pool_enabled);
 
             match op {
                 opcodes::PUSH_U8 => {
                     if i + 1 < b.len() {
+                        if self.pool_enabled {
+                            let idx = b[i + 1] as u16;
+                            if let Some(val) = self.read_pool_slot_u64(idx) {
+                                out.push(PushInfo {
+                                    offset: i,
+                                    opcode: op,
+                                    value: val,
+                                    width: 1,
+                                });
+                            }
+                        } else {
                         out.push(PushInfo {
                             offset: i,
                             opcode: op,
                             value: b[i + 1] as u64,
                             width: 1,
                         });
+                        }
                     }
                 }
 
                 opcodes::PUSH_U16 => {
-                    if let Some(raw) = read_le_u16(b, i + 1) {
+                    if self.pool_enabled {
+                        if i + 1 < b.len() {
+                            let idx = b[i + 1] as u16;
+                            if let Some(val) = self.read_pool_slot_u64(idx) {
+                                out.push(PushInfo {
+                                    offset: i,
+                                    opcode: op,
+                                    value: val,
+                                    width: 1,
+                                });
+                            }
+                        }
+                    } else if let Some(raw) = read_le_u16(b, i + 1) {
                         out.push(PushInfo {
                             offset: i,
                             opcode: op,
@@ -199,7 +296,19 @@ impl BytecodeInspector {
                 }
 
                 opcodes::PUSH_U32 => {
-                    if let Some(raw) = read_le_u32(b, i + 1) {
+                    if self.pool_enabled {
+                        if i + 1 < b.len() {
+                            let idx = b[i + 1] as u16;
+                            if let Some(val) = self.read_pool_slot_u64(idx) {
+                                out.push(PushInfo {
+                                    offset: i,
+                                    opcode: op,
+                                    value: val,
+                                    width: 1,
+                                });
+                            }
+                        }
+                    } else if let Some(raw) = read_le_u32(b, i + 1) {
                         out.push(PushInfo {
                             offset: i,
                             opcode: op,
@@ -210,7 +319,19 @@ impl BytecodeInspector {
                 }
 
                 opcodes::PUSH_U64 => {
-                    if let Some(raw) = read_le_u64(b, i + 1) {
+                    if self.pool_enabled {
+                        if i + 1 < b.len() {
+                            let idx = b[i + 1] as u16;
+                            if let Some(val) = self.read_pool_slot_u64(idx) {
+                                out.push(PushInfo {
+                                    offset: i,
+                                    opcode: op,
+                                    value: val,
+                                    width: 1,
+                                });
+                            }
+                        }
+                    } else if let Some(raw) = read_le_u64(b, i + 1) {
                         out.push(PushInfo {
                             offset: i,
                             opcode: op,
@@ -221,7 +342,19 @@ impl BytecodeInspector {
                 }
 
                 opcodes::PUSH_I64 => {
-                    if let Some(raw) = read_le_u64(b, i + 1) {
+                    if self.pool_enabled {
+                        if i + 1 < b.len() {
+                            let idx = b[i + 1] as u16;
+                            if let Some(val) = self.read_pool_slot_u64(idx) {
+                                out.push(PushInfo {
+                                    offset: i,
+                                    opcode: op,
+                                    value: val,
+                                    width: 1,
+                                });
+                            }
+                        }
+                    } else if let Some(raw) = read_le_u64(b, i + 1) {
                         out.push(PushInfo {
                             offset: i,
                             opcode: op,

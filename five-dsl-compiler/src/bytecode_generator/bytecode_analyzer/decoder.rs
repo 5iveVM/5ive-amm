@@ -6,9 +6,22 @@ pub(crate) fn decode_instructions(analyzer: &mut AdvancedBytecodeAnalyzer) -> Re
     analyzer.position = 0;
     analyzer.instructions.clear();
 
-    // Skip magic bytes if present
-    if analyzer.bytecode.len() >= 4 && &analyzer.bytecode[0..4] == b"5IVE" {
-        analyzer.position = 4;
+    // Parse header (if present) to find instruction start + features
+    match five_protocol::parse_header(&analyzer.bytecode) {
+        Ok((header, start_offset)) => {
+            analyzer.features = header.features;
+            analyzer.start_offset = start_offset;
+            analyzer.position = start_offset;
+        }
+        Err(_) => {
+            analyzer.features = 0;
+            analyzer.start_offset = 0;
+            // Fallback: skip magic bytes if present
+            if analyzer.bytecode.len() >= 4 && &analyzer.bytecode[0..4] == b"5IVE" {
+                analyzer.position = 4;
+                analyzer.start_offset = 4;
+            }
+        }
     }
 
     while analyzer.position < analyzer.bytecode.len() {
@@ -117,6 +130,59 @@ fn decode_operands(
     use five_protocol::opcodes::{ArgType, *};
 
     let mut operands = Vec::new();
+
+    if (analyzer.features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+        match opcode {
+            PUSH_U8
+            | PUSH_U16
+            | PUSH_U32
+            | PUSH_U64
+            | PUSH_I64
+            | PUSH_BOOL
+            | PUSH_PUBKEY
+            | PUSH_U128
+            | PUSH_STRING => {
+                if analyzer.position < analyzer.bytecode.len() {
+                    let value = analyzer.bytecode[analyzer.position];
+                    operands.push(OperandInfo {
+                        operand_type: "pool_index_u8".to_string(),
+                        raw_value: vec![value],
+                        decoded_value: Some(value.to_string()),
+                        size: 1,
+                        description: "Constant pool index (u8)".to_string(),
+                    });
+                    analyzer.position += 1;
+                }
+                return Ok(operands);
+            }
+            PUSH_U8_W
+            | PUSH_U16_W
+            | PUSH_U32_W
+            | PUSH_U64_W
+            | PUSH_I64_W
+            | PUSH_BOOL_W
+            | PUSH_PUBKEY_W
+            | PUSH_U128_W
+            | PUSH_STRING_W => {
+                if analyzer.position + 1 < analyzer.bytecode.len() {
+                    let value = u16::from_le_bytes([
+                        analyzer.bytecode[analyzer.position],
+                        analyzer.bytecode[analyzer.position + 1],
+                    ]);
+                    operands.push(OperandInfo {
+                        operand_type: "pool_index_u16".to_string(),
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
+                        decoded_value: Some(value.to_string()),
+                        size: 2,
+                        description: "Constant pool index (u16)".to_string(),
+                    });
+                    analyzer.position += 2;
+                }
+                return Ok(operands);
+            }
+            _ => {}
+        }
+    }
 
     match arg_type {
         ArgType::None => {

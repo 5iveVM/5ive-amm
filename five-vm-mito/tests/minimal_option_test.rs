@@ -87,6 +87,10 @@ fn test_execution_context_temp_buffer_methods() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     // Test temp slot allocation
@@ -139,6 +143,10 @@ fn test_temp_buffer_exhaustion() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     // Try to allocate too many slots (512 bytes / 17 bytes = 30 slots max)
@@ -183,6 +191,10 @@ fn test_temp_buffer_reset_allows_reuse() {
         instruction_data,
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );

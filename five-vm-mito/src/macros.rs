@@ -146,8 +146,8 @@ macro_rules! vm_push_u128 {
 /// # let bytecode: &[u8] = &[];
 /// # let mut storage = StackStorage::new();
 /// # let mut ctx = ExecutionContext::new(bytecode, &[], Default::default(), &[], 0, &mut storage, 0, 0);
-/// # ctx.push(ValueRef::U64(10)).unwrap();
-/// # ctx.push(ValueRef::U64(5)).unwrap();
+/// # ctx.push(ValueRef::U64(10)).unwrap(, 0, 0, 0, 0);
+/// # ctx.push(ValueRef::U64(5)).unwrap(, 0, 0, 0, 0);
 /// binary_op!(ctx, "ADD", saturating_add);
 /// let result = pop_u64!(ctx);
 /// assert_eq!(result, 15);
@@ -576,7 +576,7 @@ mod tests {
     fn test_pop_push_macros() -> CompactResult<()> {
         let mut storage = StackStorage::new();
         let mut ctx =
-            ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
+            ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0, 0, 0, 0, 0);
 
         vm_push_u64!(ctx, 42);
         push_u8!(ctx, 7);
@@ -598,7 +598,7 @@ mod tests {
     fn test_binary_op_macro() -> CompactResult<()> {
         let mut storage = StackStorage::new();
         let mut ctx =
-            ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0);
+            ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0, 0, 0, 0, 0);
 
         vm_push_u64!(ctx, 10);
         vm_push_u64!(ctx, 5);

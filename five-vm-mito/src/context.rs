@@ -63,6 +63,12 @@ pub struct ExecutionContext<'a> {
     pub total_function_count: u8,  // For internal CALL validation
     pub header_features: u32,      // Raw header feature flags
 
+    // --- Constant pool metadata ---
+    pub pool_offset: u32,
+    pub pool_slots: u16,
+    pub string_blob_offset: u32,
+    pub string_blob_len: u32,
+
     // --- External Solana state ---
     pub program_id: Pubkey,
     pub instruction_data: &'a [u8],
@@ -131,6 +137,10 @@ impl<'a> ExecutionContext<'a> {
         storage: &'a mut StackStorage,
         public_function_count: u8,
         total_function_count: u8,
+        pool_offset: u32,
+        pool_slots: u16,
+        string_blob_offset: u32,
+        string_blob_len: u32,
     ) -> Self {
         let (stack, call_stack, locals, temp, heap) = storage.split_mut();
         Self {
@@ -146,6 +156,10 @@ impl<'a> ExecutionContext<'a> {
             public_function_count,
             total_function_count,
             header_features: 0,
+            pool_offset,
+            pool_slots,
+            string_blob_offset,
+            string_blob_len,
             program_id,
             instruction_data,
             halted: false,
@@ -288,6 +302,55 @@ impl<'a> ExecutionContext<'a> {
     #[inline(always)]
     pub fn set_header_features(&mut self, features: u32) {
         self.header_features = features;
+    }
+
+    #[inline(always)]
+    pub fn pool_enabled(&self) -> bool {
+        (self.header_features & five_protocol::FEATURE_CONSTANT_POOL) != 0
+    }
+
+    #[inline]
+    pub fn read_pool_slot_u64(&self, index: u16) -> CompactResult<u64> {
+        if index >= self.pool_slots {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let start = self.pool_offset as usize + (index as usize) * 8;
+        let end = start + 8;
+        if end > self.bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let bytes = &self.bytecode[start..end];
+        Ok(u64::from_le_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+        ]))
+    }
+
+    #[inline]
+    pub fn read_pool_bytes(&self, index: u16, slots: usize) -> CompactResult<&[u8]> {
+        let needed = index as usize + slots;
+        if needed > self.pool_slots as usize {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let start = self.pool_offset as usize + (index as usize) * 8;
+        let end = start + slots * 8;
+        if end > self.bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        Ok(&self.bytecode[start..end])
+    }
+
+    #[inline]
+    pub fn read_string_blob(&self, offset: u32, len: u32) -> CompactResult<&[u8]> {
+        if len == 0 {
+            return Ok(&[]);
+        }
+        let start = self.string_blob_offset as usize + offset as usize;
+        let end = start + len as usize;
+        if end > self.bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        Ok(&self.bytecode[start..end])
     }
 
     // --- Memory operations (delegated to ResourceManager) ---
@@ -1125,7 +1188,7 @@ mod tests {
         );
         let accounts = [account];
         let mut storage = StackStorage::new();
-        let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0);
+        let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0, 0, 0, 0, 0);
         let metas = [
             AccountMeta {
                 pubkey: account.key(),
@@ -1159,7 +1222,7 @@ mod tests {
         );
         let accounts = [account];
         let mut storage = StackStorage::new();
-        let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0);
+        let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0, 0, 0, 0, 0);
         let metas = [
             AccountMeta {
                 pubkey: account.key(),

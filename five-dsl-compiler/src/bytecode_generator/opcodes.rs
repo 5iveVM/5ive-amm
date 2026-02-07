@@ -4,6 +4,7 @@
 // the bytecode generation process.
 
 use five_protocol::opcodes;
+use five_vm_mito::error::VMError;
 
 /// Trait for opcode emission - to be implemented by the main generator
 pub trait OpcodeEmitter {
@@ -36,6 +37,17 @@ pub trait OpcodeEmitter {
 
     /// Check if test functions should be included in compilation
     fn should_include_tests(&self) -> bool;
+
+    /// Emit constant pool-backed literals
+    fn emit_const_u8(&mut self, value: u8) -> Result<(), VMError>;
+    fn emit_const_u16(&mut self, value: u16) -> Result<(), VMError>;
+    fn emit_const_u32(&mut self, value: u32) -> Result<(), VMError>;
+    fn emit_const_u64(&mut self, value: u64) -> Result<(), VMError>;
+    fn emit_const_i64(&mut self, value: i64) -> Result<(), VMError>;
+    fn emit_const_bool(&mut self, value: bool) -> Result<(), VMError>;
+    fn emit_const_u128(&mut self, value: u128) -> Result<(), VMError>;
+    fn emit_const_pubkey(&mut self, value: &[u8; 32]) -> Result<(), VMError>;
+    fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError>;
 }
 
 /// Implementation of OpcodeEmitter for the main generator
@@ -138,6 +150,72 @@ impl OpcodeEmitter for super::DslBytecodeGenerator {
     fn should_include_tests(&self) -> bool {
         self.should_include_tests()
     }
+
+    fn emit_const_u8(&mut self, value: u8) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_u64(value as u64)?;
+        self.emit_pool_indexed(opcodes::PUSH_U8, opcodes::PUSH_U8_W, idx);
+        Ok(())
+    }
+
+    fn emit_const_u16(&mut self, value: u16) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_u64(value as u64)?;
+        self.emit_pool_indexed(opcodes::PUSH_U16, opcodes::PUSH_U16_W, idx);
+        Ok(())
+    }
+
+    fn emit_const_u32(&mut self, value: u32) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_u64(value as u64)?;
+        self.emit_pool_indexed(opcodes::PUSH_U32, opcodes::PUSH_U32_W, idx);
+        Ok(())
+    }
+
+    fn emit_const_u64(&mut self, value: u64) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_u64(value)?;
+        self.emit_pool_indexed(opcodes::PUSH_U64, opcodes::PUSH_U64_W, idx);
+        Ok(())
+    }
+
+    fn emit_const_i64(&mut self, value: i64) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_u64(value as u64)?;
+        self.emit_pool_indexed(opcodes::PUSH_I64, opcodes::PUSH_I64_W, idx);
+        Ok(())
+    }
+
+    fn emit_const_bool(&mut self, value: bool) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_u64(if value { 1 } else { 0 })?;
+        self.emit_pool_indexed(opcodes::PUSH_BOOL, opcodes::PUSH_BOOL_W, idx);
+        Ok(())
+    }
+
+    fn emit_const_u128(&mut self, value: u128) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_u128(value)?;
+        self.emit_pool_indexed(opcodes::PUSH_U128, opcodes::PUSH_U128_W, idx);
+        Ok(())
+    }
+
+    fn emit_const_pubkey(&mut self, value: &[u8; 32]) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_pubkey(value)?;
+        self.emit_pool_indexed(opcodes::PUSH_PUBKEY, opcodes::PUSH_PUBKEY_W, idx);
+        Ok(())
+    }
+
+    fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_string(value)?;
+        self.emit_pool_indexed(opcodes::PUSH_STRING, opcodes::PUSH_STRING_W, idx);
+        Ok(())
+    }
+}
+
+impl super::DslBytecodeGenerator {
+    fn emit_pool_indexed(&mut self, opcode_u8: u8, opcode_u16: u8, index: u16) {
+        if index <= u8::MAX as u16 {
+            self.emit_opcode(opcode_u8);
+            self.emit_u8(index as u8);
+        } else {
+            self.emit_opcode(opcode_u16);
+            self.emit_u16(index);
+        }
+    }
 }
 
 /// Common opcode emission patterns for convenient use
@@ -145,7 +223,7 @@ pub struct OpcodePatterns;
 
 impl OpcodePatterns {
     /// Emit a PUSH_U64 instruction with a 64-bit value
-    pub fn emit_push_u64(emitter: &mut impl OpcodeEmitter, value: u64) {
+    pub fn emit_push_u64(emitter: &mut impl OpcodeEmitter, value: u64) -> Result<(), VMError> {
         // Optimization: Use dedicated 1-byte opcodes for 0-3
         match value {
             0 => emitter.emit_opcode(opcodes::PUSH_ZERO),
@@ -153,93 +231,73 @@ impl OpcodePatterns {
             2 => emitter.emit_opcode(opcodes::PUSH_2),
             3 => emitter.emit_opcode(opcodes::PUSH_3),
             _ => {
-                emitter.emit_opcode(opcodes::PUSH_U64);
-                // VM expects fixed 8-byte LE value for PUSH_U64
-                emitter.emit_u64(value);
+                emitter.emit_const_u64(value)?;
             }
         }
+        Ok(())
     }
 
     /// Emit a PUSH_U32 instruction with a 32-bit value (fixed LE)
-    pub fn emit_push_u32(emitter: &mut impl OpcodeEmitter, value: u32) {
-        emitter.emit_opcode(opcodes::PUSH_U32);
-        emitter.emit_u32(value);
+    pub fn emit_push_u32(emitter: &mut impl OpcodeEmitter, value: u32) -> Result<(), VMError> {
+        emitter.emit_const_u32(value)
     }
 
     /// Emit a PUSH_U16 instruction with a 16-bit value (fixed LE)
-    pub fn emit_push_u16(emitter: &mut impl OpcodeEmitter, value: u16) {
-        emitter.emit_opcode(opcodes::PUSH_U16);
-        emitter.emit_u16(value);
+    pub fn emit_push_u16(emitter: &mut impl OpcodeEmitter, value: u16) -> Result<(), VMError> {
+        emitter.emit_const_u16(value)
     }
 
     /// Emit a PUSH_U128 instruction with a 128-bit value - MITO-style BPF-optimized
-    pub fn emit_push_u128(emitter: &mut impl OpcodeEmitter, value: u128) {
-        emitter.emit_opcode(opcodes::PUSH_U128);
-        emitter.emit_bytes(&value.to_le_bytes());
+    pub fn emit_push_u128(emitter: &mut impl OpcodeEmitter, value: u128) -> Result<(), VMError> {
+        emitter.emit_const_u128(value)
     }
 
     /// Emit a PUSH_U8 instruction with a u8 value
-    pub fn emit_push_u8(emitter: &mut impl OpcodeEmitter, value: u8) {
+    pub fn emit_push_u8(emitter: &mut impl OpcodeEmitter, value: u8) -> Result<(), VMError> {
         match value {
             0 => emitter.emit_opcode(opcodes::PUSH_ZERO),
             1 => emitter.emit_opcode(opcodes::PUSH_ONE),
             2 => emitter.emit_opcode(opcodes::PUSH_2),
             3 => emitter.emit_opcode(opcodes::PUSH_3),
             _ => {
-                emitter.emit_opcode(opcodes::PUSH_U8);
-                emitter.emit_u8(value);
+                emitter.emit_const_u8(value)?;
             }
         }
+        Ok(())
     }
 
     /// Emit a PUSH_BOOL instruction with a boolean value
-    pub fn emit_push_bool(emitter: &mut impl OpcodeEmitter, value: bool) {
-        emitter.emit_opcode(opcodes::PUSH_BOOL);
-        emitter.emit_u8(if value { 1 } else { 0 });
+    pub fn emit_push_bool(emitter: &mut impl OpcodeEmitter, value: bool) -> Result<(), VMError> {
+        emitter.emit_const_bool(value)
     }
 
     /// Emit a PUSH_PUBKEY instruction with a pubkey
-    pub fn emit_push_pubkey(emitter: &mut impl OpcodeEmitter, value: &[u8; 32]) {
-        emitter.emit_opcode(opcodes::PUSH_PUBKEY);
-        emitter.emit_bytes(value);
+    pub fn emit_push_pubkey(emitter: &mut impl OpcodeEmitter, value: &[u8; 32]) -> Result<(), VMError> {
+        emitter.emit_const_pubkey(value)
     }
 
     /// Emit a PUSH_STRING instruction with a string index
-    pub fn emit_push_string(emitter: &mut impl OpcodeEmitter, value: u8) {
-        emitter.emit_opcode(opcodes::PUSH_STRING);
-        // PUSH_STRING uses fixed u32 length + bytes
-        // But here `value` is u8 (an index?), wait.
-        // The implementation in `DslBytecodeGenerator::visit_literal_string` likely handles PUSH_STRING content.
-        // Here `emit_push_string` seems to expect `value` as some u8?
-        // Ah, PUSH_STRING opcode (0x67) expects length + bytes.
-        // PUSH_STRING_LITERAL (0x66) expects u8 length + bytes.
-        // The usage here is ambiguous without context.
-        // Assuming `value` is meant to be a length, u8 length fits in u32.
-        // But PUSH_STRING takes u32 length.
-        // If this function is emitting just opcode + length, then:
-        emitter.emit_u32(value as u32);
-        // Bytes should follow
+    pub fn emit_push_string(emitter: &mut impl OpcodeEmitter, value: &[u8]) -> Result<(), VMError> {
+        emitter.emit_const_string(value)
     }
 
     /// Emit account reference as a PUSH_U8 instruction (PUSH_ACCOUNT was removed)
-    pub fn emit_push_account(emitter: &mut impl OpcodeEmitter, value: u8) {
-        emitter.emit_opcode(opcodes::PUSH_U8);
-        emitter.emit_u8(value);
+    pub fn emit_push_account(emitter: &mut impl OpcodeEmitter, value: u8) -> Result<(), VMError> {
+        emitter.emit_const_u8(value)
     }
 
     /// Emit a PUSH_I64 instruction with an i64 value
-    pub fn emit_push_i64(emitter: &mut impl OpcodeEmitter, value: i64) {
+    pub fn emit_push_i64(emitter: &mut impl OpcodeEmitter, value: i64) -> Result<(), VMError> {
         match value {
             0 => emitter.emit_opcode(opcodes::PUSH_ZERO),
             1 => emitter.emit_opcode(opcodes::PUSH_ONE),
             2 => emitter.emit_opcode(opcodes::PUSH_2),
             3 => emitter.emit_opcode(opcodes::PUSH_3),
             _ => {
-                emitter.emit_opcode(opcodes::PUSH_I64);
-                // I64 uses fixed 8-byte LE value
-                emitter.emit_u64(value as u64);
+                emitter.emit_const_i64(value)?;
             }
         }
+        Ok(())
     }
 
     /// Emit a LOAD_FIELD instruction with account index and field index
@@ -347,6 +405,15 @@ impl OpcodeAnalyzer {
                 | opcodes::PUSH_BOOL
                 | opcodes::PUSH_PUBKEY
                 | opcodes::PUSH_STRING
+                | opcodes::PUSH_U8_W
+                | opcodes::PUSH_U16_W
+                | opcodes::PUSH_U32_W
+                | opcodes::PUSH_U64_W
+                | opcodes::PUSH_I64_W
+                | opcodes::PUSH_BOOL_W
+                | opcodes::PUSH_PUBKEY_W
+                | opcodes::PUSH_U128_W
+                | opcodes::PUSH_STRING_W
                 | opcodes::LOAD_FIELD
                 | opcodes::STORE_FIELD
                 | opcodes::JUMP
@@ -401,6 +468,15 @@ impl OpcodeAnalyzer {
             opcodes::PUSH_U8 => 1,
             opcodes::PUSH_U16 => 2, // Fixed 2 bytes
             opcodes::PUSH_U32 => 4, // Fixed 4 bytes
+            opcodes::PUSH_U8_W
+            | opcodes::PUSH_U16_W
+            | opcodes::PUSH_U32_W
+            | opcodes::PUSH_U64_W
+            | opcodes::PUSH_I64_W
+            | opcodes::PUSH_BOOL_W
+            | opcodes::PUSH_U128_W
+            | opcodes::PUSH_PUBKEY_W
+            | opcodes::PUSH_STRING_W => 2, // u16 pool index
             opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 5, // u8 + u32
             opcodes::JUMP | opcodes::JUMP_IF_NOT | opcodes::JUMP_IF => 2, // 16-bit offset
             opcodes::CALL => 3, // 8-bit param_count + 16-bit function_address
@@ -445,7 +521,17 @@ impl OpcodeAnalyzer {
                 | opcodes::PUSH_I64
                 | opcodes::PUSH_BOOL
                 | opcodes::PUSH_PUBKEY
+                | opcodes::PUSH_U128
                 | opcodes::PUSH_STRING
+                | opcodes::PUSH_U8_W
+                | opcodes::PUSH_U16_W
+                | opcodes::PUSH_U32_W
+                | opcodes::PUSH_U64_W
+                | opcodes::PUSH_I64_W
+                | opcodes::PUSH_BOOL_W
+                | opcodes::PUSH_PUBKEY_W
+                | opcodes::PUSH_U128_W
+                | opcodes::PUSH_STRING_W
                 | opcodes::LOAD_FIELD
                 | opcodes::ADD
                 | opcodes::SUB

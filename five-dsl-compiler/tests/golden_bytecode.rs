@@ -1,5 +1,5 @@
 use five_dsl_compiler::DslCompiler;
-use five_protocol::opcodes;
+use five_protocol::{opcodes, ConstantPoolDescriptor, FEATURE_CONSTANT_POOL, FEATURE_FUNCTION_NAMES, FIVE_HEADER_OPTIMIZED_SIZE};
 use std::collections::VecDeque;
 
 /// Helper: find all positions of a raw opcode byte in the bytecode
@@ -35,6 +35,10 @@ fn golden_arithmetic_mul_then_add() {
 
     let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
 
+    // Detect constant pool layout if present
+    let (pool_info, code_start) = parse_constant_pool_layout(&bytecode);
+    let code = &bytecode[code_start..];
+
     const PUSH_OPCODES: [u8; 4] = [
         opcodes::PUSH_U8,
         opcodes::PUSH_U16,
@@ -43,8 +47,8 @@ fn golden_arithmetic_mul_then_add() {
     ];
 
     // Find MUL and ADD opcodes
-    let mul_positions = find_opcode_positions(&bytecode, opcodes::MUL);
-    let add_positions = find_opcode_positions(&bytecode, opcodes::ADD);
+    let mul_positions = find_opcode_positions(code, opcodes::MUL);
+    let add_positions = find_opcode_positions(code, opcodes::ADD);
 
     // If MUL exists, require at least one ADD and that a MUL occurs before an ADD
     if !mul_positions.is_empty() {
@@ -74,26 +78,104 @@ fn golden_arithmetic_mul_then_add() {
         ];
         let mut found_folded = false;
 
-        for &push_opcode in &PUSH_OPCODES {
-            let push_positions = find_opcode_positions(&bytecode, push_opcode);
-            for &p in &push_positions {
-                // Decode the fixed-size immediate after PUSH_U64 opcode
-                if p + 9 <= bytecode.len() {
-                    let mut bytes = [0u8; 8];
-                    bytes.copy_from_slice(&bytecode[p + 1..p + 9]);
-                    let val = u64::from_le_bytes(bytes);
-                    if val == 12 {
-                        // Check there is an ADD after this push
-                        let add_after = add_positions.iter().any(|&ap| ap > p);
-                        if add_after {
-                            found_folded = true;
-                            break;
+        if let Some((pool_offset, pool_slots)) = pool_info {
+            // Constant pool mode: PUSH_* is index into pool slots.
+            let mut i = 0usize;
+            while i < code.len() {
+                let op = code[i];
+                if matches!(
+                    op,
+                    opcodes::PUSH_U8
+                        | opcodes::PUSH_U16
+                        | opcodes::PUSH_U32
+                        | opcodes::PUSH_U64
+                        | opcodes::PUSH_I64
+                        | opcodes::PUSH_BOOL
+                        | opcodes::PUSH_PUBKEY
+                        | opcodes::PUSH_U128
+                        | opcodes::PUSH_STRING
+                ) {
+                    if i + 1 >= code.len() {
+                        break;
+                    }
+                    let idx = code[i + 1] as u16;
+                    if idx < pool_slots {
+                        let start = pool_offset + idx as usize * 8;
+                        if start + 8 <= bytecode.len() {
+                            let mut bytes = [0u8; 8];
+                            bytes.copy_from_slice(&bytecode[start..start + 8]);
+                            let val = u64::from_le_bytes(bytes);
+                            if val == 12 {
+                                let add_after = add_positions.iter().any(|&ap| ap > i);
+                                if add_after {
+                                    found_folded = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    i += 2;
+                    continue;
+                }
+                if matches!(
+                    op,
+                    opcodes::PUSH_U8_W
+                        | opcodes::PUSH_U16_W
+                        | opcodes::PUSH_U32_W
+                        | opcodes::PUSH_U64_W
+                        | opcodes::PUSH_I64_W
+                        | opcodes::PUSH_BOOL_W
+                        | opcodes::PUSH_PUBKEY_W
+                        | opcodes::PUSH_U128_W
+                        | opcodes::PUSH_STRING_W
+                ) {
+                    if i + 2 >= code.len() {
+                        break;
+                    }
+                    let idx = u16::from_le_bytes([code[i + 1], code[i + 2]]);
+                    if idx < pool_slots {
+                        let start = pool_offset + idx as usize * 8;
+                        if start + 8 <= bytecode.len() {
+                            let mut bytes = [0u8; 8];
+                            bytes.copy_from_slice(&bytecode[start..start + 8]);
+                            let val = u64::from_le_bytes(bytes);
+                            if val == 12 {
+                                let add_after = add_positions.iter().any(|&ap| ap > i);
+                                if add_after {
+                                    found_folded = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    i += 3;
+                    continue;
+                }
+                i += 1;
+            }
+        } else {
+            // Legacy mode: PUSH_UX immediate encodings
+            for &push_opcode in &PUSH_OPCODES {
+                let push_positions = find_opcode_positions(code, push_opcode);
+                for &p in &push_positions {
+                    // Decode the fixed-size immediate after PUSH_U64 opcode
+                    if p + 9 <= code.len() {
+                        let mut bytes = [0u8; 8];
+                        bytes.copy_from_slice(&code[p + 1..p + 9]);
+                        let val = u64::from_le_bytes(bytes);
+                        if val == 12 {
+                            // Check there is an ADD after this push
+                            let add_after = add_positions.iter().any(|&ap| ap > p);
+                            if add_after {
+                                found_folded = true;
+                                break;
+                            }
                         }
                     }
                 }
-            }
-            if found_folded {
-                break;
+                if found_folded {
+                    break;
+                }
             }
         }
 
@@ -108,13 +190,44 @@ fn golden_arithmetic_mul_then_add() {
     // Additionally assert we have a reasonable number of literal pushes (PUSH_U64) present
     let push_literal_count: usize = PUSH_OPCODES
         .iter()
-        .map(|&opcode| count_opcode(&bytecode, opcode))
+        .map(|&opcode| count_opcode(code, opcode))
         .sum();
     assert!(
         push_literal_count >= 1,
         "Golden check warning: expected at least 1 PUSH immediate in bytecode for arithmetic literals, found {}",
         push_literal_count
     );
+}
+
+fn parse_constant_pool_layout(bytecode: &[u8]) -> (Option<(usize, u16)>, usize) {
+    if bytecode.len() < FIVE_HEADER_OPTIMIZED_SIZE || &bytecode[0..4] != b"5IVE" {
+        return (None, 0);
+    }
+    let features = u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]]);
+    let mut offset = FIVE_HEADER_OPTIMIZED_SIZE;
+    if (features & FEATURE_FUNCTION_NAMES) != 0 {
+        if offset + 2 > bytecode.len() {
+            return (None, offset.min(bytecode.len()));
+        }
+        let section_size = u16::from_le_bytes([bytecode[offset], bytecode[offset + 1]]) as usize;
+        offset += 2 + section_size;
+    }
+    if (features & FEATURE_CONSTANT_POOL) == 0 {
+        return (None, offset.min(bytecode.len()));
+    }
+    if offset + core::mem::size_of::<ConstantPoolDescriptor>() > bytecode.len() {
+        return (None, offset.min(bytecode.len()));
+    }
+    let desc = ConstantPoolDescriptor {
+        pool_offset: u32::from_le_bytes([bytecode[offset], bytecode[offset + 1], bytecode[offset + 2], bytecode[offset + 3]]),
+        string_blob_offset: u32::from_le_bytes([bytecode[offset + 4], bytecode[offset + 5], bytecode[offset + 6], bytecode[offset + 7]]),
+        string_blob_len: u32::from_le_bytes([bytecode[offset + 8], bytecode[offset + 9], bytecode[offset + 10], bytecode[offset + 11]]),
+        pool_slots: u16::from_le_bytes([bytecode[offset + 12], bytecode[offset + 13]]),
+        reserved: u16::from_le_bytes([bytecode[offset + 14], bytecode[offset + 15]]),
+    };
+    let pool_offset = desc.pool_offset as usize;
+    let code_offset = pool_offset + desc.pool_slots as usize * 8;
+    (Some((pool_offset, desc.pool_slots)), code_offset.min(bytecode.len()))
 }
 
 /// Golden test: verify left-associative division emits two DIVs in left-associative order for `6 / 2 / 3`

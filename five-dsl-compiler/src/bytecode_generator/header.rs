@@ -51,11 +51,13 @@ impl DslBytecodeGenerator {
             total_function_count: total_count,
         };
 
-        // Emit header bytes according to agreed layout
-        self.emit_bytes(&header.magic); // 0..4
-        self.emit_u32(header.features); // 4..8 (u32 le)
-        self.emit_u8(header.public_function_count); // 8
-        self.emit_u8(header.total_function_count); // 9
+        // Emit header bytes according to agreed layout (store separately from code)
+        self.header_bytes.clear();
+        self.header_bytes.extend_from_slice(&header.magic); // 0..4
+        self.header_bytes.extend_from_slice(&header.features.to_le_bytes()); // 4..8
+        self.header_bytes.push(header.public_function_count); // 8
+        self.header_bytes.push(header.total_function_count); // 9
+        self.header_features = production_features;
 
         // Logging helpers for diagnostics
         self.log_opcode("MAGIC", "Five VM bytecode magic bytes '5IVE'");

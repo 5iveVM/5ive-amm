@@ -18,7 +18,7 @@ use crate::{
     stack_error_context, // Import enhanced debugging macros
     FIVE_MAGIC,
 };
-use five_protocol::{Value, ValueRef, FIVE_HEADER_OPTIMIZED_SIZE};
+use five_protocol::{ConstantPoolDescriptor, Value, ValueRef, FIVE_HEADER_OPTIMIZED_SIZE};
 
 
 use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
@@ -92,7 +92,7 @@ impl MitoVM {
             debug_log!("MitoVM: Account count: {}", accounts.len() as u32);
         }
 
-        let (start_ip, public_function_count, total_function_count, header_features) =
+        let (start_ip, public_function_count, total_function_count, header_features, pool_desc) =
             Self::parse_optimized_header(script)?;
 
         debug_log!("MitoVM: Creating ExecutionManager...");
@@ -112,6 +112,10 @@ impl MitoVM {
             storage,
             public_function_count,
             total_function_count,
+            pool_desc.map(|d| d.pool_offset).unwrap_or(0),
+            pool_desc.map(|d| d.pool_slots).unwrap_or(0),
+            pool_desc.map(|d| d.string_blob_offset).unwrap_or(0),
+            pool_desc.map(|d| d.string_blob_len).unwrap_or(0),
         );
         ctx.set_header_features(header_features);
         ctx.set_ip(start_ip); // Set correct starting position via delegation
@@ -224,6 +228,14 @@ impl MitoVM {
                 PUSH_BOOL => handle_stack_ops(PUSH_BOOL, ctx),
                 PUSH_PUBKEY => handle_stack_ops(PUSH_PUBKEY, ctx),
                 PUSH_U128 => handle_stack_ops(PUSH_U128, ctx),
+                PUSH_U8_W => handle_stack_ops(PUSH_U8_W, ctx),
+                PUSH_U16_W => handle_stack_ops(PUSH_U16_W, ctx),
+                PUSH_U32_W => handle_stack_ops(PUSH_U32_W, ctx),
+                PUSH_U64_W => handle_stack_ops(PUSH_U64_W, ctx),
+                PUSH_I64_W => handle_stack_ops(PUSH_I64_W, ctx),
+                PUSH_BOOL_W => handle_stack_ops(PUSH_BOOL_W, ctx),
+                PUSH_PUBKEY_W => handle_stack_ops(PUSH_PUBKEY_W, ctx),
+                PUSH_U128_W => handle_stack_ops(PUSH_U128_W, ctx),
 
                 // Arithmetic Operations (0x20-0x2F)
                 ADD => handle_arithmetic(ADD, ctx),
@@ -293,6 +305,7 @@ impl MitoVM {
                 ARRAY_GET => handle_arrays(ARRAY_GET, ctx),
                 PUSH_STRING_LITERAL => handle_arrays(PUSH_STRING_LITERAL, ctx),
                 PUSH_STRING => handle_arrays(PUSH_STRING, ctx),
+                PUSH_STRING_W => handle_arrays(PUSH_STRING_W, ctx),
 
                 // Constraint Operations (0x70-0x7F)
                 CHECK_SIGNER => handle_constraints(CHECK_SIGNER, ctx),
@@ -616,9 +629,9 @@ impl MitoVM {
     }
 
     /// Parse optimized script header (10 bytes)
-    /// Returns (instruction_pointer_start, public_function_count, total_function_count, features)
+    /// Returns (instruction_pointer_start, public_function_count, total_function_count, features, pool_desc)
     #[inline]
-    fn parse_optimized_header(script: &[u8]) -> CompactResult<(usize, u8, u8, u32)> {
+    fn parse_optimized_header(script: &[u8]) -> CompactResult<(usize, u8, u8, u32, Option<ConstantPoolDescriptor>)> {
         if script.len() < FIVE_HEADER_OPTIMIZED_SIZE {
             return Err(VMErrorCode::InvalidScript);
         }
@@ -641,7 +654,63 @@ impl MitoVM {
             return Err(VMErrorCode::InvalidScript);
         }
 
-        let start_ip = Self::compute_instruction_start_fast(script, features, public_function_count);
+        let metadata_end = Self::compute_metadata_end(script, features, public_function_count);
+        let mut start_ip = metadata_end;
+        let mut pool_desc = None;
+
+        if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+            let desc_size = core::mem::size_of::<ConstantPoolDescriptor>();
+            if metadata_end + desc_size > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+
+            let desc = ConstantPoolDescriptor {
+                pool_offset: u32::from_le_bytes([
+                    script[metadata_end],
+                    script[metadata_end + 1],
+                    script[metadata_end + 2],
+                    script[metadata_end + 3],
+                ]),
+                string_blob_offset: u32::from_le_bytes([
+                    script[metadata_end + 4],
+                    script[metadata_end + 5],
+                    script[metadata_end + 6],
+                    script[metadata_end + 7],
+                ]),
+                string_blob_len: u32::from_le_bytes([
+                    script[metadata_end + 8],
+                    script[metadata_end + 9],
+                    script[metadata_end + 10],
+                    script[metadata_end + 11],
+                ]),
+                pool_slots: u16::from_le_bytes([script[metadata_end + 12], script[metadata_end + 13]]),
+                reserved: u16::from_le_bytes([script[metadata_end + 14], script[metadata_end + 15]]),
+            };
+
+            let pool_offset = desc.pool_offset as usize;
+            if pool_offset % 8 != 0 {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            if pool_offset < metadata_end + desc_size {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            let pool_size = (desc.pool_slots as usize) * 8;
+            let code_offset = pool_offset + pool_size;
+            if code_offset > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+
+            if desc.string_blob_len > 0 {
+                let blob_offset = desc.string_blob_offset as usize;
+                let blob_end = blob_offset.saturating_add(desc.string_blob_len as usize);
+                if blob_end > script.len() {
+                    return Err(VMErrorCode::InvalidScript);
+                }
+            }
+
+            start_ip = code_offset;
+            pool_desc = Some(desc);
+        }
 
         #[cfg(feature = "debug-logs")]
         {
@@ -661,12 +730,13 @@ impl MitoVM {
             public_function_count,
             total_function_count,
             features,
+            pool_desc,
         ))
     }
 
     /// Fast metadata offset computation
     #[inline]
-    fn compute_instruction_start_fast(script: &[u8], features: u32, public_count: u8) -> usize {
+    fn compute_metadata_end(script: &[u8], features: u32, public_count: u8) -> usize {
         const FEATURE_FUNCTION_NAMES: u32 = 1 << 8;
 
         if (features & FEATURE_FUNCTION_NAMES) == 0 || public_count == 0 {
@@ -714,7 +784,7 @@ mod tests {
     #[test]
     fn parse_optimized_header_success() {
         let script = build_script(3, 3, &[0x00, 0x00, 0x00]);
-        let (start_ip, public_function_count, total_function_count, features) =
+        let (start_ip, public_function_count, total_function_count, features, _) =
             MitoVM::parse_optimized_header(&script).unwrap();
         assert_eq!(start_ip, FIVE_HEADER_OPTIMIZED_SIZE);
         assert_eq!(public_function_count, 3);
@@ -733,7 +803,7 @@ mod tests {
         ];
         let result = MitoVM::parse_optimized_header(&script);
         assert!(result.is_ok());
-        let (start_ip, public_count, total_count, _) = result.unwrap();
+        let (start_ip, public_count, total_count, _, _) = result.unwrap();
         assert_eq!(public_count, 1);
         assert_eq!(total_count, 1);
         assert_eq!(start_ip, 10);

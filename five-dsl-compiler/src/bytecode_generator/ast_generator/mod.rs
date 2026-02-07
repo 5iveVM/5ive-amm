@@ -202,17 +202,8 @@ impl ASTGenerator {
             }
 
             AstNode::StringLiteral { value } => {
-                // Emit PUSH_STRING opcode
-                emitter.emit_opcode(PUSH_STRING);
-
-                // Convert to UTF-8 bytes (compile-time UTF-8 validation)
                 let utf8_bytes = value.as_bytes();
-
-                // Emit fixed length (u32)
-                emitter.emit_u32(utf8_bytes.len() as u32);
-
-                // Emit string data
-                emitter.emit_bytes(utf8_bytes);
+                emitter.emit_const_string(utf8_bytes)?;
 
                 Ok(())
             }

@@ -1330,7 +1330,9 @@ impl BytecodeAnalyzer {
         }
 
         let mut instructions = Vec::new();
-        let mut i = 4; // Skip magic bytes
+        let (header, start_offset) = five_protocol::parse_header(bytecode)
+            .map_err(|e| format!("Header parse failed: {:?}", e))?;
+        let mut i = start_offset;
 
         while i < bytecode.len() {
             let opcode = bytecode[i];
@@ -1338,11 +1340,11 @@ impl BytecodeAnalyzer {
                 "offset": i,
                 "opcode": opcode,
                 "name": opcode_to_name(opcode),
-                "size": get_instruction_size(opcode, &bytecode[i..])
+                "size": get_instruction_size_with_features(opcode, &bytecode[i..], header.features)
             });
             instructions.push(instruction_info);
 
-            i += get_instruction_size(opcode, &bytecode[i..]);
+            i += get_instruction_size_with_features(opcode, &bytecode[i..], header.features);
         }
 
         Ok(serde_json::json!({
@@ -1606,7 +1608,40 @@ fn opcode_to_name(opcode: u8) -> &'static str {
 
 /// Helper function to get instruction size
 fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
+    get_instruction_size_with_features(opcode, bytes, 0)
+}
+
+fn get_instruction_size_with_features(opcode: u8, bytes: &[u8], features: u32) -> usize {
     use five_protocol::opcodes::{get_opcode_info, ArgType};
+
+    // Constant pool mode: PUSH_* operands are indices (u8) and _W are u16
+    if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+        match opcode {
+            five_protocol::opcodes::PUSH_U8
+            | five_protocol::opcodes::PUSH_U16
+            | five_protocol::opcodes::PUSH_U32
+            | five_protocol::opcodes::PUSH_U64
+            | five_protocol::opcodes::PUSH_I64
+            | five_protocol::opcodes::PUSH_BOOL
+            | five_protocol::opcodes::PUSH_PUBKEY
+            | five_protocol::opcodes::PUSH_U128
+            | five_protocol::opcodes::PUSH_STRING => {
+                return 2;
+            }
+            five_protocol::opcodes::PUSH_U8_W
+            | five_protocol::opcodes::PUSH_U16_W
+            | five_protocol::opcodes::PUSH_U32_W
+            | five_protocol::opcodes::PUSH_U64_W
+            | five_protocol::opcodes::PUSH_I64_W
+            | five_protocol::opcodes::PUSH_BOOL_W
+            | five_protocol::opcodes::PUSH_PUBKEY_W
+            | five_protocol::opcodes::PUSH_U128_W
+            | five_protocol::opcodes::PUSH_STRING_W => {
+                return 3;
+            }
+            _ => {}
+        }
+    }
 
     // Attempt to get from protocol table first
     if let Some(info) = get_opcode_info(opcode) {
@@ -1645,6 +1680,8 @@ fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
                     } else {
                         5 // At least header
                     }
+                } else if opcode == five_protocol::opcodes::PUSH_STRING_W {
+                    3
                 } else if opcode == five_protocol::opcodes::CALL_EXTERNAL {
                     5
                 } else if opcode == five_protocol::opcodes::CALL {
@@ -4041,11 +4078,14 @@ impl WasmFiveCompiler {
 
         // Simple optimization: remove consecutive PUSH/POP pairs
         let mut optimized = Vec::new();
-        let mut i = 0;
+        let (header, start_offset) = five_protocol::parse_header(bytecode)
+            .map_err(|e| format!("Header parse failed: {:?}", e))?;
+        optimized.extend_from_slice(&bytecode[..start_offset]);
+        let mut i = start_offset;
 
         while i < bytecode.len() {
             let opcode = bytecode[i];
-            let instruction_size = get_instruction_size(opcode, &bytecode[i..]);
+            let instruction_size = get_instruction_size_with_features(opcode, &bytecode[i..], header.features);
 
             // Ensure we have enough bytes for this instruction
             if i + instruction_size > bytecode.len() {
@@ -4055,11 +4095,27 @@ impl WasmFiveCompiler {
             }
 
             // Check for PUSH variants
-            let is_push = opcode == opcodes::PUSH_U64
-                || opcode == opcodes::PUSH_U8
-                || opcode == opcodes::PUSH_I64
-                || opcode == opcodes::PUSH_BOOL
-                || opcode == opcodes::PUSH_PUBKEY;
+            let is_push = matches!(
+                opcode,
+                opcodes::PUSH_U8
+                    | opcodes::PUSH_U16
+                    | opcodes::PUSH_U32
+                    | opcodes::PUSH_U64
+                    | opcodes::PUSH_I64
+                    | opcodes::PUSH_BOOL
+                    | opcodes::PUSH_U128
+                    | opcodes::PUSH_PUBKEY
+                    | opcodes::PUSH_STRING
+                    | opcodes::PUSH_U8_W
+                    | opcodes::PUSH_U16_W
+                    | opcodes::PUSH_U32_W
+                    | opcodes::PUSH_U64_W
+                    | opcodes::PUSH_I64_W
+                    | opcodes::PUSH_BOOL_W
+                    | opcodes::PUSH_U128_W
+                    | opcodes::PUSH_PUBKEY_W
+                    | opcodes::PUSH_STRING_W
+            );
 
             if is_push {
                 let next_instruction_idx = i + instruction_size;
@@ -5231,25 +5287,36 @@ mod internal_tests {
 }
 
 #[cfg(test)]
+fn build_min_header() -> Vec<u8> {
+    let mut header = Vec::new();
+    header.extend_from_slice(&five_protocol::FIVE_MAGIC);
+    header.extend_from_slice(&0u32.to_le_bytes()); // features
+    header.push(0); // public_function_count
+    header.push(0); // total_function_count
+    header
+}
+
+#[cfg(test)]
 mod analyzer_tests {
     use super::*;
-    use five_protocol::FIVE_MAGIC;
+    use five_protocol::opcodes;
 
     #[test]
     fn test_analyze_internal_simple() {
-        let mut bytecode = FIVE_MAGIC.to_vec();
-        bytecode.push(0x00); // HALT
+        let mut bytecode = build_min_header();
+        bytecode.push(opcodes::HALT);
 
         let result = BytecodeAnalyzer::analyze_internal(&bytecode);
         assert!(result.is_ok());
         let json = result.unwrap();
 
-        assert_eq!(json["total_size"], 5);
+        assert_eq!(json["total_size"], 11);
         assert_eq!(json["instruction_count"], 1);
 
         let instructions = json["instructions"].as_array().unwrap();
         assert_eq!(instructions.len(), 1);
-        assert_eq!(instructions[0]["opcode"], 0);
+        assert_eq!(instructions[0]["offset"], 10);
+        assert_eq!(instructions[0]["opcode"], opcodes::HALT);
         assert_eq!(instructions[0]["name"], "HALT");
     }
 
@@ -5262,8 +5329,8 @@ mod analyzer_tests {
 
     #[test]
     fn test_analyze_semantic_internal_simple() {
-        let mut bytecode = FIVE_MAGIC.to_vec();
-        bytecode.push(0x00); // HALT
+        let mut bytecode = build_min_header();
+        bytecode.push(opcodes::HALT);
 
         let result = BytecodeAnalyzer::analyze_semantic_internal(&bytecode);
         assert!(result.is_ok());
@@ -5282,15 +5349,15 @@ mod analyzer_tests {
 
     #[test]
     fn test_get_bytecode_summary_internal() {
-        let mut bytecode = FIVE_MAGIC.to_vec();
-        bytecode.push(0x00); // HALT
+        let mut bytecode = build_min_header();
+        bytecode.push(opcodes::HALT);
 
         let result = BytecodeAnalyzer::get_bytecode_summary_internal(&bytecode);
         assert!(result.is_ok());
         let json = result.unwrap();
 
-        assert_eq!(json["total_instructions"], 1);
-        assert_eq!(json["total_size"], 5);
+        assert_eq!(json["total_instructions"], 3);
+        assert_eq!(json["total_size"], 11);
     }
 }
 
@@ -5398,7 +5465,8 @@ mod compiler_tests {
 
     #[test]
     fn test_optimize_bytecode_no_change() {
-        let bytecode = vec![opcodes::ADD, opcodes::SUB];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::ADD, opcodes::SUB]);
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
         assert_eq!(result, bytecode);
     }
@@ -5407,12 +5475,15 @@ mod compiler_tests {
     fn test_optimize_push_u8_pop() {
         // PUSH_U8 (0x1C) + value + POP (0x06)
         // Should be optimized away
-        let mut bytecode = vec![opcodes::PUSH_U8, 42, opcodes::POP];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 42, opcodes::POP]);
         // Add a HALT at the end to verify we don't optimize too much
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
-        assert_eq!(result, vec![opcodes::HALT]);
+        let mut expected = build_min_header();
+        expected.push(opcodes::HALT);
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -5420,18 +5491,22 @@ mod compiler_tests {
         // PUSH_U64 (0x1B) + U64 value + POP (0x06)
         let bytes = 1000u64.to_le_bytes();
 
-        let mut bytecode = vec![opcodes::PUSH_U64];
+        let mut bytecode = build_min_header();
+        bytecode.push(opcodes::PUSH_U64);
         bytecode.extend_from_slice(&bytes);
         bytecode.push(opcodes::POP);
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
-        assert_eq!(result, vec![opcodes::HALT]);
+        let mut expected = build_min_header();
+        expected.push(opcodes::HALT);
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn test_optimize_push_no_pop() {
-        let mut bytecode = vec![opcodes::PUSH_U8, 42];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 42]);
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
@@ -5440,31 +5515,37 @@ mod compiler_tests {
 
     #[test]
     fn test_optimize_pop_no_push() {
-        let bytecode = vec![opcodes::POP, opcodes::HALT];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::POP, opcodes::HALT]);
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
         assert_eq!(result, bytecode);
     }
 
     #[test]
     fn test_optimize_consecutive() {
-        let mut bytecode = vec![opcodes::PUSH_U8, 1, opcodes::POP];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 1, opcodes::POP]);
         bytecode.extend_from_slice(&[opcodes::PUSH_U8, 2, opcodes::POP]);
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
-        assert_eq!(result, vec![opcodes::HALT]);
+        let mut expected = build_min_header();
+        expected.push(opcodes::HALT);
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn test_optimize_interleaved() {
         // PUSH 1, POP, PUSH 2, HALT
-        let mut bytecode = vec![opcodes::PUSH_U8, 1, opcodes::POP];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 1, opcodes::POP]);
         bytecode.extend_from_slice(&[opcodes::PUSH_U8, 2]);
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
         // Should remove first PUSH/POP
-        let expected = vec![opcodes::PUSH_U8, 2, opcodes::HALT];
+        let mut expected = build_min_header();
+        expected.extend_from_slice(&[opcodes::PUSH_U8, 2, opcodes::HALT]);
         assert_eq!(result, expected);
     }
 

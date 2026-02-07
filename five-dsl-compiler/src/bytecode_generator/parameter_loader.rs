@@ -138,8 +138,62 @@ mod tests {
             }
         }
 
+        fn emit_bytes(&mut self, bytes: &[u8]) {
+            for b in bytes {
+                self.opcodes.push_back(*b);
+            }
+        }
+
         fn get_position(&self) -> usize {
             self.opcodes.len()
+        }
+
+        fn patch_u32(&mut self, position: usize, value: u32) {
+            let bytes = value.to_le_bytes();
+            let slice = self.opcodes.make_contiguous();
+            if position + 4 <= slice.len() {
+                slice[position..position + 4].copy_from_slice(&bytes);
+            }
+        }
+
+        fn patch_u16(&mut self, position: usize, value: u16) {
+            let bytes = value.to_le_bytes();
+            let slice = self.opcodes.make_contiguous();
+            if position + 2 <= slice.len() {
+                slice[position..position + 2].copy_from_slice(&bytes);
+            }
+        }
+
+        fn should_include_tests(&self) -> bool {
+            true
+        }
+
+        fn emit_const_u8(&mut self, _value: u8) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_u16(&mut self, _value: u16) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_u32(&mut self, _value: u32) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_u64(&mut self, _value: u64) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_i64(&mut self, _value: i64) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_bool(&mut self, _value: bool) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_u128(&mut self, _value: u128) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_pubkey(&mut self, _value: &[u8; 32]) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_string(&mut self, _value: &[u8]) -> Result<(), VMError> {
+            Ok(())
         }
     }
 

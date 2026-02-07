@@ -55,6 +55,9 @@ pub mod performance;
 // Module merging for multi-file compilation
 pub mod module_merger;
 
+// Constant pool builder
+pub mod constant_pool;
+
 // Account indices in bytecode are offset by VM state account.
 // Script account is stripped by five-solana (&accounts[1..]).
 // VM View: Index 0=VM State, 1=param0, 2=param1
@@ -83,6 +86,7 @@ pub use disassembler::*;
 pub use function_dispatch::*;
 pub use import_table::*;
 pub use module_merger::*;
+pub use constant_pool::*;
 pub use opcodes::*;
 pub use performance::*;
 pub use scope_analyzer::*;
@@ -97,6 +101,18 @@ use five_vm_mito::error::VMError;
 pub struct DslBytecodeGenerator {
     /// Core bytecode being generated
     bytecode: Vec<u8>,
+
+    /// Header bytes (emitted separately from instruction stream)
+    header_bytes: Vec<u8>,
+
+    /// Metadata bytes (function names, etc.)
+    metadata_bytes: Vec<u8>,
+
+    /// Import verification metadata (appended after string blob)
+    import_metadata_bytes: Vec<u8>,
+
+    /// Cached header feature flags
+    header_features: u32,
 
     /// Current bytecode position for relative jumps
     position: usize,
@@ -143,6 +159,9 @@ pub struct DslBytecodeGenerator {
     /// Whether to include debug info (function metadata) in bytecode
     pub(crate) include_debug_info: bool,
 
+    /// Constant pool builder
+    constant_pool: constant_pool::ConstantPoolBuilder,
+
 }
 
 impl DslBytecodeGenerator {
@@ -159,6 +178,10 @@ impl DslBytecodeGenerator {
 
         Self {
             bytecode: Vec::new(),
+            header_bytes: Vec::new(),
+            metadata_bytes: Vec::new(),
+            import_metadata_bytes: Vec::new(),
+            header_features: 0,
             position: 0,
             functions: Vec::new(),
             symbol_table: std::collections::HashMap::new(),
@@ -190,6 +213,8 @@ impl DslBytecodeGenerator {
 
             // Default: include debug info in testing mode
             include_debug_info: matches!(mode, CompilationMode::Testing),
+
+            constant_pool: constant_pool::ConstantPoolBuilder::new(),
         }
     }
 
@@ -265,11 +290,11 @@ impl DslBytecodeGenerator {
 
         // Serialize the import table and emit as raw bytes
         let serialized = import_table.serialize();
-        self.emit_bytes(&serialized);
+        self.import_metadata_bytes = serialized;
 
         println!(
             "DEBUG: Emitted import verification metadata ({} bytes)",
-            serialized.len()
+            self.import_metadata_bytes.len()
         );
 
         Ok(())
@@ -308,25 +333,26 @@ impl DslBytecodeGenerator {
 
         let section_size_u16 = section_size as u16;
 
+        let mut out = Vec::new();
+
         // Emit section_size as fixed u16
-        self.emit_u16(section_size_u16);
+        out.extend_from_slice(&section_size_u16.to_le_bytes());
 
         // Emit name_count as raw u8 (max 255 entries)
         let name_count_u8 = names.len() as u8;
-        self.emit_u8(name_count_u8);
+        out.push(name_count_u8);
 
         // Emit each name
         for name_entry in names {
-            // name_len as raw u8 (max 255 characters)
             if name_entry.name.len() > u8::MAX as usize {
                 return Err("Function name exceeds maximum length of 255 characters".to_string());
             }
             let name_len_u8 = name_entry.name.len() as u8;
-            self.emit_u8(name_len_u8);
-
-            // name bytes
-            self.emit_bytes(name_entry.name.as_bytes());
+            out.push(name_len_u8);
+            out.extend_from_slice(name_entry.name.as_bytes());
         }
+
+        self.metadata_bytes = out;
 
         Ok(())
     }
@@ -499,43 +525,97 @@ impl DslBytecodeGenerator {
                 ast_generator
             };
 
-            // Patch all jumps and function calls with their correct offsets
-            ast_generator.patch(self)?;
-
-            // Finalize bytecode
+            // Finalize instruction stream (code only)
             self.finalize_bytecode();
 
+            // Emit import verification metadata if imports exist (appended after string blob)
+            self.emit_import_metadata(&import_table)
+                .map_err(|_| VMError::InvalidScript)?;
+
+            // Compute layout offsets
+            let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
+            let header_len = self.header_bytes.len();
+            let metadata_len = self.metadata_bytes.len();
+            let base_offset = header_len + metadata_len + desc_size;
+            let pool_offset = (base_offset + 7) & !7; // 8-byte alignment
+            let padding_len = pool_offset - base_offset;
+
+            let pool_slots = self.constant_pool.pool_slots();
+            let pool_size = pool_slots as usize * 8;
+            let code_offset = pool_offset + pool_size;
+
+            // Patch dispatcher jump/call offsets with absolute base
+            dispatcher.patch_dispatch_logic_with_base(self, code_offset)?;
+
+            // Patch all jumps and function calls with their correct offsets (absolute)
+            ast_generator.patch_with_base(self, code_offset)?;
+
+            let string_blob = self.constant_pool.string_blob();
+            let string_blob_offset = code_offset + self.bytecode.len();
+            let string_blob_len = string_blob.len();
+
+            // Update header features to include constant pool flags
+            self.header_features |= five_protocol::FEATURE_CONSTANT_POOL;
+            if string_blob_len > 0 {
+                self.header_features |= five_protocol::FEATURE_CONSTANT_POOL_STRINGS;
+            }
+            let feature_bytes = self.header_features.to_le_bytes();
+            if self.header_bytes.len() >= 8 {
+                self.header_bytes[4..8].copy_from_slice(&feature_bytes);
+            }
+
+            // Build descriptor bytes
+            let desc = five_protocol::ConstantPoolDescriptor {
+                pool_offset: pool_offset as u32,
+                string_blob_offset: string_blob_offset as u32,
+                string_blob_len: string_blob_len as u32,
+                pool_slots,
+                reserved: 0,
+            };
+            let mut desc_bytes = Vec::with_capacity(desc_size);
+            desc_bytes.extend_from_slice(&desc.pool_offset.to_le_bytes());
+            desc_bytes.extend_from_slice(&desc.string_blob_offset.to_le_bytes());
+            desc_bytes.extend_from_slice(&desc.string_blob_len.to_le_bytes());
+            desc_bytes.extend_from_slice(&desc.pool_slots.to_le_bytes());
+            desc_bytes.extend_from_slice(&desc.reserved.to_le_bytes());
+
+            // Assemble final bytecode
+            let mut final_bytecode = Vec::new();
+            final_bytecode.extend_from_slice(&self.header_bytes);
+            final_bytecode.extend_from_slice(&self.metadata_bytes);
+            final_bytecode.extend_from_slice(&desc_bytes);
+            if padding_len > 0 {
+                final_bytecode.extend_from_slice(&vec![0u8; padding_len]);
+            }
+            final_bytecode.extend_from_slice(&self.constant_pool.pool_bytes());
+            final_bytecode.extend_from_slice(&self.bytecode);
+            final_bytecode.extend_from_slice(string_blob);
+            final_bytecode.extend_from_slice(&self.import_metadata_bytes);
+
+            self.bytecode = final_bytecode;
+
             // CRITICAL: Verify bytecode JUMP targets before deployment
-            // This catches register optimization bugs where bytecode structure changes
-            // cause JUMP offsets to become invalid (error 8122: CallTargetOutOfBounds)
             let verification_result = disassembler::verify_jump_targets(&self.bytecode);
             if !verification_result.is_valid {
                 eprintln!("BYTECODE VERIFICATION FAILED:");
                 eprintln!("{}", verification_result.error_summary());
-                
-                // In debug builds, we panic to make the error highly visible
                 #[cfg(debug_assertions)]
                 {
                     panic!("Bytecode contains invalid JUMP targets - check disassembler/verification.rs or jumps.rs");
                 }
-                
-                // In release builds, return error
                 #[cfg(not(debug_assertions))]
                 {
                     return Err(VMError::InvalidInstructionPointer);
                 }
             } else {
-                eprintln!("BYTECODE VERIFICATION: {} jumps validated, all within {} bytes", 
-                    verification_result.jump_count, verification_result.bytecode_length);
+                eprintln!(
+                    "BYTECODE VERIFICATION: {} jumps validated, all within {} bytes",
+                    verification_result.jump_count, verification_result.bytecode_length
+                );
             }
-
-            // Emit import verification metadata if imports exist
-            self.emit_import_metadata(&import_table)
-                .map_err(|_| VMError::InvalidScript)?;
 
             // Debug: print final bytecode summary to help diagnose missing opcodes in tests
             {
-                // Check for presence of REQUIRE opcode in final bytecode
                 let contains_require = self
                     .bytecode.contains(&five_protocol::opcodes::REQUIRE);
                 eprintln!(
@@ -543,7 +623,6 @@ impl DslBytecodeGenerator {
                     self.bytecode.len(),
                     contains_require
                 );
-                // Print a short hexdump (first 256 bytes) to avoid extremely long logs
                 let dump_len = std::cmp::min(self.bytecode.len(), 256);
                 eprintln!(
                     "DEBUG: final bytecode (first {} bytes) = {:?}",
@@ -558,11 +637,16 @@ impl DslBytecodeGenerator {
     /// Reset generator state for new compilation
     pub fn reset(&mut self) {
         self.bytecode.clear();
+        self.header_bytes.clear();
+        self.metadata_bytes.clear();
+        self.import_metadata_bytes.clear();
+        self.header_features = 0;
         self.position = 0;
         self.functions.clear();
         self.symbol_table.clear();
         self.account_registry = types::AccountRegistry::new();
         self.field_counter = 0;
+        self.constant_pool = constant_pool::ConstantPoolBuilder::new();
         // Keep compilation_mode as it's set during construction
     }
 
@@ -574,6 +658,11 @@ impl DslBytecodeGenerator {
     /// Get reference to generated bytecode
     pub fn get_bytecode(&self) -> &Vec<u8> {
         &self.bytecode
+    }
+
+    /// Get reference to generated function-name metadata section
+    pub fn get_metadata_bytes(&self) -> &[u8] {
+        &self.metadata_bytes
     }
 
     /// Return a textual disassembly of the currently generated bytecode.
@@ -691,92 +780,53 @@ impl DslBytecodeGenerator {
 
     /// Finalize bytecode generation
     fn finalize_bytecode(&mut self) {
-        // Add any final opcodes or padding if needed
-        // For now, just ensure we end with a HALT
         use crate::bytecode_generator::disassembler::BytecodeInspector;
 
-        let should_add_halt = if self.bytecode.is_empty() {
-            true
-        } else {
-            // Check the last instruction properly instead of just the last byte
-            // (the last byte might be an operand byte that happens to be 0)
+        if self.bytecode.is_empty() {
+            self.emit_opcode(five_protocol::opcodes::HALT);
+            self.log_opcode("HALT", "End program execution");
+            return;
+        }
 
-            // Find the last instruction opcode by iterating from start
-            // (skipping header logic is handled by BytecodeInspector::new)
-            let mut offset = 0;
-            // The inspector uses an internal offset for instructions_start, but
-            // we can just use our own iteration logic leveraging instruction_size
-            // since we know the header format too.
-            // But better to use the inspector's logic if possible.
-            // BytecodeInspector doesn't expose instructions_start publically.
-            // But we can iterate using instruction_size starting from 0, provided we skip header.
+        let mut i = 0;
+        let mut last_op = None;
 
-            // Re-implement basic header skipping here to be safe
-            // (or trust instruction_size returns valid sizes even for header bytes? No)
-
-            // OptimizedHeader V2 is 10 bytes minimum.
-            // If we are using OptimizedHeader, instructions start at 10 (or later if metadata).
-            // DslBytecodeGenerator emits header first.
-
-            // Let's use a simpler heuristic that is safer:
-            // Iterate through instructions until we hit the end.
-            // We need to know where instructions start.
-
-            // BytecodeInspector::new finds instructions_start.
-            // But it's private.
-
-            // However, we can use inspector.decode_instruction_at(offset)
-            // But we don't know the starting offset.
-
-            // Wait, we can iterate backwards? No, VLE.
-
-            // We can iterate from 0 and hope we synchronize? No.
-
-            // Let's trust BytecodeInspector's knowledge if we can access it.
-            // We can add a method to Inspector? Or make instructions_start public?
-
-            // Alternatively, since we are inside DslBytecodeGenerator, we might know where code starts?
-            // No, we emit header and then code.
-
-            // Let's assume standard header size for now, or scan forward.
-            // The safest way is to use BytecodeInspector::find_pushes_u64 which iterates correctly.
-            // But that only finds pushes.
-
-            // I'll use the instruction_size function I just added, and start from the beginning
-            // assuming the header is valid instructions? No, header is not valid instructions.
-
-            // I need to skip the header.
-            let start = if self.bytecode.len() >= 10 {
-                // Parse features to see if metadata exists
-                let features = u32::from_le_bytes([self.bytecode[4], self.bytecode[5], self.bytecode[6], self.bytecode[7]]);
-                let has_metadata = (features & (1 << 8)) != 0; // FEATURE_FUNCTION_NAMES
-
-                let mut offset = 10;
-                if has_metadata && offset + 2 <= self.bytecode.len() {
-                    let section_size = u16::from_le_bytes([self.bytecode[offset], self.bytecode[offset+1]]);
-                    offset += 2 + section_size as usize;
+        while i < self.bytecode.len() {
+            let op = self.bytecode[i];
+            last_op = Some(op);
+            let mut size = BytecodeInspector::instruction_size(&self.bytecode, i);
+            match op {
+                five_protocol::opcodes::PUSH_U8
+                | five_protocol::opcodes::PUSH_U16
+                | five_protocol::opcodes::PUSH_U32
+                | five_protocol::opcodes::PUSH_U64
+                | five_protocol::opcodes::PUSH_I64
+                | five_protocol::opcodes::PUSH_BOOL
+                | five_protocol::opcodes::PUSH_PUBKEY
+                | five_protocol::opcodes::PUSH_U128
+                | five_protocol::opcodes::PUSH_STRING => {
+                    size = 2;
                 }
-                offset
-            } else {
-                0
-            };
-
-            let mut i = start;
-            let mut last_op = None;
-
-            while i < self.bytecode.len() {
-                last_op = Some(self.bytecode[i]);
-                let size = BytecodeInspector::instruction_size(&self.bytecode, i);
-                i += size;
+                five_protocol::opcodes::PUSH_U8_W
+                | five_protocol::opcodes::PUSH_U16_W
+                | five_protocol::opcodes::PUSH_U32_W
+                | five_protocol::opcodes::PUSH_U64_W
+                | five_protocol::opcodes::PUSH_I64_W
+                | five_protocol::opcodes::PUSH_BOOL_W
+                | five_protocol::opcodes::PUSH_PUBKEY_W
+                | five_protocol::opcodes::PUSH_U128_W
+                | five_protocol::opcodes::PUSH_STRING_W => {
+                    size = 3;
+                }
+                _ => {}
             }
-
-            match last_op {
-                Some(five_protocol::opcodes::HALT) => false,
-                _ => true,
+            if size == 0 {
+                break;
             }
-        };
+            i += size;
+        }
 
-        if should_add_halt {
+        if last_op != Some(five_protocol::opcodes::HALT) {
             self.emit_opcode(five_protocol::opcodes::HALT);
             self.log_opcode("HALT", "End program execution");
         }

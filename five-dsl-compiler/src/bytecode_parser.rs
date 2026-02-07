@@ -75,7 +75,18 @@ impl BytecodeParser {
     ) -> Result<BytecodeMetadata<'a>, BytecodeParseError> {
         let mut calls = Vec::new();
         let mut name_table: Vec<Cow<'a, str>> = Vec::new();
-        let mut position = 0;
+        let (features, start_offset) = match five_protocol::parse_header(bytecode) {
+            Ok((header, start)) => (header.features, start),
+            Err(_) => {
+                if bytecode.len() >= 4 && &bytecode[0..4] == b"5IVE" {
+                    (0, 4)
+                } else {
+                    (0, 0)
+                }
+            }
+        };
+
+        let mut position = start_offset;
 
         while position < bytecode.len() {
             let opcode = bytecode[position];
@@ -139,7 +150,7 @@ impl BytecodeParser {
                 }
                 _ => {
                     // Skip other opcodes by advancing past their operands
-                    position += Self::get_operand_size(opcode);
+                    position += Self::get_operand_size(opcode, bytecode, position, features);
                 }
             }
         }
@@ -152,14 +163,52 @@ impl BytecodeParser {
     }
 
     /// Get the operand size for a given opcode (simplified version for parsing)
-    fn get_operand_size(opcode: u8) -> usize {
+    fn get_operand_size(opcode: u8, bytecode: &[u8], position: usize, features: u32) -> usize {
+        if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+            match opcode {
+                opcodes::PUSH_U8
+                | opcodes::PUSH_U16
+                | opcodes::PUSH_U32
+                | opcodes::PUSH_U64
+                | opcodes::PUSH_I64
+                | opcodes::PUSH_BOOL
+                | opcodes::PUSH_PUBKEY
+                | opcodes::PUSH_U128
+                | opcodes::PUSH_STRING => return 1, // pool index (u8)
+                opcodes::PUSH_U8_W
+                | opcodes::PUSH_U16_W
+                | opcodes::PUSH_U32_W
+                | opcodes::PUSH_U64_W
+                | opcodes::PUSH_I64_W
+                | opcodes::PUSH_BOOL_W
+                | opcodes::PUSH_PUBKEY_W
+                | opcodes::PUSH_U128_W
+                | opcodes::PUSH_STRING_W => return 2, // pool index (u16)
+                _ => {}
+            }
+        }
+
         match opcode {
-            opcodes::PUSH_U8 | opcodes::PUSH_BOOL | opcodes::PUSH_STRING => 1, // PUSH_ACCOUNT was removed, PUSH_U8 already listed above
+            opcodes::PUSH_U8 | opcodes::PUSH_BOOL => 1,
             opcodes::PUSH_U64 | opcodes::PUSH_I64 => 8,
             opcodes::PUSH_PUBKEY => 32,
+            opcodes::PUSH_U128 => 16,
             opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 4,
             opcodes::JUMP | opcodes::JUMP_IF_NOT | opcodes::JUMP_IF => 2,
             opcodes::BR_EQ_U8 => 2, // Approximation - VLE can vary
+            opcodes::PUSH_STRING => {
+                if position + 4 <= bytecode.len() {
+                    let len = u32::from_le_bytes([
+                        bytecode[position],
+                        bytecode[position + 1],
+                        bytecode[position + 2],
+                        bytecode[position + 3],
+                    ]) as usize;
+                    4 + len
+                } else {
+                    0
+                }
+            }
             // CALL is handled specially above
             _ => 0,
         }

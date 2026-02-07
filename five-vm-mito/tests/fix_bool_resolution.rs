@@ -39,6 +39,10 @@ fn test_resolve_bool_from_account_ref() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     // 3. Create AccountRef pointing to index 0, offset 0

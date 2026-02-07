@@ -290,6 +290,18 @@ pub const GET_SIGNER_KEY: u8 = 0xAB;
 // ===== AVAILABLE SLOTS (0xAC-0xAF) =====
 // 0xAC-0xAF available for future operations
 
+// ===== CONSTANT POOL WIDE PUSH OPS (0xB0-0xB8) =====
+// Wide (u16 index) variants for constant pool access
+pub const PUSH_U8_W: u8 = 0xB0;
+pub const PUSH_U16_W: u8 = 0xB1;
+pub const PUSH_U32_W: u8 = 0xB2;
+pub const PUSH_U64_W: u8 = 0xB3;
+pub const PUSH_I64_W: u8 = 0xB4;
+pub const PUSH_BOOL_W: u8 = 0xB5;
+pub const PUSH_U128_W: u8 = 0xB6;
+pub const PUSH_PUBKEY_W: u8 = 0xB7;
+pub const PUSH_STRING_W: u8 = 0xB8;
+
 // NOTE: All scattered array operations have been moved to 0x60-0x6F range
 // NOTE: All pattern fusion operations will be moved to 0xE0-0xEF range
 
@@ -658,6 +670,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: PUSH_U8_W,
+        name: "PUSH_U8_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: OPTIONAL_IS_SOME,
         name: "OPTIONAL_IS_SOME",
         arg_type: ArgType::None,
@@ -721,6 +740,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: PUSH_U64_W,
+        name: "PUSH_U64_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: PUSH_I64,
         name: "PUSH_I64",
         arg_type: ArgType::U64,
@@ -728,9 +754,23 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: PUSH_I64_W,
+        name: "PUSH_I64_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: PUSH_BOOL,
         name: "PUSH_BOOL",
-        arg_type: ArgType::None,
+        arg_type: ArgType::U8,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: PUSH_BOOL_W,
+        name: "PUSH_BOOL_W",
+        arg_type: ArgType::U16,
         stack_effect: 1,
         compute_cost: 1,
     },
@@ -749,9 +789,23 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: PUSH_PUBKEY_W,
+        name: "PUSH_PUBKEY_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: PUSH_STRING,
         name: "PUSH_STRING",
         arg_type: ArgType::U32,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: PUSH_STRING_W,
+        name: "PUSH_STRING_W",
+        arg_type: ArgType::U16,
         stack_effect: 1,
         compute_cost: 1,
     },
@@ -862,6 +916,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         opcode: PUSH_U128,
         name: "PUSH_U128",
         arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: PUSH_U128_W,
+        name: "PUSH_U128_W",
+        arg_type: ArgType::U16,
         stack_effect: 1,
         compute_cost: 1,
     },
@@ -1303,8 +1364,22 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: PUSH_U32_W,
+        name: "PUSH_U32_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: PUSH_U16,
         name: "PUSH_U16",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: PUSH_U16_W,
+        name: "PUSH_U16_W",
         arg_type: ArgType::U16,
         stack_effect: 1,
         compute_cost: 1,

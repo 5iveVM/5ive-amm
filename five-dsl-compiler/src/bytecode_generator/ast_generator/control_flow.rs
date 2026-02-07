@@ -361,8 +361,7 @@ impl ASTGenerator {
                         // Option/Result encoding uses AccountRef index as tag:
                         // Ok/Some = 0, Err = 254, None = 255
                         // For successful variants (Ok/Some), check if tag == 0
-                        emitter.emit_opcode(PUSH_U64);
-                        emitter.emit_u64(0); // Success tag
+                        emitter.emit_const_u64(0)?; // Success tag
                         emitter.emit_opcode(EQ);
 
                         // Jump to next arm if tag doesn't match
@@ -389,8 +388,7 @@ impl ASTGenerator {
                     "Err" => {
                         // For error variants, check if tag == 254
                         emitter.emit_opcode(DUP);
-                        emitter.emit_opcode(PUSH_U64);
-                        emitter.emit_u64(254); // Err tag
+                        emitter.emit_const_u64(254)?; // Err tag
                         emitter.emit_opcode(EQ);
 
                         // Jump to next arm if tag doesn't match
@@ -414,8 +412,7 @@ impl ASTGenerator {
                     "None" => {
                         // For none variants, check if tag == 255
                         emitter.emit_opcode(DUP);
-                        emitter.emit_opcode(PUSH_U64);
-                        emitter.emit_u64(255); // None tag
+                        emitter.emit_const_u64(255)?; // None tag
                         emitter.emit_opcode(EQ);
 
                         // Jump to next arm if tag doesn't match

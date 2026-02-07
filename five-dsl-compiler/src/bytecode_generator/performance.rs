@@ -274,8 +274,7 @@ impl BulkOperationOptimizer {
                 emitter.emit_u64(*n);
             }
             Value::Bool(b) => {
-                emitter.emit_opcode(PUSH_BOOL);
-                emitter.emit_u8(if *b { 1 } else { 0 });
+                emitter.emit_const_bool(*b)?;
             }
             Value::U8(n) => {
                 emitter.emit_u8(five_protocol::types::U8);

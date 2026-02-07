@@ -132,7 +132,11 @@ impl ASTGenerator {
     /// The issue: Register optimization (PUSH_REG, POP_REG, etc.) changes instruction sizes
     /// and bytecode structure during generation. Original label positions become stale.
     /// Solution: Rebuild label_positions from the jump patch records before patching.
-    pub fn patch<T: OpcodeEmitter>(&mut self, emitter: &mut T) -> Result<(), VMError> {
+    pub fn patch_with_base<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        base_offset: usize,
+    ) -> Result<(), VMError> {
         // CRITICAL FIX: Rebuild label_positions from jump patches
         // This handles the case where register optimization changed bytecode structure
         // after labels were originally placed.
@@ -171,7 +175,7 @@ impl ASTGenerator {
                 patch.position, patch.target_label, *target_position
             );
 
-            self.patch_jump_offset(emitter, patch.position, *target_position)?;
+            self.patch_jump_offset(emitter, patch.position, *target_position + base_offset)?;
         }
 
         // Patch BR_EQ_U8 instructions with VLE-encoded relative offsets
@@ -197,7 +201,7 @@ impl ASTGenerator {
                     VMError::InvalidScript
                 })?;
 
-            self.patch_function_address(emitter, patch.position, *function_address)?;
+            self.patch_function_address(emitter, patch.position, *function_address + base_offset)?;
         }
         Ok(())
     }

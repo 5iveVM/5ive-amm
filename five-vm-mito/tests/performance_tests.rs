@@ -216,7 +216,7 @@ fn test_execution_context_lazy_validation() {
 
     // Create ExecutionContext with lazy validation
     let mut storage = StackStorage::new();
-    let ctx = ExecutionContext::new(bytecode, &accounts, program_id, &[], 0, &mut storage, 1, 1);
+    let ctx = ExecutionContext::new(bytecode, &accounts, program_id, &[], 0, &mut storage, 1, 1, 0, 0, 0, 0);
 
     // Verify lazy validator is initialized
     assert_eq!(ctx.validated_account_count(), 0);

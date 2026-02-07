@@ -31,6 +31,10 @@ mod tests {
             0,
             &mut storage,
             0,
+            0,
+            0,
+            0,
+            0,
             0
         );
 

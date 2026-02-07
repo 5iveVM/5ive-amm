@@ -39,6 +39,10 @@ fn test_temp_value_roundtrip_all_variants() {
             &mut storage,
             0,
             0,
+        0,
+        0,
+        0,
+        0,
         );
         let offset = ctx.write_value_to_temp(v).expect("write to temp");
         let decoded = ctx.read_value_from_temp(offset).expect("read from temp");
