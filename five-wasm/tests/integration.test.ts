@@ -33,10 +33,10 @@ jest.mock('../pkg/five_vm_wasm', () => ({
     },
     validate_bytecode: jest.fn().mockReturnValue(true),
     get_constants: jest.fn().mockReturnValue(JSON.stringify({
-        MAX_SCRIPT_SIZE: 1000,
-        MAX_COMPUTE_UNITS: 200000,
+        MAX_SCRIPT_SIZE: 65536,
+        MAX_COMPUTE_UNITS: 1000000,
         FIVE_MAGIC: [0x35, 0x49, 0x56, 0x45],
-        opcodes: { PUSH: 1, POP: 2, ADD: 16 },
+        opcodes: { PUSH_U64: 0x1B, POP: 0x10, ADD: 0x20, HALT: 0x00 },
         types: { U64: 1, BOOL: 2, STRING: 6 }
     })),
     js_value_to_vm_value: jest.fn().mockReturnValue(42),
@@ -55,7 +55,8 @@ describe('WASM VM Integration Tests', () => {
         // Create valid test bytecode
         validBytecode = new Uint8Array([
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
-            0x01, 0x01, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH U64(42)
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00,             // public/total function counts
             0x00 // HALT
         ]);
 
@@ -107,7 +108,7 @@ describe('WASM VM Integration Tests', () => {
             expect(constants).toHaveProperty('opcodes');
             expect(constants).toHaveProperty('types');
             
-            expect(constants.opcodes).toHaveProperty('PUSH');
+            expect(constants.opcodes).toHaveProperty('PUSH_U64');
             expect(constants.types).toHaveProperty('U64');
         });
 
@@ -261,7 +262,8 @@ describe('WASM VM Integration Tests', () => {
 describe('Performance Benchmarking', () => {
     const validBytecode = new Uint8Array([
         0x35, 0x49, 0x56, 0x45, // 5IVE magic
-        0x01, 0x01, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH U64(42)
+        0x00, 0x00, 0x00, 0x00, // features
+        0x00, 0x00,             // public/total function counts
         0x00 // HALT
     ]);
 
@@ -353,7 +355,12 @@ describe('Type Safety and Error Handling', () => {
     });
 
     test('should handle WASM memory management correctly', () => {
-        const bytecode = new Uint8Array([0x53, 0x54, 0x4B, 0x53]);
+        const bytecode = new Uint8Array([
+            0x35, 0x49, 0x56, 0x45,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,
+            0x00
+        ]);
         
         // Create multiple VMs to test memory management
         const vms = Array.from({ length: 10 }, () => new StacksVMWrapper(bytecode));
@@ -371,9 +378,9 @@ describe('Integration with Existing Stacks Ecosystem', () => {
         const constants = JSON.parse(get_constants());
         
         // Verify that opcodes match expected values from constants.rs
-        expect(constants.opcodes.PUSH).toBe(1);
-        expect(constants.opcodes.POP).toBe(2);
-        expect(constants.opcodes.ADD).toBe(16);
+        expect(constants.opcodes.PUSH_U64).toBe(0x1B);
+        expect(constants.opcodes.POP).toBe(0x10);
+        expect(constants.opcodes.ADD).toBe(0x20);
         
         // Verify type constants
         expect(constants.types.U64).toBe(1);

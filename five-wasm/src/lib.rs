@@ -576,6 +576,11 @@ impl FiveVMWasm {
             return Ok(false);
         }
 
+        // Validate optimized header structure for sync with core protocol
+        if five_protocol::parse_header(&extracted_bytecode).is_err() {
+            return Ok(false);
+        }
+
         Ok(true)
     }
 

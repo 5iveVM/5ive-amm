@@ -656,19 +656,18 @@ function mint(to: pubkey, amount: u64) {
     }
 
     private createTestBytecode(sourceCode: string): Uint8Array {
-        // Create test bytecode with SCRL magic bytes
+        // Create test bytecode with 5IVE optimized header
         // This is a simplified implementation - real version would use actual compiler
-        const magic = [0x53, 0x43, 0x52, 0x4C]; // "SCRL"
-        
-        // Simple program: push 42, push 24, add, halt
-        const program = [
-            0x01, 0x01, 42, 0, 0, 0, 0, 0, 0, 0,  // PUSH u64 42
-            0x01, 0x01, 24, 0, 0, 0, 0, 0, 0, 0,  // PUSH u64 24
-            0x10,                                   // ADD
-            0x00                                    // HALT
+        const header = [
+            0x35, 0x49, 0x56, 0x45, // "5IVE"
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00              // public/total function counts
         ];
 
-        return new Uint8Array([...magic, ...program]);
+        // Minimal program: HALT
+        const program = [0x00];
+
+        return new Uint8Array([...header, ...program]);
     }
 
     private updateCompilationState(updates: Partial<PlaygroundState['compilation']>): void {

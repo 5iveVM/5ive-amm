@@ -301,7 +301,7 @@ describe('StacksPlayground', () => {
             const bytecode = await playground.compileCurrentProject();
             
             // Verify the bytecode is valid by checking magic bytes
-            expect(bytecode.slice(0, 4)).toEqual(new Uint8Array([0x53, 0x43, 0x52, 0x4C])); // "SCRL"
+            expect(bytecode.slice(0, 4)).toEqual(new Uint8Array([0x35, 0x49, 0x56, 0x45])); // "5IVE"
         });
 
         it('should track compilation state', async () => {

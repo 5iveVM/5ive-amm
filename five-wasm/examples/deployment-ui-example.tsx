@@ -45,8 +45,9 @@ export function IndividualComponentsExample() {
   React.useEffect(() => {
     // Simulate compiled bytecode
     const exampleBytecode = new Uint8Array([
-      0x53, 0x43, 0x52, 0x4C, // Magic bytes "SCRL"
-      0x01, 0x00, 0x00, 0x00, // Version
+      0x35, 0x49, 0x56, 0x45, // Magic bytes "5IVE"
+      0x00, 0x00, 0x00, 0x00, // Features (u32)
+      0x00, 0x00, // public/total function counts
       0x10, 0x20, 0x30, 0x40, // Some opcodes
       0x00, // HALT
     ])
