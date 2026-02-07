@@ -15,7 +15,7 @@ mod tests {
         let (_signer_acc, signer_info) = TestUtils::create_signer_account_info(&key, 100);
         let accounts = vec![signer_info];
         let bytecode = TestUtils::create_simple_bytecode(&[]);
-        let mut storage = crate::stack::StackStorage::new(&bytecode);
+        let mut storage = crate::stack::StackStorage::new();
         
         let mut vm = TestUtils::create_custom_context(
             &bytecode,

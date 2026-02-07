@@ -28,7 +28,7 @@ fn test_basic_option_creation() {
 
     let script = build_script(&body);
 
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let result =
         MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).expect("VM should execute option bytecode");
 
@@ -46,7 +46,7 @@ fn test_basic_result_creation() {
 
     let script = build_script(&body);
 
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let result =
         MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).expect("VM should execute result bytecode");
 

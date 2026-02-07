@@ -49,6 +49,7 @@ macro_rules! deserialize_two_bytes {
 /// Size: 8 bytes (reduces from 56-byte Value enum to eliminate stack overflow)
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(C, u8)]
 pub enum ValueRef {
     /// Empty/uninitialized value - 0 bytes data
     Empty,

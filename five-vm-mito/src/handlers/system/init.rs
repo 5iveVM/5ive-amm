@@ -307,7 +307,7 @@ mod tests {
         let input_data: &'static [u8] = b"test_seed";
         use pinocchio::pubkey::Pubkey;
         let program_id = Pubkey::default();
-        let storage = Box::leak(Box::new(StackStorage::new(script)));
+        let storage = Box::leak(Box::new(StackStorage::new()));
         ExecutionManager::new(script, accounts, program_id, input_data, 0, storage, 0, 0)
     }
 

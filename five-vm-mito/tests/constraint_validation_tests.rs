@@ -9,7 +9,7 @@ use five_vm_mito::error::VMErrorCode;
 use pinocchio::pubkey::Pubkey;
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &Pubkey) -> five_vm_mito::Result<Option<Value>> {
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
 }
 use support::accounts::{create_test_accounts, derive_pda_real};

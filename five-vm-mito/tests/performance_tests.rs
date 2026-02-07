@@ -215,7 +215,7 @@ fn test_execution_context_lazy_validation() {
     let program_id = Pubkey::from([2u8; 32]);
 
     // Create ExecutionContext with lazy validation
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     let ctx = ExecutionContext::new(bytecode, &accounts, program_id, &[], 0, &mut storage, 1, 1);
 
     // Verify lazy validator is initialized

@@ -9,7 +9,7 @@ mod tests {
         input_data: &[u8],
         accounts: &[crate::AccountInfo],
     ) -> crate::Result<Option<Value>> {
-        let mut storage = crate::stack::StackStorage::new(bytecode);
+        let mut storage = crate::stack::StackStorage::new();
         MitoVM::execute_direct(bytecode, input_data, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
     }
 

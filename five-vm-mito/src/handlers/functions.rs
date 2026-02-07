@@ -141,12 +141,6 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let current_ip = ctx.ip();
     let current_local_count = ctx.local_count();
     let current_local_base = ctx.local_base();
-    let current_script = {
-        let script_ref = ctx.script();
-        // SAFETY: script_ref is a valid slice from ctx, we're creating an independent
-        // slice with the same lifetime. Required to store in CallFrame for context restoration.
-        unsafe { core::slice::from_raw_parts(script_ref.as_ptr(), script_ref.len()) }
-    };
 
     // Check if we have enough space for callee's locals before pushing frame
     let new_local_base = current_local_base + current_local_count;
@@ -163,7 +157,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
         current_local_base,
         caller_start,
         caller_len,
-        current_script,
+        ctx.current_context,
     ))?;
 
     // Set callee's local base to end of caller's locals (per-frame window)
@@ -433,12 +427,6 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let return_address = ctx.ip();
     let current_local_count = ctx.local_count();
     let current_local_base = ctx.local_base();
-    let current_script = {
-        let script_ref = ctx.script();
-        // SAFETY: script_ref is a valid slice from ctx, we're creating an independent
-        // slice with the same lifetime. Required to store in CallFrame for context restoration.
-        unsafe { core::slice::from_raw_parts(script_ref.as_ptr(), script_ref.len()) }
-    };
 
     // Check if we have enough space for callee's locals before pushing frame
     let new_local_base = current_local_base + current_local_count;
@@ -455,7 +443,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         current_local_base,
         caller_start,
         caller_len,
-        current_script,
+        ctx.current_context,
     ))?;
 
     // Set callee's local base to end of caller's locals (per-frame window)
@@ -479,6 +467,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     );
     
     ctx.switch_to_external_bytecode(external_bytecode, func_offset)?;
+    ctx.current_context = account_index as u8;
     
     debug_log!(
         "MitoVM: CALL_EXTERNAL after switch_to_external_bytecode - new IP: {}, script len: {}",

@@ -29,7 +29,7 @@ fn test_temp_value_roundtrip_all_variants() {
     ];
 
     for v in variants.iter() {
-        let mut storage = StackStorage::new(bytecode);
+        let mut storage = StackStorage::new();
         let mut ctx = ExecutionContext::new(
             bytecode,
             accounts,

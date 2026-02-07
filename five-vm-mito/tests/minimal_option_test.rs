@@ -77,7 +77,7 @@ fn test_execution_context_temp_buffer_methods() {
     let program_id = Pubkey::default();
     let instruction_data = &[];
 
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         bytecode,
         accounts,
@@ -129,7 +129,7 @@ fn test_temp_buffer_exhaustion() {
     let program_id = Pubkey::default();
     let instruction_data = &[];
 
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         bytecode,
         accounts,
@@ -175,7 +175,7 @@ fn test_temp_buffer_reset_allows_reuse() {
     let program_id = Pubkey::default();
     let instruction_data = &[];
 
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         bytecode,
         accounts,

@@ -10,7 +10,7 @@ fn run_script(build: impl FnOnce(&mut ScriptBuilder)) -> Option<Value> {
     let mut builder = ScriptBuilder::new();
     build(&mut builder);
     let script = builder.build().expect("script assembly succeeds");
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap()
 }
 

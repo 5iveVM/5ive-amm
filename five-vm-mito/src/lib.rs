@@ -28,7 +28,7 @@
 //! ];
 //!
 //! // Execute with no input data or accounts
-//! let mut storage = five_vm_mito::StackStorage::new(bytecode);
+//! let mut storage = five_vm_mito::StackStorage::new();
 //! let result = MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default(), &mut storage)?;
 //! assert_eq!(result, Some(Value::U64(15)));
 //! # Ok::<(), five_vm_mito::VMError>(())
@@ -58,7 +58,7 @@
 //! let input_data = &[0x00, 0x01, 21]; // function index 0, 1 param, parameter value 21
 //! let accounts = &[];
 //! let program_id = Pubkey::default();
-//! let mut storage = five_vm_mito::StackStorage::new(bytecode);
+//! let mut storage = five_vm_mito::StackStorage::new();
 //! let result = MitoVM::execute_direct(bytecode, input_data, accounts, &program_id, &mut storage)?;
 //! assert_eq!(result, Some(five_vm_mito::Value::U64(42)));
 //! # Ok::<(), five_vm_mito::VMError>(())

@@ -13,7 +13,7 @@ fn main() {
         0x00, // HALT
     ];
 
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(Some(Value::U64(result))) => {
             println!("✅ Success! 100 + 200 = {}", result);
@@ -36,7 +36,7 @@ fn main() {
         0x00, // HALT
     ];
 
-    let mut storage2 = StackStorage::new(&bytecode2);
+    let mut storage2 = StackStorage::new();
     match MitoVM::execute_direct(&bytecode2, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage2) {
         Ok(Some(Value::Bool(result))) => {
             println!("✅ Success! true AND false = {}", result);

@@ -8,7 +8,7 @@
 use five_vm_mito::{error::VMError, FIVE_VM_PROGRAM_ID, MitoVM, stack::StackStorage, AccountInfo, Value};
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 

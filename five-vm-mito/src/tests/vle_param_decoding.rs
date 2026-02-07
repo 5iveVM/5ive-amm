@@ -21,7 +21,7 @@ mod tests {
         input_data.extend_from_slice(&bytes[..size]);
 
         let script = [0u8; 10]; // Minimal script
-        let mut storage = StackStorage::new(&script);
+        let mut storage = StackStorage::new();
 
         let mut ctx = ExecutionManager::new(
             &script,

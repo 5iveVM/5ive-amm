@@ -9,7 +9,7 @@ fn test_alloc_temp_overflow() {
     let program_id = Pubkey::default();
     let instruction_data = &[];
 
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         bytecode,
         accounts,

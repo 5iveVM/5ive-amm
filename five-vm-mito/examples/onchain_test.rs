@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Execute with MitoVM (no accounts needed for this simple test)
     println!("🚀 Executing with MitoVM...");
 
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     match MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("✅ Execution successful!");

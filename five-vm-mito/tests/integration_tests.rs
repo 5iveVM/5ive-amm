@@ -50,7 +50,7 @@ mod defi_workflow_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(_) => println!("✅ Token transfer workflow test passed"),
@@ -92,7 +92,7 @@ mod defi_workflow_tests {
         ];
 
         // Mock pool account
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => {
@@ -137,7 +137,7 @@ mod smart_contract_pattern_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ Factory pattern test passed: {:?}", value),
@@ -179,7 +179,7 @@ mod smart_contract_pattern_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => {
@@ -218,7 +218,7 @@ mod cross_program_integration_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ CPI token transfer test passed: {:?}", value),
@@ -245,7 +245,7 @@ mod cross_program_integration_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ CPI with PDA signing test passed: {:?}", value),
@@ -276,7 +276,7 @@ mod error_handling_integration_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ Comprehensive error handling test passed: {:?}", value),
@@ -309,7 +309,7 @@ mod error_handling_integration_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ Validation chain test passed: {:?}", value),
@@ -343,9 +343,9 @@ mod performance_optimization_tests {
             0x00, // HALT
         ];
 
-        let mut storage_trad = StackStorage::new(&traditional_bytecode);
+        let mut storage_trad = StackStorage::new();
         let traditional_result = MitoVM::execute_direct(&traditional_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage_trad);
-        let mut storage_opt = StackStorage::new(&optimized_bytecode);
+        let mut storage_opt = StackStorage::new();
         let optimized_result = MitoVM::execute_direct(&optimized_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage_opt);
 
         match (traditional_result, optimized_result) {
@@ -399,7 +399,7 @@ mod integration_coverage_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => {

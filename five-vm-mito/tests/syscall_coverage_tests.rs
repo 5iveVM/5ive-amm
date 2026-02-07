@@ -30,7 +30,7 @@ fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
 
 fn execute(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
     let script = build_script(build);
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 

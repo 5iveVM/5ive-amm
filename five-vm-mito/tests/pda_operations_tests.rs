@@ -8,7 +8,7 @@ use pinocchio::pubkey::Pubkey;
 use solana_sdk::pubkey::Pubkey as SolanaPubkey;
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &Pubkey) -> five_vm_mito::Result<Option<Value>> {
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
 }
 

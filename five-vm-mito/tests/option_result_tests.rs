@@ -8,7 +8,7 @@ use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackS
 
 fn execute(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
     let script = build_script(build);
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 

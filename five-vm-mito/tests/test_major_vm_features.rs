@@ -20,7 +20,7 @@ fn execute_script_with_input(
     let mut builder = ScriptBuilder::new();
     build(&mut builder);
     let script = builder.build().expect("script assembly should succeed");
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(&script, input, &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
