@@ -91,12 +91,14 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
             Ok(pk_a == pk_b)
         }
 
-        // Account data vs Integer comparisons
-        (ValueRef::AccountRef(_, _), ValueRef::U64(b)) => {
-            Ok(crate::utils::resolve_u64(a, ctx)? == b)
+        // AccountRef vs Integer comparisons
+        // For Option/Result encodings, AccountRef index acts as a tag (0/254/255).
+        // Comparing AccountRef to a literal should use the index, not account data.
+        (ValueRef::AccountRef(account_idx, _), ValueRef::U64(b)) => {
+            Ok((account_idx as u64) == b)
         }
-        (ValueRef::U64(a), ValueRef::AccountRef(_, _)) => {
-            Ok(a == crate::utils::resolve_u64(b, ctx)?)
+        (ValueRef::U64(a), ValueRef::AccountRef(account_idx, _)) => {
+            Ok(a == (account_idx as u64))
         }
 
         // Pubkey/Temp comparisons

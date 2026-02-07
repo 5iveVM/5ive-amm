@@ -334,6 +334,10 @@ impl ASTGenerator {
         }
 
         self.place_label(emitter, end_label);
+        // Ensure end label targets a valid instruction offset.
+        // This avoids out-of-bounds JUMP targets when a match expression
+        // is the final statement (e.g., all arms return).
+        emitter.emit_opcode(NOP);
 
         Ok(())
     }
@@ -354,11 +358,8 @@ impl ASTGenerator {
                         // Duplicate the matched value for tag checking
                         emitter.emit_opcode(DUP);
 
-                        // Extract the tag (first byte of the enum)
-                        // For now, assume Ok/Some = 0, Err/None = 1
-                        // This is a simplified implementation - in a full system,
-                        // we'd have proper enum tag checking
-
+                        // Option/Result encoding uses AccountRef index as tag:
+                        // Ok/Some = 0, Err = 254, None = 255
                         // For successful variants (Ok/Some), check if tag == 0
                         emitter.emit_opcode(PUSH_U64);
                         emitter.emit_u64(0); // Success tag
@@ -385,11 +386,11 @@ impl ASTGenerator {
 
                         Ok(true)
                     }
-                    "Err" | "None" => {
-                        // For error/none variants, check if tag == 1
+                    "Err" => {
+                        // For error variants, check if tag == 254
                         emitter.emit_opcode(DUP);
                         emitter.emit_opcode(PUSH_U64);
-                        emitter.emit_u64(1); // Error tag
+                        emitter.emit_u64(254); // Err tag
                         emitter.emit_opcode(EQ);
 
                         // Jump to next arm if tag doesn't match
@@ -407,6 +408,18 @@ impl ASTGenerator {
                                 emitter.emit_u8(var_index);
                             }
                         }
+
+                        Ok(true)
+                    }
+                    "None" => {
+                        // For none variants, check if tag == 255
+                        emitter.emit_opcode(DUP);
+                        emitter.emit_opcode(PUSH_U64);
+                        emitter.emit_u64(255); // None tag
+                        emitter.emit_opcode(EQ);
+
+                        // Jump to next arm if tag doesn't match
+                        self.emit_jump(emitter, JUMP_IF_NOT, next_arm_label);
 
                         Ok(true)
                     }

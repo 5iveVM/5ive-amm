@@ -192,6 +192,26 @@ impl DslParser {
             .unwrap_or(Token::Eof);
     }
 
+    /// Split a shift token (">>" or ">>>") into one or more ">" tokens.
+    /// This is used to disambiguate nested generic type closers like Option<Option<u64>>.
+    pub(crate) fn split_generic_closer(&mut self) {
+        let gt_count = match self.current_token {
+            Token::RightShift => 2,
+            Token::ArithRightShift => 3,
+            _ => 0,
+        };
+
+        if gt_count == 0 {
+            return;
+        }
+
+        // Replace current token with a single '>' and insert remaining '>' tokens.
+        self.current_token = Token::GT;
+        for _ in 1..gt_count {
+            self.tokens.insert(self.position + 1, Token::GT);
+        }
+    }
+
     // Helper methods for better error reporting
     pub(crate) fn expect_punct(&mut self, k: TokenKind) -> Result<(), VMError> {
         if self.current_token.kind() == k {

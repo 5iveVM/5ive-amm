@@ -54,8 +54,13 @@
 //! ];
 //!
 //! // Call with parameter: function 0, value 21
-//! // Input format: [func_index (VLE), param_count (VLE), param1 (VLE)...]
-//! let input_data = &[0x00, 0x01, 21]; // function index 0, 1 param, parameter value 21
+//! // Input format: [func_index (u32), param_count (u32), type_id (u8), param bytes...]
+//! let input_data = &[
+//!     0x00, 0x00, 0x00, 0x00, // function index 0
+//!     0x01, 0x00, 0x00, 0x00, // param count 1
+//!     0x04,                   // type_id = U64
+//!     21, 0, 0, 0, 0, 0, 0, 0, // u64 value 21
+//! ];
 //! let accounts = &[];
 //! let program_id = Pubkey::default();
 //! let mut storage = five_vm_mito::StackStorage::new();
