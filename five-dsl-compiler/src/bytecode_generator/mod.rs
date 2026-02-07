@@ -693,9 +693,90 @@ impl DslBytecodeGenerator {
     fn finalize_bytecode(&mut self) {
         // Add any final opcodes or padding if needed
         // For now, just ensure we end with a HALT
-        if !self.bytecode.is_empty()
-            && self.bytecode[self.bytecode.len() - 1] != five_protocol::opcodes::HALT
-        {
+        use crate::bytecode_generator::disassembler::BytecodeInspector;
+
+        let should_add_halt = if self.bytecode.is_empty() {
+            true
+        } else {
+            // Check the last instruction properly instead of just the last byte
+            // (the last byte might be an operand byte that happens to be 0)
+
+            // Find the last instruction opcode by iterating from start
+            // (skipping header logic is handled by BytecodeInspector::new)
+            let mut offset = 0;
+            // The inspector uses an internal offset for instructions_start, but
+            // we can just use our own iteration logic leveraging instruction_size
+            // since we know the header format too.
+            // But better to use the inspector's logic if possible.
+            // BytecodeInspector doesn't expose instructions_start publically.
+            // But we can iterate using instruction_size starting from 0, provided we skip header.
+
+            // Re-implement basic header skipping here to be safe
+            // (or trust instruction_size returns valid sizes even for header bytes? No)
+
+            // OptimizedHeader V2 is 10 bytes minimum.
+            // If we are using OptimizedHeader, instructions start at 10 (or later if metadata).
+            // DslBytecodeGenerator emits header first.
+
+            // Let's use a simpler heuristic that is safer:
+            // Iterate through instructions until we hit the end.
+            // We need to know where instructions start.
+
+            // BytecodeInspector::new finds instructions_start.
+            // But it's private.
+
+            // However, we can use inspector.decode_instruction_at(offset)
+            // But we don't know the starting offset.
+
+            // Wait, we can iterate backwards? No, VLE.
+
+            // We can iterate from 0 and hope we synchronize? No.
+
+            // Let's trust BytecodeInspector's knowledge if we can access it.
+            // We can add a method to Inspector? Or make instructions_start public?
+
+            // Alternatively, since we are inside DslBytecodeGenerator, we might know where code starts?
+            // No, we emit header and then code.
+
+            // Let's assume standard header size for now, or scan forward.
+            // The safest way is to use BytecodeInspector::find_pushes_u64 which iterates correctly.
+            // But that only finds pushes.
+
+            // I'll use the instruction_size function I just added, and start from the beginning
+            // assuming the header is valid instructions? No, header is not valid instructions.
+
+            // I need to skip the header.
+            let start = if self.bytecode.len() >= 10 {
+                // Parse features to see if metadata exists
+                let features = u32::from_le_bytes([self.bytecode[4], self.bytecode[5], self.bytecode[6], self.bytecode[7]]);
+                let has_metadata = (features & (1 << 8)) != 0; // FEATURE_FUNCTION_NAMES
+
+                let mut offset = 10;
+                if has_metadata && offset + 2 <= self.bytecode.len() {
+                    let section_size = u16::from_le_bytes([self.bytecode[offset], self.bytecode[offset+1]]);
+                    offset += 2 + section_size as usize;
+                }
+                offset
+            } else {
+                0
+            };
+
+            let mut i = start;
+            let mut last_op = None;
+
+            while i < self.bytecode.len() {
+                last_op = Some(self.bytecode[i]);
+                let size = BytecodeInspector::instruction_size(&self.bytecode, i);
+                i += size;
+            }
+
+            match last_op {
+                Some(five_protocol::opcodes::HALT) => false,
+                _ => true,
+            }
+        };
+
+        if should_add_halt {
             self.emit_opcode(five_protocol::opcodes::HALT);
             self.log_opcode("HALT", "End program execution");
         }
