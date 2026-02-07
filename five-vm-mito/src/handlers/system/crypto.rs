@@ -133,7 +133,7 @@ macro_rules! impl_hash_syscall {
                      let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
                      if len < 32 { return Err(VMErrorCode::MemoryViolation); }
 
-                     unsafe { ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr() }
+                     ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr()
                 }
                 _ => return Err(VMErrorCode::TypeMismatch),
             };
@@ -146,7 +146,11 @@ macro_rules! impl_hash_syscall {
             }
             #[cfg(not(target_os = "solana"))]
             {
-                debug_log!("HASH SYSCALL MOCK");
+                debug_log!(
+                    "HASH SYSCALL MOCK vals_ptr={:p} val_len={}",
+                    vals_ptr,
+                    val_len
+                );
                 unsafe { *result_ptr = 0; } // Zero mock
             }
 
@@ -201,7 +205,7 @@ pub fn handle_syscall_poseidon(ctx: &mut ExecutionManager) -> CompactResult<()> 
              let len_bytes = ctx.get_heap_data(id, 4)?;
              let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
              if len < 32 { return Err(VMErrorCode::MemoryViolation); }
-             unsafe { ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr() }
+             ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr()
         }
         _ => return Err(VMErrorCode::TypeMismatch),
     };
@@ -257,7 +261,7 @@ pub fn handle_syscall_secp256k1_recover(ctx: &mut ExecutionManager) -> CompactRe
              let len_bytes = ctx.get_heap_data(id, 4)?;
              let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
              if len < 64 { return Err(VMErrorCode::MemoryViolation); }
-             unsafe { ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr() }
+             ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr()
          }
          _ => return Err(VMErrorCode::TypeMismatch),
     };
@@ -288,7 +292,7 @@ pub fn handle_syscall_secp256k1_recover(ctx: &mut ExecutionManager) -> CompactRe
              let len_bytes = ctx.get_heap_data(id, 4)?;
              let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
              if len < 32 { return Err(VMErrorCode::MemoryViolation); }
-             unsafe { ctx.get_heap_data(id + 4, len)?.as_ptr() }
+             ctx.get_heap_data(id + 4, len)?.as_ptr()
          }
          _ => return Err(VMErrorCode::TypeMismatch),
     };
@@ -318,7 +322,7 @@ pub fn handle_syscall_secp256k1_recover(ctx: &mut ExecutionManager) -> CompactRe
              let len_bytes = ctx.get_heap_data(id, 4)?;
              let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
              if len < 64 { return Err(VMErrorCode::MemoryViolation); }
-             unsafe { ctx.get_heap_data(id + 4, len)?.as_ptr() }
+             ctx.get_heap_data(id + 4, len)?.as_ptr()
          }
          _ => return Err(VMErrorCode::TypeMismatch),
     };

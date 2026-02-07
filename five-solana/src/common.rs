@@ -142,7 +142,7 @@ mod tests {
 
             // Initialize VM state
             {
-                let mut state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+                let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
                 state.initialize(Pubkey::default());
             }
 
@@ -171,7 +171,7 @@ mod tests {
 
             // Initialize VM state
             {
-                let mut state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+                let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
                 state.initialize(Pubkey::default());
             }
 
@@ -192,6 +192,8 @@ pub const PERMISSION_PRE_BYTECODE: u8 = 0x01;         // Bit 0
 pub const PERMISSION_POST_BYTECODE: u8 = 0x02;        // Bit 1
 #[allow(dead_code)]
 pub const PERMISSION_PDA_SPECIAL_CHARS: u8 = 0x04;    // Bit 2
+const KNOWN_PERMISSIONS: u8 =
+    PERMISSION_PRE_BYTECODE | PERMISSION_POST_BYTECODE | PERMISSION_PDA_SPECIAL_CHARS;
 
 #[inline(always)]
 pub fn has_permission(permissions: u8, permission: u8) -> bool {
@@ -200,8 +202,8 @@ pub fn has_permission(permissions: u8, permission: u8) -> bool {
 
 #[inline(always)]
 pub fn validate_permissions(permissions: u8) -> ProgramResult {
-    // Bits 3-7 must be zero (reserved for future use)
-    if permissions & 0xF8 != 0 {
+    // Bits outside known permission flags must be zero (reserved for future use)
+    if permissions & !KNOWN_PERMISSIONS != 0 {
         return Err(ProgramError::InvalidArgument);
     }
     Ok(())

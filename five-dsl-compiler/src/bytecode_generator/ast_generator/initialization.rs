@@ -11,7 +11,6 @@ use crate::type_checker::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 use five_vm_mito::error::VMError;
 
 use std::collections::HashMap;
-use crate::bytecode_generator::scope_analyzer::ScopeAnalyzer;
 
 impl ASTGenerator {
     /// Internal constructor with configurable v2_preview flag
@@ -49,8 +48,6 @@ impl ASTGenerator {
             precomputed_allocations: None,
             // External imports for CALL_EXTERNAL generation
             external_imports: HashMap::new(),
-            // Initialize scope analyzer for variable lifetime tracking
-            scope_analyzer: ScopeAnalyzer::new(),
         }
     }
 

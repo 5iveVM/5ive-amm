@@ -78,11 +78,10 @@ pub use abi_generator::*;
 pub use account_system::*;
 pub use account_utils::*;
 pub use ast_generator::*;
-pub use bytecode_analyzer::*;
+pub use bytecode_analyzer::AdvancedBytecodeAnalyzer;
 pub use call::*;
 // pub use compression::*;
 
-pub use disassembler::*;
 pub use function_dispatch::*;
 pub use import_table::*;
 pub use module_merger::*;

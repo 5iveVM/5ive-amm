@@ -1,8 +1,8 @@
 // Performance Optimization Module
 //
-// This module handles all runtime performance optimization techniques.
-// It includes register allocation, constraint optimization, scope analysis,
-// bulk operations, and zero-copy account operations for improved execution speed.
+// This module handles runtime performance optimization techniques.
+// It includes constraint optimization, scope analysis, bulk operations,
+// and zero-copy account operations for improved execution speed.
 
 use super::types::*; // This imports the performance opcodes from types.rs
 use super::OpcodeEmitter;

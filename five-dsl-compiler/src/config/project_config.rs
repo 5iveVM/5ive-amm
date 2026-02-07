@@ -67,8 +67,6 @@ pub struct OptimizationConfig {
     #[serde(default)]
     pub inline_small_functions: Option<bool>,
     #[serde(default)]
-    pub enable_register_allocation: Option<bool>,
-    #[serde(default)]
     pub enable_constraint_optimization: Option<bool>,
 }
 

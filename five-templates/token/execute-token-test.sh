@@ -71,7 +71,7 @@ echo "════════════════════════�
 echo "Summary"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
-echo "✓ Token template with register optimizations deployed"
+echo "✓ Token template deployed"
 echo "✓ Program executable on localnet"
 echo "✓ Ready for token operations"
 echo ""

@@ -5,7 +5,6 @@
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
 use crate::ast::AstNode;
-use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {

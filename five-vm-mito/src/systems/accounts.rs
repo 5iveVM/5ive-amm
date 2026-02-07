@@ -3,12 +3,11 @@ use crate::lazy_validation::{LazyAccountValidator, ValidationStats};
 use crate::debug_log;
 use pinocchio::{
     account_info::AccountInfo,
-    instruction::{Instruction, Signer},
-    program::invoke_signed,
+    instruction::Signer,
     pubkey::Pubkey,
 };
 
-#[cfg(any(target_os = "solana", test))]
+#[cfg(target_os = "solana")]
 use pinocchio::instruction::{AccountMeta, Seed};
 
 // System program ID constant

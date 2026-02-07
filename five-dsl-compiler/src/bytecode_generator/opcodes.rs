@@ -550,7 +550,6 @@ impl OpcodeAnalyzer {
                 | opcodes::AND
                 | opcodes::OR
                 | opcodes::NOT
-                | opcodes::PUSH_U128
                 | opcodes::PUSH_ARRAY_LITERAL
                 | opcodes::PUSH_STRING_LITERAL
                 | opcodes::CREATE_ARRAY

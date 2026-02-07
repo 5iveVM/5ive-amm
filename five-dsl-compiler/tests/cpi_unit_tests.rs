@@ -34,7 +34,7 @@ mod cpi_compilation_tests {
     fn test_single_byte_discriminator() {
         // SPL Token uses single-byte discriminators
         let discriminator = 7u8;
-        assert!(discriminator <= 255, "Single-byte discriminator valid");
+        assert_eq!(discriminator, 7, "Single-byte discriminator valid");
     }
 
     #[test]
@@ -49,6 +49,7 @@ mod cpi_compilation_tests {
         // CPI with no account parameters, only data
         let account_count = 0;
         let data_size = 8; // u64 amount
+        assert_eq!(account_count, 0, "No account parameters for data-only CPI");
         assert_eq!(data_size, 8, "Data-only CPI supported");
     }
 

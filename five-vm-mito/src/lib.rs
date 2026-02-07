@@ -158,13 +158,16 @@ macro_rules! debug_log {
 
 #[cfg(not(feature = "debug-logs"))]
 macro_rules! debug_log {
-    ($($arg:tt)*) => {}
+    ($($arg:tt)*) => {
+        let _ = format_args!($($arg)*);
+    }
 }
 
 pub(crate) use debug_log;
 
 macro_rules! error_log {
     ($($arg:tt)*) => {
+        let _ = format_args!($($arg)*);
         #[cfg(target_os = "solana")]
         unsafe {
             #[cfg(feature = "debug-logs")]

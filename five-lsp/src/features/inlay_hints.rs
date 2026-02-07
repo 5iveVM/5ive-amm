@@ -54,9 +54,10 @@ fn find_let_statements(line: &str, line_num: u32, hints: &mut Vec<InlayHint>) {
                     label: InlayHintLabel::String(": unknown".to_string()),
                     kind: Some(InlayHintKind::TYPE),
                     text_edits: None,
-                    tooltip: Some(lsp_types::InlayHintTooltip::String(
-                        "Inferred type (explicit annotation recommended)".to_string(),
-                    )),
+                    tooltip: Some(lsp_types::InlayHintTooltip::String(format!(
+                        "Inferred type for `{}` (explicit annotation recommended)",
+                        var_name
+                    ))),
                     padding_left: Some(true),
                     padding_right: Some(false),
                     data: None,
@@ -121,7 +122,7 @@ fn extract_function_name_at(text: &str) -> Option<String> {
     }
 
     let chars: Vec<char> = trimmed.chars().collect();
-    let mut end = chars.len();
+    let end = chars.len();
     let mut start = end;
 
     while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
@@ -203,7 +204,6 @@ mod tests {
 
     #[test]
     fn test_parameter_hints_for_require() {
-        let source = "require(";
         let mut hints = Vec::new();
         add_parameter_hints("require", 0, 8, &mut hints);
 

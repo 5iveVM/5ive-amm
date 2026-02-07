@@ -2,7 +2,6 @@
 //
 // This module contains all data structures used throughout the bytecode generation process.
 
-use crate::ast::AstNode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

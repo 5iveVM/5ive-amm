@@ -4,14 +4,6 @@
 // to reduce CU consumption by combining common multi-opcode patterns
 // into single opcodes.
 
-// Force println! to work even in release/test by bypassing cfg(debug_assertions) for investigation
-macro_rules! debug_println {
-    ($($arg:tt)*) => {
-        println!($($arg)*);
-    }
-}
-
-
 use crate::ast::AstNode;
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
@@ -531,4 +523,3 @@ impl ASTGenerator {
         None
     }
 }
-

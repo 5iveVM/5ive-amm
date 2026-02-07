@@ -12,7 +12,6 @@ pub fn format_document(source: &str) -> Vec<TextEdit> {
     let mut edits = Vec::new();
     let lines: Vec<&str> = source.lines().collect();
     let mut current_indent: usize = 0;
-    let mut prev_was_closing = false;
 
     for (line_idx, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
@@ -25,7 +24,6 @@ pub fn format_document(source: &str) -> Vec<TextEdit> {
         // Calculate indent level based on brackets
         if trimmed.starts_with('}') || trimmed.starts_with(']') || trimmed.starts_with(')') {
             current_indent = current_indent.saturating_sub(1);
-            prev_was_closing = true;
         }
 
         // Calculate expected indentation (4 spaces per level)
@@ -77,7 +75,6 @@ pub fn format_document(source: &str) -> Vec<TextEdit> {
             }
         }
 
-        prev_was_closing = false;
     }
 
     edits
@@ -182,8 +179,7 @@ mod tests {
         let source = "pub instruction test() {\n    let x = 5;\n}";
         let edits = format_document(source);
 
-        // May have minimal edits if already correct
-        // (implementation dependent on exact matching)
+        assert!(edits.is_empty(), "No edits expected for already formatted source");
     }
 
     #[test]

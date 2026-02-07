@@ -119,6 +119,4 @@ pub struct ASTGenerator {
     /// Maps module name to ExternalImport info
     pub(crate) external_imports: HashMap<String, ExternalImport>,
 
-    /// Scope analyzer for variable lifetime tracking
-    pub(crate) scope_analyzer: crate::bytecode_generator::scope_analyzer::ScopeAnalyzer,
 }

@@ -11,7 +11,6 @@ use crate::{
     MAX_LOCALS, MAX_PARAMETERS, MAX_SCRIPT_SIZE,
 };
 
-use crate::debug_log;
 use five_protocol::{ValueRef, types};
 use pinocchio::{
     account_info::AccountInfo,
@@ -28,16 +27,6 @@ use crate::systems::{
     resource::ResourceManager,
     stack::StackManager,
 };
-
-// System program ID constant
-const SYSTEM_PROGRAM_ID: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-]; // Solana system program ID: 11111111111111111111111111111111
-
-const MAX_ACCOUNT_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
-
-// Shared parameter storage (only one copy, indexed by call frames)
-pub(crate) const SHARED_PARAM_SIZE: usize = MAX_PARAMETERS + 1;
 
 /// Single unified execution context for maximum performance
 /// Temp buffer is stack-based to keep the entire context on the stack

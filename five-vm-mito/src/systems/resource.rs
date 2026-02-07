@@ -1,5 +1,4 @@
 use crate::error::{CompactResult, Result, VMError, VMErrorCode};
-use alloc::vec::Vec;
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::ptr;
 
@@ -229,7 +228,7 @@ impl<'a> ResourceManager<'a> {
 
         // 1. Try to fit in current chunk
         if self.heap_chunk_count > 0 {
-            let (ptr, cap, used) = self.heap_chunks[self.current_chunk as usize];
+            let (_, cap, used) = self.heap_chunks[self.current_chunk as usize];
             if used + size <= cap {
                 // Fits!
                 let offset = used;
@@ -243,7 +242,7 @@ impl<'a> ResourceManager<'a> {
             // Simple Linear Scan:
             for i in 0..self.heap_chunk_count {
                 if i == self.current_chunk { continue; }
-                let (ptr, cap, used) = self.heap_chunks[i as usize];
+                let (_, cap, used) = self.heap_chunks[i as usize];
                 if used + size <= cap {
                     let offset = used;
                     self.heap_chunks[i as usize].2 += size;

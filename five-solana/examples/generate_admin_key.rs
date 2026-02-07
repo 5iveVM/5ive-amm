@@ -18,28 +18,24 @@ fn main() {
         seed[i] = (i + 42) as u8;
     }
 
-    // Create a keypair struct representation
-    let keypair = AdminKeyPair {
-        secret: seed,
-        public: derive_public_key(&seed),
-    };
+    let public_key = derive_public_key(&seed);
 
     // Print the public key in array format for use in the program
     println!("Admin Public Key (for five-solana/src/common.rs):");
     println!("pub const ADMIN_KEY: Pubkey = [");
-    for (i, byte) in keypair.public.iter().enumerate() {
+    for (i, byte) in public_key.iter().enumerate() {
         if i > 0 && i % 8 == 0 {
             println!();
         }
         print!("    {}", byte);
-        if i < keypair.public.len() - 1 {
+        if i < public_key.len() - 1 {
             print!(", ");
         }
     }
     println!("\n];");
 
     // Save to file for reference
-    let public_key_hex = keypair.public
+    let public_key_hex = public_key
         .iter()
         .map(|b| format!("{:02x}", b))
         .collect::<Vec<_>>()
@@ -58,11 +54,6 @@ fn main() {
         .expect("Failed to write admin_key.json");
 
     println!("\nAdmin key saved to admin_key.json");
-}
-
-struct AdminKeyPair {
-    secret: [u8; 32],
-    public: [u8; 32],
 }
 
 fn derive_public_key(secret: &[u8; 32]) -> [u8; 32] {

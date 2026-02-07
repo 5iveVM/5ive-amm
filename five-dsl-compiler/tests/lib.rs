@@ -409,14 +409,17 @@ fn test_parser_preserves_visibility_and_ordering() {
 
         if let AstNode::InstructionDefinition {
             name,
-            is_public,
+            visibility,
             parameters,
             return_type,
             ..
         } = &instruction_definitions[0]
         {
             assert_eq!(name, "external_call");
-            assert!(is_public, "first function should be parsed as public");
+            assert!(
+                visibility.is_on_chain_callable(),
+                "first function should be parsed as public"
+            );
             assert!(parameters.is_empty());
             assert!(return_type.is_none());
         } else {
@@ -425,14 +428,17 @@ fn test_parser_preserves_visibility_and_ordering() {
 
         if let AstNode::InstructionDefinition {
             name,
-            is_public,
+            visibility,
             parameters,
             return_type,
             ..
         } = &instruction_definitions[1]
         {
             assert_eq!(name, "internal_helper");
-            assert!(!is_public, "second function should be private");
+            assert!(
+                !visibility.is_on_chain_callable(),
+                "second function should be internal"
+            );
             assert_eq!(parameters.len(), 1);
             assert!(return_type.is_some());
         } else {
@@ -1103,7 +1109,7 @@ fn test_basic_instruction_definition() {
             return_type,
             body,
             visibility: _,
-            is_public: _,
+            ..
         } = &instruction_definitions[0]
         {
             assert_eq!(name, "process_payment");

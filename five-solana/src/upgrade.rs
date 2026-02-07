@@ -177,17 +177,17 @@ pub fn archive_current_version(
     version: u32,
     bytecode: &[u8],
 ) -> Result<Pubkey, ProgramError> {
-    // Derive PDA for archived version
-    let seeds: &[&[u8]] = &[
+    // Deterministic placeholder derivation until PDA helpers are available in Pinocchio.
+    // Includes program_id + script/version + bytecode hash to avoid collisions.
+    let bytecode_hash = calculate_bytecode_hash(bytecode);
+    let derived = hashv(&[
         b"archive",
+        program_id.as_ref(),
         &script_id.to_le_bytes(),
         &version.to_le_bytes(),
-    ];
-    
-    // For now, return a dummy address (PDA creation not yet in Pinocchio)
-    // This will be replaced with a real implementation once Pinocchio supports it
-    // or through a custom SHA256-based derivation.
-    Ok(Pubkey::default())
+        &bytecode_hash,
+    ]);
+    Ok(Pubkey::from(derived))
 }
 
 #[cfg(test)]

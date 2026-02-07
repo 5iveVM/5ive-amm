@@ -27,11 +27,10 @@ mod deployment_tests {
     }
 
     fn create_vm_state(admin_key: Pubkey) -> (u64, Vec<u8>) {
-        let mut vm_lamports = 0u64;
+        let vm_lamports = 0u64;
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
         {
-            // SAFETY: We are creating fresh data for tests
-            let vm_state = unsafe { FIVEVMState::from_account_data_mut(&mut vm_data).unwrap() };
+            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
             vm_state.initialize(admin_key);
             // Disable deploy fee to avoid Rent syscall in tests
             vm_state.deploy_fee_bps = 0;
@@ -97,7 +96,7 @@ mod deployment_tests {
 
         // Verify Script Header
         let script_data_ref = script_account.try_borrow_data().unwrap();
-        let header = unsafe { ScriptAccountHeader::from_account_data(&script_data_ref).unwrap() };
+        let header = ScriptAccountHeader::from_account_data(&script_data_ref).unwrap();
         assert_eq!(header.owner, owner_key);
         assert_eq!(header.permissions, 0);
         assert_eq!(header.bytecode_len(), test_bytecode.len());
@@ -219,7 +218,7 @@ mod deployment_tests {
 
         // Verify permissions set in header
         let script_data_ref = script_account.try_borrow_data().unwrap();
-        let header = unsafe { ScriptAccountHeader::from_account_data(&script_data_ref).unwrap() };
+        let header = ScriptAccountHeader::from_account_data(&script_data_ref).unwrap();
         assert_eq!(header.permissions, 0x01);
     }
 
@@ -337,7 +336,7 @@ mod deployment_tests {
         assert!(result.is_ok());
 
         let script_data_ref = script_account.try_borrow_data().unwrap();
-        let header = unsafe { ScriptAccountHeader::from_account_data(&script_data_ref).unwrap() };
+        let header = ScriptAccountHeader::from_account_data(&script_data_ref).unwrap();
         assert!(header.upload_mode());
         assert!(!header.upload_complete());
         assert_eq!(header.upload_len(), 0);
@@ -403,7 +402,7 @@ mod deployment_tests {
 
         // 3. Verify Finalization
         let script_data_ref = script_account.try_borrow_data().unwrap();
-        let header = unsafe { ScriptAccountHeader::from_account_data(&script_data_ref).unwrap() };
+        let header = ScriptAccountHeader::from_account_data(&script_data_ref).unwrap();
 
         assert!(!header.upload_mode()); // Should be false after finalize
         assert!(header.upload_complete());
@@ -525,7 +524,7 @@ mod deployment_tests {
         assert!(result.is_ok());
 
         let script_data_ref = script_account.try_borrow_data().unwrap();
-        let header = unsafe { ScriptAccountHeader::from_account_data(&script_data_ref).unwrap() };
+        let header = ScriptAccountHeader::from_account_data(&script_data_ref).unwrap();
 
         assert!(header.upload_mode());
         assert!(!header.upload_complete());

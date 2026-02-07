@@ -79,14 +79,9 @@ const TYPES: &[&str] = &[
     "pubkey", "lamports", "u128", "Account", "Result", "Option",
 ];
 
-/// Modifiers that should be highlighted as modifiers
-const MODIFIERS: &[&str] = &[
-    "@mut", "@signer", "@init", "pub", "mut", "const",
-];
-
 /// Extract semantic tokens from a single line
 fn extract_tokens_from_line(line: &str, line_idx: u32, tokens: &mut Vec<SerializableSemanticToken>) {
-    let mut chars: Vec<char> = line.chars().collect();
+    let chars: Vec<char> = line.chars().collect();
     let mut i = 0;
 
     while i < chars.len() {

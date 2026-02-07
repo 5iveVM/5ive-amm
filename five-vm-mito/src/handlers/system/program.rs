@@ -37,11 +37,12 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
             offset
         }
         ValueRef::ArrayRef(offset) => {
-            // Assume array treated as buffer
-            // We need to check size.
-            // Using memory manager directly is safer
-             // Simplified: just check if we can write 32 bytes
-             return Err(VMErrorCode::TypeMismatch); // Enforce TempRef for now
+            // ArrayRef buffers are not supported for program ID writes in this syscall.
+            debug_log!(
+                "SYSCALL_GET_RETURN_DATA: ArrayRef {} not supported for pid buffer",
+                offset
+            );
+            return Err(VMErrorCode::TypeMismatch); // Enforce TempRef for now
         }
          _ => return Err(VMErrorCode::TypeMismatch),
     };
@@ -55,24 +56,29 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
          _ => return Err(VMErrorCode::TypeMismatch),
     };
 
-    let mut result_len = 0;
+    let result_len = {
+        #[cfg(target_os = "solana")]
+        unsafe {
+            // We need raw pointers to the temp buffer slots
+            let temp_base = ctx.temp_buffer_mut().as_mut_ptr();
+            let pid_ptr = temp_base.add(pid_offset as usize) as *mut Pubkey;
+            let data_ptr = temp_base.add(data_offset as usize);
 
-    #[cfg(target_os = "solana")]
-    unsafe {
-        // We need raw pointers to the temp buffer slots
-        let temp_base = ctx.temp_buffer_mut().as_mut_ptr();
-        let pid_ptr = temp_base.add(pid_offset as usize) as *mut Pubkey;
-        let data_ptr = temp_base.add(data_offset as usize);
+            syscalls::sol_get_return_data(data_ptr, length, pid_ptr)
+        }
 
-        result_len = syscalls::sol_get_return_data(data_ptr, length, pid_ptr);
-    }
-
-    #[cfg(not(target_os = "solana"))]
-    {
-        // Mock
-        debug_log!("SOL_GET_RETURN_DATA: length={}", length);
-        result_len = 0;
-    }
+        #[cfg(not(target_os = "solana"))]
+        {
+            // Mock
+            debug_log!(
+                "SOL_GET_RETURN_DATA: length={} pid_offset={} data_offset={}",
+                length,
+                pid_offset,
+                data_offset
+            );
+            0
+        }
+    };
 
     ctx.push(ValueRef::U64(result_len))?;
     Ok(())
@@ -93,7 +99,11 @@ pub fn handle_syscall_set_return_data(ctx: &mut ExecutionManager) -> CompactResu
     }
     #[cfg(not(target_os = "solana"))]
     {
-        debug_log!("SOL_SET_RETURN_DATA: len={}", len);
+        debug_log!(
+            "SOL_SET_RETURN_DATA: len={} first_byte={}",
+            len,
+            bytes.get(0).copied().unwrap_or(0)
+        );
     }
 
     Ok(())

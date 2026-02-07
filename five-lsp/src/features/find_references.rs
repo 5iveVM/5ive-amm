@@ -245,61 +245,21 @@ fn find_references_in_source(source: &str, identifier: &str, uri: &Url) -> Vec<L
     references
 }
 
-/// Determine the scope context where an identifier appears
-/// Returns info about whether it's local (inside a function) or global
-#[derive(Debug, Clone)]
-struct ScopeInfo {
-    start_line: usize,
-    end_line: usize,
-    is_local: bool,
-}
-
-/// Find where the identifier scope begins and ends
-fn determine_identifier_scope(source: &str, identifier: &str) -> ScopeInfo {
-    let lines: Vec<&str> = source.lines().collect();
-    let mut first_occurrence_line = 0;
-    let mut first_occurrence_nesting = 0;
-
-    // Find first occurrence and its nesting level
-    for (line_idx, line) in lines.iter().enumerate() {
-        if line.contains(identifier) {
-            first_occurrence_line = line_idx;
-            first_occurrence_nesting = count_nesting_at_line(source, line_idx);
+/// Check if a position is inside a string literal (basic check)
+fn is_in_string_literal(line: &str, pos: usize) -> bool {
+    let mut in_string = false;
+    for (i, ch) in line.chars().enumerate() {
+        if i >= pos {
             break;
         }
-    }
-
-    let is_local = first_occurrence_nesting > 0;
-
-    if is_local {
-        // Find start and end of the block containing this occurrence
-        let block_start = find_block_start_simple(source, first_occurrence_line);
-        let block_end = find_block_end_simple(source, first_occurrence_line, first_occurrence_nesting);
-        ScopeInfo {
-            start_line: block_start,
-            end_line: block_end,
-            is_local: true,
-        }
-    } else {
-        // Global scope
-        ScopeInfo {
-            start_line: 0,
-            end_line: lines.len(),
-            is_local: false,
+        if ch == '"' && (i == 0 || line.chars().nth(i - 1) != Some('\\')) {
+            in_string = !in_string;
         }
     }
+    in_string
 }
 
-/// Check if a line is within the appropriate scope
-fn is_line_in_scope(_source: &str, line_idx: usize, scope: &ScopeInfo) -> bool {
-    if scope.is_local {
-        line_idx >= scope.start_line && line_idx <= scope.end_line
-    } else {
-        true // Global scope includes everything
-    }
-}
-
-/// Count bracket nesting depth at a given line
+/// Count bracket nesting depth at a given line.
 fn count_nesting_at_line(source: &str, target_line: usize) -> usize {
     let lines: Vec<&str> = source.lines().collect();
     let mut nesting: usize = 0;
@@ -319,63 +279,6 @@ fn count_nesting_at_line(source: &str, target_line: usize) -> usize {
     }
 
     nesting
-}
-
-/// Find the opening brace of the block containing this line (simplified)
-fn find_block_start_simple(source: &str, target_line: usize) -> usize {
-    let lines: Vec<&str> = source.lines().collect();
-    let target_nesting = count_nesting_at_line(source, target_line);
-
-    // Go backwards from target to find the opening brace
-    let mut nesting_before = if target_line > 0 {
-        count_nesting_at_line(source, target_line - 1)
-    } else {
-        0
-    };
-
-    for line_idx in (0..=target_line).rev() {
-        let nesting_at = count_nesting_at_line(source, line_idx);
-
-        // The block starts at the line where nesting increases from before to target
-        if nesting_at > 0 && nesting_at == target_nesting && nesting_before < target_nesting {
-            return line_idx;
-        }
-
-        if line_idx > 0 {
-            nesting_before = count_nesting_at_line(source, line_idx - 1);
-        }
-    }
-
-    0
-}
-
-/// Find the closing brace of the block containing this line (simplified)
-fn find_block_end_simple(source: &str, target_line: usize, target_nesting: usize) -> usize {
-    let lines: Vec<&str> = source.lines().collect();
-
-    // Find the line where nesting drops back to target_nesting - 1
-    for line_idx in (target_line + 1)..lines.len() {
-        let nesting = count_nesting_at_line(source, line_idx);
-        if nesting < target_nesting {
-            return line_idx - 1;
-        }
-    }
-
-    lines.len() - 1
-}
-
-/// Check if a position is inside a string literal (basic check)
-fn is_in_string_literal(line: &str, pos: usize) -> bool {
-    let mut in_string = false;
-    for (i, ch) in line.chars().enumerate() {
-        if i >= pos {
-            break;
-        }
-        if ch == '"' && (i == 0 || line.chars().nth(i - 1) != Some('\\')) {
-            in_string = !in_string;
-        }
-    }
-    in_string
 }
 
 #[cfg(test)]

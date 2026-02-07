@@ -1,7 +1,6 @@
 // Bytecode Size Benchmark Tests
 //
-// Compares bytecode sizes with sequential vs linear scan register allocation
-// to verify the expected 8-12% improvement.
+// Regression guards for basic compilation and size sanity checks.
 
 #[cfg(test)]
 mod bytecode_benchmarks {
@@ -15,13 +14,9 @@ mod bytecode_benchmarks {
         }
     }
 
-    fn calculate_improvement(sequential: usize, linear_scan: usize) -> f32 {
-        ((sequential - linear_scan) as f32 / sequential as f32) * 100.0
-    }
-
     #[test]
-    fn test_linear_scan_produces_valid_bytecode() {
-        // Simple test to verify linear scan doesn't break bytecode generation
+    fn test_compiles_valid_bytecode() {
+        // Simple test to verify bytecode generation
         let source = r#"
             mut counter: u64;
 
@@ -49,7 +44,7 @@ mod bytecode_benchmarks {
     }
 
     #[test]
-    fn test_linear_scan_with_many_variables() {
+    fn test_compiles_with_many_variables() {
         // Test with function that has many local variables
         let source = r#"
             pub calculate(a: u64, b: u64, c: u64, d: u64) -> u64 {
@@ -75,7 +70,7 @@ mod bytecode_benchmarks {
     }
 
     #[test]
-    fn test_counter_compiles_with_registers() {
+    fn test_counter_compiles_with_optimizations() {
         if let Some(source) = read_contract_file("five-templates/counter/src/counter.v") {
             match DslCompiler::compile_dsl(&source) {
                 Ok(bytecode) => {
@@ -93,7 +88,7 @@ mod bytecode_benchmarks {
     }
 
     #[test]
-    fn test_token_compiles_with_registers() {
+    fn test_token_compiles_with_optimizations() {
         if let Some(source) = read_contract_file("five-templates/token/src/token.v") {
             match DslCompiler::compile_dsl(&source) {
                 Ok(bytecode) => {

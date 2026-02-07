@@ -2,17 +2,17 @@
 //!
 //! Tests critical security constraint opcodes that validate account properties.
 
-mod support;
+#[path = "support/accounts.rs"]
+mod support_accounts;
 
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, VMError, stack::StackStorage, AccountInfo};
-use five_vm_mito::error::VMErrorCode;
 use pinocchio::pubkey::Pubkey;
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &Pubkey) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
 }
-use support::accounts::{create_test_accounts, derive_pda_real};
+use support_accounts::{create_test_accounts, derive_pda_real};
 
 #[cfg(test)]
 mod basic_constraint_tests {

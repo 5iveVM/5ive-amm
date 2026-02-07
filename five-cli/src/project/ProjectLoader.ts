@@ -60,7 +60,6 @@ export async function loadProjectConfig(
     optimizations: {
       enableVLE: optimizations.enable_vle ?? true,
       enableCompression: optimizations.enable_compression ?? true,
-      enableRegisterAllocation: optimizations.enable_register_allocation ?? true,
       enableConstraintOptimization: optimizations.enable_constraint_optimization ?? true,
       optimizationLevel: 'production'
     },

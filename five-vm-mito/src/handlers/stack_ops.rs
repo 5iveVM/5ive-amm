@@ -7,7 +7,6 @@
 
 use crate::{
     context::ExecutionManager,
-    debug_log,
     error::{CompactResult, VMErrorCode},
     push_i64,
     // Import stack operation macros

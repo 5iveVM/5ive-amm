@@ -67,7 +67,7 @@ print("-" * 80 + "\n")
 
 print("✓ Five VM Program is loaded and executable")
 print("✓ Register optimizations compiled into bytecode")
-print("✓ Token template with --enable-registers flag ready\n")
+print("✓ Token template ready\n")
 
 print("-" * 80)
 print("Bytecode Statistics")
@@ -98,7 +98,7 @@ print("=" * 80 + "\n")
 print("Status: ✅ READY FOR PRODUCTION\n")
 
 print("Program Capabilities:")
-print("  • Mint initialization with register optimization")
+print("  • Mint initialization")
 print("  • Token account creation")
 print("  • Transfers with optimized arithmetic")
 print("  • Approvals and revocations")

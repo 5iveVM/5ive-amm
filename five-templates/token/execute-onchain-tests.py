@@ -172,7 +172,7 @@ def main():
 
     print("\n" + "=" * 70)
     print("Register Optimization Status: ENABLED")
-    print("Bytecode: Token template with --enable-registers flag")
+    print("Bytecode: Token template")
     print("Register Opcodes Found: 3 (LOAD_REG_U32, LOAD_REG_PUBKEY)")
     print("=" * 70 + "\n")
 

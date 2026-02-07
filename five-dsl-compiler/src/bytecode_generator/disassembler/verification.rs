@@ -3,8 +3,8 @@
 //! This module provides verification utilities for compiled bytecode,
 //! specifically to detect invalid JUMP targets that can cause runtime errors.
 //!
-//! The primary use case is catching register optimization bugs where bytecode
-//! structure changes cause JUMP offsets to become invalid.
+//! The primary use case is catching bytecode structure or patching bugs where
+//! JUMP offsets become invalid.
 
 use five_protocol::opcodes;
 

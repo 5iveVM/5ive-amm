@@ -228,7 +228,6 @@ async function generateProjectConfig(
     optimizations: {
       enableVLE: true,
       enableCompression: true,
-      enableRegisterAllocation: true,
       enableConstraintOptimization: true,
       optimizationLevel: 'production'
     },
@@ -331,7 +330,6 @@ target = "${config.target}"
 [optimizations]
 enable_vle = ${config.optimizations.enableVLE}
 enable_compression = ${config.optimizations.enableCompression}
-enable_register_allocation = ${config.optimizations.enableRegisterAllocation}
 enable_constraint_optimization = ${config.optimizations.enableConstraintOptimization}
 optimization_level = "${config.optimizations.optimizationLevel}"
 

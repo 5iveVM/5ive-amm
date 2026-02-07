@@ -49,7 +49,7 @@ async function main() {
   const bytecodeData = JSON.parse(fs.readFileSync(bytecodeFile, 'utf-8'));
   const bytecodeBuffer = Buffer.from(bytecodeData.bytecode, 'base64');
 
-  console.log(`Bytecode: 805 bytes (register-optimized token template)`);
+  console.log(`Bytecode: 805 bytes (token template)`);
   console.log(`Register Opcodes: 3 found\n`);
 
   // Step 1: Create the account owned by the Five VM program

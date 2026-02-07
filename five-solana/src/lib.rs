@@ -2,9 +2,10 @@
 // FIVE VM implementation.
 
 use pinocchio::{
-    // program_entrypoint,
     account_info::AccountInfo,
-    entrypoint,
+    default_allocator,
+    default_panic_handler,
+    program_entrypoint,
     program_error::ProgramError,
     pubkey::Pubkey,
     ProgramResult,
@@ -17,6 +18,10 @@ macro_rules! debug_log {
         {
             // pinocchio_log requires literal format strings; callers pass literals.
             pinocchio_log::log!($fmt $(, $arg)*);
+        }
+        #[cfg(not(feature = "debug-logs"))]
+        {
+            let _ = format_args!($fmt $(, $arg)*);
         }
     };
 }
@@ -34,8 +39,11 @@ pub mod upgrade;
 
 use instructions::FIVEInstruction;
 
-//program_entrypoint!(process_instruction);
-entrypoint!(process_instruction); // Basic entrypoint (includes allocator/panic handler)
+const MAX_ACCOUNTS: usize = (u8::MAX - 1) as usize;
+
+program_entrypoint!(process_instruction, MAX_ACCOUNTS);
+default_allocator!();
+default_panic_handler!();
 
 /// Program entrypoint.
 pub fn process_instruction(
@@ -65,7 +73,7 @@ pub fn process_instruction(
     }
 
     // Log instruction details for debugging
-    debug_log!("Program ID: {}", program_id);
+    debug_log!("Program ID: {:?}", program_id);
     debug_log!("Accounts provided: {}", accounts.len());
 
     // Detailed account logging

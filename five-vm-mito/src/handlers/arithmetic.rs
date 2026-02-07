@@ -131,7 +131,20 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
 /// # use pinocchio::pubkey::Pubkey;
 /// # let bytecode: &[u8] = &[0x11, 10, 0x11, 5, 0x20, 0x07];
 /// # let mut storage = StackStorage::new();
-/// # let mut ctx = ExecutionManager::new(bytecode, &[], Pubkey::default(), &[], 0, &mut storage, 1, 1);
+/// # let mut ctx = ExecutionManager::new(
+/// #     bytecode,
+/// #     &[],
+/// #     Pubkey::default(),
+/// #     &[],
+/// #     0,
+/// #     &mut storage,
+/// #     1,
+/// #     1,
+/// #     0,
+/// #     0,
+/// #     0,
+/// #     0,
+/// # );
 /// # ctx.push(ValueRef::U64(10)).unwrap();
 /// # ctx.push(ValueRef::U128(5)).unwrap(); // Mixed types auto-promote
 /// handle_arithmetic(ADD, &mut ctx)?;

@@ -55,8 +55,8 @@ impl ASTGenerator {
 
         self.local_symbol_table.insert(name.clone(), field_info);
 
-        // Fallback: stack-based local variable (no register optimization)
-        // Generate value first
+        // Locals are stored in stack slots; no allocation pass is applied here.
+        // Generate value first.
         self.generate_ast_node(emitter, value)?;
 
         // Generate local variable storage instruction with V2 optimization

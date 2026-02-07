@@ -1,7 +1,7 @@
 //! Minimal Option/Result test avoiding function handler issues
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{ExecutionContext, FIVE_VM_PROGRAM_ID, StackStorage, ValueRef};
+use five_vm_mito::{ExecutionContext, StackStorage, ValueRef};
 use pinocchio::pubkey::Pubkey;
 
 #[test]

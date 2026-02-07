@@ -185,7 +185,7 @@ mod cpi_serialization_format_tests {
     #[test]
     fn test_borsh_discriminator_format() {
         let discriminator = 7u8;
-        assert!(discriminator <= 255, "Borsh discriminator is single byte");
+        assert_eq!(discriminator, 7, "Borsh discriminator is single byte");
     }
 
     /// Test Anchor 8-byte discriminator format

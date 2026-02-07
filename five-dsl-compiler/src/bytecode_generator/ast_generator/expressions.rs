@@ -128,7 +128,7 @@ impl ASTGenerator {
             }
         }
 
-        // No temporary register allocation - static registers are for variables, not expressions
+        // No temporary allocation for binary expressions.
         Ok(false)
     }
 

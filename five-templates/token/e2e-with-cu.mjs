@@ -249,7 +249,7 @@ async function main() {
   console.log('════════════════════════════════════════════════════════════════════\n');
 
   console.log('Register Optimization Status: ENABLED');
-  console.log('Bytecode: Token template with --enable-registers flag');
+  console.log('Bytecode: Token template');
   console.log('Register Opcodes: 3 (LOAD_REG_U32, LOAD_REG_PUBKEY x2)\n');
 }
 

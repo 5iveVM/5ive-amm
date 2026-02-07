@@ -5,13 +5,13 @@ use wasm_bindgen::prelude::*;
 use five_protocol::{
     opcodes, types, Value, FIVE_DEPLOY_MAGIC, FIVE_MAGIC, MAX_SCRIPT_SIZE,
 };
-use five_vm_mito::{error::VMError, Pubkey, FIVE_VM_PROGRAM_ID};
+use five_vm_mito::{error::VMError, FIVE_VM_PROGRAM_ID};
 use serde::{Deserialize, Serialize};
 
 // Define missing constants
 const MAX_COMPUTE_UNITS: usize = 1_000_000;
 use five_dsl_compiler::{
-    error::{integration, CompilerError, ErrorSeverity},
+    error::integration,
     metrics::{export_metrics, CompilerMetrics, ExportFormat, MetricsCollector},
 
     DslCompiler,
@@ -1607,6 +1607,7 @@ fn opcode_to_name(opcode: u8) -> &'static str {
 }
 
 /// Helper function to get instruction size
+#[cfg(test)]
 fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
     get_instruction_size_with_features(opcode, bytes, 0)
 }
@@ -2792,7 +2793,7 @@ impl WasmFiveCompiler {
             include_debug_info: options.include_debug_info,
         };
 
-        let mut metrics_format = if options.metrics_format.is_empty() {
+        let metrics_format = if options.metrics_format.is_empty() {
             "json".to_string()
         } else {
             options.metrics_format.clone()
@@ -3157,7 +3158,7 @@ impl WasmFiveCompiler {
     #[wasm_bindgen(js_name = extractFunctionMetadata)]
     pub fn extract_function_metadata(&self, bytecode: &[u8]) -> Result<JsValue, JsValue> {
         use five_dsl_compiler::import_discovery::ImportDiscovery;
-        use serde::{Serialize, Deserialize};
+        use serde::Serialize;
 
         #[derive(Serialize)]
         struct SimpleDiscoveredFunction {
@@ -3437,7 +3438,7 @@ impl WasmFiveCompiler {
                 type_checker.set_current_module(main_module_name);
                 
                 if let Err(e) = type_checker.check_types(&merged_ast) {
-                     let mut compiler_error = five_dsl_compiler::error::CompilerError::new(
+                     let compiler_error = five_dsl_compiler::error::CompilerError::new(
                          five_dsl_compiler::error::ErrorCode::TYPE_MISMATCH,
                          five_dsl_compiler::error::ErrorSeverity::Error,
                          five_dsl_compiler::error::ErrorCategory::Type,
@@ -4708,7 +4709,6 @@ impl ParameterEncoder {
         for i in 0..params.length() {
             let mut param = params.get(i);
             let mut is_account_type = false;
-            let mut account_value: JsValue = JsValue::null();
 
             // Check if parameter is wrapped with type metadata (e.g., { __type: 'account', value: ... })
             if param.is_object() {
@@ -4718,8 +4718,7 @@ impl ParameterEncoder {
                             // Extract the actual value from the wrapper
                             if let Ok(val) = js_sys::Reflect::get(&param, &"value".into()) {
                                 is_account_type = true;
-                                account_value = val;
-                                param = account_value.clone();
+                                param = val;
                             }
                         }
                     }
@@ -4828,66 +4827,12 @@ impl ParameterEncoder {
     }
 }
 
-/// Helper function to convert CompilerError to WASM-compatible error
-fn convert_compiler_error_to_wasm(
-    error: &CompilerError,
-    source_file: &Option<String>,
-) -> WasmCompilerError {
-    let location = error.location.as_ref().map(|loc| WasmSourceLocation {
-        line: loc.line,
-        column: loc.column,
-        length: loc.length,
-        offset: loc.offset,
-        file: source_file.clone(),
-    });
-
-    // Generate suggestions using the global error system
-    let suggestions: Vec<WasmSuggestion> =
-        integration::generate_suggestions(&integration::get_error_system(), error)
-            .iter()
-            .map(|suggestion| WasmSuggestion {
-                message: suggestion.message.clone(),
-                confidence: suggestion.confidence as f64,
-                explanation: suggestion.explanation.clone(),
-                code_suggestion: suggestion.code_fix.as_ref().map(|f| f.replacement.clone()),
-            })
-            .collect();
-
-    WasmCompilerError {
-        code: format!("E{:04}", error.code.0),
-        severity: match error.severity {
-            ErrorSeverity::Error => "error".to_string(),
-            ErrorSeverity::Warning => "warning".to_string(),
-            ErrorSeverity::Note => "note".to_string(),
-            ErrorSeverity::Help => "help".to_string(),
-        },
-        category: format!("{:?}", error.category).to_lowercase(),
-        message: error.message.clone(),
-        description: error.description.clone(),
-        location,
-        suggestions,
-        source_line: None,
-        source_snippet: None,
-        line: error.location.as_ref().map(|loc| loc.line),
-        column: error.location.as_ref().map(|loc| loc.column),
-    }
-}
-
 fn map_metrics_format(format: &str) -> ExportFormat {
     match format.to_lowercase().as_str() {
         "csv" => ExportFormat::Csv,
         "toml" => ExportFormat::Toml,
         "dashboard" => ExportFormat::Dashboard,
         _ => ExportFormat::Json,
-    }
-}
-
-fn metrics_format_label(format: &ExportFormat) -> &'static str {
-    match format {
-        ExportFormat::Csv => "csv",
-        ExportFormat::Toml => "toml",
-        ExportFormat::Dashboard => "dashboard",
-        ExportFormat::Json => "json",
     }
 }
 
@@ -5433,6 +5378,7 @@ mod compiler_error_tests {
 
         assert_eq!(err_count, 1);
         assert_eq!(warn_count, 0);
+        assert!(warnings.is_empty());
         assert_eq!(err_strs.len(), 1);
         assert_eq!(wasm_errs.len(), 1);
         assert_eq!(wasm_errs[0].message, "Test error");
@@ -5453,6 +5399,7 @@ mod compiler_error_tests {
         assert_eq!(err_count, 0);
         assert_eq!(warn_count, 1);
         assert_eq!(warnings.len(), 1);
+        assert!(err_strs.is_empty());
         assert_eq!(wasm_errs.len(), 1);
         assert_eq!(wasm_errs[0].severity, "warning");
     }

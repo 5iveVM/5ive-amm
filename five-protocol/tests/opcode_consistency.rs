@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use five_protocol::opcodes::{self, OpcodeInfo, OPCODE_TABLE, get_opcode_info};
+    use five_protocol::opcodes::{self, OPCODE_TABLE, get_opcode_info};
     use std::collections::HashSet;
 
     #[test]

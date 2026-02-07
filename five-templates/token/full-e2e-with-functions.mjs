@@ -224,7 +224,7 @@ async function main() {
       signature: sig,
       cu: cu,
       status: 'SUCCESS',
-      description: 'Initialize mint with register-optimized execution',
+      description: 'Initialize mint',
     });
   } catch (error) {
     console.log(`✓ init_mint Instruction Submitted (requires bytecode deployment)`);
@@ -273,7 +273,7 @@ async function main() {
   console.log('REGISTER OPTIMIZATION SUMMARY');
   console.log('────────────────────────────────────────────────────────────────────');
   console.log('Enabled: ✅ YES');
-  console.log('Bytecode: Token template compiled with --enable-registers');
+  console.log('Bytecode: Token template compiled');
   console.log('Register Opcodes: 3 found');
   console.log('  - LOAD_REG_U32 (offset 10)');
   console.log('  - LOAD_REG_PUBKEY (offset 305)');
@@ -288,7 +288,7 @@ async function main() {
   console.log('2. Call init_mint to initialize token');
   console.log('3. Call init_token_account for user accounts');
   console.log('4. Execute transfer, mint_to, and other operations');
-  console.log('5. Monitor CU usage for register optimization benefits');
+  console.log('5. Monitor CU usage for performance');
   console.log('════════════════════════════════════════════════════════════════════\n');
 }
 

@@ -35,7 +35,7 @@ async function testToken() {
     console.log(`  Owner: ${scriptAccount.owner.toBase58()}`);
     console.log('');
 
-    // Check if compilation included register opcodes
+    // Check if compilation included expected opcodes
     const compiledFile = 'build/five-token-template.five';
     if (fs.existsSync(compiledFile)) {
         const content = fs.readFileSync(compiledFile, 'utf-8');
