@@ -333,6 +333,7 @@ export class FiveSDK {
       abi?: any;
       adminAccount?: string;
       estimateFees?: boolean;
+      accountMetadata?: Map<string, { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }>;
     } = {},
   ): Promise<SerializedExecution> {
     return Execute.generateExecuteInstruction(

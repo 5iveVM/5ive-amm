@@ -148,23 +148,34 @@ export class BytecodeEncoder {
       })));
     }
 
-    // Build parameter array with metadata for WASM encoder to distinguish account vs pubkey types.
+    // Build parameter array with full metadata for fixed-size WASM encoder
     const paramArray = paramValues.map(({ param, value }) => {
       const normalizedType = this.normalizeType(param);
-      // Create object with type information so WASM encoder can distinguish accounts from pubkeys.
-      if (normalizedType === 'account') {
-        // Mark account parameters with type metadata.
-        return { __type: 'account', value };
-      }
-      return value;
+      // Pass full parameter definition for type-aware encoding
+      return {
+        name: param.name,
+        type: normalizedType,
+        param_type: normalizedType,
+        isAccount: normalizedType === 'account',
+        is_account: normalizedType === 'account',
+        value: value
+      };
     });
 
     try {
+      // Debug logging to understand parameter encoding
+      console.log(`[BytecodeEncoder] About to encode with paramArray:`, JSON.stringify(paramArray.map(p => ({
+        name: (p as any).name || 'unknown',
+        type: (p as any).type || 'unknown',
+        hasValue: (p as any).value !== undefined
+      }))));
+
       const encoded = wasmModule.ParameterEncoder.encode_execute(functionIndex, paramArray);
       if (options && (options as any).debug) {
         const buf = Buffer.from(encoded);
         console.log(`[BytecodeEncoder] WASM encoded ${paramArray.length} parameters: ${buf.length} bytes`);
       }
+      console.log(`[BytecodeEncoder] Encoded result: ${Buffer.from(encoded).toString('hex')}`);
       return Buffer.from(encoded);
     } catch (e) {
       console.warn("[BytecodeEncoder] Encode failed via WASM:", e);

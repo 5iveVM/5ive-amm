@@ -416,6 +416,7 @@ export class FunctionBuilder {
         fiveVMProgramId: this.options.fiveVMProgramId,
         vmStateAccount: this.options.vmStateAccount,
         adminAccount: this.options.feeReceiverAccount,
+        accountMetadata: accountMetadata,  // Pass account metadata for correct isWritable flags
       }
     );
 

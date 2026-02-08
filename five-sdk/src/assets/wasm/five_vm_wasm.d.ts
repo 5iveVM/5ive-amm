@@ -29,36 +29,70 @@ export class BytecodeAnalyzer {
   static analyze_execution_flow(bytecode: Uint8Array): any;
 }
 
+export class BytecodeEncoder {
+  private constructor();
+  free(): void;
+  [Symbol.dispose](): void;
+  /**
+   * Encode a u32 value
+   * Returns [size, byte1, byte2, byte3, byte4]
+   */
+  static encode_u32(value: number): Array<any>;
+  /**
+   * Encode a u16 value
+   * Returns [size, byte1, byte2]
+   */
+  static encode_u16(value: number): Array<any>;
+  /**
+   * Decode a u32 value
+   * Returns [value, bytes_consumed] or null if invalid
+   */
+  static decode_u32(bytes: Uint8Array): Array<any> | undefined;
+  /**
+   * Decode a u16 value
+   * Returns [value, bytes_consumed] or null if invalid
+   */
+  static decode_u16(bytes: Uint8Array): Array<any> | undefined;
+  /**
+   * Calculate encoded size (Always 4 for u32)
+   */
+  static encoded_size_u32(_value: number): number;
+  /**
+   * Calculate encoded size (Always 2 for u16)
+   */
+  static encoded_size_u16(_value: number): number;
+}
+
 /**
- * Execution result that honestly reports what happened
+ * Execution result.
  */
 export enum ExecutionStatus {
   /**
-   * All operations completed successfully
+   * All operations completed successfully.
    */
   Completed = 0,
   /**
-   * Execution stopped because it hit a system program call that cannot be executed in WASM
+   * Execution stopped because it hit a system program call that cannot be executed in WASM.
    */
   StoppedAtSystemCall = 1,
   /**
-   * Execution stopped because it hit an INIT_PDA operation that requires real Solana context
+   * Execution stopped because it hit an INIT_PDA operation that requires real Solana context.
    */
   StoppedAtInitPDA = 2,
   /**
-   * Execution stopped because it hit an INVOKE operation that requires real RPC
+   * Execution stopped because it hit an INVOKE operation that requires real RPC.
    */
   StoppedAtInvoke = 3,
   /**
-   * Execution stopped because it hit an INVOKE_SIGNED operation that requires real RPC
+   * Execution stopped because it hit an INVOKE_SIGNED operation that requires real RPC.
    */
   StoppedAtInvokeSigned = 4,
   /**
-   * Execution stopped because compute limit was reached
+   * Execution stopped because compute limit was reached.
    */
   ComputeLimitExceeded = 5,
   /**
-   * Execution failed due to an error
+   * Execution failed due to an error.
    */
   Failed = 6,
 }
@@ -76,15 +110,15 @@ export class FiveVMWasm {
   free(): void;
   [Symbol.dispose](): void;
   /**
-   * Create new VM instance with bytecode
+   * Create new VM instance with bytecode.
    */
   constructor(_bytecode: Uint8Array);
   /**
-   * Execute VM with input data and accounts (legacy method)
+   * Execute VM with input data and accounts (legacy method).
    */
   execute(input_data: Uint8Array, accounts: Array<any>): any;
   /**
-   * Execute VM with partial execution support - stops at system calls
+   * Execute VM with partial execution support - stops at system calls.
    */
   execute_partial(input_data: Uint8Array, accounts: Array<any>): TestResult;
   /**
@@ -106,11 +140,10 @@ export class ParameterEncoder {
   free(): void;
   [Symbol.dispose](): void;
   /**
-   * Encode function parameters using VLE compression
+   * Encode function parameters using fixed size encoding
    * Returns ONLY parameter data - SDK handles discriminator AND function index
-   * Each parameter value is VLE-encoded regardless of its declared type for maximum compression
    */
-  static encode_execute_vle(_function_index: number, params: Array<any>): Uint8Array;
+  static encode_execute(_function_index: number, params: Array<any>): Uint8Array;
 }
 
 export class TestResult {
@@ -118,19 +151,19 @@ export class TestResult {
   free(): void;
   [Symbol.dispose](): void;
   /**
-   * Compute units consumed
+   * Compute units consumed.
    */
   compute_units_used: bigint;
   /**
-   * Final instruction pointer
+   * Final instruction pointer.
    */
   instruction_pointer: number;
   /**
-   * Which opcode caused the stop (if stopped at system call)
+   * Which opcode caused the stop (if stopped at system call).
    */
   get stopped_at_opcode(): number | undefined;
   /**
-   * Which opcode caused the stop (if stopped at system call)
+   * Which opcode caused the stop (if stopped at system call).
    */
   set stopped_at_opcode(value: number | null | undefined);
   readonly status: string;
@@ -142,40 +175,6 @@ export class TestResult {
   readonly error_message: string | undefined;
   readonly execution_context: string | undefined;
   readonly stopped_at_opcode_name: string | undefined;
-}
-
-export class VLEEncoder {
-  private constructor();
-  free(): void;
-  [Symbol.dispose](): void;
-  /**
-   * Encode a u32 value using Variable-Length Encoding
-   * Returns [size, byte1, byte2, byte3] where size is 1-3
-   */
-  static encode_u32(value: number): Array<any>;
-  /**
-   * Encode a u16 value using Variable-Length Encoding
-   * Returns [size, byte1, byte2] where size is 1-2
-   */
-  static encode_u16(value: number): Array<any>;
-  /**
-   * Decode a u32 value from Variable-Length Encoding
-   * Returns [value, bytes_consumed] or null if invalid
-   */
-  static decode_u32(bytes: Uint8Array): Array<any> | undefined;
-  /**
-   * Decode a u16 value from Variable-Length Encoding
-   * Returns [value, bytes_consumed] or null if invalid
-   */
-  static decode_u16(bytes: Uint8Array): Array<any> | undefined;
-  /**
-   * Calculate encoded size without encoding
-   */
-  static encoded_size_u32(value: number): number;
-  /**
-   * Calculate encoded size for u16
-   */
-  static encoded_size_u16(value: number): number;
 }
 
 export class WasmAccount {

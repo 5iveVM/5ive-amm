@@ -242,6 +242,7 @@ export async function generateExecuteInstruction(
     abi?: any;
     adminAccount?: string;
     estimateFees?: boolean;
+    accountMetadata?: Map<string, { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }>;
   } = {},
 ): Promise<SerializedExecution> {
   validator.validateBase58Address(scriptAccount, "scriptAccount");
@@ -435,7 +436,10 @@ export async function generateExecuteInstruction(
   }
 
   const userInstructionAccounts = accounts.map((acc, index) => {
-    const metadata = abiAccountMetadata.get(acc);
+    // Check both derived ABI metadata and passed-in metadata (from FunctionBuilder)
+    const abiMetadata = abiAccountMetadata.get(acc);
+    const passedMetadata = options.accountMetadata?.get(acc);
+    const metadata = abiMetadata || passedMetadata;
     const isSigner = metadata ? metadata.isSigner : (index === 0 && adminAccount ? true : false);
     const isWritable = metadata ? metadata.isWritable : true;
 
@@ -804,21 +808,14 @@ function encodeExecuteInstruction(
   encodedParams: Uint8Array,
   paramCount: number,
 ): Uint8Array {
-  const TYPED_PARAM_SENTINEL = 128;
-  const isTypedParams = encodedParams.length > 0 && encodedParams[0] === TYPED_PARAM_SENTINEL;
-
   const parts = [];
   parts.push(new Uint8Array([9]));
   // Function index as fixed u32
   parts.push(encodeU32(functionIndex));
 
-  if (isTypedParams) {
-    parts.push(encodedParams);
-  } else {
-    // Param count as fixed u32
-    parts.push(encodeU32(paramCount));
-    parts.push(encodedParams);
-  }
+  // Param count as fixed u32
+  parts.push(encodeU32(paramCount));
+  parts.push(encodedParams);
 
   const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
   const result = new Uint8Array(totalLength);
@@ -906,7 +903,9 @@ async function encodeParametersWithABI(
         if (accountPubkey) {
           const accountIndex = accounts.indexOf(accountPubkey);
           if (accountIndex >= 0) {
-            value = accountIndex + 2;
+            // MitoVM receives accounts excluding the script account.
+            // Account index 0 is the VM state account.
+            value = accountIndex + 1;
           } else {
             throw new Error(`Account ${accountPubkey} not found in accounts array`);
           }

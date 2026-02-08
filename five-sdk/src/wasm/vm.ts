@@ -193,14 +193,17 @@ export class FiveVM {
     // Import BytecodeEncoder
     const { BytecodeEncoder } = await import('../lib/bytecode-encoder.js');
 
-    // Simple values for raw encoding
-    const simpleValues = parameters.map(param => param.value);
+    // Pass typed parameters through to WASM encoder
+    const typedParams = parameters.map(param => ({
+      type: param.type,
+      value: param.value
+    }));
 
     if (!ParameterEncoder || !ParameterEncoder.encode_execute) {
       throw new Error('ParameterEncoder WASM binding not loaded or missing encode_execute');
     }
     // Use WASM binding to encode parameters (returns fixed-size encoded params)
-    const rawParams = ParameterEncoder.encode_execute(functionIndex, simpleValues);
+    const rawParams = ParameterEncoder.encode_execute(functionIndex, typedParams);
 
     // EXECUTE_INSTRUCTION is 9 (matches on-chain protocol)
     const discriminator = new Uint8Array([9]);
@@ -208,16 +211,19 @@ export class FiveVM {
     // Encode function index as u32 little endian
     const functionIndexBytes = BytecodeEncoder.encodeU32(functionIndex);
 
-    // Assemble: [discriminator, function_index(u32), rawParams...] where rawParams
-    // comes from WASM ParameterEncoder (includes sentinel + param_count + params).
+    // Assemble: [discriminator, function_index(u32), param_count(u32), rawParams...]
 
     // Construct instruction:
     const functionIndexArr = BytecodeEncoder.encodeU32(functionIndex); // 4 bytes
+    const paramCountArr = BytecodeEncoder.encodeU32(parameters.length);
 
-    const properInstructionData = new Uint8Array(discriminator.length + functionIndexArr.length + rawParams.length);
+    const properInstructionData = new Uint8Array(
+      discriminator.length + functionIndexArr.length + paramCountArr.length + rawParams.length
+    );
     properInstructionData.set(discriminator, 0);
     properInstructionData.set(functionIndexArr, discriminator.length);
-    properInstructionData.set(rawParams, discriminator.length + functionIndexArr.length);
+    properInstructionData.set(paramCountArr, discriminator.length + functionIndexArr.length);
+    properInstructionData.set(rawParams, discriminator.length + functionIndexArr.length + paramCountArr.length);
 
     return await this.execute({
       bytecode,

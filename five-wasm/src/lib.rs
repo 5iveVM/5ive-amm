@@ -4685,101 +4685,173 @@ impl ParameterEncoder {
     ) -> Result<js_sys::Uint8Array, JsValue> {
         let mut data = Vec::new();
 
-        // 1. Add TYPED_PARAM_SENTINEL (128) to trigger typed parsing in MitoVM
-        // Execute format: [func_index, 128, param_count, type1, val1, type2, val2...]
-        // Sentinel is a raw 0x80 byte
-        data.push(0x80);
-
-        // 2. Add actual parameter count (Fixed u32)
-        let param_count = params.length() as u32;
-        data.extend_from_slice(&param_count.to_le_bytes());
-
-        // 3. Encode each parameter: [type_id, value]
+        // Encode each parameter: [type_id, value]
         for i in 0..params.length() {
             let mut param = params.get(i);
             let mut is_account_type = false;
 
-            // Check if parameter is wrapped with type metadata (e.g., { __type: 'account', value: ... })
+            // Extract type metadata and value if wrapped
+            let mut type_str: Option<String> = None;
             if param.is_object() {
-                if let Some(type_field) = js_sys::Reflect::get(&param, &"__type".into()).ok() {
-                    if let Some(type_str) = type_field.as_string() {
-                        if type_str == "account" {
-                            // Extract the actual value from the wrapper
-                            if let Ok(val) = js_sys::Reflect::get(&param, &"value".into()) {
-                                is_account_type = true;
-                                param = val;
-                            }
+                if let Ok(t) = js_sys::Reflect::get(&param, &"type".into()) {
+                    if let Some(s) = t.as_string() {
+                        type_str = Some(s);
+                    }
+                }
+                if type_str.is_none() {
+                    if let Ok(t) = js_sys::Reflect::get(&param, &"param_type".into()) {
+                        if let Some(s) = t.as_string() {
+                            type_str = Some(s);
                         }
                     }
+                }
+                if let Ok(t) = js_sys::Reflect::get(&param, &"__type".into()) {
+                    if let Some(s) = t.as_string() {
+                        type_str = Some(s);
+                    }
+                }
+
+                if let Ok(val) = js_sys::Reflect::get(&param, &"isAccount".into()) {
+                    if val.as_bool().unwrap_or(false) {
+                        is_account_type = true;
+                    }
+                }
+                if let Ok(val) = js_sys::Reflect::get(&param, &"is_account".into()) {
+                    if val.as_bool().unwrap_or(false) {
+                        is_account_type = true;
+                    }
+                }
+
+                if let Ok(val) = js_sys::Reflect::get(&param, &"value".into()) {
+                    param = val;
                 }
             }
 
-            if is_account_type {
-                // Account parameter - encode as [type_id=12, index_u32]
-                // Value should be either a pubkey string (44 chars) or numeric index
-                data.push(types::ACCOUNT); // Type 12
+            let normalized_type = type_str
+                .as_ref()
+                .map(|s| s.to_lowercase())
+                .unwrap_or_default();
 
-                if let Some(str_val) = param.as_string() {
-                    // Account pubkey - try to decode and use as 32-byte key
-                    if str_val.len() == 44 {
-                        if let Ok(decoded) = bs58::decode(&str_val).into_vec() {
-                            if decoded.len() == 32 {
-                                // ACCOUNT parameters must be indices, not pubkey strings.
-                                warn_message("Warning: ACCOUNT parameter should be an index, not a string pubkey.");
-                            }
-                        }
-                    }
-                } else if let Some(num) = param.as_f64() {
-                    // Account index - encode as u32
+            if is_account_type || normalized_type == "account" || normalized_type == "mint" || normalized_type == "tokenaccount" {
+                data.push(types::ACCOUNT);
+                if let Some(num) = param.as_f64() {
                     let idx = num as u32;
                     data.extend_from_slice(&idx.to_le_bytes());
+                } else {
+                    return Err(JsValue::from_str("ACCOUNT parameter must be a numeric index"));
                 }
-            } else if param.is_string() {
-                let str_val = param.as_string().unwrap();
-                // Heuristic: 44-char base58 indicates a pubkey
-                let mut is_pubkey = false;
-                if str_val.len() == 44 {
-                    if let Ok(decoded) = bs58::decode(&str_val).into_vec() {
-                        if decoded.len() == 32 {
-                            data.push(types::PUBKEY); // Type 10
-                            data.extend_from_slice(&decoded); // Raw 32 bytes
-                            is_pubkey = true;
+                continue;
+            }
+
+            match normalized_type.as_str() {
+                "u8" => {
+                    data.push(types::U8);
+                    let val = param.as_f64().unwrap_or(0.0) as u32;
+                    data.extend_from_slice(&val.to_le_bytes());
+                }
+                "u16" => {
+                    return Err(JsValue::from_str("U16 is not supported by current VM parameter parser"));
+                }
+                "u32" => {
+                    data.push(types::U32);
+                    let val = param.as_f64().unwrap_or(0.0) as u32;
+                    data.extend_from_slice(&val.to_le_bytes());
+                }
+                "u64" | "i64" => {
+                    data.push(types::U64);
+                    let raw = param.as_f64().unwrap_or(0.0);
+                    if normalized_type == "i64" && raw < 0.0 {
+                        return Err(JsValue::from_str("I64 negative values are not supported by current VM parameter parser"));
+                    }
+                    let val = raw as u64;
+                    data.extend_from_slice(&val.to_le_bytes());
+                }
+                "bool" => {
+                    data.push(types::BOOL);
+                    let val = if param.as_bool().unwrap_or(false) { 1u32 } else { 0u32 };
+                    data.extend_from_slice(&val.to_le_bytes());
+                }
+                "pubkey" => {
+                    data.push(types::PUBKEY);
+                    if let Some(str_val) = param.as_string() {
+                        let decoded = bs58::decode(&str_val)
+                            .into_vec()
+                            .map_err(|_| JsValue::from_str("Invalid base58 pubkey"))?;
+                        if decoded.len() != 32 {
+                            return Err(JsValue::from_str("Pubkey must decode to 32 bytes"));
                         }
+                        data.extend_from_slice(&decoded);
+                    } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
+                        let array = js_sys::Uint8Array::new(&param);
+                        let mut bytes = vec![0u8; array.length() as usize];
+                        array.copy_to(&mut bytes);
+                        if bytes.len() != 32 {
+                            return Err(JsValue::from_str("Pubkey Uint8Array must be 32 bytes"));
+                        }
+                        data.extend_from_slice(&bytes);
+                    } else {
+                        return Err(JsValue::from_str("Pubkey must be a base58 string or 32-byte Uint8Array"));
                     }
                 }
-                
-                if !is_pubkey {
-                    // Standard String - encode as [type_id, len_u32, bytes...]
-                    data.push(types::STRING); // Type 11
-                    let bytes = str_val.as_bytes();
-                    let len = bytes.len() as u32;
-                    data.extend_from_slice(&len.to_le_bytes());
-                    data.extend_from_slice(bytes);
+                "string" | "bytes" => {
+                    data.push(types::STRING);
+                    if let Some(str_val) = param.as_string() {
+                        let bytes = str_val.as_bytes();
+                        let len = bytes.len() as u32;
+                        data.extend_from_slice(&len.to_le_bytes());
+                        data.extend_from_slice(bytes);
+                    } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
+                        let array = js_sys::Uint8Array::new(&param);
+                        let mut bytes = vec![0u8; array.length() as usize];
+                        array.copy_to(&mut bytes);
+                        let len = bytes.len() as u32;
+                        data.extend_from_slice(&len.to_le_bytes());
+                        data.extend_from_slice(&bytes);
+                    } else {
+                        return Err(JsValue::from_str("STRING parameter must be a string or Uint8Array"));
+                    }
                 }
-            } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
-                // Uint8Array -> encode as STRING format (bytes)
-                data.push(types::STRING); 
-                let array = js_sys::Uint8Array::new(&param);
-                let mut bytes = vec![0u8; array.length() as usize];
-                array.copy_to(&mut bytes);
-                let len = bytes.len() as u32;
-                data.extend_from_slice(&len.to_le_bytes());
-                data.extend_from_slice(&bytes);
-            } else if let Some(num) = param.as_f64() {
-                // Number -> U64
-                data.push(types::U64); // Type 4
-                let val = num as u64;
-                data.extend_from_slice(&val.to_le_bytes());
-            } else if let Some(bool_val) = param.as_bool() {
-                // Boolean -> BOOL
-                data.push(types::BOOL); // Type 9
-                let val = if bool_val { 1u32 } else { 0u32 };
-                // BOOL uses u32 encoding for value 0/1 in current context.rs logic?
-                // context.rs: `t if t == types::BOOL => { let val = u32::from_le_bytes(...) ... }`
-                // Yes, it reads u32.
-                data.extend_from_slice(&val.to_le_bytes());
-            } else {
-                return Err(JsValue::from_str("Unsupported parameter value type"));
+                "" => {
+                    // Infer if no explicit type provided
+                    if param.is_string() {
+                        let str_val = param.as_string().unwrap();
+                        if str_val.len() == 44 {
+                            if let Ok(decoded) = bs58::decode(&str_val).into_vec() {
+                                if decoded.len() == 32 {
+                                    data.push(types::PUBKEY);
+                                    data.extend_from_slice(&decoded);
+                                    continue;
+                                }
+                            }
+                        }
+                        data.push(types::STRING);
+                        let bytes = str_val.as_bytes();
+                        let len = bytes.len() as u32;
+                        data.extend_from_slice(&len.to_le_bytes());
+                        data.extend_from_slice(bytes);
+                    } else if let Some(num) = param.as_f64() {
+                        data.push(types::U64);
+                        let val = num as u64;
+                        data.extend_from_slice(&val.to_le_bytes());
+                    } else if let Some(bool_val) = param.as_bool() {
+                        data.push(types::BOOL);
+                        let val = if bool_val { 1u32 } else { 0u32 };
+                        data.extend_from_slice(&val.to_le_bytes());
+                    } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
+                        data.push(types::STRING);
+                        let array = js_sys::Uint8Array::new(&param);
+                        let mut bytes = vec![0u8; array.length() as usize];
+                        array.copy_to(&mut bytes);
+                        let len = bytes.len() as u32;
+                        data.extend_from_slice(&len.to_le_bytes());
+                        data.extend_from_slice(&bytes);
+                    } else {
+                        return Err(JsValue::from_str("Unsupported parameter value type"));
+                    }
+                }
+                _ => {
+                    return Err(JsValue::from_str("Unsupported parameter type"));
+                }
             }
         }
 
