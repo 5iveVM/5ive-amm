@@ -6,7 +6,6 @@ use crate::{
     common::{
         validate_vm_and_script_accounts, has_permission, PERMISSION_POST_BYTECODE,
     },
-    debug_log,
     state::{FIVEVMState, ScriptAccountHeader},
 };
 use five_vm_mito::{MitoVM, StackStorage};
@@ -22,23 +21,14 @@ use super::{
 
 /// Execute a script with optional pre/post bytecode hooks.
 pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> ProgramResult {
-    #[cfg(feature = "debug-logs")]
-    debug_log!("DEBUG: execute ENTRY");
-
     require_min_accounts(accounts, 2)?;
-    #[cfg(feature = "debug-logs")]
-    debug_log!("DEBUG: require_min_accounts PASS");
 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
 
     if let Err(e) = validate_vm_and_script_accounts(program_id, script_account, vm_state_account) {
-         #[cfg(feature = "debug-logs")]
-         debug_log!("DEBUG: validate_vm_and_script_accounts FAIL");
          return Err(e);
     }
-    #[cfg(feature = "debug-logs")]
-    debug_log!("DEBUG: validate_vm_and_script_accounts PASS");
 
     // Collect execution fee.
     let vm_accounts = {
@@ -55,37 +45,25 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
              if let Some(recipient) = admin_account {
                  if let Some(payer) = payer_account {
-                     #[cfg(feature = "debug-logs")]
-                     debug_log!("DEBUG: Paying execute fee: {}", fee);
                      let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
                      transfer_fee(payer, recipient, fee, system_program)?;
                  } else {
                      return Err(ProgramError::MissingRequiredSignature);
                  }
              } else {
-                 #[cfg(feature = "debug-logs")]
-                 debug_log!("DEBUG: Execute fee required but Admin not found");
                  // Error 1107 matches test expectation (likely FeeCollectorMissing)
                  return Err(ProgramError::Custom(1107));
              }
              &accounts[1..]  // Skip Script account, start from VM State
         } else {
-             #[cfg(feature = "debug-logs")]
-             debug_log!("DEBUG: fee is 0");
              &accounts[1..]  // Skip Script account, start from VM State
         }
     };
-    #[cfg(feature = "debug-logs")]
-    debug_log!("DEBUG: input accounts setup PASS - passing {} accounts to VM", vm_accounts.len() as u32);
 
     // Parse script header from script account
     let script_data = unsafe { script_account.borrow_data_unchecked() };
-    #[cfg(feature = "debug-logs")]
-    debug_log!("DEBUG: script_data borrow PASS");
 
     let header = ScriptAccountHeader::from_account_data(&script_data)?;
-    #[cfg(feature = "debug-logs")]
-    debug_log!("DEBUG: header parse PASS");
 
     if header.upload_mode() && !header.upload_complete() {
         return Err(ProgramError::Custom(7001));
@@ -95,8 +73,6 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     let required_len = ScriptAccountHeader::LEN + bytecode_len as usize + header.metadata_len();
     if script_data.len() < required_len {
-        #[cfg(feature = "debug-logs")]
-        debug_log!("DEBUG: script too short");
         return Err(ProgramError::Custom(7003));
     }
 
@@ -105,8 +81,6 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let bytecode_end = bytecode_start + bytecode_len;
 
     let bytecode = &script_data[bytecode_start..bytecode_end];
-    #[cfg(feature = "debug-logs")]
-    debug_log!("DEBUG: bytecode slice PASS len={}", bytecode.len());
 
     // Initialize VM Storage using optimized heap allocation
     // Uses new_on_heap() which constructs directly in heap memory to avoid stack overflow

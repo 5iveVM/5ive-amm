@@ -2,7 +2,6 @@ use pinocchio::{
     ProgramResult, program_error::ProgramError,
 };
 
-use crate::debug_log;
 use five_protocol::{
     opcodes::{self},
     parser::{parse_header, parse_instruction, ParseError},
@@ -22,10 +21,8 @@ fn map_parse_error(e: ParseError) -> ProgramError {
 
 /// Verify bytecode content before deployment.
 pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
-    debug_log!("FIVE: verify_bytecode entry len={}", bytecode.len());
     // Validate bytecode size
     if bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
-        debug_log!("FIVE: bytecode too large");
         return Err(ProgramError::Custom(8101));
     }
 
@@ -33,38 +30,29 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     let (header, mut offset) = match parse_header(bytecode) {
         Ok(res) => res,
         Err(e) => {
-            debug_log!("FIVE: header parse error: {}", e.message());
             return Err(map_parse_error(e));
         }
     };
 
-    debug_log!("FIVE: counts p={} t={}", header.public_function_count, header.total_function_count);
-
     // Validate that at least one public function exists (if functions exist)
     if header.total_function_count > 0 && header.public_function_count == 0 {
-        debug_log!("FIVE: pub=0 but total>0");
         return Err(ProgramError::Custom(8104));
     }
 
     // Validate public_count <= total_count
     if header.public_function_count > header.total_function_count {
-        debug_log!("FIVE: pub > total");
         return Err(ProgramError::Custom(8105));
     }
 
     // Ensure start offset is within bounds
     if offset > bytecode.len() {
-        debug_log!("FIVE: start offset OOB");
         return Err(ProgramError::Custom(8106));
     }
 
     // Iterate and verify all instructions
-    let mut inst_count = 0u32;
     while offset < bytecode.len() {
         match parse_instruction(bytecode, offset) {
             Ok((inst, size)) => {
-                inst_count += 1;
-
                 // Additional Semantic Checks
 
                 // Check CALL targets (Internal, External)
@@ -74,10 +62,7 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
                     // We only validate internal targets here.
                     if inst.opcode == opcodes::CALL {
                         let func_addr = inst.arg1 as usize;
-                        // Log which CALL we're checking (use inst_count as unique ID)
-                        debug_log!("Checking CALL#{}: offset={} target={} bytecode_len={}", inst_count, offset, func_addr, bytecode.len());
                         if func_addr >= bytecode.len() {
-                            debug_log!("ERROR CALL#{}: target {} >= len {}", inst_count, func_addr, bytecode.len());
                             return Err(ProgramError::Custom(8122));
                         }
                     }
@@ -90,8 +75,6 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
                 ) {
                     let target = inst.arg1 as usize;
                     if target >= bytecode.len() {
-                        #[cfg(feature = "debug-logs")]
-                        debug_log!("FIVE: JUMP target OOB: {} >= {}", target, bytecode.len());
                         return Err(ProgramError::Custom(8122));
                     }
                 }
@@ -105,7 +88,6 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
                 offset += size;
             }
             Err(e) => {
-                debug_log!("FIVE: Instruction parse error at {}: {}", offset, e.message());
                 // If it's InvalidOpcode, we can try to return the opcode as error for compatibility
                 if e == ParseError::InvalidOpcode {
                     let opcode = bytecode[offset];
