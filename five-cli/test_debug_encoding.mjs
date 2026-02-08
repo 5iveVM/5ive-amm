@@ -29,10 +29,10 @@ const lengthBuffer3 = Buffer.from(bytes);
 console.log('\nMethod 3 (manual bytes):');
 console.log('  Buffer bytes:', Array.from(lengthBuffer3).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
 
-// Test in deploy instruction
+// Test in deploy instruction (Fixed-width U32 Little Endian)
 const deployData = Buffer.concat([
   Buffer.from([8]), // discriminator
-  lengthBuffer2,     // use method 2 (correct)
+  lengthBuffer2,     // use method 2 (correct for Fixed U32 LE)
   Buffer.from([0]),  // permissions
 ]);
 
