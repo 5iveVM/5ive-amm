@@ -758,12 +758,8 @@ impl FiveVMWasm {
                 // Enhanced error analysis
                 match vm_error {
                     five_vm_mito::error::VMError::StackError => {
-                        log_message("WASM: ERROR ANALYSIS - StackError detected");
-                        log_message("WASM: This typically means:");
-                        log_message("WASM: 1. Function call tried to pop from empty stack");
-                        log_message("WASM: 2. Return value placement failed");
-                        log_message("WASM: 3. Stack state corrupted between function calls");
-                        log_message("WASM: 4. SET_LOCAL tried to pop from empty stack");
+                        log_message("StackError detected");
+                        log_message("Possible causes: empty stack pop, return failure, or stack corruption");
                     }
                     five_vm_mito::error::VMError::AbiParameterMismatch {
                         function_index,
@@ -772,31 +768,31 @@ impl FiveVMWasm {
                         failed_param_index,
                     } => {
                         log_message(&format!(
-                            "WASM: ERROR ANALYSIS - Parameter mismatch in function {}",
+                            "Parameter mismatch in function {}",
                             function_index
                         ));
                         log_message(&format!(
-                            "WASM: Expected {} params, got {} params, failed at param {}",
+                            "Exp: {}, Act: {}, Failed: {}",
                             expected_param_count, actual_param_count, failed_param_index
                         ));
                     }
                     five_vm_mito::error::VMError::CallStackOverflow => {
-                        log_message("WASM: ERROR ANALYSIS - Call stack overflow (too many nested function calls)");
+                        log_message("Call stack overflow");
                     }
                     five_vm_mito::error::VMError::CallStackUnderflow => {
-                        log_message("WASM: ERROR ANALYSIS - Call stack underflow (RETURN without CALL)");
+                        log_message("Call stack underflow");
                     }
                     five_vm_mito::error::VMError::InvalidInstruction => {
-                        log_message("WASM: ERROR ANALYSIS - Invalid opcode encountered");
+                        log_message("Invalid opcode");
                     }
                     _ => {
-                        log_message(&format!("WASM: ERROR ANALYSIS - Other VM error: {:?}", vm_error));
+                        log_message(&format!("Other error: {:?}", vm_error));
                     }
                 }
             }
         }
 
-        log_message(&format!("WASM: MitoVM execution result: {:?}", result));
+        log_message(&format!("Result: {:?}", result));
         
         // Return result with updated accounts
         result.map(|(val, ctx)| (val, ctx, updated_wasm_accounts))
@@ -813,18 +809,18 @@ impl FiveVMWasm {
 
         // Log input for debugging
         log_message(&format!(
-            "WASM: Extracting FIVE bytecode from {} bytes",
+            "Extracting bytecode ({} bytes)",
             input_data.len()
         ));
 
         // Check if this is already pure FIVE bytecode (starts with magic bytes)
         if input_data.len() >= 4 && &input_data[0..4] == FIVE_MAGIC {
-            log_message("WASM: Input is already pure 5IVX bytecode");
+            log_message("Input is pure 5IVX");
             return Ok(input_data.to_vec());
         }
 
         if input_data.len() >= 4 && &input_data[0..4] == FIVE_DEPLOY_MAGIC {
-            log_message("WASM: Input is already pure 5IVE bytecode");
+            log_message("Input is pure 5IVE");
             return Ok(input_data.to_vec());
         }
 
@@ -837,7 +833,7 @@ impl FiveVMWasm {
             // Verify FIVE magic bytes at the expected offset
             if potential_bytecode.len() >= 4 && &potential_bytecode[0..4] == FIVE_MAGIC {
                 log_message(&format!(
-                    "WASM: Found FIVE bytecode at offset {}, extracted {} bytes",
+                    "Found bytecode at {}, extracted {} bytes",
                     bytecode_offset,
                     potential_bytecode.len()
                 ));
@@ -850,7 +846,7 @@ impl FiveVMWasm {
             if &input_data[i..i + 4] == FIVE_MAGIC {
                 let extracted = &input_data[i..];
                 log_message(&format!(
-                    "WASM: Found FIVE magic bytes at offset {}, extracted {} bytes",
+                    "Found magic at {}, extracted {} bytes",
                     i,
                     extracted.len()
                 ));
@@ -872,14 +868,14 @@ impl FiveVMWasm {
             if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(content) {
                 if let Some(abi_section) = json_value.get("abi") {
                     if let Ok(abi_json) = serde_json::to_string(abi_section) {
-                        log_message("WASM: Successfully extracted ABI from .five file");
+                        log_message("Extracted ABI");
                         return Some(abi_json);
                     }
                 }
             }
         }
 
-        log_message("WASM: No ABI information found in input data");
+        log_message("No ABI found");
         None
     }
 
@@ -897,15 +893,15 @@ impl FiveVMWasm {
             let data = &input_data[1..];
 
             // Log the decoding for debugging
-            log_message("WASM: Decoded instruction data");
+            log_message("Decoded instruction");
             log_message(&format!(
-                "  Original data ({} bytes): {:?}",
+                "  Raw ({}): {:?}",
                 input_data.len(),
                 input_data
             ));
-            log_message(&format!("  Stripped discriminator ({})", input_data[0]));
+            log_message(&format!("  Discriminator: {}", input_data[0]));
             log_message(&format!(
-                "  Data for MitoVM ({} bytes): {:?}",
+                "  MitoVM data ({}): {:?}",
                 data.len(),
                 data
             ));
@@ -914,7 +910,7 @@ impl FiveVMWasm {
         } else {
             // Not an Execute instruction - pass through as-is
             log_message(&format!(
-                "WASM: Non-Execute instruction, passing through: {:?}",
+                "Non-Execute, passing through: {:?}",
                 input_data
             ));
             Ok(input_data.to_vec())
@@ -922,7 +918,7 @@ impl FiveVMWasm {
     }
 
     /// Enhance parameter mismatch error with ABI information when available
-    /// This method provides Apple-style error messages by looking up function names
+    /// Generates detailed error messages by looking up function names
     /// and parameter types from ABI data embedded in .five files
     fn enhance_parameter_error(
         &self,
@@ -1568,8 +1564,8 @@ impl BytecodeAnalyzer {
     }
 
     /// Advanced semantic analysis with full opcode understanding and instruction flow
-    /// This provides the intelligent analysis that understands what each opcode does
-    /// and what operands follow each instruction.
+    /// Performs semantic analysis of bytecode to understand opcode behavior
+    /// and instruction flow.
     #[wasm_bindgen]
     pub fn analyze_semantic(bytecode: &[u8]) -> Result<JsValue, JsValue> {
         Self::analyze_semantic_internal(bytecode)
@@ -2864,20 +2860,20 @@ impl WasmFiveCompiler {
             // Debug: Log ABI structure before serialization
             if !a.functions.is_empty() {
                 log_message(&format!(
-                    "[ABI Debug] Generated {} functions",
+                    "Generated {} functions",
                     a.functions.len()
                 ));
                 // Log first function details
                 let first_fn = &a.functions[0];
                 log_message(&format!(
-                    "[ABI Debug] Function 0: '{}' has {} parameters",
+                    "Func 0: '{}' ({} params)",
                     first_fn.name,
                     first_fn.parameters.len()
                 ));
                 if !first_fn.parameters.is_empty() {
                     let first_param = &first_fn.parameters[0];
                     log_message(&format!(
-                        "[ABI Debug] Parameter 0: '{}' of type '{}'",
+                        "Param 0: '{}' ({})",
                         first_param.name,
                         first_param.param_type
                     ));
@@ -2887,7 +2883,7 @@ impl WasmFiveCompiler {
             // Debug: Show JSON output
             if let Some(ref json) = json_result {
                 log_message(&format!(
-                    "[ABI Debug] Serialized ABI JSON length: {} bytes",
+                    "ABI JSON len: {}",
                     json.len()
                 ));
                 // Show first 200 chars of JSON to verify parameters are there
@@ -2897,7 +2893,7 @@ impl WasmFiveCompiler {
                     json.clone()
                 };
                 log_message(&format!(
-                    "[ABI Debug] JSON preview: {}",
+                    "JSON preview: {}",
                     preview
                 ));
             }
@@ -4382,13 +4378,13 @@ impl WasmFiveCompiler {
     pub fn generate_abi(&self, source: &str) -> Result<JsValue, JsValue> {
         use five_dsl_compiler::{DslBytecodeGenerator, DslParser, DslTokenizer, DslTypeChecker};
 
-        log_message("generate_abi: Starting...");
+        log_message("generate_abi: start");
 
         // Tokenize
         let mut tokenizer = DslTokenizer::new(source);
         let tokens = match tokenizer.tokenize() {
             Ok(tokens) => {
-                log_message("generate_abi: Tokenization OK");
+                log_message("Tokenization OK");
                 tokens
             }
             Err(e) => {
@@ -4402,7 +4398,7 @@ impl WasmFiveCompiler {
         let mut parser = DslParser::new(tokens);
         let ast = match parser.parse() {
             Ok(ast) => {
-                log_message("generate_abi: Parsing OK");
+                log_message("Parsing OK");
                 ast
             }
             Err(e) => {
@@ -4416,7 +4412,7 @@ impl WasmFiveCompiler {
         let mut type_checker = DslTypeChecker::new();
         match type_checker.check_types(&ast) {
             Ok(_) => {
-                log_message("generate_abi: Type checking OK");
+                log_message("Type checking OK");
             }
             Err(e) => {
                 let err_msg = format!("Type checking failed: {:?}", e);
@@ -4429,7 +4425,7 @@ impl WasmFiveCompiler {
         let mut bytecode_gen = DslBytecodeGenerator::new();
         match bytecode_gen.generate(&ast) {
             Ok(_) => {
-                log_message("generate_abi: Bytecode generation OK");
+                log_message("Bytecode generation OK");
             }
             Err(e) => {
                 let err_msg = format!("Bytecode generation failed: {:?}", e);
@@ -4441,7 +4437,7 @@ impl WasmFiveCompiler {
         // Generate simplified ABI - reuse the same generator that compiled the bytecode
         let simple_abi = match bytecode_gen.generate_simple_abi(&ast) {
             Ok(abi) => {
-                log_message("generate_abi: ABI generation OK");
+                log_message("ABI generation OK");
                 abi
             }
             Err(e) => {
@@ -4454,7 +4450,7 @@ impl WasmFiveCompiler {
         // Serialize ABI to JSON
         let abi_json = match serde_json::to_string_pretty(&simple_abi) {
             Ok(json) => {
-                log_message("generate_abi: Serialization OK");
+                log_message("Serialization OK");
                 json
             }
             Err(e) => {

@@ -54,7 +54,7 @@ export interface VMExecutionResult {
 }
 
 /**
- * Partial execution result with honest status reporting
+ * Partial execution result
  */
 export interface PartialExecutionResult {
     status: 'Completed' | 'StoppedAtSystemCall' | 'StoppedAtInitPDA' | 'StoppedAtInvoke' | 'StoppedAtInvokeSigned' | 'ComputeLimitExceeded' | 'Failed';
@@ -211,10 +211,9 @@ export class FiveVMWrapper {
     }
 
     /**
-     * Execute VM with partial execution support and honest status reporting
+     * Execute VM with partial execution support.
      * 
-     * This method provides real feedback about what was actually executed
-     * and where execution stopped (if it stopped at system calls).
+     * Executes bytecode and reports status, including interruptions at system calls.
      */
     async executePartial(
         inputData: Uint8Array,

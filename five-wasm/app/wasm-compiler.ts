@@ -99,8 +99,7 @@ export class WasmCompilerService {
     /**
      * Test bytecode execution with partial execution support
      * 
-     * This method provides honest reporting about what was actually tested.
-     * It never pretends execution completed when it stopped at system calls.
+     * Executes bytecode and reports status, including interruptions at system calls.
      */
     async testBytecodeExecution(
         bytecode: Uint8Array,
@@ -169,7 +168,7 @@ export class WasmCompilerService {
     }
 
     /**
-     * Interpret TestResult and provide honest summary
+     * Interpret TestResult.
      */
     private interpretTestResult(result: TestResult, bytecode: Uint8Array): PartialExecutionSummary {
         const status = result.status();
@@ -591,8 +590,8 @@ export class WasmCompilerService {
      * Create helper bytecode for testing
      */
     createTestBytecode(operations: Array<{ opcode: string, args?: any[] }>): Uint8Array {
-        const magic = this.constants?.FIVE_MAGIC
-            ? Array.from(this.constants.FIVE_MAGIC)
+        const magic: number[] = this.constants?.FIVE_MAGIC
+            ? Array.from(this.constants.FIVE_MAGIC as Iterable<number>)
             : [0x35, 0x49, 0x56, 0x45]; // "5IVE"
         const bytecode: number[] = [
             ...magic,
