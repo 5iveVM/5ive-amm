@@ -1,5 +1,4 @@
 // Upgrade mechanism implementation for FIVE VM
-// Following CLAUDE.md principles - all operations are real and tested
 
 use pinocchio::{
     account_info::AccountInfo,

@@ -5,7 +5,6 @@ use pinocchio::{
 
 use crate::{
     common::verify_program_owned,
-    debug_log,
     state::FIVEVMState,
 };
 
@@ -99,24 +98,14 @@ pub fn collect_deploy_fee(
         // Fee is bps of rent
         let fee = calculate_fee(rent_basis, deploy_fee_bps);
 
-        debug_log!(
-            "Deploy fee check: bps={}, rent_basis={}, fee={}",
-            deploy_fee_bps,
-            rent_basis,
-            fee
-        );
-
         if fee > 0 {
             let admin_key = vm_state.authority;
             let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
 
             if let Some(recipient) = admin_account {
-                debug_log!("Paying deploy fee: {}", fee);
                 let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
                 transfer_fee(payer, recipient, fee, system_program)?;
-                debug_log!("Collected deploy fee: {}", fee);
             } else {
-                debug_log!("Deploy fee required but Admin not found");
                 // If fee is required but admin not present, fail
                 return Err(ProgramError::MissingRequiredSignature);
             }
@@ -132,11 +121,6 @@ pub fn set_fees(
     deploy_fee_bps: u32,
     execute_fee_bps: u32,
 ) -> ProgramResult {
-    debug_log!(
-        "FIVE VM: SetFees - deploy={}bps, execute={}bps",
-        deploy_fee_bps, execute_fee_bps
-    );
-
     require_min_accounts(accounts, 2)?;
 
     let vm_state_account = &accounts[0];

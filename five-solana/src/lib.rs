@@ -47,19 +47,7 @@ pub fn process_instruction(
     instruction_data: &[u8],
 ) -> ProgramResult {
     #[cfg(feature = "debug-logs")]
-    {
-        pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@");
-        pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START");
-    }
-    #[cfg(feature = "debug-logs")]
-    pinocchio::log::sol_log("FORCE LOG ENTRY: FIVE VM ALIVE");
-
-    #[cfg(feature = "debug-logs")]
-    pinocchio::log::sol_log("@@@ UNCONDITIONAL LOG: FIVE VM ENTRY @@@");
-
-    debug_log!(
-        "FIVE Optimized: Processing instruction with no_allocator"
-    );
+    pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START");
 
     if instruction_data.is_empty() {
         debug_log!("Error: Empty instruction data");
@@ -68,21 +56,6 @@ pub fn process_instruction(
 
     debug_log!("Program ID: {:?}", program_id);
     debug_log!("Accounts provided: {}", accounts.len());
-
-    #[cfg(feature = "debug-logs")]
-    for (i, account) in accounts.iter().enumerate() {
-        let key_bytes = account.key().as_ref();
-        let owner_bytes = account.owner().as_ref();
-        debug_log!(
-            "  Account {}: Key={} {} Owner={} {} DataLen={} Writable={} Signer={}",
-            i,
-            key_bytes[0], key_bytes[1],
-            owner_bytes[0], owner_bytes[1],
-            account.data_len(),
-            if account.is_writable() { 1 } else { 0 },
-            if account.is_signer() { 1 } else { 0 }
-        );
-    }
 
     debug_log!("Instruction data length: {}", instruction_data.len());
     debug_log!("Instruction discriminator: {}", instruction_data[0]);

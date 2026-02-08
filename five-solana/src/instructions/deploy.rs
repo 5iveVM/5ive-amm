@@ -9,7 +9,6 @@ use crate::{
         validate_vm_and_script_accounts, verify_program_owned, validate_permissions,
         verify_admin_signer,
     },
-    debug_log,
     state::{FIVEVMState, ScriptAccountHeader},
 };
 
@@ -24,8 +23,6 @@ pub const MIN_DEPLOY_LEN: usize = 6;
 
 /// Initialize the VM state account
 pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> ProgramResult {
-    debug_log!("Initializing FIVE VM");
-
     require_min_accounts(accounts, 2)?;
 
     let vm_state_account = &accounts[0];
@@ -33,11 +30,6 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
 
     // Check if the account is already owned by the program or needs to be created
     if vm_state_account.owner() == &Pubkey::default() {
-        debug_log!("VM State account owned by System Program. Attempting to create PDA...");
-        
-        // Detailed log of provided accounts
-        debug_log!("Account count: {}", accounts.len());
-        
         require_min_accounts(accounts, 4)?;
         let payer = &accounts[2];
         let system_program = &accounts[3];
@@ -46,7 +38,6 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
         
         // Verify System Program ID
         if system_program.key() != &Pubkey::default() {
-             debug_log!("Error: Provided System Program ID is incorrect");
              return Err(ProgramError::InvalidAccountData);
         }
 
@@ -88,14 +79,7 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
             data: &create_account_data,
         };
 
-        debug_log!("Invoking System Program to create VM state account");
-        invoke_signed::<3>(&instruction, &[payer, vm_state_account, system_program], &[signer])
-            .map_err(|e| {
-                debug_log!("CreateAccount failed");
-                e
-            })?;
-        
-        debug_log!("VM state account created successfully via PDA seeds");
+        invoke_signed::<3>(&instruction, &[payer, vm_state_account, system_program], &[signer])?;
     } else {
         // Verify ownership for existing account
         verify_program_owned(vm_state_account, program_id)?;
@@ -109,7 +93,6 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
     let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
     vm_state.initialize(*authority.key());
 
-    debug_log!("FIVE VM initialized successfully");
     Ok(())
 }
 
@@ -128,21 +111,14 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     // Validate permissions bitmask
     validate_permissions(permissions)?;
 
-    debug_log!("Deploying script with {} bytes", bytecode.len());
-    debug_log!("FIVE: deploy start bytes={}", bytecode.len());
-
     require_min_accounts(accounts, 3)?;
-    debug_log!("FIVE: accounts OK");
 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
     let owner = &accounts[2];
 
-    debug_log!("FIVE: calling validate_vm_and_script");
     validate_vm_and_script_accounts(program_id, script_account, vm_state_account)?;
-    debug_log!("FIVE: validate OK");
     require_signer(owner)?;
-    debug_log!("FIVE: signer OK");
 
     // If any permissions are set, require admin key (VM authority) signature
     if permissions != 0 {
@@ -155,15 +131,12 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
         require_min_accounts(accounts, 4)?;
         let admin_account = &accounts[3];
         verify_admin_signer(admin_account, &admin_key)?;
-        debug_log!("Admin key verified for permissions: 0x{}", permissions);
     }
 
-    debug_log!("FIVE: size check");
     // Validate bytecode size
     if bytecode.len() < 4 || bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
         return Err(ProgramError::Custom(8001));
     }
-    debug_log!("FIVE: size OK");
 
     // Check if valid Five Protocol bytecode header format (10 bytes minimum)
     if bytecode.len() < five_protocol::FIVE_HEADER_OPTIMIZED_SIZE {
@@ -172,7 +145,6 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     if &bytecode[..4] != five_protocol::FIVE_MAGIC {
         return Err(ProgramError::Custom(8003));
     }
-    debug_log!("FIVE: header OK, calling verify");
 
     // Verify bytecode content
     verify_bytecode_content(bytecode)?;
@@ -211,10 +183,6 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     script_data[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + bytecode.len()]
         .copy_from_slice(bytecode);
 
-    debug_log!(
-        "Script {} deployed: header_created",
-        script_id
-    );
     Ok(())
 }
 
@@ -227,10 +195,6 @@ pub fn init_large_program(
     chunk_data: Option<&[u8]>,
 ) -> ProgramResult {
     let chunk_len = chunk_data.map(|c| c.len()).unwrap_or(0);
-    debug_log!(
-        "InitLargeProgram: expected={}, chunk={}",
-        expected_size, chunk_len
-    );
 
     require_min_accounts(accounts, 3)?;
 
@@ -256,8 +220,6 @@ pub fn init_large_program(
     // Validate chunk size if present
     if let Some(chunk) = chunk_data {
         if chunk.len() > expected_size {
-            #[cfg(feature = "debug-logs")]
-            debug_log!("Chunk size {} exceeds expected size {}", chunk.len(), expected_size);
             return Err(ProgramError::Custom(8207)); // Initial chunk too large
         }
     }
@@ -291,11 +253,9 @@ pub fn init_large_program(
         let start = ScriptAccountHeader::LEN;
         let end = start + chunk.len();
         if script_data.len() < end {
-            debug_log!("Account too small: {} < {}", script_data.len(), end);
             return Err(ProgramError::Custom(7006)); // Account too small
         }
         script_data[start..end].copy_from_slice(chunk);
-        debug_log!("Wrote {} bytes of initial chunk", chunk.len());
     }
 
     Ok(())
@@ -307,8 +267,6 @@ pub fn append_bytecode(
     accounts: &[AccountInfo],
     chunk: &[u8],
 ) -> ProgramResult {
-    debug_log!("Appending {} bytes of bytecode", chunk.len());
-
     require_min_accounts(accounts, 3)?;
     if chunk.is_empty() {
         return Err(ProgramError::Custom(8201)); // Empty chunk
@@ -359,16 +317,9 @@ pub fn append_bytecode(
     header.set_upload_len(new_len as u32);
 
     if new_len == expected_size {
-        debug_log!("Check: new_len={} matched expected so finalizing...", new_len);
-
         // Verify account is large enough before slicing
         let bytecode_end = ScriptAccountHeader::LEN + expected_size;
         if script_data.len() < bytecode_end {
-            debug_log!(
-                "ERROR: Account too small! actual={} expected={}",
-                script_data.len(),
-                bytecode_end
-            );
             return Err(ProgramError::Custom(7006)); // Account size mismatch
         }
 
@@ -385,16 +336,6 @@ pub fn append_bytecode(
         if &bytecode[..4] != five_protocol::FIVE_MAGIC {
             return Err(ProgramError::Custom(8205)); // Invalid magic bytes
         }
-
-        // TEMPORARILY DISABLED: error 8122 investigation in progress
-        // debug_log!("Verifying bytecode content with length={}", bytecode.len());
-        // if let Err(e) = verify_bytecode_content(bytecode) {
-        //     let code: u64 = e.into();
-        //     debug_log!("Bytecode verification failed with error code: {}", code);
-        //     return Err(e);
-        // }
-        // debug_log!("Bytecode verification passed");
-        debug_log!("Verification successful.");
 
         // Collect deployment fee if configured
         {
@@ -424,8 +365,6 @@ pub fn finalize_script_upload(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
-    debug_log!("Finalizing script upload");
-
     require_min_accounts(accounts, 2)?;
     let script_account = &accounts[0];
     let owner = &accounts[1];
@@ -454,7 +393,6 @@ pub fn finalize_script_upload(
     };
 
     if current_len != expected_size {
-        debug_log!("Finalize failed: current_len {} != expected {}", current_len, expected_size);
         return Err(ProgramError::Custom(8208)); // Finalize size mismatch
     }
 
@@ -478,6 +416,5 @@ pub fn finalize_script_upload(
     // Single write with all flags correctly set
     final_header.copy_into_account(script_data)?;
 
-    debug_log!("Script upload finalized successfully");
     Ok(())
 }
