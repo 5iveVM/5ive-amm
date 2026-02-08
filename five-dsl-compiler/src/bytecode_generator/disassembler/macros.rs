@@ -1,6 +1,6 @@
 //! Macros for reducing boilerplate in bytecode decoding and formatting.
 
-/// Decode a PUSH instruction (supports VLE + fixed-width fallbacks).
+/// Decode a PUSH instruction.
 /// Reduces massive duplication in PUSH_U16/U32/U64 handling.
 ///
 /// Usage: `decode_push_immediate!(offset, bytes, opcode, 16, u16)` for PUSH_U16
@@ -71,17 +71,13 @@ macro_rules! extract_call_metadata {
     }};
 }
 
-/// Extract LOAD_FIELD/STORE_FIELD offset (VLE or fixed-width u32).
+/// Extract LOAD_FIELD/STORE_FIELD offset (fixed-width u32).
 /// Used in 4 different places.
 ///
 /// Returns: (Option<u32>, bytes_consumed)
 macro_rules! extract_field_offset {
     ($bytes:expr, $after:expr) => {{
-        if let Some((v, c)) =
-            crate::bytecode_generator::disassembler::decoder::decode_vle_u128(&$bytes[$after..])
-        {
-            (Some(v as u32), c)
-        } else if let Some(raw) =
+        if let Some(raw) =
             crate::bytecode_generator::disassembler::decoder::read_le_u32($bytes, $after)
         {
             (Some(raw), 4)

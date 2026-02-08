@@ -8,7 +8,7 @@ use std::io::{Cursor, Read};
 const FIVE_MAGIC: &[u8; 4] = b"FIVE";
 const FIVE_VERSION: u8 = 0x01;
 
-/// Type IDs for compact ABI encoding.
+/// Type IDs for ABI encoding.
 const TYPE_VOID: u8 = 0;
 const TYPE_U64: u8 = 1;
 const TYPE_BOOL: u8 = 2;
@@ -19,7 +19,7 @@ const TYPE_U8: u8 = 6;
 const TYPE_I64: u8 = 7;
 const TYPE_U128: u8 = 8;
 
-/// Maximum name lengths to ensure compact encoding.
+/// Maximum name lengths to ensure encoding.
 const MAX_PROGRAM_NAME_LEN: usize = 32;
 const MAX_FUNCTION_NAME_LEN: usize = 16;
 const MAX_FIELD_NAME_LEN: usize = 16;

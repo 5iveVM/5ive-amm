@@ -1,27 +1,6 @@
-//! Low-level bytecode decoding utilities for VLE and byte extraction.
+//! Low-level bytecode decoding utilities for byte extraction.
 
 use std::convert::TryInto;
-
-/// Decode a VLE-encoded unsigned integer from the beginning of `data`.
-/// Returns Some((value, bytes_consumed)) on success, or None if truncated.
-pub fn decode_vle_u128(data: &[u8]) -> Option<(u128, usize)> {
-    let mut acc: u128 = 0;
-    let mut shift = 0usize;
-    let mut consumed = 0usize;
-    for &byte in data.iter() {
-        let low = (byte & 0x7F) as u128;
-        acc |= low << shift;
-        consumed += 1;
-        if (byte & 0x80) == 0 {
-            return Some((acc, consumed));
-        }
-        shift += 7;
-        if shift >= 128 {
-            return None;
-        }
-    }
-    None
-}
 
 /// Safely extract a u16 from bytes at position, or return None if bounds exceeded.
 pub fn read_le_u16(bytes: &[u8], pos: usize) -> Option<u16> {

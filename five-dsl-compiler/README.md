@@ -372,7 +372,6 @@ The compiler is optimized for fast multi-file projects:
 
 - **Parallel compilation** of independent modules
 - **Incremental type checking** with cached symbol tables
-- **VLE encoding** reduces bytecode size by 30-50%
 - **Symbol caching** prevents redundant lookups
 
 ## Testing
