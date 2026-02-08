@@ -113,7 +113,7 @@ multi_file_mode = "disabled"      # No multi-file support
 ### Complete Configuration Reference
 - `project`: `name`, `version`, `source_dir`, `build_dir`, `target`, `entry_point`, `output_artifact_name`
 - `build`: `multi_file_mode`, `output_artifact_name`
-- `optimizations`: `enable_vle`, `enable_compression`, `enable_register_allocation`, `enable_constraint_optimization`, `optimization_level`
+- `optimizations`: `enable_compression`, `enable_constraint_optimization`, `optimization_level`
 - `deploy`: `cluster`, `rpc_url`, `commitment`, `program_id`, `keypair_path`
 
 ## Manifest

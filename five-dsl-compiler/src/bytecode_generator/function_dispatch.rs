@@ -1,21 +1,16 @@
-// Function Dispatch Module (Simplified)
-//
-// This module implements function metadata collection for DSL function calls.
-// JUMP_TABLE complexity has been removed - now focuses on metadata collection only.
-// It handles function information gathering, parameter analysis, and ABI generation.
+// Function metadata collection for DSL calls.
 
 use super::scope_analyzer;
 use super::types::*;
-use super::{AccountSystem, OpcodeEmitter};
-use super::import_table::ImportTable;  // NEW: Import the ImportTable module
+use super::{AccountSystem, OpcodeEmitter, OpcodePatterns};
+use super::import_table::ImportTable;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::bytecode_generator::types; // Import the module directly
 
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
-/// Function Dispatcher for managing function definitions and metadata collection
-/// Simplified version that only collects function metadata without JUMP_TABLE dispatch
+/// Collects function metadata without JUMP_TABLE dispatch.
 pub struct FunctionDispatcher {
     /// Function information for metadata collection
     functions: Vec<FunctionInfo>,
@@ -37,9 +32,12 @@ pub struct FunctionDispatcher {
     /// Map: function_name -> bytecode_offset_of_jump_target
     dispatch_patch_locations: HashMap<String, usize>,
 
+    /// Locations in bytecode that need to be patched with dispatcher jump targets
+    /// Vec of (patch_position, target_position) within the code section
+    dispatch_jump_patches: Vec<(usize, usize)>,
+
     /// Import verification table for Five bytecode accounts
     /// Stores both direct addresses and PDA seeds for imported Five bytecode
-    /// NEW: For import verification feature flag
     import_table: ImportTable,
 }
 
@@ -53,7 +51,8 @@ impl FunctionDispatcher {
             imported_functions: HashMap::new(),
             imported_fields: HashMap::new(),
             dispatch_patch_locations: HashMap::new(),
-            import_table: ImportTable::new(),  // NEW: Initialize empty import table
+            dispatch_jump_patches: Vec::new(),
+            import_table: ImportTable::new(),
         }
     }
 
@@ -163,10 +162,6 @@ impl FunctionDispatcher {
             ast_generator,
             symbol_table,
         )?;
-
-        // Phase 5: Patch dispatch logic
-        // RESTORED: Patching required for dispatch logic
-        self.patch_dispatch_logic(emitter)?;
 
         // After generating functions, also generate the constraints block (if present).
         // Constraints often reference instruction parameters and global fields; generating
@@ -423,7 +418,7 @@ impl FunctionDispatcher {
         emitter: &mut T,
         ast: &AstNode,
         _ast_generator: &mut super::ASTGenerator,
-        account_system: &AccountSystem, // Add account_system parameter
+        _account_system: &AccountSystem, // Add account_system parameter
     ) -> Result<(), VMError> {
         // Only generate dispatcher if we have functions to dispatch
         if !self.has_callable_functions(ast) {
@@ -443,9 +438,8 @@ impl FunctionDispatcher {
             // Load function index from parameter 0 using nibble immediate to avoid LOAD_PARAM 0 rejection
             emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_0);
 
-            // Compare with current function index (use VLE encoding to match VM's PUSH_U16)
-            emitter.emit_opcode(five_protocol::opcodes::PUSH_U16);
-            emitter.emit_vle_u16(i as u16);
+            // Compare with current function index using constant pool
+            OpcodePatterns::emit_push_u16(emitter, i as u16)?;
             
             emitter.emit_opcode(five_protocol::opcodes::EQ);
             
@@ -475,106 +469,50 @@ impl FunctionDispatcher {
             // Patch the JUMP_IF to point here (start of Call Block)
             let call_block_start = emitter.get_position();
             println!("DEBUG: Patching {} at {} to point to Call Block at {}", name, patch_pos, call_block_start);
-            emitter.patch_u16(patch_pos, call_block_start as u16);
+            self.dispatch_jump_patches.push((patch_pos, call_block_start));
 
             // For functions with parameters, we need to move them from the input parameters
-            // to the stack before jumping. But wait - the function expects parameters in
-            // the parameter slots, not on the stack. So we don't need to do anything here.
-            // The parameters are already in the parameter slots from the VM's initial setup.
-            
-            // However, we need to skip parameter 0 (function index) when calling the function.
-            // The function's parameters start at index 1 in the input.
-            // But the function expects them starting at index 0 in its parameter space.
-            
-            // Actually, this is getting complicated. Let's just use JUMP and let the
-            // function access parameters directly. But functions expect parameters starting
-            // at index 1 (since index 0 is the function index in the dispatcher).
-            
-            // Simpler approach: Just JUMP to the function. The function will access
-            // parameters using LOAD_PARAM, and we need to ensure the parameter indices
-            // are correct. But the compiler generates LOAD_PARAM 1, LOAD_PARAM 2, etc.
-            // for the function's parameters, expecting them at those indices.
-            
-            // So we need to shift parameters down by 1. But that's expensive.
-            
-            // Even simpler: Don't use a dispatcher at all! Just have the VM jump directly
-            // to the function based on the function index. But that requires VM changes.
-            
-            // OK, let's go back to the CALL approach but fix it properly.
-            // The issue is that CALL expects parameters on the stack, but we have them
-            // in parameter slots. So we need to push them onto the stack first.
-            
-            // Load parameters for the call (skipping param 0 which is func index)
-            // Parameters 1..N are the actual function arguments
-            // CRITICAL FIX: Load ALL parameters with unified sequential indexing
-            // The VM's params array is contiguous: [func_idx, param1, param2, ...]
-            // All parameters (account AND data) must be passed to maintain correct indices.
-            // DIRECT JUMP ARCHITECTURE:
-            // Instead of marshalling parameters and using CALL, we specificially JUMP to the function body.
-            // This ensures the function executes in the ORIGINAL execution context (Main Frame),
-            // preserving access to the global `accounts` and `params` arrays exactly as the
-            // function body generation expects (via correct offsets verified in DEBUG_DISPATCH).
-            //
-            // This avoids the "LOAD_PARAM 7" crash caused by trying to load Account parameters
-            // (which are not in the params array) onto the stack.
+            // Jump directly to the function body to preserve parameter indexing
+            // in the original execution context.
             
             // Retrieve parameters from cache
             let function_parameters = &self.parameter_cache[&name];
 
-            // CALL-BASED DISPATCH:
-            // Push only DATA params onto stack using consecutive indices (1..N).
-            // CALL creates new frame where these become params[1..N].
-            // Function body uses data-only LOAD_PARAM indices to access them.
-            //
-            // This maintains proper frame isolation for recursion/nested calls
-            // while keeping param indexing consistent.
-            
-            let mut data_param_count: u8 = 0;
-            
-            for param in function_parameters.iter() {
-                 // Check if this is an account parameter
-                 let is_account = super::account_utils::is_account_parameter(
-                     &param.param_type,
-                     &param.attributes,
-                     None
-                 );
-                 
-                 if is_account {
-                     // Skip accounts - they're accessed via accounts[] array
-                     continue;
-                 }
-                 
-                 // Data parameter: increment counter and load from original params
-                 data_param_count += 1;
-                 
-                 // Load from the ORIGINAL params array at the SDK index
-                 // We need to find this param's position in ALL params
-                 let original_index = function_parameters.iter()
-                     .position(|p| p.name == param.name)
-                     .unwrap_or(0) as u8 + 1;
+            // Stack mode: LOAD_PARAM + CALL.
+            let mut actual_data_count: u8 = 0;
 
-                 // Use optimized opcodes if possible
-                 match original_index {
-                     1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
-                     2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
-                     3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
-                     _ => {
-                         emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
-                         emitter.emit_u8(original_index);
-                     }
-                 }
+            for param in function_parameters.iter() {
+                let is_account = super::account_utils::is_account_parameter(
+                    &param.param_type,
+                    &param.attributes,
+                    None
+                );
+                if is_account { continue; }
+
+                actual_data_count += 1;
+                let original_index = function_parameters.iter()
+                    .position(|p| p.name == param.name)
+                    .unwrap_or(0) as u8 + 1;
+
+                // Use optimized opcodes if possible
+                match original_index {
+                    1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
+                    2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
+                    3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
+                    _ => {
+                        emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
+                        emitter.emit_u8(original_index);
+                    }
+                }
             }
 
-            // Emit CALL instruction
             emitter.emit_opcode(five_protocol::opcodes::CALL);
-            emitter.emit_u8(data_param_count);
-            
-            // Record position for patching the target address
+            emitter.emit_u8(actual_data_count);
+
             let call_offset_pos = emitter.get_position();
             self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
-            
-            emitter.emit_u16(0xFFFF); // Placeholder for function body offset
-            
+            emitter.emit_u16(0xFFFF); // Placeholder for function offset
+
             // HALT after return
             emitter.emit_opcode(five_protocol::opcodes::HALT);
 
@@ -584,15 +522,33 @@ impl FunctionDispatcher {
     }
 
     /// Patch the dispatch logic with actual function offsets
-    pub fn patch_dispatch_logic(
+    pub fn patch_dispatch_logic_with_base(
         &self,
         emitter: &mut impl OpcodeEmitter,
+        base_offset: usize,
     ) -> Result<(), VMError> {
+        for (patch_pos, target_pos) in &self.dispatch_jump_patches {
+            let absolute_target = target_pos
+                .checked_add(base_offset)
+                .ok_or(VMError::InvalidInstructionPointer)?;
+            if absolute_target > five_protocol::MAX_U16_ADDRESS {
+                return Err(VMError::InvalidInstructionPointer);
+            }
+            emitter.patch_u16(*patch_pos, absolute_target as u16);
+        }
+
         for (name, patch_pos) in &self.dispatch_patch_locations {
             let function = self.functions.iter().find(|f| f.name == *name)
                 .ok_or(VMError::InvalidScript)?;
-                
-            emitter.patch_u16(*patch_pos, function.offset as u16);
+
+            let absolute_target = function
+                .offset
+                .checked_add(base_offset)
+                .ok_or(VMError::InvalidInstructionPointer)?;
+            if absolute_target > five_protocol::MAX_U16_ADDRESS {
+                return Err(VMError::InvalidFunctionIndex);
+            }
+            emitter.patch_u16(*patch_pos, absolute_target as u16);
         }
         Ok(())
     }
@@ -682,8 +638,8 @@ impl FunctionDispatcher {
                 } = instruction_def
                 {
                     println!("DEBUG: Processing instruction definition: {}", name);
-                    let function_offset = emitter.get_position();
-                    self.update_function_offset(name, function_offset)?;
+                    // Function offset will be recorded inside generate_single_function_body
+                    // before ALLOC_LOCALS is emitted
 
                     // Record function position in AST generator for CALL patching
                     ast_generator.record_function_position(emitter, name.clone());
@@ -749,8 +705,13 @@ impl FunctionDispatcher {
             account_system.get_account_registry(),
         )?;
 
+        // Record function start position BEFORE ALLOC_LOCALS
+        // The CALL instruction should jump to the start of the function, including ALLOC_LOCALS
+        let function_offset = emitter.get_position();
+        self.update_function_offset(&function_name, function_offset)?;
+
         // Connect ScopeAnalyzer optimizations to ASTGenerator
-        let allocations_vec = scope_analyzer.optimize_register_allocation(function_name)?;
+        let allocations_vec = scope_analyzer.optimize_local_slots(function_name)?;
         let mut allocations_map = HashMap::new();
         let mut max_local_index: i32 = -1;
         for (name, slot) in allocations_vec {
@@ -819,10 +780,10 @@ impl FunctionDispatcher {
         
         let mut account_counter: u32 = 0;
         let mut data_counter: u32 = 0;
-        
+
         for (_index, param) in parameters.iter().enumerate() {
             let param_type = self.type_node_to_string(&param.param_type);
-            
+
             let is_account = super::account_utils::is_account_parameter(
                 &param.param_type,
                 &param.attributes,
@@ -844,7 +805,7 @@ impl FunctionDispatcher {
             };
 
             let field_info = super::types::FieldInfo {
-                offset, 
+                offset,
                 field_type: param_type,
                 // Implicit mutability: @init implies mutable, or explicit @mut
                 is_mutable: param.is_init || param.attributes.iter().any(|a| a.name == "mut"),
@@ -854,11 +815,8 @@ impl FunctionDispatcher {
             ast_generator.add_parameter_to_symbol_table(param.name.clone(), field_info);
         }
 
-        // Record function start position (including init sequences)
-        let function_offset = emitter.get_position();
-        self.update_function_offset(&function_name, function_offset)?;
-        
         // Add function start label for jumps
+        // Note: Function offset already recorded before ALLOC_LOCALS
         ast_generator.record_function_position(emitter, function_name.to_string());
 
         // Generate account initialization sequences AFTER adding all parameters to the symbol table.

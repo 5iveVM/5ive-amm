@@ -91,12 +91,14 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
             Ok(pk_a == pk_b)
         }
 
-        // Account data vs Integer comparisons
-        (ValueRef::AccountRef(_, _), ValueRef::U64(b)) => {
-            Ok(crate::utils::resolve_u64(a, ctx)? == b)
+        // AccountRef vs Integer comparisons
+        // For Option/Result encodings, AccountRef index acts as a tag (0/254/255).
+        // Comparing AccountRef to a literal should use the index, not account data.
+        (ValueRef::AccountRef(account_idx, _), ValueRef::U64(b)) => {
+            Ok((account_idx as u64) == b)
         }
-        (ValueRef::U64(a), ValueRef::AccountRef(_, _)) => {
-            Ok(a == crate::utils::resolve_u64(b, ctx)?)
+        (ValueRef::U64(a), ValueRef::AccountRef(account_idx, _)) => {
+            Ok(a == (account_idx as u64))
         }
 
         // Pubkey/Temp comparisons
@@ -128,8 +130,21 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
 /// # use five_protocol::{ValueRef, opcodes::ADD};
 /// # use pinocchio::pubkey::Pubkey;
 /// # let bytecode: &[u8] = &[0x11, 10, 0x11, 5, 0x20, 0x07];
-/// # let mut storage = StackStorage::new(bytecode);
-/// # let mut ctx = ExecutionManager::new(bytecode, &[], Pubkey::default(), &[], 0, &mut storage, 1, 1);
+/// # let mut storage = StackStorage::new();
+/// # let mut ctx = ExecutionManager::new(
+/// #     bytecode,
+/// #     &[],
+/// #     Pubkey::default(),
+/// #     &[],
+/// #     0,
+/// #     &mut storage,
+/// #     1,
+/// #     1,
+/// #     0,
+/// #     0,
+/// #     0,
+/// #     0,
+/// # );
 /// # ctx.push(ValueRef::U64(10)).unwrap();
 /// # ctx.push(ValueRef::U128(5)).unwrap(); // Mixed types auto-promote
 /// handle_arithmetic(ADD, &mut ctx)?;

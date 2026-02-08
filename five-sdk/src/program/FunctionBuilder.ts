@@ -121,19 +121,7 @@ export class FunctionBuilder {
       systemAccountsList.push(address);  // Track for inclusion in accounts list
     }
 
-    // Resolve PDA accounts (auto-derive based on seeds)
-    // We pass the current accounts map (which now includes system accounts)
-    // NOTE: This requires creating a temporary FiveProgram instance or having access to one
-    // FunctionBuilder has 'this.options' but not the full 'program' instance
-    // However, findAddress is on FiveProgram. 
-    // FIX: FunctionBuilder needs access to findAddress util.
-    // For now, I'll instantiate a minimalistic FiveProgram just for the util, or move utility to static/options.
-    // Better: Helper class instance.
-    // But since findAddress relies on dynamic import of web3.js, lets rely on the fact that FunctionBuilder 
-    // was created by FiveProgram, so maybe we pass 'program' in options? 
-    // No, FunctionBuilder constructor signature is fixed.
-    // I will dynamically instantiate FiveProgram here to access findAddress, 
-    // reusing the options. This is safe as it's lightweight logic wrapper.
+    // Resolve PDA accounts (auto-derive based on seeds) using a temporary FiveProgram for findAddress.
     const { FiveProgram } = await import('./FiveProgram.js');
     const programForUtil = new FiveProgram(this.scriptAccount, this.abi, this.options);
 
@@ -428,6 +416,7 @@ export class FunctionBuilder {
         fiveVMProgramId: this.options.fiveVMProgramId,
         vmStateAccount: this.options.vmStateAccount,
         adminAccount: this.options.feeReceiverAccount,
+        accountMetadata: accountMetadata,  // Pass account metadata for correct isWritable flags
       }
     );
 

@@ -21,6 +21,11 @@ pub(crate) fn parse_field_definition(parser: &mut DslParser) -> Result<AstNode, 
         false
     };
 
+    // Handle 'field' keyword if present
+    if matches!(parser.current_token, Token::Field) {
+        parser.advance(); // consume 'field'
+    }
+
     // Parse field name
     let name = match &parser.current_token {
         Token::Identifier(name) => name.clone(),

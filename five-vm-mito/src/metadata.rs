@@ -1,8 +1,7 @@
-//! Zero-copy import verification metadata parser for Five bytecode accounts
+//! Zero-copy import verification metadata parser for Five bytecode accounts.
 //!
-//! This module provides ultra-fast, allocation-free parsing of import metadata
-//! embedded in Five VM bytecode. Designed for on-chain execution where every
-//! cycle counts and memory is precious.
+//! Provides allocation-free parsing of import metadata embedded in Five VM
+//! bytecode for on-chain execution.
 //!
 //! Bytecode Format (after main bytecode):
 //! [import_count: u8]
@@ -20,32 +19,29 @@
 
 use crate::error::VMError;
 
-/// Feature flag constant for import verification
+/// Feature flag constant for import verification.
 pub const FEATURE_IMPORT_VERIFICATION: u32 = 1 << 4;
 
-/// Callback type for PDA derivation
-/// Takes seed slices and program_id, returns derived account public key (32 bytes)
+/// Callback type for PDA derivation.
+/// Takes seed slices and program_id, returns derived account public key (32 bytes).
 pub type PdaDerivationFn = fn(seeds: &[&[u8]], program_id: &[u8; 32]) -> [u8; 32];
 
-/// Zero-copy import metadata parser
+/// Zero-copy import metadata parser.
 ///
-/// Stores only a reference to bytecode slice - NO ALLOCATIONS
-/// Performs linear search through imports (fast for typical 1-10 imports)
+/// Stores only a reference to the bytecode slice and performs a linear search
+/// through imports (typically 1-10 entries).
 pub struct ImportMetadata<'a> {
-    /// Direct reference to metadata section in bytecode
-    /// If empty, no verification is needed (backward compatible)
+    /// Direct reference to metadata section in bytecode.
+    /// If empty, no verification is needed (backward compatible).
     metadata_bytes: &'a [u8],
 }
 
 impl<'a> ImportMetadata<'a> {
-    /// Create metadata parser from bytecode and metadata offset
-    ///
-    /// Returns Ok with metadata parser (zero-cost)
-    /// Returns Err if offset is invalid
+    /// Create metadata parser from bytecode and metadata offset.
     pub fn new(bytecode: &'a [u8], metadata_offset: usize) -> Result<Self, VMError> {
-        // Bounds check
+        // Bounds check.
         if metadata_offset >= bytecode.len() {
-            // No metadata (backward compatible)
+            // No metadata (backward compatible).
             return Ok(ImportMetadata {
                 metadata_bytes: &[],
             });
@@ -56,45 +52,40 @@ impl<'a> ImportMetadata<'a> {
         })
     }
 
-    /// Verify account address matches ANY verified import
+    /// Verify account address matches any verified import.
     ///
-    /// Takes a PDA derivation callback for platform-independent operation
-    /// The callback is only invoked for PDA-mode imports (not for direct addresses)
+    /// Takes a PDA derivation callback for platform-independent operation.
+    /// The callback is only invoked for PDA-mode imports (not for direct addresses).
     ///
     /// Returns true if:
     /// - No metadata (backward compatible), OR
     /// - Account key matches an address-mode import, OR
-    /// - Account key matches a PDA-derived from stored seeds
-    ///
-    /// Returns false if account doesn't match any import
-    ///
-    /// ZERO ALLOCATIONS - uses only stack and direct bytecode references
-    /// ULTRA-FAST - early return on first match, no HashMap lookups
+    /// - Account key matches a PDA derived from stored seeds.
     pub fn verify_account(
         &self,
         account_key: &[u8; 32],
         program_id: &[u8; 32],
         pda_derivation: Option<PdaDerivationFn>,
     ) -> bool {
-        // No metadata = backward compatible (accept any account)
+        // No metadata = backward compatible (accept any account).
         if self.metadata_bytes.is_empty() {
             return true;
         }
 
-        // Safely parse metadata with bounds checking
+        // Safely parse metadata with bounds checking.
         let mut offset = 0;
 
-        // Read import count
+        // Read import count.
         if offset >= self.metadata_bytes.len() {
             return false;
         }
         let import_count = self.metadata_bytes[offset] as usize;
         offset += 1;
 
-        // Linear search through imports (fast for small N)
+        // Linear search through imports (fast for small N).
         for _ in 0..import_count {
             if offset >= self.metadata_bytes.len() {
-                return false; // Malformed metadata
+                return false; // Malformed metadata.
             }
 
             let import_type = self.metadata_bytes[offset];
@@ -102,27 +93,27 @@ impl<'a> ImportMetadata<'a> {
 
             let matches = match import_type {
                 0 => {
-                    // Address mode - direct 32-byte comparison (zero-copy)
+                    // Address mode - direct 32-byte comparison.
                     if offset + 32 > self.metadata_bytes.len() {
-                        return false; // Malformed
+                        return false; // Malformed.
                     }
                     let expected = &self.metadata_bytes[offset..offset + 32];
                     offset += 32;
                     account_key == expected
                 }
                 1 => {
-                    // PDA seeds mode - derive and compare
+                    // PDA seeds mode - derive and compare.
                     if offset >= self.metadata_bytes.len() {
-                        return false; // Malformed
+                        return false; // Malformed.
                     }
                     let seed_count = self.metadata_bytes[offset] as usize;
                     offset += 1;
 
-                    // Stack-allocated seed array (max 4 seeds, fits in stack)
+                    // Stack-allocated seed array (max 4 seeds, fits in stack).
                     let mut seed_slices: [Option<&[u8]>; 4] = [None; 4];
                     let mut all_seeds_valid = true;
 
-                    // Parse seeds with zero allocations
+                    // Parse seeds.
                     for i in 0..seed_count.min(4) {
                         if offset >= self.metadata_bytes.len() {
                             all_seeds_valid = false;
@@ -145,8 +136,7 @@ impl<'a> ImportMetadata<'a> {
                         return false;
                     }
 
-                    // Derive PDA using callback (only called for PDA imports, not address imports)
-                    // If no callback is provided, cannot verify PDA (continue searching)
+                    // Derive PDA using callback. If no callback is provided, cannot verify PDA.
                     if let Some(derive_fn) = pda_derivation {
                         let seed_refs: [&[u8]; 4] = [
                             seed_slices[0].unwrap_or(&[]),
@@ -157,37 +147,37 @@ impl<'a> ImportMetadata<'a> {
                         let derived = derive_fn(&seed_refs[..seed_count], program_id);
                         account_key == &derived
                     } else {
-                        // No PDA derivation callback - cannot verify, continue searching
+                        // No PDA derivation callback - cannot verify, continue searching.
                         false
                     }
                 }
                 _ => {
-                    // Invalid import type
+                    // Invalid import type.
                     return false;
                 }
             };
 
-            // Skip function name (not needed for verification)
+            // Skip function name (not needed for verification).
             if offset >= self.metadata_bytes.len() {
-                return false; // Malformed
+                return false; // Malformed.
             }
             let name_len = self.metadata_bytes[offset] as usize;
             offset += 1 + name_len;
 
             if matches {
-                return true; // ✅ Found matching import - early return
+                return true;
             }
         }
 
-        false // No matching import found
+        false
     }
 
-    /// Check if metadata is empty (no imports)
+    /// Check if metadata is empty (no imports).
     pub fn is_empty(&self) -> bool {
         self.metadata_bytes.is_empty()
     }
 
-    /// Get metadata byte slice (for debugging/inspection)
+    /// Get metadata byte slice (for debugging/inspection).
     pub fn as_bytes(&self) -> &'a [u8] {
         self.metadata_bytes
     }

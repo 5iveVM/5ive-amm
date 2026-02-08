@@ -1,8 +1,4 @@
-// Account Utilities Module
-//
-// This module provides unified account type detection logic used across all
-// bytecode generator modules. It ensures consistent account type recognition
-// for built-in types, custom account definitions, and pattern-based detection.
+// Account type detection helpers.
 
 use super::types::AccountRegistry;
 use crate::ast::{Attribute, TypeNode};
@@ -20,13 +16,7 @@ pub fn account_index_from_param_offset(offset: u32) -> u8 {
     account_index_from_param_index(offset as u8)
 }
 
-/// Unified account type detection function used across all compiler modules
-///
-/// This function provides comprehensive account type detection by checking:
-/// 1. Account registry for custom account definitions
-/// 2. Built-in account types (Account, TokenAccount, ProgramAccount)  
-/// 3. Pattern-based detection for types ending with "Account"
-/// 4. All TypeNode variants (Named, Primitive, Generic)
+/// Unified account type detection used across compiler modules.
 pub fn is_account_type(type_node: &TypeNode, account_registry: Option<&AccountRegistry>) -> bool {
     match type_node {
         TypeNode::Named(name) => {

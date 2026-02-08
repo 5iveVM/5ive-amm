@@ -1,7 +1,4 @@
-//! Configuration System Module
-//!
-//! Provides project configuration loading and validation
-//! with Cargo-style workspace support.
+//! Configuration module.
 
 pub mod project_config;
 pub mod workspace;

@@ -31,7 +31,7 @@ pub fn serialize_instruction_data(
                 return Err(VMError::InvalidParameterCount);
             }
             if let Value::Array(bytes_id) = args[0] {
-                // NOTE: In production this would look up the temp buffer entry.
+                // In production this would look up the temp buffer entry.
                 // For offline serialization tests, treat the array id as a placeholder error.
                 let _ = bytes_id;
                 return Err(VMError::InvalidOperation);

@@ -13,7 +13,7 @@ fn main() {
     let instruction_data = vec![0, 0]; // Call function 0, no params
 
     println!("Executing multiple-functions test...");
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&bytecode, &instruction_data, &[], &FIVE_VM_PROGRAM_ID, &mut storage);
 
     match result {

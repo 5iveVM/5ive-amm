@@ -1,12 +1,4 @@
-//! Unified Protocol Specification for Five
-//!
-//! This crate defines the authoritative protocol specification for all Five VMs
-//! and compilers. It serves as the shared interface layer and follows MitoVM coding patterns for maximum performance:
-//! - Zero allocations during execution
-//! - Stack-allocated data structures
-//! - Cold start optimized
-//! - Inline optimization focus
-//! - PRODUCTION ONLY: All debug overhead removed for maximum speed
+//! Protocol specification for Five VMs and compilers.
 
 #![no_std]
 
@@ -16,7 +8,6 @@ use alloc::vec::Vec;
 
 pub mod bytecode_builder;
 pub mod call_convention;
-pub mod encoding;
 pub mod opcodes;
 pub mod parser;
 pub mod transport;
@@ -28,15 +19,12 @@ pub mod test_fixtures;
 
 pub use bytecode_builder::*;
 pub use call_convention::*;
-pub use encoding::*;
 pub use opcodes::*;
 pub use parser::*;
 pub use transport::*;
 pub use types::*;
 pub use value::*;
-// =============================================================================
-// FIVE Script Header V3 - THE format for FIVE VM bytecode
-// =============================================================================
+// Five script header V3.
 
 /// Magic: "5IVE" = 0x45564935
 pub const SCRIPT_MAGIC: u32 = 0x45564935;
@@ -63,6 +51,9 @@ pub const FEATURE_MINIMAL_ERRORS: u32 = 1 << 2;
 pub const FEATURE_COLD_START_OPT: u32 = 1 << 3;
 pub const FEATURE_IMPORT_VERIFICATION: u32 = 1 << 4;  // Import verification metadata present
 pub const FEATURE_FUNCTION_CONSTRAINTS: u32 = 1 << 9;  // Function constraint metadata present
+// Constant pool features
+pub const FEATURE_CONSTANT_POOL: u32 = 1 << 10; // Constant pool descriptor + pool data present
+pub const FEATURE_CONSTANT_POOL_STRINGS: u32 = 1 << 11; // String blob present (fat pointers in pool)
 
 // Address constants
 pub const MAX_U16_ADDRESS: usize = u16::MAX as usize;
@@ -95,28 +86,32 @@ pub struct OptimizedHeader {
     pub total_function_count: u8,
 }
 
-/// Function name metadata table entry
+/// Constant pool descriptor (aligned to 16 bytes).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConstantPoolDescriptor {
+    pub pool_offset: u32,        // 8-byte aligned offset to pool data
+    pub string_blob_offset: u32, // Offset to string blob (0 if none)
+    pub string_blob_len: u32,    // Length of string blob
+    pub pool_slots: u16,         // Number of 8-byte slots in pool
+    pub reserved: u16,           // Padding / future use
+}
+
+/// Function name metadata table entry.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNameEntry {
     pub name: String,
     pub function_index: u8,
 }
 
-/// Function name metadata section
+/// Function name metadata section.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNameMetadata {
     pub section_size: u16,
     pub names: Vec<FunctionNameEntry>,
 }
 
-/// Function constraint metadata entry - one per function
-/// Constraint bitmask format:
-///   bit 0: @signer constraint
-///   bit 1: @mut constraint
-///   bit 2: owner check required
-///   bit 3: @init constraint
-///   bit 4: @pda constraint
-/// Each bit indicates if the corresponding account has that constraint
+/// Function constraint metadata entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FunctionConstraintEntry {
     pub account_count: u8,           // How many accounts this function needs
@@ -132,14 +127,14 @@ impl FunctionConstraintEntry {
         }
     }
 
-    /// Set constraint bitmask for an account
+    /// Set constraint bitmask for an account.
     pub fn set_constraint(&mut self, account_idx: u8, bitmask: u8) {
         if (account_idx as usize) < self.constraints.len() {
             self.constraints[account_idx as usize] = bitmask;
         }
     }
 
-    /// Get constraint bitmask for an account
+    /// Get constraint bitmask for an account.
     pub fn get_constraint(&self, account_idx: u8) -> u8 {
         if (account_idx as usize) < self.constraints.len() {
             self.constraints[account_idx as usize]
@@ -149,7 +144,7 @@ impl FunctionConstraintEntry {
     }
 }
 
-/// Function constraint metadata section
+/// Function constraint metadata section.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionConstraintMetadata {
     pub section_size: u16,
@@ -170,11 +165,10 @@ pub struct ResourceRequirements {
     pub heap_array_capacity: u16,
 }
 
-// Legacy type aliases for backward compatibility
+// Legacy type aliases for backward compatibility.
 pub type LegacyResourceRequirements = ResourceRequirements;
 
-/// Production-optimized header V2 - minimal overhead
-/// 🚀 PRODUCTION: Lightweight header with essential data only
+/// Production-optimized header V2.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct FIVEScriptHeaderV2 {

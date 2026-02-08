@@ -1,0 +1,30 @@
+Streaming transaction logs mentioning 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k. Confirmed commitment
+Transaction executed in slot 32791:
+  Signature: 2KUTPxvhQiy1uwKEaaPJTW6SKdigV6mRPdLsNkKMovuHLAfSK4jiNKczbPs14VcB5ZtoW5jrBQiscjtPLNTbPbHB
+  Status: Ok
+  Log Messages:
+    Program ComputeBudget111111111111111111111111111111 invoke [1]
+    Program ComputeBudget111111111111111111111111111111 success
+    Program 11111111111111111111111111111111 invoke [1]
+    Program 11111111111111111111111111111111 success
+    Program 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k invoke [1]
+    Program 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k consumed 175 of 1399700 compute units
+    Program 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k success
+Transaction executed in slot 32794:
+  Signature: 4LJZAFpqEvU2DnHokpGm3N4YFmMjgK5v7HRiLPbG84TGGEx2WcX73vqiV2pqR3APyptppP5cSDurh7PGrBitSAze
+  Status: Ok
+  Log Messages:
+    Program ComputeBudget111111111111111111111111111111 invoke [1]
+    Program ComputeBudget111111111111111111111111111111 success
+    Program 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k invoke [1]
+    Program 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k consumed 526 of 1399850 compute units
+    Program 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k success
+Transaction executed in slot 32795:
+  Signature: 2p1khWS39kboXN8x1LGkj6zcPPUSwfnM6vcgAhNsn5M9K7dGmfTbGBjShczomF3wPjaYhKEyydwo3ooW6gaiXgZe
+  Status: Error processing Instruction 1: custom program error: 0x1fba
+  Log Messages:
+    Program ComputeBudget111111111111111111111111111111 invoke [1]
+    Program ComputeBudget111111111111111111111111111111 success
+    Program 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k invoke [1]
+    Program 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k consumed 71885 of 1399850 compute units
+    Program 6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k failed: custom program error: 0x1fba

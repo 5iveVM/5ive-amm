@@ -1,52 +1,9 @@
-//! Zero-copy bytecode builder for testing and deployment
-//!
-//! This module provides a lightweight, stack-allocated bytecode builder optimized for:
-//! - Zero allocations during bytecode construction
-//! - Maximum inline optimization
-//! - Production-ready performance for test bytecode generation
-//!
-//! # Usage
-//!
-//! ## Macro (recommended for tests)
-//!
-//! ```ignore
-//! // Simple bytecode with header + HALT
-//! let bytecode = bytecode!(emit_header(1, 2), emit_halt());
-//!
-//! // Multiple instructions with comments
-//! let bytecode = bytecode!(
-//!     emit_header(0, 0),
-//!     emit_load_param(1),
-//!     emit_set_local(0),
-//!     emit_get_local(0),
-//!     emit_halt()
-//! );
-//! ```
-//!
-//! ## Builder API (for complex bytecode)
-//!
-//! ```ignore
-//! let mut builder = BytecodeBuilder::new();
-//! builder.emit_header(1, 2);
-//! builder.emit_push_u64(42);
-//! let pos = builder.position();
-//! builder.emit_u32(0);  // placeholder
-//! builder.emit_halt();
-//! builder.patch_u32(pos, 0xDEADBEEF).unwrap();
-//! let bytecode = builder.build();
-//! ```
-//!
-//! # Design
-//! - Uses a simple Vec<u8> internally to accumulate bytecode
-//! - Methods are designed for inlining by LLVM
-//! - No branching on hot paths
-//! - Compatible with no_std environments
+//! Bytecode builder for tests and deployment.
 
 use crate::opcodes::*;
 use alloc::vec::Vec;
 
-/// Macro to simplify bytecode builder usage
-/// Usage: bytecode!(emit_header(1, 2), emit_halt()) -> Vec<u8>
+/// Macro to simplify bytecode builder usage.
 #[macro_export]
 macro_rules! bytecode {
     ($($method:tt($($arg:tt)*)),* $(,)?) => {{
@@ -56,14 +13,14 @@ macro_rules! bytecode {
     }};
 }
 
-/// A lightweight bytecode builder for test and deployment bytecode generation
+/// A lightweight bytecode builder for test and deployment bytecode generation.
 #[derive(Debug, Clone)]
 pub struct BytecodeBuilder {
     bytecode: Vec<u8>,
 }
 
 impl BytecodeBuilder {
-    /// Create a new bytecode builder
+    /// Create a new bytecode builder.
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -71,7 +28,7 @@ impl BytecodeBuilder {
         }
     }
 
-    /// Create with pre-allocated capacity
+    /// Create with pre-allocated capacity.
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -79,15 +36,14 @@ impl BytecodeBuilder {
         }
     }
 
-    /// Emit magic header bytes ("5IVE")
+    /// Emit magic header bytes ("5IVE").
     #[inline]
     pub fn emit_magic(&mut self) -> &mut Self {
         self.bytecode.extend_from_slice(b"5IVE");
         self
     }
 
-    /// Emit optimized header (V3 format): magic + features + public_count + total_count
-    /// Returns &mut Self for chaining
+    /// Emit optimized header (V3 format).
     #[inline]
     pub fn emit_header(&mut self, public_count: u8, total_count: u8) -> &mut Self {
         self.emit_magic();
@@ -97,103 +53,60 @@ impl BytecodeBuilder {
         self
     }
 
-    /// Emit a single opcode byte
+    /// Emit a single opcode byte.
     #[inline]
     pub fn emit_u8(&mut self, byte: u8) -> &mut Self {
         self.bytecode.push(byte);
         self
     }
 
-    /// Emit an opcode (alias for emit_u8 for clarity)
+    /// Emit an opcode (alias for emit_u8).
     #[inline]
     pub fn emit_opcode(&mut self, opcode: u8) -> &mut Self {
         self.emit_u8(opcode)
     }
 
-    /// Emit little-endian u16
+    /// Emit little-endian u16.
     #[inline]
     pub fn emit_u16(&mut self, value: u16) -> &mut Self {
         self.bytecode.extend_from_slice(&value.to_le_bytes());
         self
     }
 
-    /// Emit little-endian u32
+    /// Emit little-endian u32.
     #[inline]
     pub fn emit_u32(&mut self, value: u32) -> &mut Self {
         self.bytecode.extend_from_slice(&value.to_le_bytes());
         self
     }
 
-    /// Emit little-endian u64
+    /// Emit little-endian u64.
     #[inline]
     pub fn emit_u64(&mut self, value: u64) -> &mut Self {
         self.bytecode.extend_from_slice(&value.to_le_bytes());
         self
     }
 
-    /// Emit raw bytes
+    /// Emit raw bytes.
     #[inline]
     pub fn emit_bytes(&mut self, bytes: &[u8]) -> &mut Self {
         self.bytecode.extend_from_slice(bytes);
         self
     }
 
-    /// Emit variable-length encoded u32 (VLE format used by Five VM)
-    /// This is optimized for small values (common case)
-    #[inline]
-    pub fn emit_vle_u32(&mut self, mut value: u32) -> &mut Self {
-        // VLE encoding: continuation bit in MSB
-        loop {
-            let byte = (value & 0x7F) as u8;
-            value >>= 7;
-            if value == 0 {
-                self.bytecode.push(byte);
-                break;
-            } else {
-                self.bytecode.push(byte | 0x80);
-            }
-        }
-        self
-    }
-
-    /// Emit partial variable-length encoded u32 for testing purposes
-    /// This allows creating truncated VLE encodings by limiting the number of bytes emitted
-    #[inline]
-    pub fn emit_partial_vle_u32(&mut self, mut value: u32, max_bytes: usize) -> &mut Self {
-        let mut count = 0;
-        loop {
-            if count >= max_bytes {
-                break;
-            }
-            let byte = (value & 0x7F) as u8;
-            value >>= 7;
-            if value == 0 {
-                self.bytecode.push(byte);
-                break;
-            } else {
-                self.bytecode.push(byte | 0x80);
-            }
-            count += 1;
-        }
-        self
-    }
-
-    /// Emit common opcodes with their immediate values.
-    /// These are convenience methods for frequently-used patterns.
-    ///
-    /// PUSH_U64 value
+    /// Emit common opcodes with immediate values.
     #[inline]
     pub fn emit_push_u64(&mut self, value: u64) -> &mut Self {
         self.emit_u8(PUSH_U64).emit_u64(value)
     }
 
-    /// PUSH_U32 value (little-endian)
+    /// PUSH_U32 value (little-endian).
     #[inline]
     pub fn emit_push_u32(&mut self, value: u32) -> &mut Self {
         self.emit_u8(PUSH_U32).emit_u32(value)
     }
 
-    /// PUSH_BOOL value
+    /// PUSH_BOOL value.
     #[inline]
     pub fn emit_push_bool(&mut self, value: bool) -> &mut Self {
         self.emit_u8(PUSH_BOOL).emit_u8(if value { 1 } else { 0 })
@@ -395,43 +308,6 @@ mod tests {
             ]),
             42
         );
-    }
-
-    #[test]
-    fn test_vle_encoding_small() {
-        // Small value should be 1 byte
-        let bytecode = {
-            let mut b = BytecodeBuilder::new();
-            b.emit_vle_u32(5);
-            b.build()
-        };
-        assert_eq!(bytecode.len(), 1);
-        assert_eq!(bytecode[0], 5);
-    }
-
-    #[test]
-    fn test_vle_encoding_large() {
-        // Value > 127 should use 2 bytes
-        let bytecode = {
-            let mut b = BytecodeBuilder::new();
-            b.emit_vle_u32(128);
-            b.build()
-        };
-        assert_eq!(bytecode.len(), 2);
-        assert_eq!(bytecode[0], 0x80);
-        assert_eq!(bytecode[1], (128 >> 7) & 0x7F);
-    }
-
-    #[test]
-    fn test_partial_vle_encoding() {
-        // Partial VLE: emit only first byte of 128 (which would normally be 2 bytes)
-        let bytecode = {
-            let mut b = BytecodeBuilder::new();
-            b.emit_partial_vle_u32(128, 1);
-            b.build()
-        };
-        assert_eq!(bytecode.len(), 1);
-        assert_eq!(bytecode[0], 0x80); // Only the first byte, truncated
     }
 
     #[test]

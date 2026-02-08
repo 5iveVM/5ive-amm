@@ -1,8 +1,5 @@
 /**
- * Five SDK Configuration Manager (Simplified for SDK)
- * 
- * Provides configuration access for WASM loading and other SDK settings.
- * Client-agnostic implementation.
+ * Five SDK configuration manager.
  */
 
 import { FiveSDKConfig } from '../types.js';

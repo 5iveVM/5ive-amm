@@ -132,12 +132,12 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
 
         // ===== FUSED CONSTRAINT OPERATIONS (0x7A+) =====
         // REQUIRE_OWNER: Fused LOAD_FIELD_PUBKEY + GET_KEY + EQ + REQUIRE
-        // Encoding: REQUIRE_OWNER account_idx(u8) signer_idx(u8) offset(VLE)
+        // Encoding: REQUIRE_OWNER account_idx(u8) signer_idx(u8) offset(u32)
         // Saves ~400 CU per call by avoiding 4 separate opcode dispatches
         REQUIRE_OWNER => {
             let account_idx = ctx.fetch_byte()?;      // Account containing the owner field
             let signer_idx = ctx.fetch_byte()?;       // Account to compare key against
-            let field_offset = ctx.fetch_vle_u16()?;  // Offset of pubkey field in account data
+            let field_offset = ctx.fetch_u32()?;      // Offset of pubkey field in account data
 
             // Get the owner/authority field from account data
             let account = ctx.get_account_for_read(account_idx)?;

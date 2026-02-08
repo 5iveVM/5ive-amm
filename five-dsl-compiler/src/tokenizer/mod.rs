@@ -1,11 +1,8 @@
-// DSL Tokenizer Module - Complete Production Version
-//
-// Handles lexical analysis for the Five DSL with KISS/DRY/zero-copy principles
+// DSL tokenizer for the Five language.
 
 use five_vm_mito::error::VMError;
 use std::iter::Peekable;
 use std::str::Chars;
-use crate::ast::SourceLocation;
 
 pub mod tokens;
 pub use tokens::*;
@@ -621,11 +618,6 @@ impl<'a> DslTokenizer<'a> {
             }
         }
         self.current_char = self.chars.next();
-    }
-
-    /// Get the current source location
-    fn current_location(&self, length: u32) -> SourceLocation {
-        SourceLocation::new(self.line, self.column, length)
     }
 
     /// Skip whitespace characters

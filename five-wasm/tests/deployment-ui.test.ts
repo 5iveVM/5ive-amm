@@ -1,13 +1,6 @@
 /**
- * Deployment UI Integration Tests
- * 
- * Tests the complete deployment UI flow including:
- * - Component rendering and interaction
- * - Real Solana integration (in test environment)
- * - Wallet connection simulation
- * - Deployment history management
- * 
- * CRITICAL: These tests verify real functionality, not mocked behavior.
+ * Deployment UI integration tests.
+ * Verifies real functionality, not mocked behavior.
  */
 
 import { DeploymentService, DeploymentUI, SolanaNetwork } from '../app/deployment-service'
@@ -49,8 +42,9 @@ describe('Deployment UI Integration', () => {
       
       // Create test bytecode
       const testBytecode = new Uint8Array([
-        0x53, 0x43, 0x52, 0x4C, // Magic bytes "SCRL"
-        0x01, 0x00, 0x00, 0x00, // Version
+        0x35, 0x49, 0x56, 0x45, // Magic bytes "5IVE"
+        0x00, 0x00, 0x00, 0x00, // Features (u32)
+        0x00, 0x00, // public/total function counts
         0x10, 0x20, 0x30, 0x40, // Some opcodes
         0x00, // HALT
       ])
@@ -67,7 +61,11 @@ describe('Deployment UI Integration', () => {
       await deploymentService.initialize()
       
       // Valid bytecode
-      const validBytecode = new Uint8Array([0x53, 0x43, 0x52, 0x4C, 0x01, 0x00, 0x00, 0x00])
+      const validBytecode = new Uint8Array([
+        0x35, 0x49, 0x56, 0x45,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00
+      ])
       expect(() => deploymentService.validateBytecode?.(validBytecode)).not.toThrow()
       
       // Invalid bytecode (wrong magic)
@@ -94,8 +92,9 @@ describe('Deployment UI Integration', () => {
 
     test('should estimate costs through UI', async () => {
       const testBytecode = new Uint8Array([
-        0x53, 0x43, 0x52, 0x4C, // Magic bytes
-        0x01, 0x00, 0x00, 0x00, // Version  
+        0x35, 0x49, 0x56, 0x45, // Magic bytes
+        0x00, 0x00, 0x00, 0x00, // Features  
+        0x00, 0x00,
         0x00, // HALT
       ])
 
@@ -130,7 +129,7 @@ describe('Deployment UI Integration', () => {
         
         // Verify magic bytes
         const magic = Array.from(result.bytecode!.slice(0, 4))
-        expect(magic).toEqual([0x53, 0x43, 0x52, 0x4C]) // "SCRL"
+        expect(magic).toEqual([0x35, 0x49, 0x56, 0x45]) // "5IVE"
       } else {
         // If compilation fails, it should provide error details
         expect(result.error).toBeDefined()

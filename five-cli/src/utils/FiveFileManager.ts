@@ -1,22 +1,9 @@
-/**
- * Five File Format Manager
- * 
- * Centralized management for Five file formats (.five, .bin, .v)
- * This is the SINGLE SOURCE OF TRUTH for all Five file operations.
- * 
- * Design Principles:
- * - Single responsibility for file format detection and loading
- * - Consistent error handling across all file operations
- * - Extensible for future file formats
- * - Rich metadata preservation and validation
- * - Performance optimized with caching where appropriate
- */
+// Five file format manager for .five/.bin/.v.
 
 import { readFile, writeFile, stat } from 'fs/promises';
 import { extname, basename } from 'path';
 import { Buffer } from 'buffer';
 
-// Types for Five file formats
 export interface FiveCompiledFile {
   bytecode: string;  // Base64 encoded bytecode
   abi: {
@@ -70,18 +57,11 @@ export interface LoadOptions {
   cacheable?: boolean;
 }
 
-/**
- * Centralized Five File Manager
- * All Five file operations MUST go through this class
- */
 export class FiveFileManager {
   private static instance: FiveFileManager;
   private fileCache = new Map<string, LoadedFiveFile>();
   private readonly supportedExtensions = ['.five', '.bin', '.v'];
 
-  /**
-   * Singleton pattern to ensure consistent behavior across the CLI
-   */
   public static getInstance(): FiveFileManager {
     if (!FiveFileManager.instance) {
       FiveFileManager.instance = new FiveFileManager();
@@ -89,10 +69,6 @@ export class FiveFileManager {
     return FiveFileManager.instance;
   }
 
-  /**
-   * Universal file loader - handles ALL Five file formats
-   * This is the PRIMARY method that all commands should use
-   */
   async loadFile(filePath: string, options: LoadOptions = {}): Promise<LoadedFiveFile> {
     // Input validation
     await this.validateFilePath(filePath);
@@ -100,7 +76,6 @@ export class FiveFileManager {
     const ext = extname(filePath).toLowerCase();
     const cacheKey = `${filePath}:${JSON.stringify(options)}`;
 
-    // Check cache if enabled
     if (options.cacheable && this.fileCache.has(cacheKey)) {
       return this.fileCache.get(cacheKey)!;
     }
@@ -125,7 +100,6 @@ export class FiveFileManager {
         );
     }
 
-    // Validate result if requested
     if (options.validateFormat) {
       const validation = this.validateFileContent(result);
       if (!validation.valid) {
@@ -137,7 +111,6 @@ export class FiveFileManager {
       }
     }
 
-    // Require ABI if requested
     if (options.requireABI && !result.abi) {
       throw new FiveFileError(
         `ABI required but not found in ${ext} file`,
@@ -146,7 +119,6 @@ export class FiveFileManager {
       );
     }
 
-    // Cache if enabled
     if (options.cacheable) {
       this.fileCache.set(cacheKey, result);
     }
@@ -154,10 +126,6 @@ export class FiveFileManager {
     return result;
   }
 
-  /**
-   * Save compiled data to .five format
-   * This ensures consistent .five file structure across the CLI
-   */
   async saveFiveFile(
     filePath: string,
     bytecode: Uint8Array,
@@ -181,12 +149,10 @@ export class FiveFileManager {
       }
     };
 
-    // Add disassembly if present
     if (disassembly && disassembly.length > 0) {
       fiveFile.disassembly = disassembly;
     }
 
-    // Add debug info if present
     if (metadata?.debug) {
       fiveFile.debug = metadata.debug;
     }
@@ -232,19 +198,14 @@ export class FiveFileManager {
     }
   }
 
-  /**
-   * Validate file format and content
-   */
   validateFileContent(file: LoadedFiveFile): FiveFileValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    // Basic validation
     if (!file.bytecode || file.bytecode.length === 0) {
       errors.push('Bytecode is empty or missing');
     }
 
-    // Five-specific validation
     if (file.format === 'five') {
       if (!file.abi) {
         errors.push('ABI is missing in .five file');
@@ -258,12 +219,10 @@ export class FiveFileManager {
       }
     }
 
-    // Bytecode validation
     if (file.bytecode.length < 4) {
       errors.push('Bytecode too short to be valid');
     }
 
-    // Check Five VM magic bytes (5IVE)
     const expectedMagic = [0x35, 0x49, 0x56, 0x45]; // "5IVE"
     const actualMagic = Array.from(file.bytecode.slice(0, 4));
     if (!this.arraysEqual(expectedMagic, actualMagic)) {
@@ -279,9 +238,6 @@ export class FiveFileManager {
     };
   }
 
-  /**
-   * Get file information without loading full content
-   */
   async getFileInfo(filePath: string): Promise<{
     exists: boolean;
     size: number;
@@ -306,9 +262,6 @@ export class FiveFileManager {
     }
   }
 
-  /**
-   * Convert between file formats
-   */
   async convertFormat(
     inputPath: string,
     outputPath: string,
@@ -338,24 +291,16 @@ export class FiveFileManager {
     }
   }
 
-  /**
-   * Clear file cache
-   */
   clearCache(): void {
     this.fileCache.clear();
   }
 
-  /**
-   * Get cache statistics
-   */
   getCacheStats(): { size: number; keys: string[] } {
     return {
       size: this.fileCache.size,
       keys: Array.from(this.fileCache.keys())
     };
   }
-
-  // ==================== PRIVATE METHODS ====================
 
   private async loadFiveFile(filePath: string, options: LoadOptions): Promise<LoadedFiveFile> {
     try {
@@ -373,7 +318,7 @@ export class FiveFileManager {
 
         if (magic === 'FIVE') {
           // It's a binary .five file!
-          // For now, we treat it as a binary file since we don't have a full binary parser in TS yet
+          // Treat as binary file; full TS parser not available
           return {
             bytecode: new Uint8Array(buffer),
             format: 'bin', // Treat as bin for now, but it's actually binary .five
@@ -469,8 +414,6 @@ export class FiveFileManager {
       const sourceCode = await readFile(filePath, 'utf8');
       const stats = await stat(filePath);
 
-      // Note: This returns the source code as "bytecode" for now
-      // In a real implementation, you might want to compile it first
       const sourceBuffer = Buffer.from(sourceCode, 'utf8');
 
       return {
@@ -522,7 +465,6 @@ export class FiveFileManager {
   }
 
   private async getCompilerVersion(): Promise<string> {
-    // In a real implementation, this would return the actual compiler version
     return '1.0.0';
   }
 
@@ -531,9 +473,6 @@ export class FiveFileManager {
   }
 }
 
-/**
- * Custom error class for Five file operations
- */
 export class FiveFileError extends Error {
   public readonly code: string;
   public readonly details: any;
@@ -546,22 +485,11 @@ export class FiveFileError extends Error {
   }
 }
 
-/**
- * Convenience functions for common operations
- * These provide a simple API while still using the centralized manager
- */
-
-/**
- * Quick load function for simple use cases
- */
 export async function loadFiveFile(filePath: string): Promise<LoadedFiveFile> {
   const manager = FiveFileManager.getInstance();
   return manager.loadFile(filePath, { validateFormat: true });
 }
 
-/**
- * Quick save function for .five files
- */
 export async function saveFiveFile(
   filePath: string,
   bytecode: Uint8Array,
@@ -573,17 +501,11 @@ export async function saveFiveFile(
   return manager.saveFiveFile(filePath, bytecode, abi, metadata, disassembly);
 }
 
-/**
- * Quick bytecode extraction function
- */
 export async function extractBytecode(filePath: string): Promise<Uint8Array> {
   const file = await loadFiveFile(filePath);
   return file.bytecode;
 }
 
-/**
- * Quick ABI extraction function
- */
 export async function extractABI(filePath: string): Promise<any> {
   const file = await loadFiveFile(filePath);
   if (!file.abi) {
@@ -596,9 +518,6 @@ export async function extractABI(filePath: string): Promise<any> {
   return file.abi;
 }
 
-/**
- * Validate any Five file format
- */
 export async function validateFiveFile(filePath: string): Promise<FiveFileValidationResult> {
   const manager = FiveFileManager.getInstance();
   const file = await manager.loadFile(filePath);

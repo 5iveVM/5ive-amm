@@ -1,10 +1,5 @@
 #!/usr/bin/env node
-/**
- * Five CLI - Main Entry Point
- *
- * High-performance command-line interface for Five VM development with WebAssembly integration.
- * Provides DSL compilation, bytecode analysis, VM execution, and Solana deployment capabilities.
- */
+// Five CLI entry point.
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -50,9 +45,6 @@ export class FiveCLI {
     this.registerCommands();
   }
 
-  /**
-   * Initialize the CLI program with metadata and global options
-   */
   private setupProgram(): void {
     this.program
       .name('five')
@@ -95,9 +87,6 @@ ${commandExample('five help <command>', 'Get help for specific command')}
     });
   }
 
-  /**
-   * Setup command execution context
-   */
   private setupContext(): void {
     this.context = {
       config: this.config,
@@ -110,9 +99,6 @@ ${commandExample('five help <command>', 'Get help for specific command')}
     };
   }
 
-  /**
-   * Register all available commands with the CLI
-   */
   private registerCommands(): void {
     for (const commandDef of commands) {
       const command = this.program
@@ -177,9 +163,6 @@ ${commandExample('five help <command>', 'Get help for specific command')}
     }
   }
 
-  /**
-   * Update execution context from command-line options
-   */
   private updateContextFromOptions(options: any): void {
     this.context.options = {
       ...this.context.options,

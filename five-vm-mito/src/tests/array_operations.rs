@@ -427,18 +427,18 @@ mod array_operations_tests {
         }
 
         #[test]
-        fn test_push_string_vle() {
-            // Test PUSH_STRING with VLE encoding
+        fn test_push_string_fixed_length() {
+            // Test PUSH_STRING with fixed-length encoding
             let mut bytecode = vec![0x35, 0x49, 0x56, 0x45]; // magic
             bytecode.push(PUSH_STRING); // 0x67
-            bytecode.push(0x08); // VLE encoded length (8)
+            bytecode.extend_from_slice(&8u32.to_le_bytes()); // length = 8
             bytecode.extend_from_slice(b"test_str"); // 8 byte string
             bytecode.push(0x00); // HALT
 
             let result = TestUtils::execute_simple(&bytecode);
             assert!(
                 result.is_ok() || result.is_err(),
-                "VLE string needs implementation"
+                "String handling needs implementation"
             );
         }
 

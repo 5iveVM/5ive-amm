@@ -14,8 +14,10 @@ fn test_debug_call() {
         0x00,                   // Total count
 
         // Function 2 (Test)
-        0x1B, 0x05,             // PUSH_U64(5)
-        0x1B, 0x03,             // PUSH_U64(3)
+        // PUSH_U64(5) - Fixed size 8 bytes
+        0x1B, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // PUSH_U64(3) - Fixed size 8 bytes
+        0x1B, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         // 0x90, 0x02, 0x14, 0x00, // CALL param_count=2, func_addr=20
         // 0x07,                   // RETURN_VALUE
         // For debugging: just ADD and RETURN
@@ -38,7 +40,7 @@ fn test_debug_call() {
     let input_data = vec![]; // Execute from start
 
     let program_id = Pubkey::default();
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &program_id, &mut storage);
 
     match result {

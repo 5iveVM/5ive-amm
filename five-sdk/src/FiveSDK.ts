@@ -1,7 +1,5 @@
 /**
- * Five SDK - Unified client library for Five VM scripts
- *
- * Provides a standardized way to interact with Five scripts deployed on Solana.
+ * Five SDK client for Five VM scripts.
  */
 
 import {
@@ -335,6 +333,7 @@ export class FiveSDK {
       abi?: any;
       adminAccount?: string;
       estimateFees?: boolean;
+      accountMetadata?: Map<string, { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }>;
     } = {},
   ): Promise<SerializedExecution> {
     return Execute.generateExecuteInstruction(
@@ -553,10 +552,7 @@ export class FiveSDK {
       if (!accountInfo) return null;
 
       const data = accountInfo.data;
-      // ... logic for extracting bytecode from account data ...
-      // I should extract this logic to a helper or use Accounts module?
-      // For now I'll duplicate the logic to avoid complexity or use what I extracted if available.
-      // fetchAccountAndDeserializeVLE does this but returns full metadata.
+      // Extract bytecode from account data.
 
       const scriptHeaderSize = 64;
       let bytecode = data;
@@ -609,35 +605,35 @@ export class FiveSDK {
     return Deploy.deployLargeProgramOptimizedToSolana(bytecode, connection, deployerKeypair, options);
   }
 
-  static async fetchAccountAndDeserializeVLE(
+  static async fetchAccountAndDeserialize(
     accountAddress: string,
     connection: any,
     options: any = {},
   ) {
-    return Accounts.fetchAccountAndDeserializeVLE(accountAddress, connection, options);
+    return Accounts.fetchAccountAndDeserialize(accountAddress, connection, options);
   }
 
-  static async fetchMultipleAccountsAndDeserializeVLE(
+  static async fetchMultipleAccountsAndDeserialize(
     accountAddresses: string[],
     connection: any,
     options: any = {},
   ) {
-    return Accounts.fetchMultipleAccountsAndDeserializeVLE(accountAddresses, connection, options);
+    return Accounts.fetchMultipleAccountsAndDeserialize(accountAddresses, connection, options);
   }
 
-  static async deserializeVLEParameters(
+  static async deserializeParameters(
     instructionData: Uint8Array,
     expectedTypes: string[] = [],
     options: any = {},
   ) {
-    return Accounts.deserializeVLEParameters(instructionData, expectedTypes, options);
+    return Accounts.deserializeParameters(instructionData, expectedTypes, options);
   }
 
-  static async validateVLEEncoding(
+  static async validateBytecodeEncoding(
     bytecode: Uint8Array,
     debug: boolean = false,
   ) {
-    return Accounts.validateVLEEncoding(bytecode, debug);
+    return Accounts.validateBytecodeEncoding(bytecode, debug);
   }
 
   static async executeWithStateDiff(

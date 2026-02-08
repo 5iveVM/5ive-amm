@@ -153,8 +153,8 @@ impl DslParser {
                         field_definitions.push(structures::parse_field_definition(self)?);
                     }
                 }
-                TokenKind::Mut => {
-                    // Field definition starting with 'mut'
+                TokenKind::Mut | TokenKind::Field => {
+                    // Field definition starting with 'mut' or 'field'
                     field_definitions.push(structures::parse_field_definition(self)?);
                 }
                 _ => return Err(self.unexpected_token()),
@@ -190,6 +190,26 @@ impl DslParser {
             .get(self.position)
             .cloned()
             .unwrap_or(Token::Eof);
+    }
+
+    /// Split a shift token (">>" or ">>>") into one or more ">" tokens.
+    /// This is used to disambiguate nested generic type closers like Option<Option<u64>>.
+    pub(crate) fn split_generic_closer(&mut self) {
+        let gt_count = match self.current_token {
+            Token::RightShift => 2,
+            Token::ArithRightShift => 3,
+            _ => 0,
+        };
+
+        if gt_count == 0 {
+            return;
+        }
+
+        // Replace current token with a single '>' and insert remaining '>' tokens.
+        self.current_token = Token::GT;
+        for _ in 1..gt_count {
+            self.tokens.insert(self.position + 1, Token::GT);
+        }
     }
 
     // Helper methods for better error reporting

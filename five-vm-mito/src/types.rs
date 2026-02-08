@@ -1,50 +1,46 @@
-//! Type definitions for MitoVM
-//!
-//! This module contains core type definitions used throughout the MitoVM execution engine.
-//! Extracted from the main execution module for better organization and maintainability.
+//! Type definitions for MitoVM.
 
 use crate::MAX_LOCALS;
 use five_protocol::ValueRef;
 
 /// Stack-allocated local variable storage optimized for minimal memory usage.
-/// Each slot holds a single [`ValueRef`]; [`ValueRef::Empty`] marks
-/// uninitialized locals.
-/// Stack-allocated local variable storage optimized for minimal memory usage.
-/// Each slot holds a single [`ValueRef`]; [`ValueRef::Empty`] marks
-/// uninitialized locals.
+/// Each slot holds a single [`ValueRef`]; [`ValueRef::Empty`] marks uninitialized locals.
 pub type LocalVariables = [core::mem::MaybeUninit<ValueRef>; MAX_LOCALS];
+
+/// Root context identifier for bytecode (original script).
+pub const ROOT_CONTEXT: u8 = u8::MAX;
 
 /// Function call frame containing return state and saved parameters.
 ///
 /// # Example
 /// ```rust
-/// use five_vm_mito::CallFrame;
+/// use five_vm_mito::{CallFrame, types::ROOT_CONTEXT};
 ///
-/// let bytecode = &[0x00, 0x07]; // NOP, RETURN_VALUE
-/// let frame = CallFrame::new(100, 2, 0, bytecode);
+/// let frame = CallFrame::new(100, 2, 0, ROOT_CONTEXT);
 /// assert_eq!(frame.return_address, 100);
 /// assert_eq!(frame.local_count, 2);
+/// assert_eq!(frame.bytecode_context, ROOT_CONTEXT);
 /// ```
 #[derive(Debug, Clone, Copy)]
-pub struct CallFrame<'a> {
+pub struct CallFrame {
     pub return_address: u16,
     pub local_count: u8,
     pub local_base: u8,     // Base offset for this frame's locals in shared array
     pub param_start: u8,    // Start index of caller parameters in shared array
     pub param_len: u8,      // Length of caller parameter slice
-    pub bytecode: &'a [u8], // Caller bytecode for context restoration
+    pub bytecode_context: u8, // Context identifier: u8::MAX = Root, otherwise account index
 }
 
-impl<'a> CallFrame<'a> {
+impl CallFrame {
     /// Create call frame with return address and local variable count.
-    pub fn new(return_address: u16, local_count: u8, local_base: u8, bytecode: &'a [u8]) -> Self {
+    pub fn new(return_address: u16, local_count: u8, local_base: u8, bytecode_context: u8) -> Self {
         Self {
             return_address,
             local_count,
             local_base,
             param_start: 0,
             param_len: 0,
-            bytecode,
+            bytecode_context,
         }
     }
 
@@ -55,7 +51,7 @@ impl<'a> CallFrame<'a> {
         local_base: u8,
         param_start: u8,
         param_len: u8,
-        bytecode: &'a [u8],
+        bytecode_context: u8,
     ) -> Self {
         Self {
             return_address,
@@ -63,7 +59,7 @@ impl<'a> CallFrame<'a> {
             local_base,
             param_start,
             param_len,
-            bytecode,
+            bytecode_context,
         }
     }
 }

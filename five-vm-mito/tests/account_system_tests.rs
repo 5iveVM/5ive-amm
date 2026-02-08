@@ -10,7 +10,7 @@ use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
@@ -34,8 +34,10 @@ mod constraint_validation {
     #[test]
     fn test_basic_vm_execution() {
         // Test basic VM execution without account constraints
-        // This replaces complex account mocking with simple bytecode validation
-        let bytecode = build_script(&[PUSH_U64, 0x2A, HALT]);
+        let mut body = vec![PUSH_U64];
+        body.extend_from_slice(&42u64.to_le_bytes());
+        body.push(HALT);
+        let bytecode = build_script(&body);
         let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::U64(42)), "Basic execution should work");
     }
@@ -43,7 +45,13 @@ mod constraint_validation {
     #[test]
     fn test_arithmetic_operations() {
         // Test arithmetic without account dependencies
-        let bytecode = build_script(&[PUSH_U64, 0x0A, PUSH_U64, 0x05, ADD, HALT]);
+        let mut body = vec![PUSH_U64];
+        body.extend_from_slice(&10u64.to_le_bytes());
+        body.push(PUSH_U64);
+        body.extend_from_slice(&5u64.to_le_bytes());
+        body.push(ADD);
+        body.push(HALT);
+        let bytecode = build_script(&body);
 
         let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::U64(15)), "10 + 5 should equal 15");
@@ -52,7 +60,13 @@ mod constraint_validation {
     #[test]
     fn test_comparison_operations() {
         // Test comparison operations
-        let bytecode = build_script(&[PUSH_U64, 0x0A, PUSH_U64, 0x05, GT, HALT]);
+        let mut body = vec![PUSH_U64];
+        body.extend_from_slice(&10u64.to_le_bytes());
+        body.push(PUSH_U64);
+        body.extend_from_slice(&5u64.to_le_bytes());
+        body.push(GT);
+        body.push(HALT);
+        let bytecode = build_script(&body);
 
         let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::Bool(true)), "10 > 5 should be true");
@@ -65,7 +79,12 @@ mod stack_operations {
     #[test]
     fn test_stack_basic_ops() {
         // Test DUP operation
-        let bytecode = build_script(&[PUSH_U64, 0x07, DUP, ADD, HALT]);
+        let mut body = vec![PUSH_U64];
+        body.extend_from_slice(&7u64.to_le_bytes());
+        body.push(DUP);
+        body.push(ADD);
+        body.push(HALT);
+        let bytecode = build_script(&body);
 
         let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(result, Some(Value::U64(14)), "DUP and ADD should work");
@@ -76,7 +95,13 @@ mod stack_operations {
         // First test: Without SWAP
         // Stack after pushes: [10, 3] (3 on top)
         // SUB pops 3 (b), then 10 (a), computes a - b = 10 - 3 = 7
-        let bytecode_no_swap = build_script(&[PUSH_U64, 0x0A, PUSH_U64, 0x03, SUB, HALT]);
+        let mut body = vec![PUSH_U64];
+        body.extend_from_slice(&10u64.to_le_bytes());
+        body.push(PUSH_U64);
+        body.extend_from_slice(&3u64.to_le_bytes());
+        body.push(SUB);
+        body.push(HALT);
+        let bytecode_no_swap = build_script(&body);
 
         let result_no_swap = execute_test(&bytecode_no_swap, &[], &[]).unwrap();
         assert_eq!(result_no_swap, Some(Value::U64(7)), "10 - 3 should equal 7");
@@ -85,7 +110,14 @@ mod stack_operations {
         // Stack after pushes: [10, 3] (3 on top)
         // SWAP changes to: [3, 10] (10 on top)
         // SUB pops 10 (b), then 3 (a), computes a - b = 3 - 10 with wrapping semantics
-        let bytecode = build_script(&[PUSH_U64, 0x0A, PUSH_U64, 0x03, SWAP, SUB, HALT]);
+        let mut body = vec![PUSH_U64];
+        body.extend_from_slice(&10u64.to_le_bytes());
+        body.push(PUSH_U64);
+        body.extend_from_slice(&3u64.to_le_bytes());
+        body.push(SWAP);
+        body.push(SUB);
+        body.push(HALT);
+        let bytecode = build_script(&body);
 
         let result = execute_test(&bytecode, &[], &[]).unwrap();
         assert_eq!(

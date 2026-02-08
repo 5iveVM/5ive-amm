@@ -1,5 +1,4 @@
 use crate::error::{CompactResult, Result, VMError, VMErrorCode};
-use alloc::vec::Vec;
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::ptr;
 
@@ -61,19 +60,7 @@ impl<'a> ResourceManager<'a> {
             mgr.heap_chunk_count = 1;
             mgr.current_chunk = 0;
             mgr.chunk_is_static[0] = true;
-            // Note: total_heap_usage tracks AVAILABLE heap space or ALLOCATED?
-            // Usually "usage" means what we used. But here we might mean "capacity"?
-            // Wait, heap_usage() usually returns total dynamic bytes.
-            // Let's assume total_heap_usage only tracks what we requested/used?
-            // Actually, alloc_heap_unsafe increases total_heap_usage by CHUNK size.
-            // So we should track this initial chunk as available capacity?
-            // The alloc_heap_unsafe logic increases total_heap_usage when allocating NEW chunks.
-            // So we should probably count this as part of our capacity, or just ignore it until used?
-            // The existing `alloc_heap_unsafe` logic checks: if used + size <= cap.
-            // So the capacity is there.
-            // We'll set total_heap_usage to valid initial capacity?
-            // No, total_heap_usage seems to track TOTAL ALLOCATED BYTES (allocated from system).
-            // Let's increment it to reflect we have this memory "allocated" (even if static).
+            // Track the initial static chunk as allocated heap capacity.
             mgr.total_heap_usage = len;
         }
         
@@ -229,7 +216,7 @@ impl<'a> ResourceManager<'a> {
 
         // 1. Try to fit in current chunk
         if self.heap_chunk_count > 0 {
-            let (ptr, cap, used) = self.heap_chunks[self.current_chunk as usize];
+            let (_, cap, used) = self.heap_chunks[self.current_chunk as usize];
             if used + size <= cap {
                 // Fits!
                 let offset = used;
@@ -243,7 +230,7 @@ impl<'a> ResourceManager<'a> {
             // Simple Linear Scan:
             for i in 0..self.heap_chunk_count {
                 if i == self.current_chunk { continue; }
-                let (ptr, cap, used) = self.heap_chunks[i as usize];
+                let (_, cap, used) = self.heap_chunks[i as usize];
                 if used + size <= cap {
                     let offset = used;
                     self.heap_chunks[i as usize].2 += size;

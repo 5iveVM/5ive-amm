@@ -51,7 +51,7 @@ fn extract_function_name(text: &str) -> Option<String> {
 
     // Find the start of the identifier (move backwards)
     let chars: Vec<char> = trimmed.chars().collect();
-    let mut end = chars.len();
+    let end = chars.len();
     let mut start = end;
 
     while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {

@@ -68,11 +68,74 @@ if (fs.existsSync(deploymentConfigPath)) {
     }
 }
 
-// ============================================================================ 
-// HELPER: Transaction Execution
-// ============================================================================ 
+// ============================================================================
+// HELPER: Error Extraction
+// ============================================================================
 
-async function sendInstruction(connection, instructionData, signers) {
+/**
+ * Extract compute units from transaction logs
+ */
+function extractCU(logs) {
+    const cuLog = logs.find(l => l.includes('consumed'));
+    if (!cuLog) return 'N/A';
+    const match = cuLog.match(/consumed (\d+) of/);
+    return match ? parseInt(match[1], 10) : 'N/A';
+}
+
+/**
+ * Extract Five VM error from transaction logs
+ * Returns error name if found (e.g., "IllegalOwner", "StackUnderflow")
+ */
+function extractVMError(logs) {
+    // Look for Five VM program failure logs
+    for (const log of logs) {
+        // Pattern: "Program failed: <error message>"
+        if (log.includes('failed:')) {
+            const match = log.match(/failed: (.+)$/);
+            if (match) {
+                const errorMsg = match[1];
+
+                // Map common Solana errors to VM errors
+                if (errorMsg.includes('owner is not allowed')) return 'IllegalOwner';
+                if (errorMsg.includes('stack underflow')) return 'StackUnderflow';
+                if (errorMsg.includes('stack overflow')) return 'StackOverflow';
+                if (errorMsg.includes('invalid instruction')) return 'InvalidInstruction';
+                if (errorMsg.includes('account not found')) return 'AccountNotFound';
+
+                return errorMsg;  // Return raw message if not mapped
+            }
+        }
+
+        // Pattern: Custom error code (e.g., "Program returned error code: 0x1")
+        if (log.includes('error code:')) {
+            const match = log.match(/error code: (0x[0-9a-fA-F]+)/);
+            if (match) return `ErrorCode(${match[1]})`;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Verify transaction result and fail test if not successful
+ */
+function assertTransactionSuccess(result, operationName) {
+    if (!result.success) {
+        console.error(`\n💥 TEST FAILED: ${operationName} transaction failed`);
+        console.error(`   Signature: ${result.signature || 'N/A'}`);
+        console.error(`   Error: ${result.error || 'Unknown'}`);
+        if (result.vmError) {
+            console.error(`   VM Error: ${result.vmError}`);
+        }
+        process.exit(1);
+    }
+}
+
+// ============================================================================
+// HELPER: Transaction Execution
+// ============================================================================
+
+async function sendInstruction(connection, instructionData, signers, label = '') {
     const keys = instructionData.keys.map(k => ({
         pubkey: new PublicKey(k.pubkey),
         isSigner: k.isSigner,
@@ -86,59 +149,106 @@ async function sendInstruction(connection, instructionData, signers) {
     };
 
     const tx = new Transaction().add(ix);
+    let signature = null;
 
     try {
-        const sig = await sendAndConfirmTransaction(connection, tx, signers, {
-            skipPreflight: true,
+        // CHANGE: Remove skipPreflight to enable pre-flight simulation
+        signature = await sendAndConfirmTransaction(connection, tx, signers, {
+            skipPreflight: false,
             commitment: 'confirmed'
         });
 
-        // Fetch logs to extract CU usage
-        let logs = [];
-        let cu = -1;
-        try {
-            // wait a bit for confirmed state
-            await new Promise(r => setTimeout(r, 500));
-            const txDetails = await connection.getTransaction(sig, {
-                maxSupportedTransactionVersion: 0,
-                commitment: 'confirmed'
+        await new Promise(r => setTimeout(r, 500));
+
+        // Fetch transaction details
+        const txDetails = await connection.getTransaction(signature, {
+            maxSupportedTransactionVersion: 0,
+            commitment: 'confirmed'
+        });
+
+        const logs = txDetails?.meta?.logMessages || [];
+
+        // CRITICAL: Check for on-chain error FIRST
+        if (txDetails?.meta?.err) {
+            console.log(`\n❌ ${label} FAILED (on-chain error)`);
+            console.log(`   Signature: ${signature}`);
+            console.log(`   Error: ${JSON.stringify(txDetails.meta.err)}`);
+
+            // Extract VM error if present
+            const vmError = extractVMError(logs);
+            if (vmError) {
+                console.log(`   VM Error: ${vmError}`);
+            }
+
+            // Show relevant logs
+            console.log(`   Logs:`);
+            logs.forEach(log => {
+                if (log.includes('Program') || log.includes('consumed') || log.includes('failed')) {
+                    console.log(`     ${log}`);
+                }
             });
-            logs = txDetails?.meta?.logMessages || [];
 
-            if (txDetails?.meta?.err) {
-                console.log(`❌ Transaction Failed on-chain: ${JSON.stringify(txDetails.meta.err)}`);
-                logs.forEach(log => console.log(`  ${log}`));
-                return { success: false, error: txDetails.meta.err, logs, cu: -1, signature: sig };
-            }
-
-            // Extract CU
-            const cuLog = logs.find(l => l.includes('consumed'));
-            if (cuLog) {
-                const match = cuLog.match(/consumed (\d+) of/);
-                if (match) cu = match[1];
-                console.log(`   └─ ⚡ CU: ${cu}`);
-            }
-        } catch (e) {
-            console.log("   └─ (CU fetch failed or verification failed)", e);
+            return {
+                success: false,
+                error: txDetails.meta.err,
+                vmError,
+                logs,
+                signature,
+                cu: extractCU(logs)  // Still track CU even on failure
+            };
         }
 
-        return { success: true, signature: sig, logs, cu };
-    } catch (e) {
-        let logs = [];
-        if (e.signature) {
+        // Extract CU from successful transaction
+        const cu = extractCU(logs);
+        console.log(`✓ ${label} succeeded`);
+        console.log(`   Signature: ${signature}`);
+        console.log(`   CU: ${cu}`);
+
+        return {
+            success: true,
+            signature,
+            logs,
+            cu
+        };
+
+    } catch (error) {
+        // Handle pre-flight simulation failure or RPC error
+        console.log(`\n❌ ${label} FAILED (simulation or RPC error)`);
+        console.log(`   Error: ${error.message}`);
+
+        // Try to fetch logs if we have a signature
+        if (signature) {
             try {
-                const txDetails = await connection.getTransaction(e.signature, {
-                    maxSupportedTransactionVersion: 0,
-                    commitment: 'confirmed'
+                const txDetails = await connection.getTransaction(signature, {
+                    maxSupportedTransactionVersion: 0
                 });
-                logs = txDetails?.meta?.logMessages || [];
-                console.log(`\n❌ Transaction Logs:`);
-                logs.forEach(log => console.log(`  ${log}`));
-            } catch (fetchErr) {
-                console.log("Could not fetch logs for failed transaction");
+                const logs = txDetails?.meta?.logMessages || [];
+                console.log(`   Logs:`);
+                logs.forEach(log => console.log(`     ${log}`));
+            } catch (e) {
+                // Ignore log fetch errors
             }
         }
-        return { success: false, error: e, logs };
+
+        // Check if this is a simulation error
+        if (error.logs) {
+            console.log(`   Simulation Logs:`);
+            error.logs.forEach(log => console.log(`     ${log}`));
+
+            const vmError = extractVMError(error.logs);
+            if (vmError) {
+                console.log(`   VM Error: ${vmError}`);
+            }
+        }
+
+        return {
+            success: false,
+            error: error.message,
+            vmError: error.logs ? extractVMError(error.logs) : null,
+            logs: error.logs || [],
+            signature,
+            cu: -1
+        };
     }
 }
 
@@ -352,9 +462,8 @@ async function main() {
         })
         .instruction();
 
-    const initMintRes = await sendInstruction(connection, initMintIx, [payer, user1, mintAccount]);
-    if (initMintRes.success) success(`init_mint successful (sig: ${initMintRes.signature})`);
-    else { error('init_mint failed'); console.error(initMintRes.error); process.exit(1); }
+    const initMintRes = await sendInstruction(connection, initMintIx, [payer, user1, mintAccount], 'init_mint');
+    assertTransactionSuccess(initMintRes, 'init_mint');
 
     // ======================================================================== 
     // STEP 2: Init Token Accounts
@@ -379,9 +488,8 @@ async function main() {
             })
             .instruction();
 
-        const res = await sendInstruction(connection, ix, [payer, acc.owner, acc.kp]);
-        if (res.success) success(`init_token_account for ${acc.name} successful (sig: ${res.signature})`);
-        else { error(`init_token_account for ${acc.name} failed`); console.error(res.error); }
+        const res = await sendInstruction(connection, ix, [payer, acc.owner, acc.kp], `init_token_account_${acc.name}`);
+        assertTransactionSuccess(res, `init_token_account_${acc.name}`);
     }
 
     // ======================================================================== 
@@ -408,9 +516,8 @@ async function main() {
             })
             .instruction();
 
-        const res = await sendInstruction(connection, ix, [payer, user1]);
-        if (res.success) success(`mint_to ${op.name} (${op.amount}) successful (sig: ${res.signature})`);
-        else { error(`mint_to ${op.name} failed`); console.error(res.error); }
+        const res = await sendInstruction(connection, ix, [payer, user1], `mint_to_${op.name}`);
+        assertTransactionSuccess(res, `mint_to_${op.name}`);
     }
 
     // ======================================================================== 
@@ -431,9 +538,8 @@ async function main() {
         })
         .instruction();
 
-    const transferRes = await sendInstruction(connection, transferIx, [payer, user2]);
-    if (transferRes.success) success(`transfer 100 from User2 to User3 successful (sig: ${transferRes.signature})`);
-    else { error('transfer failed'); console.error(transferRes.error); }
+    const transferRes = await sendInstruction(connection, transferIx, [payer, user2], 'transfer');
+    assertTransactionSuccess(transferRes, 'transfer');
 
     // ======================================================================== 
     // STEP 5: Approve & Transfer From
@@ -453,9 +559,8 @@ async function main() {
         })
         .instruction();
 
-    const approveRes = await sendInstruction(connection, approveIx, [payer, user3]);
-    if (approveRes.success) success(`approve User2 as delegate successful (sig: ${approveRes.signature})`);
-    else { error('approve failed'); console.error(approveRes.error); }
+    const approveRes = await sendInstruction(connection, approveIx, [payer, user3], 'approve');
+    assertTransactionSuccess(approveRes, 'approve');
 
     // User2 transfers 50 from User3 to User1
     const transferFromIx = await program
@@ -470,9 +575,8 @@ async function main() {
         })
         .instruction();
 
-    const transferFromRes = await sendInstruction(connection, transferFromIx, [payer, user2]);
-    if (transferFromRes.success) success(`transfer_from 50 via delegate successful (sig: ${transferFromRes.signature})`);
-    else { error('transfer_from failed'); console.error(transferFromRes.error); }
+    const transferFromRes = await sendInstruction(connection, transferFromIx, [payer, user2], 'transfer_from');
+    assertTransactionSuccess(transferFromRes, 'transfer_from');
 
     // ======================================================================== 
     // STEP 6: Revoke
@@ -487,9 +591,8 @@ async function main() {
         })
         .instruction(); // No args for revoke
 
-    const revokeRes = await sendInstruction(connection, revokeIx, [payer, user3]);
-    if (revokeRes.success) success(`revoke delegation successful (sig: ${revokeRes.signature})`);
-    else { error('revoke failed'); console.error(revokeRes.error); }
+    const revokeRes = await sendInstruction(connection, revokeIx, [payer, user3], 'revoke');
+    assertTransactionSuccess(revokeRes, 'revoke');
 
     // ======================================================================== 
     // STEP 7: Burn
@@ -508,9 +611,8 @@ async function main() {
         })
         .instruction();
 
-    const burnRes = await sendInstruction(connection, burnIx, [payer, user1]);
-    if (burnRes.success) success(`burn 100 tokens successful (sig: ${burnRes.signature})`);
-    else { error('burn failed'); console.error(burnRes.error); }
+    const burnRes = await sendInstruction(connection, burnIx, [payer, user1], 'burn');
+    assertTransactionSuccess(burnRes, 'burn');
 
     // ======================================================================== 
     // STEP 8: Freeze/Thaw
@@ -526,9 +628,8 @@ async function main() {
         })
         .instruction();
 
-    const freezeRes = await sendInstruction(connection, freezeIx, [payer, user1]);
-    if (freezeRes.success) success(`freeze account successful (sig: ${freezeRes.signature})`);
-    else { error('freeze failed'); console.error(freezeRes.error); }
+    const freezeRes = await sendInstruction(connection, freezeIx, [payer, user1], 'freeze_account');
+    assertTransactionSuccess(freezeRes, 'freeze_account');
 
     // DEBUG: Inspect accounts before Thaw
     const mintInfo = await connection.getAccountInfo(mintAccount.publicKey);
@@ -574,9 +675,8 @@ async function main() {
         })
         .instruction();
 
-    const thawRes = await sendInstruction(connection, thawIx, [payer, user1]);
-    if (thawRes.success) success(`thaw account successful (sig: ${thawRes.signature})`);
-    else { error('thaw failed'); console.error(thawRes.error); }
+    const thawRes = await sendInstruction(connection, thawIx, [payer, user1], 'thaw_account');
+    assertTransactionSuccess(thawRes, 'thaw_account');
 
     // ======================================================================== 
     // STEP 9: Disable Authority
@@ -591,9 +691,8 @@ async function main() {
         })
         .instruction();
 
-    const disableRes = await sendInstruction(connection, disableIx, [payer, user1]);
-    if (disableRes.success) success(`disable_mint successful (sig: ${disableRes.signature})`);
-    else { error('disable_mint failed'); console.error(disableRes.error); }
+    const disableRes = await sendInstruction(connection, disableIx, [payer, user1], 'disable_mint');
+    assertTransactionSuccess(disableRes, 'disable_mint');
 
     // Export state
     const testState = {

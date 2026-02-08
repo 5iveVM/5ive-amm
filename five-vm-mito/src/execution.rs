@@ -1,12 +1,7 @@
-//! Core execution engine for MitoVM with function call support
-//!
-//! Enhanced with minimal function call transport:
-//! - 8-level call stack (stack-allocated)
-//! - Zero-copy account data access
-//! - Enhanced data types for real-world use cases
+//! Core execution engine for MitoVM with function call support.
 
 use crate::{
-    context::ExecutionManager, // Import ExecutionManager for VM execution
+    context::ExecutionManager,
     debug_log,
     error_log,
     error::{CompactResult, Result, VMErrorCode, VMError},
@@ -15,16 +10,16 @@ use crate::{
         handle_functions, handle_locals, handle_logical, handle_memory, handle_nibble_locals,
         handle_option_result_ops, handle_stack_ops, handle_system_ops,
     },
-    stack_error_context, // Import enhanced debugging macros
+    stack_error_context,
     FIVE_MAGIC,
 };
-use five_protocol::{Value, ValueRef, FIVE_HEADER_OPTIMIZED_SIZE};
+use five_protocol::{ConstantPoolDescriptor, Value, ValueRef, FIVE_HEADER_OPTIMIZED_SIZE};
 
 
 use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
 #[cfg(feature = "debug-logs")]
 use heapless::String as HString;
-// Import all opcodes - using hierarchical match structure to prevent stack overflow
+// Import all opcodes - using hierarchical match structure to prevent stack overflow.
 use five_protocol::opcodes::*;
 
 /// Execution state snapshot returned from VM operations.
@@ -39,8 +34,7 @@ pub struct VMExecutionContext {
     pub failed_opcode: Option<u8>,
 }
 
-/// Ultra-lightweight virtual machine optimized for Solana's execution environment.
-/// Features zero-allocation execution, function calls, and sub-50 CU cold start overhead.
+/// Virtual machine optimized for Solana's execution environment.
 ///
 /// # Example
 /// ```rust,no_run
@@ -60,7 +54,7 @@ pub struct VMExecutionContext {
 ///     0x07                    // RETURN_VALUE
 /// ];
 ///
-/// let mut storage = five_vm_mito::StackStorage::new(bytecode);
+/// let mut storage = five_vm_mito::StackStorage::new();
 /// let result = MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default(), &mut storage)?;
 /// assert_eq!(result, Some(Value::U8(15)));
 /// # Ok::<(), five_vm_mito::VMError>(())
@@ -68,15 +62,14 @@ pub struct VMExecutionContext {
 pub struct MitoVM;
 
 impl MitoVM {
-    /// Prepare execution environment with optimized parameter parsing and minimal overhead.
-    /// Validates script format, parses VLE parameters, and sets up function dispatch.
+    /// Prepare execution environment with fixed-width parameters and function dispatch.
     #[inline(never)]
     fn initialize_execution_context<'a>(
         script: &'a [u8],
         input_data: &'a [u8],
         accounts: &'a [AccountInfo],
         program_id: &Pubkey,
-        storage: &'a mut crate::stack::StackStorage<'a>,
+        storage: &'a mut crate::stack::StackStorage,
     ) -> CompactResult<(ExecutionManager<'a>, usize)> {
         #[cfg(feature = "debug-logs")]
         use core::fmt::Write;
@@ -92,12 +85,10 @@ impl MitoVM {
             debug_log!("MitoVM: Account count: {}", accounts.len() as u32);
         }
 
-        let (start_ip, public_function_count, total_function_count, header_features) =
+        let (start_ip, public_function_count, total_function_count, header_features, pool_desc) =
             Self::parse_optimized_header(script)?;
 
         debug_log!("MitoVM: Creating ExecutionManager...");
-
-        debug_log!("MitoVM: Using compile-time defaults");
         debug_log!(
             "MitoVM: Function counts from header: {} public, {} total",
             public_function_count as u32,
@@ -112,13 +103,14 @@ impl MitoVM {
             storage,
             public_function_count,
             total_function_count,
+            pool_desc.map(|d| d.pool_offset).unwrap_or(0),
+            pool_desc.map(|d| d.pool_slots).unwrap_or(0),
+            pool_desc.map(|d| d.string_blob_offset).unwrap_or(0),
+            pool_desc.map(|d| d.string_blob_len).unwrap_or(0),
         );
         ctx.set_header_features(header_features);
-        ctx.set_ip(start_ip); // Set correct starting position via delegation
-        debug_log!(
-            "MitoVM: ExecutionManager created with IP set to {}",
-            start_ip as u32
-        );
+        ctx.set_ip(start_ip);
+        debug_log!("MitoVM: ExecutionManager created with IP set to {}", start_ip as u32);
 
         let dispatch_ip = ctx.initialize_entry_point(start_ip)?;
 
@@ -135,7 +127,7 @@ impl MitoVM {
     fn execute_instruction_loop(ctx: &mut ExecutionManager) -> CompactResult<()> {
         debug_log!("MitoVM: ===== BEGINNING EXECUTION LOOP =====");
 
-        // Main execution loop
+        // Main execution loop.
         #[cfg(feature = "debug-logs")]
         let mut _instruction_count = 0u32;
         loop {
@@ -145,7 +137,7 @@ impl MitoVM {
 
             }
 
-            // Cache values to avoid simultaneous borrows
+            // Cache values to avoid simultaneous borrows.
             let current_ip = ctx.ip();
             let script_len = ctx.script().len();
             let is_halted = ctx.halted();
@@ -160,7 +152,7 @@ impl MitoVM {
                 break;
             }
 
-            // SAFETY: Bounds checked above (current_ip >= script_len)
+            // SAFETY: Bounds checked above (current_ip >= script_len).
             let opcode = unsafe { *ctx.bytecode.get_unchecked(current_ip) };
             ctx.pc += 1;
 
@@ -178,7 +170,7 @@ impl MitoVM {
             }
             */
 
-            // Set current opcode in context for error reporting
+            // Set current opcode in context for error reporting.
             ctx.set_current_opcode(opcode);
 
             #[cfg(feature = "debug-logs")]
@@ -189,11 +181,7 @@ impl MitoVM {
                 );
             }
 
-            // Dispatch opcode to appropriate handler
-            // 🎯 OPTIMIZATION: Flattened dispatch for better BPF performance
-            // The compiler will inline the handlers (due to #[inline(never)])
-            // and optimize this match into a single jump table or efficient tree,
-            // eliminating the double-dispatch overhead.
+            // Dispatch opcode to appropriate handler.
             let result = match opcode {
                 // Control Flow (0x00-0x0F)
                 HALT => handle_control_flow(HALT, ctx),
@@ -224,6 +212,14 @@ impl MitoVM {
                 PUSH_BOOL => handle_stack_ops(PUSH_BOOL, ctx),
                 PUSH_PUBKEY => handle_stack_ops(PUSH_PUBKEY, ctx),
                 PUSH_U128 => handle_stack_ops(PUSH_U128, ctx),
+                PUSH_U8_W => handle_stack_ops(PUSH_U8_W, ctx),
+                PUSH_U16_W => handle_stack_ops(PUSH_U16_W, ctx),
+                PUSH_U32_W => handle_stack_ops(PUSH_U32_W, ctx),
+                PUSH_U64_W => handle_stack_ops(PUSH_U64_W, ctx),
+                PUSH_I64_W => handle_stack_ops(PUSH_I64_W, ctx),
+                PUSH_BOOL_W => handle_stack_ops(PUSH_BOOL_W, ctx),
+                PUSH_PUBKEY_W => handle_stack_ops(PUSH_PUBKEY_W, ctx),
+                PUSH_U128_W => handle_stack_ops(PUSH_U128_W, ctx),
 
                 // Arithmetic Operations (0x20-0x2F)
                 ADD => handle_arithmetic(ADD, ctx),
@@ -293,6 +289,7 @@ impl MitoVM {
                 ARRAY_GET => handle_arrays(ARRAY_GET, ctx),
                 PUSH_STRING_LITERAL => handle_arrays(PUSH_STRING_LITERAL, ctx),
                 PUSH_STRING => handle_arrays(PUSH_STRING, ctx),
+                PUSH_STRING_W => handle_arrays(PUSH_STRING_W, ctx),
 
                 // Constraint Operations (0x70-0x7F)
                 CHECK_SIGNER => handle_constraints(CHECK_SIGNER, ctx),
@@ -321,6 +318,9 @@ impl MitoVM {
                 STORE_FIELD_ZERO => crate::handlers::fused_ops::handle_fused_ops(STORE_FIELD_ZERO, ctx),
                 STORE_KEY_TO_FIELD => crate::handlers::fused_ops::handle_fused_ops(STORE_KEY_TO_FIELD, ctx),
                 REQUIRE_EQ_FIELDS => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_EQ_FIELDS, ctx),
+                REQUIRE_FIELD_EQ_IMM => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_FIELD_EQ_IMM, ctx),
+                FIELD_SUB_ADD_PARAM => crate::handlers::fused_ops::handle_fused_ops(FIELD_SUB_ADD_PARAM, ctx),
+                REQUIRE_PARAM_LTE_IMM => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_PARAM_LTE_IMM, ctx),
 
                 // System Operations (0x80-0x8F)
                 INVOKE => handle_system_ops(INVOKE, ctx),
@@ -358,7 +358,6 @@ impl MitoVM {
                 RESULT_GET_VALUE => handle_option_result_ops(RESULT_GET_VALUE, ctx),
                 RESULT_GET_ERROR => handle_option_result_ops(RESULT_GET_ERROR, ctx),
                 CAST => handle_locals(CAST, ctx),
-
 
                 // Nibble Locals (0xD0-0xDF)
                 GET_LOCAL_0 => handle_nibble_locals(GET_LOCAL_0, ctx),
@@ -465,7 +464,7 @@ impl MitoVM {
     /// let accounts = &[];
     /// let program_id = Pubkey::default();
     ///
-    /// let mut storage = five_vm_mito::StackStorage::new(bytecode);
+    /// let mut storage = five_vm_mito::StackStorage::new();
     /// let result = MitoVM::execute_direct(bytecode, input_data, accounts, &program_id, &mut storage)?;
     /// assert_eq!(result, Some(five_protocol::Value::U8(42)));
     /// # Ok::<(), five_vm_mito::VMError>(())
@@ -476,7 +475,7 @@ impl MitoVM {
         input_data: &'a [u8],
         accounts: &'a [AccountInfo],
         program_id: &Pubkey,
-        storage: &'a mut crate::stack::StackStorage<'a>,
+        storage: &'a mut crate::stack::StackStorage,
     ) -> Result<Option<Value>> {
         // Use provided storage buffer (caller controlled allocation)
         let (mut ctx, _dispatch_ip) =
@@ -527,7 +526,7 @@ impl MitoVM {
         accounts: &[AccountInfo],
         program_id: &Pubkey,
     ) -> std::result::Result<(Option<Value>, VMExecutionContext), (VMError, VMExecutionContext)> {
-        let mut storage = crate::stack::StackStorage::new(script);
+        let mut storage = crate::stack::StackStorage::new();
         // Map initialization error to (VMError, EmptyContext) since we can't create a meaningful context yet
         let (mut ctx, _dispatch_ip) =
             Self::initialize_execution_context(script, input_data, accounts, program_id, &mut storage).map_err(
@@ -614,9 +613,9 @@ impl MitoVM {
     }
 
     /// Parse optimized script header (10 bytes)
-    /// Returns (instruction_pointer_start, public_function_count, total_function_count, features)
+    /// Returns (instruction_pointer_start, public_function_count, total_function_count, features, pool_desc)
     #[inline]
-    fn parse_optimized_header(script: &[u8]) -> CompactResult<(usize, u8, u8, u32)> {
+    fn parse_optimized_header(script: &[u8]) -> CompactResult<(usize, u8, u8, u32, Option<ConstantPoolDescriptor>)> {
         if script.len() < FIVE_HEADER_OPTIMIZED_SIZE {
             return Err(VMErrorCode::InvalidScript);
         }
@@ -639,7 +638,63 @@ impl MitoVM {
             return Err(VMErrorCode::InvalidScript);
         }
 
-        let start_ip = Self::compute_instruction_start_fast(script, features, public_function_count);
+        let metadata_end = Self::compute_metadata_end(script, features, public_function_count);
+        let mut start_ip = metadata_end;
+        let mut pool_desc = None;
+
+        if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+            let desc_size = core::mem::size_of::<ConstantPoolDescriptor>();
+            if metadata_end + desc_size > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+
+            let desc = ConstantPoolDescriptor {
+                pool_offset: u32::from_le_bytes([
+                    script[metadata_end],
+                    script[metadata_end + 1],
+                    script[metadata_end + 2],
+                    script[metadata_end + 3],
+                ]),
+                string_blob_offset: u32::from_le_bytes([
+                    script[metadata_end + 4],
+                    script[metadata_end + 5],
+                    script[metadata_end + 6],
+                    script[metadata_end + 7],
+                ]),
+                string_blob_len: u32::from_le_bytes([
+                    script[metadata_end + 8],
+                    script[metadata_end + 9],
+                    script[metadata_end + 10],
+                    script[metadata_end + 11],
+                ]),
+                pool_slots: u16::from_le_bytes([script[metadata_end + 12], script[metadata_end + 13]]),
+                reserved: u16::from_le_bytes([script[metadata_end + 14], script[metadata_end + 15]]),
+            };
+
+            let pool_offset = desc.pool_offset as usize;
+            if pool_offset % 8 != 0 {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            if pool_offset < metadata_end + desc_size {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            let pool_size = (desc.pool_slots as usize) * 8;
+            let code_offset = pool_offset + pool_size;
+            if code_offset > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+
+            if desc.string_blob_len > 0 {
+                let blob_offset = desc.string_blob_offset as usize;
+                let blob_end = blob_offset.saturating_add(desc.string_blob_len as usize);
+                if blob_end > script.len() {
+                    return Err(VMErrorCode::InvalidScript);
+                }
+            }
+
+            start_ip = code_offset;
+            pool_desc = Some(desc);
+        }
 
         #[cfg(feature = "debug-logs")]
         {
@@ -659,12 +714,13 @@ impl MitoVM {
             public_function_count,
             total_function_count,
             features,
+            pool_desc,
         ))
     }
 
     /// Fast metadata offset computation
     #[inline]
-    fn compute_instruction_start_fast(script: &[u8], features: u32, public_count: u8) -> usize {
+    fn compute_metadata_end(script: &[u8], features: u32, public_count: u8) -> usize {
         const FEATURE_FUNCTION_NAMES: u32 = 1 << 8;
 
         if (features & FEATURE_FUNCTION_NAMES) == 0 || public_count == 0 {
@@ -673,20 +729,16 @@ impl MitoVM {
 
         // Metadata format was validated at deploy-time
         let mut offset = FIVE_HEADER_OPTIMIZED_SIZE;
-        let mut section_size = 0u16;
-        let mut shift = 0;
 
-        while offset < script.len() && shift < 16 {
-            let byte = script[offset];
-            section_size |= ((byte & 0x7F) as u16) << shift;
-            offset += 1;
-            if byte & 0x80 == 0 {
-                break;
-            }
-            shift += 7;
+        // Use fixed u16 for section size
+        if offset + 2 <= script.len() {
+            let section_size = u16::from_le_bytes([script[offset], script[offset + 1]]);
+            offset += 2;
+            (offset + section_size as usize).min(script.len())
+        } else {
+            // Malformed but we sanitize bounds
+            script.len()
         }
-
-        (offset + section_size as usize).min(script.len())
     }
 
 }
@@ -716,7 +768,7 @@ mod tests {
     #[test]
     fn parse_optimized_header_success() {
         let script = build_script(3, 3, &[0x00, 0x00, 0x00]);
-        let (start_ip, public_function_count, total_function_count, features) =
+        let (start_ip, public_function_count, total_function_count, features, _) =
             MitoVM::parse_optimized_header(&script).unwrap();
         assert_eq!(start_ip, FIVE_HEADER_OPTIMIZED_SIZE);
         assert_eq!(public_function_count, 3);
@@ -735,7 +787,7 @@ mod tests {
         ];
         let result = MitoVM::parse_optimized_header(&script);
         assert!(result.is_ok());
-        let (start_ip, public_count, total_count, _) = result.unwrap();
+        let (start_ip, public_count, total_count, _, _) = result.unwrap();
         assert_eq!(public_count, 1);
         assert_eq!(total_count, 1);
         assert_eq!(start_ip, 10);

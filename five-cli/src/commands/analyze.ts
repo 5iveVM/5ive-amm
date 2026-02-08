@@ -1,9 +1,4 @@
-/**
- * Five CLI Analyze Command
- * 
- * Advanced bytecode analysis with security scanning, performance profiling,
- * and optimization recommendations.
- */
+// Analyze command.
 
 import { readFile } from 'fs/promises';
 import { extname } from 'path';
@@ -19,9 +14,6 @@ import {
 import { FiveCompilerWasm } from '../wasm/compiler.js';
 import { FiveFileManager } from '../utils/FiveFileManager.js';
 
-/**
- * Five analyze command implementation
- */
 export const analyzeCommand: CommandDefinition = {
   name: 'analyze',
   description: 'Analyze Five VM bytecode for optimization and security',

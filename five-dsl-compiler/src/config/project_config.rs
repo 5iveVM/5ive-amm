@@ -1,17 +1,10 @@
-//! Project Configuration System for Multi-File Compilation
-//!
-//! Extends five.toml format to support:
-//! - Multi-file entry points
-//! - Project metadata
-//! - Build configuration
-//! - Optimization settings
+//! Project configuration for multi-file compilation.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use five_vm_mito::error::VMError;
 
-/// Root configuration from five.toml
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProjectConfig {
     pub project: ProjectInfo,
@@ -24,7 +17,6 @@ pub struct ProjectConfig {
     pub deploy: Option<DeployConfig>,
 }
 
-/// Project metadata
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProjectInfo {
     pub name: String,
@@ -37,42 +29,32 @@ pub struct ProjectInfo {
     pub build_dir: Option<String>,
     #[serde(default)]
     pub target: Option<String>,
-    /// Entry point file for multi-file compilation
     #[serde(default)]
     pub entry_point: Option<String>,
 }
 
-/// Build configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BuildConfig {
     #[serde(default)]
     pub max_bytecode_size: Option<usize>,
     #[serde(default)]
     pub target_compute_units: Option<usize>,
-    /// Enable multi-file compilation mode
     #[serde(default)]
     pub multi_file_mode: Option<bool>,
-    /// Output artifact base name
     #[serde(default)]
     pub output_artifact_name: Option<String>,
 }
 
-/// Optimization settings
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OptimizationConfig {
-    #[serde(default)]
-    pub enable_vle: Option<bool>,
     #[serde(default)]
     pub enable_compression: Option<bool>,
     #[serde(default)]
     pub inline_small_functions: Option<bool>,
     #[serde(default)]
-    pub enable_register_allocation: Option<bool>,
-    #[serde(default)]
     pub enable_constraint_optimization: Option<bool>,
 }
 
-/// Dependency configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DependencyConfig {
     #[serde(default)]
@@ -83,7 +65,6 @@ pub struct DependencyConfig {
     pub git: Option<String>,
 }
 
-/// Deployment configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DeployConfig {
     #[serde(default)]
@@ -101,7 +82,6 @@ pub struct DeployConfig {
 }
 
 impl ProjectConfig {
-    /// Load configuration from five.toml
     pub fn load(path: &Path) -> Result<Self, VMError> {
         let content = std::fs::read_to_string(path)
             .map_err(|_| VMError::InvalidOperation)?;
@@ -110,12 +90,10 @@ impl ProjectConfig {
             .map_err(|_| VMError::InvalidOperation)
     }
 
-    /// Check if multi-file mode is enabled
     pub fn is_multi_file_mode(&self) -> bool {
         self.build.multi_file_mode.unwrap_or(false)
     }
 
-    /// Get the entry point file, if specified
     pub fn get_entry_point(&self) -> Option<PathBuf> {
         self.project
             .entry_point
@@ -123,12 +101,10 @@ impl ProjectConfig {
             .map(PathBuf::from)
     }
 
-    /// Get the source directory
     pub fn get_source_dir(&self) -> PathBuf {
         PathBuf::from(self.project.source_dir.as_str())
     }
 
-    /// Get the build directory, with default fallback
     pub fn get_build_dir(&self) -> PathBuf {
         self.project
             .build_dir
@@ -137,25 +113,14 @@ impl ProjectConfig {
             .unwrap_or_else(|| PathBuf::from("build"))
     }
 
-    /// Get max bytecode size, with default if unspecified
     pub fn get_max_bytecode_size(&self) -> usize {
         self.build.max_bytecode_size.unwrap_or(1_048_576) // 1MB default
     }
 
-    /// Get target compute units, with default if unspecified
     pub fn get_target_compute_units(&self) -> usize {
         self.build.target_compute_units.unwrap_or(200_000) // 200k default
     }
 
-    /// Check if VLE optimization is enabled
-    pub fn is_vle_enabled(&self) -> bool {
-        self.optimizations
-            .as_ref()
-            .and_then(|o| o.enable_vle)
-            .unwrap_or(true)
-    }
-
-    /// Check if compression optimization is enabled
     pub fn is_compression_enabled(&self) -> bool {
         self.optimizations
             .as_ref()
@@ -163,7 +128,6 @@ impl ProjectConfig {
             .unwrap_or(true)
     }
 
-    /// Validate configuration
     pub fn validate(&self) -> Result<(), VMError> {
         // If multi-file mode is enabled, entry point must be specified
         if self.is_multi_file_mode() && self.get_entry_point().is_none() {
@@ -287,7 +251,6 @@ multi_file_mode = true
 
         assert_eq!(config.get_max_bytecode_size(), 1_048_576);
         assert_eq!(config.get_target_compute_units(), 200_000);
-        assert!(config.is_vle_enabled());
         assert!(config.is_compression_enabled());
     }
 
@@ -303,14 +266,12 @@ source_dir = "src"
 max_bytecode_size = 1048576
 
 [optimizations]
-enable_vle = true
 enable_compression = false
 "#;
 
         let (_temp, path) = create_test_config(content);
         let config = ProjectConfig::load(&path).unwrap();
 
-        assert!(config.is_vle_enabled());
         assert!(!config.is_compression_enabled());
     }
 }

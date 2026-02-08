@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use five_protocol::{
-    encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC, MAX_FUNCTIONS,
+    opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC, MAX_FUNCTIONS,
 };
 
 /// Errors returned by [`ScriptBuilder`].
@@ -266,8 +266,7 @@ impl FunctionBuilder {
 
     pub fn push_u64(&mut self, value: u64) -> &mut Self {
         self.code.push(PUSH_U64);
-        let (len, encoded) = VLE::encode_u64(value);
-        self.code.extend_from_slice(&encoded[..len]);
+        self.code.extend_from_slice(&value.to_le_bytes());
         self
     }
 

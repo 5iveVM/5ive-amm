@@ -1,8 +1,4 @@
-// Scope Analysis Module
-//
-// This module implements variable scope analysis for local variable optimization.
-// It tracks variable lifetimes, scope nesting, and provides optimizations for
-// register allocation and memory management.
+// Scope analysis for local variable optimization.
 
 use crate::ast::AstNode;
 use five_vm_mito::error::VMError;
@@ -228,9 +224,9 @@ impl ScopeAnalyzer {
             var_scope.usage_count += 1;
         } else {
             // Variable not found in current scope - could be parameter or global
-            // For now, we'll declare it as unknown type
+            // Declare unknown type.
             // Variable not found in current scope - could be parameter or global
-            // For now, we'll declare it as unknown type (assuming local)
+            // Declare unknown type (assume local).
             self.declare_variable(name, "unknown", false)?;
         }
 
@@ -378,8 +374,8 @@ impl ScopeAnalyzer {
         &self.scope_analyses
     }
 
-    /// Optimize register allocation based on scope analysis
-    pub fn optimize_register_allocation(
+    /// Optimize local variable slot allocation based on scope analysis
+    pub fn optimize_local_slots(
         &mut self,
         function_name: &str,
     ) -> Result<Vec<(String, usize)>, VMError> {
@@ -534,7 +530,7 @@ impl super::DslBytecodeGenerator {
         let mut all_allocations = HashMap::new();
 
         for function_name in analyzer.scope_analyses.keys().cloned().collect::<Vec<_>>() {
-            let allocations = analyzer.optimize_register_allocation(&function_name)?;
+            let allocations = analyzer.optimize_local_slots(&function_name)?;
             all_allocations.insert(function_name, allocations);
         }
 
@@ -586,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_allocation_optimization() {
+    fn test_local_slots_optimization() {
         let mut analyzer = ScopeAnalyzer::new();
 
         analyzer.begin_function("alloc_test".to_string()).unwrap();
@@ -595,7 +591,7 @@ mod tests {
         analyzer.declare_variable("c", "u64", false).unwrap();
         analyzer.end_function().unwrap();
 
-        let allocations = analyzer.optimize_register_allocation("alloc_test").unwrap();
+        let allocations = analyzer.optimize_local_slots("alloc_test").unwrap();
 
         assert_eq!(allocations.len(), 3);
         // Variables should be allocated to slots

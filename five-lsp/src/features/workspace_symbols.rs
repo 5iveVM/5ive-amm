@@ -10,6 +10,23 @@
 
 use lsp_types::{Location, Position, Range, SymbolInformation, SymbolKind, Url};
 
+fn make_symbol_information(
+    name: String,
+    kind: SymbolKind,
+    location: Location,
+) -> SymbolInformation {
+    // lsp_types::SymbolInformation still includes deprecated field; we must initialize it.
+    #[allow(deprecated)]
+    SymbolInformation {
+        name,
+        kind,
+        tags: None,
+        deprecated: None,
+        location,
+        container_name: None,
+    }
+}
+
 /// Search for symbols matching a query in a file
 ///
 /// Returns all matching symbols (functions, variables, accounts, types) in the current file.
@@ -46,26 +63,24 @@ pub fn workspace_symbols(
 
             if let Some(name) = extract_symbol_name(line, indent + keyword_len) {
                 if name.to_lowercase().contains(&query_lower) {
-                    symbols.push(SymbolInformation {
-                        name: name.clone(),
-                        kind: SymbolKind::FUNCTION,
-                        location: Location {
-                            uri: uri.clone(),
-                            range: Range {
-                                start: Position {
-                                    line: line_idx as u32,
-                                    character: (indent + keyword_len) as u32,
-                                },
-                                end: Position {
-                                    line: line_idx as u32,
-                                    character: (indent + keyword_len + name.len()) as u32,
-                                },
+                    let location = Location {
+                        uri: uri.clone(),
+                        range: Range {
+                            start: Position {
+                                line: line_idx as u32,
+                                character: (indent + keyword_len) as u32,
+                            },
+                            end: Position {
+                                line: line_idx as u32,
+                                character: (indent + keyword_len + name.len()) as u32,
                             },
                         },
-                        container_name: None,
-                        deprecated: None,
-                        tags: None,
-                    });
+                    };
+                    symbols.push(make_symbol_information(
+                        name.clone(),
+                        SymbolKind::FUNCTION,
+                        location,
+                    ));
                 }
             }
         }
@@ -74,26 +89,24 @@ pub fn workspace_symbols(
         if let Some(pos) = find_symbol_definition(line, "account") {
             if let Some(name) = extract_symbol_name(line, pos + "account ".len()) {
                 if name.to_lowercase().contains(&query_lower) {
-                    symbols.push(SymbolInformation {
-                        name: name.clone(),
-                        kind: SymbolKind::STRUCT,
-                        location: Location {
-                            uri: uri.clone(),
-                            range: Range {
-                                start: Position {
-                                    line: line_idx as u32,
-                                    character: (pos + "account ".len()) as u32,
-                                },
-                                end: Position {
-                                    line: line_idx as u32,
-                                    character: (pos + "account ".len() + name.len()) as u32,
-                                },
+                    let location = Location {
+                        uri: uri.clone(),
+                        range: Range {
+                            start: Position {
+                                line: line_idx as u32,
+                                character: (pos + "account ".len()) as u32,
+                            },
+                            end: Position {
+                                line: line_idx as u32,
+                                character: (pos + "account ".len() + name.len()) as u32,
                             },
                         },
-                        container_name: None,
-                        deprecated: None,
-                        tags: None,
-                    });
+                    };
+                    symbols.push(make_symbol_information(
+                        name.clone(),
+                        SymbolKind::STRUCT,
+                        location,
+                    ));
                 }
             }
         }
@@ -102,26 +115,24 @@ pub fn workspace_symbols(
         if let Some(pos) = find_symbol_definition(line, "interface") {
             if let Some(name) = extract_symbol_name(line, pos + "interface ".len()) {
                 if name.to_lowercase().contains(&query_lower) {
-                    symbols.push(SymbolInformation {
-                        name: name.clone(),
-                        kind: SymbolKind::INTERFACE,
-                        location: Location {
-                            uri: uri.clone(),
-                            range: Range {
-                                start: Position {
-                                    line: line_idx as u32,
-                                    character: (pos + "interface ".len()) as u32,
-                                },
-                                end: Position {
-                                    line: line_idx as u32,
-                                    character: (pos + "interface ".len() + name.len()) as u32,
-                                },
+                    let location = Location {
+                        uri: uri.clone(),
+                        range: Range {
+                            start: Position {
+                                line: line_idx as u32,
+                                character: (pos + "interface ".len()) as u32,
+                            },
+                            end: Position {
+                                line: line_idx as u32,
+                                character: (pos + "interface ".len() + name.len()) as u32,
                             },
                         },
-                        container_name: None,
-                        deprecated: None,
-                        tags: None,
-                    });
+                    };
+                    symbols.push(make_symbol_information(
+                        name.clone(),
+                        SymbolKind::INTERFACE,
+                        location,
+                    ));
                 }
             }
         }
@@ -130,26 +141,24 @@ pub fn workspace_symbols(
         if let Some(pos) = find_symbol_definition(line, "event") {
             if let Some(name) = extract_symbol_name(line, pos + "event ".len()) {
                 if name.to_lowercase().contains(&query_lower) {
-                    symbols.push(SymbolInformation {
-                        name: name.clone(),
-                        kind: SymbolKind::ENUM,
-                        location: Location {
-                            uri: uri.clone(),
-                            range: Range {
-                                start: Position {
-                                    line: line_idx as u32,
-                                    character: (pos + "event ".len()) as u32,
-                                },
-                                end: Position {
-                                    line: line_idx as u32,
-                                    character: (pos + "event ".len() + name.len()) as u32,
-                                },
+                    let location = Location {
+                        uri: uri.clone(),
+                        range: Range {
+                            start: Position {
+                                line: line_idx as u32,
+                                character: (pos + "event ".len()) as u32,
+                            },
+                            end: Position {
+                                line: line_idx as u32,
+                                character: (pos + "event ".len() + name.len()) as u32,
                             },
                         },
-                        container_name: None,
-                        deprecated: None,
-                        tags: None,
-                    });
+                    };
+                    symbols.push(make_symbol_information(
+                        name.clone(),
+                        SymbolKind::ENUM,
+                        location,
+                    ));
                 }
             }
         }
@@ -158,26 +167,24 @@ pub fn workspace_symbols(
         if let Some(pos) = find_symbol_definition(line, "let") {
             if let Some(name) = extract_symbol_name(line, pos + "let ".len()) {
                 if name.to_lowercase().contains(&query_lower) {
-                    symbols.push(SymbolInformation {
-                        name: name.clone(),
-                        kind: SymbolKind::VARIABLE,
-                        location: Location {
-                            uri: uri.clone(),
-                            range: Range {
-                                start: Position {
-                                    line: line_idx as u32,
-                                    character: (pos + "let ".len()) as u32,
-                                },
-                                end: Position {
-                                    line: line_idx as u32,
-                                    character: (pos + "let ".len() + name.len()) as u32,
-                                },
+                    let location = Location {
+                        uri: uri.clone(),
+                        range: Range {
+                            start: Position {
+                                line: line_idx as u32,
+                                character: (pos + "let ".len()) as u32,
+                            },
+                            end: Position {
+                                line: line_idx as u32,
+                                character: (pos + "let ".len() + name.len()) as u32,
                             },
                         },
-                        container_name: None,
-                        deprecated: None,
-                        tags: None,
-                    });
+                    };
+                    symbols.push(make_symbol_information(
+                        name.clone(),
+                        SymbolKind::VARIABLE,
+                        location,
+                    ));
                 }
             }
         }

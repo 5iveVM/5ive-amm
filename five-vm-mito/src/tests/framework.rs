@@ -214,7 +214,7 @@ impl TestUtils {
 
     /// Execute bytecode with empty accounts and input
     pub fn execute_simple(bytecode: &[u8]) -> Result<Option<Value>> {
-        let mut storage = crate::stack::StackStorage::new(bytecode);
+        let mut storage = crate::stack::StackStorage::new();
         MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default(), &mut storage)
     }
 
@@ -223,19 +223,21 @@ impl TestUtils {
         bytecode: &[u8],
         accounts: &[AccountInfo],
     ) -> Result<Option<Value>> {
-        let mut storage = crate::stack::StackStorage::new(bytecode);
+        let mut storage = crate::stack::StackStorage::new();
         MitoVM::execute_direct(bytecode, &[], accounts, &Pubkey::default(), &mut storage)
     }
 
     /// Execute bytecode with input data (for function calls)
     pub fn execute_with_input(bytecode: &[u8], input_data: &[u8]) -> Result<Option<Value>> {
-        let mut storage = crate::stack::StackStorage::new(bytecode);
+        let mut storage = crate::stack::StackStorage::new();
         MitoVM::execute_direct(bytecode, input_data, &[], &Pubkey::default(), &mut storage)
     }
 
-    /// Create VLE encoded input data for function calls
-    pub fn create_function_input(function_index: u8, params: &[Value]) -> Vec<u8> {
-        let mut input = vec![function_index, params.len() as u8];
+    /// Create fixed-width encoded input data for function calls
+    pub fn create_function_input(function_index: u32, params: &[Value]) -> Vec<u8> {
+        let mut input = Vec::with_capacity(8 + params.len() * 12);
+        input.extend_from_slice(&function_index.to_le_bytes());
+        input.extend_from_slice(&(params.len() as u32).to_le_bytes());
 
         for param in params {
             match param {
@@ -245,11 +247,12 @@ impl TestUtils {
                 }
                 Value::U8(val) => {
                     input.push(0x01); // ValueRef::U8 type
-                    input.push(*val);
+                    input.extend_from_slice(&(*val as u32).to_le_bytes());
                 }
                 Value::Bool(val) => {
                     input.push(0x09); // ValueRef::Bool type
-                    input.push(if *val { 1 } else { 0 });
+                    let raw: u32 = if *val { 1 } else { 0 };
+                    input.extend_from_slice(&raw.to_le_bytes());
                 }
                 _ => panic!("Unsupported parameter type for test input"),
             }
@@ -352,7 +355,8 @@ impl TestUtils {
         bytecode: &[u8],
         accounts: &[AccountInfo],
     ) -> Result<Option<Value>> {
-        MitoVM::execute_direct(bytecode, &[], accounts, &Pubkey::default())
+        let mut storage = crate::stack::StackStorage::new();
+        MitoVM::execute_direct(bytecode, &[], accounts, &Pubkey::default(), &mut storage)
     }
 
     /// Run account constraint validation test
@@ -427,7 +431,7 @@ impl MolluskTestUtils {
     pub fn create_mollusk() -> Result<()> {
         // This would normally create a Mollusk instance like:
         // let mollusk = Mollusk::new(&PROGRAM_ID, "path/to/five_vm_program.so");
-        // For now, we provide the framework for when the program is available
+        // Framework for when the program is available.
         Ok(())
     }
 
@@ -518,7 +522,7 @@ impl MolluskTestUtils {
             .collect();
 
         // Execute the VM script with real bytecode and filtered accounts
-        let mut storage = crate::stack::StackStorage::new(script_bytecode);
+        let mut storage = crate::stack::StackStorage::new();
         match MitoVM::execute_direct(script_bytecode, &[], account_infos.as_slice(), program_id, &mut storage) {
             Ok(_) => Ok(()),
             Err(vm_error) => Err(vm_error),
@@ -536,7 +540,7 @@ impl MolluskTestUtils {
         // result.program_result == ProgramResult::Success &&
         // result.return_data.is_some()
 
-        // For now, provide framework for validation
+        // Framework for validation.
         true
     }
 
@@ -584,26 +588,15 @@ macro_rules! opcodes {
     };
 }
 
-/// Macro for creating PUSH_U64 instruction with VLE encoding
+/// Macro for creating PUSH_U64 instruction with Fixed encoding
 /// Feature-gated to exclude from production builds
 #[cfg(feature = "test-utils")]
 #[macro_export]
 macro_rules! push_u64 {
     ($val:expr) => {{
         let mut ops = vec![0x1B]; // PUSH_U64 opcode
-        // VLE encode the value
-        let mut value = $val as u64;
-        loop {
-            let mut byte = (value & 0x7F) as u8;
-            value >>= 7;
-            if value != 0 {
-                byte |= 0x80; // continuation bit
-            }
-            ops.push(byte);
-            if value == 0 {
-                break;
-            }
-        }
+        // Fixed size little endian encoding
+        ops.extend_from_slice(&($val as u64).to_le_bytes());
         ops
     }};
 }

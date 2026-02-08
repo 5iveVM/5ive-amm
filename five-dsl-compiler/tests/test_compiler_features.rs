@@ -1,11 +1,4 @@
-//! Comprehensive test suite for Five DSL compiler features.
-//!
-//! Tests major compiler functionality to prevent regressions:
-//! - Type inference and checking
-//! - Function definitions and calls
-//! - State variable handling
-//! - Control flow generation
-//! - Parameter compilation
+//! Tests for Five DSL compiler features.
 
 use five_dsl_compiler::*;
 use five_protocol::opcodes::*;

@@ -1,8 +1,5 @@
 /**
- * Five SDK Crypto Operations
- *
- * Client-agnostic cryptographic operations including PDA derivation, base58 encoding,
- * and rent calculations. Pure implementation without external blockchain dependencies.
+ * Five SDK crypto utilities.
  */
 /**
  * Program Derived Address (PDA) utilities - pure implementation

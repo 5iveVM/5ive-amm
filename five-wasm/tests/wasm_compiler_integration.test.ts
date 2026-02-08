@@ -41,7 +41,12 @@ describe('WasmCompilerService Integration Tests', () => {
     describe('Bytecode Validation', () => {
         test('should validate correct bytecode format', () => {
             // Valid bytecode with magic bytes
-            const validBytecode = new Uint8Array([0x53, 0x43, 0x52, 0x4C, 0x00]); // "SCRL" + HALT
+            const validBytecode = new Uint8Array([
+                0x35, 0x49, 0x56, 0x45, // "5IVE"
+                0x00, 0x00, 0x00, 0x00, // features
+                0x00, 0x00,             // public/total function counts
+                0x00                    // HALT
+            ]);
             expect(wasmService.validateBytecode(validBytecode)).toBe(true);
         });
 
@@ -56,7 +61,7 @@ describe('WasmCompilerService Integration Tests', () => {
         });
 
         test('should reject bytecode that is too short', () => {
-            const shortBytecode = new Uint8Array([0x53, 0x43]);
+            const shortBytecode = new Uint8Array([0x35, 0x49]);
             expect(wasmService.validateBytecode(shortBytecode)).toBe(false);
         });
     });
@@ -172,7 +177,7 @@ describe('WasmCompilerService Integration Tests', () => {
 
             expect(result.outcome).toBe('completed');
             expect(result.test_success).toBe(true);
-            expect(result.operations_tested).toContain('PUSH');
+            expect(result.operations_tested).toContain('PUSH_U64');
             expect(result.operations_tested).toContain('ADD');
             expect(result.operations_tested).toContain('HALT');
             expect(result.final_state.has_result).toBe(true);
@@ -244,7 +249,7 @@ describe('WasmCompilerService Integration Tests', () => {
 
             expect(result.outcome).toBe('completed');
             expect(result.test_success).toBe(true);
-            expect(result.operations_tested).toEqual(['PUSH', 'PUSH', 'ADD', 'PUSH', 'MUL', 'PUSH', 'SUB', 'HALT']);
+            expect(result.operations_tested).toEqual(['PUSH_U64', 'PUSH_U64', 'ADD', 'PUSH_U64', 'MUL', 'PUSH_U64', 'SUB', 'HALT']);
             expect(result.final_state.stack_size).toBe(1); // Result should be on stack
         });
     });
@@ -340,7 +345,7 @@ describe('WasmCompilerService Integration Tests', () => {
             const result = await wasmService.testBytecodeExecution(bytecode);
 
             expect(result.operations_tested).toEqual([
-                'PUSH', 'PUSH', 'ADD', 'PUSH', 'MUL', 'HALT'
+                'PUSH_U64', 'PUSH_U64', 'ADD', 'PUSH_U64', 'MUL', 'HALT'
             ]);
         });
     });
@@ -368,7 +373,7 @@ describe('WasmCompilerService Integration Tests', () => {
             const summary = TestResultHelper.formatSummary(result);
 
             expect(summary).toContain('Status: COMPLETED');
-            expect(summary).toContain('Operations Tested: PUSH, HALT');
+            expect(summary).toContain('Operations Tested: PUSH_U64, HALT');
             expect(summary).toContain('Compute Units Used:');
         });
 
@@ -395,7 +400,7 @@ describe('WasmCompilerService Integration Tests', () => {
             const result = await wasmService.testBytecodeExecution(bytecode);
             const operations = TestResultHelper.getTestedOperations(result);
 
-            expect(operations).toContain('PUSH');
+            expect(operations).toContain('PUSH_U64');
             expect(operations).toContain('DUP');
             expect(operations).toContain('HALT');
         });

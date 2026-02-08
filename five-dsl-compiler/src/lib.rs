@@ -1,8 +1,4 @@
-// DSL Compiler Library - Modular Architecture
-//
-// This library provides compilation of .stacks DSL syntax
-// into STKS bytecode for execution by the FIVE VM.
-// This is an off-chain compiler that generates bytecode to be deployed.
+// DSL compiler library.
 
 pub mod ast;
 pub mod bytecode_generator;

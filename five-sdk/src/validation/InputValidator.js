@@ -1,12 +1,6 @@
 /**
- * Five SDK Input Validation Framework
- *
- * Comprehensive input sanitization and validation to prevent:
- * - Code injection attacks
- * - Resource exhaustion attacks
- * - Path traversal vulnerabilities
- * - Memory exhaustion
- * - Invalid parameter attacks
+ * Five SDK input validation.
+ * Protects against common injection and resource abuse cases.
  */
 import { FiveSDKError } from '../types.js';
 /**
@@ -56,7 +50,7 @@ export class ValidationError extends FiveSDKError {
     }
 }
 /**
- * Comprehensive input validator for Five SDK
+ * Input validator for Five SDK
  */
 export class InputValidator {
     config;

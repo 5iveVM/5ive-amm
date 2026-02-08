@@ -1,9 +1,4 @@
-/**
- * Five CLI Help Command
- * 
- * Provides comprehensive help with retro 2000s styling and proper
- * command-specific help functionality.
- */
+// Help command.
 
 import chalk from 'chalk';
 import {

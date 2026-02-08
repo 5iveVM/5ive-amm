@@ -1,11 +1,6 @@
 /**
- * WASM-based compiler and testing service for Stacks VM
- * 
- * This service provides WASM-based execution and testing capabilities,
- * properly handling partial execution results and system call stops.
- * 
- * CRITICAL: This is NOT for compilation - it's for testing bytecode execution
- * using the WASM module with honest partial execution results.
+ * WASM-based execution and testing service.
+ * Not a compiler; uses the WASM module to run bytecode and report partial execution.
  */
 
 import init, { 
@@ -273,8 +268,8 @@ export class WasmCompilerService {
             return operations;
         }
 
-        // Skip magic bytes (first 4 bytes)
-        let ip = 4;
+        const headerInfo = this.getHeaderInfo(bytecode);
+        let ip = headerInfo?.startOffset ?? 0;
         
         while (ip < finalIP && ip < bytecode.length) {
             const opcode = bytecode[ip];
@@ -308,6 +303,77 @@ export class WasmCompilerService {
     }
 
     /**
+     * Parse minimal optimized header info for analysis.
+     * Returns start offset and features when available.
+     */
+    private getHeaderInfo(bytecode: Uint8Array): { startOffset: number; features: number } | null {
+        if (bytecode.length < 4) {
+            return null;
+        }
+
+        const magic = this.constants?.FIVE_MAGIC
+            ? Array.from(this.constants.FIVE_MAGIC)
+            : [0x35, 0x49, 0x56, 0x45]; // "5IVE"
+
+        const isMagic =
+            bytecode[0] === magic[0] &&
+            bytecode[1] === magic[1] &&
+            bytecode[2] === magic[2] &&
+            bytecode[3] === magic[3];
+
+        if (!isMagic) {
+            return { startOffset: 0, features: 0 };
+        }
+
+        if (bytecode.length < 10) {
+            return { startOffset: 4, features: 0 };
+        }
+
+        const features =
+            (bytecode[4]) |
+            (bytecode[5] << 8) |
+            (bytecode[6] << 16) |
+            (bytecode[7] << 24);
+
+        let offset = 10;
+
+        const FEATURE_FUNCTION_NAMES = 1 << 8;
+        const FEATURE_CONSTANT_POOL = 1 << 10;
+
+        if ((features & FEATURE_FUNCTION_NAMES) !== 0) {
+            if (offset + 2 > bytecode.length) {
+                return { startOffset: offset, features };
+            }
+            const sectionSize = bytecode[offset] | (bytecode[offset + 1] << 8);
+            offset += 2 + sectionSize;
+        }
+
+        if ((features & FEATURE_CONSTANT_POOL) !== 0) {
+            const descSize = 16;
+            if (offset + descSize > bytecode.length) {
+                return { startOffset: offset, features };
+            }
+            const poolOffset =
+                (bytecode[offset]) |
+                (bytecode[offset + 1] << 8) |
+                (bytecode[offset + 2] << 16) |
+                (bytecode[offset + 3] << 24);
+            const poolSlots = bytecode[offset + 12] | (bytecode[offset + 13] << 8);
+            const poolSize = poolSlots * 8;
+            const codeOffset = poolOffset + poolSize;
+            if (codeOffset > 0 && codeOffset <= bytecode.length) {
+                offset = codeOffset;
+            }
+        }
+
+        if (offset > bytecode.length) {
+            offset = bytecode.length;
+        }
+
+        return { startOffset: offset, features };
+    }
+
+    /**
      * Get instruction size for given opcode
      */
     private getInstructionSize(bytecode: Uint8Array, ip: number): number {
@@ -319,21 +385,10 @@ export class WasmCompilerService {
         const ops = this.constants?.opcodes;
         if (!ops) return 1;
 
-        // VLE argument sizes must be decoded from bytecode if possible,
-        // but for analysis purposes we might need rough estimates or actual decoding logic.
-        // However, typescript doesn't have the VLE decoder handy unless we implement it or import it.
-        // This is a "best effort" size estimator for stepping through bytecode.
-
-        // Helper to decode VLE size
-        const decodeVLESize = (offset: number): number => {
-            let length = 0;
-            while (offset + length < bytecode.length) {
-                const byte = bytecode[offset + length];
-                length++;
-                if ((byte & 0x80) === 0) break;
-            }
-            return length;
-        }
+        const headerInfo = this.getHeaderInfo(bytecode);
+        const features = headerInfo?.features ?? 0;
+        const FEATURE_CONSTANT_POOL = 1 << 10;
+        const constantPoolEnabled = (features & FEATURE_CONSTANT_POOL) !== 0;
 
         // 1 byte opcodes (no args)
         // ... handled by default return 1
@@ -344,21 +399,81 @@ export class WasmCompilerService {
             opcode === ops.CREATE_ARRAY || opcode === ops.SET_LOCAL ||
             opcode === ops.GET_LOCAL || opcode === ops.LOAD_PARAM ||
             opcode === ops.STORE_PARAM || opcode === ops.CAST ||
-            opcode === ops.LOAD_REG_U8 || opcode === ops.LOAD_REG_U32 ||
-            opcode === ops.LOAD_REG_U64 || opcode === ops.LOAD_REG_BOOL ||
-            opcode === ops.LOAD_REG_PUBKEY || opcode === ops.PUSH_REG ||
-            opcode === ops.POP_REG || opcode === ops.CLEAR_REG ||
             opcode === ops.TRANSFER_DEBIT || opcode === ops.TRANSFER_CREDIT ||
             opcode === ops.BULK_LOAD_FIELD_N) {
             return 2; // opcode + u8
         }
 
         if (opcode === ops.PUSH_U16) {
-             // Fixed 2 bytes (u16)
-             return 3;
+            if (constantPoolEnabled) {
+                return 2; // opcode + u8 index
+            }
+            return 3; // opcode + u16
         }
 
-        if (opcode === ops.PUSH_U32 || opcode === ops.LOAD_ACCOUNT ||
+        if (opcode === ops.PUSH_U32) {
+            if (constantPoolEnabled) {
+                return 2; // opcode + u8 index
+            }
+            return 5; // opcode + u32
+        }
+
+        if (opcode === ops.PUSH_U64 || opcode === ops.PUSH_I64) {
+            if (constantPoolEnabled) {
+                return 2; // opcode + u8 index
+            }
+            return 9; // opcode + u64
+        }
+
+        if (opcode === ops.PUSH_PUBKEY) {
+            if (constantPoolEnabled) {
+                return 2; // opcode + u8 index
+            }
+            return 33; // opcode + 32 bytes
+        }
+
+        if (opcode === ops.PUSH_U128) {
+            if (constantPoolEnabled) {
+                return 2; // opcode + u8 index
+            }
+            return 17; // opcode + 16 bytes
+        }
+
+        if (opcode === ops.PUSH_STRING) {
+            if (constantPoolEnabled) {
+                return 2; // opcode + u8 index
+            }
+            // u32 length + string bytes
+            if (ip + 5 <= bytecode.length) {
+                const len =
+                    bytecode[ip + 1] |
+                    (bytecode[ip + 2] << 8) |
+                    (bytecode[ip + 3] << 16) |
+                    (bytecode[ip + 4] << 24);
+                return 5 + len;
+            }
+            return 5; // opcode + u32 length
+        }
+
+        if (opcode === ops.PUSH_U8_W || opcode === ops.PUSH_U16_W || opcode === ops.PUSH_U32_W ||
+            opcode === ops.PUSH_U64_W || opcode === ops.PUSH_I64_W || opcode === ops.PUSH_BOOL_W ||
+            opcode === ops.PUSH_U128_W || opcode === ops.PUSH_PUBKEY_W || opcode === ops.PUSH_STRING_W) {
+            return 3; // opcode + u16 index/operand
+        }
+
+        if (opcode === ops.PUSH_STRING_LITERAL || opcode === ops.PUSH_ARRAY_LITERAL) {
+            if (ip + 2 <= bytecode.length) {
+                const len = bytecode[ip + 1];
+                return 2 + len;
+            }
+            return 2;
+        }
+
+        if (opcode === ops.LOAD_FIELD || opcode === ops.STORE_FIELD) {
+            return 6; // opcode + u8 + u32
+        }
+
+        if (opcode === ops.LOAD_ACCOUNT ||
             opcode === ops.SAVE_ACCOUNT || opcode === ops.GET_ACCOUNT ||
             opcode === ops.GET_LAMPORTS || opcode === ops.SET_LAMPORTS ||
             opcode === ops.GET_DATA || opcode === ops.GET_KEY ||
@@ -367,38 +482,7 @@ export class WasmCompilerService {
             opcode === ops.CHECK_WRITABLE || opcode === ops.CHECK_OWNER ||
             opcode === ops.CHECK_INITIALIZED || opcode === ops.CHECK_PDA ||
             opcode === ops.CHECK_UNINITIALIZED) {
-            // VLE u32
-            return 1 + decodeVLESize(ip + 1);
-        }
-
-        if (opcode === ops.PUSH_U64 || opcode === ops.PUSH_I64) {
-            // VLE u64
-            return 1 + decodeVLESize(ip + 1);
-        }
-
-        if (opcode === ops.PUSH_PUBKEY) {
-            return 33; // opcode + 32 bytes
-        }
-
-        if (opcode === ops.PUSH_U128) {
-             return 17; // opcode + 16 bytes
-        }
-
-        if (opcode === ops.PUSH_STRING) {
-            // u8 + bytes? Or VLE length + bytes?
-            // Protocol says PUSH_STRING length_vle + string_data.
-            // But OpcodePatterns emits u8 length?
-            // Five-protocol says PUSH_STRING arg_type U8.
-            // If ArgType U8, it's just 2 bytes for instruction + arg, but where is string data?
-            // Assuming parser handles it specially or it's an index?
-            // Let's assume standard op size logic doesn't fully apply to var-len data unless encoded.
-            // If it's just an index, return 2.
-            return 2;
-        }
-
-        if (opcode === ops.LOAD_FIELD || opcode === ops.STORE_FIELD) {
-             // u8 account_index + VLE field_offset
-             return 2 + decodeVLESize(ip + 2);
+            return 2; // opcode + u8
         }
 
         if (opcode === ops.JUMP || opcode === ops.JUMP_IF || opcode === ops.JUMP_IF_NOT ||
@@ -417,20 +501,8 @@ export class WasmCompilerService {
         }
 
         if (opcode === ops.BR_EQ_U8) {
-            // u8 val + u16 off (VLE encoded? parser says ArgType::U8, but emitter emits VLE u16 too)
-            // Assuming 1 + 1 + VLE size
-            return 2 + decodeVLESize(ip + 2);
-        }
-
-        if (opcode === ops.COPY_REG) {
-             return 3; // opcode + 2 reg indices
-        }
-
-        if (opcode === ops.ADD_REG || opcode === ops.SUB_REG ||
-            opcode === ops.MUL_REG || opcode === ops.DIV_REG ||
-            opcode === ops.EQ_REG || opcode === ops.GT_REG ||
-            opcode === ops.LT_REG) {
-            return 4; // opcode + 3 reg indices
+            // u8 val + u16 off
+            return 4;
         }
 
         // 1 byte opcodes
@@ -519,72 +591,81 @@ export class WasmCompilerService {
      * Create helper bytecode for testing
      */
     createTestBytecode(operations: Array<{ opcode: string, args?: any[] }>): Uint8Array {
-        const magic = [0x53, 0x43, 0x52, 0x4C]; // "SCRL"
-        const bytecode: number[] = [...magic];
+        const magic = this.constants?.FIVE_MAGIC
+            ? Array.from(this.constants.FIVE_MAGIC)
+            : [0x35, 0x49, 0x56, 0x45]; // "5IVE"
+        const bytecode: number[] = [
+            ...magic,
+            0x00, 0x00, 0x00, 0x00, // features (u32 LE)
+            0x00, // public_function_count
+            0x00  // total_function_count
+        ];
 
         for (const op of operations) {
-            const opcodeValue = this.constants.opcodes[op.opcode];
+            const isPushAlias = op.opcode === 'PUSH';
+            const resolvedOpcode = isPushAlias && op.args && op.args.length > 0
+                ? `PUSH_${op.args[0]}`
+                : op.opcode;
+
+            const opcodeValue = this.constants.opcodes[resolvedOpcode];
             if (opcodeValue === undefined) {
-                throw new Error(`Unknown opcode: ${op.opcode}`);
+                if (isPushAlias) {
+                    throw new Error(`Unknown type: ${op.args?.[0]}`);
+                }
+                throw new Error(`Unknown opcode: ${resolvedOpcode}`);
             }
 
             bytecode.push(opcodeValue);
 
-            // Handle arguments for specific opcodes
-            if (op.opcode === 'PUSH_U64' || op.opcode === 'PUSH_I64') {
-                 // Opcode + VLE u64. For simplicity in test helper, we might just emit fixed 8 bytes or need VLE encoder.
-                 // This test helper is basic. Let's assume standard simple encoding or implement VLE.
-                 // Implementing simple VLE here:
-                 if (op.args && op.args.length > 0) {
-                     let val = BigInt(op.args[0]);
-                     do {
-                         let byte = Number(val & BigInt(0x7F));
-                         val >>= BigInt(7);
-                         if (val !== BigInt(0)) {
-                             byte |= 0x80;
-                         }
-                         bytecode.push(byte);
-                     } while (val !== BigInt(0));
-                 }
-            } else if (op.opcode === 'PUSH_U32') {
-                 if (op.args && op.args.length > 0) {
-                     let val = op.args[0];
-                     do {
-                         let byte = val & 0x7F;
-                         val >>= 7;
-                         if (val !== 0) {
-                             byte |= 0x80;
-                         }
-                         bytecode.push(byte);
-                     } while (val !== 0);
-                 }
-            } else if (op.opcode === 'PUSH_U16') {
-                 if (op.args && op.args.length > 0) {
-                     let val = op.args[0];
-                     do {
-                         let byte = val & 0x7F;
-                         val >>= 7;
-                         if (val !== 0) {
-                             byte |= 0x80;
-                         }
-                         bytecode.push(byte);
-                     } while (val !== 0);
-                 }
-            } else if (op.opcode === 'PUSH_U8' || op.opcode === 'PUSH_BOOL' ||
-                       op.opcode === 'PUSH_STRING_LITERAL' || op.opcode === 'PUSH_ARRAY_LITERAL' ||
-                       op.opcode === 'CREATE_ARRAY' || op.opcode === 'SET_LOCAL' ||
-                       op.opcode === 'GET_LOCAL' || op.opcode === 'LOAD_PARAM' ||
-                       op.opcode === 'STORE_PARAM' || op.opcode === 'CAST') {
-                if (op.args && op.args.length > 0) {
-                    bytecode.push(op.args[0] & 0xFF);
+            const opArgs = isPushAlias ? op.args?.slice(1) : op.args;
+
+            const pushFixedLE = (value: number | bigint, bytes: number) => {
+                let v = BigInt(value);
+                for (let i = 0; i < bytes; i++) {
+                    bytecode.push(Number(v & BigInt(0xFF)));
+                    v >>= BigInt(8);
                 }
-            } else if (op.opcode === 'PUSH_PUBKEY') {
-                if (op.args && op.args.length > 0) {
-                    // Expect 32 byte array or string
-                    const pk = op.args[0];
+            };
+
+            // Handle arguments for specific opcodes
+            if (resolvedOpcode === 'PUSH_U64' || resolvedOpcode === 'PUSH_I64') {
+                if (opArgs && opArgs.length > 0) {
+                    pushFixedLE(opArgs[0], 8);
+                }
+            } else if (resolvedOpcode === 'PUSH_U32') {
+                if (opArgs && opArgs.length > 0) {
+                    pushFixedLE(opArgs[0], 4);
+                }
+            } else if (resolvedOpcode === 'PUSH_U16') {
+                if (opArgs && opArgs.length > 0) {
+                    pushFixedLE(opArgs[0], 2);
+                }
+            } else if (resolvedOpcode === 'PUSH_U8' || resolvedOpcode === 'PUSH_BOOL' ||
+                       resolvedOpcode === 'PUSH_STRING_LITERAL' || resolvedOpcode === 'PUSH_ARRAY_LITERAL' ||
+                       resolvedOpcode === 'CREATE_ARRAY' || resolvedOpcode === 'SET_LOCAL' ||
+                       resolvedOpcode === 'GET_LOCAL' || resolvedOpcode === 'LOAD_PARAM' ||
+                       resolvedOpcode === 'STORE_PARAM' || resolvedOpcode === 'CAST') {
+                if (opArgs && opArgs.length > 0) {
+                    bytecode.push(opArgs[0] & 0xFF);
+                }
+            } else if (resolvedOpcode === 'PUSH_PUBKEY') {
+                if (opArgs && opArgs.length > 0) {
+                    // Expect 32 byte array
+                    const pk = opArgs[0];
                     if (pk.length === 32) {
                         bytecode.push(...pk);
                     }
+                }
+            } else if (resolvedOpcode === 'PUSH_U128') {
+                if (opArgs && opArgs.length > 0) {
+                    pushFixedLE(opArgs[0], 16);
+                }
+            } else if (resolvedOpcode === 'PUSH_STRING') {
+                if (opArgs && opArgs.length > 0) {
+                    const encoder = new TextEncoder();
+                    const data = typeof opArgs[0] === 'string' ? encoder.encode(opArgs[0]) : opArgs[0];
+                    pushFixedLE(data.length, 4);
+                    bytecode.push(...data);
                 }
             }
         }

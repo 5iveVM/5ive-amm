@@ -1,9 +1,4 @@
-/**
- * Advanced Logger for Five CLI
- * 
- * Provides structured logging with performance monitoring, context tracking,
- * and configurable output formats for optimal development and debugging experience.
- */
+// Logger for Five CLI output.
 
 import { writeFile, appendFile, mkdir, stat, rename, unlink } from 'fs/promises';
 import { join, dirname } from 'path';
@@ -40,45 +35,30 @@ export class FiveLogger implements Logger {
     };
   }
 
-  /**
-   * Debug level logging - for detailed diagnostic information
-   */
   debug(message: string, ...args: any[]): void {
     if (this.shouldLog('debug')) {
       this.log('debug', message, args);
     }
   }
 
-  /**
-   * Info level logging - for general information
-   */
   info(message: string, ...args: any[]): void {
     if (this.shouldLog('info')) {
       this.log('info', message, args);
     }
   }
 
-  /**
-   * Warning level logging - for potentially harmful situations
-   */
   warn(message: string, ...args: any[]): void {
     if (this.shouldLog('warn')) {
       this.log('warn', message, args);
     }
   }
 
-  /**
-   * Error level logging - for error events
-   */
   error(message: string, ...args: any[]): void {
     if (this.shouldLog('error')) {
       this.log('error', message, args);
     }
   }
 
-  /**
-   * Log with performance measurement
-   */
   perf(operation: string, message: string, ...args: any[]): void {
     if (this.options.enablePerformance) {
       const duration = this.endPerformanceMark(operation);
@@ -89,18 +69,12 @@ export class FiveLogger implements Logger {
     }
   }
 
-  /**
-   * Start performance measurement
-   */
   startPerformanceMark(operation: string): void {
     if (this.options.enablePerformance) {
       this.performanceMarks.set(operation, Date.now());
     }
   }
 
-  /**
-   * End performance measurement and return duration
-   */
   endPerformanceMark(operation: string): number | null {
     if (!this.options.enablePerformance) {
       return null;
@@ -115,30 +89,18 @@ export class FiveLogger implements Logger {
     return null;
   }
 
-  /**
-   * Add context information to all subsequent logs
-   */
   addContext(key: string, value: any): void {
     this.context.set(key, value);
   }
 
-  /**
-   * Remove context information
-   */
   removeContext(key: string): void {
     this.context.delete(key);
   }
 
-  /**
-   * Clear all context information
-   */
   clearContext(): void {
     this.context.clear();
   }
 
-  /**
-   * Create a child logger with additional context
-   */
   child(context: Record<string, any>): FiveLogger {
     const childLogger = new FiveLogger(this.options);
 
@@ -155,9 +117,6 @@ export class FiveLogger implements Logger {
     return childLogger;
   }
 
-  /**
-   * Log structured data (useful for debugging complex objects)
-   */
   logObject(level: LogLevel, object: any, label?: string): void {
     if (this.shouldLog(level)) {
       const message = label ? `${label}:` : 'Object:';
@@ -165,9 +124,6 @@ export class FiveLogger implements Logger {
     }
   }
 
-  /**
-   * Log with specific formatting for CLI operations
-   */
   command(command: string, args: string[], duration?: number): void {
     const formattedCommand = `${command} ${args.join(' ')}`;
     const message = duration
@@ -176,9 +132,6 @@ export class FiveLogger implements Logger {
     this.info(message);
   }
 
-  /**
-   * Log compilation results with formatted output
-   */
   compilation(
     sourceFile: string,
     success: boolean,
@@ -247,16 +200,13 @@ export class FiveLogger implements Logger {
   private formatLogEntry(level: LogLevel, message: string, args: any[]): string {
     const parts: string[] = [];
 
-    // Timestamp
     if (this.options.enableTimestamps) {
       const timestamp = new Date().toISOString();
       parts.push(`[${timestamp}]`);
     }
 
-    // Log level
     parts.push(`[${level.toUpperCase()}]`);
 
-    // Context
     if (this.options.enableContext && this.context.size > 0) {
       const contextStr = Array.from(this.context.entries())
         .map(([key, value]) => `${key}=${value}`)
@@ -264,10 +214,8 @@ export class FiveLogger implements Logger {
       parts.push(`[${contextStr}]`);
     }
 
-    // Message
     parts.push(message);
 
-    // Arguments
     if (args.length > 0) {
       const argsStr = args.map(arg =>
         typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
@@ -278,9 +226,6 @@ export class FiveLogger implements Logger {
     return parts.join(' ');
   }
 
-  /**
-   * Output log entry to console with appropriate colors
-   */
   private outputToConsole(level: LogLevel, logEntry: string): void {
     if (!this.options.enableColors) {
       console.log(logEntry);
@@ -305,34 +250,24 @@ export class FiveLogger implements Logger {
     }
   }
 
-  /**
-   * Output log entry to file
-   */
   private async outputToFile(logEntry: string): Promise<void> {
     if (!this.options.logFile) {
       return;
     }
 
     try {
-      // Ensure log directory exists
       const logDir = dirname(this.options.logFile);
       await mkdir(logDir, { recursive: true });
 
-      // Append to log file
       await appendFile(this.options.logFile, logEntry + '\n');
 
-      // Check for rotation
       if (this.options.maxLogSize) {
         await this.rotateLogIfNeeded();
       }
     } catch (error) {
-      // Silent fail to avoid infinite logging loops
     }
   }
 
-  /**
-   * Rotate logs if file size exceeds maxLogSize
-   */
   private async rotateLogIfNeeded(): Promise<void> {
     if (!this.options.logFile || !this.options.maxLogSize) {
       return;
@@ -347,43 +282,30 @@ export class FiveLogger implements Logger {
       const maxBackups = this.options.maxBackups || 5;
       const baseLogFile = this.options.logFile;
 
-      // Remove oldest backup if it exists
       const oldestBackup = `${baseLogFile}.${maxBackups}`;
       try {
         await unlink(oldestBackup);
       } catch (e) {
-        // Ignore if file doesn't exist
       }
 
-      // Rotate existing backups
       for (let i = maxBackups - 1; i >= 1; i--) {
         const source = `${baseLogFile}.${i}`;
         const dest = `${baseLogFile}.${i + 1}`;
         try {
           await rename(source, dest);
         } catch (e) {
-          // Ignore if source doesn't exist
         }
       }
 
-      // Rename current log file to .1
       try {
         await rename(baseLogFile, `${baseLogFile}.1`);
-        // Re-create the main log file immediately to ensure subsequent logs succeed
-        // Although appendFile will create it, explicit creation or just letting the next write handle it is fine.
-        // But if we just renamed it, it's gone.
       } catch (e) {
-        // Should not happen if we just wrote to it, but handle gracefully
       }
 
     } catch (error) {
-      // Fail silently on rotation errors
     }
   }
 
-  /**
-   * Check if message should be logged based on current log level
-   */
   private shouldLog(messageLevel: LogLevel): boolean {
     const levels: Record<LogLevel, number> = {
       debug: 0,
@@ -395,24 +317,15 @@ export class FiveLogger implements Logger {
     return levels[messageLevel] >= levels[this.options.level];
   }
 
-  /**
-   * Update logger options
-   */
   updateOptions(options: Partial<LoggerOptions>): void {
     this.options = { ...this.options, ...options };
   }
 
-  /**
-   * Get current logger configuration
-   */
   getOptions(): LoggerOptions {
     return { ...this.options };
   }
 }
 
-/**
- * Create a logger instance with Five CLI defaults
- */
 export function createLogger(options: Partial<LoggerOptions> = {}): FiveLogger {
   const defaultOptions: Partial<LoggerOptions> = {
     level: process.env.DEBUG ? 'debug' : 'info',
@@ -425,9 +338,6 @@ export function createLogger(options: Partial<LoggerOptions> = {}): FiveLogger {
   return new FiveLogger({ ...defaultOptions, ...options });
 }
 
-/**
- * Create a file logger for persistent logging
- */
 export function createFileLogger(
   logFile: string,
   options: Partial<LoggerOptions> = {}
@@ -440,9 +350,6 @@ export function createFileLogger(
   });
 }
 
-/**
- * Utility function to measure and log function execution time
- */
 export function measureTime<T>(
   logger: FiveLogger,
   operation: string,

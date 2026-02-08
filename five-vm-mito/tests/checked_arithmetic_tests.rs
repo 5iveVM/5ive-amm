@@ -1,11 +1,11 @@
 //! Tests for checked arithmetic opcodes (ADD_CHECKED, SUB_CHECKED, MUL_CHECKED)
 //! Validates overflow detection and error handling (Task 2.2)
 
-use five_protocol::{encoding::VLE, opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
+use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, VMError, Value, stack::StackStorage, AccountInfo};
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
@@ -24,8 +24,7 @@ fn script_header(public_fn_count: u8, total_fn_count: u8) -> Vec<u8> {
 
 fn push_u64_instr(script: &mut Vec<u8>, value: u64) {
     script.push(PUSH_U64);
-    let (len, encoded) = VLE::encode_u64(value);
-    script.extend_from_slice(&encoded[..len]);
+    script.extend_from_slice(&value.to_le_bytes());
 }
 
 fn single_function_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
@@ -176,7 +175,7 @@ fn test_checked_arithmetic_in_nested_calls() {
         script
     };
 
-    match execute_test(&bytecode, &[0], &[]) {
+    match execute_test(&bytecode, &[0, 0, 0, 0], &[]) {
         Ok(Some(Value::U64(result))) => {
             // f2 returns 160, f1 returns 160, f0 returns 160 + 50 = 210
             assert_eq!(result, 210);
@@ -207,9 +206,18 @@ fn test_checked_arithmetic_with_locals() {
         script.push(RETURN_VALUE);
     });
 
-    // Provide dummy input parameters [0, 2, 0, 0] (Func=0, Count=2, Param1=0, Param2=0)
-    // This forces allocation of 2 locals (Param 1->Local 0, Param 2->Local 1)
-    match execute_test(&bytecode, &[0, 2, 0, 0], &[]) {
+    // Provide input: [Func=0 (u32), Count=2 (u32), Param1(0)=u64(0), Param2(0)=u64(0)]
+    // Fixed-width input: [func_idx(u32), param_count(u32), type(u8), value..., ...]
+    let mut input = vec![];
+    input.extend_from_slice(&0u32.to_le_bytes()); // Func 0
+    input.extend_from_slice(&2u32.to_le_bytes()); // Count 2
+    // Type 4 (U64) for both params
+    input.push(4); // Type U64
+    input.extend_from_slice(&0u64.to_le_bytes());
+    input.push(4); // Type U64
+    input.extend_from_slice(&0u64.to_le_bytes());
+
+    match execute_test(&bytecode, &input, &[]) {
         Ok(Some(Value::U64(result))) => assert_eq!(result, 160),
         Ok(r) => panic!("Expected U64(160), got {:?}", r),
         Err(e) => panic!("Should not error: {:?}", e),

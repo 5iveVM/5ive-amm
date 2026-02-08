@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod coverage_increase_tests {
     use five::instructions::{
-        deploy, init_large_program, append_bytecode, finalize_script_upload,
+        init_large_program, append_bytecode, finalize_script_upload,
     };
     use five::state::{FIVEVMState, ScriptAccountHeader};
     use five_protocol::bytecode;
@@ -27,7 +27,7 @@ mod coverage_increase_tests {
     }
 
     fn create_vm_state(admin_key: Pubkey) -> (u64, Vec<u8>) {
-        let mut vm_lamports = 0u64;
+        let vm_lamports = 0u64;
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
         {
             // SAFETY: We are creating fresh data for tests
@@ -90,7 +90,7 @@ mod coverage_increase_tests {
         // 2. Simulate upload complete but not finalized
         {
             let mut script_data_ref = script_account.try_borrow_mut_data().unwrap();
-            let mut header = ScriptAccountHeader::from_account_data_mut(&mut script_data_ref).unwrap();
+            let header = ScriptAccountHeader::from_account_data_mut(&mut script_data_ref).unwrap();
             header.set_upload_len(expected_size);
             // header.set_upload_mode(true); // Already true from init
             // And write the bytecode

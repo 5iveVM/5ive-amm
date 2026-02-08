@@ -1,11 +1,5 @@
 /**
- * Five SDK Core Types
- *
- * Defines the core types and interfaces for the Five SDK with correct terminology:
- * - Five scripts (.v files) compile to bytecode (.bin files)
- * - Script accounts store bytecode on Solana
- * - Five VM Program executes scripts from script accounts
- * - Five VM is the virtual machine that executes bytecode
+ * Five SDK core types and interfaces.
  */
 /**
  * Five VM Program ID - the actual Solana program that executes Five bytecode
@@ -197,7 +191,7 @@ export interface SerializedExecution {
 export interface EncodedParameters {
     /** Function name or index */
     function: string | number;
-    /** Raw VLE-encoded parameter bytes */
+    /** Raw encoded parameter bytes */
     data: Uint8Array;
     /** Parameter count */
     count: number;
@@ -311,7 +305,7 @@ export interface ExecutionOptions {
     trace?: boolean;
 }
 /**
- * VLE-encoded parameter for Five VM
+ * Encoded parameter for Five VM
  */
 export interface EncodedParameter {
     type: number;

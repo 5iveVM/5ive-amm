@@ -1,8 +1,4 @@
-// Main DSL Compiler Module
-//
-// Orchestrates the compilation pipeline from source to bytecode.
-//
-// This module has been refactored to eliminate DRY violations and provide a single source of truth for compilation.
+// Main DSL compiler module.
 
 #[macro_use]
 pub mod macros;
@@ -17,38 +13,13 @@ use pipeline::CompilationPipeline;
 // Re-export public types from pipeline for backward compatibility
 pub use pipeline::{CompilationConfig, CompilationMode, OptimizationLevel};
 
-/// Main DSL compiler that orchestrates the compilation pipeline.
-///
-/// This struct provides multiple public APIs for different use cases:
-/// - Simple compilation: compile_dsl()
-/// - Mode-specific: compile_for_testing(), compile_for_deployment()
-/// - Feature flags: compile_with_mode_and_features()
-/// - Full config: compile_with_config()
-/// - With metrics: compile_with_metrics()
-/// - .five file format: compile_to_five_file*()
-///
-/// All methods now delegate to the unified CompilationPipeline to eliminate
-/// duplication and ensure consistent behavior.
 pub struct DslCompiler;
 
 impl DslCompiler {
-    /// Compile DSL with default testing mode (includes test functions).
-    ///
-    /// This is the simplest API for quick compilation during development.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let bytecode = DslCompiler::compile_dsl(source)?;
-    /// ```
     pub fn compile_dsl(source: &str) -> Result<Vec<u8>, CompilerError> {
         Self::compile_with_mode(source, CompilationMode::Testing)
     }
 
-    /// Compile DSL with features (legacy method for backward compatibility).
-    ///
-    /// This method is maintained for backward compatibility with existing code.
-    /// New code should use `compile_with_config()` instead.
     pub fn compile_dsl_with_features(
         source: &str,
         enable_constraint_cache: bool,
@@ -60,25 +31,14 @@ impl DslCompiler {
         )
     }
 
-    /// Compile DSL for deployment (excludes test functions for smaller bytecode).
-    ///
-    /// Use this when compiling contracts for production deployment.
-    /// Test functions are stripped to reduce bytecode size and CU costs.
     pub fn compile_for_deployment(source: &str) -> Result<Vec<u8>, CompilerError> {
         Self::compile_with_mode(source, CompilationMode::Deployment)
     }
 
-    /// Compile DSL for testing (includes test functions for local execution).
-    ///
-    /// Use this during development and testing. Test functions are included
-    /// in the bytecode for local execution.
     pub fn compile_for_testing(source: &str) -> Result<Vec<u8>, CompilerError> {
         Self::compile_with_mode(source, CompilationMode::Testing)
     }
 
-    /// Compile DSL with specific compilation mode.
-    ///
-    /// Internal helper that sets up a default config with the specified mode.
     pub fn compile_with_mode(
         source: &str,
         mode: CompilationMode,
@@ -86,14 +46,6 @@ impl DslCompiler {
         Self::compile_with_mode_and_features(source, mode, true)
     }
 
-    /// Compile DSL with mode and feature flags.
-    ///
-    /// This method provides control over:
-    /// - Compilation mode (Testing vs Deployment)
-    /// - Constraint caching optimization
-    ///
-    /// Legacy method maintained for backward compatibility.
-    /// New code should use `compile_with_config()` for more control.
     pub fn compile_with_mode_and_features(
         source: &str,
         mode: CompilationMode,
@@ -103,22 +55,6 @@ impl DslCompiler {
         Self::compile_with_config(source, &config)
     }
 
-    /// Compile DSL with full configuration support.
-    ///
-    /// This is the recommended API for new code. It provides full control over:
-    /// - Compilation mode (Testing vs Deployment)
-    /// - V2 preview features
-    /// - Constraint caching
-    /// - Optimization level
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = CompilationConfig::new(CompilationMode::Deployment)
-    ///     .with_v2_preview(true)
-    ///     .with_optimization_level(OptimizationLevel::V3);
-    /// let bytecode = DslCompiler::compile_with_config(source, &config)?;
-    /// ```
     pub fn compile_with_config(
         source: &str,
         config: &CompilationConfig,
@@ -144,12 +80,6 @@ impl DslCompiler {
         Ok(bytecode)
     }
 
-    /// Compile DSL with full configuration support and return compilation log.
-    ///
-    /// This method is useful for debugging and analyzing the compilation process.
-    /// The log contains detailed information about bytecode generation.
-    ///
-    /// Returns a tuple of (bytecode, compilation_log).
     pub fn compile_with_config_and_log(
         source: &str,
         config: &CompilationConfig,
@@ -176,15 +106,10 @@ impl DslCompiler {
         Ok((bytecode, log))
     }
 
-    /// Compile DSL to .five file format with embedded ABI.
-    ///
-    /// The .five file format contains both the bytecode and the ABI,
-    /// making it a complete deployment package.
     pub fn compile_to_five_file(source: &str) -> Result<FiveFile, CompilerError> {
         Self::compile_to_five_file_with_mode(source, CompilationMode::Testing)
     }
 
-    /// Compile DSL to .five file format with specific mode.
     pub fn compile_to_five_file_with_mode(
         source: &str,
         mode: CompilationMode,
@@ -193,10 +118,6 @@ impl DslCompiler {
         Self::compile_to_five_file_with_config(source, &config)
     }
 
-    /// Compile DSL to .five file format with full configuration.
-    ///
-    /// This is the most complete API, providing both bytecode and ABI
-    /// with full control over compilation settings.
     pub fn compile_to_five_file_with_config(
         source: &str,
         config: &CompilationConfig,
@@ -404,12 +325,8 @@ impl DslCompiler {
             })?;
         }
 
-        // 5. Generate Bytecode from Merged AST
-        // Use entry point source for pipeline context
-        // NOTE: Type checking was already done above with correct module_scope.
-        // Do NOT call pipeline.type_check() here as it would create a fresh
-        // TypeCheckerContext without the module_scope, causing imported account
-        // types to fail validation.
+        // 5. Generate bytecode from merged AST.
+        // Use entry point source for pipeline context; type-checking already ran with module_scope.
         let entry_descriptor = graph
             .get_module(graph.compilation_order().last().unwrap())
             .unwrap();
@@ -768,12 +685,8 @@ impl DslCompiler {
             })?;
         }
 
-        // 5. Generate Bytecode and ABI from Merged AST
-        // Use entry point source for pipeline context
-        // NOTE: Type checking was already done above with correct module_scope.
-        // Do NOT call pipeline.type_check() here as it would create a fresh
-        // TypeCheckerContext without the module_scope, causing imported account
-        // types to fail validation.
+        // 5. Generate bytecode and ABI from merged AST.
+        // Use entry point source for pipeline context; type-checking already ran with module_scope.
         let entry_descriptor = graph
             .get_module(graph.compilation_order().last().unwrap())
             .unwrap();

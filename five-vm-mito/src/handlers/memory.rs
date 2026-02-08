@@ -64,7 +64,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
         }
         STORE_FIELD => {
             let account_index = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u32()?;
+            let field_offset = ctx.fetch_u32()?;
             let value = ctx.pop()?;
 
             debug_log!(
@@ -94,7 +94,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
         }
         LOAD_FIELD => {
             let account_index = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u32()?;
+            let field_offset = ctx.fetch_u32()?;
 
             debug_log!(
                 "MitoVM: LOAD_FIELD account_index={}, offset={}",
@@ -137,7 +137,7 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
         }
         LOAD_FIELD_PUBKEY => {
             let account_index = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u32()?;
+            let field_offset = ctx.fetch_u32()?;
 
             debug_log!(
                 "MitoVM: LOAD_FIELD_PUBKEY account_index={}, offset={}",
@@ -382,7 +382,7 @@ pub(crate) fn store_value_into_buffer(
         }
         ValueRef::TempRef(temp_offset, len) if len != 32 => {
             // Handle variable-length TempRef as string/bytes (length-prefixed)
-            // This covers cases where strings are passed as raw TempRefs (e.g. from VLE)
+            // This covers cases where strings are passed as raw TempRefs
             let start = temp_offset as usize;
             let end = start + (len as usize);
             let temp_buf = ctx.temp_buffer();

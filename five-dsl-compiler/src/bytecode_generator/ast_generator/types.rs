@@ -1,7 +1,4 @@
-//! Type definitions for the AST generator
-//!
-//! This module contains all the core type definitions used by the AST generator,
-//! including patch structures and the main ASTGenerator struct.
+//! AST generator type definitions.
 
 use super::super::account_system::AccountSystem;
 use super::super::types::*;
@@ -9,31 +6,25 @@ use crate::ast::{InstructionParameter, TypeNode};
 use crate::type_checker::InterfaceInfo;
 use std::collections::HashMap;
 
-/// Represents a jump instruction that needs its offset patched later.
+/// Jump instruction patch info.
 pub(super) struct JumpPatch {
-    /// The position in the bytecode where the u16 offset needs to be written.
     pub position: usize,
-    /// The label of the target block to jump to.
     pub target_label: String,
 }
 
-/// Represents a BR_EQ_U8 instruction that needs its VLE offset patched later.
+/// BR_EQ_U8 patch info.
 pub(super) struct BrEqU8Patch {
-    /// The position in the bytecode where the VLE u16 offset needs to be written.
     pub position: usize,
-    /// The label of the target block to jump to.
     pub target_label: String,
 }
 
-/// Represents a function call that needs its address patched later.
+/// Function call patch info.
 pub(super) struct FunctionPatch {
-    /// The position in the bytecode where the u16 address needs to be written.
     pub position: usize,
-    /// The name of the function to call.
     pub function_name: String,
 }
 
-/// Information for BR_EQ_U8 pattern optimization
+/// BR_EQ_U8 pattern info.
 pub(super) struct BrEqU8Info {
     pub variable_node: crate::ast::AstNode,
     pub u8_value: u8,
@@ -118,4 +109,5 @@ pub struct ASTGenerator {
     /// External imports for CALL_EXTERNAL generation
     /// Maps module name to ExternalImport info
     pub(crate) external_imports: HashMap<String, ExternalImport>,
+
 }

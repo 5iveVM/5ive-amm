@@ -66,7 +66,7 @@ fn test_check_binary_expression_type_mismatch() {
     // check_expression calls check_types(left) and check_types(right).
     // It does NOT check compatibility of left and right for BinaryExpression,
     // unless infer_type is called.
-    // Wait, let's check `expressions.rs`.
+    // See `expressions.rs`.
     /*
     AstNode::BinaryExpression { operator: _, left, right } => {
         self.check_types(left)?;
@@ -83,7 +83,7 @@ fn test_check_binary_expression_type_mismatch() {
     // simply recurses.
 
     // So this test might actually PASS even with mismatch if I just call `check_expression`.
-    // Let's verify if `check_expression` is indeed weak for BinaryExpression.
+    // Verify `check_expression` behavior for BinaryExpression.
     // If so, I should test `infer_type` instead for these cases if I want to verify type safety.
 
     // However, `MethodCall` has logic:
@@ -95,7 +95,7 @@ fn test_check_binary_expression_type_mismatch() {
     // The parser converts some ops to method calls?
     // No, `parser/expressions.rs` converts `&&` `||` `>` `<` etc to method calls,
     // but `+` `-` `*` `/` are kept as `BinaryExpression` in `parse_additive` / `parse_multiplicative`.
-    // Wait, let me re-read `parser/expressions.rs`.
+    // See `parser/expressions.rs`.
 
     // `parse_additive`:
     // left = AstNode::BinaryExpression { ... operator: "+", ... }
@@ -113,7 +113,7 @@ fn test_check_binary_expression_type_mismatch() {
     // `infer_type` does.
     // So to test type safety of binary expressions, I must call `infer_type`.
 
-    // I will add a test for `infer_type` here as well.
+    // Add a test for `infer_type` here as well.
     // Since `infer_type` is pub(crate), I can access it.
 
     // For this test, I expect it to OK if I only call check_expression.

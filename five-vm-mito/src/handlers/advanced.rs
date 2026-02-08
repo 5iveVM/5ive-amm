@@ -10,8 +10,6 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
-    // Import stack operation macros
-    vm_push_u64,
 };
 use five_protocol::{opcodes::*, ValueRef};
 

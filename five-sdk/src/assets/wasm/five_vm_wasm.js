@@ -226,6 +226,10 @@ const BytecodeAnalyzerFinalization = (typeof FinalizationRegistry === 'undefined
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_bytecodeanalyzer_free(ptr >>> 0, 1));
 
+const BytecodeEncoderFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_bytecodeencoder_free(ptr >>> 0, 1));
+
 const FiveVMStateFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_fivevmstate_free(ptr >>> 0, 1));
@@ -241,10 +245,6 @@ const ParameterEncoderFinalization = (typeof FinalizationRegistry === 'undefined
 const TestResultFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_testresult_free(ptr >>> 0, 1));
-
-const VLEEncoderFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_vleencoder_free(ptr >>> 0, 1));
 
 const WasmAccountFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
@@ -422,43 +422,123 @@ if (Symbol.dispose) BytecodeAnalyzer.prototype[Symbol.dispose] = BytecodeAnalyze
 exports.BytecodeAnalyzer = BytecodeAnalyzer;
 
 /**
- * Execution result that honestly reports what happened
+ * Bytecode Encoding utilities for JavaScript (Fixed Size)
+ */
+class BytecodeEncoder {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        BytecodeEncoderFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_bytecodeencoder_free(ptr, 0);
+    }
+    /**
+     * Encode a u32 value
+     * Returns [size, byte1, byte2, byte3, byte4]
+     * @param {number} value
+     * @returns {Array<any>}
+     */
+    static encode_u32(value) {
+        const ret = wasm.bytecodeencoder_encode_u32(value);
+        return takeObject(ret);
+    }
+    /**
+     * Encode a u16 value
+     * Returns [size, byte1, byte2]
+     * @param {number} value
+     * @returns {Array<any>}
+     */
+    static encode_u16(value) {
+        const ret = wasm.bytecodeencoder_encode_u16(value);
+        return takeObject(ret);
+    }
+    /**
+     * Decode a u32 value
+     * Returns [value, bytes_consumed] or null if invalid
+     * @param {Uint8Array} bytes
+     * @returns {Array<any> | undefined}
+     */
+    static decode_u32(bytes) {
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.bytecodeencoder_decode_u32(ptr0, len0);
+        return takeObject(ret);
+    }
+    /**
+     * Decode a u16 value
+     * Returns [value, bytes_consumed] or null if invalid
+     * @param {Uint8Array} bytes
+     * @returns {Array<any> | undefined}
+     */
+    static decode_u16(bytes) {
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.bytecodeencoder_decode_u16(ptr0, len0);
+        return takeObject(ret);
+    }
+    /**
+     * Calculate encoded size (Always 4 for u32)
+     * @param {number} _value
+     * @returns {number}
+     */
+    static encoded_size_u32(_value) {
+        const ret = wasm.bytecodeencoder_encoded_size_u32(_value);
+        return ret >>> 0;
+    }
+    /**
+     * Calculate encoded size (Always 2 for u16)
+     * @param {number} _value
+     * @returns {number}
+     */
+    static encoded_size_u16(_value) {
+        const ret = wasm.bytecodeencoder_encoded_size_u16(_value);
+        return ret >>> 0;
+    }
+}
+if (Symbol.dispose) BytecodeEncoder.prototype[Symbol.dispose] = BytecodeEncoder.prototype.free;
+exports.BytecodeEncoder = BytecodeEncoder;
+
+/**
+ * Execution result.
  * @enum {0 | 1 | 2 | 3 | 4 | 5 | 6}
  */
 const ExecutionStatus = Object.freeze({
     /**
-     * All operations completed successfully
+     * All operations completed successfully.
      */
     Completed: 0, "0": "Completed",
     /**
-     * Execution stopped because it hit a system program call that cannot be executed in WASM
+     * Execution stopped because it hit a system program call that cannot be executed in WASM.
      */
     StoppedAtSystemCall: 1, "1": "StoppedAtSystemCall",
     /**
-     * Execution stopped because it hit an INIT_PDA operation that requires real Solana context
+     * Execution stopped because it hit an INIT_PDA operation that requires real Solana context.
      */
     StoppedAtInitPDA: 2, "2": "StoppedAtInitPDA",
     /**
-     * Execution stopped because it hit an INVOKE operation that requires real RPC
+     * Execution stopped because it hit an INVOKE operation that requires real RPC.
      */
     StoppedAtInvoke: 3, "3": "StoppedAtInvoke",
     /**
-     * Execution stopped because it hit an INVOKE_SIGNED operation that requires real RPC
+     * Execution stopped because it hit an INVOKE_SIGNED operation that requires real RPC.
      */
     StoppedAtInvokeSigned: 4, "4": "StoppedAtInvokeSigned",
     /**
-     * Execution stopped because compute limit was reached
+     * Execution stopped because compute limit was reached.
      */
     ComputeLimitExceeded: 5, "5": "ComputeLimitExceeded",
     /**
-     * Execution failed due to an error
+     * Execution failed due to an error.
      */
     Failed: 6, "6": "Failed",
 });
 exports.ExecutionStatus = ExecutionStatus;
 
 /**
- * JavaScript-compatible VM state representation
+ * JavaScript-compatible VM state representation.
  */
 class FiveVMState {
     __destroy_into_raw() {
@@ -497,7 +577,7 @@ if (Symbol.dispose) FiveVMState.prototype[Symbol.dispose] = FiveVMState.prototyp
 exports.FiveVMState = FiveVMState;
 
 /**
- * Main WASM VM wrapper
+ * Main WASM VM wrapper.
  */
 class FiveVMWasm {
     __destroy_into_raw() {
@@ -511,7 +591,7 @@ class FiveVMWasm {
         wasm.__wbg_fivevmwasm_free(ptr, 0);
     }
     /**
-     * Create new VM instance with bytecode
+     * Create new VM instance with bytecode.
      * @param {Uint8Array} _bytecode
      */
     constructor(_bytecode) {
@@ -534,7 +614,7 @@ class FiveVMWasm {
         }
     }
     /**
-     * Execute VM with input data and accounts (legacy method)
+     * Execute VM with input data and accounts (legacy method).
      * @param {Uint8Array} input_data
      * @param {Array<any>} accounts
      * @returns {any}
@@ -557,7 +637,7 @@ class FiveVMWasm {
         }
     }
     /**
-     * Execute VM with partial execution support - stops at system calls
+     * Execute VM with partial execution support - stops at system calls.
      * @param {Uint8Array} input_data
      * @param {Array<any>} accounts
      * @returns {TestResult}
@@ -633,7 +713,7 @@ if (Symbol.dispose) FiveVMWasm.prototype[Symbol.dispose] = FiveVMWasm.prototype.
 exports.FiveVMWasm = FiveVMWasm;
 
 /**
- * Parameter encoding utilities using VLE and protocol types
+ * Parameter encoding utilities using fixed-size encoding and protocol types
  */
 class ParameterEncoder {
     __destroy_into_raw() {
@@ -647,17 +727,16 @@ class ParameterEncoder {
         wasm.__wbg_parameterencoder_free(ptr, 0);
     }
     /**
-     * Encode function parameters using VLE compression
+     * Encode function parameters using fixed size encoding
      * Returns ONLY parameter data - SDK handles discriminator AND function index
-     * Each parameter value is VLE-encoded regardless of its declared type for maximum compression
      * @param {number} _function_index
      * @param {Array<any>} params
      * @returns {Uint8Array}
      */
-    static encode_execute_vle(_function_index, params) {
+    static encode_execute(_function_index, params) {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.parameterencoder_encode_execute_vle(retptr, _function_index, addHeapObject(params));
+            wasm.parameterencoder_encode_execute(retptr, _function_index, addHeapObject(params));
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
             var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
@@ -674,7 +753,7 @@ if (Symbol.dispose) ParameterEncoder.prototype[Symbol.dispose] = ParameterEncode
 exports.ParameterEncoder = ParameterEncoder;
 
 /**
- * Detailed execution result that provides full context
+ * Detailed execution result.
  */
 class TestResult {
     static __wrap(ptr) {
@@ -695,7 +774,7 @@ class TestResult {
         wasm.__wbg_testresult_free(ptr, 0);
     }
     /**
-     * Compute units consumed
+     * Compute units consumed.
      * @returns {bigint}
      */
     get compute_units_used() {
@@ -703,14 +782,14 @@ class TestResult {
         return BigInt.asUintN(64, ret);
     }
     /**
-     * Compute units consumed
+     * Compute units consumed.
      * @param {bigint} arg0
      */
     set compute_units_used(arg0) {
         wasm.__wbg_set_testresult_compute_units_used(this.__wbg_ptr, arg0);
     }
     /**
-     * Final instruction pointer
+     * Final instruction pointer.
      * @returns {number}
      */
     get instruction_pointer() {
@@ -718,14 +797,14 @@ class TestResult {
         return ret >>> 0;
     }
     /**
-     * Final instruction pointer
+     * Final instruction pointer.
      * @param {number} arg0
      */
     set instruction_pointer(arg0) {
         wasm.__wbg_set_testresult_instruction_pointer(this.__wbg_ptr, arg0);
     }
     /**
-     * Which opcode caused the stop (if stopped at system call)
+     * Which opcode caused the stop (if stopped at system call).
      * @returns {number | undefined}
      */
     get stopped_at_opcode() {
@@ -733,7 +812,7 @@ class TestResult {
         return ret === 0xFFFFFF ? undefined : ret;
     }
     /**
-     * Which opcode caused the stop (if stopped at system call)
+     * Which opcode caused the stop (if stopped at system call).
      * @param {number | null} [arg0]
      */
     set stopped_at_opcode(arg0) {
@@ -855,87 +934,7 @@ if (Symbol.dispose) TestResult.prototype[Symbol.dispose] = TestResult.prototype.
 exports.TestResult = TestResult;
 
 /**
- * VLE Encoding utilities for JavaScript
- */
-class VLEEncoder {
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        VLEEncoderFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_vleencoder_free(ptr, 0);
-    }
-    /**
-     * Encode a u32 value using Variable-Length Encoding
-     * Returns [size, byte1, byte2, byte3] where size is 1-3
-     * @param {number} value
-     * @returns {Array<any>}
-     */
-    static encode_u32(value) {
-        const ret = wasm.vleencoder_encode_u32(value);
-        return takeObject(ret);
-    }
-    /**
-     * Encode a u16 value using Variable-Length Encoding
-     * Returns [size, byte1, byte2] where size is 1-2
-     * @param {number} value
-     * @returns {Array<any>}
-     */
-    static encode_u16(value) {
-        const ret = wasm.vleencoder_encode_u16(value);
-        return takeObject(ret);
-    }
-    /**
-     * Decode a u32 value from Variable-Length Encoding
-     * Returns [value, bytes_consumed] or null if invalid
-     * @param {Uint8Array} bytes
-     * @returns {Array<any> | undefined}
-     */
-    static decode_u32(bytes) {
-        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.vleencoder_decode_u32(ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-     * Decode a u16 value from Variable-Length Encoding
-     * Returns [value, bytes_consumed] or null if invalid
-     * @param {Uint8Array} bytes
-     * @returns {Array<any> | undefined}
-     */
-    static decode_u16(bytes) {
-        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.vleencoder_decode_u16(ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-     * Calculate encoded size without encoding
-     * @param {number} value
-     * @returns {number}
-     */
-    static encoded_size_u32(value) {
-        const ret = wasm.vleencoder_encoded_size_u32(value);
-        return ret >>> 0;
-    }
-    /**
-     * Calculate encoded size for u16
-     * @param {number} value
-     * @returns {number}
-     */
-    static encoded_size_u16(value) {
-        const ret = wasm.vleencoder_encoded_size_u16(value);
-        return ret >>> 0;
-    }
-}
-if (Symbol.dispose) VLEEncoder.prototype[Symbol.dispose] = VLEEncoder.prototype.free;
-exports.VLEEncoder = VLEEncoder;
-
-/**
- * JavaScript-compatible account representation
+ * JavaScript-compatible account representation.
  */
 class WasmAccount {
     __destroy_into_raw() {

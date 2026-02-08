@@ -1,13 +1,6 @@
 use five_dsl_compiler::bytecode_generator::disassembler::BytecodeInspector;
 use five_dsl_compiler::bytecode_generator::DslBytecodeGenerator;
-/// Bytecode Snapshot Test Suite
-///
-/// Tests end-to-end bytecode generation with snapshot comparison:
-/// - Header format validation (magic bytes, version, counts)
-/// - Opcode sequence verification
-/// - Function table correctness
-/// - Bytecode regression detection
-/// - Integration of all compiler components
+/// Bytecode snapshot tests for end-to-end generation.
 use five_dsl_compiler::*;
 use five_protocol::opcodes;
 

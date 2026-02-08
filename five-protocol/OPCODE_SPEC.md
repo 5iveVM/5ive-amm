@@ -18,7 +18,7 @@ This document defines the instruction set architecture (ISA) for the Five Virtua
 To build a robust and efficient smart contract layer on Solana, a clearly defined and optimized instruction set is required. This specification aims to provide a single source of truth for the Five VM's capabilities, enabling:
 
 1.  **Interoperability**: Ensuring compilers, debuggers, and VMs (Mito, Wasm) all adhere to the same behavior.
-2.  **Optimization**: Providing a basis for performance improvements and binary size reduction (VLE, pattern fusion).
+2.  **Optimization**: Providing a basis for performance improvements and binary size reduction (pattern fusion).
 3.  **Security**: Clearly defining the constraints and safety guarantees of each operation.
 
 ## Specification
@@ -30,7 +30,6 @@ The Five VM uses a byte-oriented instruction stream. Instructions consist of a 1
 - **U16**: 16-bit unsigned integer (2 bytes, little-endian).
 - **U32**: 32-bit unsigned integer (4 bytes, little-endian).
 - **U64**: 64-bit unsigned integer (8 bytes, little-endian).
-- **VLE**: Variable Length Encoding (1-9 bytes) for integers to save space.
 - **Pubkey**: 32-byte Solana public key.
 
 ### Opcode Tables
@@ -67,10 +66,10 @@ These opcodes manipulate the value stack.
 | 0x16 | `DROP` | None | -1 | Same as POP. | Alias for POP, included for compatibility/readability. |
 | 0x17 | `OVER` | None | +1 | Copies 2nd item to top. | Common stack pattern (`a b -> a b a`), useful for binary operations where one operand is reused. |
 | 0x18 | `PUSH_U8` | `value` (U8) | +1 | Pushes a U8 constant. | Space-efficient way to push small integers (0-255). |
-| 0x19 | `PUSH_U16` | `value` (VLE) | +1 | Pushes a U16 constant. | Pushes medium integers. |
-| 0x1A | `PUSH_U32` | `value` (VLE) | +1 | Pushes a U32 constant. | Pushes large integers. |
-| 0x1B | `PUSH_U64` | `value` (VLE) | +1 | Pushes a U64 constant. | Pushes 64-bit integers (standard Solana number type). |
-| 0x1C | `PUSH_I64` | `value` (VLE) | +1 | Pushes an I64 constant. | Pushes signed 64-bit integers. |
+| 0x19 | `PUSH_U16` | `value` (U16) | +1 | Pushes a U16 constant. | Pushes medium integers. |
+| 0x1A | `PUSH_U32` | `value` (U32) | +1 | Pushes a U32 constant. | Pushes large integers. |
+| 0x1B | `PUSH_U64` | `value` (U64) | +1 | Pushes a U64 constant. | Pushes 64-bit integers (standard Solana number type). |
+| 0x1C | `PUSH_I64` | `value` (I64) | +1 | Pushes an I64 constant. | Pushes signed 64-bit integers. |
 | 0x1D | `PUSH_BOOL` | `value` (U8) | +1 | Pushes a boolean. | Pushes true/false. |
 | 0x1E | `PUSH_PUBKEY` | `value` (32B) | +1 | Pushes a Pubkey literal. | Essential for hardcoding program IDs or authority keys. |
 | 0x1F | `PUSH_U128` | `value` (16B) | +1 | Pushes a U128 constant. | Support for large numbers (e.g., high precision math). |
@@ -124,8 +123,8 @@ Standard arithmetic on U64/I64 values.
 |:---:|:---|:---|:---:|:---|:---|
 | 0x40 | `STORE` | `offset` (U32) | -1 | Store to memory. | Writing to global/heap memory. |
 | 0x41 | `LOAD` | `offset` (U32) | +1 | Load from memory. | Reading from global/heap memory. |
-| 0x42 | `STORE_FIELD` | `acct_idx` (U8), `offset` (VLE) | -1 | Zero-copy store to account data. | **Optimization**: Direct write to account buffer without loading full data. Critical for performance. |
-| 0x43 | `LOAD_FIELD` | `acct_idx` (U8), `offset` (VLE) | +1 | Zero-copy load from account data. | **Optimization**: Direct read from account buffer. |
+| 0x42 | `STORE_FIELD` | `acct_idx` (U8), `offset` (U32) | -1 | Zero-copy store to account data. | **Optimization**: Direct write to account buffer without loading full data. Critical for performance. |
+| 0x43 | `LOAD_FIELD` | `acct_idx` (U8), `offset` (U32) | +1 | Zero-copy load from account data. | **Optimization**: Direct read from account buffer. |
 | 0x44 | `LOAD_INPUT` | `index` (U8) | +1 | Load instruction input. | Accessing raw instruction data. |
 | 0x45 | `STORE_GLOBAL` | `id` (U16) | -1 | Store to global var. | Persisting state across function calls within a transaction. |
 | 0x46 | `LOAD_GLOBAL` | `id` (U16) | +1 | Load from global var. | Accessing global state. |
@@ -159,7 +158,7 @@ Standard arithmetic on U64/I64 values.
 | 0x64 | `ARRAY_SET` | None | -3 | Set item at index. | Modifying arrays. |
 | 0x65 | `ARRAY_GET` | None | -1 | Get item (alias/variant). | Accessing elements. |
 | 0x66 | `PUSH_STRING_LITERAL` | `len` (U8) | +1 | Push string from bytecode. | Constant strings. |
-| 0x67 | `PUSH_STRING` | `len` (VLE) | +1 | Push long string. | Large text data. |
+| 0x67 | `PUSH_STRING` | `len` (U16) | +1 | Push long string. | Large text data. |
 
 #### 8. Constraint Operations (0x70-0x7F)
 
@@ -219,30 +218,7 @@ Standard arithmetic on U64/I64 values.
 | 0xAB | `GET_SIGNER_KEY` | None | +1 | Get signer pubkey. | Auth utility. |
 | 0xAF | `CAST` | `type` (U8) | 0 | Type cast value. | Type system safety/conversion. |
 
-#### 12. Register Operations (0xB0-0xBF)
-
-Hybrid VM optimizations to reduce stack traffic.
-
-| Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
-|:---:|:---|:---|:---:|:---|:---|
-| 0xB0 | `LOAD_REG_U8` | `reg`, `val` | 0 | Load immediate U8 to reg. | Fast constant access. |
-| 0xB1 | `LOAD_REG_U32` | `reg`, `val` | 0 | Load immediate U32. | Fast constant access. |
-| 0xB2 | `LOAD_REG_U64` | `reg`, `val` | 0 | Load immediate U64. | Fast constant access. |
-| 0xB3 | `LOAD_REG_BOOL` | `reg`, `val` | 0 | Load immediate Bool. | Fast constant access. |
-| 0xB4 | `LOAD_REG_PUBKEY` | `reg`, `val` | 0 | Load immediate Pubkey. | Fast constant access. |
-| 0xB5 | `ADD_REG` | `dest`, `s1`, `s2` | 0 | Register addition. | **Performance**: Math without stack pop/push overhead. |
-| 0xB6 | `SUB_REG` | `dest`, `s1`, `s2` | 0 | Register subtraction. | Performance optimization. |
-| 0xB7 | `MUL_REG` | `dest`, `s1`, `s2` | 0 | Register multiplication. | Performance optimization. |
-| 0xB8 | `DIV_REG` | `dest`, `s1`, `s2` | 0 | Register division. | Performance optimization. |
-| 0xB9 | `EQ_REG` | `dest`, `s1`, `s2` | 0 | Register equality. | Performance optimization. |
-| 0xBA | `GT_REG` | `dest`, `s1`, `s2` | 0 | Register > check. | Performance optimization. |
-| 0xBB | `LT_REG` | `dest`, `s1`, `s2` | 0 | Register < check. | Performance optimization. |
-| 0xBC | `PUSH_REG` | `reg` | +1 | Push register to stack. | Moving from fast registers to stack. |
-| 0xBD | `POP_REG` | `reg` | -1 | Pop stack to register. | Moving from stack to fast registers. |
-| 0xBE | `COPY_REG` | `dest`, `src` | 0 | Copy register. | Fast local data movement. |
-| 0xBF | `CLEAR_REG` | `reg` | 0 | Zero register. | Cleanup. |
-
-#### 13. Nibble/Compressed Operations (0xD0-0xDF)
+#### 12. Nibble/Compressed Operations (0xD0-0xDF)
 
 Highly optimized single-byte instructions for common operations.
 
@@ -253,7 +229,7 @@ Highly optimized single-byte instructions for common operations.
 | 0xD8-DB| `PUSH_0..3` | None | +1 | Push 0, 1, 2, or 3. | **Compression**: Replaces `PUSH_U64 + val` (2-9 bytes) with 1 byte. Huge savings for counters/indices. |
 | 0xDC-DF| `LOAD_PARAM_0..3`| None | +1 | Load param 0-3. | **Compression**: 50% savings for argument access. |
 
-#### 14. Advanced/Experimental (0xF0-0xFF)
+#### 13. Advanced/Experimental (0xF0-0xFF)
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
@@ -281,7 +257,7 @@ The design of the Five VM opcode set balances several competing requirements:
 1.  **Compactness**: Instructions like `JUMP_IF`, `REQUIRE`, and the nibble operations (0xD0-0xDF) are designed to minimize binary size, which translates to lower deployment costs on Solana.
 2.  **Solana Alignment**: Account operations map directly to Solana's account model, efficiently using CPIs and local state management.
 3.  **Safety**: Checked arithmetic and explicit constraint opcodes (`CHECK_SIGNER`, `CHECK_WRITABLE`) allow for robust security assertions.
-4.  **Performance**: Zero-copy operations (`LOAD_FIELD`) and register operations reduce the overhead of memory copying and stack manipulation.
+4.  **Performance**: Zero-copy operations (`LOAD_FIELD`) reduce the overhead of memory copying and stack manipulation.
 
 ## Backwards Compatibility
 

@@ -50,7 +50,7 @@ mod defi_workflow_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(_) => println!("✅ Token transfer workflow test passed"),
@@ -92,7 +92,7 @@ mod defi_workflow_tests {
         ];
 
         // Mock pool account
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => {
@@ -137,7 +137,7 @@ mod smart_contract_pattern_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ Factory pattern test passed: {:?}", value),
@@ -179,7 +179,7 @@ mod smart_contract_pattern_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => {
@@ -218,7 +218,7 @@ mod cross_program_integration_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ CPI token transfer test passed: {:?}", value),
@@ -245,7 +245,7 @@ mod cross_program_integration_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ CPI with PDA signing test passed: {:?}", value),
@@ -276,7 +276,7 @@ mod error_handling_integration_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ Comprehensive error handling test passed: {:?}", value),
@@ -309,7 +309,7 @@ mod error_handling_integration_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => println!("✅ Validation chain test passed: {:?}", value),
@@ -343,9 +343,9 @@ mod performance_optimization_tests {
             0x00, // HALT
         ];
 
-        let mut storage_trad = StackStorage::new(&traditional_bytecode);
+        let mut storage_trad = StackStorage::new();
         let traditional_result = MitoVM::execute_direct(&traditional_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage_trad);
-        let mut storage_opt = StackStorage::new(&optimized_bytecode);
+        let mut storage_opt = StackStorage::new();
         let optimized_result = MitoVM::execute_direct(&optimized_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage_opt);
 
         match (traditional_result, optimized_result) {
@@ -367,50 +367,6 @@ mod performance_optimization_tests {
         }
     }
 
-    #[test]
-    fn test_register_optimization() {
-        // Compare stack vs register performance for repeated operations
-
-        // Stack-based calculation (slower)
-        let stack_bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, // 5IVE magic
-            0x1B, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(10)
-            0x1B, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(20)
-            0x20, // ADD
-            0x1B, 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(30)
-            0x22, // MUL
-            0x00, // HALT
-        ];
-
-        // Register-based calculation (faster)
-        let register_bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, // 5IVE magic
-            0xB2, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, // LOAD_REG_U64 reg0=10
-            0xB2, 0x01, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, // LOAD_REG_U64 reg1=20
-            0xB5, 0x02, 0x00, 0x01, // ADD_REG reg2 = reg0 + reg1
-            0xB2, 0x03, 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, // LOAD_REG_U64 reg3=30
-            0xB7, 0x04, 0x02, 0x03, // MUL_REG reg4 = reg2 * reg3
-            0xBC, 0x04, // PUSH_REG reg4
-            0x00, // HALT
-        ];
-
-        let mut storage_stack = StackStorage::new(&stack_bytecode);
-        let stack_result = MitoVM::execute_direct(&stack_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage_stack);
-        let mut storage_reg = StackStorage::new(&register_bytecode);
-        let register_result = MitoVM::execute_direct(&register_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage_reg);
-
-        match (stack_result, register_result) {
-            (Ok(Some(Value::U64(900))), Ok(Some(Value::U64(900)))) => {
-                println!("✅ Register optimization test passed");
-                println!("   Both approaches calculate (10+20)*30 = 900");
-                println!("   Register approach uses fewer stack operations");
-            }
-            _ => println!("ℹ️ Register optimization not fully implemented"),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -443,7 +399,7 @@ mod integration_coverage_tests {
             0x00, // HALT
         ];
 
-        let mut storage = StackStorage::new(&bytecode);
+        let mut storage = StackStorage::new();
         let result = MitoVM::execute_direct(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage);
         match result {
             Ok(value) => {
@@ -490,7 +446,6 @@ mod integration_coverage_tests {
         println!("      ⚠️ System Operations (0x80-0x8F): PDA, CPI, sysvars");
         println!("      ✅ Function Operations (0x90-0x9F): CALL, parameters, locals");
         println!("      ⚠️ Local Variables (0xA0-0xAF): Local and parameter management");
-        println!("      ⚠️ Register Operations (0xB0-0xBF): Hybrid VM registers");
         println!("      ⚠️ Test Framework (0xD8-0xDF): Testing and assertions");
         println!("      ✅ Pattern Fusion (0xE0-0xEF): V3 optimizations");
         println!("      ⚠️ Advanced Types (0xF0-0xFF): Result, Optional, tuples");

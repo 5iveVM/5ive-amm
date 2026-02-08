@@ -1,6 +1,4 @@
-//! Type identifier constants for bytecode generation
-//!
-//! Defines the authoritative type identifiers used in bytecode encoding
+//! Type identifier constants for bytecode generation.
 
 /// Type identifier for empty values
 pub const EMPTY: u8 = 0;
@@ -47,8 +45,7 @@ pub const ACCOUNT: u8 = 12;
 /// Type identifier for array references
 pub const ARRAY: u8 = 13;
 
-// ===== IMPORTABLE ACCOUNT FORMAT =====
-// Standard format for accounts containing importable Five bytecode
+// Importable account format.
 
 /// Magic bytes for importable Five accounts ("FIVE" in ASCII)
 pub const FIVE_IMPORT_MAGIC: [u8; 4] = [0x46, 0x49, 0x56, 0x45]; // "FIVE"
@@ -71,8 +68,7 @@ pub struct ImportableAccountHeader {
     pub bytecode_size: u32,
 }
 
-/// Function entry in the importable account function table
-/// Each entry is 16 bytes for efficient stack-based processing
+/// Function entry in the importable account function table.
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -107,7 +103,7 @@ pub mod function_flags {
     }
 }
 
-/// Simple FNV-1a hash for function names (stack-friendly, no heap allocation)
+/// FNV-1a hash for function names.
 pub const fn hash_function_name(name: &[u8]) -> u32 {
     const FNV_OFFSET_BASIS: u32 = 2166136261;
     const FNV_PRIME: u32 = 16777619;
@@ -123,7 +119,7 @@ pub const fn hash_function_name(name: &[u8]) -> u32 {
 }
 
 impl ImportableAccountHeader {
-    /// Create a new header with the given parameters
+    /// Create a new header with the given parameters.
     pub const fn new(
         function_count: u32,
         function_table_offset: u32,
@@ -139,7 +135,7 @@ impl ImportableAccountHeader {
         }
     }
 
-    /// Validate that this header has the correct magic bytes
+    /// Validate that this header has the correct magic bytes.
     pub const fn is_valid(&self) -> bool {
         self.magic[0] == FIVE_IMPORT_MAGIC[0]
             && self.magic[1] == FIVE_IMPORT_MAGIC[1]
@@ -149,7 +145,7 @@ impl ImportableAccountHeader {
 }
 
 impl ImportableFunctionEntry {
-    /// Create a new function entry
+    /// Create a new function entry.
     pub const fn new(name_hash: u32, bytecode_offset: u32, function_size: u32, flags: u32) -> Self {
         Self {
             name_hash,
@@ -159,12 +155,12 @@ impl ImportableFunctionEntry {
         }
     }
 
-    /// Check if function is public
+    /// Check if function is public.
     pub const fn is_public(&self) -> bool {
         (self.flags & function_flags::PUBLIC) != 0
     }
 
-    /// Get parameter count for this function
+    /// Get parameter count for this function.
     pub const fn param_count(&self) -> u8 {
         function_flags::param_count(self.flags)
     }

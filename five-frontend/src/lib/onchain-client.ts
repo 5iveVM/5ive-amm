@@ -106,8 +106,8 @@ export class OnChainClient {
 
     /**
      * Encodes the 'Execute' instruction data.
-     * Format: [discriminator(9), function_index(VLE), ...VLE_encoded_params]
-     * Note: "VLE_encoded_params" should usually include a VLE param count first.
+     * Format: [discriminator(9), function_index(u32), ...encoded_params]
+     * Note: "encoded_params" should usually include a param count first.
      */
     static encodeExecuteInstruction(
         functionIndex: number,
@@ -116,8 +116,8 @@ export class OnChainClient {
         const parts: Uint8Array[] = [];
         parts.push(new Uint8Array([9])); // Discriminator for 'Execute'
 
-        // Encode function index as VLE
-        parts.push(this.encodeVLE(functionIndex));
+        // Encode function index as fixed u32
+        parts.push(this.encodeU32(functionIndex));
 
         // Encoded params (pre-encoded by WASM module which includes count)
         parts.push(encodedParams);
@@ -134,19 +134,13 @@ export class OnChainClient {
     }
 
     /**
-     * Helper to encode a number as VLE (Variable Length Encoding)
+     * Helper to encode a number as fixed u32 (Little Endian)
      */
-    static encodeVLE(value: number): Uint8Array {
-        const bytes: number[] = [];
-        do {
-            let byte = value & 0x7f;
-            value >>>= 7;
-            if (value !== 0) {
-                byte |= 0x80;
-            }
-            bytes.push(byte);
-        } while (value !== 0);
-        return new Uint8Array(bytes);
+    static encodeU32(value: number): Uint8Array {
+        const buffer = new ArrayBuffer(4);
+        const view = new DataView(buffer);
+        view.setUint32(0, value, true); // Little-endian
+        return new Uint8Array(buffer);
     }
 
 

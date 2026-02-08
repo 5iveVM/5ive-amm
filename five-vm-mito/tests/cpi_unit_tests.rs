@@ -121,7 +121,7 @@ mod cpi_invoke_tests {
 
 #[cfg(test)]
 mod cpi_serialization_format_tests {
-    /// Test VLE encoding for small values
+    /// Test fixed-width encoding for small values
     #[test]
     fn test_vle_encoding_small_value() {
         // Values < 128 should encode as single byte
@@ -130,7 +130,7 @@ mod cpi_serialization_format_tests {
         assert!(encoded.len() <= 4, "Small value encodes compactly");
     }
 
-    /// Test VLE encoding for large values
+    /// Test fixed-width encoding for large values
     #[test]
     fn test_vle_encoding_large_value() {
         // Large values need multiple bytes
@@ -185,7 +185,7 @@ mod cpi_serialization_format_tests {
     #[test]
     fn test_borsh_discriminator_format() {
         let discriminator = 7u8;
-        assert!(discriminator <= 255, "Borsh discriminator is single byte");
+        assert_eq!(discriminator, 7, "Borsh discriminator is single byte");
     }
 
     /// Test Anchor 8-byte discriminator format

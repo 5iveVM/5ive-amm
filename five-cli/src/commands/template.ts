@@ -1,9 +1,4 @@
-/**
- * Five CLI Template Command
- *
- * Generate starter Five DSL (.v) templates for common patterns
- * like vaults, escrows, AMMs, fungible tokens, and NFTs.
- */
+// Generate starter Five DSL (.v) templates for common patterns.
 
 import { mkdir, writeFile, access, readFile } from 'fs/promises';
 import { join, resolve, dirname } from 'path';
@@ -385,7 +380,7 @@ init_pool(state: Pool @mut, fee_bps: u64) {
 }
 
 add_liquidity(state: Pool @mut, amount_a: u64, amount_b: u64) -> u64 {
-    // Simplified share calc for template
+    // Share calc for template
     let shares = amount_a;
     state.token_a = state.token_a + amount_a;
     state.token_b = state.token_b + amount_b;

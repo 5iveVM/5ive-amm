@@ -9,7 +9,7 @@ use pinocchio::pubkey::Pubkey;
 #[test]
 fn resolve_temp_ref_valid() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
 
     // Temp buffer size is 64 bytes (typically).
 
@@ -28,6 +28,10 @@ fn resolve_temp_ref_valid() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     ctx.temp_buffer_mut()[..serialized_len].copy_from_slice(&temp_buffer[..serialized_len]);
@@ -39,7 +43,7 @@ fn resolve_temp_ref_valid() {
 #[test]
 fn resolve_temp_ref_raw_bytes() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -47,6 +51,10 @@ fn resolve_temp_ref_raw_bytes() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -72,7 +80,7 @@ fn resolve_temp_ref_out_of_bounds() {
     let mut small_buffer = [0u8; 10];
 
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut heap_buffer = [0u8; 2048];
     let mut ctx = ExecutionContext::new(
         &[],
@@ -81,6 +89,10 @@ fn resolve_temp_ref_out_of_bounds() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -98,7 +110,7 @@ fn resolve_temp_ref_out_of_bounds() {
 #[test]
 fn resolve_tuple_ref() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -106,6 +118,10 @@ fn resolve_tuple_ref() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -118,7 +134,7 @@ fn resolve_tuple_ref() {
 #[test]
 fn resolve_optional_some() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -126,6 +142,10 @@ fn resolve_optional_some() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -146,7 +166,7 @@ fn resolve_optional_some() {
 #[test]
 fn resolve_optional_none() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -154,6 +174,10 @@ fn resolve_optional_none() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -168,7 +192,7 @@ fn resolve_optional_none() {
 #[test]
 fn resolve_optional_invalid_size() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -176,6 +200,10 @@ fn resolve_optional_invalid_size() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -193,7 +221,7 @@ fn resolve_optional_invalid_size() {
 #[test]
 fn resolve_result_ok() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -201,6 +229,10 @@ fn resolve_result_ok() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -220,7 +252,7 @@ fn resolve_result_ok() {
 #[test]
 fn resolve_recursion_limit() {
     let accounts: [AccountInfo; 0] = [];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -230,15 +262,14 @@ fn resolve_recursion_limit() {
         &mut storage,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
     );
 
     // Need 9 levels of TempRef to bust 8 limit.
-    // serialized TempRef is 1 byte tag + 1 byte offset + 1 byte size = 3 bytes! (because u8 offset/size)
-    // Wait, ValueRef::TempRef(u8, u8)
-    // serialize: [tag, u8, u8] = 3 bytes.
-
-    // Buffer size 64.
-    // 3 bytes per ref. 9 refs = 27 bytes. Fits easily.
+    // TempRef serializes to 3 bytes: [tag, u8 offset, u8 size].
 
     let mut offset = 0;
     let mut writer_buf = vec![0u8; 64];
@@ -300,7 +331,7 @@ fn resolve_account_ref_valid() {
         0,
     );
     let accounts = [account];
-    let mut storage = StackStorage::new(&[]);
+    let mut storage = StackStorage::new();
     let ctx = ExecutionContext::new(
         &[],
         &accounts,
@@ -308,6 +339,10 @@ fn resolve_account_ref_valid() {
         &[],
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );

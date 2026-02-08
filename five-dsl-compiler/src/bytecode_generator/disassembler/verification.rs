@@ -3,9 +3,8 @@
 //! This module provides verification utilities for compiled bytecode,
 //! specifically to detect invalid JUMP targets that can cause runtime errors.
 //!
-//! Deploy-time verification enables unchecked-execution mode where runtime
-//! bounds checks are skipped on bytecode access, assuming all bytecode was
-//! verified at deployment time.
+//! The primary use case is catching bytecode structure or patching bugs where
+//! JUMP offsets become invalid.
 
 use five_protocol::opcodes;
 
@@ -99,178 +98,313 @@ impl VerificationResult {
 ///
 /// # Returns
 /// A `VerificationResult` containing validation status and any errors found.
+///
+/// # Example
+/// ```ignore
+/// let result = verify_jump_targets(&bytecode);
+/// if !result.is_valid {
+///     eprintln!("{}", result.error_summary());
+/// }
+/// ```
 pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
     let mut errors = Vec::new();
     let mut jump_count = 0;
-    let mut offset = 0;
+    let bytecode_len = bytecode.len();
 
-    while offset < bytecode.len() {
-        let opcode = bytecode[offset];
-        let operand_size = get_operand_size(opcode, &bytecode[offset + 1..]);
-        let total_size = 1 + operand_size;
+    let (features, start_offset) = match five_protocol::parse_header(bytecode) {
+        Ok((header, start)) => (header.features, start),
+        Err(_) => (0, 0),
+    };
+    let pool_enabled = (features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+    let mut offset = start_offset;
 
-        // Check if instruction is complete
-        if offset + total_size > bytecode.len() {
-            break;
+    // If constant pool is enabled, cap scan length at the end of the code section
+    let mut scan_len = bytecode_len;
+    if pool_enabled {
+        let metadata_end = find_instructions_start(bytecode);
+        let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
+        if metadata_end + desc_size <= bytecode_len {
+            let base = metadata_end;
+            let pool_offset = u32::from_le_bytes([
+                bytecode[base],
+                bytecode[base + 1],
+                bytecode[base + 2],
+                bytecode[base + 3],
+            ]) as usize;
+            let string_blob_offset = u32::from_le_bytes([
+                bytecode[base + 4],
+                bytecode[base + 5],
+                bytecode[base + 6],
+                bytecode[base + 7],
+            ]) as usize;
+            let string_blob_len = u32::from_le_bytes([
+                bytecode[base + 8],
+                bytecode[base + 9],
+                bytecode[base + 10],
+                bytecode[base + 11],
+            ]) as usize;
+            let pool_slots = u16::from_le_bytes([bytecode[base + 12], bytecode[base + 13]]) as usize;
+            let code_offset = pool_offset + pool_slots * 8;
+            let code_end = if string_blob_len > 0 {
+                string_blob_offset
+            } else {
+                string_blob_offset.max(code_offset)
+            };
+            if code_end > 0 && code_end <= bytecode_len {
+                scan_len = code_end;
+            }
         }
+    }
+    
+    while offset < scan_len {
+        let opcode = bytecode[offset];
 
-        // Check JUMP instructions
-        if is_jump_instruction(opcode) {
-            jump_count += 1;
-            if let Some(target) = extract_target(opcode, bytecode, offset) {
-                let target_offset = target as usize;
-                if target_offset >= bytecode.len() {
+        match opcode {
+            // JUMP instructions use fixed u16 offset
+            opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT => {
+                jump_count += 1;
+                
+                // Need at least 2 more bytes for the u16 target
+                if offset + 2 >= scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: opcode_name(opcode),
+                        target: 0,
+                        reason: "Truncated: missing jump offset bytes".to_string(),
+                    });
+                    break;
+                }
+
+                // Read u16 target (little-endian)
+                let target = u16::from_le_bytes([bytecode[offset + 1], bytecode[offset + 2]]);
+
+                // Validate target is within bytecode bounds
+                if target as usize >= scan_len {
                     errors.push(VerificationError {
                         offset,
                         opcode,
                         opcode_name: opcode_name(opcode),
                         target,
                         reason: format!(
-                            "target {} is beyond bytecode end {}",
-                            target_offset, bytecode.len()
+                            "Out of bounds: target {} >= bytecode length {} ({}% overflow)",
+                            target,
+                            scan_len,
+                            (target as usize * 100) / scan_len
                         ),
                     });
                 }
+
+                offset += 3; // opcode + u16
+            }
+
+            // CALL instruction: param_count(u8) + function_address(u16 fixed)
+            opcodes::CALL => {
+                jump_count += 1;
+
+                if offset + 4 > scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: "CALL",
+                        target: 0,
+                        reason: "Truncated: missing CALL operands".to_string(),
+                    });
+                    break;
+                }
+
+                // Skip param_count (1 byte), read function_address (2 bytes, fixed u16)
+                let target = u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]);
+
+                if target as usize >= scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: "CALL",
+                        target,
+                        reason: format!(
+                            "Out of bounds: target {} >= bytecode length {} ({}% overflow)",
+                            target,
+                            scan_len,
+                            (target as usize * 100) / scan_len
+                        ),
+                    });
+                }
+
+                // Use call_size helper to properly skip the CALL with potential metadata
+                offset += super::call_decoder::call_size(bytecode, offset);
+            }
+
+
+            // BR_EQ_U8: compare_value(u8) + offset(u16)
+            opcodes::BR_EQ_U8 => {
+                // Opcode(1) + Val(1) + Offset(2) = 4
+                offset += 4;
+            }
+
+            // CALL_EXTERNAL: account_index(1) + offset(2) + param_count(1)
+            opcodes::CALL_EXTERNAL => {
+                offset += 5;
+            }
+
+            // Handle other opcodes - use get_operand_size
+            _ => {
+                offset += 1 + get_operand_size(opcode, bytecode.get(offset + 1..).unwrap_or(&[]), pool_enabled);
             }
         }
-
-        offset += total_size;
     }
 
-    VerificationResult::with_errors(errors, jump_count, bytecode.len())
+    VerificationResult::with_errors(errors, jump_count, bytecode_len)
 }
 
-fn is_jump_instruction(opcode: u8) -> bool {
-    matches!(
-        opcode,
-        opcodes::JUMP
-            | opcodes::JUMP_IF
-            | opcodes::JUMP_IF_NOT
-            | opcodes::EQ_ZERO_JUMP
-            | opcodes::GT_ZERO_JUMP
-            | opcodes::LT_ZERO_JUMP
-            | opcodes::CALL
-    )
-}
-
-fn extract_target(opcode: u8, bytecode: &[u8], offset: usize) -> Option<u16> {
-    match opcode {
-        opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT | opcodes::EQ_ZERO_JUMP
-        | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => {
-            // Fixed u16 little-endian encoding
-            if offset + 3 <= bytecode.len() {
-                Some(u16::from_le_bytes([bytecode[offset + 1], bytecode[offset + 2]]))
-            } else {
-                None
-            }
-        }
-        opcodes::CALL => {
-            // CallInternal: param_count(u8) + function_address(u16)
-            if offset + 3 <= bytecode.len() {
-                Some(u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]))
-            } else {
-                None
-            }
-        }
-        _ => None,
+/// Find where instructions start by skipping header and metadata
+/// (Same logic as BytecodeInspector::find_instructions_start)
+fn find_instructions_start(bytes: &[u8]) -> usize {
+    // Check for 5IVE magic at start (was STKS in older versions)
+    if bytes.len() < 10 || &bytes[0..4] != b"5IVE" {
+        // No header - raw bytecode starts at 0
+        return 0;
     }
+
+    // Check for FEATURE_FUNCTION_NAMES at offset [4..8]
+    let features = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
+
+    const FEATURE_FUNCTION_NAMES: u32 = 1 << 8;
+
+    let mut offset = 10; // After header
+
+    // If metadata is present, skip it
+    if (features & FEATURE_FUNCTION_NAMES) != 0 && offset < bytes.len() {
+        // Skip metadata section
+        // Format: [u16 section_size] [u8 name_count] [u8 name_len, bytes...]*
+        if offset + 2 <= bytes.len() {
+            let section_size = u16::from_le_bytes([bytes[offset], bytes[offset+1]]);
+            offset += 2 + section_size as usize;
+        }
+    }
+
+    offset.min(bytes.len())
 }
 
+/// Get human-readable opcode name
 fn opcode_name(opcode: u8) -> &'static str {
     match opcode {
         opcodes::JUMP => "JUMP",
         opcodes::JUMP_IF => "JUMP_IF",
         opcodes::JUMP_IF_NOT => "JUMP_IF_NOT",
-        opcodes::EQ_ZERO_JUMP => "EQ_ZERO_JUMP",
-        opcodes::GT_ZERO_JUMP => "GT_ZERO_JUMP",
-        opcodes::LT_ZERO_JUMP => "LT_ZERO_JUMP",
         opcodes::CALL => "CALL",
+        opcodes::BR_EQ_U8 => "BR_EQ_U8",
+        opcodes::CALL_EXTERNAL => "CALL_EXTERNAL",
         _ => "UNKNOWN",
     }
 }
 
-/// Get the size of operands for an opcode (not including opcode byte itself)
-fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
+/// Get operand size for an opcode
+fn get_operand_size(opcode: u8, _remaining: &[u8], pool_enabled: bool) -> usize {
     match opcode {
-        // No operand instructions
-        opcodes::HALT | opcodes::POP | opcodes::DUP | opcodes::SWAP | opcodes::ADD | opcodes::SUB
-        | opcodes::MUL | opcodes::DIV | opcodes::MOD | opcodes::EQ | opcodes::LT | opcodes::GT
-        | opcodes::AND | opcodes::OR | opcodes::NOT | opcodes::LOAD_GLOBAL
-        | opcodes::INVOKE | opcodes::INVOKE_SIGNED | opcodes::TRANSFER | opcodes::CHECK_OWNER
-        | opcodes::ALLOC_LOCALS | opcodes::DEALLOC_LOCALS
-        | opcodes::RETURN | opcodes::RETURN_ERROR | opcodes::RETURN_SUCCESS | opcodes::REQUIRE
-        | opcodes::CAST => 0,
-
-        // JUMP instructions: u16 offset (fixed)
-        opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT | opcodes::EQ_ZERO_JUMP
-        | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => 2,
-
-        // CALL: param_count(1) + address(2) = 3
-        opcodes::CALL => 3,
-
-        // Single byte operands (no nibble immediates)
-        opcodes::PUSH_0 | opcodes::PUSH_1 | opcodes::PUSH_2 | opcodes::PUSH_3
-        | opcodes::GET_LOCAL_0 | opcodes::GET_LOCAL_1 | opcodes::GET_LOCAL_2
-        | opcodes::GET_LOCAL_3 | opcodes::SET_LOCAL_0 | opcodes::SET_LOCAL_1
-        | opcodes::SET_LOCAL_2 | opcodes::SET_LOCAL_3 | opcodes::LOAD_PARAM_0
-        | opcodes::LOAD_PARAM_1 | opcodes::LOAD_PARAM_2 | opcodes::LOAD_PARAM_3 => 0,
+        // No operands
+        opcodes::HALT | opcodes::RETURN | opcodes::RETURN_VALUE |
+        opcodes::POP | opcodes::DUP | opcodes::DUP2 | opcodes::SWAP |
+        opcodes::ADD | opcodes::SUB | opcodes::MUL | opcodes::DIV | opcodes::MOD |
+        opcodes::EQ | opcodes::NEQ | opcodes::GT | opcodes::LT | opcodes::GTE | opcodes::LTE |
+        opcodes::AND | opcodes::OR | opcodes::NOT | opcodes::REQUIRE | opcodes::ASSERT |
+        opcodes::ADD_CHECKED | opcodes::SUB_CHECKED | opcodes::MUL_CHECKED |
+        opcodes::PUSH_ZERO | opcodes::PUSH_ONE | opcodes::PUSH_0 | opcodes::PUSH_1 |
+        opcodes::PUSH_2 | opcodes::PUSH_3 |
+        opcodes::GET_LOCAL_0 | opcodes::GET_LOCAL_1 | opcodes::GET_LOCAL_2 | opcodes::GET_LOCAL_3 |
+        opcodes::SET_LOCAL_0 | opcodes::SET_LOCAL_1 | opcodes::SET_LOCAL_2 | opcodes::SET_LOCAL_3 |
+        opcodes::LOAD_PARAM_0 | opcodes::LOAD_PARAM_1 | opcodes::LOAD_PARAM_2 | opcodes::LOAD_PARAM_3 => 0,
 
         // Single byte operands
-        opcodes::PUSH_U8 | opcodes::PUSH_BOOL | opcodes::CHECK_SIGNER | opcodes::CHECK_WRITABLE
-        | opcodes::CHECK_INITIALIZED | opcodes::CHECK_UNINITIALIZED | opcodes::SET_LOCAL
-        | opcodes::GET_LOCAL | opcodes::LOAD_PARAM | opcodes::STORE_PARAM | opcodes::CAST
-        | opcodes::CREATE_ARRAY | opcodes::PUSH_ARRAY_LITERAL
+        opcodes::PUSH_U8 | opcodes::PUSH_BOOL |
+        opcodes::CHECK_SIGNER | opcodes::CHECK_WRITABLE | opcodes::CHECK_INITIALIZED |
+        opcodes::CHECK_UNINITIALIZED |
+        opcodes::SET_LOCAL | opcodes::GET_LOCAL | opcodes::LOAD_PARAM | opcodes::STORE_PARAM |
+        opcodes::ALLOC_LOCALS | opcodes::DEALLOC_LOCALS |
+        opcodes::CAST |
+        opcodes::CREATE_ARRAY | opcodes::PUSH_ARRAY_LITERAL |
         // Account opcodes taking 1 byte account index
-        | opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT
-        | opcodes::GET_LAMPORTS | opcodes::SET_LAMPORTS | opcodes::GET_DATA | opcodes::GET_KEY
-        | opcodes::GET_OWNER
+        opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT | 
+        opcodes::GET_LAMPORTS | opcodes::SET_LAMPORTS | opcodes::GET_DATA | 
+        opcodes::GET_KEY | opcodes::GET_OWNER |
         // Fused: single byte operands
-        | opcodes::CHECK_SIGNER_WRITABLE
-        | opcodes::REQUIRE_PARAM_GT_ZERO => 1,
+        opcodes::CHECK_SIGNER_WRITABLE |  // acc(u8)
+        opcodes::REQUIRE_PARAM_GT_ZERO => 1, // param(u8)
+
+        // Constant pool indexed pushes (u8 index)
+        opcodes::PUSH_U16
+        | opcodes::PUSH_U32
+        | opcodes::PUSH_U64
+        | opcodes::PUSH_I64
+        | opcodes::PUSH_PUBKEY
+        | opcodes::PUSH_U128
+        | opcodes::PUSH_STRING if pool_enabled => 1,
+
+        // Constant pool wide pushes (u16 index)
+        opcodes::PUSH_U8_W
+        | opcodes::PUSH_U16_W
+        | opcodes::PUSH_U32_W
+        | opcodes::PUSH_U64_W
+        | opcodes::PUSH_I64_W
+        | opcodes::PUSH_BOOL_W
+        | opcodes::PUSH_PUBKEY_W
+        | opcodes::PUSH_U128_W
+        | opcodes::PUSH_STRING_W => 2,
 
         // Two byte operands
-        // (none in current protocol)
+        opcodes::REQUIRE_PARAM_LTE_IMM => 2, // param(u8) + imm(u8)
 
-        // VLE-encoded operands - need to parse VLE to know actual size
-        opcodes::PUSH_U16 => decode_vle_size(remaining, 2),
-        opcodes::PUSH_U32 => decode_vle_size(remaining, 4),
-        opcodes::PUSH_U64 | opcodes::PUSH_I64 => decode_vle_size(remaining, 9),
+        opcodes::PUSH_U16 => 2,
+        opcodes::PUSH_U32 => 4,
+        opcodes::PUSH_U64 | opcodes::PUSH_I64 => 8,
 
-        // LOAD_FIELD/STORE_FIELD: account_index(1) + field_offset(VLE)
+        // LOAD_FIELD/STORE_FIELD: account_index(1) + field_offset(4)
         opcodes::LOAD_FIELD | opcodes::STORE_FIELD | opcodes::LOAD_FIELD_PUBKEY => {
-            1 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4)
+            1 + 4
         }
 
-        // Fused opcodes with acc(u8) + offset(VLE) format
-        opcodes::REQUIRE_NOT_BOOL | opcodes::STORE_FIELD_ZERO => {
-            1 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4)
+        // Fused opcodes with acc(u8) + offset(u32) format
+        opcodes::REQUIRE_NOT_BOOL |  // acc(u8) offset(u32)
+        opcodes::STORE_FIELD_ZERO => {  // acc(u8) offset(u32)
+            1 + 4
         }
 
-        // Fused opcodes with acc(u8) + offset(VLE) + param/acc(u8) format
-        opcodes::REQUIRE_GTE_U64 | opcodes::FIELD_ADD_PARAM | opcodes::FIELD_SUB_PARAM
-        | opcodes::STORE_PARAM_TO_FIELD | opcodes::STORE_KEY_TO_FIELD => {
-            2 + decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4)
+        // Fused opcodes with acc(u8) + offset(u32) + param/acc(u8) format
+        opcodes::REQUIRE_GTE_U64 |     // acc(u8) offset(u32) param(u8)
+        opcodes::FIELD_ADD_PARAM |     // acc(u8) offset(u32) param(u8)
+        opcodes::FIELD_SUB_PARAM |     // acc(u8) offset(u32) param(u8)
+        opcodes::STORE_PARAM_TO_FIELD | // acc(u8) offset(u32) param(u8)
+        opcodes::STORE_KEY_TO_FIELD |  // acc(u8) offset(u32) key_acc(u8)
+        opcodes::REQUIRE_FIELD_EQ_IMM => { // acc(u8) offset(u32) imm(u8)
+            2 + 4
         }
 
-        // Fused opcodes with acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE) format
-        opcodes::REQUIRE_EQ_PUBKEY | opcodes::REQUIRE_EQ_FIELDS => {
-            let vle1_size = decode_vle_size(remaining.get(1..).unwrap_or(&[]), 4);
-            let vle2_size = decode_vle_size(remaining.get(2 + vle1_size..).unwrap_or(&[]), 4);
-            2 + vle1_size + vle2_size
+        // Fused opcodes with acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32) format
+        opcodes::REQUIRE_EQ_PUBKEY |   // acc1(u8) offset1(u32) acc2(u8) offset2(u32)
+        opcodes::REQUIRE_EQ_FIELDS => {  // acc1(u8) offset1(u32) acc2(u8) offset2(u32)
+            2 + 4 + 4
+        }
+        
+        // FusedSubAdd: acc1(u8) off1(u32) acc2(u8) off2(u32) param(u8)
+        opcodes::FIELD_SUB_ADD_PARAM => {
+            3 + 4 + 4
         }
 
         // PUSH_PUBKEY: 32 bytes
         opcodes::PUSH_PUBKEY => 32,
 
-        // PUSH_STRING: VLE length + string bytes
+        // PUSH_U128: 16 bytes
+        opcodes::PUSH_U128 => 16,
+
+        // PUSH_STRING: fixed u32 length + string bytes
         opcodes::PUSH_STRING => {
-            let vle_size = decode_vle_size(remaining, 4);
-            if vle_size > 0 && remaining.len() >= vle_size {
-                // Parse the VLE length
-                let (len, _) = decode_vle_value(&remaining[..vle_size]);
-                vle_size + len as usize
+            // Need to read the length.
+            // If remaining is short, return what we can or just length size
+            if _remaining.len() >= 4 {
+                let len = u32::from_le_bytes([_remaining[0], _remaining[1], _remaining[2], _remaining[3]]);
+                4 + len as usize
             } else {
-                1 // Fallback: just skip 1 byte
+                4 // At least 4 bytes for length
             }
         }
 
@@ -280,35 +414,6 @@ fn get_operand_size(opcode: u8, remaining: &[u8]) -> usize {
         // Default: assume no operands
         _ => 0,
     }
-}
-
-/// Decode VLE size from bytes (returns actual byte count used)
-fn decode_vle_size(bytes: &[u8], max_size: usize) -> usize {
-    let mut size = 0;
-    for (i, &b) in bytes.iter().take(max_size).enumerate() {
-        size = i + 1;
-        if b & 0x80 == 0 {
-            break;
-        }
-    }
-    size
-}
-
-/// Decode VLE value and return (value, bytes_consumed)
-fn decode_vle_value(bytes: &[u8]) -> (u64, usize) {
-    let mut value: u64 = 0;
-    let mut shift = 0;
-    for (i, &b) in bytes.iter().enumerate() {
-        value |= ((b & 0x7F) as u64) << shift;
-        if b & 0x80 == 0 {
-            return (value, i + 1);
-        }
-        shift += 7;
-        if shift > 63 {
-            break;
-        }
-    }
-    (value, bytes.len())
 }
 
 #[cfg(test)]

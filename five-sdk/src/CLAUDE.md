@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Five SDK** is a client-agnostic TypeScript SDK for Five VM scripts on Solana. It provides a **zero-dependency, pure serialization interface** for interacting with Five scripts without requiring any specific Solana client library. The SDK focuses on **compilation, parameter encoding, and instruction generation** while maintaining full compatibility with any Solana client implementation.
 
-This is a **production-ready SDK** with real Five VM integration, VLE (Variable Length Encoding) support, and comprehensive local WASM execution capabilities.
+This is a **production-ready SDK** with real Five VM integration, fixed-size encoding support, and comprehensive local WASM execution capabilities.
 
 ## Architecture
 
@@ -15,14 +15,14 @@ This is a **production-ready SDK** with real Five VM integration, VLE (Variable 
 - **Client-Agnostic**: Zero `@solana/web3.js` dependencies - works with any Solana client library
 - **Static Method Design**: Primary functionality exposed through static methods for easy integration  
 - **Real Compilation**: Uses actual WASM-based Five VM compiler, no placeholder implementations
-- **VLE Encoding**: Implements Variable Length Encoding for optimal instruction compression
+- **Fixed-Size Encoding**: Implements fixed-size Little Endian encoding for instruction parameters
 - **Local Execution**: Full WASM VM for local testing without blockchain connectivity
 
 ### Key Components
 
 - **`FiveSDK.ts`** - Main SDK class with static compilation and instruction generation methods
 - **`compiler/`** - Bytecode compilation using WASM infrastructure
-- **`encoding/`** - VLE parameter encoding and type coercion
+- **`encoding/`** - Parameter encoding and type coercion
 - **`crypto/`** - PDA utilities, Base58 handling, rent calculation
 - **`validation/`** - Input validation and error handling
 - **`testing/`** - Programmatic test runner for Five VM scripts
@@ -127,11 +127,11 @@ const instruction = {
 
 ## Key Features
 
-### VLE (Variable Length Encoding)
-- Function indices and parameters are VLE-encoded for optimal compression
+### Fixed-Size Encoding
+- Function indices and parameters are encoded using fixed-size Little Endian integers
 - Type coercion based on ABI information from compilation
 - Automatic parameter validation and encoding
-- Integration with existing VLE encoder infrastructure
+- Simplified decoding logic compared to VLE
 
 ### Test Runner Integration
 The SDK includes a programmatic test runner (`testing/TestRunner.ts`) that provides:
@@ -156,7 +156,7 @@ The SDK uses correct Five ecosystem terminology:
 
 ### Specialized Modules
 - **`compiler/BytecodeCompiler.ts`** - WASM-based compilation interface
-- **`encoding/ParameterEncoder.ts`** - VLE parameter encoding with type validation
+- **`encoding/ParameterEncoder.ts`** - Parameter encoding with type validation
 - **`crypto/index.ts`** - Cryptographic utilities for PDA and Base58 operations
 - **`validation/InputValidator.ts`** - Input validation with structured error reporting
 
@@ -214,11 +214,6 @@ const transaction = new Transaction().add({
 - **Local WASM execution**: Instant feedback, perfect for development and testing
 - **On-chain execution**: Real Solana environment with actual compute unit costs
 - Use local execution for rapid iteration, on-chain for final validation
-
-### VLE Encoding Benefits
-- Reduces instruction data size by 30-50% compared to standard encoding
-- Lower transaction costs on Solana
-- Faster transaction processing due to smaller data payloads
 
 ### Build Optimization
 - SDK compiles to ESNext modules for optimal tree-shaking

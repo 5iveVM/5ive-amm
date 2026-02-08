@@ -1,36 +1,11 @@
-//! Parameter Loading Utility Module
-//! 
-//! Centralizes parameter loading logic for Five VM function calls.
-//! This module ensures DRY principles by providing shared functionality
-//! for loading function parameters from input data into local variables.
+//! Parameter loading helpers.
 
 use crate::ast::InstructionParameter;
 use super::OpcodeEmitter;
 use five_vm_mito::error::VMError;
 use five_protocol::opcodes::*;
 
-/// Load function parameters from input data into local variable slots
-/// 
-/// This function emits the necessary opcodes to:
-/// 1. Load each parameter from the pre-parsed input data array
-/// 2. Store each parameter in the corresponding local variable slot
-/// 
-/// # Arguments
-/// * `emitter` - The opcode emitter for bytecode generation
-/// * `parameters` - Array of function parameters to load
-/// 
-/// # Opcode Sequence
-/// For each parameter at index N:
-/// - `LOAD_PARAM (index + 1)` - Load from input data (1-based indexing for VM compatibility)
-/// - `SET_LOCAL index` - Store in local variable slot (0-based for locals)
-/// 
-/// # Examples
-/// ```rust
-/// // For function: pub add(a: u64, b: u64) -> u64
-/// // Generates opcodes:
-/// // LOAD_PARAM 1, SET_LOCAL 0  (load 'a' parameter)
-/// // LOAD_PARAM 2, SET_LOCAL 1  (load 'b' parameter)
-/// ```
+/// Load function parameters into local slots.
 pub fn load_function_parameters<T: OpcodeEmitter>(
     emitter: &mut T, 
     parameters: &[InstructionParameter]
@@ -138,8 +113,62 @@ mod tests {
             }
         }
 
+        fn emit_bytes(&mut self, bytes: &[u8]) {
+            for b in bytes {
+                self.opcodes.push_back(*b);
+            }
+        }
+
         fn get_position(&self) -> usize {
             self.opcodes.len()
+        }
+
+        fn patch_u32(&mut self, position: usize, value: u32) {
+            let bytes = value.to_le_bytes();
+            let slice = self.opcodes.make_contiguous();
+            if position + 4 <= slice.len() {
+                slice[position..position + 4].copy_from_slice(&bytes);
+            }
+        }
+
+        fn patch_u16(&mut self, position: usize, value: u16) {
+            let bytes = value.to_le_bytes();
+            let slice = self.opcodes.make_contiguous();
+            if position + 2 <= slice.len() {
+                slice[position..position + 2].copy_from_slice(&bytes);
+            }
+        }
+
+        fn should_include_tests(&self) -> bool {
+            true
+        }
+
+        fn emit_const_u8(&mut self, _value: u8) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_u16(&mut self, _value: u16) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_u32(&mut self, _value: u32) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_u64(&mut self, _value: u64) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_i64(&mut self, _value: i64) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_bool(&mut self, _value: bool) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_u128(&mut self, _value: u128) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_pubkey(&mut self, _value: &[u8; 32]) -> Result<(), VMError> {
+            Ok(())
+        }
+        fn emit_const_string(&mut self, _value: &[u8]) -> Result<(), VMError> {
+            Ok(())
         }
     }
 

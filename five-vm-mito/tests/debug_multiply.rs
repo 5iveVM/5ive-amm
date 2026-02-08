@@ -3,7 +3,7 @@ use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackS
 #[test]
 fn test_multiply_debug() {
     // Test just multiply(4, 2) = 8
-    // Let's create a simple script that just calls multiply
+    // Create a simple script that calls multiply
     let simple_multiply_script = r#"
 script TestMultiply {
     multiply(a: u64, b: u64) -> u64 {
@@ -22,10 +22,9 @@ script TestMultiply {
         "script should not be empty"
     );
 
-    println!("🔍 Debug: Let's test if multiply operation works correctly");
+    println!("Debug: test multiply operation");
 
-    // For now, let's manually test the multiply operation
-    // This test will help us understand if the issue is with the multiply opcode
+    // Manually test the multiply opcode
 
     // Create a minimal bytecode for testing multiply
     // PUSH_U64(4), PUSH_U64(2), MUL, RETURN_VALUE
@@ -53,7 +52,7 @@ script TestMultiply {
     let input_data: &[u8] = &[];
     let accounts: &[AccountInfo] = &[];
 
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     match MitoVM::execute_direct(&bytecode, input_data, accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("✅ Multiply test executed successfully!");
@@ -101,7 +100,7 @@ fn test_add_debug() {
     let input_data: &[u8] = &[];
     let accounts: &[AccountInfo] = &[];
 
-    let mut storage = StackStorage::new(&bytecode);
+    let mut storage = StackStorage::new();
     match MitoVM::execute_direct(&bytecode, input_data, accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
         Ok(result) => {
             println!("✅ Add test executed successfully!");

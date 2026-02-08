@@ -1,12 +1,12 @@
 
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
-// Mock VLEEncoder to allow controlling success/failure
-const mockEncodeExecuteVLE = jest.fn();
+// Mock BytecodeEncoder
+const mockEncodeExecute = jest.fn();
 
-jest.unstable_mockModule('../../lib/vle-encoder.js', () => ({
-  VLEEncoder: {
-    encodeExecuteVLE: mockEncodeExecuteVLE
+jest.unstable_mockModule('../../lib/bytecode-encoder.js', () => ({
+  BytecodeEncoder: {
+    encodeExecute: mockEncodeExecute
   }
 }));
 
@@ -119,14 +119,23 @@ describe('ParameterEncoder', () => {
   });
 
   describe('encodeParameterData', () => {
-    it('should throw if VLE encoder fails (e.g. import failure)', async () => {
-      // In this environment, the dynamic import fails with SyntaxError due to import.meta.
-      // We verify that this error is propagated (wrapped) and not suppressed by a fallback.
+    it('should call BytecodeEncoder.encodeExecute', async () => {
+      mockEncodeExecute.mockResolvedValue(new Uint8Array([1, 2, 3]));
       const params = [10, true];
 
-      await expect(encoder.encodeParameterData(params))
-        .rejects
-        .toThrow(/VLE parameter encoding failed/);
+      const result = await encoder.encodeParameterData(params);
+
+      expect(mockEncodeExecute).toHaveBeenCalled();
+      expect(result).toEqual(Buffer.from([1, 2, 3]));
+    });
+
+    it('should throw if encoder fails', async () => {
+       mockEncodeExecute.mockRejectedValue(new Error("Encoder failed"));
+       const params = [10];
+
+       await expect(encoder.encodeParameterData(params))
+         .rejects
+         .toThrow(/Parameter encoding failed/);
     });
   });
 });

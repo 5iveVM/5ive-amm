@@ -12,24 +12,15 @@ fn map_parse_error(e: ParseError) -> ProgramError {
     match e {
         ParseError::HeaderTooShort => ProgramError::Custom(8102),
         ParseError::InvalidMagic => ProgramError::Custom(8003),
-        ParseError::InvalidFunctionCount => ProgramError::Custom(8103),
         ParseError::InstructionOutOfBounds => ProgramError::Custom(8130),
         ParseError::InvalidOpcode => ProgramError::Custom(8107), // Generic invalid opcode
         ParseError::CallTargetOutOfBounds => ProgramError::Custom(8122),
-        ParseError::InvalidVLE => ProgramError::Custom(8115),
+        ParseError::InvalidFunctionCount => ProgramError::Custom(8103),
         ParseError::BytecodeTooShort => ProgramError::Custom(8130),
     }
 }
 
-/// Verify bytecode content before deployment
-///
-/// **Deploy-Time Verification Strategy:**
-/// This function performs comprehensive verification of bytecode, enabling
-/// trust-based execution at runtime without re-verification:
-/// - Header format is valid (magic, features, counts)
-/// - All instructions are valid opcodes with proper bounds and arguments
-/// - CALL instructions target valid function indices
-/// - No incomplete instructions
+/// Verify bytecode content before deployment.
 pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     debug_log!("FIVE: verify_bytecode entry len={}", bytecode.len());
     // Validate bytecode size
@@ -49,7 +40,7 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
 
     debug_log!("FIVE: counts p={} t={}", header.public_function_count, header.total_function_count);
 
-    // CRITICAL: Validate that at least one public function exists (if functions exist)
+    // Validate that at least one public function exists (if functions exist)
     if header.total_function_count > 0 && header.public_function_count == 0 {
         debug_log!("FIVE: pub=0 but total>0");
         return Err(ProgramError::Custom(8104));
@@ -76,21 +67,24 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
 
                 // Additional Semantic Checks
 
-                // Check CALL target bounds
-                if inst.opcode == opcodes::CALL {
-                    // For CallInternal, arg1 is the function address (offset)
-                    let func_addr = inst.arg1 as usize;
-                    debug_log!("Checking CALL#{}: offset={} target={} bytecode_len={}", inst_count, offset, func_addr, bytecode.len());
-                    if func_addr >= bytecode.len() {
-                        debug_log!("ERROR CALL#{}: target {} >= len {}", inst_count, func_addr, bytecode.len());
-                        return Err(ProgramError::Custom(8122));
+                // Check CALL targets (Internal, External)
+                if matches!(inst.opcode, opcodes::CALL | opcodes::CALL_EXTERNAL) {
+                    // For CALL, arg1 is the function address (absolute offset)
+                    // For CALL_EXTERNAL, arg1 bits 0-23 contain the function offset in external script
+                    // We only validate internal targets here.
+                    if inst.opcode == opcodes::CALL {
+                        let func_addr = inst.arg1 as usize;
+                        // Log which CALL we're checking (use inst_count as unique ID)
+                        debug_log!("Checking CALL#{}: offset={} target={} bytecode_len={}", inst_count, offset, func_addr, bytecode.len());
+                        if func_addr >= bytecode.len() {
+                            debug_log!("ERROR CALL#{}: target {} >= len {}", inst_count, func_addr, bytecode.len());
+                            return Err(ProgramError::Custom(8122));
+                        }
                     }
                 }
 
-                // Check JUMP target bounds (CRITICAL for Unchecked Execution)
-                // When unchecked-execution is enabled, we skip runtime bounds checks on IP,
-                // so all JUMP targets MUST be validated at deploy time.
-                if matches!(inst.opcode,
+                // Check JUMP target bounds
+                if matches!(inst.opcode, 
                     opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT |
                     opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP
                 ) {

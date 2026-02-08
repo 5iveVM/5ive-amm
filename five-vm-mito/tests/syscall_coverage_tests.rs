@@ -4,7 +4,7 @@
 //! It focuses on syscalls that are not covered by other specific test suites, such as
 //! cryptographic operations and compute unit management.
 
-use five_protocol::{encoding::VLE, opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
+use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
 
 // Syscall IDs (must match five-vm-mito/src/handlers/syscalls.rs)
@@ -30,14 +30,13 @@ fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
 
 fn execute(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
     let script = build_script(build);
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
 fn push_string_buffer(script: &mut Vec<u8>, length: u32) {
     script.push(PUSH_STRING);
-    let (len_len, encoded_len) = VLE::encode_u64(length as u64);
-    script.extend_from_slice(&encoded_len[..len_len]);
+    script.extend_from_slice(&(length as u32).to_le_bytes());
     // Append zeros for the string content
     for _ in 0..length {
         script.push(0);
@@ -46,8 +45,7 @@ fn push_string_buffer(script: &mut Vec<u8>, length: u32) {
 
 fn push_u64_instr(script: &mut Vec<u8>, value: u64) {
     script.push(PUSH_U64);
-    let (len, encoded) = VLE::encode_u64(value);
-    script.extend_from_slice(&encoded[..len]);
+    script.extend_from_slice(&value.to_le_bytes());
 }
 
 #[test]
@@ -80,21 +78,7 @@ fn test_syscall_sha256() {
         script.push(CALL_NATIVE);
         script.push(SYSCALL_SHA256);
 
-        // 4. Return result (should be empty/success as we don't return the buffer content but the operation result which is void)
-        // Wait, syscalls return nothing (void). The result is written to buffer.
-        // So we just return Empty or the buffer ref?
-        // CALL_NATIVE pushes nothing back on stack?
-        // Let's check `handle_syscall_sha256`: it returns Ok(()).
-        // It pops args. It doesn't push anything.
-        // So stack is empty (or has leftover items).
-        // If we want to return the result buffer, we need to DUP it before calling?
-        // SHA256 pops: result, data.
-        // So we need: [Data, Result, Result] -> Call -> [Data, Result] (consumed) -> Stack empty?
-        // Stack before Call: [Data, Result].
-        // Call pops Result, Data. Stack empty.
-
-        // So if we want to return success, we can push something else or return Empty.
-        // We can just execute and expect Ok(None).
+        // 4. Return success; SHA256 writes into the result buffer and pushes nothing.
         // Or push a value and return it.
         script.push(PUSH_U8);
         script.push(1);

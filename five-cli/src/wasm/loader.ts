@@ -1,19 +1,7 @@
-/**
- * WASM Loader for Five VM
- * 
- * Simplified loader that uses the main wasm-pack generated entry point
- * for compatibility with nodejs target builds.
- */
+// WASM loader for Five VM.
 
-// Store the initialized module instance globally within this module's scope.
 let wasmModule: any = null;
 
-/**
- * Loads and initializes the Five VM WASM module.
- * Uses the main wasm-pack generated entry point.
- * 
- * @returns A promise that resolves with the initialized WASM module.
- */
 import { existsSync, readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';

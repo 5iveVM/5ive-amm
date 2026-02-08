@@ -1,11 +1,11 @@
 #![allow(unexpected_cfgs)]
-//! Ultra-Lightweight MitoVM for FIVE with Function Calls
+//! MitoVM for FIVE with function calls.
 //!
-//! This VM is optimized for Solana's stateless execution model using pure Pinocchio patterns:
+//! Optimized for Solana's stateless execution model:
 //! - Zero allocations during execution
 //! - Direct AccountInfo access
 //! - Stack-based execution with minimal function call support
-//! - Cold start optimized for sub-50 CU overhead
+//! - Cold start optimized for low CU overhead
 //! - Essential opcodes with function transport
 //!
 //! # Quick Start
@@ -28,7 +28,7 @@
 //! ];
 //!
 //! // Execute with no input data or accounts
-//! let mut storage = five_vm_mito::StackStorage::new(bytecode);
+//! let mut storage = five_vm_mito::StackStorage::new();
 //! let result = MitoVM::execute_direct(bytecode, &[], &[], &Pubkey::default(), &mut storage)?;
 //! assert_eq!(result, Some(Value::U64(15)));
 //! # Ok::<(), five_vm_mito::VMError>(())
@@ -54,11 +54,16 @@
 //! ];
 //!
 //! // Call with parameter: function 0, value 21
-//! // Input format: [func_index (VLE), param_count (VLE), param1 (VLE)...]
-//! let input_data = &[0x00, 0x01, 21]; // function index 0, 1 param, parameter value 21
+//! // Input format: [func_index (u32), param_count (u32), type_id (u8), param bytes...]
+//! let input_data = &[
+//!     0x00, 0x00, 0x00, 0x00, // function index 0
+//!     0x01, 0x00, 0x00, 0x00, // param count 1
+//!     0x04,                   // type_id = U64
+//!     21, 0, 0, 0, 0, 0, 0, 0, // u64 value 21
+//! ];
 //! let accounts = &[];
 //! let program_id = Pubkey::default();
-//! let mut storage = five_vm_mito::StackStorage::new(bytecode);
+//! let mut storage = five_vm_mito::StackStorage::new();
 //! let result = MitoVM::execute_direct(bytecode, input_data, accounts, &program_id, &mut storage)?;
 //! assert_eq!(result, Some(five_vm_mito::Value::U64(42)));
 //! # Ok::<(), five_vm_mito::VMError>(())
@@ -72,7 +77,7 @@ pub mod execution;
 pub mod handlers;
 pub mod lazy_validation;
 pub mod macros;
-pub mod metadata;  // NEW: Import verification metadata parser
+pub mod metadata;
 pub mod opcodes;
 pub mod resolution;
 pub mod stack;
@@ -83,7 +88,6 @@ pub mod utils;
 #[cfg(test)]
 mod tests;
 
-// Performance benchmarks
 #[cfg(test)]
 mod bench_lazy_validation;
 
@@ -105,42 +109,40 @@ pub use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubk
 
 pub use five_protocol::{FIVE_DEPLOY_MAGIC, FIVE_MAGIC};
 
-/// FIVE VM Program ID (placeholder - should match actual deployed program)
+/// FIVE VM Program ID (placeholder; should match actual deployed program).
 pub const FIVE_VM_PROGRAM_ID: [u8; 32] = [
     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
     0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
 ];
 
-/// Enhanced stack size for function calls (reduced to fix SBF stack overflow)
-/// Enhanced stack size for function calls (reduced to fix SBF stack overflow)
+/// Stack size for function calls (reduced to fix SBF stack overflow).
 pub const STACK_SIZE: usize = 32;
 
-/// Enhanced local variables per script
-/// Maximum number of local variables allowed globally
-/// Reduced to 32 to fit within SBF 4KB stack limit (was 32, caused overflow with 32-byte ValueRef)
+/// Maximum number of local variables allowed globally.
+/// Reduced to 32 to fit within the SBF 4KB stack limit.
 pub const MAX_LOCALS: usize = 32;
 
 /// Maximum function parameters (limited by parameter array size)
 pub const MAX_PARAMETERS: usize = 12;
 
-/// Maximum script size in bytes
+/// Maximum script size in bytes.
 pub const MAX_SCRIPT_SIZE: usize = 10_000;
 
-/// Function call stack depth (minimal for stack limits)
+/// Function call stack depth (bounded by stack limits).
 // Allow deeper nested calls (language-basics nested-calls-4-levels requires at least 5 frames).
 pub const MAX_CALL_DEPTH: usize = 8;
 
-/// Temporary buffer size for byte operations (heap-backed in context)
+/// Temporary buffer size for byte operations (heap-backed in context).
 pub const TEMP_BUFFER_SIZE: usize = five_protocol::TEMP_BUFFER_SIZE; // default 512
 
 pub use five_protocol::*;
 
 /// Legacy enhanced opcodes module for compatibility.
 pub mod enhanced_opcodes {
-    // Re-export all opcodes from function transport
+    // Re-export all opcodes from function transport.
     pub use five_protocol::*;
 
-    // Alias for function return compatibility
+    // Alias for function return compatibility.
     pub use five_protocol::opcodes::RETURN as RET;
 }
 
@@ -153,13 +155,16 @@ macro_rules! debug_log {
 
 #[cfg(not(feature = "debug-logs"))]
 macro_rules! debug_log {
-    ($($arg:tt)*) => {}
+    ($($arg:tt)*) => {
+        let _ = format_args!($($arg)*);
+    }
 }
 
 pub(crate) use debug_log;
 
 macro_rules! error_log {
     ($($arg:tt)*) => {
+        let _ = format_args!($($arg)*);
         #[cfg(target_os = "solana")]
         unsafe {
             #[cfg(feature = "debug-logs")]

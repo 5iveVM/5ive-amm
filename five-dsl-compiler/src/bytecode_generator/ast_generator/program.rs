@@ -1,7 +1,4 @@
-//! Program generation logic
-//!
-//! Handles high-level program structure generation including imports,
-//! field definitions, interfaces, init blocks, and function ordering.
+//! Program generation logic.
 
 use super::types::ASTGenerator;
 use super::super::OpcodeEmitter;

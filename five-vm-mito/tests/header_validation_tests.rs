@@ -20,7 +20,7 @@ fn valid_header_executes() {
             .unwrap();
     });
 
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap();
     assert_eq!(result, Some(Value::U64(42)));
 }
@@ -36,7 +36,7 @@ fn invalid_magic_fails() {
     });
     script[0..4].copy_from_slice(b"FAKE");
 
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let err = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap_err();
     assert!(matches!(err, VMError::InvalidScript));
 }
@@ -58,7 +58,7 @@ fn public_count_exceeds_total_fails() {
     script[8] = 3; // public count (at index 8 in V3 header)
     script[9] = 1; // total count (at index 9 in V3 header)
 
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let err = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap_err();
     assert!(matches!(err, VMError::InvalidScript));
 }
@@ -74,7 +74,7 @@ fn total_count_too_large_fails() {
     });
     script[9] = 250; // too many functions for empty body (at index 9 in V3 header)
 
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let err = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap_err();
     assert!(matches!(err, VMError::InvalidScript));
 }

@@ -1,4 +1,4 @@
-use five_vm_mito::{ExecutionContext, FIVE_VM_PROGRAM_ID, StackStorage, ValueRef};
+use five_vm_mito::{ExecutionContext, StackStorage, ValueRef};
 use pinocchio::account_info::AccountInfo;
 use pinocchio::pubkey::Pubkey;
 
@@ -29,7 +29,7 @@ fn test_temp_value_roundtrip_all_variants() {
     ];
 
     for v in variants.iter() {
-        let mut storage = StackStorage::new(bytecode);
+        let mut storage = StackStorage::new();
         let mut ctx = ExecutionContext::new(
             bytecode,
             accounts,
@@ -39,6 +39,10 @@ fn test_temp_value_roundtrip_all_variants() {
             &mut storage,
             0,
             0,
+        0,
+        0,
+        0,
+        0,
         );
         let offset = ctx.write_value_to_temp(v).expect("write to temp");
         let decoded = ctx.read_value_from_temp(offset).expect("read from temp");

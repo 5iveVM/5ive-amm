@@ -39,12 +39,6 @@ fn register_bytecode_templates(manager: &mut TemplateManager) {
 
     manager.register(stack_overflow_template);
 
-    // Register allocation error
-    manager.register(SimpleTemplate::new(
-        "register_allocation_failed",
-        "register allocation failed for expression\n\nNote: Five VM ran out of available registers\nhelp: try simplifying the expression or using fewer intermediate values\n\nTip: Five VM has 32 registers available for complex calculations".to_string(),
-    ));
-
     // Bytecode size limit
     manager.register(SimpleTemplate::new(
         "bytecode_size_limit",

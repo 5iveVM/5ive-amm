@@ -20,10 +20,7 @@ use super::{
     require_min_accounts,
 };
 
-/// Execute a script with optional pre/post bytecode hooks
-///
-/// **Pre-Execution Hook** (PERMISSION_PRE_BYTECODE).
-/// **Post-Execution Hook** (PERMISSION_POST_BYTECODE).
+/// Execute a script with optional pre/post bytecode hooks.
 pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> ProgramResult {
     #[cfg(feature = "debug-logs")]
     debug_log!("DEBUG: execute ENTRY");
@@ -111,33 +108,32 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     #[cfg(feature = "debug-logs")]
     debug_log!("DEBUG: bytecode slice PASS len={}", bytecode.len());
 
-    // Allocate VM Storage on heap (zero syscall overhead, no ELF symbol issues)
-    let mut storage = StackStorage::new_on_heap(bytecode);
-    unsafe {
-        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage) {
+    // Initialize VM Storage using optimized heap allocation
+    // Uses new_on_heap() which constructs directly in heap memory to avoid stack overflow
+    let mut storage = StackStorage::new_on_heap();
+    if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage) {
+        #[cfg(feature = "debug-logs")]
+        debug_log!(
+            "MitoVM MAIN execution failed code={}",
+            VMErrorCode::from(vm_error.clone()).message()
+        );
+        return Err(vm_error.to_program_error());
+    }
+
+    // Run post-execution hook if permission is set
+    if has_permission(header.permissions, PERMISSION_POST_BYTECODE) {
+        debug_log!("Running POST-BYTECODE hook");
+
+        // Allocate new optimized heap storage for retry
+        let mut storage_retry = StackStorage::new_on_heap();
+
+        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage_retry) {
             #[cfg(feature = "debug-logs")]
             debug_log!(
-                "MitoVM MAIN execution failed code={}",
+                "MitoVM POST hook failed code={}",
                 VMErrorCode::from(vm_error.clone()).message()
             );
             return Err(vm_error.to_program_error());
-        }
-
-        // Run post-execution hook if permission is set
-        if has_permission(header.permissions, PERMISSION_POST_BYTECODE) {
-            debug_log!("Running POST-BYTECODE hook");
-
-            // Allocate new optimized heap storage for retry
-            let mut storage_retry = StackStorage::new_on_heap(bytecode);
-
-            if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage_retry) {
-                #[cfg(feature = "debug-logs")]
-                debug_log!(
-                    "MitoVM POST hook failed code={}",
-                    VMErrorCode::from(vm_error.clone()).message()
-                );
-                return Err(vm_error.to_program_error());
-            }
         }
     }
 

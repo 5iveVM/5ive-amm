@@ -86,7 +86,6 @@ pub enum InstructionCategory {
     System,
     Function,
     Local,
-    Register,
     Test,
     PatternFusion,
     Advanced,

@@ -98,9 +98,7 @@ export class AccountResolver {
           if (refAddr) {
             seeds.push(refAddr);
           } else {
-            // Dependency missing, cannot resolve yet
-            // Maybe it's a seed that depends on another PDA?
-            // For now, simple single-pass resolution
+            // Dependency missing; single-pass resolution only.
             canResolve = false;
             break;
           }

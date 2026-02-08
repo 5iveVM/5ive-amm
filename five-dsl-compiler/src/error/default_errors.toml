@@ -186,14 +186,6 @@ description = "Expression too complex for code generation"
 template = "stack overflow during code generation"
 help = "Try breaking complex expressions into smaller parts"
 
-[errors.E3001]
-title = "register allocation failed" 
-category = "codegen"
-severity = "error"
-description = "Ran out of available registers"
-template = "register allocation failed for expression" 
-help = "Simplify the expression or use fewer intermediate values"
-
 [errors.E3002]
 title = "bytecode size limit exceeded"
 category = "codegen"

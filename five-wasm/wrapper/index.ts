@@ -471,7 +471,7 @@ export class BundleAnalyzer {
         gzippedEstimate: number;
     }> {
         // This would need to be implemented with actual bundle analysis
-        // For now, return placeholder values
+        // Return placeholder values
         return {
             wasmSize: 0,
             jsSize: 0,

@@ -19,7 +19,7 @@ pub fn handle_syscall_invoke_signed_c(_ctx: &mut ExecutionManager) -> CompactRes
 
     // instruction_addr, account_infos_addr, account_infos_len, signers_seeds_addr, signers_seeds_len
 
-    // For now, we stub this as it's rarely used directly (use VM opcodes instead).
+    // Stubbed: use VM opcodes instead.
     debug_log!("SYSCALL_INVOKE_SIGNED_C not supported directly");
     Err(VMErrorCode::InvalidOperation)
 }

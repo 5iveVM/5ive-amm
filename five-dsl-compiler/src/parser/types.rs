@@ -186,18 +186,22 @@ pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
                 parser.advance(); // consume '<'
                 let mut args = Vec::new();
 
-                while !matches!(parser.current_token, Token::GT)
-                    && !matches!(parser.current_token, Token::Eof)
-                {
+                loop {
+                    parser.split_generic_closer();
+                    if matches!(parser.current_token, Token::GT)
+                        || matches!(parser.current_token, Token::Eof)
+                    {
+                        break;
+                    }
+
                     args.push(parse_type(parser)?);
 
                     if matches!(parser.current_token, Token::Comma) {
                         parser.advance(); // consume ','
-                    } else {
-                        break;
                     }
                 }
 
+                parser.split_generic_closer();
                 if !matches!(parser.current_token, Token::GT) {
                     return Err(parser.parse_error("'>' to end generic type"));
                 }

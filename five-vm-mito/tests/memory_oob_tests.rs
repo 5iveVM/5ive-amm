@@ -2,7 +2,7 @@ use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Pubkey, VMError, stack::StackStorage, Value};
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 use solana_sdk::system_program;
@@ -48,11 +48,11 @@ fn load_field_out_of_bounds() {
     let account = create_account(4); // Less than 8 bytes
     let accounts = [account];
 
-    // Bytecode: LOAD_FIELD account_index=0 offset=32 (VLE encoded); HALT
-    // Protocol V3 format: LOAD_FIELD account_index_u8, offset_vle
+    // Bytecode: LOAD_FIELD account_index=0 offset=32 (fixed-width); HALT
+    // Protocol V3 format: LOAD_FIELD account_index_u8, offset_u32
     let mut body = vec![LOAD_FIELD];
     body.push(0); // account_index = 0
-    body.push(32); // VLE-encoded offset (32 fits in 1 byte for VLE)
+    body.extend_from_slice(&32u32.to_le_bytes()); // Fixed size offset
     body.push(HALT);
     let bytecode = build_script(&body);
 

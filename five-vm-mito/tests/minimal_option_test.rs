@@ -1,7 +1,7 @@
 //! Minimal Option/Result test avoiding function handler issues
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{ExecutionContext, FIVE_VM_PROGRAM_ID, StackStorage, ValueRef};
+use five_vm_mito::{ExecutionContext, StackStorage, ValueRef};
 use pinocchio::pubkey::Pubkey;
 
 #[test]
@@ -77,7 +77,7 @@ fn test_execution_context_temp_buffer_methods() {
     let program_id = Pubkey::default();
     let instruction_data = &[];
 
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         bytecode,
         accounts,
@@ -85,6 +85,10 @@ fn test_execution_context_temp_buffer_methods() {
         instruction_data,
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -129,7 +133,7 @@ fn test_temp_buffer_exhaustion() {
     let program_id = Pubkey::default();
     let instruction_data = &[];
 
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         bytecode,
         accounts,
@@ -137,6 +141,10 @@ fn test_temp_buffer_exhaustion() {
         instruction_data,
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );
@@ -175,7 +183,7 @@ fn test_temp_buffer_reset_allows_reuse() {
     let program_id = Pubkey::default();
     let instruction_data = &[];
 
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     let mut ctx = ExecutionContext::new(
         bytecode,
         accounts,
@@ -183,6 +191,10 @@ fn test_temp_buffer_reset_allows_reuse() {
         instruction_data,
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );

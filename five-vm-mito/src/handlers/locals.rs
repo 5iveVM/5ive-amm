@@ -1,8 +1,4 @@
-//! Local variable operations handler for MitoVM
-//!
-//! This module handles local variable operations including ALLOC_LOCALS,
-//! DEALLOC_LOCALS, SET_LOCAL, GET_LOCAL, CLEAR_LOCAL, LOAD_PARAM, and STORE_PARAM.
-//! It manages local variable storage and parameter access.
+//! Local variable operations handler for MitoVM.
 
 use crate::{
     context::ExecutionManager,
@@ -13,9 +9,8 @@ use crate::{
 };
 use five_protocol::{opcodes::*, ValueRef};
 
-/// Handle nibble immediate operations (0xD0-0xDF)
-/// 🎯 BPF OPTIMIZATION: Single-byte encoding for common operations
-/// Covers locals (0xD0-0xD7), constants (0xD8-0xDB), and parameters (0xDC-0xDF)
+/// Handle nibble immediate operations (0xD0-0xDF).
+/// Covers locals (0xD0-0xD7), constants (0xD8-0xDB), and parameters (0xDC-0xDF).
 #[inline(always)]
 pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
@@ -40,15 +35,17 @@ pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
         LOAD_PARAM_0..=LOAD_PARAM_3 => {
             let index = opcode - LOAD_PARAM_0;
             let value = ctx.parameters()[index as usize];
-            let val_u64 = value.as_u64().unwrap_or(999);
-            // EXFILTRATE DATA: Return custom error with value + (index << 16)
-            // Error code = (index * 10000) + val_u64
-            // e.g. Index 1, Val 6 -> 10006
+            
             if value.is_empty() {
-                ctx.push(ValueRef::U64(0))?;
-            } else {
-                ctx.push(value)?;
+                // Parameters must be initialized; returning 0 hides bugs.
+                debug_log!(
+                    "MitoVM: LOAD_PARAM_{} ERROR - parameter is empty/uninitialized",
+                    index
+                );
+                return Err(VMErrorCode::InvalidParameter);
             }
+            
+            ctx.push(value)?;
         }
         _ => {
             debug_log!("MitoVM: Unknown nibble immediate opcode: {}", opcode);
@@ -58,8 +55,7 @@ pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
     Ok(())
 }
 
-/// Handle local variable operations (0xA0-0xAF)
-/// 🎯 LOGICAL REORGANIZATION: Locals moved from 0x90 to 0xA0
+/// Handle local variable operations (0xA0-0xAF).
 #[inline(always)]
 pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
@@ -121,11 +117,8 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
         }
         LOAD_PARAM => {
             let compiler_param_index = ctx.fetch_byte()?;
-                // "MitoVM: LOAD_PARAM compiler requested parameter index: {}",
-                // compiler_param_index
-            // );
 
-            // SIMPLE TRUTH: VLE stores [0]=func_idx, [1]=param1, [2]=param2
+            // Parameters are stored as: [0]=func_idx, [1]=param1, [2]=param2
             // LOAD_PARAM 1 should get params[1], LOAD_PARAM 2 should get params[2]
             // NO OFFSET needed - direct mapping
             if compiler_param_index == 0 {
@@ -134,11 +127,6 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             }
 
             let actual_param_index = compiler_param_index as usize; 
-                // "MitoVM: LOAD_PARAM idx {} -> storage idx {} (param_len: {})",
-                // compiler_param_index,
-                // actual_param_index as u32,
-                // ctx.param_len as u32
-            // );
 
             // Validate translated parameter index bounds against actual parameter count
             if actual_param_index > ctx.param_len() as usize {
@@ -174,7 +162,6 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 _ => debug_log!("LOAD_PARAM {} = unknown", compiler_param_index),
             }
 
-                      // actual_param_index as u32, ctx.size() as u32);
         }
         STORE_PARAM => {
             let param_index = ctx.fetch_byte()? as u32;

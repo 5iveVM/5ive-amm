@@ -1,19 +1,6 @@
-/// CRITICAL: Test demonstrating constraint enforcement gap in CALL_EXTERNAL
-///
-/// This test exposes a real security issue:
-/// When CALL_EXTERNAL invokes a public function from external bytecode,
-/// the external function's constraint checks may not be executed properly
-/// because:
-///
-/// 1. The external function's bytecode includes CHECK_* opcodes at the function offset
-/// 2. These checks reference account indices (0, 1, 2, etc.)
-/// 3. But CALL_EXTERNAL doesn't validate that these indices refer to the
-///    accounts the EXTERNAL function expects - it just uses whatever accounts
-///    are in the accounts array
-///
-/// PROBLEM: The constraint checks execute, but they might be checking
-/// the WRONG accounts because there's no guarantee the accounts passed to
-/// CALL_EXTERNAL are in the same order as the external function expects!
+/// Test demonstrating a constraint enforcement gap in CALL_EXTERNAL.
+/// Constraint checks may reference the wrong accounts if indices don't match
+/// the external function's expected account order.
 
 #[cfg(test)]
 mod call_external_constraint_bug_tests {

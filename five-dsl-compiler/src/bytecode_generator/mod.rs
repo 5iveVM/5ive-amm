@@ -1,65 +1,36 @@
-// Bytecode Generator Module
-//
-// Modular bytecode generation system for the FIVE DSL compiler.
-// This module breaks down the previously monolithic bytecode_generator.rs
-// into focused, maintainable components.
-
-// Core type definitions and data structures
 pub mod types;
 
-// Bytecode opcode utilities and emission functions
 pub mod opcodes;
 
-// ABI generation for client-side integration
 pub mod abi_generator;
 
-// Constraint optimization for account validation
-
-
-// Scope analysis for local variable optimization
 pub mod scope_analyzer;
 
-// AST processing and bytecode generation
 pub mod ast_generator;
 
-// Constraint enforcement for account validation
 pub mod constraint_enforcer;
 
-// Account system for account definitions and field access
 pub mod account_system;
 
-// Unified account utilities for consistent account type detection
 pub mod account_utils;
 
-// Function dispatch for O(1) function routing
 pub mod function_dispatch;
 
-// Import table for Five bytecode imports verification
 pub mod import_table;
 
-// Advanced bytecode analysis and disassembly
 pub mod bytecode_analyzer;
 
-// Disassembler & diagnostic utilities for bytecode (shared with tests)
 pub mod disassembler;
 
-// Compression and size optimization
-pub mod compression;
-
-// Performance and runtime optimization
 pub mod performance;
 
-// Module merging for multi-file compilation
 pub mod module_merger;
 
-// Account indices in bytecode are offset by VM state account.
-// Script account is stripped by five-solana (&accounts[1..]).
-// VM View: Index 0=VM State, 1=param0, 2=param1
-// Formula: account_index = param_index + ACCOUNT_INDEX_OFFSET
-// CRITICAL: Must be 1 (see tests/test_account_index_offset.rs)
+pub mod constant_pool;
+
+// Account indices are offset by the VM state account (see tests/test_account_index_offset.rs).
 pub const ACCOUNT_INDEX_OFFSET: u8 = 1;
 
-// CALL opcode emission and patching (public for testing)
 pub mod call;
 mod header;
 mod labels;
@@ -72,14 +43,14 @@ pub use abi_generator::*;
 pub use account_system::*;
 pub use account_utils::*;
 pub use ast_generator::*;
-pub use bytecode_analyzer::*;
+pub use bytecode_analyzer::AdvancedBytecodeAnalyzer;
 pub use call::*;
-pub use compression::*;
+// pub use compression::*;
 
-pub use disassembler::*;
 pub use function_dispatch::*;
 pub use import_table::*;
 pub use module_merger::*;
+pub use constant_pool::*;
 pub use opcodes::*;
 pub use performance::*;
 pub use scope_analyzer::*;
@@ -89,56 +60,50 @@ use crate::ast::AstNode;
 use crate::compiler::CompilationMode;
 use five_vm_mito::error::VMError;
 
-/// Main bytecode generator that orchestrates the compilation process
-/// This is the simplified version that delegates to specialized modules
+/// Main bytecode generator.
 pub struct DslBytecodeGenerator {
-    /// Core bytecode being generated
     bytecode: Vec<u8>,
 
-    /// Current bytecode position for relative jumps
+    header_bytes: Vec<u8>,
+
+    metadata_bytes: Vec<u8>,
+
+    import_metadata_bytes: Vec<u8>,
+
+    header_features: u32,
+
     position: usize,
 
-    /// Function dispatch table for multi-function scripts
     pub(crate) functions: Vec<types::FunctionInfo>,
 
-    /// Symbol table for variable and field resolution
     symbol_table: std::collections::HashMap<String, types::FieldInfo>,
 
-    /// Account type registry for account-related operations
     account_registry: types::AccountRegistry,
 
-    /// Whether to generate function dispatcher
     #[allow(dead_code)]
     generate_dispatcher: bool,
 
-    /// Field counter for symbol table management
     field_counter: u32,
 
-    /// Compilation mode (testing vs deployment)
     compilation_mode: CompilationMode,
 
-    /// Compression optimization flags
-    enable_vle_encoding: bool,
     enable_compact_fields: bool,
     enable_instruction_compression: bool,
 
-    /// V2 preview mode for advanced optimizations
     v2_preview: bool,
 
-    /// Optimization level for pattern fusion and advanced optimizations
     optimization_level: crate::compiler::OptimizationLevel,
 
-    /// Interface registry for cross-program invocation support
     interface_registry: Option<crate::interface_registry::InterfaceRegistry>,
 
-    /// Real-time compilation log tracking bytecode generation
     compilation_log: Vec<String>,
 
-    /// Whether to capture diagnostic errors to compilation_log (vs stderr)
     debug_on_error: bool,
 
-    /// Whether to include debug info (function metadata) in bytecode
     pub(crate) include_debug_info: bool,
+
+    constant_pool: constant_pool::ConstantPoolBuilder,
+
 }
 
 impl DslBytecodeGenerator {
@@ -155,6 +120,10 @@ impl DslBytecodeGenerator {
 
         Self {
             bytecode: Vec::new(),
+            header_bytes: Vec::new(),
+            metadata_bytes: Vec::new(),
+            import_metadata_bytes: Vec::new(),
+            header_features: 0,
             position: 0,
             functions: Vec::new(),
             symbol_table: std::collections::HashMap::new(),
@@ -164,7 +133,6 @@ impl DslBytecodeGenerator {
             compilation_mode: mode,
 
             // Enable all compression optimizations by default
-            enable_vle_encoding: true,
             enable_compact_fields: true,
             enable_instruction_compression: true,
 
@@ -186,6 +154,8 @@ impl DslBytecodeGenerator {
 
             // Default: include debug info in testing mode
             include_debug_info: matches!(mode, CompilationMode::Testing),
+
+            constant_pool: constant_pool::ConstantPoolBuilder::new(),
         }
     }
 
@@ -209,7 +179,6 @@ impl DslBytecodeGenerator {
         // Configure v2-preview features
         if config.v2_preview {
             // Enable v2-preview optimizations
-            generator.enable_vle_encoding = true;
             generator.enable_compact_fields = true;
             generator.enable_instruction_compression = true;
             generator.v2_preview = true; // Enable v2-preview mode
@@ -226,7 +195,6 @@ impl DslBytecodeGenerator {
         generator.optimization_level = config.optimization_level;
 
         // Production pipeline enforces all advanced optimizations
-        generator.enable_vle_encoding = true;
         generator.enable_compact_fields = true;
         generator.enable_instruction_compression = true;
         generator.v2_preview = true;
@@ -261,11 +229,11 @@ impl DslBytecodeGenerator {
 
         // Serialize the import table and emit as raw bytes
         let serialized = import_table.serialize();
-        self.emit_bytes(&serialized);
+        self.import_metadata_bytes = serialized;
 
         println!(
             "DEBUG: Emitted import verification metadata ({} bytes)",
-            serialized.len()
+            self.import_metadata_bytes.len()
         );
 
         Ok(())
@@ -273,7 +241,7 @@ impl DslBytecodeGenerator {
 
     /// Emit function name metadata section for public functions
     pub fn emit_function_name_metadata(&mut self) -> Result<(), String> {
-        use five_protocol::{FunctionNameEntry, VLE};
+        use five_protocol::FunctionNameEntry;
 
         // Collect public functions with their indices
         let public_functions = self
@@ -304,28 +272,26 @@ impl DslBytecodeGenerator {
 
         let section_size_u16 = section_size as u16;
 
-        // Emit section_size as VLE u16
-        let (size_bytes, bytes) = VLE::encode_u16(section_size_u16);
-        self.emit_bytes(&bytes[..size_bytes]);
+        let mut out = Vec::new();
+
+        // Emit section_size as fixed u16
+        out.extend_from_slice(&section_size_u16.to_le_bytes());
 
         // Emit name_count as raw u8 (max 255 entries)
         let name_count_u8 = names.len() as u8;
-        let (size, bytes) = VLE::encode_u8(name_count_u8);
-        self.emit_bytes(&bytes[..size]);
+        out.push(name_count_u8);
 
         // Emit each name
         for name_entry in names {
-            // name_len as raw u8 (max 255 characters)
             if name_entry.name.len() > u8::MAX as usize {
                 return Err("Function name exceeds maximum length of 255 characters".to_string());
             }
             let name_len_u8 = name_entry.name.len() as u8;
-            let (size, bytes) = VLE::encode_u8(name_len_u8);
-            self.emit_bytes(&bytes[..size]);
-
-            // name bytes
-            self.emit_bytes(name_entry.name.as_bytes());
+            out.push(name_len_u8);
+            out.extend_from_slice(name_entry.name.as_bytes());
         }
+
+        self.metadata_bytes = out;
 
         Ok(())
     }
@@ -498,19 +464,97 @@ impl DslBytecodeGenerator {
                 ast_generator
             };
 
-            // Patch all jumps and function calls with their correct offsets
-            ast_generator.patch(self)?;
-
-            // Finalize bytecode
+            // Finalize instruction stream (code only)
             self.finalize_bytecode();
 
-            // Emit import verification metadata if imports exist
+            // Emit import verification metadata if imports exist (appended after string blob)
             self.emit_import_metadata(&import_table)
                 .map_err(|_| VMError::InvalidScript)?;
 
+            // Compute layout offsets
+            let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
+            let header_len = self.header_bytes.len();
+            let metadata_len = self.metadata_bytes.len();
+            let base_offset = header_len + metadata_len + desc_size;
+            let pool_offset = (base_offset + 7) & !7; // 8-byte alignment
+            let padding_len = pool_offset - base_offset;
+
+            let pool_slots = self.constant_pool.pool_slots();
+            let pool_size = pool_slots as usize * 8;
+            let code_offset = pool_offset + pool_size;
+
+            // Patch dispatcher jump/call offsets with absolute base
+            dispatcher.patch_dispatch_logic_with_base(self, code_offset)?;
+
+            // Patch all jumps and function calls with their correct offsets (absolute)
+            ast_generator.patch_with_base(self, code_offset)?;
+
+            let string_blob = self.constant_pool.string_blob();
+            let string_blob_offset = code_offset + self.bytecode.len();
+            let string_blob_len = string_blob.len();
+
+            // Update header features to include constant pool flags
+            self.header_features |= five_protocol::FEATURE_CONSTANT_POOL;
+            if string_blob_len > 0 {
+                self.header_features |= five_protocol::FEATURE_CONSTANT_POOL_STRINGS;
+            }
+            let feature_bytes = self.header_features.to_le_bytes();
+            if self.header_bytes.len() >= 8 {
+                self.header_bytes[4..8].copy_from_slice(&feature_bytes);
+            }
+
+            // Build descriptor bytes
+            let desc = five_protocol::ConstantPoolDescriptor {
+                pool_offset: pool_offset as u32,
+                string_blob_offset: string_blob_offset as u32,
+                string_blob_len: string_blob_len as u32,
+                pool_slots,
+                reserved: 0,
+            };
+            let mut desc_bytes = Vec::with_capacity(desc_size);
+            desc_bytes.extend_from_slice(&desc.pool_offset.to_le_bytes());
+            desc_bytes.extend_from_slice(&desc.string_blob_offset.to_le_bytes());
+            desc_bytes.extend_from_slice(&desc.string_blob_len.to_le_bytes());
+            desc_bytes.extend_from_slice(&desc.pool_slots.to_le_bytes());
+            desc_bytes.extend_from_slice(&desc.reserved.to_le_bytes());
+
+            // Assemble final bytecode
+            let mut final_bytecode = Vec::new();
+            final_bytecode.extend_from_slice(&self.header_bytes);
+            final_bytecode.extend_from_slice(&self.metadata_bytes);
+            final_bytecode.extend_from_slice(&desc_bytes);
+            if padding_len > 0 {
+                final_bytecode.extend_from_slice(&vec![0u8; padding_len]);
+            }
+            final_bytecode.extend_from_slice(&self.constant_pool.pool_bytes());
+            final_bytecode.extend_from_slice(&self.bytecode);
+            final_bytecode.extend_from_slice(string_blob);
+            final_bytecode.extend_from_slice(&self.import_metadata_bytes);
+
+            self.bytecode = final_bytecode;
+
+            // CRITICAL: Verify bytecode JUMP targets before deployment
+            let verification_result = disassembler::verify_jump_targets(&self.bytecode);
+            if !verification_result.is_valid {
+                eprintln!("BYTECODE VERIFICATION FAILED:");
+                eprintln!("{}", verification_result.error_summary());
+                #[cfg(debug_assertions)]
+                {
+                    panic!("Bytecode contains invalid JUMP targets - check disassembler/verification.rs or jumps.rs");
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    return Err(VMError::InvalidInstructionPointer);
+                }
+            } else {
+                eprintln!(
+                    "BYTECODE VERIFICATION: {} jumps validated, all within {} bytes",
+                    verification_result.jump_count, verification_result.bytecode_length
+                );
+            }
+
             // Debug: print final bytecode summary to help diagnose missing opcodes in tests
             {
-                // Check for presence of REQUIRE opcode in final bytecode
                 let contains_require = self
                     .bytecode.contains(&five_protocol::opcodes::REQUIRE);
                 eprintln!(
@@ -518,7 +562,6 @@ impl DslBytecodeGenerator {
                     self.bytecode.len(),
                     contains_require
                 );
-                // Print a short hexdump (first 256 bytes) to avoid extremely long logs
                 let dump_len = std::cmp::min(self.bytecode.len(), 256);
                 eprintln!(
                     "DEBUG: final bytecode (first {} bytes) = {:?}",
@@ -533,11 +576,16 @@ impl DslBytecodeGenerator {
     /// Reset generator state for new compilation
     pub fn reset(&mut self) {
         self.bytecode.clear();
+        self.header_bytes.clear();
+        self.metadata_bytes.clear();
+        self.import_metadata_bytes.clear();
+        self.header_features = 0;
         self.position = 0;
         self.functions.clear();
         self.symbol_table.clear();
         self.account_registry = types::AccountRegistry::new();
         self.field_counter = 0;
+        self.constant_pool = constant_pool::ConstantPoolBuilder::new();
         // Keep compilation_mode as it's set during construction
     }
 
@@ -549,6 +597,11 @@ impl DslBytecodeGenerator {
     /// Get reference to generated bytecode
     pub fn get_bytecode(&self) -> &Vec<u8> {
         &self.bytecode
+    }
+
+    /// Get reference to generated function-name metadata section
+    pub fn get_metadata_bytes(&self) -> &[u8] {
+        &self.metadata_bytes
     }
 
     /// Return a textual disassembly of the currently generated bytecode.
@@ -666,11 +719,53 @@ impl DslBytecodeGenerator {
 
     /// Finalize bytecode generation
     fn finalize_bytecode(&mut self) {
-        // Add any final opcodes or padding if needed
-        // For now, just ensure we end with a HALT
-        if !self.bytecode.is_empty()
-            && self.bytecode[self.bytecode.len() - 1] != five_protocol::opcodes::HALT
-        {
+        use crate::bytecode_generator::disassembler::BytecodeInspector;
+
+        if self.bytecode.is_empty() {
+            self.emit_opcode(five_protocol::opcodes::HALT);
+            self.log_opcode("HALT", "End program execution");
+            return;
+        }
+
+        let mut i = 0;
+        let mut last_op = None;
+
+        while i < self.bytecode.len() {
+            let op = self.bytecode[i];
+            last_op = Some(op);
+            let mut size = BytecodeInspector::instruction_size(&self.bytecode, i);
+            match op {
+                five_protocol::opcodes::PUSH_U8
+                | five_protocol::opcodes::PUSH_U16
+                | five_protocol::opcodes::PUSH_U32
+                | five_protocol::opcodes::PUSH_U64
+                | five_protocol::opcodes::PUSH_I64
+                | five_protocol::opcodes::PUSH_BOOL
+                | five_protocol::opcodes::PUSH_PUBKEY
+                | five_protocol::opcodes::PUSH_U128
+                | five_protocol::opcodes::PUSH_STRING => {
+                    size = 2;
+                }
+                five_protocol::opcodes::PUSH_U8_W
+                | five_protocol::opcodes::PUSH_U16_W
+                | five_protocol::opcodes::PUSH_U32_W
+                | five_protocol::opcodes::PUSH_U64_W
+                | five_protocol::opcodes::PUSH_I64_W
+                | five_protocol::opcodes::PUSH_BOOL_W
+                | five_protocol::opcodes::PUSH_PUBKEY_W
+                | five_protocol::opcodes::PUSH_U128_W
+                | five_protocol::opcodes::PUSH_STRING_W => {
+                    size = 3;
+                }
+                _ => {}
+            }
+            if size == 0 {
+                break;
+            }
+            i += size;
+        }
+
+        if last_op != Some(five_protocol::opcodes::HALT) {
             self.emit_opcode(five_protocol::opcodes::HALT);
             self.log_opcode("HALT", "End program execution");
         }
@@ -719,6 +814,7 @@ impl DslBytecodeGenerator {
     pub fn push_compilation_log(&mut self, entry: String) {
         self.compilation_log.push(entry);
     }
+
 }
 
 impl Default for DslBytecodeGenerator {

@@ -1,4 +1,4 @@
-// Simplified option test
+// Option test
 
 pub test() -> u64 {
     let input = 15;

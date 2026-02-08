@@ -1,8 +1,4 @@
-/**
- * Five CLI Donate Command
- *
- * Sends SOL to the Five VM donation address.
- */
+// Donate command.
 
 import ora from 'ora';
 import { readFile } from 'fs/promises';

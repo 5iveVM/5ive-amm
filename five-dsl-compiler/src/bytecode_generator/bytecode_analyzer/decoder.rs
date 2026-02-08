@@ -1,5 +1,4 @@
 use super::{AdvancedBytecodeAnalyzer, ControlFlowInfo, InstructionAnalysis, InstructionCategory, OperandInfo};
-use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
 /// Decode all instructions with full semantic understanding
@@ -7,9 +6,22 @@ pub(crate) fn decode_instructions(analyzer: &mut AdvancedBytecodeAnalyzer) -> Re
     analyzer.position = 0;
     analyzer.instructions.clear();
 
-    // Skip magic bytes if present
-    if analyzer.bytecode.len() >= 4 && &analyzer.bytecode[0..4] == b"5IVE" {
-        analyzer.position = 4;
+    // Parse header (if present) to find instruction start + features
+    match five_protocol::parse_header(&analyzer.bytecode) {
+        Ok((header, start_offset)) => {
+            analyzer.features = header.features;
+            analyzer.start_offset = start_offset;
+            analyzer.position = start_offset;
+        }
+        Err(_) => {
+            analyzer.features = 0;
+            analyzer.start_offset = 0;
+            // Fallback: skip magic bytes if present
+            if analyzer.bytecode.len() >= 4 && &analyzer.bytecode[0..4] == b"5IVE" {
+                analyzer.position = 4;
+                analyzer.start_offset = 4;
+            }
+        }
     }
 
     while analyzer.position < analyzer.bytecode.len() {
@@ -118,6 +130,59 @@ fn decode_operands(
     use five_protocol::opcodes::{ArgType, *};
 
     let mut operands = Vec::new();
+
+    if (analyzer.features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+        match opcode {
+            PUSH_U8
+            | PUSH_U16
+            | PUSH_U32
+            | PUSH_U64
+            | PUSH_I64
+            | PUSH_BOOL
+            | PUSH_PUBKEY
+            | PUSH_U128
+            | PUSH_STRING => {
+                if analyzer.position < analyzer.bytecode.len() {
+                    let value = analyzer.bytecode[analyzer.position];
+                    operands.push(OperandInfo {
+                        operand_type: "pool_index_u8".to_string(),
+                        raw_value: vec![value],
+                        decoded_value: Some(value.to_string()),
+                        size: 1,
+                        description: "Constant pool index (u8)".to_string(),
+                    });
+                    analyzer.position += 1;
+                }
+                return Ok(operands);
+            }
+            PUSH_U8_W
+            | PUSH_U16_W
+            | PUSH_U32_W
+            | PUSH_U64_W
+            | PUSH_I64_W
+            | PUSH_BOOL_W
+            | PUSH_PUBKEY_W
+            | PUSH_U128_W
+            | PUSH_STRING_W => {
+                if analyzer.position + 1 < analyzer.bytecode.len() {
+                    let value = u16::from_le_bytes([
+                        analyzer.bytecode[analyzer.position],
+                        analyzer.bytecode[analyzer.position + 1],
+                    ]);
+                    operands.push(OperandInfo {
+                        operand_type: "pool_index_u16".to_string(),
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
+                        decoded_value: Some(value.to_string()),
+                        size: 2,
+                        description: "Constant pool index (u16)".to_string(),
+                    });
+                    analyzer.position += 2;
+                }
+                return Ok(operands);
+            }
+            _ => {}
+        }
+    }
 
     match arg_type {
         ArgType::None => {
@@ -480,6 +545,155 @@ fn decode_operands(
                 }
             }
         }
+        ArgType::U16Fixed => {
+            if analyzer.position + 1 < analyzer.bytecode.len() {
+                let value = u16::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                ]);
+                operands.push(OperandInfo {
+                    operand_type: "u16_fixed".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
+                    decoded_value: Some(value.to_string()),
+                    size: 2,
+                    description: "16-bit unsigned integer (Fixed)".to_string(),
+                });
+                analyzer.position += 2;
+            }
+        }
+        ArgType::U32Fixed => {
+            if analyzer.position + 3 < analyzer.bytecode.len() {
+                let value = u32::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                    analyzer.bytecode[analyzer.position + 3],
+                ]);
+                operands.push(OperandInfo {
+                    operand_type: "u32_fixed".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
+                    decoded_value: Some(value.to_string()),
+                    size: 4,
+                    description: "32-bit unsigned integer (Fixed)".to_string(),
+                });
+                analyzer.position += 4;
+            }
+        }
+        ArgType::FusedSubAdd => {
+            // acc1(u8) + off1(VLE) + acc2(u8) + off2(VLE) + param(u8)
+            if analyzer.position < analyzer.bytecode.len() {
+                let acc1 = analyzer.bytecode[analyzer.position];
+                operands.push(OperandInfo {
+                    operand_type: "account_index".to_string(),
+                    raw_value: vec![acc1],
+                    decoded_value: Some(format!("acc1_{}", acc1)),
+                    size: 1,
+                    description: "First Account Index".to_string(),
+                });
+                analyzer.position += 1;
+
+                let (val1, bytes1, size1) = read_vle(analyzer)?;
+                operands.push(OperandInfo {
+                    operand_type: "field_offset".to_string(),
+                    raw_value: bytes1,
+                    decoded_value: Some(format!("offset1_{}", val1)),
+                    size: size1,
+                    description: "First Field Offset".to_string(),
+                });
+
+                if analyzer.position < analyzer.bytecode.len() {
+                    let acc2 = analyzer.bytecode[analyzer.position];
+                    operands.push(OperandInfo {
+                        operand_type: "account_index".to_string(),
+                        raw_value: vec![acc2],
+                        decoded_value: Some(format!("acc2_{}", acc2)),
+                        size: 1,
+                        description: "Second Account Index".to_string(),
+                    });
+                    analyzer.position += 1;
+
+                    let (val2, bytes2, size2) = read_vle(analyzer)?;
+                    operands.push(OperandInfo {
+                        operand_type: "field_offset".to_string(),
+                        raw_value: bytes2,
+                        decoded_value: Some(format!("offset2_{}", val2)),
+                        size: size2,
+                        description: "Second Field Offset".to_string(),
+                    });
+
+                    if analyzer.position < analyzer.bytecode.len() {
+                        let param = analyzer.bytecode[analyzer.position];
+                        operands.push(OperandInfo {
+                            operand_type: "param_index".to_string(),
+                            raw_value: vec![param],
+                            decoded_value: Some(format!("param_{}", param)),
+                            size: 1,
+                            description: "Parameter Index".to_string(),
+                        });
+                        analyzer.position += 1;
+                    }
+                }
+            }
+        }
+        ArgType::ParamImm => {
+            // param(u8) + imm(u8)
+            if analyzer.position + 1 < analyzer.bytecode.len() {
+                let param = analyzer.bytecode[analyzer.position];
+                let imm = analyzer.bytecode[analyzer.position + 1];
+                
+                operands.push(OperandInfo {
+                    operand_type: "param_index".to_string(),
+                    raw_value: vec![param],
+                    decoded_value: Some(format!("param_{}", param)),
+                    size: 1,
+                    description: "Parameter Index".to_string(),
+                });
+
+                operands.push(OperandInfo {
+                    operand_type: "u8_imm".to_string(),
+                    raw_value: vec![imm],
+                    decoded_value: Some(imm.to_string()),
+                    size: 1,
+                    description: "Immediate Value (u8)".to_string(),
+                });
+                analyzer.position += 2;
+            }
+        }
+        ArgType::FieldImm => {
+            // acc(u8) + off(VLE) + imm(u8)
+            if analyzer.position < analyzer.bytecode.len() {
+                let acc = analyzer.bytecode[analyzer.position];
+                operands.push(OperandInfo {
+                    operand_type: "account_index".to_string(),
+                    raw_value: vec![acc],
+                    decoded_value: Some(format!("acc_{}", acc)),
+                    size: 1,
+                    description: "Account Index".to_string(),
+                });
+                analyzer.position += 1;
+
+                let (val, bytes, size) = read_vle(analyzer)?;
+                operands.push(OperandInfo {
+                    operand_type: "field_offset".to_string(),
+                    raw_value: bytes,
+                    decoded_value: Some(format!("offset_{}", val)),
+                    size: size,
+                    description: "Field Offset".to_string(),
+                });
+
+                if analyzer.position < analyzer.bytecode.len() {
+                    let imm = analyzer.bytecode[analyzer.position];
+                    operands.push(OperandInfo {
+                        operand_type: "u8_imm".to_string(),
+                        raw_value: vec![imm],
+                        decoded_value: Some(imm.to_string()),
+                        size: 1,
+                        description: "Immediate Value (u8)".to_string(),
+                    });
+                    analyzer.position += 1;
+                }
+            }
+        }
     }
 
     // Handle special cases for specific opcodes that have unique operand patterns
@@ -824,7 +1038,8 @@ pub(crate) fn categorize_instruction(opcode: u8) -> InstructionCategory {
         SYSTEM_BASE..=0x8F => InstructionCategory::System,
         FUNCTION_BASE..=0x9F => InstructionCategory::Function,
         LOCAL_BASE..=0xAF => InstructionCategory::Local,
-        REGISTER_BASE..=0xBF => InstructionCategory::Register,
+        // REGISTER_BASE removed
+        0xB0..=0xBF => InstructionCategory::Unknown,
         0xC0..=0xCF => InstructionCategory::Unknown, // Removed account views
         0xD0..=0xD7 => InstructionCategory::Local,   // Nibble locals
         0xD8..=0xDF => InstructionCategory::Test,    // Test framework

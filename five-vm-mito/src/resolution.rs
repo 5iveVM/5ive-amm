@@ -6,9 +6,7 @@
 
 use crate::{
     context::ExecutionManager,
-    debug_log,
-    error::{CompactResult, VMErrorCode, VMError},
-    utils::ValueRefUtils,
+    error::{CompactResult, VMErrorCode},
 };
 use five_protocol::{Value, ValueRef};
 use pinocchio::pubkey::Pubkey;

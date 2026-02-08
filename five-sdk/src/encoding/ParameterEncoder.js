@@ -1,17 +1,6 @@
-/**
- * Five Parameter Encoder
- *
- * Handles parameter encoding for Five VM:
- * - VLE (Variable Length Encoding) for efficient bytecode
- * - Type coercion based on ABI information
- * - Parameter validation and error handling
- * - Integration with existing VLE encoder
- */
+// Parameter encoding for Five VM.
 import { EncodedParameter, ParameterEncodingOptions, ParameterEncodingError, FiveType, FiveFunction, FiveParameter } from '../types.js';
-/**
- * VLE Type ID mapping (matches Five VM protocol)
- */
-const VLE_TYPE_IDS = {
+const TYPE_IDS = {
     'u8': 1,
     'u16': 2,
     'u32': 3,
@@ -26,9 +15,6 @@ const VLE_TYPE_IDS = {
     'bytes': 12,
     'array': 13
 };
-/**
- * Parameter encoder for Five VM execution
- */
 export class ParameterEncoder {
     debug;
     constructor(debug = false) {
@@ -37,33 +23,16 @@ export class ParameterEncoder {
             console.log('[ParameterEncoder] Initialized');
         }
     }
-    // ==================== Pure Parameter Encoding ====================
-    /**
-     * Encode parameter data only (no instruction discriminators)
-     */
     async encodeParameterData(parameters = [], functionSignature) {
         if (this.debug) {
             console.log(`[ParameterEncoder] Encoding parameter data: params=${parameters.length}`);
         }
-        try {
-            // Use existing VLE encoder if available
-            const vleData = await this.encodeParametersVLE(parameters, functionSignature);
-            if (this.debug) {
-                console.log(`[ParameterEncoder] Encoded parameters: ${vleData.length} bytes, hex: ${vleData.toString('hex')}`);
-            }
-            return vleData;
+        const encodedData = await this.encodeParametersInternal(parameters, functionSignature);
+        if (this.debug) {
+            console.log(`[ParameterEncoder] Encoded parameters: ${encodedData.length} bytes, hex: ${encodedData.toString('hex')}`);
         }
-        catch (error) {
-            // Fallback to manual encoding if VLE encoder fails
-            if (this.debug) {
-                console.log(`[ParameterEncoder] VLE encoding failed, using manual encoding: ${error}`);
-            }
-            return this.encodeParametersManual(parameters);
-        }
+        return encodedData;
     }
-    /**
-     * Encode parameters with ABI-driven type coercion
-     */
     encodeParametersWithABI(parameters, functionSignature, options = {}) {
         if (this.debug) {
             console.log(`[ParameterEncoder] Encoding ${parameters.length} parameters with ABI guidance`);
@@ -75,8 +44,7 @@ export class ParameterEncoder {
             if (!paramDef && options.strict) {
                 throw new ParameterEncodingError(`Parameter ${i} provided but function only expects ${functionSignature.parameters.length} parameters`, { functionName: functionSignature.name, parameterIndex: i });
             }
-            // Use ABI type if available, otherwise infer
-            const targetType = paramDef?.type || this.inferType(value);
+            const targetType = (paramDef === null || paramDef === void 0 ? void 0 : paramDef.type) || this.inferType(value);
             const encodedParam = this.encodeParameter(value, targetType, i);
             encoded.push(encodedParam);
         }
@@ -85,10 +53,6 @@ export class ParameterEncoder {
         }
         return encoded;
     }
-    // ==================== Type Coercion ====================
-    /**
-     * Coerce value to specific Five VM type
-     */
     coerceValue(value, targetType) {
         if (this.debug) {
             console.log(`[ParameterEncoder] Coercing value ${JSON.stringify(value)} to ${targetType}`);
@@ -129,66 +93,36 @@ export class ParameterEncoder {
             throw new ParameterEncodingError(`Failed to coerce value ${JSON.stringify(value)} to ${targetType}: ${error instanceof Error ? error.message : 'Unknown error'}`, { value, targetType });
         }
     }
-    // ==================== Private Methods ====================
-    /**
-     * Use existing VLE encoder for parameter data only
-     */
-    async encodeParametersVLE(parameters, functionSignature) {
+    async encodeParametersInternal(parameters, functionSignature) {
         try {
-            // Import existing VLE encoder
-            const { VLEEncoder } = await import('../../lib/vle-encoder.js');
-            // Convert parameters to VLE format
-            const vleParams = parameters.map((value, index) => {
-                const paramDef = functionSignature?.parameters[index];
+            const { BytecodeEncoder } = await import('../lib/bytecode-encoder.js');
+            const params = parameters.map((value, index) => {
+                var _a;
+                const paramDef = functionSignature === null || functionSignature === void 0 ? void 0 : functionSignature.parameters[index];
                 return {
-                    name: paramDef?.name || `param_${index}`,
-                    type: paramDef?.type || this.inferTypeString(value)
+                    name: (paramDef === null || paramDef === void 0 ? void 0 : paramDef.name) || `param_${index}`,
+                    type: ((_a = paramDef === null || paramDef === void 0 ? void 0 : paramDef.type) !== null && _a !== void 0 ? _a : this.inferTypeString(value))
                 };
             });
             const values = {};
-            vleParams.forEach((param, index) => {
+            params.forEach((param, index) => {
                 values[param.name] = parameters[index];
             });
-            // Encode parameters only; function index is handled by the SDK when building instruction data
-            const encoded = await VLEEncoder.encodeExecuteVLE(0, vleParams, values);
+            const encoded = await BytecodeEncoder.encodeExecute(0, params, values);
             return Buffer.from(encoded);
         }
         catch (error) {
-            throw new Error(`VLE parameter encoding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new Error(`Parameter encoding failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
-    /**
-     * Manual parameter encoding fallback (parameters only)
-     */
-    encodeParametersManual(parameters) {
-        const parts = [];
-        // Encode parameter count as VLE
-        parts.push(this.encodeVLEU32(parameters.length));
-        // Encode each parameter
-        for (const param of parameters) {
-            const type = this.inferType(param);
-            const typeId = VLE_TYPE_IDS[type];
-            const encodedParam = this.encodeParameter(param, type, 0);
-            // Add type and value
-            parts.push(Buffer.from([typeId]));
-            parts.push(this.encodeValue(encodedParam.value, type));
-        }
-        return Buffer.concat(parts);
-    }
-    /**
-     * Encode individual parameter
-     */
     encodeParameter(value, type, index) {
         const coercedValue = this.coerceValue(value, type);
-        const typeId = VLE_TYPE_IDS[type];
+        const typeId = TYPE_IDS[type];
         return {
             type: typeId,
             value: coercedValue
         };
     }
-    /**
-     * Infer Five VM type from JavaScript value
-     */
     inferType(value) {
         if (typeof value === 'boolean') {
             return 'bool';
@@ -197,198 +131,126 @@ export class ParameterEncoder {
             return 'string';
         }
         if (typeof value === 'number') {
-            // Default to u64 for positive integers, i64 for negative
             return Number.isInteger(value) && value >= 0 ? 'u64' : 'i64';
         }
         if (typeof value === 'bigint') {
             return value >= 0 ? 'u64' : 'i64';
         }
+        if (value instanceof Uint8Array || value instanceof Buffer) {
+            return 'bytes';
+        }
         if (Array.isArray(value)) {
             return 'array';
         }
-        return 'string'; // Default fallback
+        return 'string';
     }
-    /**
-     * Infer type as string for VLE encoder compatibility
-     */
     inferTypeString(value) {
         const type = this.inferType(value);
         return type;
     }
-    // ==================== Type Coercion Methods ====================
     coerceToU8(value) {
         const num = Number(value);
-        if (!Number.isInteger(num) || num < 0 || num > 255) {
-            throw new Error(`Value ${value} cannot be coerced to u8 (0-255)`);
+        if (num < 0 || num > 255 || !Number.isInteger(num)) {
+            throw new Error(`Value ${value} is not a valid u8`);
         }
         return num;
     }
     coerceToU16(value) {
         const num = Number(value);
-        if (!Number.isInteger(num) || num < 0 || num > 65535) {
-            throw new Error(`Value ${value} cannot be coerced to u16 (0-65535)`);
+        if (num < 0 || num > 65535 || !Number.isInteger(num)) {
+            throw new Error(`Value ${value} is not a valid u16`);
         }
         return num;
     }
     coerceToU32(value) {
         const num = Number(value);
-        if (!Number.isInteger(num) || num < 0 || num > 4294967295) {
-            throw new Error(`Value ${value} cannot be coerced to u32 (0-4294967295)`);
+        if (num < 0 || num > 4294967295 || !Number.isInteger(num)) {
+            throw new Error(`Value ${value} is not a valid u32`);
         }
         return num;
     }
     coerceToU64(value) {
-        if (typeof value === 'bigint') {
-            if (value < BigInt(0) || value > BigInt('18446744073709551615')) {
-                throw new Error(`Value ${value} cannot be coerced to u64 (0-2^64-1)`);
+        try {
+            const big = BigInt(value);
+            if (big < 0n) {
+                throw new Error(`Value ${value} is not a valid u64`);
             }
-            return value;
+            return big;
         }
-        const num = Number(value);
-        if (!Number.isInteger(num) || num < 0) {
-            throw new Error(`Value ${value} cannot be coerced to u64`);
+        catch {
+            throw new Error(`Value ${value} is not a valid u64`);
         }
-        return num;
     }
     coerceToI8(value) {
         const num = Number(value);
-        if (!Number.isInteger(num) || num < -128 || num > 127) {
-            throw new Error(`Value ${value} cannot be coerced to i8 (-128 to 127)`);
+        if (num < -128 || num > 127 || !Number.isInteger(num)) {
+            throw new Error(`Value ${value} is not a valid i8`);
         }
         return num;
     }
     coerceToI16(value) {
         const num = Number(value);
-        if (!Number.isInteger(num) || num < -32768 || num > 32767) {
-            throw new Error(`Value ${value} cannot be coerced to i16 (-32768 to 32767)`);
+        if (num < -32768 || num > 32767 || !Number.isInteger(num)) {
+            throw new Error(`Value ${value} is not a valid i16`);
         }
         return num;
     }
     coerceToI32(value) {
         const num = Number(value);
-        if (!Number.isInteger(num) || num < -2147483648 || num > 2147483647) {
-            throw new Error(`Value ${value} cannot be coerced to i32 (-2^31 to 2^31-1)`);
+        if (num < -2147483648 || num > 2147483647 || !Number.isInteger(num)) {
+            throw new Error(`Value ${value} is not a valid i32`);
         }
         return num;
     }
     coerceToI64(value) {
-        if (typeof value === 'bigint') {
-            if (value < BigInt('-9223372036854775808') || value > BigInt('9223372036854775807')) {
-                throw new Error(`Value ${value} cannot be coerced to i64 (-2^63 to 2^63-1)`);
-            }
-            return value;
+        try {
+            const big = BigInt(value);
+            return big;
         }
-        const num = Number(value);
-        if (!Number.isInteger(num)) {
-            throw new Error(`Value ${value} cannot be coerced to i64`);
+        catch {
+            throw new Error(`Value ${value} is not a valid i64`);
         }
-        return num;
     }
     coerceToBool(value) {
         if (typeof value === 'boolean') {
             return value;
         }
-        if (typeof value === 'string') {
-            const lower = value.toLowerCase();
-            if (lower === 'true' || lower === '1')
-                return true;
-            if (lower === 'false' || lower === '0')
-                return false;
-            throw new Error(`String "${value}" cannot be coerced to boolean`);
+        if (value === 0 || value === 1) {
+            return Boolean(value);
         }
-        if (typeof value === 'number') {
-            return value !== 0;
+        if (value === 'true' || value === 'false') {
+            return value === 'true';
         }
-        throw new Error(`Value ${value} cannot be coerced to boolean`);
+        throw new Error(`Value ${value} is not a valid bool`);
     }
     coerceToString(value) {
+        if (typeof value === 'string') {
+            return value;
+        }
         return String(value);
     }
     coerceToPubkey(value) {
-        if (typeof value === 'string' && value.length === 44) {
-            return value; // Assume base58 encoded pubkey
+        if (typeof value === 'string') {
+            return value;
         }
-        throw new Error(`Value ${value} cannot be coerced to pubkey`);
+        if (value instanceof Uint8Array || value instanceof Buffer) {
+            return value;
+        }
+        throw new Error(`Value ${value} is not a valid pubkey`);
     }
     coerceToBytes(value) {
-        if (value instanceof Uint8Array) {
+        if (value instanceof Uint8Array || value instanceof Buffer) {
             return value;
-        }
-        if (Array.isArray(value)) {
-            return new Uint8Array(value);
         }
         if (typeof value === 'string') {
-            // Assume hex string
-            return new Uint8Array(Buffer.from(value, 'hex'));
+            return Buffer.from(value, 'utf8');
         }
-        throw new Error(`Value ${value} cannot be coerced to bytes`);
+        throw new Error(`Value ${value} is not valid bytes`);
     }
     coerceToArray(value) {
-        if (Array.isArray(value)) {
-            return value;
+        if (!Array.isArray(value)) {
+            throw new Error(`Value ${value} is not a valid array`);
         }
-        throw new Error(`Value ${value} cannot be coerced to array`);
-    }
-    // ==================== VLE Encoding Utilities ====================
-    /**
-     * Encode u32 value using Variable Length Encoding
-     */
-    encodeVLEU32(value) {
-        if (value < 128) {
-            return Buffer.from([value]);
-        }
-        else if (value < 16384) {
-            return Buffer.from([
-                (value & 0x7F) | 0x80,
-                (value >> 7) & 0x7F
-            ]);
-        }
-        else {
-            return Buffer.from([
-                (value & 0x7F) | 0x80,
-                ((value >> 7) & 0x7F) | 0x80,
-                (value >> 14) & 0x7F
-            ]);
-        }
-    }
-    /**
-     * Encode value based on type
-     */
-    encodeValue(value, type) {
-        switch (type) {
-            case 'u8':
-            case 'i8':
-                return Buffer.from([value]);
-            case 'u16':
-            case 'i16':
-                const buf16 = Buffer.allocUnsafe(2);
-                buf16.writeUInt16LE(value, 0);
-                return buf16;
-            case 'u32':
-            case 'i32':
-                const buf32 = Buffer.allocUnsafe(4);
-                buf32.writeUInt32LE(value, 0);
-                return buf32;
-            case 'u64':
-            case 'i64':
-                const buffer = Buffer.allocUnsafe(8);
-                if (typeof value === 'bigint') {
-                    buffer.writeBigUInt64LE(value, 0);
-                }
-                else {
-                    buffer.writeUInt32LE(value, 0);
-                    buffer.writeUInt32LE(0, 4);
-                }
-                return buffer;
-            case 'bool':
-                return Buffer.from([value ? 1 : 0]);
-            case 'string':
-                const str = Buffer.from(value, 'utf8');
-                const len = this.encodeVLEU32(str.length);
-                return Buffer.concat([len, str]);
-            default:
-                throw new Error(`Cannot encode value for type: ${type}`);
-        }
+        return value;
     }
 }
-//# sourceMappingURL=ParameterEncoder.js.map

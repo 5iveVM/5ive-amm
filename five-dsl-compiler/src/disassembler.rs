@@ -17,12 +17,26 @@ fn read_vle(data: &[u8]) -> Option<(u64, usize)> {
 }
 
 pub fn disassemble_bytecode(bytecode: &[u8]) {
-    // Magic bytes check
-    let start_offset = if bytecode.len() >= 4 && &bytecode[0..4] == b"5IVE" {
-        10 // Skip 10 byte header
-    } else {
-        0
+    // Use five_protocol::parse_header to correctly skip magic bytes, feature flags,
+    // and all metadata sections (function names, etc.)
+    let (header, start_offset) = match five_protocol::parse_header(bytecode) {
+        Ok(res) => res,
+        Err(_) => {
+            // Fallback for legacy scripts: skip 10 bytes if magic matches, else 0
+            let off = if bytecode.len() >= 4 && &bytecode[0..4] == b"5IVE" { 10 } else { 0 };
+            (five_protocol::OptimizedHeader {
+                magic: [0; 4],
+                features: 0,
+                public_function_count: 0,
+                total_function_count: 0,
+            }, off)
+        }
     };
+
+    if start_offset > 0 {
+        println!("HEADER: features=0x{:08X} public={} total={}", 
+            header.features, header.public_function_count, header.total_function_count);
+    }
 
     println!("Disassembly relative to offset {}:", start_offset);
     let mut pc = start_offset;
@@ -162,6 +176,73 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                                         } else { print!("offset2:(incomplete)"); len = 1 + current_offset - args_start; }
                                     } else { print!("acc2:(incomplete)"); len = 1 + current_offset - args_start; }
                                 } else { print!("offset1:(incomplete)"); len = 1 + current_offset - args_start; }
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::U16Fixed => {
+                            if args_start + 1 < bytecode.len() {
+                                let val = u16::from_le_bytes([bytecode[args_start], bytecode[args_start+1]]);
+                                print!("{}", val);
+                                len += 2;
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::U32Fixed => {
+                            if args_start + 3 < bytecode.len() {
+                                let val = u32::from_le_bytes([
+                                    bytecode[args_start], bytecode[args_start+1],
+                                    bytecode[args_start+2], bytecode[args_start+3]
+                                ]);
+                                print!("{}", val);
+                                len += 4;
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::FusedSubAdd => {
+                            // acc1(u8) + off1(VLE) + acc2(u8) + off2(VLE) + param(u8)
+                            if args_start < bytecode.len() {
+                                let acc1 = bytecode[args_start];
+                                print!("acc1:{} ", acc1);
+                                let mut curr = args_start + 1;
+                                if let Some((off1, l1)) = read_vle(&bytecode[curr..]) {
+                                    print!("off1:{} ", off1);
+                                    curr += l1;
+                                    if curr < bytecode.len() {
+                                        let acc2 = bytecode[curr];
+                                        print!("acc2:{} ", acc2);
+                                        curr += 1;
+                                        if let Some((off2, l2)) = read_vle(&bytecode[curr..]) {
+                                            print!("off2:{} ", off2);
+                                            curr += l2;
+                                            if curr < bytecode.len() {
+                                                let param = bytecode[curr];
+                                                print!("param:{}", param);
+                                                len = (curr + 1) - args_start;
+                                            } else { print!("param:(incomplete)"); len = curr - args_start; }
+                                        } else { print!("off2:(incomplete)"); len = curr - args_start; }
+                                    } else { print!("acc2:(incomplete)"); len = curr - args_start; }
+                                } else { print!("off1:(incomplete)"); len = curr - args_start; }
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::ParamImm => {
+                            // param(u8) + imm(u8)
+                            if args_start + 1 < bytecode.len() {
+                                print!("param:{} imm:{}", bytecode[args_start], bytecode[args_start+1]);
+                                len += 2;
+                            } else { print!("(incomplete)"); }
+                        }
+                        ArgType::FieldImm => {
+                            // acc(u8) + off(VLE) + imm(u8)
+                            if args_start < bytecode.len() {
+                                let acc = bytecode[args_start];
+                                print!("acc:{} ", acc);
+                                let mut curr = args_start + 1;
+                                if let Some((off, l)) = read_vle(&bytecode[curr..]) {
+                                    print!("off:{} ", off);
+                                    curr += l;
+                                    if curr < bytecode.len() {
+                                        let imm = bytecode[curr];
+                                        print!("imm:{}", imm);
+                                        len = (curr + 1) - args_start;
+                                    } else { print!("imm:(incomplete)"); len = curr - args_start; }
+                                } else { print!("off:(incomplete)"); len = curr - args_start; }
                             } else { print!("(incomplete)"); }
                         }
                     }

@@ -1,8 +1,4 @@
-// Account System Module
-//
-// This module handles all account-related operations in the FIVE DSL compiler.
-// It manages account definitions, field access, built-in properties, and integrates
-// with the constraint optimization system for efficient account validation.
+// Account-related operations for the DSL compiler.
 
 use super::types::*;
 use super::OpcodeEmitter;
@@ -152,10 +148,10 @@ impl AccountSystem {
 
                 if self.should_use_zerocopy_optimization(account_param) {
                     // Use zerocopy optimization for better performance
-                    // For now, fall back to standard access until zerocopy is implemented
+                    // Fall back to standard access until zerocopy is implemented.
                     emitter.emit_opcode(LOAD_FIELD);
                     emitter.emit_u8(account_index);
-                    emitter.emit_vle_u32(field_info.offset);
+                    emitter.emit_u32(field_info.offset);
                     if field_info.is_optional {
                         emitter.emit_opcode(OPTIONAL_UNWRAP);
                     }
@@ -163,7 +159,7 @@ impl AccountSystem {
                     // Standard account field access
                     emitter.emit_opcode(LOAD_FIELD);
                     emitter.emit_u8(account_index);
-                    emitter.emit_vle_u32(field_info.offset);
+                    emitter.emit_u32(field_info.offset);
                     if field_info.is_optional {
                         emitter.emit_opcode(OPTIONAL_UNWRAP);
                     }
@@ -174,44 +170,6 @@ impl AccountSystem {
         }
 
         Err(VMError::InvalidScript) // Field not found
-    }
-
-    /// Generate bytecode for account field access directly to register
-    pub fn generate_account_field_access_to_register<T: OpcodeEmitter>(
-        &mut self,
-        emitter: &mut T,
-        account_param: &str,
-        account_type: &str,
-        field_name: &str,
-        field_reg: u8,
-        symbol_table: &HashMap<String, FieldInfo>,
-    ) -> Result<(), VMError> {
-        // Check if it's a built-in property
-        if self.is_builtin_account_property(field_name) {
-            return self.generate_builtin_property_to_register(
-                emitter,
-                account_param,
-                field_name,
-                field_reg,
-                symbol_table,
-            );
-        }
-
-        if let Some(account_info) = self.resolve_account_type(account_type) {
-            if let Some(field_info) = account_info.fields.get(field_name) {
-                let account_index = self.resolve_account_index(symbol_table, account_param)?;
-
-                // Use optimized register-direct access
-                // For now, fall back to standard field access until register optimization is implemented
-                emitter.emit_opcode(LOAD_FIELD);
-                emitter.emit_u8(account_index);
-                emitter.emit_vle_u32(field_info.offset);
-
-                return Ok(());
-            }
-        }
-
-        Err(VMError::InvalidScript)
     }
 
     /// Generate bytecode for account field assignment
@@ -245,19 +203,19 @@ impl AccountSystem {
                 let account_index = self.resolve_account_index(symbol_table, account_param)?;
 
                 // Generate value expression first (this would be handled by AST generator)
-                // For now, we assume the value is already on the stack
+                // Assume the value is already on the stack.
 
                 if self.should_use_zerocopy_optimization(account_param) {
                     // Use zerocopy optimization for better performance
-                    // For now, fall back to standard access until zerocopy is implemented
+                    // Fall back to standard access until zerocopy is implemented.
                     emitter.emit_opcode(STORE_FIELD);
                     emitter.emit_u8(account_index);
-                    emitter.emit_vle_u32(field_info.offset);
+                    emitter.emit_u32(field_info.offset);
                 } else {
                     // Standard account field storage
                     emitter.emit_opcode(STORE_FIELD);
                     emitter.emit_u8(account_index);
-                    emitter.emit_vle_u32(field_info.offset);
+                    emitter.emit_u32(field_info.offset);
                 }
 
                 if field_info.is_optional {
@@ -318,34 +276,6 @@ impl AccountSystem {
         Ok(())
     }
 
-    /// Generate built-in account property access to register
-    fn generate_builtin_property_to_register<T: OpcodeEmitter>(
-        &self,
-        emitter: &mut T,
-        account_param: &str,
-        property: &str,
-        _field_reg: u8,
-        symbol_table: &HashMap<String, FieldInfo>,
-    ) -> Result<(), VMError> {
-        let account_index = self.resolve_account_index(symbol_table, account_param)?;
-
-        if let Some(_field_id) = self.builtin_properties.get(property) {
-            // For now, fall back to standard builtin property access until register optimization is implemented
-            match property {
-                "lamports" => emitter.emit_opcode(GET_LAMPORTS),
-                "key" => emitter.emit_opcode(GET_KEY),
-                "owner" => emitter.emit_opcode(GET_OWNER),
-                "data" => emitter.emit_opcode(GET_DATA),
-                _ => return Err(VMError::InvalidInstruction),
-            }
-            emitter.emit_u8(account_index);
-        } else {
-            return Err(VMError::InvalidScript);
-        }
-
-        Ok(())
-    }
-
     /// Generate built-in account property assignment
     fn generate_builtin_account_property_assignment<T: OpcodeEmitter>(
         &self,
@@ -369,7 +299,7 @@ impl AccountSystem {
                 // Data modification uses generic store field with account index
                 emitter.emit_opcode(STORE_FIELD);
                 emitter.emit_u8(account_index); // Use resolved account index
-                emitter.emit_vle_u32(0); // Data field offset
+                emitter.emit_u32(0); // Data field offset
             }
             "owner" | "key" => {
                 // These are typically read-only

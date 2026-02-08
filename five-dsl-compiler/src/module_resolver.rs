@@ -1,33 +1,26 @@
-/// Module Resolution System for Multi-File Compilation
-///
-/// Handles:
-/// - File discovery and module graph construction
-/// - Dependency graph analysis
-/// - Circular dependency detection
-/// - Topological sorting for compilation order
-/// - Smart import target discrimination (local, registry, Solana address)
+/// Module resolution for multi-file compilation.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 // use five_vm_mito::error::VMError;
 use crate::error::ModuleResolutionError;
 
-/// Represents a single module in the project
+/// Represents a single module in the project.
 #[derive(Debug, Clone)]
 pub struct ModuleDescriptor {
-    /// Module path like "types", "utils::helpers"
+    /// Module path like "types", "utils::helpers".
     pub module_path: String,
-    /// Absolute path to the .v file
+    /// Absolute path to the .v file.
     pub file_path: PathBuf,
-    /// Loaded source code
+    /// Loaded source code.
     pub source_code: String,
-    /// Other modules this depends on
+    /// Other modules this depends on.
     pub dependencies: Vec<String>,
-    /// Whether this is the entry point
+    /// Whether this is the entry point.
     pub is_entry_point: bool,
 }
 
-/// Result of analyzing an import statement
+/// Result of analyzing an import statement.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ImportTarget {
     /// Local module: `use types;` or `use utils::helpers;`
@@ -45,19 +38,18 @@ pub enum ImportTarget {
     },
 }
 
-/// Graph of module dependencies
+/// Graph of module dependencies.
 #[derive(Debug)]
 pub struct ModuleGraph {
-    /// All discovered modules
+    /// All discovered modules.
     modules: HashMap<String, ModuleDescriptor>,
-    /// Edges in dependency graph: module -> list of dependencies
+    /// Edges in dependency graph: module -> list of dependencies.
     dependency_edges: HashMap<String, Vec<String>>,
-    /// Topologically sorted compilation order
+    /// Topologically sorted compilation order.
     compilation_order: Vec<String>,
 }
 
 impl ModuleGraph {
-    /// Create a new empty module graph
     pub fn new() -> Self {
         Self {
             modules: HashMap::new(),
@@ -66,14 +58,12 @@ impl ModuleGraph {
         }
     }
 
-    /// Add a module to the graph
     pub fn add_module(&mut self, descriptor: ModuleDescriptor) {
         let module_path = descriptor.module_path.clone();
         self.modules.insert(module_path.clone(), descriptor);
         self.dependency_edges.entry(module_path).or_insert_with(Vec::new);
     }
 
-    /// Add a dependency edge: from_module depends on to_module
     pub fn add_dependency(&mut self, from_module: String, to_module: String) {
         self.dependency_edges
             .entry(from_module)
@@ -81,22 +71,18 @@ impl ModuleGraph {
             .push(to_module);
     }
 
-    /// Get a module by its path
     pub fn get_module(&self, path: &str) -> Option<&ModuleDescriptor> {
         self.modules.get(path)
     }
 
-    /// Get all modules
     pub fn modules(&self) -> &HashMap<String, ModuleDescriptor> {
         &self.modules
     }
 
-    /// Get compilation order (topologically sorted)
     pub fn compilation_order(&self) -> &[String] {
         &self.compilation_order
     }
 
-    /// Get dependencies for a module
     pub fn get_dependencies(&self, module_path: &str) -> Vec<String> {
         self.dependency_edges
             .get(module_path)
@@ -104,7 +90,6 @@ impl ModuleGraph {
             .unwrap_or_default()
     }
 
-    /// Detect cycles in the dependency graph using DFS
     pub fn detect_cycles(&self) -> Result<(), ModuleResolutionError> {
         let mut visited = HashSet::new();
         let mut rec_stack = HashSet::new();
@@ -118,7 +103,6 @@ impl ModuleGraph {
         Ok(())
     }
 
-    /// DFS helper for cycle detection
     fn dfs_cycle_detect(
         &self,
         module: &str,
@@ -142,7 +126,6 @@ impl ModuleGraph {
         Ok(())
     }
 
-    /// Compute topological sort of modules using Kahn's algorithm
     pub fn compute_compilation_order(&mut self) -> Result<(), ModuleResolutionError> {
         // Check for cycles first
         self.detect_cycles()?;

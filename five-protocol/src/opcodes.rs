@@ -1,37 +1,6 @@
-//! Unified Opcode Definitions for Five VM Protocol
-//!
-//! This module provides the authoritative opcode definitions for all Five VMs.
-//! Opcodes are organized by functional categories with no conflicts.
-//!
-//! # 🚨 MIGRATION NOTICE - Protocol Cleanup (August 2024)
-//!
-//! **10 redundant opcodes have been REMOVED** to minimize on-chain binary size and prepare for V3 optimizations:
-//!
-//! ## Removed Constraint Immediates (use VLE variants):
-//! - `CHECK_SIGNER_IMM` (0x65) → use `CHECK_SIGNER` + u8 account_index
-//! - `CHECK_WRITABLE_IMM` (0x66) → use `CHECK_WRITABLE` + u8 account_index
-//! - `CHECK_OWNER_IMM` (0x67) → use `CHECK_OWNER` + VLE account_index + pubkey
-//! - `CHECK_INITIALIZED_IMM` (0x68) → use `CHECK_INITIALIZED` + u8 account_index
-//! - `CHECK_PDA_IMM` (0x69) → use `CHECK_PDA` + VLE account_index
-//! - `CHECK_BATCH_IMM` (0x6A) → use multiple individual constraint checks
-//! - `CHECK_UNINITIALIZED_IMM` (0x6B) → use `CHECK_UNINITIALIZED` + u8 account_index
-//!
-//! ## Removed Redundant Array Operations:
-//! - `READ_DATA` (0xA2) → use `GET_DATA` (0x56) for account data access
-//! - `ARRAY_LEN` (0xA7) → use `ARRAY_LENGTH` (0xAE) for all length operations
-//! - `STRING_LENGTH` (0xB0) → use `ARRAY_LENGTH` (0xAE) - strings are arrays
-//!
-//! **See `OPCODE-MIGRATION-GUIDE.md` for detailed migration instructions.**
-//!
-//! ## Benefits:
-//! - 🚀 **10 opcode slots freed** for V3 pattern fusion optimizations
-//! - 📦 **Smaller on-chain binary** (~300 bytes handler code removed)
-//! - 🎯 **Consistent API** - single way to do each operation
-//! - ⚡ **Better flexibility** - VLE encoding supports dynamic parameters
+//! Opcode definitions for the Five VM protocol.
 
-/// Opcode allocation table - single source of truth
-/// Each range is 16 opcodes (0x0-0xF) for future expansion
-/// 🎯 LOGICAL ORGANIZATION: Similar operations grouped together
+/// Opcode allocation table - single source of truth.
 pub mod ranges {
     /// Control flow operations: 0x00-0x0F
     pub const CONTROL_BASE: u8 = 0x00;
@@ -73,9 +42,8 @@ pub mod ranges {
 
     // GENERAL_OPS_BASE removed - merged with LOCAL_BASE range
 
-    /// Register operations: 0xB0-0xBF
-    /// Hybrid VM register operations for performance optimization
-    pub const REGISTER_BASE: u8 = 0xB0;
+    /// [REMOVED] Register operations: 0xB0-0xBF
+    /// Register functionality removed - Pure Stack Machine only
 
     /// [REMOVED] Account view operations - use zero-copy LOAD_FIELD/STORE_FIELD instead.
     /// Range 0xC0-0xCF now available for future features.
@@ -94,9 +62,9 @@ pub mod ranges {
 
 // ===== CONTROL FLOW OPERATIONS (0x00-0x0F) =====
 pub const HALT: u8 = 0x00;
-pub const JUMP: u8 = 0x01; // JUMP offset_vle (VLE encoded for optimal space)
-pub const JUMP_IF: u8 = 0x02; // JUMP_IF offset_vle (VLE encoded for optimal space)
-pub const JUMP_IF_NOT: u8 = 0x03; // JUMP_IF_NOT offset_vle (VLE encoded for optimal space)
+pub const JUMP: u8 = 0x01; // JUMP offset_u16
+pub const JUMP_IF: u8 = 0x02; // JUMP_IF offset_u16
+pub const JUMP_IF_NOT: u8 = 0x03; // JUMP_IF_NOT offset_u16
 pub const REQUIRE: u8 = 0x04;
 pub const ASSERT: u8 = 0x05;
 pub const RETURN: u8 = 0x06;
@@ -117,12 +85,12 @@ pub const ROT: u8 = 0x15; // Rotate top 3 items on stack
 pub const DROP: u8 = 0x16; // Drop top item from stack
 pub const OVER: u8 = 0x17; // Copy second item to top of stack
 
-// ALL PUSH operations (consolidated from 0xE0-0xEF VLE range)
+// ALL PUSH operations (consolidated)
 pub const PUSH_U8: u8 = 0x18; // PUSH_U8 value_u8 (2 bytes total)
-pub const PUSH_U16: u8 = 0x19; // PUSH_U16 value_vle (2-3 bytes, optimized for small values)
-pub const PUSH_U32: u8 = 0x1A; // PUSH_U32 value_vle (2-5 bytes, optimized for small values)
-pub const PUSH_U64: u8 = 0x1B; // PUSH_U64 value_vle (2-9 bytes, optimized for small values)
-pub const PUSH_I64: u8 = 0x1C; // PUSH_I64 value_vle (2-9 bytes, optimized for small values)
+pub const PUSH_U16: u8 = 0x19; // PUSH_U16 value_u16 (3 bytes total)
+pub const PUSH_U32: u8 = 0x1A; // PUSH_U32 value_u32 (5 bytes total)
+pub const PUSH_U64: u8 = 0x1B; // PUSH_U64 value_u64 (9 bytes total)
+pub const PUSH_I64: u8 = 0x1C; // PUSH_I64 value_i64 (9 bytes total)
 pub const PUSH_BOOL: u8 = 0x1D; // PUSH_BOOL value_u8 (2 bytes total)
 pub const PUSH_PUBKEY: u8 = 0x1E; // PUSH_PUBKEY value_32bytes (33 bytes total)
 pub const PUSH_U128: u8 = 0x1F; // PUSH_U128 value_16bytes (17 bytes total) - MITO-style BPF-optimized
@@ -183,8 +151,8 @@ pub const BYTE_SWAP_64: u8 = 0x3F; // Swap bytes in u64 (endian conversion)
 // All memory operations use zero-copy by default where possible
 pub const STORE: u8 = 0x40;
 pub const LOAD: u8 = 0x41;
-pub const STORE_FIELD: u8 = 0x42; // STORE_FIELD account_index_u8, offset_vle (VLE + zero-copy optimized)
-pub const LOAD_FIELD: u8 = 0x43; // LOAD_FIELD account_index_u8, offset_vle (VLE + zero-copy optimized)
+pub const STORE_FIELD: u8 = 0x42; // STORE_FIELD account_index_u8, offset_u32
+pub const LOAD_FIELD: u8 = 0x43; // LOAD_FIELD account_index_u8, offset_u32
 pub const LOAD_INPUT: u8 = 0x44;
 pub const STORE_GLOBAL: u8 = 0x45;
 pub const LOAD_GLOBAL: u8 = 0x46;
@@ -192,7 +160,7 @@ pub const LOAD_GLOBAL: u8 = 0x46;
 // External field operations (MITO-style zero-copy)
 pub const LOAD_EXTERNAL_FIELD: u8 = 0x47; // LOAD_EXTERNAL_FIELD (stack: account_pubkey, field_name) -> value
                                           // Note: No STORE_EXTERNAL_FIELD - external state is read-only for security
-pub const LOAD_FIELD_PUBKEY: u8 = 0x48; // LOAD_FIELD_PUBKEY account_index_u8, offset_vle -> PubkeyRef
+pub const LOAD_FIELD_PUBKEY: u8 = 0x48; // LOAD_FIELD_PUBKEY account_index_u8, offset_u32 -> PubkeyRef
 
 // ===== ACCOUNT OPERATIONS (0x50-0x5F) =====
 pub const CREATE_ACCOUNT: u8 = 0x50;
@@ -220,7 +188,7 @@ pub const ARRAY_GET: u8 = 0x65; // Array element access
 
 // String operations (strings are byte arrays)
 pub const PUSH_STRING_LITERAL: u8 = 0x66; // Push string literal to temp buffer
-pub const PUSH_STRING: u8 = 0x67; // PUSH_STRING length_vle + string_data (VLE encoded)
+pub const PUSH_STRING: u8 = 0x67; // PUSH_STRING length_u32 + string_data
 
 // Array utility operations
 // DUP_ADD moved to 0xE2 - slot 0x68 available
@@ -270,6 +238,7 @@ pub const CALL_NATIVE: u8 = 0x92; // MOVED FROM 0x82 (not implemented)
 pub const PREPARE_CALL: u8 = 0x93; // MOVED FROM 0x83 (not implemented)
 pub const FINISH_CALL: u8 = 0x94; // MOVED FROM 0x84 (not implemented)
 
+
 // ===== LOCAL VARIABLE OPERATIONS (0xA0-0xAF) =====
 // 🎯 MOVED FROM 0x90: Local variable operations moved to 0xA0 range
 pub const ALLOC_LOCALS: u8 = 0xA0; // MOVED FROM 0x90
@@ -290,17 +259,25 @@ pub const GET_SIGNER_KEY: u8 = 0xAB;
 // ===== AVAILABLE SLOTS (0xAC-0xAF) =====
 // 0xAC-0xAF available for future operations
 
+// ===== CONSTANT POOL WIDE PUSH OPS (0xB0-0xB8) =====
+// Wide (u16 index) variants for constant pool access
+pub const PUSH_U8_W: u8 = 0xB0;
+pub const PUSH_U16_W: u8 = 0xB1;
+pub const PUSH_U32_W: u8 = 0xB2;
+pub const PUSH_U64_W: u8 = 0xB3;
+pub const PUSH_I64_W: u8 = 0xB4;
+pub const PUSH_BOOL_W: u8 = 0xB5;
+pub const PUSH_U128_W: u8 = 0xB6;
+pub const PUSH_PUBKEY_W: u8 = 0xB7;
+pub const PUSH_STRING_W: u8 = 0xB8;
+
 // NOTE: All scattered array operations have been moved to 0x60-0x6F range
 // NOTE: All pattern fusion operations will be moved to 0xE0-0xEF range
 
-// ===== [REMOVED] REGISTER OPERATIONS (0xB0-0xBF) =====
-// Register operations have been removed from Five VM in favor of pure stack-based zero-copy design
-// Registers provided no performance benefit and added unnecessary complexity
+// ===== FUSED REQUIRE OPERATIONS (0xC0-0xCF) =====
+// See definitions at end of file: REQUIRE_GTE_U64, REQUIRE_NOT_BOOL, etc.
+// Handlers implemented in five-vm-mito/src/handlers/fused_ops.rs
 
-// ===== [REMOVED] ACCOUNT VIEW OPERATIONS (0xC0-0xCF) =====
-// Account views were redundant with zero-copy LOAD_FIELD/STORE_FIELD operations
-// Range 0xC0-0xCF now available for Phase 6 Dynamic Pattern Fusion
-// Migration: Use LOAD_FIELD/STORE_FIELD for direct account field access
 
 // ===== NIBBLE IMMEDIATE OPERATIONS (0xD0-0xD7) =====
 // BPF optimization: single-byte encoding for common local variable operations
@@ -361,11 +338,11 @@ pub const RETURN_ERROR: u8 = 0xEB; // return err() fusion
 pub const GT_ZERO_JUMP: u8 = 0xEC; // value > 0 ? jump : continue
 pub const LT_ZERO_JUMP: u8 = 0xED; // value < 0 ? jump : continue
 
-// LEGACY: Static precompile system (replaced by library accounts)
-#[cfg(feature = "precompiles")]
-pub const PRECOMPILE: u8 = 0xEE; // Execute precompiled pattern with parameters (LEGACY)
+// Universal bookkeeping optimizations
+pub const FIELD_SUB_ADD_PARAM: u8 = 0xEE; // acc1.x -= p; acc2.y += p (double-entry update)
+pub const REQUIRE_PARAM_LTE_IMM: u8 = 0xEF; // param <= imm (constant check)
 
-// 0xEF reserved for future pattern fusion opcodes
+// 0xF0-... ranges below
 
 // ===== ADVANCED/EXPERIMENTAL OPERATIONS (0xF0-0xFF) =====
 // 🎯 LOGICAL GROUPING: Optional/Result operations + experimental features
@@ -396,6 +373,10 @@ pub const OPTIONAL_IS_NONE: u8 = 0xFD; // Check if Optional is None
 pub const RESULT_IS_OK: u8 = 0xFE; // Check if Result is Ok
 pub const RESULT_IS_ERR: u8 = 0xFF; // Check if Result is Err
 
+// Additional fused check reused in Result range if needed, or define in unused range
+// We can use 0xAD-0xAF range if available, or replace unused ops
+pub const REQUIRE_FIELD_EQ_IMM: u8 = 0xCB; // acc.field == imm (state check)
+
 // Additional Result operations - using available slots in lower ranges
 pub const RESULT_UNWRAP: u8 = 0xAC; // Unwrap Result value (panic if Err)
 pub const RESULT_GET_VALUE: u8 = 0xAD; // Get Ok value from Result (unsafe)
@@ -419,7 +400,7 @@ pub const JZ: u8 = JUMP_IF_NOT;
 
 // DEPRECATED OPERATIONS REMOVED:
 // - RLE/Compact encoding operations (VLE-only architecture)
-// - Duplicate register definitions (moved to 0xB0-0xBF range)
+// - Register operations (system is now pure stack machine)
 // - Compression markers (not used with VLE-only approach)
 
 // ===== COMPACT FIELD IDs FOR BUILT-IN ACCOUNT PROPERTIES =====
@@ -445,14 +426,19 @@ pub enum ArgType {
     U32,
     U64,
     ValueType,
-    FunctionIndex,
-    LocalIndex,
-    AccountIndex,
+    FunctionIndex, // u32 fixed
+    LocalIndex, // u8 fixed
+    AccountIndex, // u8 fixed
     CallExternal,   // account_index (u8) + function_offset (u16) + param_count (u8)
     CallInternal,   // param_count (u8) + function_address (u16)
-    AccountField,   // account_index (u8) + field_offset (VLE)
-    AccountFieldParam, // account_index (u8) + field_offset (VLE) + param_index (u8)
-    FusedAccAcc,    // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
+    AccountField,   // account_index (u8) + field_offset (u32)
+    AccountFieldParam, // account_index (u8) + field_offset (u32) + param_index (u8)
+    FusedAccAcc,    // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
+    U16Fixed,       // Fixed 2-byte u16 (for patching)
+    U32Fixed,       // Fixed 4-byte u32 (for patching)
+    FusedSubAdd,    // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
+    ParamImm,       // param(u8) + imm(u8)
+    FieldImm,       // acc(u8) + off(u32) + imm(u8)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -479,21 +465,21 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: JUMP,
         name: "JUMP",
-        arg_type: ArgType::U16,
+        arg_type: ArgType::U16Fixed,
         stack_effect: 0,
         compute_cost: 2,
     }, // Fixed u16 offset
     OpcodeInfo {
         opcode: JUMP_IF,
         name: "JUMP_IF",
-        arg_type: ArgType::U16,
+        arg_type: ArgType::U16Fixed,
         stack_effect: -1,
         compute_cost: 3,
     }, // Fixed u16 offset
     OpcodeInfo {
         opcode: JUMP_IF_NOT,
         name: "JUMP_IF_NOT",
-        arg_type: ArgType::U16,
+        arg_type: ArgType::U16Fixed,
         stack_effect: -1,
         compute_cost: 3,
     }, // Fixed u16 offset
@@ -653,6 +639,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: PUSH_U8_W,
+        name: "PUSH_U8_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: OPTIONAL_IS_SOME,
         name: "OPTIONAL_IS_SOME",
         arg_type: ArgType::None,
@@ -714,19 +707,47 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::U64,
         stack_effect: 1,
         compute_cost: 1,
-    }, // VLE encoded value
+    },
+    OpcodeInfo {
+        opcode: PUSH_U64_W,
+        name: "PUSH_U64_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
     OpcodeInfo {
         opcode: PUSH_I64,
         name: "PUSH_I64",
         arg_type: ArgType::U64,
         stack_effect: 1,
         compute_cost: 1,
-    }, // VLE encoded value
+    },
+    OpcodeInfo {
+        opcode: PUSH_I64_W,
+        name: "PUSH_I64_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
     OpcodeInfo {
         opcode: PUSH_BOOL,
         name: "PUSH_BOOL",
-        arg_type: ArgType::None,
+        arg_type: ArgType::U8,
         stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: PUSH_BOOL_W,
+        name: "PUSH_BOOL_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: FINISH_CALL,
+        name: "FINISH_CALL",
+        arg_type: ArgType::None,
+        stack_effect: 0,
         compute_cost: 1,
     },
     OpcodeInfo {
@@ -737,13 +758,49 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: PUSH_PUBKEY_W,
+        name: "PUSH_PUBKEY_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: PUSH_STRING,
         name: "PUSH_STRING",
         arg_type: ArgType::U32,
         stack_effect: 1,
         compute_cost: 1,
     },
+    OpcodeInfo {
+        opcode: PUSH_STRING_W,
+        name: "PUSH_STRING_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
     // PUSH_ACCOUNT removed due to conflict with ADD (0x20)
+    
+    OpcodeInfo {
+        opcode: FIELD_SUB_ADD_PARAM,
+        name: "FIELD_SUB_ADD_PARAM",
+        arg_type: ArgType::FusedSubAdd,
+        stack_effect: 0,
+        compute_cost: 5, // 2 loads + 2 stores + arithmetic
+    },
+    OpcodeInfo {
+        opcode: REQUIRE_PARAM_LTE_IMM,
+        name: "REQUIRE_PARAM_LTE_IMM",
+        arg_type: ArgType::ParamImm,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: REQUIRE_FIELD_EQ_IMM,
+        name: "REQUIRE_FIELD_EQ_IMM",
+        arg_type: ArgType::FieldImm,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
 
     // Arithmetic operations
     OpcodeInfo {
@@ -828,6 +885,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         opcode: PUSH_U128,
         name: "PUSH_U128",
         arg_type: ArgType::None,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
+        opcode: PUSH_U128_W,
+        name: "PUSH_U128_W",
+        arg_type: ArgType::U16,
         stack_effect: 1,
         compute_cost: 1,
     },
@@ -1267,14 +1331,28 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::U32,
         stack_effect: 1,
         compute_cost: 1,
-    }, // VLE encoded value
+    },
+    OpcodeInfo {
+        opcode: PUSH_U32_W,
+        name: "PUSH_U32_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
     OpcodeInfo {
         opcode: PUSH_U16,
         name: "PUSH_U16",
         arg_type: ArgType::U16,
         stack_effect: 1,
         compute_cost: 1,
-    }, // VLE encoded value
+    },
+    OpcodeInfo {
+        opcode: PUSH_U16_W,
+        name: "PUSH_U16_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 1,
+    },
     // Note: JUMP_TABLE (0xB0) opcode removed from protocol
 
     // Array and string operations
@@ -1306,9 +1384,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 1,
         compute_cost: 2,
     },
-    // STRING_LENGTH entry removed - opcode was deleted (use ARRAY_LENGTH instead)
-    // ARRAY_CONCAT removed - use array operations in their dedicated range
-
     // V3 Pattern Fusion Opcodes (using freed slots)
     OpcodeInfo {
         opcode: PUSH_ZERO,
@@ -1355,7 +1430,7 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: EQ_ZERO_JUMP,
         name: "EQ_ZERO_JUMP",
-        arg_type: ArgType::U16,
+        arg_type: ArgType::U16Fixed,
         stack_effect: -1,
         compute_cost: 3,
     },
@@ -1373,7 +1448,41 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 0,
         compute_cost: 2,
     },
-    // SWAP_SUB removed - use individual SWAP + SUB operations
+    OpcodeInfo {
+        opcode: DUP_SUB,
+        name: "DUP_SUB",
+        arg_type: ArgType::None,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: DUP_MUL,
+        name: "DUP_MUL",
+        arg_type: ArgType::None,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: RETURN_ERROR,
+        name: "RETURN_ERROR",
+        arg_type: ArgType::None,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: GT_ZERO_JUMP,
+        name: "GT_ZERO_JUMP",
+        arg_type: ArgType::U16Fixed,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: LT_ZERO_JUMP,
+        name: "LT_ZERO_JUMP",
+        arg_type: ArgType::U16Fixed,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
 
     // Nibble immediate GET_LOCAL operations (0xD0-0xD3)
     OpcodeInfo {
@@ -1563,28 +1672,28 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: 0xC0, // REQUIRE_GTE_U64
         name: "REQUIRE_GTE_U64",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE) + param(u8) - reuse AccountField for acc+offset
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + param(u8)
         stack_effect: 0,
         compute_cost: 4,
     },
     OpcodeInfo {
         opcode: 0xC1, // REQUIRE_NOT_BOOL
         name: "REQUIRE_NOT_BOOL",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE)
+        arg_type: ArgType::AccountField, // acc(u8) + offset(u32)
         stack_effect: 0,
         compute_cost: 3,
     },
     OpcodeInfo {
         opcode: 0xC2, // FIELD_ADD_PARAM
         name: "FIELD_ADD_PARAM",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE) + param(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + param(u8)
         stack_effect: 0,
         compute_cost: 4,
     },
     OpcodeInfo {
         opcode: 0xC3, // FIELD_SUB_PARAM
         name: "FIELD_SUB_PARAM",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE) + param(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + param(u8)
         stack_effect: 0,
         compute_cost: 4,
     },
@@ -1613,21 +1722,21 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: 0xC7, // STORE_PARAM_TO_FIELD
         name: "STORE_PARAM_TO_FIELD",
-        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + param(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + param(u8)
         stack_effect: 0,
         compute_cost: 3,
     },
     OpcodeInfo {
         opcode: 0xC8, // STORE_FIELD_ZERO
         name: "STORE_FIELD_ZERO",
-        arg_type: ArgType::AccountField, // acc(u8) + offset(VLE)
+        arg_type: ArgType::AccountField, // acc(u8) + offset(u32)
         stack_effect: 0,
         compute_cost: 2,
     },
     OpcodeInfo {
         opcode: 0xC9, // STORE_KEY_TO_FIELD
         name: "STORE_KEY_TO_FIELD",
-        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(VLE) + key_acc(u8)
+        arg_type: ArgType::AccountFieldParam, // acc(u8) + offset(u32) + key_acc(u8)
         stack_effect: 0,
         compute_cost: 3,
     },
@@ -1681,22 +1790,22 @@ pub const fn opcode_compute_cost(opcode: u8) -> u8 {
 // High-impact universal patterns that apply across all DeFi contracts
 
 /// REQUIRE_GTE_U64: Fuses LOAD_FIELD + LOAD_PARAM + GTE + REQUIRE
-/// Encoding: REQUIRE_GTE_U64 acc(u8) offset(VLE) param(u8)
+/// Encoding: REQUIRE_GTE_U64 acc(u8) offset(u32) param(u8)
 /// Use: balance >= amount, collateral >= loan, liquidity >= withdraw
 pub const REQUIRE_GTE_U64: u8 = 0xC0;
 
 /// REQUIRE_NOT_BOOL: Fuses LOAD_FIELD + NOT + REQUIRE  
-/// Encoding: REQUIRE_NOT_BOOL acc(u8) offset(VLE)
+/// Encoding: REQUIRE_NOT_BOOL acc(u8) offset(u32)
 /// Use: !frozen, !paused, !locked, !liquidated
 pub const REQUIRE_NOT_BOOL: u8 = 0xC1;
 
 /// FIELD_ADD_PARAM: Fuses LOAD_FIELD + LOAD_PARAM + ADD + STORE_FIELD
-/// Encoding: FIELD_ADD_PARAM acc(u8) offset(VLE) param(u8)
+/// Encoding: FIELD_ADD_PARAM acc(u8) offset(u32) param(u8)
 /// Use: credit balance, add liquidity, increase stake
 pub const FIELD_ADD_PARAM: u8 = 0xC2;
 
 /// FIELD_SUB_PARAM: Fuses LOAD_FIELD + LOAD_PARAM + SUB + STORE_FIELD  
-/// Encoding: FIELD_SUB_PARAM acc(u8) offset(VLE) param(u8)
+/// Encoding: FIELD_SUB_PARAM acc(u8) offset(u32) param(u8)
 /// Use: debit balance, remove liquidity, decrease stake
 pub const FIELD_SUB_PARAM: u8 = 0xC3;
 
@@ -1706,7 +1815,7 @@ pub const FIELD_SUB_PARAM: u8 = 0xC3;
 pub const REQUIRE_PARAM_GT_ZERO: u8 = 0xC4;
 
 /// REQUIRE_EQ_PUBKEY: Fuses LOAD_FIELD_PUBKEY + LOAD_FIELD_PUBKEY + EQ + REQUIRE
-/// Encoding: REQUIRE_EQ_PUBKEY acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+/// Encoding: REQUIRE_EQ_PUBKEY acc1(u8) offset1(u32) acc2(u8) offset2(u32)
 /// Use: source.mint == dest.mint
 pub const REQUIRE_EQ_PUBKEY: u8 = 0xC5;
 
@@ -1719,24 +1828,21 @@ pub const CHECK_SIGNER_WRITABLE: u8 = 0xC6;
 // Initialization and assignment patterns
 
 /// STORE_PARAM_TO_FIELD: Fuses LOAD_PARAM + STORE_FIELD
-/// Encoding: STORE_PARAM_TO_FIELD acc(u8) offset(VLE) param(u8)
+/// Encoding: STORE_PARAM_TO_FIELD acc(u8) offset(u32) param(u8)
 /// Use: account.field = param (common in init functions)
 pub const STORE_PARAM_TO_FIELD: u8 = 0xC7;
 
 /// STORE_FIELD_ZERO: Fuses PUSH_0 + STORE_FIELD
-/// Encoding: STORE_FIELD_ZERO acc(u8) offset(VLE)
+/// Encoding: STORE_FIELD_ZERO acc(u8) offset(u32)
 /// Use: account.balance = 0 (field initialization)
 pub const STORE_FIELD_ZERO: u8 = 0xC8;
 
 /// STORE_KEY_TO_FIELD: Fuses GET_KEY + STORE_FIELD  
-/// Encoding: STORE_KEY_TO_FIELD acc(u8) offset(VLE) key_acc(u8)
+/// Encoding: STORE_KEY_TO_FIELD acc(u8) offset(u32) key_acc(u8)
 /// Use: account.owner = signer.key (ownership assignment)
 pub const STORE_KEY_TO_FIELD: u8 = 0xC9;
 
 /// REQUIRE_EQ_FIELDS: Fuses LOAD_FIELD + LOAD_FIELD + EQ + REQUIRE
-/// Encoding: REQUIRE_EQ_FIELDS acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+/// Encoding: REQUIRE_EQ_FIELDS acc1(u8) offset1(u32) acc2(u8) offset2(u32)
 /// Use: source.mint == dest.mint (field-to-field comparison)
 pub const REQUIRE_EQ_FIELDS: u8 = 0xCA;
-
-// 0xCB-0xCF reserved for additional universal fused opcodes
-

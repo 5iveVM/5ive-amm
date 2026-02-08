@@ -1,11 +1,4 @@
-//! Comprehensive integration tests for Five VM WASM
-//!
-//! Tests the complete DSL compiler + MitoVM pipeline using the same test scripts
-//! as the Five CLI to ensure consistency between Rust and WASM implementations.
-//!
-//! Test Modes (controlled by FIVE_TEST_MODE environment variable):
-//! - "wasm" (default): Direct MitoVM execution (fast, good for basic functionality)
-//! - "localnet": Five CLI on-chain execution (comprehensive, requires local validator)
+//! Integration tests for Five VM WASM.
 
 #[cfg(test)]
 mod tests {
@@ -91,11 +84,11 @@ use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
         // Execute instruction discriminator (removed by Five program before passing to MitoVM)
         data.push(2);
 
-        // VLE-encode function index 0 (since 0 < 128, it's just [0])
-        data.push(0);
+        // Function index 0 (u32)
+        data.extend_from_slice(&0u32.to_le_bytes());
 
-        // VLE-encode parameter count (since count < 128, it's just the count)
-        data.push(params.len() as u8);
+        // Parameter count (u32)
+        data.extend_from_slice(&(params.len() as u32).to_le_bytes());
 
         for param in params {
             match param {
@@ -192,43 +185,28 @@ use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
         // Account system scripts need at least one account to avoid index out of bounds
         let accounts = vec![];
 
-        // Encode parameters using VLE if any
-        let input_data = if params.is_empty() {
-            vec![]
-        } else {
-            // NOTE: In onchain execution, the format would be [2, function_index, param_count, ...]
-            // where 2 is the Execute instruction discriminator. The Five Solana program strips
-            // the discriminator and passes [function_index, param_count, ...] to MitoVM.
-            // Since we're calling MitoVM directly here, we use the post-processing format.
-            // Format: [function_index (VLE), param_count (VLE), param1 (VLE), param2 (VLE), ...]
-            let mut data = vec![];
+        // Encode parameters using fixed-size typed format expected by MitoVM:
+        // [function_index (u32)][param_count (u32)][type_id (u8) + value_bytes]...
+        let mut input_data = Vec::new();
+        input_data.extend_from_slice(&0u32.to_le_bytes());
+        input_data.extend_from_slice(&(params.len() as u32).to_le_bytes());
 
-            // VLE-encode function index 0 (since 0 < 128, it's just [0])
-            data.push(0);
-
-            // VLE-encode parameter count (since count < 128, it's just the count)
-            data.push(params.len() as u8);
-
-            for param in params {
-                match param {
-                    Value::U64(val) => {
-                        // Encode as pure VLE value (no type marker needed)
-                        // parse_vle_parameters_unified expects pure VLE values
-                        use five_protocol::VLE;
-                        let (size, bytes) = VLE::encode_u32(*val as u32);
-                        data.extend_from_slice(&bytes[..size]);
-                    }
-                    Value::Bool(val) => {
-                        // Encode bool as 0 or 1
-                        data.push(if *val { 1 } else { 0 });
-                    }
-                    _ => return Err("Unsupported parameter type".to_string()),
+        for param in params {
+            match param {
+                Value::U64(val) => {
+                    input_data.push(five_protocol::types::U64);
+                    input_data.extend_from_slice(&val.to_le_bytes());
                 }
+                Value::Bool(val) => {
+                    input_data.push(five_protocol::types::BOOL);
+                    let as_u32: u32 = if *val { 1 } else { 0 };
+                    input_data.extend_from_slice(&as_u32.to_le_bytes());
+                }
+                _ => return Err("Unsupported parameter type".to_string()),
             }
-            data
-        };
+        }
 
-        let mut storage = StackStorage::new(bytecode);
+        let mut storage = StackStorage::new();
         match MitoVM::execute_direct(bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
             Ok(result) => {
                 let compute_units = 0; // MitoVM doesn't expose compute units in this interface

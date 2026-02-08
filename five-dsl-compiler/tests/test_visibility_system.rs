@@ -1,9 +1,4 @@
-/// Comprehensive tests for the Visibility system
-/// Tests the distinction between:
-/// - Public functions (on-chain callable)
-/// - Internal functions (module-internal, importable only)
-/// - Visibility parsing in the parser
-/// - Visibility enforcement in type checking
+/// Tests for the Visibility system.
 
 use five_dsl_compiler::{DslParser, DslTokenizer, Visibility, AstNode};
 
@@ -55,13 +50,11 @@ script TestScript {
         if let AstNode::InstructionDefinition {
             name,
             visibility,
-            is_public,
             ..
         } = &instruction_definitions[0]
         {
             assert_eq!(name, "transfer");
             assert_eq!(visibility, &Visibility::Public);
-            assert_eq!(is_public, &true);
             assert!(visibility.is_on_chain_callable());
             assert!(visibility.is_importable());
         } else {
@@ -99,13 +92,11 @@ script TestScript {
         if let AstNode::InstructionDefinition {
             name,
             visibility,
-            is_public,
             ..
         } = &instruction_definitions[0]
         {
             assert_eq!(name, "validate_amount");
             assert_eq!(visibility, &Visibility::Internal);
-            assert_eq!(is_public, &false);
             assert!(!visibility.is_on_chain_callable());
             assert!(visibility.is_importable());
         } else {

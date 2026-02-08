@@ -44,7 +44,7 @@
     // --- Interfaces (for CPI with SPL Token Program) ---
     // Assuming a simplified SPL Token Program interface for transfer
     interface SplTokenProgram program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5mW") {
-        // Simplified transfer instruction
+        // Transfer instruction
         // function transfer(source: Account, destination: Account, authority: Account, amount: u64);
         // Note: Actual SPL Token program has more complex instruction data and accounts.
         // This is a conceptual representation for DSL.
@@ -85,7 +85,7 @@
         // This is a placeholder for a real CPI call to the SPL Token program
         // The actual CPI would involve passing the correct accounts and instruction data.
         // SplTokenProgram.transfer(user_collateral_token_account.key, lending_pool_collateral_token_account.key, user.key, amount);
-        // For now, we simulate the state change.
+        // Simulate the state change.
         lending_pool.total_collateral_deposited = lending_pool.total_collateral_deposited + amount;
 
         emit DepositEvent { user: user.key, amount: amount };
@@ -105,7 +105,7 @@
         require(user_loan.is_active == false, "User already has an active loan");
 
         // Calculate max borrowable amount based on collateral and liquidation threshold
-        // Simplified: collateral_deposited * (10000 / liquidation_threshold_bps)
+        // collateral_deposited * (10000 / liquidation_threshold_bps)
         let max_borrow_amount = collateral_deposited * 10000 / lending_pool.liquidation_threshold_bps;
         require(borrow_amount <= max_borrow_amount, "Insufficient collateral for this borrow amount");
 

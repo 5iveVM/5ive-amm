@@ -2,17 +2,17 @@
 //!
 //! Tests critical security constraint opcodes that validate account properties.
 
-mod support;
+#[path = "support/accounts.rs"]
+mod support_accounts;
 
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, VMError, stack::StackStorage, AccountInfo};
-use five_vm_mito::error::VMErrorCode;
 use pinocchio::pubkey::Pubkey;
 
 fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &Pubkey) -> five_vm_mito::Result<Option<Value>> {
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
 }
-use support::accounts::{create_test_accounts, derive_pda_real};
+use support_accounts::{create_test_accounts, derive_pda_real};
 
 #[cfg(test)]
 mod basic_constraint_tests {
@@ -236,7 +236,8 @@ mod pda_constraint_tests {
 
         // 1. Push seeds "test"
         // PUSH_STRING "test"
-        bytecode.extend_from_slice(&[0x67, 0x04, b't', b'e', b's', b't']);
+        // Length 4 (u32 LE) + bytes
+        bytecode.extend_from_slice(&[0x67, 0x04, 0x00, 0x00, 0x00, b't', b'e', b's', b't']);
 
         // 2. Push bump (u8) - as a seed
         bytecode.push(0x18); // PUSH_U8

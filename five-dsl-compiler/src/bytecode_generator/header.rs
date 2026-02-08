@@ -2,7 +2,7 @@ use super::DslBytecodeGenerator;
 use five_protocol::{OptimizedHeader, FEATURE_IMPORT_VERIFICATION};
 
 impl DslBytecodeGenerator {
-    /// Emit 5IVE magic bytes at the beginning (legacy V1 format)
+    /// Emit 5IVE magic bytes at the beginning (legacy V1 format).
     pub fn emit_magic_bytes(&mut self) {
         self.emit_bytes(b"5IVE");
     }
@@ -15,7 +15,7 @@ impl DslBytecodeGenerator {
     /// 8      - public_function_count (u8)
     /// 9      - total_function_count (u8)
     pub fn emit_optimized_header_v2_with_imports(&mut self, public_count: u8, total_count: u8, has_imports: bool) {
-        // Build feature bitmap as u32 (feature bit tells the VM that CALL opcodes embed metadata directly after the instruction).
+        // Build feature bitmap as u32.
         let mut production_features = five_protocol::FEATURE_FUSED_BRANCH
             | five_protocol::FEATURE_NO_VALIDATION
             | five_protocol::FEATURE_MINIMAL_ERRORS
@@ -30,7 +30,7 @@ impl DslBytecodeGenerator {
             production_features |= five_protocol::FEATURE_FUNCTION_NAMES;
         }
 
-        // NEW: Add FEATURE_IMPORT_VERIFICATION flag if imports exist
+        // Add FEATURE_IMPORT_VERIFICATION flag if imports exist.
         if has_imports {
             production_features |= FEATURE_IMPORT_VERIFICATION;
         }
@@ -43,7 +43,7 @@ impl DslBytecodeGenerator {
             ),
         );
 
-        // Build header struct (in-memory representation)
+        // Build header struct (in-memory representation).
         let header = OptimizedHeader {
             magic: [b'5', b'I', b'V', b'E'],
             features: production_features,
@@ -51,13 +51,15 @@ impl DslBytecodeGenerator {
             total_function_count: total_count,
         };
 
-        // Emit header bytes according to agreed layout
-        self.emit_bytes(&header.magic); // 0..4
-        self.emit_u32(header.features); // 4..8 (u32 le)
-        self.emit_u8(header.public_function_count); // 8
-        self.emit_u8(header.total_function_count); // 9
+        // Emit header bytes according to agreed layout (store separately from code).
+        self.header_bytes.clear();
+        self.header_bytes.extend_from_slice(&header.magic); // 0..4
+        self.header_bytes.extend_from_slice(&header.features.to_le_bytes()); // 4..8
+        self.header_bytes.push(header.public_function_count); // 8
+        self.header_bytes.push(header.total_function_count); // 9
+        self.header_features = production_features;
 
-        // Logging helpers for diagnostics
+        // Logging helpers for diagnostics.
         self.log_opcode("MAGIC", "Five VM bytecode magic bytes '5IVE'");
         self.log_opcode_with_params(
             "FEATURES",
@@ -76,8 +78,8 @@ impl DslBytecodeGenerator {
         );
     }
 
-    /// Legacy wrapper for backward compatibility
-    /// Calls emit_optimized_header_v2_with_imports with has_imports = false
+    /// Legacy wrapper for backward compatibility.
+    /// Calls emit_optimized_header_v2_with_imports with has_imports = false.
     pub fn emit_optimized_header_v2(&mut self, public_count: u8, total_count: u8) {
         self.emit_optimized_header_v2_with_imports(public_count, total_count, false);
     }

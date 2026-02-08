@@ -1,7 +1,4 @@
-//! Control flow generation methods
-//!
-//! This module handles if statements, match expressions, and optimized
-//! control flow patterns like BR_EQ_U8 fused compare-branch.
+//! Control flow generation methods.
 
 use super::super::OpcodeEmitter;
 use super::types::{ASTGenerator, BrEqU8Info, BrEqU8Patch};
@@ -117,7 +114,7 @@ impl ASTGenerator {
         else_branch: &Option<Box<AstNode>>,
     ) -> Result<(), VMError> {
         // Check if we can optimize with BR_EQ_U8 fused compare-branch opcode
-        // CRITICAL: Only apply optimization for If-Else blocks.
+        // Only apply optimization for If-Else blocks.
         // For simple If, BR_EQ_U8 (4-5 bytes) vs Standard (6 bytes) is a smaller win,
         // but for If-Else it saves dispatch overhead and jump logic effectively.
         if else_branch.is_some() {
@@ -287,9 +284,7 @@ impl ASTGenerator {
             target_label,
         });
 
-        // Emit placeholder for VLE offset (will be patched later)
-        // CRITICAL: Reserve 2 bytes for the VLE offset to allow for consistent patching.
-        // We will force 2-byte VLE encoding when patching (0x80 | low, high).
+        // Emit placeholder for the branch offset (patched later).
         emitter.emit_u16(0); 
     }
 
@@ -334,6 +329,10 @@ impl ASTGenerator {
         }
 
         self.place_label(emitter, end_label);
+        // Ensure end label targets a valid instruction offset.
+        // This avoids out-of-bounds JUMP targets when a match expression
+        // is the final statement (e.g., all arms return).
+        emitter.emit_opcode(NOP);
 
         Ok(())
     }
@@ -354,14 +353,10 @@ impl ASTGenerator {
                         // Duplicate the matched value for tag checking
                         emitter.emit_opcode(DUP);
 
-                        // Extract the tag (first byte of the enum)
-                        // For now, assume Ok/Some = 0, Err/None = 1
-                        // This is a simplified implementation - in a full system,
-                        // we'd have proper enum tag checking
-
+                        // Option/Result encoding uses AccountRef index as tag:
+                        // Ok/Some = 0, Err = 254, None = 255
                         // For successful variants (Ok/Some), check if tag == 0
-                        emitter.emit_opcode(PUSH_U64);
-                        emitter.emit_u64(0); // Success tag
+                        emitter.emit_const_u64(0)?; // Success tag
                         emitter.emit_opcode(EQ);
 
                         // Jump to next arm if tag doesn't match
@@ -370,7 +365,7 @@ impl ASTGenerator {
                         // Pattern matched - extract the inner value if there are arguments
                         if !args.is_empty() {
                             if let AstNode::Identifier(var_name) = &args[0] {
-                                // For now, treat the entire matched value as the extracted variable
+                                // Treat the entire matched value as the extracted variable.
                                 // In a full implementation, we'd extract the inner value from the enum
 
                                 // Add the pattern variable to local symbol table
@@ -385,11 +380,10 @@ impl ASTGenerator {
 
                         Ok(true)
                     }
-                    "Err" | "None" => {
-                        // For error/none variants, check if tag == 1
+                    "Err" => {
+                        // For error variants, check if tag == 254
                         emitter.emit_opcode(DUP);
-                        emitter.emit_opcode(PUSH_U64);
-                        emitter.emit_u64(1); // Error tag
+                        emitter.emit_const_u64(254)?; // Err tag
                         emitter.emit_opcode(EQ);
 
                         // Jump to next arm if tag doesn't match
@@ -401,12 +395,23 @@ impl ASTGenerator {
                                 // Add the pattern variable to local symbol table
                                 self.add_local_variable(var_name.clone(), "string".to_string());
 
-                                // For now, store the matched value as the error variable
+                                // Store the matched value as the error variable.
                                 let var_index = self.get_local_variable_index(var_name)?;
                                 emitter.emit_opcode(SET_LOCAL);
                                 emitter.emit_u8(var_index);
                             }
                         }
+
+                        Ok(true)
+                    }
+                    "None" => {
+                        // For none variants, check if tag == 255
+                        emitter.emit_opcode(DUP);
+                        emitter.emit_const_u64(255)?; // None tag
+                        emitter.emit_opcode(EQ);
+
+                        // Jump to next arm if tag doesn't match
+                        self.emit_jump(emitter, JUMP_IF_NOT, next_arm_label);
 
                         Ok(true)
                     }

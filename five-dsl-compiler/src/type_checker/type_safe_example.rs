@@ -1,7 +1,4 @@
-//! Example of type-safe type checking with new AST
-//!
-//! This module demonstrates how to use the type-safe checker API.
-//! It shows the pattern for migrating existing type checking code.
+//! Examples for the type-safe checker API.
 
 #![allow(dead_code)]
 
@@ -9,62 +6,25 @@ use super::types::TypeCheckerContext;
 use crate::ast::{AstNode, generated::*};
 use five_vm_mito::error::VMError;
 
-/// Example: Type-check an expression using the type-safe API
-///
-/// Before migration (old way):
-/// ```ignore
-/// match expr {
-///     AstNode::BinaryExpression { left, right, .. } => {
-///         self.check_types(left)?;
-///         self.check_types(right)?;
-///         Ok(())
-///     }
-///     AstNode::StringLiteral { .. } => Ok(()),
-///     AstNode::Identifier(name) => {
-///         // Check identifier is defined...
-///     }
-///     // ... more cases
-///     _ => Err(VMError::InvalidScript),
-/// }
-/// ```
-///
-/// After migration (new way):
-/// ```ignore
-/// let expr: Expression = node.try_into()?;
-/// self.check_expression_safe(&expr)?;
-/// ```
+/// Type-check an expression using the type-safe API.
 #[allow(unused)]
 fn example_type_safe_expression_checking(
     checker: &mut TypeCheckerContext,
     expr: &Expression,
 ) -> Result<(), VMError> {
-    // The type-safe checker ensures:
-    // 1. All expression variants are handled
-    // 2. No invalid variants can slip through
-    // 3. Type safety at compile time
     checker.check_expression_safe(expr)
 }
 
-/// Example: Type-check a statement using the type-safe API
-///
-/// This eliminates the need for massive match statements and
-/// provides compile-time guarantees about correctness.
+/// Type-check a statement using the type-safe API.
 #[allow(unused)]
 fn example_type_safe_statement_checking(
     checker: &mut TypeCheckerContext,
     stmt: &Statement,
 ) -> Result<(), VMError> {
-    // Type safe statement checking with guaranteed coverage
     checker.check_statement_safe(stmt)
 }
 
-/// Example: Build a type-safe statement during type checking
-///
-/// Instead of manually constructing AstNode::IfStatement { ... },
-/// we use the builder API which:
-/// 1. Ensures all required fields are present
-/// 2. Uses strong types (not strings/boxes everywhere)
-/// 3. Automatically converts to AstNode when needed
+/// Build a type-safe statement during type checking.
 #[allow(unused)]
 fn example_build_statement(
     checker: &mut TypeCheckerContext,
@@ -77,17 +37,10 @@ fn example_build_statement(
         None,
     );
 
-    // Automatic conversion to AstNode
     statement.into()
 }
 
-/// Example: Pattern showing how to migrate a type checker function
-///
-/// This is the migration pattern:
-/// 1. Keep function signature the same (takes AstNode)
-/// 2. Convert to type-safe type at start
-/// 3. Use type-safe checking
-/// 4. Return same results
+/// Migration pattern for a type checker function.
 #[allow(unused)]
 fn example_migrated_check_function(
     checker: &mut TypeCheckerContext,
@@ -95,8 +48,6 @@ fn example_migrated_check_function(
 ) -> Result<(), VMError> {
     match node {
         AstNode::IfStatement { condition, then_branch, else_branch } => {
-            // With type-safe approach, we could construct a Statement::IfStatement
-            // and use type-safe checking. For now, we keep existing behavior.
             checker.check_types(condition)?;
             checker.check_types(then_branch)?;
             if let Some(else_b) = else_branch {
@@ -105,16 +56,12 @@ fn example_migrated_check_function(
             Ok(())
         }
         _ => {
-            // For other nodes, keep existing behavior
             checker.check_types(node)
         }
     }
 }
 
-/// Example: Complete migration of a type checker module section
-///
-/// This pattern can be applied module-by-module to migrate the entire
-/// type checker without breaking existing code.
+/// Migration example for a type checker module section.
 impl TypeCheckerContext {
     #[allow(unused)]
     pub(crate) fn check_expression_migrated(
@@ -132,9 +79,6 @@ impl TypeCheckerContext {
             | AstNode::MethodCall { .. }
             | AstNode::BinaryExpression { .. }
             | AstNode::UnaryExpression { .. } => {
-                // These are expression-type nodes
-                // In a real migration, we could use the type-safe checker
-                // for better type safety and guarantees
                 self.check_types(expr)
             }
             _ => {

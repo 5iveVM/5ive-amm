@@ -79,15 +79,7 @@ impl<'a> MemoryManager<'a> {
 
     #[inline]
     pub fn temp_buffer_fixed_mut(&mut self) -> Result<&mut [u8; crate::TEMP_BUFFER_SIZE]> {
-        // This requires casting or ensuring size.
-        // StackStorage guarantees TEMP_BUFFER_SIZE.
-        // But here we have a slice.
-        // Since we cannot easily return array reference from slice without unsafe or TryInto,
-        // and keeping API compatibility, we might need to handle this carefully.
-        // However, the original code used `self.storage.temp_buffer` which WAS an array.
-        // Here we have a slice.
-        // For now, let's skip this one or implement it if possible.
-        // The trait `TryInto` works for `&mut [u8]` to `&mut [u8; N]`.
+        // Cast slice to fixed-size array; StackStorage guarantees TEMP_BUFFER_SIZE.
 
         let ptr = self.temp_buffer.as_mut_ptr();
         unsafe {

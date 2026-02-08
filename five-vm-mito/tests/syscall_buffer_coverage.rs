@@ -3,7 +3,7 @@
 //! Tests for syscalls using different buffer types (TempRef, ArrayRef, StringRef)
 //! and verifying memory safety checks.
 
-use five_protocol::{encoding::VLE, opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
+use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
 
 const SYSCALL_SHA256: u8 = 80;
@@ -24,14 +24,13 @@ fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
 
 fn execute(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
     let script = build_script(build);
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
 fn push_string_buffer(script: &mut Vec<u8>, length: u32) {
     script.push(PUSH_STRING);
-    let (len_len, encoded_len) = VLE::encode_u64(length as u64);
-    script.extend_from_slice(&encoded_len[..len_len]);
+    script.extend_from_slice(&(length as u32).to_le_bytes());
     // Append zeros for the string content
     for _ in 0..length {
         script.push(0);

@@ -22,6 +22,12 @@ pub struct AdvancedBytecodeAnalyzer {
     /// Current position during analysis
     pub(crate) position: usize,
 
+    /// Parsed header feature flags (0 if no header)
+    pub(crate) features: u32,
+
+    /// Start offset of instruction stream
+    pub(crate) start_offset: usize,
+
     /// Decoded instructions with full analysis
     pub(crate) instructions: Vec<InstructionAnalysis>,
 
@@ -38,6 +44,8 @@ impl AdvancedBytecodeAnalyzer {
         Self {
             bytecode,
             position: 0,
+            features: 0,
+            start_offset: 0,
             instructions: Vec::new(),
             control_flow: ControlFlowGraph {
                 basic_blocks: Vec::new(),
@@ -101,10 +109,6 @@ impl AdvancedBytecodeAnalyzer {
         analysis::calculate_resource_requirements(self, ast)
     }
 
-    // Helper method needed for decode_operands calling decode_value_type_name
-    pub(crate) fn categorize_instruction(&self, opcode: u8) -> InstructionCategory {
-        decoder::categorize_instruction(opcode)
-    }
 }
 
 impl Default for AdvancedBytecodeAnalyzer {
@@ -138,18 +142,16 @@ mod tests {
 
     #[test]
     fn test_instruction_categorization() {
-        let analyzer = AdvancedBytecodeAnalyzer::new(Vec::new());
-
         assert_eq!(
-            analyzer.categorize_instruction(HALT),
+            decoder::categorize_instruction(HALT),
             InstructionCategory::ControlFlow
         );
         assert_eq!(
-            analyzer.categorize_instruction(ADD),
+            decoder::categorize_instruction(ADD),
             InstructionCategory::Arithmetic
         );
         assert_eq!(
-            analyzer.categorize_instruction(PUSH_U64),
+            decoder::categorize_instruction(PUSH_U64),
             InstructionCategory::Stack
         );
     }

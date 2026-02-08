@@ -9,7 +9,7 @@
 export * from './FiveSDK.js';
 export * from './types.js';
 // export * from './validation/index.js'; // Might rely on broken things
-export * from './lib/vle-encoder.js';
+export * from './lib/bytecode-encoder.js';
 export * from './encoding/ParameterEncoder.js'; // Added missing export
 export * from './crypto/index.js'; // Added missing export (for PDAUtils)
 export * from './project/toml.js';

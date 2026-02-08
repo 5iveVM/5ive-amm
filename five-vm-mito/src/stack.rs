@@ -1,37 +1,64 @@
 use crate::{
-    types::{CallFrame, LocalVariables},
+    types::CallFrame,
     MAX_CALL_DEPTH, MAX_LOCALS, STACK_SIZE, TEMP_BUFFER_SIZE,
 };
 use five_protocol::ValueRef;
+use core::mem::{size_of, align_of};
+
+/// Total storage size flattened to 32KB
+pub const STORAGE_SIZE: usize = 32768;
+
+// Calculate offsets and sizes
+// We use align_of to ensure proper alignment padding
+const VALUE_REF_SIZE: usize = size_of::<ValueRef>();
+const CALL_FRAME_SIZE: usize = size_of::<CallFrame>();
+
+// 1. Stack (Operand Stack)
+const STACK_OFFSET: usize = 0;
+const STACK_BYTES: usize = STACK_SIZE * VALUE_REF_SIZE;
+
+// 2. Call Stack
+// Align to CallFrame alignment
+const CALL_STACK_OFFSET: usize = (STACK_OFFSET + STACK_BYTES + (align_of::<CallFrame>() - 1)) & !(align_of::<CallFrame>() - 1);
+const CALL_STACK_BYTES: usize = MAX_CALL_DEPTH * CALL_FRAME_SIZE;
+
+// 3. Locals
+// Align to ValueRef alignment
+const LOCALS_OFFSET: usize = (CALL_STACK_OFFSET + CALL_STACK_BYTES + (align_of::<ValueRef>() - 1)) & !(align_of::<ValueRef>() - 1);
+const LOCALS_BYTES: usize = MAX_LOCALS * VALUE_REF_SIZE;
+
+// 4. Temp Buffer
+// Align to 8 bytes (u64 alignment) for safe casting
+const TEMP_BUFFER_OFFSET: usize = (LOCALS_OFFSET + LOCALS_BYTES + 7) & !7;
+const TEMP_BUFFER_BYTES: usize = TEMP_BUFFER_SIZE;
+
+// 5. Heap Buffer
+// Align to 16 bytes (u128 alignment)
+const HEAP_BUFFER_OFFSET: usize = (TEMP_BUFFER_OFFSET + TEMP_BUFFER_BYTES + 15) & !15;
+// Heap takes the rest of the storage
+const HEAP_BUFFER_BYTES: usize = STORAGE_SIZE - HEAP_BUFFER_OFFSET;
 
 /// Aggregate storage for all stack-allocated arrays used by the VM.
 ///
-/// This keeps all large arrays in a single struct that can live on the
-/// stack and be borrowed by [`ExecutionContext`]. This avoids heap usage
-/// while providing zero-copy access to execution state.
-pub struct StackStorage<'a> {
-    /// Operand stack
-    pub stack: [ValueRef; STACK_SIZE],
-    /// Function call frames
-    pub call_stack: [CallFrame<'a>; MAX_CALL_DEPTH],
-    /// Local variables
-    pub locals: LocalVariables,
-    /// Temporary byte buffer
-    pub temp_buffer: [u8; TEMP_BUFFER_SIZE],
-    /// Static heap buffer (avoids initial alloc)
-    pub heap_buffer: [u8; 1024],
+/// This flattened structure matches the Unsafe VM's addressing model where everything
+/// is just an offset into a single memory block. It provides zero-copy access to
+/// execution state while guaranteeing strict memory safety via bounds checking.
+#[repr(C, align(16))] // Ensure 16-byte alignment for the whole block
+pub struct StackStorage {
+    /// Flattened memory block
+    pub memory: [u8; STORAGE_SIZE],
 }
 
-impl<'a> StackStorage<'a> {
-    /// Create a new initialized storage block for a given script.
+impl StackStorage {
+    /// Create a new zero-initialized storage block.
     #[inline]
-    pub fn new(bytecode: &'a [u8]) -> Self {
+    pub fn new() -> Self {
+        // Zero initialization is sufficient as:
+        // - ValueRef::Empty is discriminant 0
+        // - CallFrame with all 0s is valid (though context 0 refers to account 0)
+        // - Unused slots are ignored
         Self {
-            stack: [ValueRef::Empty; STACK_SIZE],
-            call_stack: [CallFrame::new(0, 0, 0, bytecode); MAX_CALL_DEPTH],
-            locals: [core::mem::MaybeUninit::uninit(); MAX_LOCALS],
-            temp_buffer: [0; TEMP_BUFFER_SIZE],
-            heap_buffer: [0; 1024],
+            memory: [0; STORAGE_SIZE],
         }
     }
 
@@ -40,45 +67,19 @@ impl<'a> StackStorage<'a> {
     /// This uses manual allocation and initialization to ensure the large StackStorage struct
     /// is constructed directly in heap memory, bypassing the BPF stack limit (4KB) and
     /// avoiding expensive memcpy operations (~5k CU savings).
-    pub fn new_on_heap(bytecode: &'a [u8]) -> alloc::boxed::Box<Self> {
-        use alloc::alloc::{alloc, Layout};
+    pub fn new_on_heap() -> alloc::boxed::Box<Self> {
+        use alloc::alloc::{alloc_zeroed, Layout};
         use alloc::boxed::Box;
-        use core::ptr;
 
         unsafe {
             let layout = Layout::new::<Self>();
-            let ptr = alloc(layout) as *mut Self;
+            // alloc_zeroed ensures all bytes are 0
+            let ptr = alloc_zeroed(layout) as *mut Self;
             
             // In Solana BPF, alloc failure usually traps, but we check null just in case
             if ptr.is_null() {
-                // Return null pointer disguised as Box? No, just panic/trap.
                 panic!("Memory allocation failed");
             }
-            
-            let storage = &mut *ptr;
-            
-            // Initialize fields one by one to avoid stack struct creation
-            
-            // 1. Stack
-            for i in 0..STACK_SIZE {
-                storage.stack[i] = ValueRef::Empty;
-            }
-            
-            // 2. Call Stack
-            for i in 0..MAX_CALL_DEPTH {
-                storage.call_stack[i] = CallFrame::new(0, 0, 0, bytecode);
-            }
-            
-            // 3. Locals - Skipped for Zero-Cost Initialization
-            // We use MaybeUninit, so we don't need to initialize them.
-            // The FrameManager tracks valid locals via local_count.
-
-            // 4. Temp Buffer
-            // Zero out temp buffer efficiently
-            ptr::write_bytes(storage.temp_buffer.as_mut_ptr(), 0, TEMP_BUFFER_SIZE);
-            
-            // 6. Heap Buffer
-            ptr::write_bytes(storage.heap_buffer.as_mut_ptr(), 0, 1024);
 
             Box::from_raw(ptr)
         }
@@ -92,35 +93,82 @@ impl<'a> StackStorage<'a> {
     /// # Safety
     /// Caller must ensure `ptr` points to a valid memory region of sufficient size
     /// and alignment for `StackStorage`.
-    pub unsafe fn new_at_ptr(ptr: *mut u8, bytecode: &'a [u8]) -> &'a mut Self {
+    pub unsafe fn new_at_ptr(ptr: *mut u8) -> &'static mut Self {
         use core::ptr;
-        
-        // Assert pointer alignment at runtime if needed, but we trust caller for now.
-        // StackStorage typically needs 8 or 16 byte alignment.
-        // VM_HEAP is u128 aligned (16 bytes), so it should be fine.
         
         let storage = &mut *(ptr as *mut Self);
         
-        // Initialize fields one by one (In-Place)
-        
-        // 1. Stack
-        for i in 0..STACK_SIZE {
-            storage.stack[i] = ValueRef::Empty;
-        }
-        
-        // 2. Call Stack
-        for i in 0..MAX_CALL_DEPTH {
-            storage.call_stack[i] = CallFrame::new(0, 0, 0, bytecode);
-        }
-        
-        // 3. Locals (Skipped - MaybeUninit)
-
-        // 4. Temp Buffer
-        ptr::write_bytes(storage.temp_buffer.as_mut_ptr(), 0, TEMP_BUFFER_SIZE);
-        
-        // 6. Heap Buffer
-        ptr::write_bytes(storage.heap_buffer.as_mut_ptr(), 0, 1024);
+        // Zero out the memory
+        ptr::write_bytes(storage.memory.as_mut_ptr(), 0, STORAGE_SIZE);
         
         storage
+    }
+
+    // --- Accessors ---
+
+    /// Get mutable reference to the operand stack
+    #[inline(always)]
+    pub fn stack_mut(&mut self) -> &mut [ValueRef] {
+        unsafe {
+            let ptr = self.memory.as_mut_ptr().add(STACK_OFFSET) as *mut ValueRef;
+            core::slice::from_raw_parts_mut(ptr, STACK_SIZE)
+        }
+    }
+
+    /// Get mutable reference to the call stack
+    #[inline(always)]
+    pub fn call_stack_mut(&mut self) -> &mut [CallFrame] {
+        unsafe {
+            let ptr = self.memory.as_mut_ptr().add(CALL_STACK_OFFSET) as *mut CallFrame;
+            core::slice::from_raw_parts_mut(ptr, MAX_CALL_DEPTH)
+        }
+    }
+
+    /// Get mutable reference to local variables
+    #[inline(always)]
+    pub fn locals_mut(&mut self) -> &mut [core::mem::MaybeUninit<ValueRef>] {
+        unsafe {
+            // Locals are stored as ValueRefs but typed as MaybeUninit<ValueRef> in FrameManager
+            // Since ValueRef is Copy, this cast is safe representation-wise
+            let ptr = self.memory.as_mut_ptr().add(LOCALS_OFFSET) as *mut core::mem::MaybeUninit<ValueRef>;
+            core::slice::from_raw_parts_mut(ptr, MAX_LOCALS)
+        }
+    }
+
+    /// Get mutable reference to temp buffer
+    #[inline(always)]
+    pub fn temp_buffer_mut(&mut self) -> &mut [u8] {
+        &mut self.memory[TEMP_BUFFER_OFFSET..TEMP_BUFFER_OFFSET + TEMP_BUFFER_BYTES]
+    }
+
+    /// Get mutable reference to heap buffer
+    #[inline(always)]
+    pub fn heap_buffer_mut(&mut self) -> &mut [u8] {
+        &mut self.memory[HEAP_BUFFER_OFFSET..HEAP_BUFFER_OFFSET + HEAP_BUFFER_BYTES]
+    }
+
+    /// Split storage into mutable slices for all regions.
+    /// This allows simultaneous mutable access to disjoint regions which is required
+    /// for initializing the ExecutionContext.
+    #[inline(always)]
+    pub fn split_mut(&mut self) -> (
+        &mut [ValueRef],
+        &mut [CallFrame],
+        &mut [core::mem::MaybeUninit<ValueRef>],
+        &mut [u8],
+        &mut [u8]
+    ) {
+        unsafe {
+            let ptr = self.memory.as_mut_ptr();
+            let stack = core::slice::from_raw_parts_mut(ptr.add(STACK_OFFSET) as *mut ValueRef, STACK_SIZE);
+            let call_stack = core::slice::from_raw_parts_mut(ptr.add(CALL_STACK_OFFSET) as *mut CallFrame, MAX_CALL_DEPTH);
+            // Locals
+            let locals = core::slice::from_raw_parts_mut(ptr.add(LOCALS_OFFSET) as *mut core::mem::MaybeUninit<ValueRef>, MAX_LOCALS);
+            // Temp
+            let temp = core::slice::from_raw_parts_mut(ptr.add(TEMP_BUFFER_OFFSET), TEMP_BUFFER_BYTES);
+            // Heap
+            let heap = core::slice::from_raw_parts_mut(ptr.add(HEAP_BUFFER_OFFSET), HEAP_BUFFER_BYTES);
+            (stack, call_stack, locals, temp, heap)
+        }
     }
 }

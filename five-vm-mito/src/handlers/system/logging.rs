@@ -88,7 +88,7 @@ pub fn handle_syscall_log_pubkey(ctx: &mut ExecutionManager) -> CompactResult<()
     }
     #[cfg(not(target_os = "solana"))]
     {
-        debug_log!("SOL_LOG_PUBKEY");
+        debug_log!("SOL_LOG_PUBKEY: {:?}", pubkey);
     }
 
     Ok(())
@@ -102,9 +102,7 @@ pub fn handle_syscall_log_data(ctx: &mut ExecutionManager) -> CompactResult<()> 
     let data_ref = ctx.pop()?;
     const MAX_DATA_FIELDS: usize = 16;
     let mut data_ptrs: [&[u8]; MAX_DATA_FIELDS] = [&[]; MAX_DATA_FIELDS];
-    let mut count = 0;
-
-    match data_ref {
+    let count = match data_ref {
         ValueRef::ArrayRef(id) => {
             let start = id as usize;
             if start + 2 > ctx.temp_buffer().len() { return Err(VMErrorCode::MemoryViolation); }
@@ -115,15 +113,15 @@ pub fn handle_syscall_log_data(ctx: &mut ExecutionManager) -> CompactResult<()> 
             if data_end > ctx.temp_buffer().len() { return Err(VMErrorCode::MemoryViolation); }
 
             data_ptrs[0] = &ctx.temp_buffer()[data_start..data_end];
-            count = 1;
+            1
         }
         ValueRef::StringRef(_) | ValueRef::TempRef(_,_) => {
              let (_len, bytes) = ctx.extract_string_slice(&data_ref)?;
              data_ptrs[0] = bytes;
-             count = 1;
+             1
         }
         _ => return Err(VMErrorCode::TypeMismatch),
-    }
+    };
 
     #[cfg(target_os = "solana")]
     unsafe {

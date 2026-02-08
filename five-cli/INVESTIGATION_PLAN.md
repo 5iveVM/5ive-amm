@@ -118,7 +118,7 @@ Non-goals (explicit)
 - Do not apply permanent fixes in the main branch — this plan is INVESTIGATION-ONLY. Changes should be isolated to experimental branches that are clearly labeled, and any proposed fix must be accompanied by a reproducer and tests.
 - Do not leave heuristic VM auto-grow or bytecode-scanning hacks in production; these are acceptable only temporarily during local investigation branches tagged `investigation/*`.
 
-If you want, I will:
+If needed:
 - Save this plan to `five-org/five-cli/INVESTIGATION_PLAN.md` (done if you want me to), and/or
 - Produce a checklist artifact for each failing script pre-populated with the commands and local paths to run.
 

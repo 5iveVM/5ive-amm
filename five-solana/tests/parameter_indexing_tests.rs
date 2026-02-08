@@ -193,7 +193,7 @@ mod comprehensive_instruction_tests {
         let mut exec_data1 = vec![EXECUTE_INSTRUCTION, func_idx, param_count];
         exec_data1.extend_from_slice(&value.to_le_bytes());
 
-        let mut exec_data2 = exec_data1.clone();
+        let exec_data2 = exec_data1.clone();
 
         let result1 = FIVEInstruction::try_from(&exec_data1[..]);
         let result2 = FIVEInstruction::try_from(&exec_data2[..]);

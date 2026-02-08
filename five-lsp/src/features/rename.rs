@@ -5,7 +5,7 @@
 
 use crate::bridge::CompilerBridge;
 use crate::features::find_references;
-use lsp_types::{Range, Position, WorkspaceEdit, TextEdit, Url};
+use lsp_types::{WorkspaceEdit, TextEdit, Url};
 use std::collections::HashMap;
 
 /// Prepare a rename operation
@@ -23,6 +23,11 @@ pub fn prepare_rename(source: &str, line: usize, character: usize) -> Option<Str
     let chars: Vec<char> = line_str.chars().collect();
 
     if character > chars.len() {
+        return None;
+    }
+
+    // Skip positions inside string literals
+    if is_in_string_literal(line_str, character) {
         return None;
     }
 
@@ -70,6 +75,9 @@ pub fn rename(
 
     // Validate new name
     if !is_valid_identifier(new_name) {
+        return None;
+    }
+    if new_name == old_name {
         return None;
     }
 

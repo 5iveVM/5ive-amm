@@ -1,14 +1,7 @@
 /**
- * Five SDK - Unified client library for Five VM scripts
- *
- * Provides a standardized way to interact with Five scripts deployed on Solana.
- * Key concepts:
- * - Five scripts (.v) compile to bytecode (.bin)
- * - Bytecode is deployed to script accounts on Solana
- * - Five VM Program executes scripts from script accounts
- * - This SDK abstracts the complexity while maintaining performance
+ * Five SDK client for Five VM scripts.
  */
-// Client-agnostic SDK - no direct Solana client dependencies
+// Client-agnostic SDK: no direct Solana client dependencies
 import { FiveSDKConfig, FiveScript, FiveBytecode, FiveScriptSource, ScriptAccount, CompilationOptions, CompilationResult, DeploymentOptions, SerializedDeployment, SerializedExecution, SerializableAccount, SerializedInstruction, ExecutionOptions, FIVE_VM_PROGRAM_ID, FiveSDKError, ExecutionSDKError, EncodedParameters, FiveCompiledFile, FiveFunction, FunctionNameEntry, } from "./types.js";
 import { BytecodeCompiler } from "./compiler/BytecodeCompiler.js";
 import { ParameterEncoder } from "./encoding/ParameterEncoder.js";
@@ -602,7 +595,7 @@ export class FiveSDK {
                 accountCount: accounts.length,
             });
         }
-        // Handle missing metadata gracefully - generate parameters for VLE encoding
+        // Handle missing metadata by generating parameters.
         let functionIndex;
         let encodedParams;
         try {
@@ -620,7 +613,7 @@ export class FiveSDK {
             if (options.debug) {
                 console.log(`[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types`);
             }
-            // GRACEFUL HANDLING: Use VLE encoding without metadata
+            // Use VLE encoding without metadata
             functionIndex = typeof functionName === "number" ? functionName : 0;
             // Create parameter definitions for VLE encoding (assume all u64)
             const paramDefs = parameters.map((_, index) => ({
@@ -647,7 +640,7 @@ export class FiveSDK {
                 });
             }
         }
-        // Derive VM state PDA - required for all Five VM executions
+        // Derive VM state PDA for all Five VM executions
         const vmStatePDA = await this.deriveVMStatePDA();
         // Build account list with required VM state PDA
         const vmState = options.vmStateAccount || vmStatePDA;
@@ -656,7 +649,7 @@ export class FiveSDK {
         }
         const instructionAccounts = [
             { pubkey: scriptAccount, isSigner: false, isWritable: false },
-            { pubkey: vmState, isSigner: false, isWritable: true }, // VM state (required!)
+            { pubkey: vmState, isSigner: false, isWritable: true }, // VM state
             ...accounts.map((acc) => ({
                 pubkey: acc,
                 isSigner: false, // Consumer will determine signing requirements
@@ -1645,7 +1638,7 @@ export class FiveSDK {
                     // Parse state variables (simplified)
                     const stateData = {};
                     // This would need proper state parsing logic
-                    // For now, return empty object
+                    // Return empty object
                     return stateData;
                 }
             }

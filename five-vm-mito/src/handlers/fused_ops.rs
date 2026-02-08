@@ -15,11 +15,11 @@ use five_protocol::opcodes::*;
 pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         // REQUIRE_GTE_U64: LOAD_FIELD + LOAD_PARAM + GTE + REQUIRE fused
-        // Encoding: acc(u8) offset(VLE) param(u8)
+        // Encoding: acc(u8) offset(u32) param(u8)
         // Saves 300 CU by avoiding 4 opcode dispatches
         REQUIRE_GTE_U64 => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let param_idx = ctx.fetch_byte()?;
 
             // Load field value directly from account data
@@ -50,11 +50,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // REQUIRE_NOT_BOOL: LOAD_FIELD + NOT + REQUIRE fused
-        // Encoding: acc(u8) offset(VLE)
+        // Encoding: acc(u8) offset(u32)
         // Saves 200 CU
         REQUIRE_NOT_BOOL => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
 
             let account = ctx.get_account_for_read(acc_idx)?;
             let data = unsafe { account.borrow_data_unchecked() };
@@ -75,11 +75,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // FIELD_ADD_PARAM: LOAD_FIELD + LOAD_PARAM + ADD + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE) param(u8)
+        // Encoding: acc(u8) offset(u32) param(u8)
         // Saves 300 CU
         FIELD_ADD_PARAM => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let param_idx = ctx.fetch_byte()?;
 
             // Load param value first using same pattern as locals.rs
@@ -111,11 +111,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // FIELD_SUB_PARAM: LOAD_FIELD + LOAD_PARAM + SUB + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE) param(u8)
+        // Encoding: acc(u8) offset(u32) param(u8)
         // Saves 300 CU
         FIELD_SUB_PARAM => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let param_idx = ctx.fetch_byte()?;
 
             // Load param value first using same pattern as locals.rs
@@ -164,18 +164,18 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // REQUIRE_EQ_PUBKEY: Compare two pubkey fields from accounts
-        // Encoding: acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+        // Encoding: acc1(u8) offset1(u32) acc2(u8) offset2(u32)
         // Saves 300 CU
         REQUIRE_EQ_PUBKEY => {
             let acc1_idx = ctx.fetch_byte()?;
-            let offset1 = ctx.fetch_vle_u32()?; // Use u32 for large offsets and sentinel
+            let offset1 = ctx.fetch_u32()?; // Use u32 for large offsets and sentinel
             let acc2_idx = ctx.fetch_byte()?;
-            let offset2 = ctx.fetch_vle_u32()?; // Use u32 for large offsets and sentinel
+            let offset2 = ctx.fetch_u32()?; // Use u32 for large offsets and sentinel
 
             // Load first pubkey
             let account1 = ctx.get_account_for_read(acc1_idx)?;
             let pubkey1_ref: &[u8] = if offset1 == 0x3FFF {
-                // Sentinel: Use Account Key (0x3FFF = 2-byte VLE sentinel)
+                // Sentinel: Use Account Key. Kept as 0x3FFF for backward compatibility.
                 account1.key().as_ref()
             } else {
                 // Use Data Field
@@ -194,7 +194,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             // Load second pubkey
             let account2 = ctx.get_account_for_read(acc2_idx)?;
             let pubkey2_ref: &[u8] = if offset2 == 0x3FFF {
-                // Sentinel: Use Account Key (0x3FFF = 2-byte VLE sentinel)
+                // Sentinel: Use Account Key
                 account2.key().as_ref()
             } else {
                 // Use Data Field
@@ -239,11 +239,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         // ===== TIER 3 UNIVERSAL FUSED OPCODES =====
 
         // STORE_PARAM_TO_FIELD: LOAD_PARAM + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE) param(u8)
+        // Encoding: acc(u8) offset(u32) param(u8)
         // Saves 100 CU
         STORE_PARAM_TO_FIELD => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let param_idx = ctx.fetch_byte()?;
 
             // Load param value generically
@@ -266,11 +266,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // STORE_FIELD_ZERO: PUSH_0 + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE)
+        // Encoding: acc(u8) offset(u32)
         // Saves 100 CU
         STORE_FIELD_ZERO => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
 
             let account = ctx.get_account_for_write(acc_idx)?;
             let data = unsafe { account.borrow_mut_data_unchecked() };
@@ -288,11 +288,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // STORE_KEY_TO_FIELD: GET_KEY + STORE_FIELD fused
-        // Encoding: acc(u8) offset(VLE) key_acc(u8)
+        // Encoding: acc(u8) offset(u32) key_acc(u8)
         // Saves 100 CU
         STORE_KEY_TO_FIELD => {
             let acc_idx = ctx.fetch_byte()?;
-            let field_offset = ctx.fetch_vle_u16()?;
+            let field_offset = ctx.fetch_u32()?;
             let key_acc_idx = ctx.fetch_byte()?;
 
             // Get the key from key_acc
@@ -315,13 +315,13 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         }
 
         // REQUIRE_EQ_FIELDS: Compare two u64 fields (field-to-field)
-        // Encoding: acc1(u8) offset1(VLE) acc2(u8) offset2(VLE)
+        // Encoding: acc1(u8) offset1(u32) acc2(u8) offset2(u32)
         // Saves 300 CU
         REQUIRE_EQ_FIELDS => {
             let acc1_idx = ctx.fetch_byte()?;
-            let offset1 = ctx.fetch_vle_u16()?;
+            let offset1 = ctx.fetch_u32()?;
             let acc2_idx = ctx.fetch_byte()?;
-            let offset2 = ctx.fetch_vle_u16()?;
+            let offset2 = ctx.fetch_u32()?;
 
             // Load first field (32 bytes for pubkey comparison)
             let account1 = ctx.get_account_for_read(acc1_idx)?;
@@ -347,6 +347,90 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             debug_log!("MitoVM: REQUIRE_EQ_FIELDS passed");
         }
 
+        // FIELD_SUB_ADD_PARAM: acc1.field -= param; acc2.field += param
+        // Format: FIELD_SUB_ADD_PARAM acc1, off1, acc2, off2, param_idx
+        FIELD_SUB_ADD_PARAM => {
+            let acc1_idx = ctx.fetch_byte()?;
+            let off1 = ctx.fetch_u32()?;
+            let acc2_idx = ctx.fetch_byte()?;
+            let off2 = ctx.fetch_u32()?;
+            let param_idx = ctx.fetch_byte()?;
+
+            // 1. Load parameter
+            let param_value = ctx.parameters()[param_idx as usize]
+                .as_u64()
+                .ok_or(VMErrorCode::TypeMismatch)?;
+
+            // 2. Process Account 1 (Subtract)
+            {
+                let account1 = ctx.get_account_for_write(acc1_idx)?;
+                let data1 = unsafe { account1.borrow_mut_data_unchecked() };
+                
+                if (off1 as usize) + 8 > data1.len() {
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
+                
+                let current1 = u64::from_le_bytes(data1[off1 as usize..off1 as usize + 8].try_into().unwrap());
+                // Use wrapping sub for consistency with other ops, could use checked if desired
+                let new_val1 = current1.wrapping_sub(param_value);
+                data1[off1 as usize..off1 as usize + 8].copy_from_slice(&new_val1.to_le_bytes());
+            }
+
+            // 3. Process Account 2 (Add)
+            {
+                let account2 = ctx.get_account_for_write(acc2_idx)?;
+                let data2 = unsafe { account2.borrow_mut_data_unchecked() };
+                
+                if (off2 as usize) + 8 > data2.len() {
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
+                
+                let current2 = u64::from_le_bytes(data2[off2 as usize..off2 as usize + 8].try_into().unwrap());
+                let new_val2 = current2.wrapping_add(param_value);
+                data2[off2 as usize..off2 as usize + 8].copy_from_slice(&new_val2.to_le_bytes());
+            }
+            
+            debug_log!("MitoVM: FIELD_SUB_ADD_PARAM transferred {} from acc{} to acc{}", param_value, acc1_idx, acc2_idx);
+        }
+
+        // REQUIRE_PARAM_LTE_IMM: param <= immediate
+        // Format: REQUIRE_PARAM_LTE_IMM param_idx, imm_u8
+        REQUIRE_PARAM_LTE_IMM => {
+            let param_idx = ctx.fetch_byte()?;
+            let imm = ctx.fetch_byte()? as u64;
+
+            let param_value = ctx.parameters()[param_idx as usize]
+                .as_u64()
+                .ok_or(VMErrorCode::TypeMismatch)?;
+
+            if param_value > imm {
+                debug_log!("MitoVM: REQUIRE_PARAM_LTE_IMM failed: {} > {}", param_value, imm);
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+        }
+
+        // REQUIRE_FIELD_EQ_IMM: acc.field == immediate
+        // Format: REQUIRE_FIELD_EQ_IMM acc_idx, offset, imm_u8
+        REQUIRE_FIELD_EQ_IMM => {
+            let acc_idx = ctx.fetch_byte()?;
+            let offset = ctx.fetch_u32()?;
+            let imm = ctx.fetch_byte()? as u64;
+
+            let account = ctx.get_account_for_read(acc_idx)?;
+            let data = unsafe { account.borrow_data_unchecked() };
+            
+            if (offset as usize) + 8 > data.len() {
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            
+            let field_val = u64::from_le_bytes(data[offset as usize..offset as usize + 8].try_into().unwrap());
+
+            if field_val != imm {
+                debug_log!("MitoVM: REQUIRE_FIELD_EQ_IMM failed: {} != {}", field_val, imm);
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+        }
+
         _ => {
             debug_log!("MitoVM: Unknown fused opcode: {}", opcode);
             return Err(VMErrorCode::InvalidInstruction);
@@ -354,4 +438,3 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
     }
     Ok(())
 }
-

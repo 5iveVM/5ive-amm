@@ -167,7 +167,6 @@ impl ErrorUtils {
             VMError::CallStackOverflow => "Call stack overflow",
             VMError::CallStackUnderflow => "Call stack underflow",
             VMError::DataBufferOverflow => "Data buffer overflow",
-            VMError::InvalidRegister => "Invalid register",
             VMError::InvalidOperation => "Invalid operation",
             VMError::ParseError { .. } => "Parse error",
             VMError::UnexpectedToken => "Unexpected token",
@@ -223,8 +222,7 @@ impl ErrorUtils {
             | VMError::InvalidInstruction
             | VMError::TypeMismatch
             | VMError::DivisionByZero
-            | VMError::InvalidVariableIndex(_)
-            | VMError::InvalidRegister => true,
+            | VMError::InvalidVariableIndex(_) => true,
             _ => false,
         }
     }
@@ -545,14 +543,7 @@ pub fn find_program_address_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> 
 
         let pda = derive_pda_offchain(&full_seeds, program_id)?;
 
-        // Simple check: is this a valid PDA (off-curve)?
-        // For off-chain simulator, we don't have curve25519-dalek easily available
-        // in no-std without adding more dependencies.
-        // For most tests, just returning the first one is enough,
-        // as long as it handles the bump correctly.
-        // Real Solana find_program_address repeats until off-curve.
-
-        // For now, assume most are valid or just return it for simulator purposes.
+        // Off-curve validation is omitted in no-std; return first bump for tests.
         return Ok((pda, bump));
     }
     Err(VMErrorCode::PdaDerivationFailed)

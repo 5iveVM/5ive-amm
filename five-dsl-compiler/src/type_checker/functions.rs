@@ -273,7 +273,7 @@ impl TypeCheckerContext {
                                  let target_exists = parameters.iter().any(|p| p.name == *target_name);
                                  if !target_exists {
                                      eprintln!("@owner target not found: {}", target_name);
-                                     // Check imports? For now return error
+                                    // Check imports? Return error.
                                      return Err(VMError::InvalidScript); 
                                  }
                              }

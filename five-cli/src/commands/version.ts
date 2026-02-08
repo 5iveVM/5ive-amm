@@ -1,9 +1,4 @@
-/**
- * Five CLI Version Command
- * 
- * Display comprehensive version information including CLI, WASM modules,
- * dependencies, and system information.
- */
+// Version command.
 
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
@@ -302,7 +297,7 @@ async function checkForUpdates(versionInfo: VersionInfo, logger: any): Promise<v
     logger.info('Checking for updates...');
     
     // In a real implementation, this would check npm registry or GitHub releases
-    // For now, simulate the check
+    // Simulate the check
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     console.log(uiSuccess('You are running the latest version'));

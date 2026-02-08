@@ -7,7 +7,7 @@ use crate::debug_log;
 const SHARED_PARAM_SIZE: usize = MAX_PARAMETERS + 1;
 
 pub struct FrameManager<'a> {
-    pub call_stack: &'a mut [CallFrame<'a>],
+    pub call_stack: &'a mut [CallFrame],
     pub locals: &'a mut [core::mem::MaybeUninit<ValueRef>],
     pub csp: u8,
 
@@ -23,7 +23,7 @@ pub struct FrameManager<'a> {
 
 impl<'a> FrameManager<'a> {
     #[inline(always)]
-    pub fn new(call_stack: &'a mut [CallFrame<'a>], locals: &'a mut [core::mem::MaybeUninit<ValueRef>]) -> Self {
+    pub fn new(call_stack: &'a mut [CallFrame], locals: &'a mut [core::mem::MaybeUninit<ValueRef>]) -> Self {
         Self {
             call_stack,
             locals,
@@ -39,7 +39,7 @@ impl<'a> FrameManager<'a> {
     // --- Call stack operations ---
 
     #[inline(always)]
-    pub fn push_call_frame(&mut self, frame: CallFrame<'a>) -> Result<()> {
+    pub fn push_call_frame(&mut self, frame: CallFrame) -> Result<()> {
         if self.csp as usize >= MAX_CALL_DEPTH {
             return Err(VMError::CallStackOverflow);
         }
@@ -49,7 +49,7 @@ impl<'a> FrameManager<'a> {
     }
 
     #[inline(always)]
-    pub fn pop_call_frame(&mut self) -> CompactResult<CallFrame<'a>> {
+    pub fn pop_call_frame(&mut self) -> CompactResult<CallFrame> {
         if self.csp == 0 {
             return Err(VMErrorCode::CallStackUnderflow);
         }
@@ -72,7 +72,7 @@ impl<'a> FrameManager<'a> {
     }
 
     #[inline(always)]
-    pub fn get_call_frame(&self, index: usize) -> CompactResult<&CallFrame<'a>> {
+    pub fn get_call_frame(&self, index: usize) -> CompactResult<&CallFrame> {
         if index < self.csp as usize {
             Ok(&self.call_stack[index])
         } else {
@@ -81,7 +81,7 @@ impl<'a> FrameManager<'a> {
     }
 
     #[inline(always)]
-    pub fn set_call_frame(&mut self, index: usize, frame: CallFrame<'a>) -> CompactResult<()> {
+    pub fn set_call_frame(&mut self, index: usize, frame: CallFrame) -> CompactResult<()> {
         if index < self.csp as usize {
             self.call_stack[index] = frame;
             Ok(())
@@ -133,17 +133,7 @@ impl<'a> FrameManager<'a> {
             while self.local_count > 0 {
                 let pos = (self.local_base + self.local_count - 1) as usize;
                 if pos < self.locals.len() {
-                    // Check if empty via assume_init is a bit risky if uninit, 
-                    // but we just set it or it was used.
-                    // Actually, let's just decrement count and rely on compiler.
-                    // But the original code consolidated.
-                    // For MaybeUninit specific optimization, we might skip the shrinking loop 
-                    // if we can't easily check for equality.
-                    // But assume_init() is cheap for ValueRef (it's Copy).
-                    
-                    // Optimization: Skip shrinking loop for performance?
-                    // The prompt implies "Zero-Cost ... avoiding CPU cost". 
-                    // Let's keep it simple and just decrement if last one is being cleared.
+                    // Trim only when clearing the last slot.
                     break;
                 }
                 self.local_count -= 1;

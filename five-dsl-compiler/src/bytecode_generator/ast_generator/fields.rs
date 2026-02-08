@@ -1,6 +1,4 @@
-//! Field and type system methods
-//!
-//! This module handles field definitions, type inference, and type conversions.
+//! Field and type system methods.
 
 use super::super::types::FieldInfo;
 use super::super::OpcodeEmitter;

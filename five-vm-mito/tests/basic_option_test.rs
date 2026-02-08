@@ -20,17 +20,15 @@ fn build_script(body: &[u8]) -> Vec<u8> {
 #[test]
 fn test_basic_option_creation() {
     // Very simple test: create Option::Some(42) and check if it's Some
-    let body = [
-        PUSH_U64,
-        0x2A,             // VLE-encoded 42
-        OPTIONAL_SOME,    // Wrap in Option::Some
-        OPTIONAL_IS_SOME, // Check if Some
-        RETURN_VALUE,             // Stop execution
-    ];
+    let mut body = vec![PUSH_U64];
+    body.extend_from_slice(&42u64.to_le_bytes()); // Fixed 8-byte 42
+    body.push(OPTIONAL_SOME);    // Wrap in Option::Some
+    body.push(OPTIONAL_IS_SOME); // Check if Some
+    body.push(RETURN_VALUE);             // Stop execution
 
     let script = build_script(&body);
 
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let result =
         MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).expect("VM should execute option bytecode");
 
@@ -40,17 +38,15 @@ fn test_basic_option_creation() {
 #[test]
 fn test_basic_result_creation() {
     // Very simple test: create Result::Ok(123) and check if it's Ok
-    let body = [
-        PUSH_U64,
-        0x7B,         // VLE-encoded 123
-        RESULT_OK,    // Wrap in Result::Ok
-        RESULT_IS_OK, // Check if Ok
-        RETURN_VALUE,         // Stop execution
-    ];
+    let mut body = vec![PUSH_U64];
+    body.extend_from_slice(&123u64.to_le_bytes()); // Fixed 8-byte 123
+    body.push(RESULT_OK);    // Wrap in Result::Ok
+    body.push(RESULT_IS_OK); // Check if Ok
+    body.push(RETURN_VALUE);         // Stop execution
 
     let script = build_script(&body);
 
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let result =
         MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).expect("VM should execute result bytecode");
 

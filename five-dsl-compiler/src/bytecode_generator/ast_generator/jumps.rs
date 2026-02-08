@@ -1,6 +1,4 @@
-//! Jump and patch management
-//!
-//! This module handles jump instructions, label management, and bytecode patching.
+//! Jump and patch management.
 
 use super::super::opcodes::OpcodePatterns;
 use super::super::OpcodeEmitter;
@@ -126,13 +124,32 @@ impl ASTGenerator {
     }
 
     /// Patches all recorded jumps and function calls with their correct offsets/addresses.
-    pub fn patch<T: OpcodeEmitter>(&mut self, emitter: &mut T) -> Result<(), VMError> {
+    ///
+    /// Assumes `label_positions` reflect the final bytecode layout produced during generation.
+    /// If a later pass mutates instruction sizes, label positions must be recomputed
+    /// before calling this method.
+    pub fn patch_with_base<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        base_offset: usize,
+    ) -> Result<(), VMError> {
+        // We rely on label_positions computed at emission time.
+        // If a post-pass changes instruction sizes, the caller must recalculate
+        // label_positions before patching (see recalculate_label_positions stub).
+
         for patch in &self.jump_patches {
             let target_position = self
                 .label_positions
                 .get(&patch.target_label)
                 .ok_or(VMError::InvalidScript)?; // Should not happen
-            self.patch_jump_offset(emitter, patch.position, *target_position)?;
+
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "JUMP_PATCH: patch_pos=0x{:04X} target_label={} target_pos=0x{:04X}",
+                patch.position, patch.target_label, *target_position
+            );
+
+            self.patch_jump_offset(emitter, patch.position, *target_position + base_offset)?;
         }
 
         // Patch BR_EQ_U8 instructions with VLE-encoded relative offsets
@@ -158,8 +175,25 @@ impl ASTGenerator {
                     VMError::InvalidScript
                 })?;
 
-            self.patch_function_address(emitter, patch.position, *function_address)?;
+            self.patch_function_address(emitter, patch.position, *function_address + base_offset)?;
         }
+        Ok(())
+    }
+
+    /// Recalculates label positions based on actual bytecode structure.
+    ///
+    /// This is currently a no-op placeholder. If we add post-generation transforms that
+    /// change instruction sizes, this method should rescan the bytecode and refresh
+    /// `label_positions` before patching.
+    pub fn recalculate_label_positions<T: OpcodeEmitter>(
+        &mut self,
+        _emitter: &mut T,
+    ) -> Result<(), VMError> {
+        // Full implementation would:
+        // 1. Scan bytecode for all instructions with variable-length encoding.
+        // 2. Build an offset map for actual instruction positions.
+        // 3. Update all label_positions entries to match real bytecode structure.
+        // 4. Verify all jump_patches reference valid labels.
         Ok(())
     }
 

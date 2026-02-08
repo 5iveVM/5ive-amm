@@ -52,7 +52,7 @@ fn test_recursion_stack_overflow() {
     ]);
     
     // Execution should fail with StackOverflow or CallStackOverflow eventually
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&script, &[], &[], &Pubkey::default(), &mut storage);
     
     assert!(result.is_err());
@@ -156,8 +156,7 @@ fn test_heap_chunk_overflow() {
     // Alloc 1: Matches default chunk (2048)
     let addr1 = manager.alloc_heap_unsafe(2000).unwrap();
     
-    // Alloc 2: Should fit in remaining 48 bytes of first chunk?
-    // Wait, 2048 - 2000 = 48.
+    // Alloc 2: Should fit in remaining 48 bytes of first chunk.
     let addr2 = manager.alloc_heap_unsafe(40).unwrap();
     // Check if addr2 is in same chunk (same high byte)
     assert_eq!(addr1 >> 24, addr2 >> 24, "Should be in same chunk");

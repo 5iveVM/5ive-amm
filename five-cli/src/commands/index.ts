@@ -1,14 +1,8 @@
-/**
- * Five CLI Commands Index
- * 
- * Central registry for all Five CLI commands with automatic discovery
- * and registration capabilities.
- */
+// Commands index.
 
 import { CommandDefinition } from '../types.js';
 import { section, uiColors } from '../utils/cli-ui.js';
 
-// Import all command definitions
 import { compileCommand } from './compile.js';
 import { executeCommand } from './execute.js';
 import { initCommand } from './init.js';

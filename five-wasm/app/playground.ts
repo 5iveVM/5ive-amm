@@ -1,12 +1,6 @@
 /**
- * Stacks VM Playground - Integrated Development Environment
- * 
- * Combines WASM compilation, testing, and real Solana deployment capabilities
- * in a unified development experience. Provides code editing, compilation,
- * testing, and deployment all in one interface.
- * 
- * CRITICAL: All deployments are REAL transactions to actual Solana networks.
- * No simulations or mock deployments are allowed in this playground.
+ * Stacks VM playground for compiling, testing, and deploying.
+ * Uses real Solana deployments only (no simulation).
  */
 
 import { WasmCompilerService, PartialExecutionSummary, WasmAccountInterface } from './wasm-compiler';
@@ -359,7 +353,7 @@ function mint(to: pubkey, amount: u64) {
         this.updateCompilationState({ inProgress: true, success: false });
 
         try {
-            // For now, we'll simulate compilation by creating test bytecode
+            // Simulate compilation by creating test bytecode
             // In a real implementation, this would call the DSL compiler
             const bytecode = this.createTestBytecode(this.state.currentProject.sourceCode);
             
@@ -656,19 +650,18 @@ function mint(to: pubkey, amount: u64) {
     }
 
     private createTestBytecode(sourceCode: string): Uint8Array {
-        // Create test bytecode with SCRL magic bytes
+        // Create test bytecode with 5IVE optimized header
         // This is a simplified implementation - real version would use actual compiler
-        const magic = [0x53, 0x43, 0x52, 0x4C]; // "SCRL"
-        
-        // Simple program: push 42, push 24, add, halt
-        const program = [
-            0x01, 0x01, 42, 0, 0, 0, 0, 0, 0, 0,  // PUSH u64 42
-            0x01, 0x01, 24, 0, 0, 0, 0, 0, 0, 0,  // PUSH u64 24
-            0x10,                                   // ADD
-            0x00                                    // HALT
+        const header = [
+            0x35, 0x49, 0x56, 0x45, // "5IVE"
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, 0x00              // public/total function counts
         ];
 
-        return new Uint8Array([...magic, ...program]);
+        // Minimal program: HALT
+        const program = [0x00];
+
+        return new Uint8Array([...header, ...program]);
     }
 
     private updateCompilationState(updates: Partial<PlaygroundState['compilation']>): void {

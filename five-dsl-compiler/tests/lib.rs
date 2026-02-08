@@ -5,7 +5,8 @@ use five_protocol::opcodes::{GT, PUSH_U16, PUSH_U32, PUSH_U64, PUSH_U8, REQUIRE}
 const PUSH_LITERAL_OPCODES: [u8; 4] = [PUSH_U8, PUSH_U16, PUSH_U32, PUSH_U64];
 use five_protocol::{
     Value, FEATURE_COLD_START_OPT, FEATURE_FUNCTION_NAMES,
-    FEATURE_FUSED_BRANCH, FEATURE_MINIMAL_ERRORS, FEATURE_NO_VALIDATION, FIVE_MAGIC,
+    FEATURE_FUSED_BRANCH, FEATURE_MINIMAL_ERRORS, FEATURE_NO_VALIDATION,
+    FEATURE_CONSTANT_POOL, FIVE_MAGIC,
 };
 use five_vm_mito::error::VMError;
 
@@ -355,7 +356,8 @@ fn test_bytecode_uses_optimized_header_v2() {
         | FEATURE_NO_VALIDATION
         | FEATURE_MINIMAL_ERRORS
         | FEATURE_COLD_START_OPT
-        | FEATURE_FUNCTION_NAMES; // Includes function names metadata table
+        | FEATURE_FUNCTION_NAMES
+        | FEATURE_CONSTANT_POOL; // Includes function names metadata table + constant pool
 
     #[cfg(feature = "call-metadata")]
     {
@@ -407,14 +409,17 @@ fn test_parser_preserves_visibility_and_ordering() {
 
         if let AstNode::InstructionDefinition {
             name,
-            is_public,
+            visibility,
             parameters,
             return_type,
             ..
         } = &instruction_definitions[0]
         {
             assert_eq!(name, "external_call");
-            assert!(is_public, "first function should be parsed as public");
+            assert!(
+                visibility.is_on_chain_callable(),
+                "first function should be parsed as public"
+            );
             assert!(parameters.is_empty());
             assert!(return_type.is_none());
         } else {
@@ -423,14 +428,17 @@ fn test_parser_preserves_visibility_and_ordering() {
 
         if let AstNode::InstructionDefinition {
             name,
-            is_public,
+            visibility,
             parameters,
             return_type,
             ..
         } = &instruction_definitions[1]
         {
             assert_eq!(name, "internal_helper");
-            assert!(!is_public, "second function should be private");
+            assert!(
+                !visibility.is_on_chain_callable(),
+                "second function should be internal"
+            );
             assert_eq!(parameters.len(), 1);
             assert!(return_type.is_some());
         } else {
@@ -1101,7 +1109,7 @@ fn test_basic_instruction_definition() {
             return_type,
             body,
             visibility: _,
-            is_public: _,
+            ..
         } = &instruction_definitions[0]
         {
             assert_eq!(name, "process_payment");
@@ -2814,9 +2822,9 @@ fn test_import_verification_bytecode_generation_address() {
 #[test]
 fn test_import_verification_bytecode_generation_pda() {
     // Test that PDA seed imports generate bytecode with FEATURE_IMPORT_VERIFICATION flag
-    // NOTE: This test is a placeholder for future PDA import syntax support
-    // Currently the DSL parser doesn't support array literal imports like: use ["vault", "user"];
-    // For now, we test that the ImportTable can serialize PDA seeds correctly
+    // Placeholder for future PDA import syntax support.
+    // DSL parser doesn't support array literal imports like: use ["vault", "user"].
+    // Verify ImportTable serializes PDA seeds correctly.
 
     use five_dsl_compiler::bytecode_generator::import_table::ImportTable;
 

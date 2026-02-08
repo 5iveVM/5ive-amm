@@ -52,30 +52,6 @@ impl OpcodeEmitter for TestEmitter {
         self.bytecode.extend_from_slice(bytes);
     }
 
-    fn emit_vle_u32(&mut self, value: u32) {
-        use five_protocol::VLE;
-        let (size, bytes) = VLE::encode_u32(value);
-        for i in 0..size {
-            self.emit_u8(bytes[i]);
-        }
-    }
-
-    fn emit_vle_u16(&mut self, value: u16) {
-        use five_protocol::VLE;
-        let (size, bytes) = VLE::encode_u16(value);
-        for i in 0..size {
-            self.emit_u8(bytes[i]);
-        }
-    }
-
-    fn emit_vle_u64(&mut self, value: u64) {
-        use five_protocol::VLE;
-        let (size, bytes) = VLE::encode_u64(value);
-        for i in 0..size {
-            self.emit_u8(bytes[i]);
-        }
-    }
-
     fn get_position(&self) -> usize {
         self.bytecode.len()
     }
@@ -96,6 +72,34 @@ impl OpcodeEmitter for TestEmitter {
 
     fn should_include_tests(&self) -> bool {
         false
+    }
+
+    fn emit_const_u8(&mut self, _value: u8) -> Result<(), five_vm_mito::error::VMError> {
+        Ok(())
+    }
+    fn emit_const_u16(&mut self, _value: u16) -> Result<(), five_vm_mito::error::VMError> {
+        Ok(())
+    }
+    fn emit_const_u32(&mut self, _value: u32) -> Result<(), five_vm_mito::error::VMError> {
+        Ok(())
+    }
+    fn emit_const_u64(&mut self, _value: u64) -> Result<(), five_vm_mito::error::VMError> {
+        Ok(())
+    }
+    fn emit_const_i64(&mut self, _value: i64) -> Result<(), five_vm_mito::error::VMError> {
+        Ok(())
+    }
+    fn emit_const_bool(&mut self, _value: bool) -> Result<(), five_vm_mito::error::VMError> {
+        Ok(())
+    }
+    fn emit_const_u128(&mut self, _value: u128) -> Result<(), five_vm_mito::error::VMError> {
+        Ok(())
+    }
+    fn emit_const_pubkey(&mut self, _value: &[u8; 32]) -> Result<(), five_vm_mito::error::VMError> {
+        Ok(())
+    }
+    fn emit_const_string(&mut self, _value: &[u8]) -> Result<(), five_vm_mito::error::VMError> {
+        Ok(())
     }
 }
 

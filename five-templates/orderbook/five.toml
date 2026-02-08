@@ -14,7 +14,6 @@ multi_file_mode = true
 [optimizations]
 enable_vle = true
 enable_compression = true
-enable_register_allocation = true
 enable_constraint_optimization = true
 optimization_level = 2
 

@@ -1,6 +1,4 @@
-//! Helper functions for common AST generation patterns
-//!
-//! This module contains helper methods to reduce code duplication across the AST generator.
+//! Helper functions for AST generation patterns.
 
 use super::super::types::FieldInfo;
 use super::super::OpcodeEmitter;
@@ -8,11 +6,7 @@ use super::types::ASTGenerator;
 use five_protocol::opcodes::*;
 
 impl ASTGenerator {
-    /// Emit optimized local variable SET operation with V2 preview support
-    ///
-    /// When v2_preview is enabled and the index is 0-3, this emits the
-    /// nibble-immediate opcodes (SET_LOCAL_0 through SET_LOCAL_3).
-    /// Otherwise, it emits the standard SET_LOCAL opcode with a u8 index.
+    /// Emit optimized SET_LOCAL when the index fits.
     pub(super) fn emit_set_local<T: OpcodeEmitter>(
         &self,
         emitter: &mut T,

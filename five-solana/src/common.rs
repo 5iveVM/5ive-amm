@@ -3,17 +3,7 @@ use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
-// ============================================================================
-// Admin Key Configuration
-// ============================================================================
-
-/// The admin key that can deploy bytecode with special permissions.
-/// This is the authority key set during VM initialization.
-/// The admin key is the only one allowed to use PERMISSION_PRE_BYTECODE,
-/// PERMISSION_POST_BYTECODE, or PERMISSION_PDA_SPECIAL_CHARS.
-///
-/// The admin key is stored in the FIVEVMState account's authority field
-/// and is set during the Initialize instruction.
+/// Admin key that can deploy bytecode with special permissions.
 
 #[cfg(test)]
 mod tests {
@@ -142,7 +132,7 @@ mod tests {
 
             // Initialize VM state
             {
-                let mut state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+                let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
                 state.initialize(Pubkey::default());
             }
 
@@ -171,7 +161,7 @@ mod tests {
 
             // Initialize VM state
             {
-                let mut state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+                let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
                 state.initialize(Pubkey::default());
             }
 
@@ -184,14 +174,12 @@ mod tests {
     }
 }
 
-// ============================================================================
-// Permission Constants
-// ============================================================================
-
 pub const PERMISSION_PRE_BYTECODE: u8 = 0x01;         // Bit 0
 pub const PERMISSION_POST_BYTECODE: u8 = 0x02;        // Bit 1
 #[allow(dead_code)]
 pub const PERMISSION_PDA_SPECIAL_CHARS: u8 = 0x04;    // Bit 2
+const KNOWN_PERMISSIONS: u8 =
+    PERMISSION_PRE_BYTECODE | PERMISSION_POST_BYTECODE | PERMISSION_PDA_SPECIAL_CHARS;
 
 #[inline(always)]
 pub fn has_permission(permissions: u8, permission: u8) -> bool {
@@ -200,8 +188,8 @@ pub fn has_permission(permissions: u8, permission: u8) -> bool {
 
 #[inline(always)]
 pub fn validate_permissions(permissions: u8) -> ProgramResult {
-    // Bits 3-7 must be zero (reserved for future use)
-    if permissions & 0xF8 != 0 {
+    // Bits outside known permission flags must be zero (reserved for future use)
+    if permissions & !KNOWN_PERMISSIONS != 0 {
         return Err(ProgramError::InvalidArgument);
     }
     Ok(())

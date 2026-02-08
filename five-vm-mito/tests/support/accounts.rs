@@ -62,19 +62,3 @@ pub fn create_test_accounts<'a>(
 
     [payer, new_account, system_program]
 }
-
-pub fn encode_vle(mut value: u64) -> Vec<u8> {
-    let mut bytes = Vec::new();
-    loop {
-        let mut byte = (value & 0x7F) as u8;
-        value >>= 7;
-        if value != 0 {
-            byte |= 0x80;
-        }
-        bytes.push(byte);
-        if value == 0 {
-            break;
-        }
-    }
-    bytes
-}

@@ -78,5 +78,4 @@ impl<'a> StackManager<'a> {
     pub fn is_empty(&self) -> bool {
         self.sp == 0
     }
-
 }

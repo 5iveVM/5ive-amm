@@ -1,9 +1,4 @@
-/**
- * Five VM WASM Integration
- * 
- * Real integration with Five VM WASM bindings for script execution,
- * partial execution, and bytecode analysis.
- */
+// Five VM WASM integration.
 
 import {
   VMExecutionOptions,
@@ -15,7 +10,6 @@ import {
 
 import { getWasmModule } from './loader.js';
 
-// Real Five VM WASM imports
 let FiveVMWasm: any;
 let WasmAccount: any;
 let ParameterEncoder: any;
@@ -34,9 +28,6 @@ export class FiveVM {
     this.logger = logger;
   }
 
-  /**
-   * Initialize the VM with real Five VM WASM module
-   */
   async initialize(): Promise<void> {
     try {
       this.logger.debug('[DEBUG] Starting VM WASM initialization...');
@@ -148,7 +139,7 @@ export class FiveVM {
     let status = 'Failed';
     let errorMessage = undefined;
 
-    // Handle simple string results (Rust Enum string representation)
+  // Handle simple string results.
     if (typeof result === 'string') {
       if (result.startsWith('Ok(')) {
         success = true;
@@ -199,41 +190,40 @@ export class FiveVM {
   ): Promise<VMExecutionResult> {
     if (!this.initialized) await this.initialize();
 
-    // Import VLE encoder
-    // Note: VLEEncoder should be imported from the lib we moved
-    const { VLEEncoder } = await import('../lib/vle-encoder.js');
+    // Import BytecodeEncoder
+    const { BytecodeEncoder } = await import('../lib/bytecode-encoder.js');
 
-    // Simple values for raw VLE encoding
-    const simpleValues = parameters.map(param => param.value);
+    // Pass typed parameters through to WASM encoder
+    const typedParams = parameters.map(param => ({
+      type: param.type,
+      value: param.value
+    }));
 
-    if (!ParameterEncoder || !ParameterEncoder.encode_execute_vle) {
-      throw new Error('ParameterEncoder WASM binding not loaded');
+    if (!ParameterEncoder || !ParameterEncoder.encode_execute) {
+      throw new Error('ParameterEncoder WASM binding not loaded or missing encode_execute');
     }
-    const rawVLEParams = ParameterEncoder.encode_execute_vle(functionIndex, simpleValues);
+    // Use WASM binding to encode parameters (returns fixed-size encoded params)
+    const rawParams = ParameterEncoder.encode_execute(functionIndex, typedParams);
 
-    // Use FiveSDK logic manual implementation to encode instruction
-    // Instruction = [discriminator(2 bytes), ...rawVLEParams]
-    // EXECUTE_SCRIPT discriminator is usually 1 (or dependent on protocol)
-
-    // EXECUTE_INSTRUCTION is 9 (matches on-chain protocol)
     // EXECUTE_INSTRUCTION is 9 (matches on-chain protocol)
     const discriminator = new Uint8Array([9]);
 
-    // Encode function index manually (VLE)
-    const functionIndexBytes = [];
-    let num = functionIndex;
-    do {
-      let byte = num & 0x7f;
-      num >>>= 7;
-      if (num > 0) byte |= 0x80;
-      functionIndexBytes.push(byte);
-    } while (num > 0);
-    const functionIndexVLE = new Uint8Array(functionIndexBytes);
+    // Encode function index as u32 little endian
+    const functionIndexBytes = BytecodeEncoder.encodeU32(functionIndex);
 
-    const properInstructionData = new Uint8Array(discriminator.length + functionIndexVLE.length + rawVLEParams.length);
+    // Assemble: [discriminator, function_index(u32), param_count(u32), rawParams...]
+
+    // Construct instruction:
+    const functionIndexArr = BytecodeEncoder.encodeU32(functionIndex); // 4 bytes
+    const paramCountArr = BytecodeEncoder.encodeU32(parameters.length);
+
+    const properInstructionData = new Uint8Array(
+      discriminator.length + functionIndexArr.length + paramCountArr.length + rawParams.length
+    );
     properInstructionData.set(discriminator, 0);
-    properInstructionData.set(functionIndexVLE, discriminator.length);
-    properInstructionData.set(rawVLEParams, discriminator.length + functionIndexVLE.length);
+    properInstructionData.set(functionIndexArr, discriminator.length);
+    properInstructionData.set(paramCountArr, discriminator.length + functionIndexArr.length);
+    properInstructionData.set(rawParams, discriminator.length + functionIndexArr.length + paramCountArr.length);
 
     return await this.execute({
       bytecode,

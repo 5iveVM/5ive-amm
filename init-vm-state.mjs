@@ -10,7 +10,7 @@ const RPC_URL = 'http://127.0.0.1:8899';
 const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
 
 // Program ID from our deployment
-const FIVE_PROGRAM_ID = new PublicKey('FVEyaZCqYaGLxmysFxQezRLbx8xtCQwSq4vK49ENzWUZ');
+const FIVE_PROGRAM_ID = new PublicKey('Hwft899SdBJaKFidG7Dd21McU8W3Gbj8ctkfBEcAaPrn');
 
 // Instruction discriminator for Initialize (0x00)
 const INITIALIZE_DISCRIMINATOR = Buffer.from([0x00]);

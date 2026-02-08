@@ -1,4 +1,4 @@
-// Parameter Test Examples - Comprehensive collection of parameter testing approaches
+// Parameter test examples
     mut balance: u64;
     mut value: u64;
     mut secondary_balance: u64;

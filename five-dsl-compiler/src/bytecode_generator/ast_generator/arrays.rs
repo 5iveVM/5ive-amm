@@ -1,11 +1,8 @@
-//! Array and block statement generation
-//!
-//! This module handles generation of arrays, byte arrays, and statement blocks.
+//! Array and block statement generation.
 
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
 use crate::ast::AstNode;
-use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
@@ -16,8 +13,7 @@ impl ASTGenerator {
         node: &AstNode,
     ) -> Result<(), VMError> {
         if let AstNode::ArrayLiteral { elements } = node {
-            emitter.emit_opcode(PUSH_U8);
-            emitter.emit_u8(elements.len() as u8);
+            emitter.emit_const_u8(elements.len() as u8)?;
             for element in elements {
                 self.generate_ast_node(emitter, element)?;
             }
@@ -34,8 +30,7 @@ impl ASTGenerator {
         node: &AstNode,
     ) -> Result<(), VMError> {
         if let AstNode::ArrayLiteral { elements } = node {
-            emitter.emit_opcode(PUSH_U8);
-            emitter.emit_u8(elements.len() as u8);
+            emitter.emit_const_u8(elements.len() as u8)?;
             for element in elements {
                 self.generate_ast_node(emitter, element)?;
             }
@@ -51,8 +46,20 @@ impl ASTGenerator {
         emitter: &mut T,
         statements: &[AstNode],
     ) -> Result<(), VMError> {
-        for statement in statements {
-            self.generate_ast_node(emitter, statement)?;
+        let mut i = 0;
+        while i < statements.len() {
+            // Tier 3 Optimization: Check for multi-statement fusion patterns
+            // Example: double-entry bookkeeping (sub/add pairs) -> FIELD_SUB_ADD_PARAM
+            if let Some(consumed) = self.try_emit_fused_assignment_block(emitter, statements, i)? {
+                #[cfg(debug_assertions)]
+                println!("FUSED_DEBUG: Consumed {} statements for fused block pattern", consumed);
+                i += consumed;
+                continue;
+            }
+
+            // Fallback: Generate single statement
+            self.generate_ast_node(emitter, &statements[i])?;
+            i += 1;
         }
         Ok(())
     }

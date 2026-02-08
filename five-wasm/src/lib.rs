@@ -3,22 +3,20 @@
 use wasm_bindgen::prelude::*;
 
 use five_protocol::{
-    encoding::VLE, opcodes, types, Value, FIVE_DEPLOY_MAGIC, FIVE_MAGIC, MAX_SCRIPT_SIZE,
+    opcodes, types, Value, FIVE_DEPLOY_MAGIC, FIVE_MAGIC, MAX_SCRIPT_SIZE,
 };
-use five_vm_mito::{error::VMError, Pubkey, FIVE_VM_PROGRAM_ID};
+use five_vm_mito::{error::VMError, FIVE_VM_PROGRAM_ID};
 use serde::{Deserialize, Serialize};
 
-// Define missing constants
 const MAX_COMPUTE_UNITS: usize = 1_000_000;
 use five_dsl_compiler::{
-    error::{integration, CompilerError, ErrorSeverity},
+    error::integration,
     metrics::{export_metrics, CompilerMetrics, ExportFormat, MetricsCollector},
 
     DslCompiler,
 };
 
-// Initialize panic hook for better error messages in WASM
-// Moved from auto-start to manual initialization to prevent hanging during module import
+// Initialize panic hook for better error messages in WASM.
 fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
@@ -28,7 +26,7 @@ pub fn log_to_console(message: &str) {
     log_message(message);
 }
 
-// Helper for logging that works in both WASM and native environments
+// Helper for logging that works in both WASM and native environments.
 fn log_message(message: &str) {
     #[cfg(target_arch = "wasm32")]
     web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(message));
@@ -37,7 +35,7 @@ fn log_message(message: &str) {
     println!("[WASM LOG] {}", message);
 }
 
-// Helper for warning that works in both WASM and native environments
+// Helper for warning that works in both WASM and native environments.
 fn warn_message(message: &str) {
     #[cfg(target_arch = "wasm32")]
     web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(message));
@@ -46,58 +44,58 @@ fn warn_message(message: &str) {
     eprintln!("[WASM WARN] {}", message);
 }
 
-/// Execution result that honestly reports what happened
+/// Execution result.
 #[derive(Debug, Clone, PartialEq)]
 #[wasm_bindgen]
 pub enum ExecutionStatus {
-    /// All operations completed successfully
+    /// All operations completed successfully.
     Completed,
-    /// Execution stopped because it hit a system program call that cannot be executed in WASM
+    /// Execution stopped because it hit a system program call that cannot be executed in WASM.
     StoppedAtSystemCall,
-    /// Execution stopped because it hit an INIT_PDA operation that requires real Solana context
+    /// Execution stopped because it hit an INIT_PDA operation that requires real Solana context.
     StoppedAtInitPDA,
-    /// Execution stopped because it hit an INVOKE operation that requires real RPC
+    /// Execution stopped because it hit an INVOKE operation that requires real RPC.
     StoppedAtInvoke,
-    /// Execution stopped because it hit an INVOKE_SIGNED operation that requires real RPC
+    /// Execution stopped because it hit an INVOKE_SIGNED operation that requires real RPC.
     StoppedAtInvokeSigned,
-    /// Execution stopped because compute limit was reached
+    /// Execution stopped because compute limit was reached.
     ComputeLimitExceeded,
-    /// Execution failed due to an error
+    /// Execution failed due to an error.
     Failed,
 }
 
-/// Detailed execution result that provides full context
+/// Detailed execution result.
 #[derive(Debug)]
 #[wasm_bindgen]
 pub struct TestResult {
-    /// Final execution status
+    /// Final execution status.
     #[wasm_bindgen(skip)]
     pub status: ExecutionStatus,
-    /// Final value on stack (if any)
+    /// Final value on stack (if any).
     #[wasm_bindgen(skip)]
     pub result_value: Option<JsValue>,
-    /// Compute units consumed
+    /// Compute units consumed.
     pub compute_units_used: u64,
-    /// Final instruction pointer
+    /// Final instruction pointer.
     pub instruction_pointer: usize,
-    /// Stack contents at stop point
+    /// Stack contents at stop point.
     #[wasm_bindgen(skip)]
     pub final_stack: Vec<JsValue>,
-    /// Final memory state (temp buffer)
+    /// Final memory state (temp buffer).
     #[wasm_bindgen(skip)]
     pub final_memory: Vec<u8>,
-    /// Final state of accounts after execution
+    /// Final state of accounts after execution.
     #[wasm_bindgen(skip)]
     pub final_accounts: Vec<JsValue>,
-    /// Error message if failed
+    /// Error message if failed.
     #[wasm_bindgen(skip)]
     pub error_message: Option<String>,
-    /// Detailed execution context for enhanced debugging
+    /// Detailed execution context for enhanced debugging.
     #[wasm_bindgen(skip)]
     pub execution_context: Option<String>,
-    /// Which opcode caused the stop (if stopped at system call)
+    /// Which opcode caused the stop (if stopped at system call).
     pub stopped_at_opcode: Option<u8>,
-    /// Human-readable name of the stopping opcode
+    /// Human-readable name of the stopping opcode.
     #[wasm_bindgen(skip)]
     pub stopped_at_opcode_name: Option<String>,
 }
@@ -150,11 +148,11 @@ impl TestResult {
     }
 }
 
-/// JavaScript-compatible VM state representation
+/// JavaScript-compatible VM state representation.
 #[wasm_bindgen]
 pub struct FiveVMState {
     #[wasm_bindgen(skip)]
-    pub stack: Vec<String>, // Simplified to strings for now
+    pub stack: Vec<String>,
     #[wasm_bindgen(skip)]
     pub instruction_pointer: usize,
     #[wasm_bindgen(skip)]
@@ -179,7 +177,7 @@ impl FiveVMState {
     }
 }
 
-/// JavaScript-compatible account representation
+/// JavaScript-compatible account representation.
 #[derive(Serialize, Deserialize)]
 #[wasm_bindgen]
 pub struct WasmAccount {
@@ -247,7 +245,7 @@ impl WasmAccount {
     }
 }
 
-/// WASM Logger implementation (simplified for MitoVM)
+/// WASM logger implementation.
 pub struct WasmLogger;
 
 impl WasmLogger {
@@ -256,12 +254,12 @@ impl WasmLogger {
     }
 }
 
-/// WASM System Interface (simplified for MitoVM - system calls detected by opcode analysis)
+/// WASM system interface (system calls detected by opcode analysis).
 pub struct WasmSystemInterface {
     pub encountered_system_call: std::sync::Arc<std::sync::Mutex<Option<SystemCallType>>>,
 }
 
-/// Types of system calls that stop execution in WASM
+/// Types of system calls that stop execution in WASM.
 #[derive(Debug, Clone)]
 pub enum SystemCallType {
     Invoke(u8),
@@ -307,26 +305,26 @@ impl WasmSystemInterface {
     }
 }
 
-/// WASM Account conversion for MitoVM zero-copy execution
+/// WASM account conversion for MitoVM zero-copy execution.
 impl WasmAccount {
-    /// Convert to raw account data for MitoVM
+    /// Convert to raw account data for MitoVM.
     pub fn to_mito_account_data(&self) -> Vec<u8> {
         // MitoVM expects raw account data without metadata
         self.data.clone()
     }
 
-    /// Update from MitoVM account data
+    /// Update from MitoVM account data.
     pub fn update_from_mito_data(&mut self, data: &[u8]) {
         self.data = data.to_vec();
     }
 
-    /// Create account metadata for MitoVM context
+    /// Create account metadata for MitoVM context.
     pub fn create_mito_metadata(&self) -> (bool, bool, [u8; 32]) {
         (self.is_signer, self.is_writable, self.owner)
     }
 }
 
-/// Main WASM VM wrapper
+/// Main WASM VM wrapper.
 #[wasm_bindgen]
 pub struct FiveVMWasm {
     bytecode: Vec<u8>,
@@ -335,27 +333,26 @@ pub struct FiveVMWasm {
     _system: &'static WasmSystemInterface,
 }
 
-// Static instances for WASM environment
+// Static instances for WASM environment.
 static WASM_LOGGER: WasmLogger = WasmLogger;
 static WASM_SYSTEM: std::sync::OnceLock<WasmSystemInterface> = std::sync::OnceLock::new();
 
 #[wasm_bindgen]
 impl FiveVMWasm {
-    /// Create new VM instance with bytecode
+    /// Create new VM instance with bytecode.
     #[wasm_bindgen(constructor)]
     pub fn new(_bytecode: &[u8]) -> Result<FiveVMWasm, JsValue> {
-        // Initialize panic hook for better error messages
+        // Initialize panic hook for better error messages.
         init_panic_hook();
 
-        // Initialize system interface once
+        // Initialize system interface once.
         let system = WASM_SYSTEM.get_or_init(|| WasmSystemInterface::new());
 
-        // Extract pure FIVE bytecode from account data
-        // Account structure: 48-byte header + FIVE bytecode
+        // Extract pure FIVE bytecode from account data.
         let extracted_bytecode = Self::extract_five_bytecode(_bytecode)
             .map_err(|e| JsValue::from_str(&format!("Failed to extract FIVE bytecode: {:?}", e)))?;
 
-        // Try to extract ABI information from .five file format
+        // Try to extract ABI information from .five file format.
         let abi_data = Self::extract_abi_from_five_file(_bytecode);
 
         Ok(FiveVMWasm {
@@ -366,7 +363,7 @@ impl FiveVMWasm {
         })
     }
 
-    /// Execute VM with input data and accounts (legacy method)
+    /// Execute VM with input data and accounts (legacy method).
     #[wasm_bindgen]
     pub fn execute(
         &mut self,
@@ -375,10 +372,9 @@ impl FiveVMWasm {
     ) -> Result<JsValue, JsValue> {
         let test_result = self.execute_partial(input_data, accounts)?;
 
-        // Convert TestResult to legacy format for compatibility
+        // Convert TestResult to legacy format for compatibility.
         if test_result.status == ExecutionStatus::Failed {
             let error_msg = if let Some(context) = test_result.execution_context() {
-                // Include detailed execution context in error for better debugging
                 context
             } else {
                 test_result
@@ -391,7 +387,7 @@ impl FiveVMWasm {
         Ok(test_result.get_result_value())
     }
 
-    /// Execute VM with partial execution support - stops at system calls
+    /// Execute VM with partial execution support - stops at system calls.
     #[wasm_bindgen]
     pub fn execute_partial(
         &mut self,
@@ -576,6 +572,11 @@ impl FiveVMWasm {
             return Ok(false);
         }
 
+        // Validate optimized header structure for sync with core protocol
+        if five_protocol::parse_header(&extracted_bytecode).is_err() {
+            return Ok(false);
+        }
+
         Ok(true)
     }
 
@@ -608,7 +609,7 @@ impl FiveVMWasm {
         JsValue::from_str(&constants.to_string())
     }
 
-    /// Execute MitoVM with VLE parameter decoding
+    /// Execute MitoVM with parameter decoding
     fn execute_mito_vm(
         &self,
         input_data: &[u8],
@@ -621,9 +622,9 @@ impl FiveVMWasm {
         ),
         (five_vm_mito::error::VMError, five_vm_mito::VMExecutionContext),
     > {
-        // Decode VLE instruction data before passing to MitoVM
+        // Decode instruction data before passing to MitoVM
         // If decoding fails, return early with empty context
-        let decoded_input = self.decode_vle_instruction_data(input_data).map_err(|e| {
+        let decoded_input = self.decode_instruction_data(input_data).map_err(|e| {
             (
                 e,
                 five_vm_mito::VMExecutionContext {
@@ -653,7 +654,7 @@ impl FiveVMWasm {
 
         // WASM execution currently doesn't support real AccountInfo creation since pinocchio
         // AccountInfo structs are typically provided by the Solana validator during execution.
-        // For now, use empty accounts but log the account information we would have used.
+        // Use empty accounts and log the account information we would have used.
         log_message(&format!(
             "WASM: Would pass {} accounts to VM execution:",
             wasm_accounts.len()
@@ -882,21 +883,21 @@ impl FiveVMWasm {
         None
     }
 
-    /// Decode VLE instruction data for MitoVM execution
-    /// Frontend sends: [discriminator(2), vle_function_index, vle_param_count, ...vle_parameters]
-    /// MitoVM expects: [vle_function_index, vle_param_count, ...vle_parameters]
-    fn decode_vle_instruction_data(&self, input_data: &[u8]) -> Result<Vec<u8>, VMError> {
+    /// Decode instruction data for MitoVM execution
+    /// Frontend sends: [discriminator(u8), function_index(u32), param_count(u32), ...parameters]
+    /// MitoVM expects: [function_index(u32), param_count(u32), ...parameters]
+    fn decode_instruction_data(&self, input_data: &[u8]) -> Result<Vec<u8>, VMError> {
         if input_data.is_empty() {
             return Ok(Vec::new());
         }
 
         // Check for Execute discriminator (2 for legacy, 9 for on-chain Solana program)
         if input_data[0] == 2 || input_data[0] == 9 {
-            // Strip discriminator and return VLE data for MitoVM
-            let vle_data = &input_data[1..];
+            // Strip discriminator and return data for MitoVM
+            let data = &input_data[1..];
 
             // Log the decoding for debugging
-            log_message("WASM: Decoded VLE instruction data");
+            log_message("WASM: Decoded instruction data");
             log_message(&format!(
                 "  Original data ({} bytes): {:?}",
                 input_data.len(),
@@ -904,12 +905,12 @@ impl FiveVMWasm {
             ));
             log_message(&format!("  Stripped discriminator ({})", input_data[0]));
             log_message(&format!(
-                "  VLE data for MitoVM ({} bytes): {:?}",
-                vle_data.len(),
-                vle_data
+                "  Data for MitoVM ({} bytes): {:?}",
+                data.len(),
+                data
             ));
 
-            Ok(vle_data.to_vec())
+            Ok(data.to_vec())
         } else {
             // Not an Execute instruction - pass through as-is
             log_message(&format!(
@@ -1330,7 +1331,9 @@ impl BytecodeAnalyzer {
         }
 
         let mut instructions = Vec::new();
-        let mut i = 4; // Skip magic bytes
+        let (header, start_offset) = five_protocol::parse_header(bytecode)
+            .map_err(|e| format!("Header parse failed: {:?}", e))?;
+        let mut i = start_offset;
 
         while i < bytecode.len() {
             let opcode = bytecode[i];
@@ -1338,11 +1341,11 @@ impl BytecodeAnalyzer {
                 "offset": i,
                 "opcode": opcode,
                 "name": opcode_to_name(opcode),
-                "size": get_instruction_size(opcode, &bytecode[i..])
+                "size": get_instruction_size_with_features(opcode, &bytecode[i..], header.features)
             });
             instructions.push(instruction_info);
 
-            i += get_instruction_size(opcode, &bytecode[i..]);
+            i += get_instruction_size_with_features(opcode, &bytecode[i..], header.features);
         }
 
         Ok(serde_json::json!({
@@ -1605,83 +1608,91 @@ fn opcode_to_name(opcode: u8) -> &'static str {
 }
 
 /// Helper function to get instruction size
+#[cfg(test)]
 fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
+    get_instruction_size_with_features(opcode, bytes, 0)
+}
+
+fn get_instruction_size_with_features(opcode: u8, bytes: &[u8], features: u32) -> usize {
     use five_protocol::opcodes::{get_opcode_info, ArgType};
+
+    // Constant pool mode: PUSH_* operands are indices (u8) and _W are u16
+    if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+        match opcode {
+            five_protocol::opcodes::PUSH_U8
+            | five_protocol::opcodes::PUSH_U16
+            | five_protocol::opcodes::PUSH_U32
+            | five_protocol::opcodes::PUSH_U64
+            | five_protocol::opcodes::PUSH_I64
+            | five_protocol::opcodes::PUSH_BOOL
+            | five_protocol::opcodes::PUSH_PUBKEY
+            | five_protocol::opcodes::PUSH_U128
+            | five_protocol::opcodes::PUSH_STRING => {
+                return 2;
+            }
+            five_protocol::opcodes::PUSH_U8_W
+            | five_protocol::opcodes::PUSH_U16_W
+            | five_protocol::opcodes::PUSH_U32_W
+            | five_protocol::opcodes::PUSH_U64_W
+            | five_protocol::opcodes::PUSH_I64_W
+            | five_protocol::opcodes::PUSH_BOOL_W
+            | five_protocol::opcodes::PUSH_PUBKEY_W
+            | five_protocol::opcodes::PUSH_U128_W
+            | five_protocol::opcodes::PUSH_STRING_W => {
+                return 3;
+            }
+            _ => {}
+        }
+    }
 
     // Attempt to get from protocol table first
     if let Some(info) = get_opcode_info(opcode) {
         match info.arg_type {
             ArgType::None => 1,
             ArgType::U8 => 2,
-            ArgType::U16 => {
-                // Check if it's VLE or Fixed. Protocol ArgType doesn't distinguish fully yet,
-                // but JUMP uses fixed u16. PUSH_U16 uses VLE.
-                // We rely on checking specific opcodes or peeking VLE.
-                // However, most args in protocol are VLE if variable.
-                // For now, let's keep it simple and handle known VLE types.
-                if opcode == five_protocol::opcodes::JUMP || opcode == five_protocol::opcodes::JUMP_IF || opcode == five_protocol::opcodes::JUMP_IF_NOT {
-                    3 // 1 + 2 bytes fixed
-                } else if opcode == five_protocol::opcodes::PUSH_U16 {
-                     // 1 + VLE
-                     if bytes.len() > 1 {
-                         if let Some((value, size)) = VLE::decode_u16(&bytes[1..]) {
-                             size + 1
-                         } else {
-                             2 // Incomplete, assume min
-                         }
-                     } else {
-                         2 // Incomplete, assume min
-                     }
+            ArgType::U16 | ArgType::U16Fixed => 3, // 1 + 2
+            ArgType::U32 | ArgType::U32Fixed | ArgType::FunctionIndex => 5, // 1 + 4
+            ArgType::U64 => 9, // 1 + 8
+            ArgType::AccountField => 6, // 1 + 1(u8) + 4(u32)
+            ArgType::AccountFieldParam => 7, // 1 + 1(u8) + 4(u32) + 1(u8)
+            ArgType::FusedAccAcc => 12, // 1 + 1 + 4 + 1 + 4
+            ArgType::FusedSubAdd => 12, // 1 + 1 + 4 + 1 + 4 + 1
+            ArgType::ParamImm => 3, // 1 + 1 + 1
+            ArgType::FieldImm => 7, // 1 + 1 + 4 + 1 (u8 imm? or u64 imm?) Check protocol.
+            // Check protocol for FieldImm: acc(u8) + off(u32) + imm(u8). 1+1+4+1 = 7.
+
+            // CallExternal: 1 + 4 bytes args (account_idx + func_offset + param_count) = 5 total.
+            ArgType::CallExternal => 5,
+
+            ArgType::CallInternal => 4, // 1 + 1(param) + 2(addr) = 4.
+            // Parser: ArgType::CallInternal => total_size += 3.
+            // So total instruction size is 4.
+
+            _ => {
+                // Fallback for types not explicitly sized above or PUSH_STRING
+                if opcode == five_protocol::opcodes::PUSH_STRING {
+                    // PUSH_STRING length_u32 + bytes
+                    if bytes.len() >= 5 {
+                        let len = u32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
+                        5 + len
+                    } else {
+                        5 // At least header
+                    }
+                } else if opcode == five_protocol::opcodes::PUSH_STRING_W {
+                    3
+                } else if opcode == five_protocol::opcodes::CALL_EXTERNAL {
+                    5
+                } else if opcode == five_protocol::opcodes::CALL {
+                    4
                 } else {
-                    2 // Default for others
-                }
-            },
-            ArgType::U32 => {
-                 if opcode == five_protocol::opcodes::STORE || opcode == five_protocol::opcodes::LOAD {
-                     // These use fixed u32 in spec? "offset (U32)".
-                     // Wait, spec says "STORE offset (U32)".
-                     // Protocol says ArgType::U32.
-                     // If fixed: 1 + 4 = 5.
-                     5
-                 } else {
-                     // Assume VLE for PUSH_U32
-                     if bytes.len() > 1 {
-                         if let Some((value, size)) = VLE::decode_u32(&bytes[1..]) {
-                             size + 1
-                         } else {
-                             2
-                         }
-                     } else {
-                         2
-                     }
-                 }
-            },
-            ArgType::U64 => {
-                 // Assume VLE for PUSH_U64/I64
-                 if bytes.len() > 1 {
-                     if let Some((value, size)) = VLE::decode_u64(&bytes[1..]) {
-                         size + 1
-                     } else {
-                         2
-                     }
-                 } else {
-                     2
-                 }
-            },
-            ArgType::AccountField => {
-                // u8 + VLE
-                if bytes.len() > 2 {
-                     if let Some((value, size)) = VLE::decode_u32(&bytes[2..]) {
-                         size + 2
-                     } else {
-                         3
-                     }
-                } else {
-                     3
+                    // Safe default for unhandled ArgTypes (LocalIndex, AccountIndex, ValueType -> all u8).
+                    if matches!(info.arg_type, ArgType::LocalIndex | ArgType::AccountIndex | ArgType::ValueType) {
+                        2
+                    } else {
+                        1
+                    }
                 }
             }
-            // Add more cases as needed based on ArgType
-            _ => 1
         }
     } else {
         1
@@ -2777,7 +2788,7 @@ impl WasmFiveCompiler {
             include_debug_info: options.include_debug_info,
         };
 
-        let mut metrics_format = if options.metrics_format.is_empty() {
+        let metrics_format = if options.metrics_format.is_empty() {
             "json".to_string()
         } else {
             options.metrics_format.clone()
@@ -2979,13 +2990,7 @@ impl WasmFiveCompiler {
                 })
             }
             Err(e) => {
-                // For error handling we might want to discover modules manually to get source map,
-                // or just report the error.
-                // Re-running discovery just for errors is expensive but necessary for rich errors if we want source code.
-                // For now, let's just report the error to avoid complexity, or do a quick re-discovery if needed by `process_multi_errors`.
-                // `process_multi_errors` requires a source map.
-                
-                // Let's attempt the manual discovery fallback purely for error reporting
+                // Re-run module discovery to build a source map for richer errors.
                 use five_dsl_compiler::module_resolver::ModuleDiscoverer;
                 let entry_path = Path::new(&entry_point);
                 let source_dir = entry_path.parent().unwrap_or(Path::new("")).to_path_buf();
@@ -3142,7 +3147,7 @@ impl WasmFiveCompiler {
     #[wasm_bindgen(js_name = extractFunctionMetadata)]
     pub fn extract_function_metadata(&self, bytecode: &[u8]) -> Result<JsValue, JsValue> {
         use five_dsl_compiler::import_discovery::ImportDiscovery;
-        use serde::{Serialize, Deserialize};
+        use serde::Serialize;
 
         #[derive(Serialize)]
         struct SimpleDiscoveredFunction {
@@ -3422,7 +3427,7 @@ impl WasmFiveCompiler {
                 type_checker.set_current_module(main_module_name);
                 
                 if let Err(e) = type_checker.check_types(&merged_ast) {
-                     let mut compiler_error = five_dsl_compiler::error::CompilerError::new(
+                     let compiler_error = five_dsl_compiler::error::CompilerError::new(
                          five_dsl_compiler::error::ErrorCode::TYPE_MISMATCH,
                          five_dsl_compiler::error::ErrorSeverity::Error,
                          five_dsl_compiler::error::ErrorCategory::Type,
@@ -3433,7 +3438,7 @@ impl WasmFiveCompiler {
                      // Attach location info if captured by the type checker
                      // Note: last_error_span/file fields are no longer exposed directly on TypeCheckerContext
                      // To fix properly we would need to capture this info from the error itself if available
-                     // For now, we proceed without the enhanced location info from the context
+                     // Proceed without enhanced location info from the context.
                      // if let (Some(span), Some(file)) = (type_checker.last_error_span.clone(), type_checker.last_error_file.clone()) { ... }
 
                      let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
@@ -3492,7 +3497,7 @@ impl WasmFiveCompiler {
                 let mut generator = if config.v2_preview {
                      DslBytecodeGenerator::with_v2_preview_config(&config)
                 } else {
-                     DslBytecodeGenerator::with_optimization_config(&config) 
+                     DslBytecodeGenerator::with_optimization_config(&config)
                 };
                 
                 match generator.generate(&merged_ast) {
@@ -4040,7 +4045,7 @@ impl WasmFiveCompiler {
     /// Type-check parsed AST
     #[wasm_bindgen]
     pub fn type_check(&self, _ast_json: &str) -> Result<JsValue, JsValue> {
-        // For now, return success - this would need full AST serialization
+        // Return success; full AST serialization not implemented.
         let result = serde_json::json!({
             "success": true,
             "message": "Type checking completed"
@@ -4063,11 +4068,14 @@ impl WasmFiveCompiler {
 
         // Simple optimization: remove consecutive PUSH/POP pairs
         let mut optimized = Vec::new();
-        let mut i = 0;
+        let (header, start_offset) = five_protocol::parse_header(bytecode)
+            .map_err(|e| format!("Header parse failed: {:?}", e))?;
+        optimized.extend_from_slice(&bytecode[..start_offset]);
+        let mut i = start_offset;
 
         while i < bytecode.len() {
             let opcode = bytecode[i];
-            let instruction_size = get_instruction_size(opcode, &bytecode[i..]);
+            let instruction_size = get_instruction_size_with_features(opcode, &bytecode[i..], header.features);
 
             // Ensure we have enough bytes for this instruction
             if i + instruction_size > bytecode.len() {
@@ -4077,11 +4085,27 @@ impl WasmFiveCompiler {
             }
 
             // Check for PUSH variants
-            let is_push = opcode == opcodes::PUSH_U64
-                || opcode == opcodes::PUSH_U8
-                || opcode == opcodes::PUSH_I64
-                || opcode == opcodes::PUSH_BOOL
-                || opcode == opcodes::PUSH_PUBKEY;
+            let is_push = matches!(
+                opcode,
+                opcodes::PUSH_U8
+                    | opcodes::PUSH_U16
+                    | opcodes::PUSH_U32
+                    | opcodes::PUSH_U64
+                    | opcodes::PUSH_I64
+                    | opcodes::PUSH_BOOL
+                    | opcodes::PUSH_U128
+                    | opcodes::PUSH_PUBKEY
+                    | opcodes::PUSH_STRING
+                    | opcodes::PUSH_U8_W
+                    | opcodes::PUSH_U16_W
+                    | opcodes::PUSH_U32_W
+                    | opcodes::PUSH_U64_W
+                    | opcodes::PUSH_I64_W
+                    | opcodes::PUSH_BOOL_W
+                    | opcodes::PUSH_U128_W
+                    | opcodes::PUSH_PUBKEY_W
+                    | opcodes::PUSH_STRING_W
+            );
 
             if is_push {
                 let next_instruction_idx = i + instruction_size;
@@ -4571,247 +4595,267 @@ impl WasmFiveCompiler {
     }
 }
 
-/// VLE Encoding utilities for JavaScript
+/// Bytecode Encoding utilities for JavaScript (Fixed Size)
 #[wasm_bindgen]
-pub struct VLEEncoder;
+pub struct BytecodeEncoder;
 
 #[wasm_bindgen]
-impl VLEEncoder {
-    /// Encode a u32 value using Variable-Length Encoding
-    /// Returns [size, byte1, byte2, byte3] where size is 1-3
+impl BytecodeEncoder {
+    /// Encode a u32 value
+    /// Returns [size, byte1, byte2, byte3, byte4]
     #[wasm_bindgen]
     pub fn encode_u32(value: u32) -> js_sys::Array {
-        let (size, bytes) = VLE::encode_u32(value);
+        let bytes = value.to_le_bytes();
         let result = js_sys::Array::new();
-        result.push(&JsValue::from(size));
+        result.push(&JsValue::from(4));
         result.push(&JsValue::from(bytes[0]));
         result.push(&JsValue::from(bytes[1]));
         result.push(&JsValue::from(bytes[2]));
+        result.push(&JsValue::from(bytes[3]));
         result
     }
 
-    /// Encode a u16 value using Variable-Length Encoding
-    /// Returns [size, byte1, byte2] where size is 1-2
+    /// Encode a u16 value
+    /// Returns [size, byte1, byte2]
     #[wasm_bindgen]
     pub fn encode_u16(value: u16) -> js_sys::Array {
-        let (size, bytes) = VLE::encode_u16(value);
+        let bytes = value.to_le_bytes();
         let result = js_sys::Array::new();
-        result.push(&JsValue::from(size));
+        result.push(&JsValue::from(2));
         result.push(&JsValue::from(bytes[0]));
         result.push(&JsValue::from(bytes[1]));
         result
     }
 
-    /// Decode a u32 value from Variable-Length Encoding
+    /// Decode a u32 value
     /// Returns [value, bytes_consumed] or null if invalid
     #[wasm_bindgen]
     pub fn decode_u32(bytes: &[u8]) -> Option<js_sys::Array> {
-        if let Some((value, consumed)) = VLE::decode_u32(bytes) {
+        if bytes.len() >= 4 {
+            let value = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
             let result = js_sys::Array::new();
             result.push(&JsValue::from(value));
-            result.push(&JsValue::from(consumed));
+            result.push(&JsValue::from(4));
             Some(result)
         } else {
             None
         }
     }
 
-    /// Decode a u16 value from Variable-Length Encoding
+    /// Decode a u16 value
     /// Returns [value, bytes_consumed] or null if invalid
     #[wasm_bindgen]
     pub fn decode_u16(bytes: &[u8]) -> Option<js_sys::Array> {
-        if let Some((value, consumed)) = VLE::decode_u16(bytes) {
+        if bytes.len() >= 2 {
+            let value = u16::from_le_bytes([bytes[0], bytes[1]]);
             let result = js_sys::Array::new();
             result.push(&JsValue::from(value));
-            result.push(&JsValue::from(consumed));
+            result.push(&JsValue::from(2));
             Some(result)
         } else {
             None
         }
     }
 
-    /// Calculate encoded size without encoding
+    /// Calculate encoded size (Always 4 for u32)
     #[wasm_bindgen]
-    pub fn encoded_size_u32(value: u32) -> usize {
-        VLE::encoded_size(value)
+    pub fn encoded_size_u32(_value: u32) -> usize {
+        4
     }
 
-    /// Calculate encoded size for u16
+    /// Calculate encoded size (Always 2 for u16)
     #[wasm_bindgen]
-    pub fn encoded_size_u16(value: u16) -> usize {
-        if value < 128 {
-            1
-        } else {
-            2
-        }
+    pub fn encoded_size_u16(_value: u16) -> usize {
+        2
     }
 }
 
-/// Parameter encoding utilities using VLE and protocol types
+/// Parameter encoding utilities using fixed-size encoding and protocol types
 #[wasm_bindgen]
 pub struct ParameterEncoder;
 
 #[wasm_bindgen]
 impl ParameterEncoder {
-    /// Encode function parameters using VLE compression
+    /// Encode function parameters using fixed size encoding
     /// Returns ONLY parameter data - SDK handles discriminator AND function index
-    /// Each parameter value is VLE-encoded regardless of its declared type for maximum compression
     #[wasm_bindgen]
-    pub fn encode_execute_vle(
+    pub fn encode_execute(
         _function_index: u32,
         params: js_sys::Array,
     ) -> Result<js_sys::Uint8Array, JsValue> {
         let mut data = Vec::new();
 
-        // 1. Add TYPED_PARAM_SENTINEL (128) to trigger typed parsing in MitoVM
-        // Execute format: [func_index, 128, param_count, type1, val1, type2, val2...]
-        // Sentinel is a raw 0x80 byte, NOT VLE-encoded
-        data.push(0x80);
-
-        // 2. Add actual parameter count (VLE-encoded)
-        let param_count = params.length() as u32;
-        let (count_size, count_bytes) = VLE::encode_u32(param_count);
-        data.extend_from_slice(&count_bytes[..count_size]);
-
-        // 3. Encode each parameter: [type_id, value]
+        // Encode each parameter: [type_id, value]
         for i in 0..params.length() {
             let mut param = params.get(i);
             let mut is_account_type = false;
-            let mut account_value: JsValue = JsValue::null();
 
-            // Check if parameter is wrapped with type metadata (e.g., { __type: 'account', value: ... })
+            // Extract type metadata and value if wrapped
+            let mut type_str: Option<String> = None;
             if param.is_object() {
-                if let Some(type_field) = js_sys::Reflect::get(&param, &"__type".into()).ok() {
-                    if let Some(type_str) = type_field.as_string() {
-                        if type_str == "account" {
-                            // Extract the actual value from the wrapper
-                            if let Ok(val) = js_sys::Reflect::get(&param, &"value".into()) {
-                                is_account_type = true;
-                                account_value = val;
-                                param = account_value.clone();
-                            }
+                if let Ok(t) = js_sys::Reflect::get(&param, &"type".into()) {
+                    if let Some(s) = t.as_string() {
+                        type_str = Some(s);
+                    }
+                }
+                if type_str.is_none() {
+                    if let Ok(t) = js_sys::Reflect::get(&param, &"param_type".into()) {
+                        if let Some(s) = t.as_string() {
+                            type_str = Some(s);
                         }
                     }
+                }
+                if let Ok(t) = js_sys::Reflect::get(&param, &"__type".into()) {
+                    if let Some(s) = t.as_string() {
+                        type_str = Some(s);
+                    }
+                }
+
+                if let Ok(val) = js_sys::Reflect::get(&param, &"isAccount".into()) {
+                    if val.as_bool().unwrap_or(false) {
+                        is_account_type = true;
+                    }
+                }
+                if let Ok(val) = js_sys::Reflect::get(&param, &"is_account".into()) {
+                    if val.as_bool().unwrap_or(false) {
+                        is_account_type = true;
+                    }
+                }
+
+                if let Ok(val) = js_sys::Reflect::get(&param, &"value".into()) {
+                    param = val;
                 }
             }
 
-            if is_account_type {
-                // Account parameter - encode as [type_id=12, index_vle]
-                // Value should be either a pubkey string (44 chars) or numeric index
-                data.push(types::ACCOUNT); // Type 12
+            let normalized_type = type_str
+                .as_ref()
+                .map(|s| s.to_lowercase())
+                .unwrap_or_default();
 
-                if let Some(str_val) = param.as_string() {
-                    // Account pubkey - try to decode and use as 32-byte key
-                    // But we need to encode it as an index or just the raw pubkey
-                    // For now, treat as a 32-byte pubkey by decoding
-                    if str_val.len() == 44 {
-                        if let Ok(decoded) = bs58::decode(&str_val).into_vec() {
-                            if decoded.len() == 32 {
-                                // For accounts, encode the raw 32 bytes (the account key)
-                                data.extend_from_slice(&decoded);
+            if is_account_type || normalized_type == "account" || normalized_type == "mint" || normalized_type == "tokenaccount" {
+                data.push(types::ACCOUNT);
+                if let Some(num) = param.as_f64() {
+                    let idx = num as u32;
+                    data.extend_from_slice(&idx.to_le_bytes());
+                } else {
+                    return Err(JsValue::from_str("ACCOUNT parameter must be a numeric index"));
+                }
+                continue;
+            }
+
+            match normalized_type.as_str() {
+                "u8" => {
+                    data.push(types::U8);
+                    let val = param.as_f64().unwrap_or(0.0) as u32;
+                    data.extend_from_slice(&val.to_le_bytes());
+                }
+                "u16" => {
+                    return Err(JsValue::from_str("U16 is not supported by current VM parameter parser"));
+                }
+                "u32" => {
+                    data.push(types::U32);
+                    let val = param.as_f64().unwrap_or(0.0) as u32;
+                    data.extend_from_slice(&val.to_le_bytes());
+                }
+                "u64" | "i64" => {
+                    data.push(types::U64);
+                    let raw = param.as_f64().unwrap_or(0.0);
+                    if normalized_type == "i64" && raw < 0.0 {
+                        return Err(JsValue::from_str("I64 negative values are not supported by current VM parameter parser"));
+                    }
+                    let val = raw as u64;
+                    data.extend_from_slice(&val.to_le_bytes());
+                }
+                "bool" => {
+                    data.push(types::BOOL);
+                    let val = if param.as_bool().unwrap_or(false) { 1u32 } else { 0u32 };
+                    data.extend_from_slice(&val.to_le_bytes());
+                }
+                "pubkey" => {
+                    data.push(types::PUBKEY);
+                    if let Some(str_val) = param.as_string() {
+                        let decoded = bs58::decode(&str_val)
+                            .into_vec()
+                            .map_err(|_| JsValue::from_str("Invalid base58 pubkey"))?;
+                        if decoded.len() != 32 {
+                            return Err(JsValue::from_str("Pubkey must decode to 32 bytes"));
+                        }
+                        data.extend_from_slice(&decoded);
+                    } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
+                        let array = js_sys::Uint8Array::new(&param);
+                        let mut bytes = vec![0u8; array.length() as usize];
+                        array.copy_to(&mut bytes);
+                        if bytes.len() != 32 {
+                            return Err(JsValue::from_str("Pubkey Uint8Array must be 32 bytes"));
+                        }
+                        data.extend_from_slice(&bytes);
+                    } else {
+                        return Err(JsValue::from_str("Pubkey must be a base58 string or 32-byte Uint8Array"));
+                    }
+                }
+                "string" | "bytes" => {
+                    data.push(types::STRING);
+                    if let Some(str_val) = param.as_string() {
+                        let bytes = str_val.as_bytes();
+                        let len = bytes.len() as u32;
+                        data.extend_from_slice(&len.to_le_bytes());
+                        data.extend_from_slice(bytes);
+                    } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
+                        let array = js_sys::Uint8Array::new(&param);
+                        let mut bytes = vec![0u8; array.length() as usize];
+                        array.copy_to(&mut bytes);
+                        let len = bytes.len() as u32;
+                        data.extend_from_slice(&len.to_le_bytes());
+                        data.extend_from_slice(&bytes);
+                    } else {
+                        return Err(JsValue::from_str("STRING parameter must be a string or Uint8Array"));
+                    }
+                }
+                "" => {
+                    // Infer if no explicit type provided
+                    if param.is_string() {
+                        let str_val = param.as_string().unwrap();
+                        if str_val.len() == 44 {
+                            if let Ok(decoded) = bs58::decode(&str_val).into_vec() {
+                                if decoded.len() == 32 {
+                                    data.push(types::PUBKEY);
+                                    data.extend_from_slice(&decoded);
+                                    continue;
+                                }
                             }
                         }
+                        data.push(types::STRING);
+                        let bytes = str_val.as_bytes();
+                        let len = bytes.len() as u32;
+                        data.extend_from_slice(&len.to_le_bytes());
+                        data.extend_from_slice(bytes);
+                    } else if let Some(num) = param.as_f64() {
+                        data.push(types::U64);
+                        let val = num as u64;
+                        data.extend_from_slice(&val.to_le_bytes());
+                    } else if let Some(bool_val) = param.as_bool() {
+                        data.push(types::BOOL);
+                        let val = if bool_val { 1u32 } else { 0u32 };
+                        data.extend_from_slice(&val.to_le_bytes());
+                    } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
+                        data.push(types::STRING);
+                        let array = js_sys::Uint8Array::new(&param);
+                        let mut bytes = vec![0u8; array.length() as usize];
+                        array.copy_to(&mut bytes);
+                        let len = bytes.len() as u32;
+                        data.extend_from_slice(&len.to_le_bytes());
+                        data.extend_from_slice(&bytes);
+                    } else {
+                        return Err(JsValue::from_str("Unsupported parameter value type"));
                     }
-                } else if let Some(num) = param.as_f64() {
-                    // Account index - encode as VLE number
-                    let idx = num as u32;
-                    let (idx_size, idx_bytes) = VLE::encode_u32(idx);
-                    data.extend_from_slice(&idx_bytes[..idx_size]);
                 }
-            } else if param.is_string() {
-                let str_val = param.as_string().unwrap();
-                // Heuristic: 44-char base58 indicates a pubkey
-                let mut is_pubkey = false;
-                if str_val.len() == 44 {
-                    if let Ok(decoded) = bs58::decode(&str_val).into_vec() {
-                        if decoded.len() == 32 {
-                            data.push(types::PUBKEY); // Type 10
-                            data.extend_from_slice(&decoded); // Raw 32 bytes
-                            is_pubkey = true;
-                        }
-                    }
+                _ => {
+                    return Err(JsValue::from_str("Unsupported parameter type"));
                 }
-                
-                if !is_pubkey {
-                    // Standard String - encode as [type_id, len_vle, bytes...]
-                    data.push(types::STRING); // Type 11
-                    let bytes = str_val.as_bytes();
-                    let (len_size, len_bytes) = VLE::encode_u32(bytes.len() as u32);
-                    data.extend_from_slice(&len_bytes[..len_size]);
-                    data.extend_from_slice(bytes);
-                }
-            } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
-                // Uint8Array -> encode as STRING format
-                data.push(types::STRING); 
-                let array = js_sys::Uint8Array::new(&param);
-                let mut bytes = vec![0u8; array.length() as usize];
-                array.copy_to(&mut bytes);
-                let (len_size, len_bytes) = VLE::encode_u32(bytes.len() as u32);
-                data.extend_from_slice(&len_bytes[..len_size]);
-                data.extend_from_slice(&bytes);
-            } else if let Some(num) = param.as_f64() {
-                // Number -> U64
-                data.push(types::U64); // Type 4
-                let val = num as u64;
-                let (val_size, val_bytes) = VLE::encode_u64(val);
-                data.extend_from_slice(&val_bytes[..val_size]);
-            } else if let Some(bool_val) = param.as_bool() {
-                // Boolean -> BOOL
-                data.push(types::BOOL); // Type 9
-                let val = if bool_val { 1u32 } else { 0u32 };
-                let (val_size, val_bytes) = VLE::encode_u32(val);
-                data.extend_from_slice(&val_bytes[..val_size]);
-            } else {
-                return Err(JsValue::from_str("Unsupported parameter value type"));
             }
         }
 
         Ok(js_sys::Uint8Array::from(&data[..]))
-    }
-}
-
-/// Helper function to convert CompilerError to WASM-compatible error
-fn convert_compiler_error_to_wasm(
-    error: &CompilerError,
-    source_file: &Option<String>,
-) -> WasmCompilerError {
-    let location = error.location.as_ref().map(|loc| WasmSourceLocation {
-        line: loc.line,
-        column: loc.column,
-        length: loc.length,
-        offset: loc.offset,
-        file: source_file.clone(),
-    });
-
-    // Generate suggestions using the global error system
-    let suggestions: Vec<WasmSuggestion> =
-        integration::generate_suggestions(&integration::get_error_system(), error)
-            .iter()
-            .map(|suggestion| WasmSuggestion {
-                message: suggestion.message.clone(),
-                confidence: suggestion.confidence as f64,
-                explanation: suggestion.explanation.clone(),
-                code_suggestion: suggestion.code_fix.as_ref().map(|f| f.replacement.clone()),
-            })
-            .collect();
-
-    WasmCompilerError {
-        code: format!("E{:04}", error.code.0),
-        severity: match error.severity {
-            ErrorSeverity::Error => "error".to_string(),
-            ErrorSeverity::Warning => "warning".to_string(),
-            ErrorSeverity::Note => "note".to_string(),
-            ErrorSeverity::Help => "help".to_string(),
-        },
-        category: format!("{:?}", error.category).to_lowercase(),
-        message: error.message.clone(),
-        description: error.description.clone(),
-        location,
-        suggestions,
-        source_line: None,
-        source_snippet: None,
-        line: error.location.as_ref().map(|loc| loc.line),
-        column: error.location.as_ref().map(|loc| loc.column),
     }
 }
 
@@ -4821,15 +4865,6 @@ fn map_metrics_format(format: &str) -> ExportFormat {
         "toml" => ExportFormat::Toml,
         "dashboard" => ExportFormat::Dashboard,
         _ => ExportFormat::Json,
-    }
-}
-
-fn metrics_format_label(format: &ExportFormat) -> &'static str {
-    match format {
-        ExportFormat::Csv => "csv",
-        ExportFormat::Toml => "toml",
-        ExportFormat::Dashboard => "dashboard",
-        ExportFormat::Json => "json",
     }
 }
 
@@ -4930,13 +4965,13 @@ fn process_multi_errors(
                     }
                 }
             } else if source_map.len() == 1 {
-                // If only one source is provided and error has no file, assume it's that one
+                // If only one source is provided and error has no file, use that source.
                 if let Some(source) = source_map.values().next() {
                     e.context.source_line = Some(source.clone());
                 }
             }
         } else if source_map.len() == 1 {
-            // No location but only one source? Still inject it for general context
+            // No location but only one source: inject for context.
             if let Some(source) = source_map.values().next() {
                 e.context.source_line = Some(source.clone());
             }
@@ -4957,7 +4992,7 @@ fn process_multi_errors(
         // Since suggestion engine is part of the ErrorSystem which is global,
         // we can try to generate suggestions here if appropriate, or rely on what's in the error context
         // However, currently CompilerError doesn't hold suggestions directly in the struct definition in lib.rs
-        // Wait, looking at types.rs, CompilerError doesn't have suggestions field.
+        // CompilerError does not have a suggestions field.
         // Suggestions are generated by SuggestionEngine.
         
         // We'll use the global suggestion engine
@@ -5175,87 +5210,90 @@ mod internal_tests {
     }
 
     #[test]
-    fn test_decode_vle_instruction_data_discriminator_2() {
+    fn test_decode_instruction_data_discriminator_2() {
         // Setup VM instance
         let bytecode = FIVE_MAGIC.to_vec();
         let vm = FiveVMWasm::new(&bytecode).expect("Failed to create VM");
 
         // [2, 0x01, 0x02] -> [0x01, 0x02]
         let input = vec![2, 0x01, 0x02];
-        let result = vm.decode_vle_instruction_data(&input);
+        let result = vm.decode_instruction_data(&input);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), vec![0x01, 0x02]);
     }
 
     #[test]
-    fn test_decode_vle_instruction_data_discriminator_9() {
+    fn test_decode_instruction_data_discriminator_9() {
         let bytecode = FIVE_MAGIC.to_vec();
         let vm = FiveVMWasm::new(&bytecode).expect("Failed to create VM");
 
         // [9, 0x01, 0x02] -> [0x01, 0x02]
         let input = vec![9, 0x01, 0x02];
-        let result = vm.decode_vle_instruction_data(&input);
+        let result = vm.decode_instruction_data(&input);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), vec![0x01, 0x02]);
     }
 
     #[test]
-    fn test_decode_vle_instruction_data_pass_through() {
+    fn test_decode_instruction_data_pass_through() {
         let bytecode = FIVE_MAGIC.to_vec();
         let vm = FiveVMWasm::new(&bytecode).expect("Failed to create VM");
 
         // [1, 0x01, 0x02] -> [1, 0x01, 0x02]
         let input = vec![1, 0x01, 0x02];
-        let result = vm.decode_vle_instruction_data(&input);
+        let result = vm.decode_instruction_data(&input);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), input);
     }
 
     #[test]
     fn test_get_instruction_size() {
-        // PUSH_U64 (0x1B) + VLE value
+        // PUSH_U64 (0x1B) + U64 value (8 bytes)
         let opcode = five_protocol::opcodes::PUSH_U64;
 
-        // Case 1: PUSH_U64 with 1-byte VLE
+        // Case 1: PUSH_U64
         let mut op_bytes = vec![opcode];
-        let (size, encoded) = VLE::encode_u64(100); // < 128, 1 byte
-        op_bytes.extend_from_slice(&encoded[..size]);
-        // Total 2 bytes
-        assert_eq!(get_instruction_size(opcode, &op_bytes), 2);
+        op_bytes.extend_from_slice(&100u64.to_le_bytes());
+        // Total 9 bytes (1 + 8)
+        assert_eq!(get_instruction_size(opcode, &op_bytes), 9);
 
-        // Case 2: PUSH_U64 with 2-byte VLE
-        let mut op_bytes = vec![opcode];
-        let (size, encoded) = VLE::encode_u64(1000); // > 128, 2 bytes
-        op_bytes.extend_from_slice(&encoded[..size]);
-        // Total 3 bytes
-        assert_eq!(get_instruction_size(opcode, &op_bytes), 3);
-
-        // Case 3: HALT (No args)
+        // Case 2: HALT (No args)
         let opcode = five_protocol::opcodes::HALT;
         assert_eq!(get_instruction_size(opcode, &[opcode]), 1);
     }
 }
 
 #[cfg(test)]
+fn build_min_header() -> Vec<u8> {
+    let mut header = Vec::new();
+    header.extend_from_slice(&five_protocol::FIVE_MAGIC);
+    header.extend_from_slice(&0u32.to_le_bytes()); // features
+    header.push(0); // public_function_count
+    header.push(0); // total_function_count
+    header
+}
+
+#[cfg(test)]
 mod analyzer_tests {
     use super::*;
-    use five_protocol::FIVE_MAGIC;
+    use five_protocol::opcodes;
 
     #[test]
     fn test_analyze_internal_simple() {
-        let mut bytecode = FIVE_MAGIC.to_vec();
-        bytecode.push(0x00); // HALT
+        let mut bytecode = build_min_header();
+        bytecode.push(opcodes::HALT);
 
         let result = BytecodeAnalyzer::analyze_internal(&bytecode);
         assert!(result.is_ok());
         let json = result.unwrap();
 
-        assert_eq!(json["total_size"], 5);
+        assert_eq!(json["total_size"], 11);
         assert_eq!(json["instruction_count"], 1);
 
         let instructions = json["instructions"].as_array().unwrap();
         assert_eq!(instructions.len(), 1);
-        assert_eq!(instructions[0]["opcode"], 0);
+        assert_eq!(instructions[0]["offset"], 10);
+        assert_eq!(instructions[0]["opcode"], opcodes::HALT);
         assert_eq!(instructions[0]["name"], "HALT");
     }
 
@@ -5268,8 +5306,8 @@ mod analyzer_tests {
 
     #[test]
     fn test_analyze_semantic_internal_simple() {
-        let mut bytecode = FIVE_MAGIC.to_vec();
-        bytecode.push(0x00); // HALT
+        let mut bytecode = build_min_header();
+        bytecode.push(opcodes::HALT);
 
         let result = BytecodeAnalyzer::analyze_semantic_internal(&bytecode);
         assert!(result.is_ok());
@@ -5288,15 +5326,15 @@ mod analyzer_tests {
 
     #[test]
     fn test_get_bytecode_summary_internal() {
-        let mut bytecode = FIVE_MAGIC.to_vec();
-        bytecode.push(0x00); // HALT
+        let mut bytecode = build_min_header();
+        bytecode.push(opcodes::HALT);
 
         let result = BytecodeAnalyzer::get_bytecode_summary_internal(&bytecode);
         assert!(result.is_ok());
         let json = result.unwrap();
 
-        assert_eq!(json["total_instructions"], 1);
-        assert_eq!(json["total_size"], 5);
+        assert_eq!(json["total_instructions"], 3);
+        assert_eq!(json["total_size"], 11);
     }
 }
 
@@ -5372,6 +5410,7 @@ mod compiler_error_tests {
 
         assert_eq!(err_count, 1);
         assert_eq!(warn_count, 0);
+        assert!(warnings.is_empty());
         assert_eq!(err_strs.len(), 1);
         assert_eq!(wasm_errs.len(), 1);
         assert_eq!(wasm_errs[0].message, "Test error");
@@ -5392,6 +5431,7 @@ mod compiler_error_tests {
         assert_eq!(err_count, 0);
         assert_eq!(warn_count, 1);
         assert_eq!(warnings.len(), 1);
+        assert!(err_strs.is_empty());
         assert_eq!(wasm_errs.len(), 1);
         assert_eq!(wasm_errs[0].severity, "warning");
     }
@@ -5404,7 +5444,8 @@ mod compiler_tests {
 
     #[test]
     fn test_optimize_bytecode_no_change() {
-        let bytecode = vec![opcodes::ADD, opcodes::SUB];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::ADD, opcodes::SUB]);
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
         assert_eq!(result, bytecode);
     }
@@ -5413,32 +5454,38 @@ mod compiler_tests {
     fn test_optimize_push_u8_pop() {
         // PUSH_U8 (0x1C) + value + POP (0x06)
         // Should be optimized away
-        let mut bytecode = vec![opcodes::PUSH_U8, 42, opcodes::POP];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 42, opcodes::POP]);
         // Add a HALT at the end to verify we don't optimize too much
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
-        assert_eq!(result, vec![opcodes::HALT]);
+        let mut expected = build_min_header();
+        expected.push(opcodes::HALT);
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn test_optimize_push_u64_pop() {
-        // PUSH_U64 (0x1B) + VLE value + POP (0x06)
-        use five_protocol::encoding::VLE;
-        let (size, bytes) = VLE::encode_u64(1000);
+        // PUSH_U64 (0x1B) + U64 value + POP (0x06)
+        let bytes = 1000u64.to_le_bytes();
 
-        let mut bytecode = vec![opcodes::PUSH_U64];
-        bytecode.extend_from_slice(&bytes[..size]);
+        let mut bytecode = build_min_header();
+        bytecode.push(opcodes::PUSH_U64);
+        bytecode.extend_from_slice(&bytes);
         bytecode.push(opcodes::POP);
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
-        assert_eq!(result, vec![opcodes::HALT]);
+        let mut expected = build_min_header();
+        expected.push(opcodes::HALT);
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn test_optimize_push_no_pop() {
-        let mut bytecode = vec![opcodes::PUSH_U8, 42];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 42]);
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
@@ -5447,31 +5494,37 @@ mod compiler_tests {
 
     #[test]
     fn test_optimize_pop_no_push() {
-        let bytecode = vec![opcodes::POP, opcodes::HALT];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::POP, opcodes::HALT]);
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
         assert_eq!(result, bytecode);
     }
 
     #[test]
     fn test_optimize_consecutive() {
-        let mut bytecode = vec![opcodes::PUSH_U8, 1, opcodes::POP];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 1, opcodes::POP]);
         bytecode.extend_from_slice(&[opcodes::PUSH_U8, 2, opcodes::POP]);
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
-        assert_eq!(result, vec![opcodes::HALT]);
+        let mut expected = build_min_header();
+        expected.push(opcodes::HALT);
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn test_optimize_interleaved() {
         // PUSH 1, POP, PUSH 2, HALT
-        let mut bytecode = vec![opcodes::PUSH_U8, 1, opcodes::POP];
+        let mut bytecode = build_min_header();
+        bytecode.extend_from_slice(&[opcodes::PUSH_U8, 1, opcodes::POP]);
         bytecode.extend_from_slice(&[opcodes::PUSH_U8, 2]);
         bytecode.push(opcodes::HALT);
 
         let result = WasmFiveCompiler::optimize_bytecode_internal(&bytecode).unwrap();
         // Should remove first PUSH/POP
-        let expected = vec![opcodes::PUSH_U8, 2, opcodes::HALT];
+        let mut expected = build_min_header();
+        expected.extend_from_slice(&[opcodes::PUSH_U8, 2, opcodes::HALT]);
         assert_eq!(result, expected);
     }
 

@@ -47,7 +47,8 @@ async function deployTokenProgram() {
             process.exit(1);
         }
 
-        const bytecodeFile = path.join(__dirname, 'build/five-token-template.five');
+        const artifactName = process.env.FIVE_ARTIFACT || 'five-token-baseline.five';
+        const bytecodeFile = path.join(__dirname, 'build', artifactName);
         if (!fs.existsSync(bytecodeFile)) {
             console.log(`${RED}✗ File not found: ${bytecodeFile}${NC}`);
             process.exit(1);
@@ -157,6 +158,13 @@ async function deployTokenProgram() {
         const REALLOCATION_BUFFER = 0.01 * LAMPORTS_PER_SOL;  // 0.01 SOL buffer
         const initialLamports = rentRequired + REALLOCATION_BUFFER;
 
+        // Verify Five Program ownership will be set correctly
+        if (!FIVE_PROGRAM_ID) {
+            console.log(`${RED}✗ Five Program ID not set!${NC}`);
+            process.exit(1);
+        }
+        console.log(`  Script will be owned by: ${FIVE_PROGRAM_ID.toBase58()}`);
+
         console.log(`${CYAN}▶ Creating Script Account...${NC}`);
         console.log(`  Final size: ${finalScriptSize} bytes`);
         console.log(`  Rent required: ${rentRequired} lamports`);
@@ -167,7 +175,7 @@ async function deployTokenProgram() {
                 fromPubkey: payer.publicKey,
                 newAccountPubkey: scriptKeypair.publicKey,
                 lamports: initialLamports,
-                space: SCRIPT_HEADER_SIZE,  // Start with header size as expected
+                space: finalScriptSize,  // Allocate full size upfront to avoid realloc issues
                 programId: FIVE_PROGRAM_ID,
             }),
             new TransactionInstruction({
@@ -283,8 +291,35 @@ async function deployTokenProgram() {
         fs.writeFileSync('deployment-config.json', JSON.stringify(config, null, 2));
         console.log(`${GREEN}✓ Config saved to deployment-config.json${NC}\n`);
 
+        // Verify account ownership (post-deployment check)
+        console.log(`${CYAN}▶ Verifying account ownership...${NC}`);
+        const finalScriptInfo = await connection.getAccountInfo(new PublicKey(tokenScriptAccount));
+        const finalVmStateInfo = await connection.getAccountInfo(new PublicKey(vmStatePdaString));
+
+        if (finalScriptInfo && finalScriptInfo.owner.equals(FIVE_PROGRAM_ID)) {
+            console.log(`  ${GREEN}✓ Script account owner correct${NC}`);
+        } else {
+            console.log(`  ${RED}✗ Script account owner WRONG!${NC}`);
+            if (finalScriptInfo) {
+                console.log(`    Current: ${finalScriptInfo.owner.toBase58()}`);
+                console.log(`    Expected: ${FIVE_PROGRAM_ID.toBase58()}`);
+            }
+        }
+
+        if (finalVmStateInfo && finalVmStateInfo.owner.equals(FIVE_PROGRAM_ID)) {
+            console.log(`  ${GREEN}✓ VM state owner correct${NC}\n`);
+        } else {
+            console.log(`  ${RED}✗ VM state owner WRONG!${NC}`);
+            if (finalVmStateInfo) {
+                console.log(`    Current: ${finalVmStateInfo.owner.toBase58()}`);
+                console.log(`    Expected: ${FIVE_PROGRAM_ID.toBase58()}`);
+            }
+            console.log();
+        }
+
         console.log(`${YELLOW}Next steps:${NC}`);
-        console.log(`  1. Update constants in verify-state.mjs and e2e-token-test.mjs`);
+        console.log(`  1. Run tests: npm run test:e2e`);
+        console.log(`  2. Debug ownership if needed: npm run test:debug-owner`);
 
     } catch (error) {
         console.error(`\n${RED}Error: ${error.message}${NC}`);

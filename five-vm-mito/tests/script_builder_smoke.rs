@@ -17,7 +17,7 @@ fn builder_patches_call_addresses() -> Result<(), ScriptBuilderError> {
         })?;
 
     let script = builder.build()?;
-    let mut storage = StackStorage::new(&script);
+    let mut storage = StackStorage::new();
     let result = MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap();
     assert_eq!(result, Some(Value::U64(12)));
     Ok(())

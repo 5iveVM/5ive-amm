@@ -1,15 +1,10 @@
-//! Error registry and configuration system
-//!
-//! This module provides a centralized registry for error definitions and
-//! supports loading error configurations from external files for easy updates.
+//! Error registry and configuration.
 
 use crate::error::types::{ErrorCategory, ErrorCode, ErrorSeverity};
 use std::collections::HashMap;
 use toml;
 
-/// Error registry that manages error definitions and templates
-///
-/// The registry stores error metadata, templates, and configuration that can
+/// Error registry that manages error definitions and templates.
 /// be loaded from external files for easy maintenance and updates.
 pub struct ErrorRegistry {
     /// Error definitions indexed by error code
@@ -275,9 +270,7 @@ impl Default for ErrorRegistry {
     }
 }
 
-/// Complete error definition
-///
-/// Contains all metadata and templates for a specific error code.
+/// Error definition.
 #[derive(Debug, Clone)]
 pub struct ErrorDefinition {
     /// Error code

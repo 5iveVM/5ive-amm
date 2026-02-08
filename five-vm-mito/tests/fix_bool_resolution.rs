@@ -1,6 +1,6 @@
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{ExecutionContext, StackStorage, ValueRef, utils, context::ExecutionManager};
+use five_vm_mito::{ExecutionContext, StackStorage, ValueRef, utils};
 use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
 
 #[test]
@@ -27,16 +27,20 @@ fn test_resolve_bool_from_account_ref() {
     let program_id = Pubkey::default();
     let instruction_data = &[];
 
-    let mut storage = StackStorage::new(bytecode);
+    let mut storage = StackStorage::new();
     
     // 2. Create ExecutionContext
-    let mut ctx = ExecutionContext::new(
+    let ctx = ExecutionContext::new(
         bytecode,
         &accounts,
         program_id,
         instruction_data,
         0,
         &mut storage,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
     );

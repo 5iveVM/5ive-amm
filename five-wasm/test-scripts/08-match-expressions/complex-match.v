@@ -1,4 +1,4 @@
-// Simplified test without enum/match patterns
+// Test without enum/match patterns
 
 pub test() -> u64 {
     let input = 50;

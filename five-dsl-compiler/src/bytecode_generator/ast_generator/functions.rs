@@ -1,7 +1,4 @@
-//! Function and method call generation
-//!
-//! This module handles generation of method calls, function calls including
-//! built-in functions, syscalls, and cross-program invocations.
+//! Function and method call generation.
 
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
@@ -147,18 +144,16 @@ impl ASTGenerator {
                 // Push seeds count onto the stack as a value
                 // VM handler expects to pop seeds_count from the stack (not as a raw bytecode byte)
                 let seeds_count = args.len() as u8;
-                emitter.emit_opcode(PUSH_U8);
-                emitter.emit_u8(seeds_count);
+                emitter.emit_const_u8(seeds_count)?;
 
                 // Push Five VM program ID as current program (32 bytes)
-                emitter.emit_opcode(PUSH_PUBKEY);
                 // Five VM Program ID constant (matches five-vm-mito::FIVE_VM_PROGRAM_ID)
                 let five_vm_program_id = [
                     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
                     0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a,
                     0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
                 ];
-                emitter.emit_bytes(&five_vm_program_id);
+                emitter.emit_const_pubkey(&five_vm_program_id)?;
 
                 // Invoke PDA derivation (handler pops: program_id, seeds_count, then each seed)
                 emitter.emit_opcode(DERIVE_PDA);
@@ -332,8 +327,7 @@ impl ASTGenerator {
 
         // Step 2: Emit program ID (bottom of stack)
         let program_id_bytes = self.parse_program_id(&interface_info.program_id)?;
-        emitter.emit_opcode(PUSH_PUBKEY);
-        emitter.emit_bytes(&program_id_bytes);
+        emitter.emit_const_pubkey(&program_id_bytes)?;
 
         // Step 3: Serialize and emit instruction data (discriminator + data args)
         // Now handling both literals and variables via dynamic opcode generation
@@ -347,13 +341,11 @@ impl ASTGenerator {
         // Step 4: Emit account indices in REVERSE order
         // VM pops them in reverse, so we emit reversed to reconstruct original order
         for &account_idx in account_indices.iter().rev() {
-            emitter.emit_opcode(PUSH_U8);
-            emitter.emit_u8(account_idx);
+            emitter.emit_const_u8(account_idx)?;
         }
 
         // Step 5: Emit account count
-        emitter.emit_opcode(PUSH_U8);
-        emitter.emit_u8(account_indices.len() as u8);
+        emitter.emit_const_u8(account_indices.len() as u8)?;
 
         // Step 6: Emit INVOKE opcode
         emitter.emit_opcode(INVOKE);
@@ -476,8 +468,7 @@ impl ASTGenerator {
             .unwrap_or_else(|| vec![interface_method.discriminator]);
         
         for byte in discriminator_bytes {
-            emitter.emit_opcode(PUSH_U8);
-            emitter.emit_u8(byte);
+            emitter.emit_const_u8(byte)?;
             total_byte_count += 1;
         }
 
@@ -519,8 +510,7 @@ impl ASTGenerator {
         match (param_type, arg) {
             (TypeNode::Primitive(name), AstNode::Literal(val)) if name == "u8" => {
                 if let Value::U8(v) = val {
-                    emitter.emit_opcode(PUSH_U8);
-                    emitter.emit_u8(*v);
+                    emitter.emit_const_u8(*v)?;
                     Ok(1)
                 } else {
                     Err(VMError::TypeMismatch)
@@ -530,8 +520,7 @@ impl ASTGenerator {
                 if let Value::U64(v) = val {
                     let bytes = v.to_le_bytes();
                     for b in bytes {
-                        emitter.emit_opcode(PUSH_U8);
-                        emitter.emit_u8(b);
+                        emitter.emit_const_u8(b)?;
                     }
                     Ok(8)
                 } else {
@@ -555,8 +544,7 @@ impl ASTGenerator {
                             .map(|i| i as u64)
                             .or(val.as_u64())
                             .ok_or(VMError::TypeMismatch)?;
-                        emitter.emit_opcode(PUSH_U64);
-                        emitter.emit_vle_u64(v);
+                        emitter.emit_const_u64(v)?;
                     } else {
                         self.generate_ast_node(emitter, arg)?;
                     }
@@ -578,15 +566,15 @@ impl ASTGenerator {
                      // Calculate byte: val % 256
                      // val - (val/256 * 256)
                      emitter.emit_opcode(DUP); // val, val
-                     emitter.emit_opcode(PUSH_U64); emitter.emit_vle_u64(256); // val, val, 256
+                     emitter.emit_const_u64(256)?; // val, val, 256
                      emitter.emit_opcode(DIV); // val, val/256
                      emitter.emit_opcode(DUP); // val, val/256, val/256 (for next iter update)
                      
                      // Update temp with val/256 for next iteration
-                     // Wait, I can't swap easily.
+                     // Swap not available here.
                      // Saving val/256 to temp NOW is better
                      self.emit_set_local(emitter, temp_idx, "__temp_u64_ser_update"); 
-                     // Stack: val, val/256 (Wait, SET_LOCAL consumed top)
+                     // Stack: val, val/256 (SET_LOCAL consumed top)
                      // So stack: val. We need (val/256) for subtraction.
                      
                      // Optimization:
@@ -601,10 +589,10 @@ impl ASTGenerator {
                      // SUB -> remainder (byte)
                      // Stack has byte.
                      
-                     // Let's implement that sequence
+                     // Implement sequence.
                  }
                  
-                 // Wait, loop logic inside:
+                 // Loop logic:
                  // We are changing temp inside loop.
                  // And leaving bytes on stack.
                  
@@ -612,11 +600,11 @@ impl ASTGenerator {
                  for _ in 0..8 {
                      self.emit_get_local(emitter, temp_idx, "__temp_u64_ser"); // Val
                      emitter.emit_opcode(DUP); // Val, Val
-                     emitter.emit_opcode(PUSH_U64); emitter.emit_vle_u64(256); // Val, Val, 256
+                     emitter.emit_const_u64(256)?; // Val, Val, 256
                      emitter.emit_opcode(DIV); // Val, Quotient
                      emitter.emit_opcode(DUP); // Val, Quotient, Quotient
                      self.emit_set_local(emitter, temp_idx, "__temp_u64_ser"); // Val, Quotient (temp updated)
-                     emitter.emit_opcode(PUSH_U64); emitter.emit_vle_u64(256); // Val, Quotient, 256
+                     emitter.emit_const_u64(256)?; // Val, Quotient, 256
                      emitter.emit_opcode(MUL); // Val, Product
                      emitter.emit_opcode(SUB); // Remainder (Byte as U64)
                       

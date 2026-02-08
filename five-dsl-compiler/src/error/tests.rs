@@ -1,7 +1,4 @@
-//! Comprehensive tests for the enhanced error system
-//! 
-//! This module contains integration tests that validate the complete error system
-//! functionality including templates, formatting, suggestions, and configuration.
+//! Integration tests for the error system.
 
 #[cfg(test)]
 mod tests {

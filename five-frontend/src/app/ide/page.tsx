@@ -25,18 +25,11 @@ const VM_STATE_MIN_LEN = 56;
 const VM_STATE_DEPLOY_FEE_OFFSET = 40;
 const VM_STATE_EXECUTE_FEE_OFFSET = 44;
 
-// Helper for VLE encoding (simplified for u32)
-function encodeVLE(value: number): Uint8Array {
-  const bytes: number[] = [];
-  do {
-    let byte = value & 0x7f;
-    value >>>= 7;
-    if (value !== 0) {
-      byte |= 0x80;
-    }
-    bytes.push(byte);
-  } while (value !== 0);
-  return new Uint8Array(bytes);
+// Helper for fixed u32 encoding
+function encodeU32(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(4);
+  new DataView(buffer).setUint32(0, value, true); // Little-endian
+  return new Uint8Array(buffer);
 }
 
 /**
@@ -732,9 +725,9 @@ export default function IdePage() {
 
         appendLog(`Executing locally... Function #${selectedFunctionIndex}`, 'info');
 
-        // 2. Construct Execution Payload: [Discriminator(9)] + [VLE(Index)] + [EncodedParams]
+        // 2. Construct Execution Payload: [Discriminator(9)] + [Index(u32)] + [EncodedParams]
         const discriminator = new Uint8Array([9]); // Execute discriminator
-        const indexBytes = encodeVLE(selectedFunctionIndex);
+        const indexBytes = encodeU32(selectedFunctionIndex);
 
         const payload = new Uint8Array(discriminator.length + indexBytes.length + encodedParams.length);
         payload.set(discriminator, 0);

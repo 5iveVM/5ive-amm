@@ -1,7 +1,4 @@
-// Five DSL Compiler - Unified CLI
-//
-// A single, comprehensive CLI tool for all Five DSL compilation needs
-// with excellent UX and comprehensive metrics support
+// Five DSL compiler CLI.
 
 use clap::{ArgAction, Parser, Subcommand};
 use five_dsl_compiler::{
@@ -11,7 +8,7 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-/// Five DSL Compiler - The complete toolchain for Five VM development
+/// Five DSL Compiler CLI
 #[derive(Parser)]
 #[command(name = "five")]
 #[command(about = "Five DSL Compiler - Build, analyze, and optimize Five VM scripts")]
@@ -1078,4 +1075,3 @@ fn handle_inspect(
 
     Ok(())
 }
-

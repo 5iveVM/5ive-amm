@@ -1,8 +1,5 @@
 /**
- * Type definitions for Five SDK
- * 
- * Comprehensive type system covering WASM integration,
- * compilation pipeline, and VM execution contexts.
+ * Type definitions for Five SDK.
  */
 
 // ==================== Project Configuration ====================
@@ -31,9 +28,7 @@ export interface ProjectConfig {
 }
 
 export interface ProjectOptimizations {
-  enableVLE?: boolean;
   enableCompression?: boolean;
-  enableRegisterAllocation?: boolean;
   enableConstraintOptimization?: boolean;
   optimizationLevel?: 'production' | 'development';
 }
@@ -75,9 +70,6 @@ export interface CompilationOptions {
   /** Max allowed bytecode size in bytes */
   maxBytecodeSize?: number;
   maxSize?: number;
-
-  /** Enable VLE compression */
-  enableVLE?: boolean;
 
   /** Enable general compression */
   enableCompression?: boolean;

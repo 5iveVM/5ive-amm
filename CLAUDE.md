@@ -41,6 +41,10 @@ cargo build -p five-dsl-compiler
 cargo build -p five-vm-mito
 cargo build -p five --release  # Solana program (five-solana)
 
+# Build Solana program
+cd five-solana
+cargo-build-sbf --no-default-features --features production --sbf-out-dir target/deploy
+
 # Build WASM bindings
 cd five-wasm && ./build.sh
 
@@ -322,12 +326,10 @@ The Five SDK parameter encoding issue for functions with mixed account/data para
 
 ### Known Issues
 
-None currently known. The following were previously issues but have been resolved:
+Previously resolved:
 - ✅ **SDK parameter encoding** - Fixed by passing `scriptMetadata` ABI to SDK
 - ✅ **@init constraint** - Works correctly (counter template demonstrates this)
 - ✅ **Token template** - Was blocked by string parameter handling in DSL, not @init
-
-**Note on @init:** The `@init(payer=X, space=N)` constraint works correctly in Five and is demonstrated in the counter template. Previous token template issues were related to how the compiler handled string parameters (URI field), not account initialization itself.
 
 See `HANDOFF.md` for detailed current status and next steps.
 

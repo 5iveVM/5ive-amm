@@ -15,11 +15,7 @@ use pinocchio::{syscalls, pubkey::Pubkey};
 pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_RETURN_DATA");
 
-    // Pop arguments: program_id_buffer (ref), length (u64), data_buffer (ref)
-    // Stack order: pushed data, length, program_id. Pop reverses it.
-    // Wait, usually: push A, push B. Pop -> B.
-    // If func(data, len, pid), push data, push len, push pid.
-    // Pop -> pid, len, data.
+    // Pop arguments in reverse push order: pid, len, data.
 
     let pid_ref = ctx.pop()?;
     let length = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
@@ -37,11 +33,12 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
             offset
         }
         ValueRef::ArrayRef(offset) => {
-            // Assume array treated as buffer
-            // We need to check size.
-            // Using memory manager directly is safer
-             // Simplified: just check if we can write 32 bytes
-             return Err(VMErrorCode::TypeMismatch); // Enforce TempRef for now
+            // ArrayRef buffers are not supported for program ID writes in this syscall.
+            debug_log!(
+                "SYSCALL_GET_RETURN_DATA: ArrayRef {} not supported for pid buffer",
+                offset
+            );
+            return Err(VMErrorCode::TypeMismatch); // Enforce TempRef for now
         }
          _ => return Err(VMErrorCode::TypeMismatch),
     };
@@ -55,24 +52,29 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
          _ => return Err(VMErrorCode::TypeMismatch),
     };
 
-    let mut result_len = 0;
+    let result_len = {
+        #[cfg(target_os = "solana")]
+        unsafe {
+            // We need raw pointers to the temp buffer slots
+            let temp_base = ctx.temp_buffer_mut().as_mut_ptr();
+            let pid_ptr = temp_base.add(pid_offset as usize) as *mut Pubkey;
+            let data_ptr = temp_base.add(data_offset as usize);
 
-    #[cfg(target_os = "solana")]
-    unsafe {
-        // We need raw pointers to the temp buffer slots
-        let temp_base = ctx.temp_buffer_mut().as_mut_ptr();
-        let pid_ptr = temp_base.add(pid_offset as usize) as *mut Pubkey;
-        let data_ptr = temp_base.add(data_offset as usize);
+            syscalls::sol_get_return_data(data_ptr, length, pid_ptr)
+        }
 
-        result_len = syscalls::sol_get_return_data(data_ptr, length, pid_ptr);
-    }
-
-    #[cfg(not(target_os = "solana"))]
-    {
-        // Mock
-        debug_log!("SOL_GET_RETURN_DATA: length={}", length);
-        result_len = 0;
-    }
+        #[cfg(not(target_os = "solana"))]
+        {
+            // Mock
+            debug_log!(
+                "SOL_GET_RETURN_DATA: length={} pid_offset={} data_offset={}",
+                length,
+                pid_offset,
+                data_offset
+            );
+            0
+        }
+    };
 
     ctx.push(ValueRef::U64(result_len))?;
     Ok(())
@@ -93,7 +95,11 @@ pub fn handle_syscall_set_return_data(ctx: &mut ExecutionManager) -> CompactResu
     }
     #[cfg(not(target_os = "solana"))]
     {
-        debug_log!("SOL_SET_RETURN_DATA: len={}", len);
+        debug_log!(
+            "SOL_SET_RETURN_DATA: len={} first_byte={}",
+            len,
+            bytes.get(0).copied().unwrap_or(0)
+        );
     }
 
     Ok(())
@@ -123,7 +129,7 @@ pub fn handle_syscall_get_stack_height(ctx: &mut ExecutionManager) -> CompactRes
 pub fn handle_syscall_get_processed_sibling_instruction(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_PROCESSED_SIBLING_INSTRUCTION - Not Implemented Fully");
     // This syscall requires complex struct mapping (ProcessedSiblingInstruction).
-    // For now, we return 0 (false/failure) or implement basic stub.
+    // Stubbed: return 0 (false/failure).
     // To implement fully, we need to pop buffers for meta, program_id, data, accounts.
 
     // Placeholder behavior:

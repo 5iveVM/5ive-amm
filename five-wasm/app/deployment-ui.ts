@@ -1,11 +1,6 @@
 /**
- * Deployment UI Components for Stacks VM WASM
- * 
- * Provides React-like component interfaces for deployment management.
- * These components can be used in any web application framework.
- * 
- * CRITICAL: All components interact with real Solana networks only.
- * No mock UI elements or fake deployment indicators are allowed.
+ * Deployment UI components for Stacks VM WASM.
+ * Interacts with real Solana networks only.
  */
 
 import { 

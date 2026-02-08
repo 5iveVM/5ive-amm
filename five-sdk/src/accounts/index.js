@@ -30,7 +30,7 @@ export class FiveAccountManager {
      * Encode System Program CreateAccount instruction
      */
     encodeCreateAccountInstruction(params) {
-        // Simplified encoding for CreateAccount instruction
+        // Encoding for CreateAccount instruction
         // In a real implementation, this would use proper Solana instruction encoding
         const buffer = new ArrayBuffer(32);
         const view = new DataView(buffer);
@@ -42,7 +42,7 @@ export class FiveAccountManager {
         const rentLamports = params.rentExempt ? RentCalculator.calculateRentExemption(params.size) : 0;
         view.setBigUint64(8, BigInt(rentLamports), true);
         // Owner program ID would be encoded here in real implementation
-        // For now, return the basic instruction data
+        // Return the basic instruction data
         return new Uint8Array(buffer);
     }
     /**

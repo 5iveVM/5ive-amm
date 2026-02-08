@@ -3,13 +3,14 @@ use crate::lazy_validation::{LazyAccountValidator, ValidationStats};
 use crate::debug_log;
 use pinocchio::{
     account_info::AccountInfo,
-    instruction::{Instruction, Signer},
-    program::invoke_signed,
+    instruction::Signer,
     pubkey::Pubkey,
 };
 
 #[cfg(any(target_os = "solana", test))]
-use pinocchio::instruction::{AccountMeta, Seed};
+use pinocchio::instruction::{AccountMeta, Instruction, Seed};
+#[cfg(any(target_os = "solana", test))]
+use pinocchio::program::invoke_signed;
 
 // System program ID constant
 const SYSTEM_PROGRAM_ID: [u8; 32] = [
@@ -33,7 +34,7 @@ impl<'a> AccountManager<'a> {
     }
 
     #[inline(always)]
-    pub fn get(&self, index: u8) -> CompactResult<&AccountInfo> {
+    pub fn get(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         self.lazy_validator.ensure_validated(index, self.accounts)?;
 
         if index as usize >= self.accounts.len() {
@@ -43,7 +44,7 @@ impl<'a> AccountManager<'a> {
     }
 
     #[inline(always)]
-    pub fn get_unchecked(&self, index: u8) -> CompactResult<&AccountInfo> {
+    pub fn get_unchecked(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         if index as usize >= self.accounts.len() {
             return Err(VMErrorCode::InvalidAccountIndex);
         }

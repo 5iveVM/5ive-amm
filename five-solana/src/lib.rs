@@ -1,10 +1,11 @@
 
-// FIVE VM implementation.
+// Five VM program.
 
 use pinocchio::{
-    // program_entrypoint,
     account_info::AccountInfo,
-    entrypoint,
+    default_allocator,
+    default_panic_handler,
+    program_entrypoint,
     program_error::ProgramError,
     pubkey::Pubkey,
     ProgramResult,
@@ -18,12 +19,12 @@ macro_rules! debug_log {
             // pinocchio_log requires literal format strings; callers pass literals.
             pinocchio_log::log!($fmt $(, $arg)*);
         }
+        #[cfg(not(feature = "debug-logs"))]
+        {
+            let _ = format_args!($fmt $(, $arg)*);
+        }
     };
 }
-
-// VM Storage is now allocated on the heap in execute.rs
-// This avoids the previous issue with static buffers causing ELF symbol name length violations
-// Heap allocation via StackStorage::new_on_heap() has zero BPF overhead and is properly scoped
 
 mod common;
 mod error;
@@ -34,10 +35,12 @@ pub mod upgrade;
 
 use instructions::FIVEInstruction;
 
-//program_entrypoint!(process_instruction);
-entrypoint!(process_instruction); // Basic entrypoint (includes allocator/panic handler)
+const MAX_ACCOUNTS: usize = (u8::MAX - 1) as usize;
 
-/// Program entrypoint.
+program_entrypoint!(process_instruction, MAX_ACCOUNTS);
+default_allocator!();
+default_panic_handler!();
+
 pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -45,27 +48,27 @@ pub fn process_instruction(
 ) -> ProgramResult {
     #[cfg(feature = "debug-logs")]
     {
-        unsafe { pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@"); }
-        unsafe { pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START"); }
+        pinocchio::log::sol_log("@@@ FIVE ENTRYPOINT REACHED @@@");
+        pinocchio::log::sol_log("FIVE VM: PROCESS_INSTRUCTION START");
     }
     #[cfg(feature = "debug-logs")]
-    unsafe { pinocchio::log::sol_log("FORCE LOG ENTRY: FIVE VM ALIVE"); }
+    pinocchio::log::sol_log("FORCE LOG ENTRY: FIVE VM ALIVE");
+
+    #[cfg(feature = "debug-logs")]
+    pinocchio::log::sol_log("@@@ UNCONDITIONAL LOG: FIVE VM ENTRY @@@");
 
     debug_log!(
         "FIVE Optimized: Processing instruction with no_allocator"
     );
 
-    // Validate we have instruction data
     if instruction_data.is_empty() {
         debug_log!("Error: Empty instruction data");
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    // Log instruction details for debugging
-    debug_log!("Program ID: {}", program_id);
+    debug_log!("Program ID: {:?}", program_id);
     debug_log!("Accounts provided: {}", accounts.len());
 
-    // Detailed account logging
     #[cfg(feature = "debug-logs")]
     for (i, account) in accounts.iter().enumerate() {
         let key_bytes = account.key().as_ref();
@@ -84,6 +87,26 @@ pub fn process_instruction(
     debug_log!("Instruction data length: {}", instruction_data.len());
     debug_log!("Instruction discriminator: {}", instruction_data[0]);
 
+    if instruction_data[0] == instructions::EXECUTE_INSTRUCTION {
+        #[cfg(feature = "debug-logs")]
+        {
+            pinocchio::log::sol_log("FIVE VM: EXECUTE START");
+            pinocchio::log::sol_log_64(0, 0, 0, 0, instruction_data.len() as u64 - 1);
+            pinocchio::log::sol_log_64(0, 0, 0, 0, accounts.len() as u64);
+        }
+        return instructions::execute(program_id, accounts, &instruction_data[1..]);
+    }
+
+    process_administrative_instruction(program_id, accounts, instruction_data)
+}
+
+/// Cold path for administrative and deployment instructions.
+#[inline(never)]
+fn process_administrative_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
     // Deserialize instruction using zero-copy deserialization
     let instruction = match FIVEInstruction::try_from(instruction_data) {
         Ok(ix) => ix,
@@ -133,14 +156,9 @@ pub fn process_instruction(
             );
             instructions::deploy(program_id, accounts, bytecode, permissions)
         }
-        FIVEInstruction::Execute { params } => {
-            #[cfg(feature = "debug-logs")]
-            {
-                pinocchio::log::sol_log("FIVE VM: EXECUTE START");
-                pinocchio::log::sol_log_64(0, 0, 0, 0, params.len() as u64);
-                pinocchio::log::sol_log_64(0, 0, 0, 0, accounts.len() as u64);
-            }
-            instructions::execute(program_id, accounts, params)
+        FIVEInstruction::Execute { .. } => {
+            // Already handled in hot path
+            unreachable!()
         }
         FIVEInstruction::FinalizeScript => {
             debug_log!("Processing FinalizeScript instruction");
