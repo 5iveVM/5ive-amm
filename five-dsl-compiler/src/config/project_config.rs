@@ -251,7 +251,6 @@ multi_file_mode = true
 
         assert_eq!(config.get_max_bytecode_size(), 1_048_576);
         assert_eq!(config.get_target_compute_units(), 200_000);
-        assert!(config.is_vle_enabled());
         assert!(config.is_compression_enabled());
     }
 
@@ -267,14 +266,12 @@ source_dir = "src"
 max_bytecode_size = 1048576
 
 [optimizations]
-enable_vle = true
 enable_compression = false
 "#;
 
         let (_temp, path) = create_test_config(content);
         let config = ProjectConfig::load(&path).unwrap();
 
-        assert!(config.is_vle_enabled());
         assert!(!config.is_compression_enabled());
     }
 }

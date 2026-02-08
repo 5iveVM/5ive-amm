@@ -190,7 +190,7 @@ impl BytecodeParser {
             opcodes::PUSH_U128 => 16,
             opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 4,
             opcodes::JUMP | opcodes::JUMP_IF_NOT | opcodes::JUMP_IF => 2,
-            opcodes::BR_EQ_U8 => 2, // Approximation - VLE can vary
+            opcodes::BR_EQ_U8 => 3,
             opcodes::PUSH_STRING => {
                 if position + 4 <= bytecode.len() {
                     let len = u32::from_le_bytes([
