@@ -36,8 +36,5 @@ pub mod framework;
 // #[cfg(all(test, feature = "test-utils"))]
 // mod property_based;
 
-// #[cfg(test)]
-// mod vle_param_decoding;
-
 #[cfg(all(test, feature = "test-utils"))]
 pub mod repro_issue;

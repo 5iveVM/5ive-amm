@@ -5,41 +5,8 @@
 //!
 //! # Integer Overflow Behavior
 //!
-//! **Current Implementation: Wrapping Arithmetic (Default)**
-//!
-//! MitoVM uses **wrapping arithmetic** for ADD, SUB, MUL operations (two's complement wraparound).
-//! This means overflow is **silent** and wraps around the integer boundaries:
-//!
-//! ## Examples:
-//! - `u64::MAX + 1` → `0` (wraps around)
-//! - `0u64 - 1` → `u64::MAX` (wraps around)
-//! - `u64::MAX * 2` → `u64::MAX - 1` (wraps around)
-//!
-//! ## Rationale:
-//! - **Performance**: Zero overhead for performance-critical arithmetic
-//! - **Predictability**: Deterministic behavior across all platforms
-//! - **Consistency**: Matches low-level hardware behavior (two's complement)
-//!
-//! ## Safety Considerations:
-//! - ⚠️ **Financial code**: Wrapping can cause silent errors in token amounts
-//! - ⚠️ **Counter logic**: Loop counters may wrap unexpectedly
-//! - ✅ **Hash operations**: Wrapping is desired for cryptographic operations
-//! - ✅ **Bit manipulation**: Wrapping matches hardware behavior
-//!
-//! ## Future: Checked Arithmetic (Planned)
-//!
-//! To support safe financial calculations, checked arithmetic opcodes are planned:
-//! - `ADD_CHECKED (0x2C)`: Returns error on overflow
-//! - `SUB_CHECKED (0x2D)`: Returns error on underflow
-//! - `MUL_CHECKED (0x2E)`: Returns error on overflow
-//!
-//! DSL developers will be able to choose explicitly:
-//! ```rust,ignore
-//! let fast = a + b;     // Wrapping (current, fast)
-//! let safe = a +? b;    // Checked (planned, errors on overflow)
-//! ```
-//!
-//! This gives developers **explicit control** over performance vs. safety tradeoffs.
+//! MitoVM uses **wrapping arithmetic** for ADD, SUB, MUL operations.
+//! Checked arithmetic is supported via ADD_CHECKED, SUB_CHECKED, and MUL_CHECKED opcodes.
 
 use crate::{
     context::ExecutionManager,
