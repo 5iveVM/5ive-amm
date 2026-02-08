@@ -1,17 +1,14 @@
-//! Five File Format Implementation
-//!
-//! This module handles the .five file format which contains both bytecode and ABI
-//! in a compact binary format for efficient cross-contract imports.
+//! Five file format implementation.
 
 use crate::bytecode_generator::types::{ABIField, ABIFunction, ABIParameter, FIVEABI};
 use five_vm_mito::error::{Result, VMError};
 use std::io::{Cursor, Read};
 
-/// Magic header for .five files
+/// Magic header for .five files.
 const FIVE_MAGIC: &[u8; 4] = b"FIVE";
 const FIVE_VERSION: u8 = 0x01;
 
-/// Type IDs for compact ABI encoding
+/// Type IDs for compact ABI encoding.
 const TYPE_VOID: u8 = 0;
 const TYPE_U64: u8 = 1;
 const TYPE_BOOL: u8 = 2;
@@ -22,7 +19,7 @@ const TYPE_U8: u8 = 6;
 const TYPE_I64: u8 = 7;
 const TYPE_U128: u8 = 8;
 
-/// Maximum name lengths to ensure compact encoding
+/// Maximum name lengths to ensure compact encoding.
 const MAX_PROGRAM_NAME_LEN: usize = 32;
 const MAX_FUNCTION_NAME_LEN: usize = 16;
 const MAX_FIELD_NAME_LEN: usize = 16;
@@ -30,12 +27,12 @@ const MAX_PARAM_NAME_LEN: usize = 16;
 const MAX_FUNCTIONS: usize = 64;
 const MAX_FIELDS: usize = 64;
 
-/// Attribute bit flags for parameters
+/// Attribute bit flags for parameters.
 const ATTR_SIGNER: u8 = 0x01;
 const ATTR_MUT: u8 = 0x02;
 const ATTR_INIT: u8 = 0x04;
 
-/// A complete .five file containing ABI and bytecode
+/// A complete .five file containing ABI and bytecode.
 #[derive(Debug, Clone)]
 pub struct FiveFile {
     pub abi: FIVEABI,
@@ -43,25 +40,25 @@ pub struct FiveFile {
 }
 
 impl FiveFile {
-    /// Create a new .five file
+    /// Create a new .five file.
     pub fn new(abi: FIVEABI, bytecode: Vec<u8>) -> Self {
         Self { abi, bytecode }
     }
 
-    /// Load a .five file from disk
+    /// Load a .five file from disk.
     pub fn load(path: &str) -> Result<Self> {
         let data = std::fs::read(path).map_err(|_| VMError::InvalidOperation)?;
         Self::from_bytes(&data)
     }
 
-    /// Save a .five file to disk
+    /// Save a .five file to disk.
     pub fn save(&self, path: &str) -> Result<()> {
         let data = self.to_bytes()?;
         std::fs::write(path, data).map_err(|_| VMError::InvalidOperation)?;
         Ok(())
     }
 
-    /// Deserialize from bytes
+    /// Deserialize from bytes.
     pub fn from_bytes(data: &[u8]) -> Result<Self> {
         let mut cursor = Cursor::new(data);
 
@@ -103,7 +100,7 @@ impl FiveFile {
         Ok(FiveFile { abi, bytecode })
     }
 
-    /// Serialize to bytes
+    /// Serialize to bytes.
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
         let mut result = Vec::new();
 
@@ -127,7 +124,7 @@ impl FiveFile {
         Ok(result)
     }
 
-    /// Serialize ABI to compact binary format
+    /// Serialize ABI to compact binary format.
     fn serialize_abi(&self) -> Result<Vec<u8>> {
         let mut data = Vec::new();
 
@@ -158,10 +155,8 @@ impl FiveFile {
             data.extend_from_slice(name_bytes);
             data.push(function.index);
 
-            // Use VLE encoding for bytecode offse
-
             let bytecode_offset = function.bytecode_offset;
-            write_vle(&mut data, bytecode_offset);
+            write_u64(&mut data, bytecode_offset);
 
             data.push(function.parameters.len() as u8);
             data.push(if function.is_public { 1 } else { 0 });
@@ -204,10 +199,8 @@ impl FiveFile {
             data.push(name_bytes.len() as u8);
             data.extend_from_slice(name_bytes);
 
-            // Use VLE encoding for memory offset
-
             let memory_offset = field.memory_offset;
-            write_vle(&mut data, memory_offset);
+            write_u64(&mut data, memory_offset);
 
             data.push(Self::type_to_id(&field.field_type)?);
             data.push(if field.is_mutable { 1 } else { 0 });
@@ -216,7 +209,7 @@ impl FiveFile {
         Ok(data)
     }
 
-    /// Deserialize ABI from compact binary format
+    /// Deserialize ABI from compact binary format.
     fn deserialize_abi(data: &[u8]) -> Result<FIVEABI> {
         let mut cursor = Cursor::new(data);
 
@@ -238,7 +231,7 @@ impl FiveFile {
             let name_len = read_u8(&mut cursor)? as usize;
             let name = read_string(&mut cursor, name_len)?;
             let index = read_u8(&mut cursor)?;
-            let bytecode_offset = read_vle(&mut cursor)?;
+            let bytecode_offset = read_u64(&mut cursor)?;
             let param_count = read_u8(&mut cursor)? as usize;
             let is_public = read_u8(&mut cursor)? != 0;
             let return_type_id = read_u8(&mut cursor)?;
@@ -291,7 +284,7 @@ impl FiveFile {
         for _ in 0..field_count {
             let name_len = read_u8(&mut cursor)? as usize;
             let name = read_string(&mut cursor, name_len)?;
-            let memory_offset = read_vle(&mut cursor)?;
+            let memory_offset = read_u64(&mut cursor)?;
             let type_id = read_u8(&mut cursor)?;
             let is_mutable = read_u8(&mut cursor)? != 0;
 
@@ -311,7 +304,7 @@ impl FiveFile {
         })
     }
 
-    /// Convert type string to type ID
+    /// Convert type string to type ID.
     fn type_to_id(type_str: &str) -> Result<u8> {
         match type_str {
             "void" => Ok(TYPE_VOID),
@@ -327,7 +320,7 @@ impl FiveFile {
         }
     }
 
-    /// Convert type ID to type string
+    /// Convert type ID to type string.
     fn id_to_type(type_id: u8) -> Result<String> {
         match type_id {
             TYPE_VOID => Ok("void".to_string()),
@@ -344,7 +337,7 @@ impl FiveFile {
     }
 }
 
-// Helper functions for reading binary data
+// Helper functions for reading binary data.
 fn read_u8(cursor: &mut Cursor<&[u8]>) -> Result<u8> {
     let mut buf = [0u8; 1];
     cursor
@@ -361,6 +354,14 @@ fn read_u32(cursor: &mut Cursor<&[u8]>) -> Result<u32> {
     Ok(u32::from_le_bytes(buf))
 }
 
+fn read_u64(cursor: &mut Cursor<&[u8]>) -> Result<u64> {
+    let mut buf = [0u8; 8];
+    cursor
+        .read_exact(&mut buf)
+        .map_err(|_| VMError::InvalidScript)?;
+    Ok(u64::from_le_bytes(buf))
+}
+
 fn read_string(cursor: &mut Cursor<&[u8]>, len: usize) -> Result<String> {
     let mut buf = vec![0u8; len];
     cursor
@@ -369,41 +370,8 @@ fn read_string(cursor: &mut Cursor<&[u8]>, len: usize) -> Result<String> {
     String::from_utf8(buf).map_err(|_| VMError::InvalidScript)
 }
 
-/// Write variable-length encoded integer
-fn write_vle(data: &mut Vec<u8>, mut value: u64) {
-    loop {
-        let mut byte = (value & 0x7F) as u8;
-        value >>= 7;
-        if value != 0 {
-            byte |= 0x80; // Set continuation bit
-        }
-        data.push(byte);
-        if value == 0 {
-            break;
-        }
-    }
-}
-
-/// Read variable-length encoded integer
-fn read_vle(cursor: &mut Cursor<&[u8]>) -> Result<u64> {
-    let mut result = 0u64;
-    let mut shift = 0;
-
-    loop {
-        let byte = read_u8(cursor)?;
-        result |= ((byte & 0x7F) as u64) << shift;
-
-        if (byte & 0x80) == 0 {
-            break;
-        }
-
-        shift += 7;
-        if shift >= 64 {
-            return Err(VMError::InvalidScript);
-        }
-    }
-
-    Ok(result)
+fn write_u64(data: &mut Vec<u8>, value: u64) {
+    data.extend_from_slice(&value.to_le_bytes());
 }
 
 #[cfg(test)]

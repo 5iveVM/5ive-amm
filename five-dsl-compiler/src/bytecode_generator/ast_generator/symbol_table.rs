@@ -1,6 +1,4 @@
-//! Symbol table operations
-//!
-//! This module handles symbol table access and management.
+//! Symbol table operations.
 
 use super::super::types::FieldInfo;
 use super::types::ASTGenerator;

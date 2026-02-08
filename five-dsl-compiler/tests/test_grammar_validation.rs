@@ -1,7 +1,4 @@
-//! Tree-sitter Grammar Validation Tests
-//!
-//! Comprehensive validation of the tree-sitter grammar rules generated from node_metadata.toml
-//! Ensures all 48 AST nodes have valid, complete grammar definitions with proper coverage.
+//! Tree-sitter grammar validation tests.
 
 use five_dsl_compiler::ast::NODE_REGISTRY;
 use std::collections::HashSet;

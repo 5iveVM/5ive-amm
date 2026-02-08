@@ -1,9 +1,4 @@
-/**
- * Five VM WASM Integration
- * 
- * Real integration with Five VM WASM bindings for script execution,
- * partial execution, and bytecode analysis.
- */
+// Five VM WASM integration.
 
 import {
   VMExecutionOptions,
@@ -15,7 +10,6 @@ import {
 
 import { getWasmModule } from './loader.js';
 
-// Real Five VM WASM imports
 let FiveVMWasm: any;
 let WasmAccount: any;
 let ParameterEncoder: any;
@@ -34,9 +28,6 @@ export class FiveVM {
     this.logger = logger;
   }
 
-  /**
-   * Initialize the VM with real Five VM WASM module
-   */
   async initialize(): Promise<void> {
     try {
       this.logger.debug('[DEBUG] Starting VM WASM initialization...');
@@ -148,7 +139,7 @@ export class FiveVM {
     let status = 'Failed';
     let errorMessage = undefined;
 
-    // Handle simple string results (Rust Enum string representation)
+  // Handle simple string results.
     if (typeof result === 'string') {
       if (result.startsWith('Ok(')) {
         success = true;
@@ -217,47 +208,8 @@ export class FiveVM {
     // Encode function index as u32 little endian
     const functionIndexBytes = BytecodeEncoder.encodeU32(functionIndex);
 
-    // We also need param count if ParameterEncoder.encode_execute doesn't include it.
-    // Looking at five-wasm/src/lib.rs:
-    // data.push(0x80); // Sentinel
-    // let param_count = params.length() as u32;
-    // data.extend_from_slice(&param_count.to_le_bytes());
-    // ...
-    // So it includes param count.
-
-    // But protocol execute instruction is: [9, function_index(u32), param_count(u32), params...]
-    // The WASM ParameterEncoder.encode_execute returns [0x80, param_count(u32), params...]
-    // We need to construct the full instruction data.
-    // Actually, looking at `decode_instruction_data` in WASM lib.rs:
-    // It strips the first byte (discriminator).
-    // The rest is passed to MitoVM.
-    // MitoVM expects [function_index(u32), param_count(u32), params...] ?
-    // Let's check `five-vm-mito/src/execution.rs` or `context.rs`.
-    // It expects `function_index` then parameters.
-    // Wait, `five-wasm`'s `encode_execute` (in `ParameterEncoder` impl in lib.rs) returns:
-    // `[0x80, param_count(u32), params...]`
-    // It DOES NOT include function index!
-
-    // So we need to assemble:
-    // [9 (discriminator), function_index(u32), ...rawParams]
-    // But wait, `rawParams` starts with `0x80` (sentinel)?
-    // If we use `0x80` sentinel, that implies we are using the "Typed" parameter parsing path in VM?
-    // Let's assume standard execution path for now which uses untyped (implicit) parameters unless we want typed.
-    // However, `five-wasm` seems to output typed format (with 0x80).
-    // If we look at `five-vm-mito`, does it support 0x80?
-    // I should check `five-vm-mito/src/context.rs`.
-    // I don't have access to it right now, but assuming I updated it to support fixed sizes.
-    // If I use `BytecodeEncoder.encodeExecute` from SDK (JS implementation), it handles it.
-    // `ParameterEncoder.encode_execute` (WASM) seems to do its own thing.
-
-    // Ideally I should reuse `BytecodeEncoder.encodeExecute` from the SDK which I updated in step 27.
-    // But `executeFunction` here is inside `FiveVM` class which is lower level.
-    // Let's just follow what I see in `five-wasm`'s `ParameterEncoder`.
-    // It emits `[0x80, param_count, params...]`.
-    // And `decode_instruction_data` in `five-wasm` strips 1 byte discriminator.
-    // So if we send `[9, function_index(u32), 0x80, param_count, params...]`,
-    // VM receives `[function_index(u32), 0x80, param_count, params...]`.
-    // This matches what `five-vm-mito` would expect if it supports that format.
+    // Assemble: [discriminator, function_index(u32), rawParams...] where rawParams
+    // comes from WASM ParameterEncoder (includes sentinel + param_count + params).
 
     // Construct instruction:
     const functionIndexArr = BytecodeEncoder.encodeU32(functionIndex); // 4 bytes

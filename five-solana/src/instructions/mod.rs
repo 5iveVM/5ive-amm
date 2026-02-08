@@ -37,12 +37,7 @@ pub fn require_signer(account: &AccountInfo) -> ProgramResult {
     Ok(())
 }
 
-/// Helper function to safely reallocate an account.
-///
-/// Passing `true` to `realloc` ensures the runtime zeroes any newly
-/// allocated bytes, preventing leakage of previous data. We still
-/// explicitly zero the growth slice to avoid relying on runtime
-/// semantics and keep behaviour predictable for security.
+/// Helper to safely reallocate an account.
 #[allow(dead_code)]
 pub fn safe_realloc(account: &AccountInfo, payer: &AccountInfo, new_size: usize) -> ProgramResult {
     let required_lamports = pinocchio::sysvars::rent::Rent::get()

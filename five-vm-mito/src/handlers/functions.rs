@@ -76,8 +76,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     validate_call_depth(ctx, MAX_CALL_DEPTH, "CALL")?;
     
-    // Check total stack size against BPF limits (approx 4KB)
-    // ctx.check_stack_limit()?; // REMOVED: Implementation is empty/disabled, saving call overhead
+    // Stack limit check is currently disabled.
 
     let param_count = ctx.fetch_byte()?;
     let func_addr = ctx.fetch_u16()? as usize;
@@ -231,11 +230,7 @@ fn parse_function_constraints(
 
     // Constraint metadata format (after header):
     // Header (10 bytes) + [optional function name metadata] + constraint metadata
-    // For now, we'll look for constraint metadata after header
-    // This is a simplified implementation - production would parse VLE-encoded section
-
-    // Simplified: If constraints are present, they would be stored after function names
-    // For now, return no constraints (will be enhanced in next phase)
+    // TODO: Parse fixed-width constraint metadata.
     Ok((0, [0u8; 16]))
 }
 
@@ -289,7 +284,7 @@ fn validate_external_function_constraints(
         }
 
         // bit 4: @pda constraint - this would require additional validation
-        // For now, we skip this (would need to check if account is a valid PDA)
+    // PDA validation not implemented.
     }
 
     Ok(())
@@ -346,7 +341,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // SAFETY: Account has been validated (index check above). borrow_data_unchecked is safe
     // within Solana runtime context as account data is guaranteed to remain valid for the
     // duration of the transaction. Creating slice from valid data pointer.
-    // NOTE: On Solana, all Five bytecode accounts start with a 64-byte ScriptAccountHeader
+    // On Solana, all Five bytecode accounts start with a 64-byte ScriptAccountHeader
     let external_bytecode_raw = unsafe {
         let data_slice = account.borrow_data_unchecked();
         core::slice::from_raw_parts(data_slice.as_ptr(), data_slice.len())

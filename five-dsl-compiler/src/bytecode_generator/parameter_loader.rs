@@ -1,36 +1,11 @@
-//! Parameter Loading Utility Module
-//! 
-//! Centralizes parameter loading logic for Five VM function calls.
-//! This module ensures DRY principles by providing shared functionality
-//! for loading function parameters from input data into local variables.
+//! Parameter loading helpers.
 
 use crate::ast::InstructionParameter;
 use super::OpcodeEmitter;
 use five_vm_mito::error::VMError;
 use five_protocol::opcodes::*;
 
-/// Load function parameters from input data into local variable slots
-/// 
-/// This function emits the necessary opcodes to:
-/// 1. Load each parameter from the pre-parsed input data array
-/// 2. Store each parameter in the corresponding local variable slot
-/// 
-/// # Arguments
-/// * `emitter` - The opcode emitter for bytecode generation
-/// * `parameters` - Array of function parameters to load
-/// 
-/// # Opcode Sequence
-/// For each parameter at index N:
-/// - `LOAD_PARAM (index + 1)` - Load from input data (1-based indexing for VM compatibility)
-/// - `SET_LOCAL index` - Store in local variable slot (0-based for locals)
-/// 
-/// # Examples
-/// ```rust
-/// // For function: pub add(a: u64, b: u64) -> u64
-/// // Generates opcodes:
-/// // LOAD_PARAM 1, SET_LOCAL 0  (load 'a' parameter)
-/// // LOAD_PARAM 2, SET_LOCAL 1  (load 'b' parameter)
-/// ```
+/// Load function parameters into local slots.
 pub fn load_function_parameters<T: OpcodeEmitter>(
     emitter: &mut T, 
     parameters: &[InstructionParameter]

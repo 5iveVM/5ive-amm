@@ -1,11 +1,4 @@
-/**
- * File Utilities - Legacy Compatibility Layer
- * 
- * This module provides backward-compatible functions that wrap the
- * centralized FiveFileManager for commands that haven't been updated yet.
- * 
- * DEPRECATED: New code should use FiveFileManager directly.
- */
+// Legacy file utilities for FiveFileManager compatibility.
 
 import { FiveFileManager, LoadedFiveFile, FiveFileError } from './FiveFileManager.js';
 

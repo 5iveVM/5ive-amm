@@ -1,8 +1,4 @@
-// Scope Analysis Module
-//
-// This module implements variable scope analysis for local variable optimization.
-// It tracks variable lifetimes, scope nesting, and provides optimizations for
-// memory management.
+// Scope analysis for local variable optimization.
 
 use crate::ast::AstNode;
 use five_vm_mito::error::VMError;
@@ -228,9 +224,9 @@ impl ScopeAnalyzer {
             var_scope.usage_count += 1;
         } else {
             // Variable not found in current scope - could be parameter or global
-            // For now, we'll declare it as unknown type
+            // Declare unknown type.
             // Variable not found in current scope - could be parameter or global
-            // For now, we'll declare it as unknown type (assuming local)
+            // Declare unknown type (assume local).
             self.declare_variable(name, "unknown", false)?;
         }
 

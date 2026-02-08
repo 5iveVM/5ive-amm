@@ -1,9 +1,4 @@
-/**
- * Five CLI Init Command
- * 
- * Initialize new Five VM projects with templates, configuration,
- * and development setup.
- */
+// Init command.
 
 import { writeFile, mkdir, access } from 'fs/promises';
 import { join } from 'path';
@@ -18,9 +13,6 @@ import {
   CompilationTarget
 } from '../types.js';
 
-/**
- * Five init command implementation
- */
 export const initCommand: CommandDefinition = {
   name: 'init',
   description: 'Initialize new project',
@@ -146,9 +138,6 @@ export const initCommand: CommandDefinition = {
   }
 };
 
-/**
- * Check if project directory is valid for initialization
- */
 async function checkProjectDirectory(projectDir: string, logger: any): Promise<void> {
   try {
     await access(projectDir);
@@ -176,9 +165,6 @@ async function checkProjectDirectory(projectDir: string, logger: any): Promise<v
   }
 }
 
-/**
- * Create project directory structure
- */
 async function createProjectStructure(projectDir: string, template: string): Promise<void> {
   const dirs = [
     'src',
@@ -210,9 +196,6 @@ async function createProjectStructure(projectDir: string, template: string): Pro
   }
 }
 
-/**
- * Generate project configuration file
- */
 async function generateProjectConfig(
   projectDir: string, 
   projectName: string, 
@@ -226,7 +209,6 @@ async function generateProjectConfig(
     buildDir: 'build',
     target: options.target as CompilationTarget,
     optimizations: {
-      enableVLE: true,
       enableCompression: true,
       enableConstraintOptimization: true,
       optimizationLevel: 'production'
@@ -238,9 +220,6 @@ async function generateProjectConfig(
   await writeFile(join(projectDir, 'five.toml'), configContent);
 }
 
-/**
- * Generate package.json for Node.js tooling
- */
 async function generatePackageJson(
   projectDir: string,
   projectName: string,
@@ -277,9 +256,6 @@ async function generatePackageJson(
   );
 }
 
-/**
- * Generate example files based on template
- */
 async function generateExampleFiles(projectDir: string, template: string): Promise<void> {
   // Generate main source file
   const mainFile = getTemplateMainFile(template);
@@ -298,9 +274,6 @@ async function generateExampleFiles(projectDir: string, template: string): Promi
   await writeFile(join(projectDir, '.gitignore'), gitignore);
 }
 
-/**
- * Initialize git repository
- */
 async function initializeGitRepository(projectDir: string): Promise<void> {
   const { execSync } = await import('child_process');
   
@@ -314,9 +287,6 @@ async function initializeGitRepository(projectDir: string): Promise<void> {
   }
 }
 
-/**
- * Generate TOML configuration
- */
 function generateTomlConfig(config: ProjectConfig): string {
   return `# Five VM Project Configuration
 [project]
@@ -328,7 +298,6 @@ build_dir = "${config.buildDir}"
 target = "${config.target}"
 
 [optimizations]
-enable_vle = ${config.optimizations.enableVLE}
 enable_compression = ${config.optimizations.enableCompression}
 enable_constraint_optimization = ${config.optimizations.enableConstraintOptimization}
 optimization_level = "${config.optimizations.optimizationLevel}"
@@ -349,9 +318,6 @@ network = "devnet"
 `;
 }
 
-/**
- * Get template main file content
- */
 function getTemplateMainFile(template: string): string {
   const templates: Record<string, string> = {
     basic: `// Basic Five VM Program
@@ -743,7 +709,7 @@ pub test_deposit(amount: u64) -> u64 {
 
 // @test-params 100 50 50
 pub test_swap_calculation(pool_a: u64, amount: u64) -> u64 {
-    // Simplified swap calculation
+    // Swap calculation
     let result = (amount * pool_a) / (pool_a + amount);
     return result;
 }

@@ -1,7 +1,4 @@
-//! Assignment and variable declaration generation
-//!
-//! Handles generation for let statements, assignments, tuple destructuring,
-//! and field assignments.
+//! Assignment and variable declaration generation.
 
 use super::types::ASTGenerator;
 use super::super::OpcodeEmitter;

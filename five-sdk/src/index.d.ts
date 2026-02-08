@@ -1,18 +1,5 @@
 /**
- * Five SDK - Client-Agnostic TypeScript/JavaScript library for Five VM
- *
- * Provides a pure serialization interface for interacting with Five scripts
- * deployed on Solana. Works with ANY Solana client library through static methods
- * that return serialized instruction data.
- *
- * Key Features:
- * - Client-agnostic design (zero @solana/web3.js dependencies)
- * - Correct Five ecosystem terminology (scripts, not contracts)
- * - Real compilation using existing WASM infrastructure
- * - ABI-driven automatic parameter coercion
- * - Static methods for compilation and instruction generation
- * - Works with Node.js, browser, mobile, and any Solana client
- * - Excellent TypeScript support with full IntelliSense
+ * Five SDK: client-agnostic library for Five VM.
  */
 export * from './FiveSDK.js';
 export * from './types.js';

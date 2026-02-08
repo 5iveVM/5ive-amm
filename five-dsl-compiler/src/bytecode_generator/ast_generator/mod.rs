@@ -1,8 +1,4 @@
-// AST Generator Module
-//
-// This module handles AST traversal and bytecode generation for all AST node types.
-// It provides the core logic for converting parsed AST structures into executable
-// bytecode while maintaining type safety and optimization opportunities.
+// AST traversal and bytecode generation.
 
 #[macro_use]
 mod macros;

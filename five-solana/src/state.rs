@@ -1,10 +1,10 @@
-//! State management for FIVE VM on Solana
+//! State management for Five VM on Solana.
 
 use bytemuck::{Pod, Zeroable};
 use pinocchio::program_error::ProgramError;
 use pinocchio::pubkey::Pubkey;
 
-/// VM State account that tracks VM initialization and deployed scripts
+/// VM state account that tracks initialization and deployed scripts.
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct FIVEVMState {
@@ -19,7 +19,6 @@ pub struct FIVEVMState {
 impl FIVEVMState {
     pub const LEN: usize = 32 + 8 + 4 + 4 + 1 + 7; // 56 bytes
 
-    /// Create a new uninitialized VM state
     pub fn new() -> Self {
         Self {
             authority: Pubkey::default(),
@@ -31,7 +30,6 @@ impl FIVEVMState {
         }
     }
 
-    /// Initialize the VM state with an authority
     pub fn initialize(&mut self, authority: Pubkey) {
         self.authority = authority;
         self.is_initialized = 1;
@@ -40,19 +38,16 @@ impl FIVEVMState {
         self.execute_fee_bps = 10000;
     }
 
-    /// Check if VM is initialized
     pub fn is_initialized(&self) -> bool {
         self.is_initialized != 0
     }
 
-    /// Increment script count and return new ID
     pub fn create_script_id(&mut self) -> u64 {
         let id = self.script_count;
         self.script_count += 1;
         id
     }
 
-    /// Deserialize VM state from account data
     pub fn from_account_data(data: &[u8]) -> Result<&Self, ProgramError> {
         if data.len() < Self::LEN {
             return Err(ProgramError::Custom(8001));
@@ -61,7 +56,6 @@ impl FIVEVMState {
         Ok(bytemuck::from_bytes(&data[..Self::LEN]))
     }
 
-    /// Deserialize mutable VM state from account data
     #[allow(dead_code)]
     pub fn from_account_data_mut(data: &mut [u8]) -> Result<&mut Self, ProgramError> {
         if data.len() < Self::LEN {
@@ -77,25 +71,7 @@ impl Default for FIVEVMState {
     }
 }
 
-/// Script account header stored at the beginning of each deployed script
-///
-/// **Deploy-Time Verification Strategy:**
-/// All bytecode verification happens during deployment:
-/// - Valid opcodes (all instructions complete)
-/// - Valid CALL targets (< total_function_count)
-/// - Function counts validated (public_count <= total_count <= MAX_FUNCTIONS)
-/// - Metadata format validated (if present)
-///
-/// Execute-time trusts this deploy-time verification and only validates:
-/// - Stack bounds (Five VM internal)
-/// - Memory bounds (Five VM internal)
-/// - Account constraints (runtime-dependent)
-///
-/// **Permissions (v4):**
-/// - Bit 0: PERMISSION_PRE_BYTECODE - Can run as pre-execution hook
-/// - Bit 1: PERMISSION_POST_BYTECODE - Can run as post-execution hook
-/// - Bit 2: PERMISSION_PDA_SPECIAL_CHARS - Can use !, @, #, $, % in PDA seeds
-/// - Bits 3-7: Reserved for future use
+/// Script account header stored at the beginning of each deployed script.
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct ScriptAccountHeader {
@@ -121,13 +97,6 @@ impl ScriptAccountHeader {
     pub const LEN: usize = 64;
     pub const MAGIC: [u8; 4] = [b'5', b'I', b'V', b'E'];
 
-    /// Create header with function count and permissions
-    ///
-    /// This is called during deployment after bytecode has been verified.
-    /// Optimization fields (public_function_count, features, etc) are extracted
-    /// from bytecode during execution, trusting deploy-time verification.
-    ///
-    /// It automatically extracts metadata (like total_function_count) from the bytecode.
     pub fn create_from_bytecode(
         bytecode: &[u8],
         owner: Pubkey,
@@ -152,7 +121,6 @@ impl ScriptAccountHeader {
         }
     }
 
-    /// Legacy constructor for backward compatibility
     pub fn new(bytecode_len: usize, owner: Pubkey, script_id: u64) -> Self {
         Self {
             magic: Self::MAGIC,

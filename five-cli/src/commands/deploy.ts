@@ -1,9 +1,4 @@
-/**
- * Five CLI Deploy Command
- * 
- * Deploy Five VM bytecode to Solana networks with automatic program creation,
- * upgrade management, and deployment verification.
- */
+// Deploy command.
 
 import { readFile } from 'fs/promises';
 import { extname, isAbsolute, join } from 'path';

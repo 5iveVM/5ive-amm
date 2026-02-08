@@ -1,12 +1,5 @@
 /**
- * Deployment UI Example - Complete Integration
- * 
- * This example demonstrates how to use the DeploymentPanel and DeploymentHistory
- * components in a React application. It shows the complete flow from compilation
- * to deployment to history tracking.
- * 
- * CRITICAL: This example uses REAL Solana deployment capabilities only.
- * No mock deployments or simulated transactions are included.
+ * Deployment UI example using real Solana deployments only.
  */
 
 import React from 'react'

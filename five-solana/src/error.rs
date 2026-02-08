@@ -1,10 +1,6 @@
 use pinocchio::program_error::ProgramError;
 
-/// Safety documentation for error handling
-///
-/// All error conversions maintain the invariant that VM errors
-/// are faithfully mapped to unique program error codes.
-/// This ensures debuggability and prevents error code collisions.
+/// Error conversion invariants: map VM errors to unique program error codes.
 
 /// Program-specific errors
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

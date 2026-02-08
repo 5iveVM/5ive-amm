@@ -63,21 +63,14 @@ Bytecode header structures for program metadata:
 - **`FIVEScriptHeaderV2/V3`** - Versioned headers with extended metadata
 - Header validation and parsing logic
 
-### 5. Encoding (`encoding.rs`)
-Variable-Length Encoding (VLE) for compact bytecode:
-- `VLE::encode_u32()` - Encode u32 in 1-5 bytes
-- `VLE::decode_u32()` - Decode VLE-encoded u32
-- LEB128-style encoding for space efficiency
-- Reduces bytecode size by ~30-40% for typical programs
-
-### 6. Call Convention (`call_convention.rs`)
+### 5. Call Convention (`call_convention.rs`)
 Function calling protocol and parameter passing:
 - Parameter marshalling and unmarshalling
 - Return value handling
 - Stack frame management conventions
 - Register usage conventions
 
-### 7. Transport (`transport.rs`)
+### 6. Transport (`transport.rs`)
 Cross-program invocation (CPI) utilities:
 - Program interface definitions
 - Cross-program call structures
@@ -89,12 +82,7 @@ Cross-program invocation (CPI) utilities:
 ### In Compiler (five-dsl-compiler)
 
 ```rust
-use five_protocol::{
-    opcodes::*,
-    OptimizedHeader,
-    VLE,
-    Value,
-};
+use five_protocol::{opcodes::*, OptimizedHeader, Value};
 
 // Emit opcodes
 bytecode.push(PUSH);
@@ -108,9 +96,8 @@ let header = OptimizedHeader {
     total_function_count: 5,
 };
 
-// Use VLE encoding
-let (len, bytes) = VLE::encode_u32(address);
-bytecode.extend_from_slice(&bytes[..len]);
+// Encode fixed-width values
+bytecode.extend_from_slice(&address.to_le_bytes());
 ```
 
 ### In VM (five-vm-mito)
@@ -161,7 +148,7 @@ five-protocol uses semantic versioning. Breaking changes to opcodes or protocol 
 ### Current Version
 - **Opcode Set**: Stable v1.0
 - **Header Format**: OptimizedHeader v2 (production)
-- **VLE Encoding**: LEB128-compatible v1.0
+- **Encoding**: Fixed-width immediates
 
 ## Testing
 
@@ -180,7 +167,7 @@ Minimal dependencies for portability:
 ## Performance
 
 - **Header Size**: 7 bytes (OptimizedHeader) vs 115 bytes (legacy) - 94% smaller
-- **VLE Encoding**: 1-5 bytes per u32 vs fixed 4 bytes - ~30-40% size reduction
+- **Encoding**: Fixed-width immediates for predictable decoding
 - **Parse Speed**: Zero-copy header parsing in <10ns
 - **Validation**: Const-time opcode validation
 

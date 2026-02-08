@@ -1,21 +1,16 @@
-// Function Dispatch Module (Simplified)
-//
-// This module implements function metadata collection for DSL function calls.
-// JUMP_TABLE complexity has been removed - now focuses on metadata collection only.
-// It handles function information gathering, parameter analysis, and ABI generation.
+// Function metadata collection for DSL calls.
 
 use super::scope_analyzer;
 use super::types::*;
 use super::{AccountSystem, OpcodeEmitter, OpcodePatterns};
-use super::import_table::ImportTable;  // NEW: Import the ImportTable module
+use super::import_table::ImportTable;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::bytecode_generator::types; // Import the module directly
 
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
-/// Function Dispatcher for managing function definitions and metadata collection
-/// Simplified version that only collects function metadata without JUMP_TABLE dispatch
+/// Collects function metadata without JUMP_TABLE dispatch.
 pub struct FunctionDispatcher {
     /// Function information for metadata collection
     functions: Vec<FunctionInfo>,
@@ -43,7 +38,6 @@ pub struct FunctionDispatcher {
 
     /// Import verification table for Five bytecode accounts
     /// Stores both direct addresses and PDA seeds for imported Five bytecode
-    /// NEW: For import verification feature flag
     import_table: ImportTable,
 }
 
@@ -58,7 +52,7 @@ impl FunctionDispatcher {
             imported_fields: HashMap::new(),
             dispatch_patch_locations: HashMap::new(),
             dispatch_jump_patches: Vec::new(),
-            import_table: ImportTable::new(),  // NEW: Initialize empty import table
+            import_table: ImportTable::new(),
         }
     }
 
@@ -478,55 +472,13 @@ impl FunctionDispatcher {
             self.dispatch_jump_patches.push((patch_pos, call_block_start));
 
             // For functions with parameters, we need to move them from the input parameters
-            // to the stack before jumping. But wait - the function expects parameters in
-            // the parameter slots, not on the stack. So we don't need to do anything here.
-            // The parameters are already in the parameter slots from the VM's initial setup.
-            
-            // However, we need to skip parameter 0 (function index) when calling the function.
-            // The function's parameters start at index 1 in the input.
-            // But the function expects them starting at index 0 in its parameter space.
-            
-            // Actually, this is getting complicated. Let's just use JUMP and let the
-            // function access parameters directly. But functions expect parameters starting
-            // at index 1 (since index 0 is the function index in the dispatcher).
-            
-            // Simpler approach: Just JUMP to the function. The function will access
-            // parameters using LOAD_PARAM, and we need to ensure the parameter indices
-            // are correct. But the compiler generates LOAD_PARAM 1, LOAD_PARAM 2, etc.
-            // for the function's parameters, expecting them at those indices.
-            
-            // So we need to shift parameters down by 1. But that's expensive.
-            
-            // Even simpler: Don't use a dispatcher at all! Just have the VM jump directly
-            // to the function based on the function index. But that requires VM changes.
-            
-            // OK, let's go back to the CALL approach but fix it properly.
-            // The issue is that CALL expects parameters on the stack, but we have them
-            // in parameter slots. So we need to push them onto the stack first.
-            
-            // Load parameters for the call (skipping param 0 which is func index)
-            // Parameters 1..N are the actual function arguments
-            // CRITICAL FIX: Load ALL parameters with unified sequential indexing
-            // The VM's params array is contiguous: [func_idx, param1, param2, ...]
-            // All parameters (account AND data) must be passed to maintain correct indices.
-            // DIRECT JUMP ARCHITECTURE:
-            // Instead of marshalling parameters and using CALL, we specificially JUMP to the function body.
-            // This ensures the function executes in the ORIGINAL execution context (Main Frame),
-            // preserving access to the global `accounts` and `params` arrays exactly as the
-            // function body generation expects (via correct offsets verified in DEBUG_DISPATCH).
-            //
-            // This avoids the "LOAD_PARAM 7" crash caused by trying to load Account parameters
-            // (which are not in the params array) onto the stack.
+            // Jump directly to the function body to preserve parameter indexing
+            // in the original execution context.
             
             // Retrieve parameters from cache
             let function_parameters = &self.parameter_cache[&name];
 
-            // CALL-BASED DISPATCH:
-            // Push only DATA params onto stack using consecutive indices (1..N).
-            // CALL creates new frame where these become params[1..N].
-            // Function body uses data-only LOAD_PARAM indices to access them.
-            //
-            // STACK MODE: Original behavior - LOAD_PARAM + CALL
+            // Stack mode: LOAD_PARAM + CALL.
             let mut actual_data_count: u8 = 0;
 
             for param in function_parameters.iter() {

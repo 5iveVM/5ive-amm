@@ -1,12 +1,6 @@
 /**
- * Deployment Service for Stacks VM WASM
- * 
- * Provides real Solana deployment capabilities that integrate with the WASM compiler.
- * Supports devnet, testnet, and mainnet deployments with proper wallet integration,
- * transaction confirmation, and deployment history tracking.
- * 
- * CRITICAL: This service only performs REAL deployments to actual Solana networks.
- * No simulations, mock deployments, or fake transactions are allowed.
+ * Deployment service for Stacks VM WASM.
+ * Performs real Solana deployments only (no simulation).
  */
 
 import { 
@@ -384,7 +378,7 @@ export class DeploymentService {
         }
 
         // This would require storing the original bytecode or being able to regenerate it
-        // For now, we'll throw an error indicating this needs the original bytecode
+        // Throw error; requires original bytecode
         throw new Error('Re-deployment requires the original bytecode. Please compile and deploy again.');
     }
 

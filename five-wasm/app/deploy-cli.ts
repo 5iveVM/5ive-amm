@@ -1,13 +1,8 @@
 #!/usr/bin/env ts-node
 
 /**
- * Deployment CLI for Stacks VM WASM
- * 
- * Command-line interface for deploying Stacks scripts to Solana networks.
- * Supports real deployments to devnet, testnet, and mainnet with proper
- * wallet integration and transaction confirmation.
- * 
- * CRITICAL: This CLI performs REAL deployments only. No simulated deployments.
+ * Deployment CLI for Stacks VM WASM.
+ * Performs real deployments to Solana networks (no simulation).
  */
 
 import * as fs from 'fs';
@@ -481,7 +476,7 @@ class DeploymentCLI {
     }
 
     private async compileSourceCode(sourceFile: string): Promise<Uint8Array> {
-        // Simplified compilation - in real implementation, this would call the actual compiler
+        // Compilation stub: in real implementation, call the actual compiler
         const wasmCompiler = new WasmCompilerService();
         await wasmCompiler.initialize();
 

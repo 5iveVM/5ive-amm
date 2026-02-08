@@ -73,7 +73,7 @@ impl TypeCheckerContext {
                     struct_fields.push(crate::ast::StructField {
                         name: field.field_name.clone(),
                         field_type,
-                        is_mutable: true, // Inferred from literal, assume mutable for now
+                        is_mutable: true, // Inferred from literal
                         is_optional: false,
                     });
                 }

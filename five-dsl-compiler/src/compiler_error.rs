@@ -1,15 +1,11 @@
-//! Compiler-specific error types with rich context
-//!
-//! This module provides boxed error types optimized for off-chain compiler use,
-//! where rich error context is valuable and heap allocation is acceptable.
+//! Compiler-specific error types with context.
 
 use five_vm_mito::error::VMErrorCode;
 use crate::tokenizer::TokenSpan;
 use std::fmt;
 
 /// Boxed result type for compiler operations (8 bytes for Err variant).
-/// 
-/// Using `Box<CompilerError>` ensures the Result stays small regardless
+/// Using `Box<CompilerError>` keeps Result size small.
 /// of how much context is attached to errors.
 pub type CompilerResult<T> = Result<T, Box<CompilerError>>;
 

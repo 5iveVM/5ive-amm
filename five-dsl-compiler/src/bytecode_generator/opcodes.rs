@@ -1,7 +1,4 @@
-// Opcode emission utilities for the bytecode generator
-//
-// This module contains utilities for emitting bytecode opcodes and managing
-// the bytecode generation process.
+// Opcode emission utilities for bytecode generation.
 
 use five_protocol::opcodes;
 use five_vm_mito::error::VMError;

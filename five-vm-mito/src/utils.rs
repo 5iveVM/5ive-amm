@@ -543,14 +543,7 @@ pub fn find_program_address_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> 
 
         let pda = derive_pda_offchain(&full_seeds, program_id)?;
 
-        // Simple check: is this a valid PDA (off-curve)?
-        // For off-chain simulator, we don't have curve25519-dalek easily available
-        // in no-std without adding more dependencies.
-        // For most tests, just returning the first one is enough,
-        // as long as it handles the bump correctly.
-        // Real Solana find_program_address repeats until off-curve.
-
-        // For now, assume most are valid or just return it for simulator purposes.
+        // Off-curve validation is omitted in no-std; return first bump for tests.
         return Ok((pda, bump));
     }
     Err(VMErrorCode::PdaDerivationFailed)

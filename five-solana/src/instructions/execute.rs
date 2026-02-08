@@ -20,10 +20,7 @@ use super::{
     require_min_accounts,
 };
 
-/// Execute a script with optional pre/post bytecode hooks
-///
-/// **Pre-Execution Hook** (PERMISSION_PRE_BYTECODE).
-/// **Post-Execution Hook** (PERMISSION_POST_BYTECODE).
+/// Execute a script with optional pre/post bytecode hooks.
 pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> ProgramResult {
     #[cfg(feature = "debug-logs")]
     debug_log!("DEBUG: execute ENTRY");

@@ -112,7 +112,7 @@ The difference is not optimization. The difference is operating in a different r
 
 ## The Proof: Real-World Transformation
 
-Let's examine a concrete example: updating a user's balance during a token transfer.
+We examine a concrete example: updating a user's balance during a token transfer.
 
 **Traditional Approach (Rust/Anchor)**:
 ```rust

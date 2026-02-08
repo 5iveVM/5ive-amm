@@ -1,20 +1,9 @@
-/**
- * Account Fixture Generator for Test Runner
- *
- * Generates account fixtures for account-system test scripts
- * by analyzing the script's account definitions and creating
- * appropriate test accounts.
- *
- * Used by test-runner.sh to enable account system testing.
- */
+// Account fixture generator for test runner scripts.
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { AccountTestFixture, FixtureTemplates } from 'five-sdk';
 
-/**
- * Detects what type of account pattern a script uses
- */
 function detectAccountPattern(scriptContent: string): string | null {
   // Look for account definitions in the script
   const hasSignerConstraint = /@signer/g.test(scriptContent);
@@ -55,9 +44,6 @@ function detectAccountPattern(scriptContent: string): string | null {
   return null;
 }
 
-/**
- * Parse account definitions from Five DSL script
- */
 function parseAccountDefinitions(scriptContent: string): Map<string, any> {
   const accounts = new Map<string, any>();
 
@@ -98,9 +84,6 @@ function parseAccountDefinitions(scriptContent: string): Map<string, any> {
   return accounts;
 }
 
-/**
- * Extract function signatures to understand account requirements
- */
 function parseFunctionSignatures(scriptContent: string): Map<string, string[]> {
   const functions = new Map<string, string[]>();
 
@@ -129,9 +112,6 @@ function parseFunctionSignatures(scriptContent: string): Map<string, string[]> {
   return functions;
 }
 
-/**
- * Generate fixture for a specific script
- */
 export async function generateFixtureForScript(
   scriptPath: string,
   options: {

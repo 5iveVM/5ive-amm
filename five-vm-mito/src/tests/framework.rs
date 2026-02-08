@@ -233,9 +233,11 @@ impl TestUtils {
         MitoVM::execute_direct(bytecode, input_data, &[], &Pubkey::default(), &mut storage)
     }
 
-    /// Create VLE encoded input data for function calls
-    pub fn create_function_input(function_index: u8, params: &[Value]) -> Vec<u8> {
-        let mut input = vec![function_index, params.len() as u8];
+    /// Create fixed-width encoded input data for function calls
+    pub fn create_function_input(function_index: u32, params: &[Value]) -> Vec<u8> {
+        let mut input = Vec::with_capacity(8 + params.len() * 12);
+        input.extend_from_slice(&function_index.to_le_bytes());
+        input.extend_from_slice(&(params.len() as u32).to_le_bytes());
 
         for param in params {
             match param {
@@ -245,11 +247,12 @@ impl TestUtils {
                 }
                 Value::U8(val) => {
                     input.push(0x01); // ValueRef::U8 type
-                    input.push(*val);
+                    input.extend_from_slice(&(*val as u32).to_le_bytes());
                 }
                 Value::Bool(val) => {
                     input.push(0x09); // ValueRef::Bool type
-                    input.push(if *val { 1 } else { 0 });
+                    let raw: u32 = if *val { 1 } else { 0 };
+                    input.extend_from_slice(&raw.to_le_bytes());
                 }
                 _ => panic!("Unsupported parameter type for test input"),
             }
@@ -428,7 +431,7 @@ impl MolluskTestUtils {
     pub fn create_mollusk() -> Result<()> {
         // This would normally create a Mollusk instance like:
         // let mollusk = Mollusk::new(&PROGRAM_ID, "path/to/five_vm_program.so");
-        // For now, we provide the framework for when the program is available
+        // Framework for when the program is available.
         Ok(())
     }
 
@@ -537,7 +540,7 @@ impl MolluskTestUtils {
         // result.program_result == ProgramResult::Success &&
         // result.return_data.is_some()
 
-        // For now, provide framework for validation
+        // Framework for validation.
         true
     }
 

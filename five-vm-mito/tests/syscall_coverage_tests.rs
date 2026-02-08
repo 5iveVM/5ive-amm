@@ -78,21 +78,7 @@ fn test_syscall_sha256() {
         script.push(CALL_NATIVE);
         script.push(SYSCALL_SHA256);
 
-        // 4. Return result (should be empty/success as we don't return the buffer content but the operation result which is void)
-        // Wait, syscalls return nothing (void). The result is written to buffer.
-        // So we just return Empty or the buffer ref?
-        // CALL_NATIVE pushes nothing back on stack?
-        // Let's check `handle_syscall_sha256`: it returns Ok(()).
-        // It pops args. It doesn't push anything.
-        // So stack is empty (or has leftover items).
-        // If we want to return the result buffer, we need to DUP it before calling?
-        // SHA256 pops: result, data.
-        // So we need: [Data, Result, Result] -> Call -> [Data, Result] (consumed) -> Stack empty?
-        // Stack before Call: [Data, Result].
-        // Call pops Result, Data. Stack empty.
-
-        // So if we want to return success, we can push something else or return Empty.
-        // We can just execute and expect Ok(None).
+        // 4. Return success; SHA256 writes into the result buffer and pushes nothing.
         // Or push a value and return it.
         script.push(PUSH_U8);
         script.push(1);

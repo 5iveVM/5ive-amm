@@ -16,7 +16,7 @@ mod tests {
     /// Test simple field assignment: value = 42
     #[test]
     fn test_simple_assignment() {
-        // Simplified test - just push and halt since we need accounts for field operations
+        // Basic test: push and halt (field ops need accounts)
         let bytecode = vec![
             // Magic bytes (5IVE)
             b'5', b'I', b'V', b'E',
@@ -24,8 +24,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // features (no special features)
             0x00, // public_function_count (no public functions)
             0x00, // total_function_count (no functions)
-            // PUSH_U64(42) using VLE encoding
-            0x1B, 0x2A, // 42 in VLE encoding (single byte since < 128)
+            // PUSH_U64(42) fixed-width
+            0x1B, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 42 (u64 LE)
             // HALT
             0x00,
         ];
@@ -53,8 +53,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // features (no special features)
             0x00, // public_function_count (no public functions)
             0x00, // total_function_count (no functions)
-            // PUSH_U64(42) using VLE encoding - correct opcode is 0x1B
-            0x1B, 0x2A, // 42 in VLE encoding (single byte since < 128)
+            // PUSH_U64(42) fixed-width - correct opcode is 0x1B
+            0x1B, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 42 (u64 LE)
             // HALT (should return 42)
             0x00,
         ];
@@ -74,10 +74,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // features (no special features)
             0x00, // public_function_count (no public functions)
             0x00, // total_function_count (no functions)
-            // PUSH_U64(100) using VLE encoding
-            0x1B, 0x64, // 100 in VLE encoding (single byte since < 128)
-            // PUSH_U64(25) using VLE encoding
-            0x1B, 0x19, // 25 in VLE encoding (single byte since < 128)
+            // PUSH_U64(100) fixed-width
+            0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 100 (u64 LE)
+            // PUSH_U64(25) fixed-width
+            0x1B, 0x19, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 25 (u64 LE)
             // ADD
             0x20, // ADD (result should be on stack)
             // HALT
@@ -99,10 +99,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // features (no special features)
             0x00, // public_function_count (no public functions)
             0x00, // total_function_count (no functions)
-            // PUSH_U64(100) using VLE encoding
-            0x1B, 0x64, // 100 in VLE encoding (single byte since < 128)
-            // PUSH_U64(25) using VLE encoding
-            0x1B, 0x19, // 25 in VLE encoding (single byte since < 128)
+            // PUSH_U64(100) fixed-width
+            0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 100 (u64 LE)
+            // PUSH_U64(25) fixed-width
+            0x1B, 0x19, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 25 (u64 LE)
             // ADD
             0x20, // ADD
             // HALT
@@ -127,10 +127,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // features (no special features)
             0x00, // public_function_count (no public functions)
             0x00, // total_function_count (no functions)
-            // PUSH_U64(125) using VLE encoding
-            0x1B, 0x7D, // 125 in VLE encoding (single byte since < 128)
-            // PUSH_U64(100) using VLE encoding
-            0x1B, 0x64, // 100 in VLE encoding (single byte since < 128)
+            // PUSH_U64(125) fixed-width
+            0x1B, 0x7D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 125 (u64 LE)
+            // PUSH_U64(100) fixed-width
+            0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 100 (u64 LE)
             // GT (125 > 100)
             0x25, // GT
             // HALT
@@ -153,8 +153,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // features (4 bytes LE)
             0x00, // public_function_count
             0x00, // total_function_count
-            0x1B, 0x64, // PUSH_U64 100 with VLE encoding
-            0x1B, 0x64, // PUSH_U64 100 with VLE encoding
+            0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64 100 (u64 LE)
+            0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64 100 (u64 LE)
             0x28, // GTE
             0x00, // HALT
         ];
@@ -168,8 +168,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // features (4 bytes LE)
             0x00, // public_function_count
             0x00, // total_function_count
-            0x1B, 0x32, // PUSH_U64 50 with VLE encoding
-            0x1B, 0x64, // PUSH_U64 100 with VLE encoding
+            0x1B, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64 50 (u64 LE)
+            0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64 100 (u64 LE)
             0x29, // LTE
             0x00, // HALT
         ];
@@ -183,8 +183,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // features (4 bytes LE)
             0x00, // public_function_count
             0x00, // total_function_count
-            0x1B, 0x32, // PUSH_U64 50 with VLE encoding
-            0x1B, 0x64, // PUSH_U64 100 with VLE encoding
+            0x1B, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64 50 (u64 LE)
+            0x1B, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64 100 (u64 LE)
             0x2A, // NEQ
             0x00, // HALT
         ];
@@ -196,7 +196,7 @@ mod tests {
     /// Test field operations: simplified test without actual field operations
     #[test]
     fn test_field_operations() {
-        // Simplified test - push 84 and halt
+        // Basic test: push 84 and halt
         let bytecode = vec![
             // Header: magic(4) + features(4) + public_count(1) + total_count(1) = 10 bytes
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
@@ -273,8 +273,11 @@ mod tests {
 
         let accounts = [];
         let input_data = vec![
-            0x01, 0x01, 0x04, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ]; // VLE: func_index=1, param_count=1, u64(42)
+            0x01, 0x00, 0x00, 0x00, // func_index = 1 (u32)
+            0x01, 0x00, 0x00, 0x00, // param_count = 1 (u32)
+            0x04, // type_id = U64
+            0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value = 42 (u64 LE)
+        ];
 
         println!("Testing LOAD_PARAM with input_data: {:?}", input_data);
 
@@ -288,7 +291,7 @@ mod tests {
     /// Test CALL parameter transfer
     #[test]
     fn test_call_parameter_transfer() {
-        // Simplified test: PUSH values, then CALL, then immediately try LOAD_PARAM
+        // Basic test: push values, CALL, then LOAD_PARAM
         let bytecode = vec![
             0x35, 0x49, 0x56, 0x45, // "5IVE" deploy magic
             // Main function
@@ -304,7 +307,7 @@ mod tests {
         ];
 
         let accounts = [];
-        let input_data = vec![]; // No VLE parameters - we're pushing manually
+        let input_data = vec![]; // No input parameters - we're pushing manually
 
         println!("Testing CALL parameter transfer...");
         println!("Bytecode length: {}", bytecode.len());
@@ -342,7 +345,7 @@ mod tests {
         // }
 
         // Bytecode with proper header and function dispatch
-        // Note: PUSH_U64 uses VLE encoding, so 5 = 0x05, 3 = 0x03 (1 byte each)
+        // Note: PUSH_U64 uses fixed-width u64 encoding (8 bytes each)
         let bytecode = vec![
             // Header: magic(4) + features(4) + public_count(1) + total_count(1) = 10 bytes
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
@@ -351,15 +354,11 @@ mod tests {
             0x02, // total_count (2 total functions - test and add_numbers)
             // Bytecode starts at offset 10
             // Function 0 (test): at offset 10
-            0x1B, 0x05, // PUSH_U64(5) (VLE: 5 = 0x05)
-            0x1B, 0x03, // PUSH_U64(3) (VLE: 3 = 0x03)
-            0x90, 0x02, 0x1B, 0x00, // CALL param_count=2, func_addr=27 (0x1B)
+            0x1B, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(5)
+            0x1B, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(3)
+            0x90, 0x02, 0x21, 0x00, // CALL param_count=2, func_addr=33 (0x21)
             0x00, // HALT - function return value is automatically on stack
-            // Padding to reach offset 27 (where Function 1 starts)
-            // Layout: Header(10) + PUSH(2) + PUSH(2) + CALL(4) + HALT(1) = 19 bytes used
-            // Need 8 bytes padding to reach offset 27
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 8 bytes padding (offset 19-26)
-            // Function 1 (add_numbers): at offset 27
+            // Function 1 (add_numbers): at offset 33
             0xA0, 0x02, // ALLOC_LOCALS 2
             0xA5, 0x01, // LOAD_PARAM 1 (first parameter a: u64)
             0xA2, 0x00, // SET_LOCAL 0 (store a in local[0])
@@ -376,9 +375,9 @@ mod tests {
 
         println!("Testing function call with bytecode analysis:");
         println!("Bytecode length: {} bytes", bytecode.len());
-        // CALL instruction should be at offset 14 (after header + 2 pushes)
-        if bytecode.len() > 14 {
-            println!("Instruction at offset 14: opcode={:02x}", bytecode[14]);
+        // CALL instruction should be at offset 28 (after header + 2 pushes)
+        if bytecode.len() > 28 {
+            println!("Instruction at offset 28: opcode={:02x}", bytecode[28]);
         }
 
         let result = execute_test(&bytecode, &input_data, &accounts);
@@ -430,7 +429,7 @@ mod v3_fused_tests {
     fn test_dup_add() {
         // Test DUP + ADD operations: DUP duplicates the stack top, ADD adds
         // Result: PUSH 7, DUP (stack: [7, 7]), ADD (stack: [14]), HALT => 14
-        // Note: PUSH_U64 uses VLE encoding, so 7 = 0x07 (1 byte)
+        // Note: PUSH_U64 uses fixed-width u64 encoding (8 bytes)
         let bytecode = vec![
             // Header: magic(4) + features(4) + public_count(1) + total_count(1) = 10 bytes
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
@@ -438,7 +437,7 @@ mod v3_fused_tests {
             0x01, // public_count
             0x01, // total_count
             // Bytecode
-            0x1B, 0x07, // PUSH_U64 7 (VLE: 7 = 0x07)
+            0x1B, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64 7
             0x11, // DUP (duplicate stack top: [7] -> [7, 7])
             0x20, // ADD ([7, 7] -> [14])
             0x00, // HALT
@@ -451,7 +450,7 @@ mod v3_fused_tests {
     fn test_swap_sub() {
         // Header + PUSH_U64(10), PUSH_U64(6), SUB, HALT => 4 (10-6)
         // SUB pops b then a, computes a-b, so we need 10-6 without swap
-        // Note: PUSH_U64 uses VLE encoding, so 10 = 0x0A, 6 = 0x06 (1 byte each)
+        // Note: PUSH_U64 uses fixed-width u64 encoding (8 bytes)
         let bytecode = vec![
             // Header: magic(4) + features(4) + public_count(1) + total_count(1) = 10 bytes
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
@@ -459,8 +458,8 @@ mod v3_fused_tests {
             0x01, // public_count
             0x01, // total_count
             // Bytecode
-            0x1B, 0x0A, // PUSH_U64 10 (VLE: 10 = 0x0A)
-            0x1B, 0x06, // PUSH_U64 6 (VLE: 6 = 0x06)
+            0x1B, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64 10
+            0x1B, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64 6
             0x21, // SUB (a=10, b=6, result=10-6=4)
             0x00, // HALT
         ];
@@ -473,7 +472,7 @@ mod v3_fused_tests {
         // Test basic validation: check amount != 0, then push result
         // Header + PUSH_U64(5), DUP, PUSH_0, NEQ, REQUIRE, POP, PUSH_1, HALT => 1
         // Stack: [5] -> DUP -> [5,5] -> PUSH_0 -> [5,5,0] -> NEQ -> [5,true] -> REQUIRE -> [5] -> POP -> [] -> PUSH_1 -> [1]
-        // Note: PUSH_U64 uses VLE encoding, so 5 = 0x05 (1 byte)
+        // Note: PUSH_U64 uses fixed-width u64 encoding (8 bytes)
         let pass_bc = vec![
             // Header: magic(4) + features(4) + public_count(1) + total_count(1) = 10 bytes
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
@@ -481,7 +480,7 @@ mod v3_fused_tests {
             0x01, // public_count
             0x01, // total_count
             // Bytecode
-            0x1B, 0x05, // PUSH_U64(5) (VLE: 5 = 0x05)
+            0x1B, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(5)
             0x11, // DUP (duplicate the 5: [5] -> [5,5])
             0xD8, // PUSH_0 (nibble immediate: [5,5] -> [5,5,0])
             0x2A, // NEQ (5 != 0 = true: [5,5,0] -> [5,true])
@@ -503,7 +502,7 @@ mod v3_fused_tests {
         // Test DUP + SUB pattern: value - value = 0
         // Header + PUSH_U64(15), DUP, SUB, HALT => 0
         // Stack evolution: [15] -> DUP -> [15, 15] -> SUB -> [0]
-        // Note: PUSH_U64 uses VLE encoding, so 15 = 0x0F (1 byte)
+        // Note: PUSH_U64 uses fixed-width u64 encoding (8 bytes)
         let bytecode = vec![
             // Header: magic(4) + features(4) + public_count(1) + total_count(1) = 10 bytes
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
@@ -511,7 +510,7 @@ mod v3_fused_tests {
             0x01, // public_count
             0x01, // total_count
             // Bytecode
-            0x1B, 0x0F, // PUSH_U64(15) (VLE: 15 = 0x0F)
+            0x1B, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(15)
             0x11, // DUP (dup: [15] -> [15, 15])
             0x21, // SUB (subtract: [15, 15] -> [0])
             0x00, // HALT
@@ -539,7 +538,7 @@ mod v3_fused_tests {
         // Test DUP + MUL pattern: value * value = value^2
         // Header + PUSH_U64(6), DUP, MUL, HALT => 36
         // Stack evolution: [6] -> DUP -> [6, 6] -> MUL -> [36]
-        // Note: PUSH_U64 uses VLE encoding, so 6 = 0x06 (1 byte)
+        // Note: PUSH_U64 uses fixed-width u64 encoding (8 bytes)
         let bytecode = vec![
             // Header: magic(4) + features(4) + public_count(1) + total_count(1) = 10 bytes
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
@@ -547,7 +546,7 @@ mod v3_fused_tests {
             0x01, // public_count
             0x01, // total_count
             // Bytecode
-            0x1B, 0x06, // PUSH_U64(6) (VLE: 6 = 0x06)
+            0x1B, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(6)
             0x11, // DUP (dup: [6] -> [6, 6])
             0x22, // MUL (multiply: [6, 6] -> [36])
             0x00, // HALT

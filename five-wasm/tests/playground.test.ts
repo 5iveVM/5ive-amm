@@ -1,11 +1,6 @@
 /**
- * Playground Integration Tests
- * 
- * Tests the complete Playground functionality including project management,
- * compilation, testing, and deployment integration. Ensures the unified
- * development experience works correctly.
- * 
- * CRITICAL: Tests real compilation and deployment workflows, not mocked versions.
+ * Playground integration tests.
+ * Runs real compilation and deployment workflows.
  */
 
 import { describe, beforeAll, beforeEach, afterEach, it, expect, jest } from '@jest/globals';

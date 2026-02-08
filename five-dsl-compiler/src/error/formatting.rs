@@ -1,15 +1,9 @@
-//! Error formatting and display
-//!
-//! This module provides pluggable error formatters for different output formats
-//! including terminal, JSON, and LSP-compatible formatting.
+//! Error formatting and display.
 
 use crate::error::context::{ContextLine, SourceContextExtractor};
 use crate::error::types::{CompilerError, ErrorSeverity, RelatedError, SourceLocation};
 
-/// Trait for error formatters
-///
-/// This allows for pluggable error formatting based on the output context
-/// (terminal, JSON, IDE integration, etc.)
+/// Trait for error formatters.
 pub trait ErrorFormatter {
     /// Format a single compiler error
     fn format_error(&self, error: &CompilerError) -> String;

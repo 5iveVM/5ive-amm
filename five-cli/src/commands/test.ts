@@ -1,9 +1,4 @@
-/**
- * Five CLI Test Command
- * 
- * Run test suites for Five VM bytecode with comprehensive validation,
- * performance benchmarking, and compliance verification.
- */
+// Test command.
 
 import { readFile, readdir, stat } from 'fs/promises';
 import { join, extname, basename, isAbsolute } from 'path';

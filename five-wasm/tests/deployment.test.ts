@@ -1,12 +1,6 @@
 /**
- * Deployment Service Tests
- * 
- * Comprehensive test suite for the deployment service, ensuring real
- * Solana network interactions work correctly. These tests verify the
- * integration between WASM compilation and Solana deployment.
- * 
- * CRITICAL: These tests use REAL Solana networks when configured.
- * They verify actual deployment capabilities, not mocked interfaces.
+ * Deployment service tests.
+ * Uses real Solana networks when configured.
  */
 
 import { describe, beforeAll, beforeEach, afterEach, it, expect, jest } from '@jest/globals';

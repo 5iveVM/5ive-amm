@@ -1,7 +1,4 @@
-//! Initialization and configuration methods for ASTGenerator
-//!
-//! This module contains constructors and configuration methods for setting up
-//! the AST generator with various options and state management.
+//! ASTGenerator initialization and configuration.
 
 use super::super::account_system::AccountSystem;
 use super::types::ASTGenerator;
@@ -13,9 +10,7 @@ use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
 impl ASTGenerator {
-    /// Internal constructor with configurable v2_preview flag
-    ///
-    /// This eliminates duplication between the three public constructors.
+    /// Internal constructor with configurable v2_preview flag.
     fn new_internal(v2_preview: bool) -> Self {
         Self {
             global_symbol_table: HashMap::new(),

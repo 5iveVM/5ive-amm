@@ -1,8 +1,4 @@
-// ABI Generation Module
-//
-// This module handles generation of Application Binary Interface (ABI) files
-// from parsed AST structures. It creates both full FIVEABI and SimpleABI
-// formats for client-side integration.
+// ABI generation for client-side integration.
 
 use super::account_utils;
 use super::types::*;

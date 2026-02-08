@@ -71,19 +71,7 @@ mod tuple_operations_tests {
             push_u64(script, 200);
             push_u64(script, 300);
             script.push(CREATE_TUPLE);
-            script.push(3); // Size 3. Tuple is [100, 200, 300] (based on stack order usually popped? or indexed? Let's assume order preserved or reversed. Array usually stores [0]=bottom?)
-            // handlers/advanced.rs says:
-            // for i in 0..element_count { let idx = ctx.stack.sp - 1 - i; ... }
-            // "Serialize elements directly in reverse order"
-            // "ctx.pop()?" in loop.
-            // If stack is [100, 200, 300(top)], popping gives 300, 200, 100.
-            // If it serializes in reverse order of pops?
-            // "write_offset -= size; element.serialize_into..."
-            // It fills from end of buffer backwards.
-            // Pop 300. Puts at end.
-            // Pop 200. Puts before 300.
-            // Pop 100. Puts before 200.
-            // So Array should be [100, 200, 300]. Index 0 is 100. Index 1 is 200.
+            script.push(3); // Size 3. CREATE_TUPLE preserves order: [100, 200, 300].
 
             push_u8(script, 1); // Index 1
             script.push(TUPLE_GET);

@@ -1,11 +1,6 @@
 /**
- * WASM-based compiler and testing service for Stacks VM
- * 
- * This service provides WASM-based execution and testing capabilities,
- * properly handling partial execution results and system call stops.
- * 
- * CRITICAL: This is NOT for compilation - it's for testing bytecode execution
- * using the WASM module with honest partial execution results.
+ * WASM-based execution and testing service.
+ * Not a compiler; uses the WASM module to run bytecode and report partial execution.
  */
 
 import init, { 

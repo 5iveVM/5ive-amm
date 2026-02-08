@@ -509,9 +509,7 @@ impl TypeCheckerContext {
             }
             // Handle identifier patterns (pattern variables)
             AstNode::Identifier(name) => {
-                // This is a pattern variable - add it to symbol table
-                // For now, assign it a generic type since we don't have full type inference
-                // In a full implementation, we'd infer the type from the matched expression
+                // Pattern variable: assign a generic type until inference is available.
                 self.symbol_table.insert(
                     name.clone(),
                     (TypeNode::Primitive("u64".to_string()), false),

@@ -1,9 +1,4 @@
-/**
- * Five CLI Execute Command
- * 
- * Real execution command using Five VM WASM bindings for bytecode execution,
- * with support for partial execution, debugging, and function calls.
- */
+// Execute command.
 
 import { readFile } from 'fs/promises';
 import { readFileSync, existsSync } from 'fs';

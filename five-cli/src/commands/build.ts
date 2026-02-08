@@ -1,12 +1,4 @@
-/**
- * Five CLI Build Command
- *
- * Build a Five project using five.toml configuration and the existing compile pipeline.
- * This is a thin wrapper over the compile command so we reuse project resolution,
- * manifests, and output handling.
- */
-
-
+// Build command.
 import { CommandDefinition, CommandContext } from '../types.js';
 import { loadProjectConfig } from '../project/ProjectLoader.js';
 import { compileCommand } from './compile.js';

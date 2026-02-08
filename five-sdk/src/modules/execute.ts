@@ -17,7 +17,7 @@ import { loadWasmVM } from "../wasm/instance.js";
 import { BytecodeCompiler } from "../compiler/BytecodeCompiler.js";
 
 // Helper function to initialize ParameterEncoder if needed (though BytecodeEncoder is preferred)
-// For now we assume BytecodeEncoder handles it or we call it if needed.
+// Assume BytecodeEncoder handles it or call it if needed.
 // BytecodeEncoder uses WASM module directly via loader.
 
 export async function execute(

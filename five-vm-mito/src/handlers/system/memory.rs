@@ -36,19 +36,7 @@ fn get_ptr(ctx: &mut ExecutionManager, reference: ValueRef, len: u64) -> Compact
             Ok(unsafe { ctx.temp_buffer().as_ptr().add(start) })
         }
         ValueRef::StringRef(_) | ValueRef::ArrayRef(_) => {
-             // For String/Array, we extract slice
-             // Note: extract_string_slice works on immutable ctx.
-             // We can't use it easily here because we need raw pointer and might have mutable ctx elsewhere.
-             // But we can reproduce logic.
-             // Also, `extract_string_slice` gives content bytes.
-             // If `len` is passed, we check it matches.
-
-             // Since we have `ctx` mutably borrowed, we can access memory.
-             // Let's use `extract_string_slice` if we can cast to immutable?
-             // Or just reimplement lookup.
-             // But ValueRef::StringRef points to [len, type, bytes]. The bytes are at offset+2.
-
-             // Reuse extract_string_slice logic:
+             // For String/Array, reuse extract_string_slice and return content bytes.
              let (slen, bytes) = ctx.extract_string_slice(&reference)?;
              if (slen as u64) < len { return Err(VMErrorCode::MemoryViolation); }
              Ok(bytes.as_ptr())

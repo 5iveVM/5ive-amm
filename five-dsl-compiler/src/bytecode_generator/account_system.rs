@@ -1,8 +1,4 @@
-// Account System Module
-//
-// This module handles all account-related operations in the FIVE DSL compiler.
-// It manages account definitions, field access, built-in properties, and integrates
-// with the constraint optimization system for efficient account validation.
+// Account-related operations for the DSL compiler.
 
 use super::types::*;
 use super::OpcodeEmitter;
@@ -152,7 +148,7 @@ impl AccountSystem {
 
                 if self.should_use_zerocopy_optimization(account_param) {
                     // Use zerocopy optimization for better performance
-                    // For now, fall back to standard access until zerocopy is implemented
+                    // Fall back to standard access until zerocopy is implemented.
                     emitter.emit_opcode(LOAD_FIELD);
                     emitter.emit_u8(account_index);
                     emitter.emit_u32(field_info.offset);
@@ -207,11 +203,11 @@ impl AccountSystem {
                 let account_index = self.resolve_account_index(symbol_table, account_param)?;
 
                 // Generate value expression first (this would be handled by AST generator)
-                // For now, we assume the value is already on the stack
+                // Assume the value is already on the stack.
 
                 if self.should_use_zerocopy_optimization(account_param) {
                     // Use zerocopy optimization for better performance
-                    // For now, fall back to standard access until zerocopy is implemented
+                    // Fall back to standard access until zerocopy is implemented.
                     emitter.emit_opcode(STORE_FIELD);
                     emitter.emit_u8(account_index);
                     emitter.emit_u32(field_info.offset);

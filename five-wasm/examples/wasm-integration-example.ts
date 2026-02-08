@@ -57,7 +57,7 @@ async function testComplexMath() {
 
     // Test: Calculate compound interest
     // Formula: principal * (1 + rate)^time
-    // Simplified: 1000 * 1.05 * 1.05 = 1102.5 (approximated with integers)
+    // 1000 * 1.05 * 1.05 = 1102.5 (approximated with integers)
     const mathBytecode = wasmService.createTestBytecode([
         { opcode: 'PUSH', args: ['U64', 1000] },  // Principal
         { opcode: 'PUSH', args: ['U64', 105] },   // Rate factor (105/100 = 1.05)

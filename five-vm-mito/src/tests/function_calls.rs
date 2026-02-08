@@ -46,7 +46,7 @@ mod function_call_tests {
                 }
                 Err(e) => {
                     println!("Function call failed: {:?}", e);
-                    // For now, we expect this to fail until full implementation
+                    // Expected to fail until full implementation.
                     assert!(true, "Function calls need complete implementation");
                 }
             }
@@ -426,7 +426,7 @@ mod function_call_tests {
             // Test function A calls function B calls function C
             // This tests call stack depth management
 
-            // For now, just test the structure - full implementation needed
+            // Structure-only test until full implementation.
             let bytecode = test_bytecode![
                 push_u64!(1),
                 opcodes![0x90, 0x01, 0x10, 0x00], // CALL function B

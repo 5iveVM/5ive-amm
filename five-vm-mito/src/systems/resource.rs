@@ -60,19 +60,7 @@ impl<'a> ResourceManager<'a> {
             mgr.heap_chunk_count = 1;
             mgr.current_chunk = 0;
             mgr.chunk_is_static[0] = true;
-            // Note: total_heap_usage tracks AVAILABLE heap space or ALLOCATED?
-            // Usually "usage" means what we used. But here we might mean "capacity"?
-            // Wait, heap_usage() usually returns total dynamic bytes.
-            // Let's assume total_heap_usage only tracks what we requested/used?
-            // Actually, alloc_heap_unsafe increases total_heap_usage by CHUNK size.
-            // So we should track this initial chunk as available capacity?
-            // The alloc_heap_unsafe logic increases total_heap_usage when allocating NEW chunks.
-            // So we should probably count this as part of our capacity, or just ignore it until used?
-            // The existing `alloc_heap_unsafe` logic checks: if used + size <= cap.
-            // So the capacity is there.
-            // We'll set total_heap_usage to valid initial capacity?
-            // No, total_heap_usage seems to track TOTAL ALLOCATED BYTES (allocated from system).
-            // Let's increment it to reflect we have this memory "allocated" (even if static).
+            // Track the initial static chunk as allocated heap capacity.
             mgr.total_heap_usage = len;
         }
         

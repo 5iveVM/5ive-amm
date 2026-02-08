@@ -18,7 +18,7 @@ This document defines the instruction set architecture (ISA) for the Five Virtua
 To build a robust and efficient smart contract layer on Solana, a clearly defined and optimized instruction set is required. This specification aims to provide a single source of truth for the Five VM's capabilities, enabling:
 
 1.  **Interoperability**: Ensuring compilers, debuggers, and VMs (Mito, Wasm) all adhere to the same behavior.
-2.  **Optimization**: Providing a basis for performance improvements and binary size reduction (VLE, pattern fusion).
+2.  **Optimization**: Providing a basis for performance improvements and binary size reduction (pattern fusion).
 3.  **Security**: Clearly defining the constraints and safety guarantees of each operation.
 
 ## Specification
@@ -30,7 +30,6 @@ The Five VM uses a byte-oriented instruction stream. Instructions consist of a 1
 - **U16**: 16-bit unsigned integer (2 bytes, little-endian).
 - **U32**: 32-bit unsigned integer (4 bytes, little-endian).
 - **U64**: 64-bit unsigned integer (8 bytes, little-endian).
-- **VLE**: Variable Length Encoding (1-9 bytes) for integers to save space.
 - **Pubkey**: 32-byte Solana public key.
 
 ### Opcode Tables
@@ -67,10 +66,10 @@ These opcodes manipulate the value stack.
 | 0x16 | `DROP` | None | -1 | Same as POP. | Alias for POP, included for compatibility/readability. |
 | 0x17 | `OVER` | None | +1 | Copies 2nd item to top. | Common stack pattern (`a b -> a b a`), useful for binary operations where one operand is reused. |
 | 0x18 | `PUSH_U8` | `value` (U8) | +1 | Pushes a U8 constant. | Space-efficient way to push small integers (0-255). |
-| 0x19 | `PUSH_U16` | `value` (VLE) | +1 | Pushes a U16 constant. | Pushes medium integers. |
-| 0x1A | `PUSH_U32` | `value` (VLE) | +1 | Pushes a U32 constant. | Pushes large integers. |
-| 0x1B | `PUSH_U64` | `value` (VLE) | +1 | Pushes a U64 constant. | Pushes 64-bit integers (standard Solana number type). |
-| 0x1C | `PUSH_I64` | `value` (VLE) | +1 | Pushes an I64 constant. | Pushes signed 64-bit integers. |
+| 0x19 | `PUSH_U16` | `value` (U16) | +1 | Pushes a U16 constant. | Pushes medium integers. |
+| 0x1A | `PUSH_U32` | `value` (U32) | +1 | Pushes a U32 constant. | Pushes large integers. |
+| 0x1B | `PUSH_U64` | `value` (U64) | +1 | Pushes a U64 constant. | Pushes 64-bit integers (standard Solana number type). |
+| 0x1C | `PUSH_I64` | `value` (I64) | +1 | Pushes an I64 constant. | Pushes signed 64-bit integers. |
 | 0x1D | `PUSH_BOOL` | `value` (U8) | +1 | Pushes a boolean. | Pushes true/false. |
 | 0x1E | `PUSH_PUBKEY` | `value` (32B) | +1 | Pushes a Pubkey literal. | Essential for hardcoding program IDs or authority keys. |
 | 0x1F | `PUSH_U128` | `value` (16B) | +1 | Pushes a U128 constant. | Support for large numbers (e.g., high precision math). |
@@ -124,8 +123,8 @@ Standard arithmetic on U64/I64 values.
 |:---:|:---|:---|:---:|:---|:---|
 | 0x40 | `STORE` | `offset` (U32) | -1 | Store to memory. | Writing to global/heap memory. |
 | 0x41 | `LOAD` | `offset` (U32) | +1 | Load from memory. | Reading from global/heap memory. |
-| 0x42 | `STORE_FIELD` | `acct_idx` (U8), `offset` (VLE) | -1 | Zero-copy store to account data. | **Optimization**: Direct write to account buffer without loading full data. Critical for performance. |
-| 0x43 | `LOAD_FIELD` | `acct_idx` (U8), `offset` (VLE) | +1 | Zero-copy load from account data. | **Optimization**: Direct read from account buffer. |
+| 0x42 | `STORE_FIELD` | `acct_idx` (U8), `offset` (U32) | -1 | Zero-copy store to account data. | **Optimization**: Direct write to account buffer without loading full data. Critical for performance. |
+| 0x43 | `LOAD_FIELD` | `acct_idx` (U8), `offset` (U32) | +1 | Zero-copy load from account data. | **Optimization**: Direct read from account buffer. |
 | 0x44 | `LOAD_INPUT` | `index` (U8) | +1 | Load instruction input. | Accessing raw instruction data. |
 | 0x45 | `STORE_GLOBAL` | `id` (U16) | -1 | Store to global var. | Persisting state across function calls within a transaction. |
 | 0x46 | `LOAD_GLOBAL` | `id` (U16) | +1 | Load from global var. | Accessing global state. |
@@ -159,7 +158,7 @@ Standard arithmetic on U64/I64 values.
 | 0x64 | `ARRAY_SET` | None | -3 | Set item at index. | Modifying arrays. |
 | 0x65 | `ARRAY_GET` | None | -1 | Get item (alias/variant). | Accessing elements. |
 | 0x66 | `PUSH_STRING_LITERAL` | `len` (U8) | +1 | Push string from bytecode. | Constant strings. |
-| 0x67 | `PUSH_STRING` | `len` (VLE) | +1 | Push long string. | Large text data. |
+| 0x67 | `PUSH_STRING` | `len` (U16) | +1 | Push long string. | Large text data. |
 
 #### 8. Constraint Operations (0x70-0x7F)
 

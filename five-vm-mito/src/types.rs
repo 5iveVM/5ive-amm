@@ -1,20 +1,13 @@
-//! Type definitions for MitoVM
-//!
-//! This module contains core type definitions used throughout the MitoVM execution engine.
-//! Extracted from the main execution module for better organization and maintainability.
+//! Type definitions for MitoVM.
 
 use crate::MAX_LOCALS;
 use five_protocol::ValueRef;
 
 /// Stack-allocated local variable storage optimized for minimal memory usage.
-/// Each slot holds a single [`ValueRef`]; [`ValueRef::Empty`] marks
-/// uninitialized locals.
-/// Stack-allocated local variable storage optimized for minimal memory usage.
-/// Each slot holds a single [`ValueRef`]; [`ValueRef::Empty`] marks
-/// uninitialized locals.
+/// Each slot holds a single [`ValueRef`]; [`ValueRef::Empty`] marks uninitialized locals.
 pub type LocalVariables = [core::mem::MaybeUninit<ValueRef>; MAX_LOCALS];
 
-/// Root context identifier for bytecode (original script)
+/// Root context identifier for bytecode (original script).
 pub const ROOT_CONTEXT: u8 = u8::MAX;
 
 /// Function call frame containing return state and saved parameters.

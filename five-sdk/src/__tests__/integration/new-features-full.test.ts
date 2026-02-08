@@ -88,7 +88,7 @@ describe('New SDK Features Full Test', () => {
             // Depending on how u64 is decoded (BigInt or Number), check accordingly.
             // ProgramAccount.ts readU64 (simpleDecode) uses Number fallback if > 2^53? 
             // But if it uses Borsh, it returns BN or BigInt usually?
-            // Let's expect loosely or check type.
+            // Expect loosely or check type.
 
             if (typeof decoded.count === 'bigint') {
                 expect(decoded.count).toBe(count);

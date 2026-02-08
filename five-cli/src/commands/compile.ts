@@ -1,9 +1,4 @@
-/**
- * Five CLI Compile Command
- * 
- * Real compilation command using Five VM WASM bindings for DSL compilation,
- * ABI generation, and bytecode analysis.
- */
+// Compile command.
 
 import { readFile, writeFile, stat, mkdir } from 'fs/promises';
 import { join, dirname, extname, basename, isAbsolute, resolve } from 'path';
@@ -15,9 +10,6 @@ import { CompilationOptions, FiveSDK, TypeGenerator } from 'five-sdk';
 import { computeHash, loadProjectConfig, writeBuildManifest } from '../project/ProjectLoader.js';
 import { success as uiSuccess, error as uiError, section } from '../utils/cli-ui.js';
 
-/**
- * Five compile command implementation
- */
 export const compileCommand: CommandDefinition = {
   name: 'compile',
   description: 'Compile Five source to bytecode',

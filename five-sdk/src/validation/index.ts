@@ -1,7 +1,5 @@
 /**
- * Five SDK Validation Module
- * 
- * Exports input validation framework for comprehensive security
+ * Five SDK validation exports.
  */
 
 export {

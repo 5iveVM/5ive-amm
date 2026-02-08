@@ -1,7 +1,4 @@
-// Comprehensive Compiler Metrics & Analytics System
-//
-// This module provides detailed metrics collection throughout the Five DSL compilation pipeline.
-// It tracks opcode usage, performance metrics, memory analytics, and error patterns.
+// Compiler metrics and analytics for the Five DSL pipeline.
 
 use core::fmt;
 use serde::{
@@ -97,7 +94,7 @@ impl<'de> Deserialize<'de> for RollingWindow {
     }
 }
 
-/// Comprehensive metrics collector for the Five DSL compiler
+/// Metrics collector for the Five DSL compiler
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompilerMetrics {
     /// Session metadata
@@ -630,8 +627,7 @@ impl MetricsCollector {
     }
 
     fn get_memory_usage() -> u64 {
-        // Simplified memory usage tracking
-        // In a real implementation, you might use a crate like `memory-stats`
+        // Placeholder memory tracking.
         0 // Placeholder
     }
 

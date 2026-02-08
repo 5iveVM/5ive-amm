@@ -1,5 +1,4 @@
-// Comprehensive Field Operations Example
-// Demonstrates both script field editing AND account type field editing
+// Field operations example (script fields and account type fields).
 
     // ============================================================================
     // SCRIPT-LEVEL FIELDS (stored in script bytecode account)

@@ -1,71 +1,36 @@
-// Bytecode Generator Module
-//
-// Modular bytecode generation system for the FIVE DSL compiler.
-// This module breaks down the previously monolithic bytecode_generator.rs
-// into focused, maintainable components.
-
-// Core type definitions and data structures
 pub mod types;
 
-// Bytecode opcode utilities and emission functions
 pub mod opcodes;
 
-// ABI generation for client-side integration
 pub mod abi_generator;
 
-// Fused Opcode optimizations for CU reduction
-
-
-// Constraint optimization for account validation
-
-
-// Scope analysis for local variable optimization
 pub mod scope_analyzer;
 
-// AST processing and bytecode generation
 pub mod ast_generator;
 
-// Constraint enforcement for account validation
 pub mod constraint_enforcer;
 
-// Account system for account definitions and field access
 pub mod account_system;
 
-// Unified account utilities for consistent account type detection
 pub mod account_utils;
 
-// Function dispatch for O(1) function routing
 pub mod function_dispatch;
 
-// Import table for Five bytecode imports verification
 pub mod import_table;
 
-// Advanced bytecode analysis and disassembly
 pub mod bytecode_analyzer;
 
-// Disassembler & diagnostic utilities for bytecode (shared with tests)
 pub mod disassembler;
 
-// Compression and size optimization
-// pub mod compression;
-
-// Performance and runtime optimization
 pub mod performance;
 
-// Module merging for multi-file compilation
 pub mod module_merger;
 
-// Constant pool builder
 pub mod constant_pool;
 
-// Account indices in bytecode are offset by VM state account.
-// Script account is stripped by five-solana (&accounts[1..]).
-// VM View: Index 0=VM State, 1=param0, 2=param1
-// Formula: account_index = param_index + ACCOUNT_INDEX_OFFSET
-// CRITICAL: Must be 1 (see tests/test_account_index_offset.rs)
+// Account indices are offset by the VM state account (see tests/test_account_index_offset.rs).
 pub const ACCOUNT_INDEX_OFFSET: u8 = 1;
 
-// CALL opcode emission and patching (public for testing)
 pub mod call;
 mod header;
 mod labels;
@@ -95,70 +60,48 @@ use crate::ast::AstNode;
 use crate::compiler::CompilationMode;
 use five_vm_mito::error::VMError;
 
-/// Main bytecode generator that orchestrates the compilation process
-/// This is the simplified version that delegates to specialized modules
+/// Main bytecode generator.
 pub struct DslBytecodeGenerator {
-    /// Core bytecode being generated
     bytecode: Vec<u8>,
 
-    /// Header bytes (emitted separately from instruction stream)
     header_bytes: Vec<u8>,
 
-    /// Metadata bytes (function names, etc.)
     metadata_bytes: Vec<u8>,
 
-    /// Import verification metadata (appended after string blob)
     import_metadata_bytes: Vec<u8>,
 
-    /// Cached header feature flags
     header_features: u32,
 
-    /// Current bytecode position for relative jumps
     position: usize,
 
-    /// Function dispatch table for multi-function scripts
     pub(crate) functions: Vec<types::FunctionInfo>,
 
-    /// Symbol table for variable and field resolution
     symbol_table: std::collections::HashMap<String, types::FieldInfo>,
 
-    /// Account type registry for account-related operations
     account_registry: types::AccountRegistry,
 
-    /// Whether to generate function dispatcher
     #[allow(dead_code)]
     generate_dispatcher: bool,
 
-    /// Field counter for symbol table management
     field_counter: u32,
 
-    /// Compilation mode (testing vs deployment)
     compilation_mode: CompilationMode,
 
-    /// Compression optimization flags
-    enable_vle_encoding: bool,
     enable_compact_fields: bool,
     enable_instruction_compression: bool,
 
-    /// V2 preview mode for advanced optimizations
     v2_preview: bool,
 
-    /// Optimization level for pattern fusion and advanced optimizations
     optimization_level: crate::compiler::OptimizationLevel,
 
-    /// Interface registry for cross-program invocation support
     interface_registry: Option<crate::interface_registry::InterfaceRegistry>,
 
-    /// Real-time compilation log tracking bytecode generation
     compilation_log: Vec<String>,
 
-    /// Whether to capture diagnostic errors to compilation_log (vs stderr)
     debug_on_error: bool,
 
-    /// Whether to include debug info (function metadata) in bytecode
     pub(crate) include_debug_info: bool,
 
-    /// Constant pool builder
     constant_pool: constant_pool::ConstantPoolBuilder,
 
 }
@@ -190,7 +133,6 @@ impl DslBytecodeGenerator {
             compilation_mode: mode,
 
             // Enable all compression optimizations by default
-            enable_vle_encoding: true,
             enable_compact_fields: true,
             enable_instruction_compression: true,
 
@@ -237,7 +179,6 @@ impl DslBytecodeGenerator {
         // Configure v2-preview features
         if config.v2_preview {
             // Enable v2-preview optimizations
-            generator.enable_vle_encoding = true;
             generator.enable_compact_fields = true;
             generator.enable_instruction_compression = true;
             generator.v2_preview = true; // Enable v2-preview mode
@@ -254,7 +195,6 @@ impl DslBytecodeGenerator {
         generator.optimization_level = config.optimization_level;
 
         // Production pipeline enforces all advanced optimizations
-        generator.enable_vle_encoding = true;
         generator.enable_compact_fields = true;
         generator.enable_instruction_compression = true;
         generator.v2_preview = true;

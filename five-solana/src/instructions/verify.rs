@@ -20,15 +20,7 @@ fn map_parse_error(e: ParseError) -> ProgramError {
     }
 }
 
-/// Verify bytecode content before deployment
-///
-/// **Deploy-Time Verification Strategy:**
-/// This function performs comprehensive verification of bytecode, enabling
-/// trust-based execution at runtime without re-verification:
-/// - Header format is valid (magic, features, counts)
-/// - All instructions are valid opcodes with proper bounds and arguments
-/// - CALL instructions target valid function indices
-/// - No incomplete instructions
+/// Verify bytecode content before deployment.
 pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     debug_log!("FIVE: verify_bytecode entry len={}", bytecode.len());
     // Validate bytecode size
@@ -48,7 +40,7 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
 
     debug_log!("FIVE: counts p={} t={}", header.public_function_count, header.total_function_count);
 
-    // CRITICAL: Validate that at least one public function exists (if functions exist)
+    // Validate that at least one public function exists (if functions exist)
     if header.total_function_count > 0 && header.public_function_count == 0 {
         debug_log!("FIVE: pub=0 but total>0");
         return Err(ProgramError::Custom(8104));
@@ -91,7 +83,7 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
                     }
                 }
 
-                // Check JUMP target bounds (CRITICAL for Unchecked Execution)
+                // Check JUMP target bounds
                 if matches!(inst.opcode, 
                     opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT |
                     opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP

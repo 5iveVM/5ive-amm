@@ -1,6 +1,4 @@
-//! Jump and patch management
-//!
-//! This module handles jump instructions, label management, and bytecode patching.
+//! Jump and patch management.
 
 use super::super::opcodes::OpcodePatterns;
 use super::super::OpcodeEmitter;

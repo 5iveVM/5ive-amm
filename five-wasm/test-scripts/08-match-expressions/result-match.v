@@ -1,4 +1,4 @@
-// Simplified test without Result types
+// Test without Result types
 
 pub test() -> u64 {
     let a = 10;

@@ -172,8 +172,7 @@ export class ProgramAccount {
                     }
                     break;
                 default:
-                    // Skip unknown variable length types or just mark as raw
-                    // For now, we just stop to avoid reading garbage
+                    // Skip unknown variable-length types to avoid reading garbage
                     // console.warn(`Skipping decoding of complex type ${field.type}`);
                     break;
             }

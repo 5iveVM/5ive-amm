@@ -1,7 +1,4 @@
-// Module Merger for Multi-File Compilation
-//
-// Merges multiple module ASTs into a single unified AST for bytecode generation.
-// Handles symbol renaming and import resolution.
+// Merge module ASTs for multi-file compilation.
 
 use crate::ast::AstNode;
 use five_vm_mito::error::VMError;

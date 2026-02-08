@@ -33,7 +33,7 @@ mod pda_operations_tests {
 
             // Push program ID (need TempRef implementation)
             // TODO: Need proper pubkey reference implementation
-            // For now, use a mock approach
+            // Use a mock approach.
 
             bytecode.push(DERIVE_PDA); // 0x81
             bytecode.push(0x00); // HALT

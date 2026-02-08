@@ -16,8 +16,7 @@ pub(crate) fn analyze_control_flow(analyzer: &mut AdvancedBytecodeAnalyzer) -> R
     let mut block_starts: HashSet<usize> = HashSet::new();
     block_starts.insert(0); // First instruction is always a block start
 
-    // Simplified implementation - would need proper instruction parsing
-    // For now, just add some basic block boundaries based on bytecode analysis
+    // Heuristic: basic block boundaries without full instruction parsing.
     let bytecode_len = analyzer.bytecode.len();
     if bytecode_len > 100 {
         block_starts.insert(bytecode_len / 3);
@@ -66,8 +65,7 @@ pub(crate) fn analyze_stack_effects(analyzer: &mut AdvancedBytecodeAnalyzer) -> 
 
     let mut current_depth = 0i32;
 
-    // Simplified implementation - would need proper instruction parsing
-    // For now, estimate based on bytecode complexity
+    // Heuristic: estimate based on bytecode complexity.
     let estimated_instructions = analyzer.bytecode.len() / 3; // Rough estimate
     for i in 0..estimated_instructions {
         analyzer.stack_analysis.stack_depths.push(current_depth);
@@ -173,8 +171,7 @@ pub(crate) fn detect_patterns(analyzer: &AdvancedBytecodeAnalyzer) -> Result<Vec
 pub(crate) fn generate_summary(analyzer: &AdvancedBytecodeAnalyzer) -> AnalysisSummary {
     let mut category_distribution = HashMap::new();
 
-    // Simplified implementation - would need proper instruction parsing
-    // For now, estimate based on bytecode complexity
+    // Heuristic: estimate based on bytecode complexity.
     let estimated_instructions = analyzer.bytecode.len() / 3;
     let total_compute_cost = estimated_instructions as u32 * 10; // Rough estimate
     let jump_count = (estimated_instructions / 20).max(1); // Rough estimate
@@ -244,7 +241,7 @@ pub(crate) fn calculate_resource_requirements(
 
 /// Calculate maximum concurrent stack usage across functions (simplified implementation)
 fn calculate_max_concurrent_stack_usage(analyzer: &AdvancedBytecodeAnalyzer, _ast: &AstNode) -> u16 {
-    // For now, return a conservative estimate based on stack analysis
+    // Conservative estimate based on stack analysis.
     analyzer.stack_analysis.max_stack_depth.max(32) as u16
 }
 

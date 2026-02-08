@@ -1,8 +1,4 @@
-//! Canonical Parser for Five Bytecode
-//!
-//! This module provides a shared bytecode parser that interprets the optimized header,
-//! fixed-size immediates, and validates CALL targets and instruction bounds.
-//! Used by both compilers and on-chain verifiers to ensure consistent parsing.
+//! Bytecode parser for the optimized header and fixed-size immediates.
 
 use crate::opcodes::{get_opcode_info, ArgType};
 use crate::{ConstantPoolDescriptor, OptimizedHeader};
@@ -12,7 +8,7 @@ use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 
-/// Parsed bytecode result containing header and instructions with validation
+/// Parsed bytecode result containing header and instructions with validation.
 #[derive(Debug, Clone)]
 pub struct ParsedBytecode<'a> {
     pub header: OptimizedHeader,
@@ -22,7 +18,7 @@ pub struct ParsedBytecode<'a> {
     pub bytecode: &'a [u8],
 }
 
-/// Parsed script result for optimized bytecode with metadata sections
+/// Parsed script result for optimized bytecode with metadata sections.
 #[derive(Debug, Clone)]
 pub struct ParsedScript {
     pub header: OptimizedHeader,
@@ -31,7 +27,7 @@ pub struct ParsedScript {
     pub bytecode_start: usize,
 }
 
-/// Parsed instruction with decoded arguments
+/// Parsed instruction with decoded arguments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParsedInstruction {
     pub offset: usize,
@@ -41,7 +37,7 @@ pub struct ParsedInstruction {
     pub size: usize,
 }
 
-/// Parser error types
+/// Parser error types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParseError {
     InvalidMagic,
@@ -55,7 +51,7 @@ pub enum ParseError {
 }
 
 impl ParseError {
-    /// Get error message
+    /// Get error message.
     pub fn message(&self) -> &'static str {
         match self {
             ParseError::InvalidMagic => "Invalid magic number",
@@ -69,23 +65,17 @@ impl ParseError {
     }
 }
 
-/// Parse header and return basic info + instruction start offset
-///
-/// This function validates the header magic, basic fields, and skips any metadata
-/// sections (like function names) to find where instructions actually begin.
-/// It uses 0 allocations.
+/// Parse header and return basic info + instruction start offset.
 pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseError> {
     if bytecode.len() < crate::FIVE_HEADER_OPTIMIZED_SIZE {
         return Err(ParseError::HeaderTooShort);
     }
 
-    // Parse header
     let magic = [bytecode[0], bytecode[1], bytecode[2], bytecode[3]];
     if magic != *b"5IVE" {
         return Err(ParseError::InvalidMagic);
     }
 
-    // Read features as little-endian u32 from bytes 4..8 and counts from bytes 8/9
     let features = u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]]);
 
     let header = OptimizedHeader {
@@ -95,17 +85,13 @@ pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseEr
         total_function_count: bytecode[9],
     };
 
-    // Validate function counts
     if header.total_function_count > crate::MAX_FUNCTIONS as u8 {
         return Err(ParseError::InvalidFunctionCount);
     }
 
-    // Calculate instruction start offset (skip metadata)
     let mut offset = crate::FIVE_HEADER_OPTIMIZED_SIZE;
 
-    // Skip function names metadata if present
     if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0 {
-        // Read section size (fixed u16)
         if offset + 2 > bytecode.len() {
              return Ok((header, offset));
         }
@@ -115,12 +101,10 @@ pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseEr
         offset += section_size as usize;
     }
 
-    // Ensure start offset is within bounds (or exactly at end if empty script)
     if offset > bytecode.len() {
         return Err(ParseError::HeaderTooShort); // Metadata claimed to be larger than bytecode
     }
 
-    // If constant pool is present, parse descriptor and compute code offset
     if (header.features & crate::FEATURE_CONSTANT_POOL) != 0 {
         let desc_size = core::mem::size_of::<ConstantPoolDescriptor>();
         if offset + desc_size > bytecode.len() {

@@ -1,8 +1,4 @@
-// Performance Optimization Module
-//
-// This module handles runtime performance optimization techniques.
-// It includes constraint optimization, scope analysis, bulk operations,
-// and zero-copy account operations for improved execution speed.
+// Runtime performance optimizations.
 
 use super::types::*; // This imports the performance opcodes from types.rs
 use super::OpcodeEmitter;
@@ -365,7 +361,7 @@ impl ZeroCopyOptimizer {
             }
             // Recursively traverse other node types
             _ => {
-                // Simplified traversal - in practice, handle all node types
+                // TODO: Handle all node types.
             }
         }
         Ok(())
@@ -598,7 +594,7 @@ impl PerformanceOptimizer {
         ast: &AstNode,
     ) -> Result<u32, VMError> {
         // This would analyze the AST for bulk optimization opportunities
-        // For now, return estimated savings
+        // Return estimated savings.
         let expressions = self.extract_expressions(ast);
         self.bulk_optimizer
             .analyze_bulk_opportunities(&expressions)?;
@@ -621,7 +617,7 @@ impl PerformanceOptimizer {
     /// Extract expressions from AST for bulk analysis
     fn extract_expressions(&self, ast: &AstNode) -> Vec<AstNode> {
         let mut expressions = Vec::new();
-        // Simplified extraction - in practice, would traverse entire AST
+        // TODO: Traverse entire AST.
         if let AstNode::Program {
             instruction_definitions,
             ..

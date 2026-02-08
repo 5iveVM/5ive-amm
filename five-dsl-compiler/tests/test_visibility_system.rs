@@ -1,9 +1,4 @@
-/// Comprehensive tests for the Visibility system
-/// Tests the distinction between:
-/// - Public functions (on-chain callable)
-/// - Internal functions (module-internal, importable only)
-/// - Visibility parsing in the parser
-/// - Visibility enforcement in type checking
+/// Tests for the Visibility system.
 
 use five_dsl_compiler::{DslParser, DslTokenizer, Visibility, AstNode};
 

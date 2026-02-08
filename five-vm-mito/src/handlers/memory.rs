@@ -382,7 +382,7 @@ pub(crate) fn store_value_into_buffer(
         }
         ValueRef::TempRef(temp_offset, len) if len != 32 => {
             // Handle variable-length TempRef as string/bytes (length-prefixed)
-            // This covers cases where strings are passed as raw TempRefs (e.g. from VLE)
+            // This covers cases where strings are passed as raw TempRefs
             let start = temp_offset as usize;
             let end = start + (len as usize);
             let temp_buf = ctx.temp_buffer();

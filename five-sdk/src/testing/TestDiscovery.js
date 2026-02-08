@@ -215,7 +215,7 @@ export class TestDiscovery {
             if (hasUseStatements) {
                 // Use multi-file compilation with auto-discovery
                 // This would require access to WasmCompilerWrapper
-                // For now, use single-file compilation
+                // Use single-file compilation
                 compilation = await FiveSDK.compile(source, {
                     debug: false,
                     optimize: false

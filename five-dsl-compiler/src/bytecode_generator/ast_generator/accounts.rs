@@ -1,6 +1,4 @@
-//! Account field handling and initialization
-//!
-//! This module handles account field offset calculations and account initialization.
+//! Account field handling and initialization.
 
 // use super::super::types::FieldInfo;
 use super::super::OpcodeEmitter;
@@ -109,7 +107,7 @@ impl ASTGenerator {
             TypeNode::Generic { base, args } => {
                 if base == "Account" && !args.is_empty() {
                     // Extract T from Account<T>
-                    // For now, we assume Account<T> has 1 arg.
+                    // Assume Account<T> has 1 arg.
                     // We need to use generator's helper because TypeNode doesn't have it
                     // But we can just use the type_node_to_string from generator
                     // Note: type_node_to_string is not pub, so we might need to rely on generator having it.

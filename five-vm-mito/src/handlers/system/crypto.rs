@@ -17,7 +17,7 @@ fn parse_data_array(ctx: &mut ExecutionManager, data_ref: ValueRef) -> CompactRe
     // Syscall expects `*const u8` which points to `&[u8]` array (iovec style).
     // This requires us to construct the array of slices in contiguous memory.
 
-    // For now, we only support single data slice (ValueRef::StringRef/TempRef)
+    // Only supports single data slice (ValueRef::StringRef/TempRef).
     // or we need to construct the iovec array in temp buffer.
 
     // If it's a simple byte buffer (StringRef/TempRef), we treat it as 1 element array.

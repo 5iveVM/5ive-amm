@@ -1,7 +1,7 @@
 /**
  * WASM Loader for Five VM
  * 
- * Simplified loader that uses the main wasm-pack generated entry point.
+ * Loader that uses the main wasm-pack generated entry point.
  * Compatible with both Node.js and Browser environments.
  */
 

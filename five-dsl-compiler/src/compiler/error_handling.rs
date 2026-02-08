@@ -1,7 +1,4 @@
-// Compiler Error Handling Module
-//
-// Centralizes error conversion and collection logic to eliminate DRY violations.
-// All VMError to CompilerError conversions go through here.
+// Compiler error handling.
 
 use crate::error::types::{ErrorBuilder, ErrorSeverity};
 use crate::error::{integration, CompilerError, ErrorCategory, ErrorCode, SourceLocation};

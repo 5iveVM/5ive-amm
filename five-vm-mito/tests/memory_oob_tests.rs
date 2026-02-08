@@ -48,7 +48,7 @@ fn load_field_out_of_bounds() {
     let account = create_account(4); // Less than 8 bytes
     let accounts = [account];
 
-    // Bytecode: LOAD_FIELD account_index=0 offset=32 (VLE encoded); HALT
+    // Bytecode: LOAD_FIELD account_index=0 offset=32 (fixed-width); HALT
     // Protocol V3 format: LOAD_FIELD account_index_u8, offset_u32
     let mut body = vec![LOAD_FIELD];
     body.push(0); // account_index = 0

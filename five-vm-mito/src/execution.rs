@@ -1,12 +1,7 @@
-//! Core execution engine for MitoVM with function call support
-//!
-//! Enhanced with minimal function call transport:
-//! - 8-level call stack (stack-allocated)
-//! - Zero-copy account data access
-//! - Enhanced data types for real-world use cases
+//! Core execution engine for MitoVM with function call support.
 
 use crate::{
-    context::ExecutionManager, // Import ExecutionManager for VM execution
+    context::ExecutionManager,
     debug_log,
     error_log,
     error::{CompactResult, Result, VMErrorCode, VMError},
@@ -15,7 +10,7 @@ use crate::{
         handle_functions, handle_locals, handle_logical, handle_memory, handle_nibble_locals,
         handle_option_result_ops, handle_stack_ops, handle_system_ops,
     },
-    stack_error_context, // Import enhanced debugging macros
+    stack_error_context,
     FIVE_MAGIC,
 };
 use five_protocol::{ConstantPoolDescriptor, Value, ValueRef, FIVE_HEADER_OPTIMIZED_SIZE};
@@ -24,7 +19,7 @@ use five_protocol::{ConstantPoolDescriptor, Value, ValueRef, FIVE_HEADER_OPTIMIZ
 use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
 #[cfg(feature = "debug-logs")]
 use heapless::String as HString;
-// Import all opcodes - using hierarchical match structure to prevent stack overflow
+// Import all opcodes - using hierarchical match structure to prevent stack overflow.
 use five_protocol::opcodes::*;
 
 /// Execution state snapshot returned from VM operations.
@@ -39,8 +34,7 @@ pub struct VMExecutionContext {
     pub failed_opcode: Option<u8>,
 }
 
-/// Ultra-lightweight virtual machine optimized for Solana's execution environment.
-/// Features zero-allocation execution, function calls, and sub-50 CU cold start overhead.
+/// Virtual machine optimized for Solana's execution environment.
 ///
 /// # Example
 /// ```rust,no_run
@@ -68,8 +62,7 @@ pub struct VMExecutionContext {
 pub struct MitoVM;
 
 impl MitoVM {
-    /// Prepare execution environment with optimized parameter parsing and minimal overhead.
-    /// Validates script format, parses VLE parameters, and sets up function dispatch.
+    /// Prepare execution environment with fixed-width parameters and function dispatch.
     #[inline(never)]
     fn initialize_execution_context<'a>(
         script: &'a [u8],
@@ -96,8 +89,6 @@ impl MitoVM {
             Self::parse_optimized_header(script)?;
 
         debug_log!("MitoVM: Creating ExecutionManager...");
-
-        debug_log!("MitoVM: Using compile-time defaults");
         debug_log!(
             "MitoVM: Function counts from header: {} public, {} total",
             public_function_count as u32,
@@ -118,11 +109,8 @@ impl MitoVM {
             pool_desc.map(|d| d.string_blob_len).unwrap_or(0),
         );
         ctx.set_header_features(header_features);
-        ctx.set_ip(start_ip); // Set correct starting position via delegation
-        debug_log!(
-            "MitoVM: ExecutionManager created with IP set to {}",
-            start_ip as u32
-        );
+        ctx.set_ip(start_ip);
+        debug_log!("MitoVM: ExecutionManager created with IP set to {}", start_ip as u32);
 
         let dispatch_ip = ctx.initialize_entry_point(start_ip)?;
 
@@ -139,7 +127,7 @@ impl MitoVM {
     fn execute_instruction_loop(ctx: &mut ExecutionManager) -> CompactResult<()> {
         debug_log!("MitoVM: ===== BEGINNING EXECUTION LOOP =====");
 
-        // Main execution loop
+        // Main execution loop.
         #[cfg(feature = "debug-logs")]
         let mut _instruction_count = 0u32;
         loop {
@@ -149,7 +137,7 @@ impl MitoVM {
 
             }
 
-            // Cache values to avoid simultaneous borrows
+            // Cache values to avoid simultaneous borrows.
             let current_ip = ctx.ip();
             let script_len = ctx.script().len();
             let is_halted = ctx.halted();
@@ -164,7 +152,7 @@ impl MitoVM {
                 break;
             }
 
-            // SAFETY: Bounds checked above (current_ip >= script_len)
+            // SAFETY: Bounds checked above (current_ip >= script_len).
             let opcode = unsafe { *ctx.bytecode.get_unchecked(current_ip) };
             ctx.pc += 1;
 
@@ -182,7 +170,7 @@ impl MitoVM {
             }
             */
 
-            // Set current opcode in context for error reporting
+            // Set current opcode in context for error reporting.
             ctx.set_current_opcode(opcode);
 
             #[cfg(feature = "debug-logs")]
@@ -193,11 +181,7 @@ impl MitoVM {
                 );
             }
 
-            // Dispatch opcode to appropriate handler
-            // 🎯 OPTIMIZATION: Flattened dispatch for better BPF performance
-            // The compiler will inline the handlers (due to #[inline(never)])
-            // and optimize this match into a single jump table or efficient tree,
-            // eliminating the double-dispatch overhead.
+            // Dispatch opcode to appropriate handler.
             let result = match opcode {
                 // Control Flow (0x00-0x0F)
                 HALT => handle_control_flow(HALT, ctx),

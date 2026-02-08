@@ -9,7 +9,7 @@ The Five DSL Compiler provides:
 - **Module namespaces** using qualified function names (`module::function`)
 - **Type checking** with cross-module symbol resolution
 - **Bytecode generation** optimized for Solana execution
-- **VLE encoding** for compact instruction representation
+- **Fixed-width encoding** for instruction representation
 
 ## Quick Start
 

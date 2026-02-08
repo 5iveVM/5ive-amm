@@ -3,17 +3,7 @@ use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
-// ============================================================================
-// Admin Key Configuration
-// ============================================================================
-
-/// The admin key that can deploy bytecode with special permissions.
-/// This is the authority key set during VM initialization.
-/// The admin key is the only one allowed to use PERMISSION_PRE_BYTECODE,
-/// PERMISSION_POST_BYTECODE, or PERMISSION_PDA_SPECIAL_CHARS.
-///
-/// The admin key is stored in the FIVEVMState account's authority field
-/// and is set during the Initialize instruction.
+/// Admin key that can deploy bytecode with special permissions.
 
 #[cfg(test)]
 mod tests {
@@ -183,10 +173,6 @@ mod tests {
         }
     }
 }
-
-// ============================================================================
-// Permission Constants
-// ============================================================================
 
 pub const PERMISSION_PRE_BYTECODE: u8 = 0x01;         // Bit 0
 pub const PERMISSION_POST_BYTECODE: u8 = 0x02;        // Bit 1

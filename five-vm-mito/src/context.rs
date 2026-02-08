@@ -1,7 +1,4 @@
-//! Ultra-lightweight execution context for MitoVM
-//!
-//! Single unified context replacing all previous abstraction layers.
-//! Designed for maximum performance with zero indirection.
+//! Execution context for MitoVM.
 
 use crate::{
     error::{CompactResult, Result, VMErrorCode},
@@ -28,55 +25,53 @@ use crate::systems::{
     stack::StackManager,
 };
 
-/// Single unified execution context for maximum performance
+/// Single unified execution context.
 /// Temp buffer is stack-based to keep the entire context on the stack
 /// while remaining within Solana's 4KB BPF stack limit.
-/// Replaces: ValueRefStack, ExecutionContext, CoreExecutionContext,
-/// MemoryContext, CallContext, ExternalContext, ExecutionManager
 pub struct ExecutionContext<'a> {
-    // --- Systems ---
+    // Systems.
     pub stack: StackManager<'a>,
     pub memory: ResourceManager<'a>,
     pub accounts: AccountManager<'a>,
     pub frame: FrameManager<'a>,
 
-    // --- Core execution state ---
+    // Core execution state.
     pub bytecode: &'a [u8],
     /// Original root bytecode for context restoration
     pub root_bytecode: &'a [u8],
     pub current_context: u8,
     pub pc: u16,
 
-    // --- Function metadata (optimized header V2) ---
+    // Function metadata (optimized header V2).
     pub public_function_count: u8, // For external dispatch validation
     pub total_function_count: u8,  // For internal CALL validation
     pub header_features: u32,      // Raw header feature flags
 
-    // --- Constant pool metadata ---
+    // Constant pool metadata.
     pub pool_offset: u32,
     pub pool_slots: u16,
     pub string_blob_offset: u32,
     pub string_blob_len: u32,
 
-    // --- External Solana state ---
+    // External Solana state.
     pub program_id: Pubkey,
     pub instruction_data: &'a [u8],
 
-    // --- Execution state ---
+    // Execution state.
     pub halted: bool,
     pub return_value: Option<ValueRef>,
     pub current_opcode: Option<u8>,
 
-    // --- Compute tracking (minimal for ultra-lightweight VM) ---
+    // Compute tracking.
     pub compute_units_consumed: u64,
 
-    // --- Input data processing ---
+    // Input data processing.
     pub input_ptr: u8,
 
-    // --- Import verification metadata ---
+    // Import verification metadata.
     pub import_metadata: ImportMetadata<'a>,
 
-    // --- Syscall Caching ---
+    // Syscall caching.
     pub cached_clock: Option<pinocchio::sysvars::clock::Clock>,
     pub cached_rent: Option<pinocchio::sysvars::rent::Rent>,
 }
@@ -115,7 +110,7 @@ impl FromLeBytes<16> for u128 {
 }
 
 impl<'a> ExecutionContext<'a> {
-    /// Create new execution context with OptimizedHeader V2
+    /// Create new execution context with OptimizedHeader V2.
     #[inline]
     pub fn new(
         bytecode: &'a [u8],
@@ -157,7 +152,7 @@ impl<'a> ExecutionContext<'a> {
             compute_units_consumed: 0,
             input_ptr: 0,
             import_metadata: ImportMetadata::new(bytecode, bytecode.len()).unwrap_or_else(|_| {
-                // If parsing fails, create empty metadata (backward compatible)
+                // If parsing fails, create empty metadata (backward compatible).
                 ImportMetadata::new(&[], 0).unwrap()
             }),
             cached_clock: None,
@@ -987,17 +982,7 @@ impl<'a> ExecutionContext<'a> {
         // params[0] is func index. params[1..8] are arguments.
         let count = (param_count as usize).min(MAX_PARAMETERS - 1);
 
-        // Check for typed mode sentinel is removed or assumed to be handled by higher level protocol.
-        // Assuming strictly typed mode or pure u64s? The original code had a sentinel check.
-        // For simplicity and strictness, let's assume we read typed values if typed mode was intended,
-        // or just read u64s if not.
-        // The previous code had `is_typed_mode` check.
-        // I'll implement a simple loop reading 8-byte values for now as a baseline,
-        // OR reproduce the typed logic with fixed sizes.
-        // Given "remove ALL VLE", I will assume we use fixed size encoding for everything.
-        // The sentinel `0x80` is a single byte.
-
-        // Let's implement typed parsing with fixed sizes.
+        // Fixed-size, typed parameter parsing. Type-id sentinel is reserved.
 
         for i in 0..count {
              if offset >= input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
@@ -1013,11 +998,8 @@ impl<'a> ExecutionContext<'a> {
                     // Check bounds
                     if offset + len > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
 
-                    // Alloc temp buffer: [len:u8, type:u8, bytes...]
-                    // WARNING: temp buffer format expects len as u8?
-                    // Previous code: `self.memory.temp_buffer[array_id as usize] = len as u8;`
-                    // This implies strings > 255 length are truncated in temp buffer metadata?
-                    // I will keep this behavior for now to avoid breaking VM internals if they expect this format.
+                    // Temp buffer layout: [len:u8, type:u8, bytes...]
+                    // Length is stored as u8 in temp buffer metadata.
                     let total_size = 2 + len;
                     if total_size > crate::TEMP_BUFFER_SIZE { return Err(VMErrorCode::OutOfMemory); }
 
@@ -1073,8 +1055,7 @@ impl<'a> ExecutionContext<'a> {
                 }
                 _ => {
                     // Fallback to U64 if type unknown or generic (assuming 8 bytes)
-                    // The previous code had a "Pure VLE" branch.
-                    // Here we'll just error or assume U64.
+                    // Unknown or unsupported type.
                     return Err(VMErrorCode::TypeMismatch);
                 }
              }

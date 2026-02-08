@@ -1,16 +1,6 @@
-//! Macros for reducing code repetition in AST generation
-//!
-//! This module provides macros to eliminate common patterns across the AST generator.
+//! Macros for AST generation helpers.
 
-/// Validate function argument counts
-///
-/// # Examples
-///
-/// ```ignore
-/// validate_args!(args, 1);  // Exactly 1 argument
-/// validate_args!(args, 0);  // No arguments
-/// validate_args!(args, max 2);  // At most 2 arguments
-/// ```
+/// Validate function argument counts.
 #[macro_export]
 macro_rules! validate_args {
     ($args:expr, $count:expr) => {
@@ -25,15 +15,7 @@ macro_rules! validate_args {
     };
 }
 
-/// Emit a native syscall with argument validation
-///
-/// # Examples
-///
-/// ```ignore
-/// emit_syscall!(emitter, args, 1, args empty);  // abort() - no args
-/// emit_syscall!(emitter, args, 2, args max 1);  // panic(msg?) - 0 or 1 args
-/// emit_syscall!(emitter, args, 80, args = 1);   // sha256(data) - exactly 1 arg
-/// ```
+/// Emit a native syscall with argument validation.
 #[macro_export]
 macro_rules! emit_syscall {
     ($emitter:expr, $args:expr, $id:expr, args = $count:expr) => {{

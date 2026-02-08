@@ -135,7 +135,7 @@ close_account(
     require(source_account.owner_key == owner, "Account owner mismatch");
     require(source_account.bal == 0, "Account must have zero balance to close");
     // In a real VM, this would involve transferring lamports back and marking account as closed/uninitialized
-    // For now, we just set balance to 0 and conceptually "close" it.
+    // Set balance to 0 and conceptually "close" it.
     source_account.bal = 0;
 }
 

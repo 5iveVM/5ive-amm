@@ -1,29 +1,26 @@
-//! Function Calling Convention Specification
-//!
-//! Defines the standardized calling convention for all Stacks VMs.
-//! Zero-allocation, stack-based design optimized for Solana execution.
+//! Function calling convention.
 
 use crate::{FunctionSignature, Value, ValueRef, MAX_CALL_DEPTH, MAX_FUNCTION_PARAMS, MAX_LOCALS};
 
-/// Call frame for function calls (stack-allocated)
+/// Call frame for function calls.
 #[derive(Debug, Clone, Copy)]
 pub struct CallFrame {
-    /// Return address (instruction pointer)
+    /// Return address (instruction pointer).
     pub return_address: usize,
-    /// Function being called
+    /// Function being called.
     pub function_index: u8,
-    /// Number of parameters passed
+    /// Number of parameters passed.
     pub param_count: u8,
-    /// Number of local slots allocated
+    /// Number of local slots allocated.
     pub local_slots: u8,
-    /// Base offset for local variables in locals array
+    /// Base offset for local variables in locals array.
     pub locals_base: u8,
-    /// Saved stack size for cleanup
+    /// Saved stack size for cleanup.
     pub saved_stack_size: usize,
 }
 
 impl CallFrame {
-    /// Create new call frame
+    /// Create new call frame.
     #[inline]
     pub const fn new(
         return_address: usize,
@@ -43,7 +40,7 @@ impl CallFrame {
         }
     }
 
-    /// Check if frame is valid
+    /// Check if frame is valid.
     #[inline]
     pub const fn is_valid(&self) -> bool {
         (self.param_count as usize) <= MAX_FUNCTION_PARAMS
@@ -52,12 +49,12 @@ impl CallFrame {
     }
 }
 
-/// Call stack for managing function calls (stack-allocated)
+/// Call stack for managing function calls.
 #[derive(Debug)]
 pub struct CallStack {
-    /// Call frames array (stack-allocated)
+    /// Call frames array.
     frames: [CallFrame; MAX_CALL_DEPTH],
-    /// Current depth
+    /// Current depth.
     depth: u8,
 }
 
@@ -68,7 +65,7 @@ impl Default for CallStack {
 }
 
 impl CallStack {
-    /// Create new call stack
+    /// Create new call stack.
     #[inline]
     pub const fn new() -> Self {
         const EMPTY_FRAME: CallFrame = CallFrame::new(0, 0, 0, 0, 0, 0);
@@ -78,7 +75,7 @@ impl CallStack {
         }
     }
 
-    /// Push new call frame
+    /// Push new call frame.
     #[inline]
     pub fn push(&mut self, frame: CallFrame) -> Result<(), CallError> {
         if self.depth >= MAX_CALL_DEPTH as u8 {
@@ -93,7 +90,7 @@ impl CallStack {
         Ok(())
     }
 
-    /// Pop call frame
+    /// Pop call frame.
     #[inline]
     pub fn pop(&mut self) -> Result<CallFrame, CallError> {
         if self.depth == 0 {
@@ -104,7 +101,7 @@ impl CallStack {
         Ok(self.frames[self.depth as usize])
     }
 
-    /// Get current frame (top of stack)
+    /// Get current frame (top of stack).
     #[inline]
     pub fn current(&self) -> Option<&CallFrame> {
         if self.depth == 0 {
@@ -114,44 +111,44 @@ impl CallStack {
         }
     }
 
-    /// Get current call depth
+    /// Get current call depth.
     #[inline]
     pub const fn depth(&self) -> u8 {
         self.depth
     }
 
-    /// Check if stack is empty
+    /// Check if stack is empty.
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.depth == 0
     }
 
-    /// Check if stack is full
+    /// Check if stack is full.
     #[inline]
     pub const fn is_full(&self) -> bool {
         self.depth >= MAX_CALL_DEPTH as u8
     }
 
-    /// Clear the call stack
+    /// Clear the call stack.
     #[inline]
     pub fn clear(&mut self) {
         self.depth = 0;
     }
 }
 
-/// Parameter passing protocol
+/// Parameter passing protocol.
 #[derive(Debug, Clone)]
 pub struct ParameterProtocol {
-    /// Function signature
+    /// Function signature.
     pub signature: FunctionSignature,
-    /// Parameter values (stack-allocated)
+    /// Parameter values.
     pub values: [Value; MAX_FUNCTION_PARAMS],
-    /// Actual parameter count
+    /// Actual parameter count.
     pub count: u8,
 }
 
 impl ParameterProtocol {
-    /// Create new parameter protocol
+    /// Create new parameter protocol.
     #[inline]
     pub const fn new(signature: FunctionSignature) -> Self {
         Self {
@@ -161,7 +158,7 @@ impl ParameterProtocol {
         }
     }
 
-    /// Add parameter value
+    /// Add parameter value.
     #[inline]
     pub fn add_param(&mut self, value: Value) -> Result<(), CallError> {
         if self.count >= MAX_FUNCTION_PARAMS as u8 {
@@ -182,7 +179,7 @@ impl ParameterProtocol {
         Ok(())
     }
 
-    /// Validate all parameters are provided
+    /// Validate all parameters are provided.
     #[inline]
     pub fn validate(&self) -> Result<(), CallError> {
         if self.count != self.signature.parameter_count {
@@ -193,7 +190,7 @@ impl ParameterProtocol {
         Ok(())
     }
 
-    /// Get parameter by index
+    /// Get parameter by index.
     #[inline]
     pub fn get_param(&self, index: u8) -> Option<&Value> {
         if index < self.count {

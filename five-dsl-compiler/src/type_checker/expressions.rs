@@ -508,7 +508,7 @@ impl TypeCheckerContext {
                         .clone()
                         .unwrap_or(TypeNode::Primitive("void".to_string())))
                 } else {
-                    // TEMP FIX: For namespaced calls (Module::Function), assume u64 return type if unknown.
+                    // TEMP: For namespaced calls (Module::Function), default to u64 if unknown.
                     // This allows compiling amm_core.v without full Import Resolution implemented.
                     if name.contains("::") {
                         return Ok(TypeNode::Primitive("u64".to_string()));

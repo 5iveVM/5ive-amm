@@ -176,7 +176,7 @@ pub fn parse_error_with_context(
         all_suggestions.extend(generated_suggestions);
 
         // Apply suggestions to the error (this would require modifying the error structure)
-        // For now, we'll include them in the description
+        // Include in the description.
         if !all_suggestions.is_empty() {
             let suggestion_text = all_suggestions
                 .iter()

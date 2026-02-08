@@ -1,10 +1,4 @@
-/**
- * Five CLI Local Command
- * 
- * Complete local command namespace for WASM execution that bypasses config
- * and always runs locally. Provides fast development experience without
- * network dependencies.
- */
+// Local WASM execution commands.
 
 import { readFile, readdir, stat } from 'fs/promises';
 import { join, extname, basename } from 'path';
@@ -19,9 +13,7 @@ import {
 import { FiveSDK } from 'five-sdk';
 import { section, success as uiSuccess, error as uiError } from '../utils/cli-ui.js';
 
-/**
- * Main local command - parent for all local subcommands
- */
+// Parent for local subcommands.
 export const localCommand: CommandDefinition = {
   name: 'local',
   description: 'Local WASM execution',

@@ -1,6 +1,4 @@
-//! Resource tracking for V3 header generation
-//!
-//! This module handles tracking of resources like locals, stack depth, and function calls.
+//! Resource tracking for header generation.
 
 use super::types::ASTGenerator;
 

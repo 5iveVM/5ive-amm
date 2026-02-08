@@ -1,4 +1,4 @@
-// Simplified test for basic operations
+// Basic operations test
 
 pub test() -> u64 {
     let a = 5;

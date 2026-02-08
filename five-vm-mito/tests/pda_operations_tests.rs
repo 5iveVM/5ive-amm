@@ -73,7 +73,7 @@ mod pda_derivation {
                 // Should return a tuple (pubkey, bump) or similar structure
                 // The exact format depends on VM implementation
                 println!("PDA derivation result: {:?}", result);
-                // For now, just verify it doesn't crash
+                // Verify it doesn't crash.
             }
             Ok(result) => panic!("Expected some result from PDA derivation, got {:?}", result),
             Err(e) => {
@@ -106,7 +106,7 @@ mod pda_derivation {
             0x95, 0x76, 0x61, 0x75, 0x6C, 0x74, // Push "vault" bytes
             // Push user pubkey (32 bytes)
             // In real implementation, this would be handled by PUSH_PUBKEY or similar
-            0x95, 0x11, // Simplified - push first byte as placeholder
+            0x95, 0x11, // Placeholder: push first byte
             // Push numeric seed 123
             0x95, 0x7B, // PUSH_U64 (123)
             // Call DERIVE_PDA
@@ -339,7 +339,7 @@ mod pda_integration {
             0x95, 0x01, // Program ID
             0x95, 0x75, 0x73, 0x65, 0x72, // "user" prefix
             // User pubkey would go here in real implementation
-            0x95, 0x11, // Simplified user ID
+            0x95, 0x11, // Placeholder user ID
             0x95, 0x76, 0x61, 0x75, 0x6C, 0x74, // "vault" suffix
             0x82, // DERIVE_PDA
             0x00, // HALT
@@ -350,9 +350,9 @@ mod pda_integration {
             0x95, 0x01, // Program ID
             0x95, 0x74, 0x6F, 0x6B, 0x65, 0x6E, // "token"
             // Mint pubkey would go here
-            0x95, 0x22, // Simplified mint ID
+            0x95, 0x22, // Placeholder mint ID
             // Owner pubkey would go here
-            0x95, 0x33, // Simplified owner ID
+            0x95, 0x33, // Placeholder owner ID
             0x82, // DERIVE_PDA
             0x00, // HALT
         ];

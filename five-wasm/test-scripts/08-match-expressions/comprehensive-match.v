@@ -1,4 +1,4 @@
-// Simplified comprehensive test
+// Comprehensive test
 
 pub test() -> u64 {
     let x = 10;

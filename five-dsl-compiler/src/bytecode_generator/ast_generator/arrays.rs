@@ -1,6 +1,4 @@
-//! Array and block statement generation
-//!
-//! This module handles generation of arrays, byte arrays, and statement blocks.
+//! Array and block statement generation.
 
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;

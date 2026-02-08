@@ -155,7 +155,7 @@ fn test_spec_bitwise_shifts() {
 
     // 3. Arithmetic Right Shift (on signed value)
     // -8 (in 64-bit two's complement) >> 1 should be -4
-    // We manually encode the u64 bit pattern for -8 (0xFFFFFFFFFFFFFFF8) to avoid VLE ZigZag confusion in PUSH_I64
+    // We manually encode the u64 bit pattern for -8 (0xFFFFFFFFFFFFFFF8) for PUSH_I64
     // NOTE: PUSH_I64 implementation casts raw bits to i64.
     let bc_sar = build_script(|script| {
         // PUSH -8 as I64 using raw bytes

@@ -216,7 +216,7 @@ impl InterfaceRegistry {
         // - Interface composition (interface C includes A, B)
         // - Circular dependency detection
 
-        // For now, just validate no circular references exist
+        // Validate no circular references exist.
         for interface_name in self.interfaces.keys() {
             self.dependencies.insert(interface_name.clone(), Vec::new());
         }

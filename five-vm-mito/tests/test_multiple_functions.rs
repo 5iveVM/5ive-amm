@@ -178,7 +178,7 @@ fn test_individual_functions() {
     // Test multiply function (function index 1)
     println!("Testing multiply function (index 1)...");
 
-    // For now, we'll focus on the main test function
+    // Focus on the main test function.
     println!("Individual function testing requires parameter setup - focusing on integrated test");
 }
 

@@ -1,11 +1,5 @@
 /**
- * Comprehensive test suite for partial execution capabilities in WASM
- * 
- * This test suite validates that:
- * 1. Pure computational opcodes execute correctly in WASM
- * 2. System calls are properly detected and execution stops
- * 3. TestResult provides honest execution status reporting
- * 4. No fake implementations or placeholder behavior
+ * Partial execution tests for WASM.
  */
 
 import init, { FiveVMWasm, WasmAccount, validate_bytecode, get_constants } from '../pkg/five_vm_wasm.js';
@@ -200,7 +194,7 @@ describe('WASM Partial Execution Tests', () => {
             const accounts = [createTestAccount("test")];
             const inputData = new Uint8Array();
 
-            // For now, just test that we can call execute_partial without errors
+            // Test that execute_partial runs without errors
             const result = vm.execute_partial(inputData, accounts);
             
             expect(result.status()).toBeTruthy();
@@ -415,7 +409,7 @@ describe('Realistic Partial Execution Scenarios', () => {
 
     test('Script with computational work followed by system call stops appropriately', async () => {
         // This would be a more complex test when we have proper system call opcodes
-        // For now, we test that pure computation works and system interface is ready
+        // Test that pure computation works and system interface is ready
         const vm = new FiveVMWasm(createBytecode([opcodes.HALT]));
         const result = vm.execute_partial(new Uint8Array(), []);
         

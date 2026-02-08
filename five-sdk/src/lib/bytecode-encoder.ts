@@ -1,12 +1,4 @@
-/**
- * Bytecode Encoder for Five VM Protocol
- * 
- * Uses the existing WASM Parameter encoders for protocol-compliant
- * encoding of execute instructions using fixed-size encoding.
- * 
- * Execute instruction format:
- * [discriminator(1), function_index(u32), param_count(u32), ...parameters]
- */
+// Bytecode encoder for the Five VM protocol.
 
 import { getWasmModule } from '../wasm/loader.js';
 
@@ -24,9 +16,7 @@ export interface ParameterValue {
   [key: string]: any;
 }
 
-/**
- * Type mapping for encoding - matches Five protocol types
- */
+// Type mapping for encoding - matches Five protocol types.
 const TYPE_IDS: Record<string, number> = {
   'u8': 1,
   'u16': 2,
@@ -44,12 +34,9 @@ const TYPE_IDS: Record<string, number> = {
   'array': 13
 };
 
-/**
- * Bytecode Encoder utility class that uses WASM module for protocol compliance
- */
 export class BytecodeEncoder {
   /**
-   * Get type ID for encoding
+   * Get type ID for encoding.
    */
   static getTypeId(type: string): number {
     const typeId = TYPE_IDS[type.toLowerCase()];
@@ -60,7 +47,7 @@ export class BytecodeEncoder {
   }
 
   /**
-   * Encode a 32-bit unsigned integer (Little Endian)
+   * Encode a 32-bit unsigned integer (Little Endian).
    */
   static encodeU32(value: number): Uint8Array {
       const buffer = new Uint8Array(4);
@@ -72,7 +59,7 @@ export class BytecodeEncoder {
   }
 
   /**
-   * Encode execute instruction data using WASM ParameterEncoder
+   * Encode execute instruction data using WASM ParameterEncoder.
    */
   static async encodeExecute(
     functionIndex: number,
@@ -81,7 +68,7 @@ export class BytecodeEncoder {
     retry: boolean = true,
     options: any = {}
   ): Promise<Buffer> {
-    // ⚡ Normalize parameter types before encoding to handle custom types (Mint, TokenAccount, etc.)
+    // Normalize parameter types before encoding to handle custom types (Mint, TokenAccount, etc.).
     const normalizedParameters = parameters.map(p => ({
       ...p,
       type: this.normalizeType(p)
@@ -92,10 +79,10 @@ export class BytecodeEncoder {
       try {
         wasmModule = await getWasmModule();
 
-        // Check if loaded module is valid
+        // Check if loaded module is valid.
         if (wasmModule && wasmModule.ParameterEncoder) {
           try {
-            // Health check: Try to encode empty params
+            // Health check: try to encode empty params.
             wasmModule.ParameterEncoder.encode_execute(0, []);
           } catch (e: any) {
             console.warn("[BytecodeEncoder] Module validation failed, falling back:", e.message);
@@ -109,7 +96,7 @@ export class BytecodeEncoder {
         wasmModule = null;
       }
 
-      // Fallback: Import the proper wasm-pack generated module for Node.js
+      // Fallback: import the wasm-pack generated module for Node.js.
       if (!wasmModule && typeof process !== 'undefined') {
         console.log("[DEBUG] (SRC) Attempting wasm-pack module import...");
         try {
@@ -119,14 +106,14 @@ export class BytecodeEncoder {
 
           const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
           // Import the wasm-pack generated entry point (five_vm_wasm.js)
-          // which already handles all the WASM initialization
+          // which already handles all the WASM initialization.
           const moduleEntryPath = path.resolve(__dirname, '../assets/vm/five_vm_wasm.js');
 
           if (fs.existsSync(moduleEntryPath)) {
             console.log("[DEBUG] Found WASM module at:", moduleEntryPath);
             const wasmMod = await import(moduleEntryPath);
 
-            // The wasm-pack module exports the initialized module directly
+            // The wasm-pack module exports the initialized module directly.
             if (wasmMod && wasmMod.ParameterEncoder) {
               wasmModule = wasmMod;
               console.log("[DEBUG] WASM module imported and initialized successfully!");
@@ -138,7 +125,7 @@ export class BytecodeEncoder {
           }
         } catch (err) {
           console.error("[DEBUG] Module import FAILED:", err);
-          // Don't throw - let it fall through to error handling below
+          // Don't throw - let it fall through to error handling below.
         }
       }
     }
@@ -161,15 +148,12 @@ export class BytecodeEncoder {
       })));
     }
 
-    // Always use WASM encoder for all parameter types (accounts, pubkeys, strings, etc.)
-    // The WASM encoder handles mixed-type parameters correctly
-
-    // Build parameter array with metadata for WASM encoder to distinguish account vs pubkey types
+    // Build parameter array with metadata for WASM encoder to distinguish account vs pubkey types.
     const paramArray = paramValues.map(({ param, value }) => {
       const normalizedType = this.normalizeType(param);
-      // Create object with type information so WASM encoder can distinguish accounts from pubkeys
+      // Create object with type information so WASM encoder can distinguish accounts from pubkeys.
       if (normalizedType === 'account') {
-        // Mark account parameters with type metadata
+        // Mark account parameters with type metadata.
         return { __type: 'account', value };
       }
       return value;
@@ -186,7 +170,7 @@ export class BytecodeEncoder {
       console.warn("[BytecodeEncoder] Encode failed via WASM:", e);
       if (retry) {
         console.warn("[BytecodeEncoder] Reloading WASM module and retrying...");
-        wasmModule = null; // Force reload
+        wasmModule = null; // Force reload.
         return this.encodeExecute(functionIndex, parameters, values, false, options);
       }
       throw e;

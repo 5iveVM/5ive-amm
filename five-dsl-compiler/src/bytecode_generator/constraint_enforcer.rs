@@ -75,15 +75,7 @@ fn is_account_param(param: &InstructionParameter, account_registry: &AccountRegi
     match &param.param_type {
         TypeNode::Account => true,
         TypeNode::Named(name) => {
-            // Check if it's a registered account type
-            // Also consider built-in accounts if any (TokenAccount, etc)
-            // Ideally we should use AccountSystem::is_account_type logic but we don't have AccountSystem here.
-            // We assume built-in accounts are NOT in registry but should be treated as accounts?
-            // "Account" -> TypeNode::Account. "TokenAccount" -> Named("TokenAccount").
-            // If TokenAccount is built-in and not in registry, checking registry fails.
-            // But AccountSystem::is_account_type handles "TokenAccount" etc. explicitly.
-            // We should replicate that or assume all Named types might be accounts?
-            // NO, "Pubkey" is Named but NOT account.
+            // Check registry and built-in account type names.
 
             if matches!(name.as_str(), "Account" | "TokenAccount" | "ProgramAccount") {
                 return true;
@@ -193,5 +185,4 @@ fn emit_has_check<T: OpcodeEmitter>(
 
     Ok(())
 }
-
 

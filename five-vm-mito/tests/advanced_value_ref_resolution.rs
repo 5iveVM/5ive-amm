@@ -269,12 +269,7 @@ fn resolve_recursion_limit() {
     );
 
     // Need 9 levels of TempRef to bust 8 limit.
-    // serialized TempRef is 1 byte tag + 1 byte offset + 1 byte size = 3 bytes! (because u8 offset/size)
-    // Wait, ValueRef::TempRef(u8, u8)
-    // serialize: [tag, u8, u8] = 3 bytes.
-
-    // Buffer size 64.
-    // 3 bytes per ref. 9 refs = 27 bytes. Fits easily.
+    // TempRef serializes to 3 bytes: [tag, u8 offset, u8 size].
 
     let mut offset = 0;
     let mut writer_buf = vec![0u8; 64];

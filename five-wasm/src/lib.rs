@@ -8,7 +8,6 @@ use five_protocol::{
 use five_vm_mito::{error::VMError, FIVE_VM_PROGRAM_ID};
 use serde::{Deserialize, Serialize};
 
-// Define missing constants
 const MAX_COMPUTE_UNITS: usize = 1_000_000;
 use five_dsl_compiler::{
     error::integration,
@@ -17,8 +16,7 @@ use five_dsl_compiler::{
     DslCompiler,
 };
 
-// Initialize panic hook for better error messages in WASM
-// Moved from auto-start to manual initialization to prevent hanging during module import
+// Initialize panic hook for better error messages in WASM.
 fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
@@ -28,7 +26,7 @@ pub fn log_to_console(message: &str) {
     log_message(message);
 }
 
-// Helper for logging that works in both WASM and native environments
+// Helper for logging that works in both WASM and native environments.
 fn log_message(message: &str) {
     #[cfg(target_arch = "wasm32")]
     web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(message));
@@ -37,7 +35,7 @@ fn log_message(message: &str) {
     println!("[WASM LOG] {}", message);
 }
 
-// Helper for warning that works in both WASM and native environments
+// Helper for warning that works in both WASM and native environments.
 fn warn_message(message: &str) {
     #[cfg(target_arch = "wasm32")]
     web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(message));
@@ -46,58 +44,58 @@ fn warn_message(message: &str) {
     eprintln!("[WASM WARN] {}", message);
 }
 
-/// Execution result that honestly reports what happened
+/// Execution result.
 #[derive(Debug, Clone, PartialEq)]
 #[wasm_bindgen]
 pub enum ExecutionStatus {
-    /// All operations completed successfully
+    /// All operations completed successfully.
     Completed,
-    /// Execution stopped because it hit a system program call that cannot be executed in WASM
+    /// Execution stopped because it hit a system program call that cannot be executed in WASM.
     StoppedAtSystemCall,
-    /// Execution stopped because it hit an INIT_PDA operation that requires real Solana context
+    /// Execution stopped because it hit an INIT_PDA operation that requires real Solana context.
     StoppedAtInitPDA,
-    /// Execution stopped because it hit an INVOKE operation that requires real RPC
+    /// Execution stopped because it hit an INVOKE operation that requires real RPC.
     StoppedAtInvoke,
-    /// Execution stopped because it hit an INVOKE_SIGNED operation that requires real RPC
+    /// Execution stopped because it hit an INVOKE_SIGNED operation that requires real RPC.
     StoppedAtInvokeSigned,
-    /// Execution stopped because compute limit was reached
+    /// Execution stopped because compute limit was reached.
     ComputeLimitExceeded,
-    /// Execution failed due to an error
+    /// Execution failed due to an error.
     Failed,
 }
 
-/// Detailed execution result that provides full context
+/// Detailed execution result.
 #[derive(Debug)]
 #[wasm_bindgen]
 pub struct TestResult {
-    /// Final execution status
+    /// Final execution status.
     #[wasm_bindgen(skip)]
     pub status: ExecutionStatus,
-    /// Final value on stack (if any)
+    /// Final value on stack (if any).
     #[wasm_bindgen(skip)]
     pub result_value: Option<JsValue>,
-    /// Compute units consumed
+    /// Compute units consumed.
     pub compute_units_used: u64,
-    /// Final instruction pointer
+    /// Final instruction pointer.
     pub instruction_pointer: usize,
-    /// Stack contents at stop point
+    /// Stack contents at stop point.
     #[wasm_bindgen(skip)]
     pub final_stack: Vec<JsValue>,
-    /// Final memory state (temp buffer)
+    /// Final memory state (temp buffer).
     #[wasm_bindgen(skip)]
     pub final_memory: Vec<u8>,
-    /// Final state of accounts after execution
+    /// Final state of accounts after execution.
     #[wasm_bindgen(skip)]
     pub final_accounts: Vec<JsValue>,
-    /// Error message if failed
+    /// Error message if failed.
     #[wasm_bindgen(skip)]
     pub error_message: Option<String>,
-    /// Detailed execution context for enhanced debugging
+    /// Detailed execution context for enhanced debugging.
     #[wasm_bindgen(skip)]
     pub execution_context: Option<String>,
-    /// Which opcode caused the stop (if stopped at system call)
+    /// Which opcode caused the stop (if stopped at system call).
     pub stopped_at_opcode: Option<u8>,
-    /// Human-readable name of the stopping opcode
+    /// Human-readable name of the stopping opcode.
     #[wasm_bindgen(skip)]
     pub stopped_at_opcode_name: Option<String>,
 }
@@ -150,11 +148,11 @@ impl TestResult {
     }
 }
 
-/// JavaScript-compatible VM state representation
+/// JavaScript-compatible VM state representation.
 #[wasm_bindgen]
 pub struct FiveVMState {
     #[wasm_bindgen(skip)]
-    pub stack: Vec<String>, // Simplified to strings for now
+    pub stack: Vec<String>,
     #[wasm_bindgen(skip)]
     pub instruction_pointer: usize,
     #[wasm_bindgen(skip)]
@@ -179,7 +177,7 @@ impl FiveVMState {
     }
 }
 
-/// JavaScript-compatible account representation
+/// JavaScript-compatible account representation.
 #[derive(Serialize, Deserialize)]
 #[wasm_bindgen]
 pub struct WasmAccount {
@@ -247,7 +245,7 @@ impl WasmAccount {
     }
 }
 
-/// WASM Logger implementation (simplified for MitoVM)
+/// WASM logger implementation.
 pub struct WasmLogger;
 
 impl WasmLogger {
@@ -256,12 +254,12 @@ impl WasmLogger {
     }
 }
 
-/// WASM System Interface (simplified for MitoVM - system calls detected by opcode analysis)
+/// WASM system interface (system calls detected by opcode analysis).
 pub struct WasmSystemInterface {
     pub encountered_system_call: std::sync::Arc<std::sync::Mutex<Option<SystemCallType>>>,
 }
 
-/// Types of system calls that stop execution in WASM
+/// Types of system calls that stop execution in WASM.
 #[derive(Debug, Clone)]
 pub enum SystemCallType {
     Invoke(u8),
@@ -307,26 +305,26 @@ impl WasmSystemInterface {
     }
 }
 
-/// WASM Account conversion for MitoVM zero-copy execution
+/// WASM account conversion for MitoVM zero-copy execution.
 impl WasmAccount {
-    /// Convert to raw account data for MitoVM
+    /// Convert to raw account data for MitoVM.
     pub fn to_mito_account_data(&self) -> Vec<u8> {
         // MitoVM expects raw account data without metadata
         self.data.clone()
     }
 
-    /// Update from MitoVM account data
+    /// Update from MitoVM account data.
     pub fn update_from_mito_data(&mut self, data: &[u8]) {
         self.data = data.to_vec();
     }
 
-    /// Create account metadata for MitoVM context
+    /// Create account metadata for MitoVM context.
     pub fn create_mito_metadata(&self) -> (bool, bool, [u8; 32]) {
         (self.is_signer, self.is_writable, self.owner)
     }
 }
 
-/// Main WASM VM wrapper
+/// Main WASM VM wrapper.
 #[wasm_bindgen]
 pub struct FiveVMWasm {
     bytecode: Vec<u8>,
@@ -335,27 +333,26 @@ pub struct FiveVMWasm {
     _system: &'static WasmSystemInterface,
 }
 
-// Static instances for WASM environment
+// Static instances for WASM environment.
 static WASM_LOGGER: WasmLogger = WasmLogger;
 static WASM_SYSTEM: std::sync::OnceLock<WasmSystemInterface> = std::sync::OnceLock::new();
 
 #[wasm_bindgen]
 impl FiveVMWasm {
-    /// Create new VM instance with bytecode
+    /// Create new VM instance with bytecode.
     #[wasm_bindgen(constructor)]
     pub fn new(_bytecode: &[u8]) -> Result<FiveVMWasm, JsValue> {
-        // Initialize panic hook for better error messages
+        // Initialize panic hook for better error messages.
         init_panic_hook();
 
-        // Initialize system interface once
+        // Initialize system interface once.
         let system = WASM_SYSTEM.get_or_init(|| WasmSystemInterface::new());
 
-        // Extract pure FIVE bytecode from account data
-        // Account structure: 48-byte header + FIVE bytecode
+        // Extract pure FIVE bytecode from account data.
         let extracted_bytecode = Self::extract_five_bytecode(_bytecode)
             .map_err(|e| JsValue::from_str(&format!("Failed to extract FIVE bytecode: {:?}", e)))?;
 
-        // Try to extract ABI information from .five file format
+        // Try to extract ABI information from .five file format.
         let abi_data = Self::extract_abi_from_five_file(_bytecode);
 
         Ok(FiveVMWasm {
@@ -366,7 +363,7 @@ impl FiveVMWasm {
         })
     }
 
-    /// Execute VM with input data and accounts (legacy method)
+    /// Execute VM with input data and accounts (legacy method).
     #[wasm_bindgen]
     pub fn execute(
         &mut self,
@@ -375,10 +372,9 @@ impl FiveVMWasm {
     ) -> Result<JsValue, JsValue> {
         let test_result = self.execute_partial(input_data, accounts)?;
 
-        // Convert TestResult to legacy format for compatibility
+        // Convert TestResult to legacy format for compatibility.
         if test_result.status == ExecutionStatus::Failed {
             let error_msg = if let Some(context) = test_result.execution_context() {
-                // Include detailed execution context in error for better debugging
                 context
             } else {
                 test_result
@@ -391,7 +387,7 @@ impl FiveVMWasm {
         Ok(test_result.get_result_value())
     }
 
-    /// Execute VM with partial execution support - stops at system calls
+    /// Execute VM with partial execution support - stops at system calls.
     #[wasm_bindgen]
     pub fn execute_partial(
         &mut self,
@@ -658,7 +654,7 @@ impl FiveVMWasm {
 
         // WASM execution currently doesn't support real AccountInfo creation since pinocchio
         // AccountInfo structs are typically provided by the Solana validator during execution.
-        // For now, use empty accounts but log the account information we would have used.
+        // Use empty accounts and log the account information we would have used.
         log_message(&format!(
             "WASM: Would pass {} accounts to VM execution:",
             wasm_accounts.len()
@@ -1665,12 +1661,8 @@ fn get_instruction_size_with_features(opcode: u8, bytes: &[u8], features: u32) -
             ArgType::FieldImm => 7, // 1 + 1 + 4 + 1 (u8 imm? or u64 imm?) Check protocol.
             // Check protocol for FieldImm: acc(u8) + off(u32) + imm(u8). 1+1+4+1 = 7.
 
-            ArgType::CallExternal => 9, // 1 + 1(acc) + 2(off) + 1(param) = 5? Wait.
-            // Protocol parser for CallExternal: account_idx(u8) + func_offset(u16) + param_count(u8) = 4 bytes arg.
-            // Total size: 1 + 4 = 5.
-            // Let's verify `five-protocol/src/parser.rs`.
-            // ArgType::CallExternal => total_size += 4.
-            // So total instruction size is 5.
+            // CallExternal: 1 + 4 bytes args (account_idx + func_offset + param_count) = 5 total.
+            ArgType::CallExternal => 5,
 
             ArgType::CallInternal => 4, // 1 + 1(param) + 2(addr) = 4.
             // Parser: ArgType::CallInternal => total_size += 3.
@@ -1693,9 +1685,7 @@ fn get_instruction_size_with_features(opcode: u8, bytes: &[u8], features: u32) -
                 } else if opcode == five_protocol::opcodes::CALL {
                     4
                 } else {
-                    // Unknown or unhandled, assume 1 to avoid infinite loop if possible, or maybe return error?
-                    // Safe default for unhandled ArgTypes (LocalIndex, AccountIndex, ValueType -> all u8)
-                    // Let's refine:
+                    // Safe default for unhandled ArgTypes (LocalIndex, AccountIndex, ValueType -> all u8).
                     if matches!(info.arg_type, ArgType::LocalIndex | ArgType::AccountIndex | ArgType::ValueType) {
                         2
                     } else {
@@ -3000,13 +2990,7 @@ impl WasmFiveCompiler {
                 })
             }
             Err(e) => {
-                // For error handling we might want to discover modules manually to get source map,
-                // or just report the error.
-                // Re-running discovery just for errors is expensive but necessary for rich errors if we want source code.
-                // For now, let's just report the error to avoid complexity, or do a quick re-discovery if needed by `process_multi_errors`.
-                // `process_multi_errors` requires a source map.
-                
-                // Let's attempt the manual discovery fallback purely for error reporting
+                // Re-run module discovery to build a source map for richer errors.
                 use five_dsl_compiler::module_resolver::ModuleDiscoverer;
                 let entry_path = Path::new(&entry_point);
                 let source_dir = entry_path.parent().unwrap_or(Path::new("")).to_path_buf();
@@ -3454,7 +3438,7 @@ impl WasmFiveCompiler {
                      // Attach location info if captured by the type checker
                      // Note: last_error_span/file fields are no longer exposed directly on TypeCheckerContext
                      // To fix properly we would need to capture this info from the error itself if available
-                     // For now, we proceed without the enhanced location info from the context
+                     // Proceed without enhanced location info from the context.
                      // if let (Some(span), Some(file)) = (type_checker.last_error_span.clone(), type_checker.last_error_file.clone()) { ... }
 
                      let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
@@ -4061,7 +4045,7 @@ impl WasmFiveCompiler {
     /// Type-check parsed AST
     #[wasm_bindgen]
     pub fn type_check(&self, _ast_json: &str) -> Result<JsValue, JsValue> {
-        // For now, return success - this would need full AST serialization
+        // Return success; full AST serialization not implemented.
         let result = serde_json::json!({
             "success": true,
             "message": "Type checking completed"
@@ -4740,36 +4724,7 @@ impl ParameterEncoder {
                     if str_val.len() == 44 {
                         if let Ok(decoded) = bs58::decode(&str_val).into_vec() {
                             if decoded.len() == 32 {
-                                // For accounts, encode the raw 32 bytes (the account key)
-                                // Wait, is it raw bytes or index?
-                                // If account is passed by key, logic might be complex.
-                                // MitoVM context.rs logic for ACCOUNT type:
-                                // `let idx = u32::from_le_bytes(...); self.frame.set_parameter(..., ValueRef::AccountRef(idx as u8, 0))`
-                                // So it expects an index.
-                                // If we have a pubkey here, we can't easily turn it into an index without knowing account list order.
-                                // But `five-sdk` usually handles account mapping.
-                                // If we are here, we probably expect an index if `is_account_type` is true.
-                                // But the previous VLE code handled raw bytes?
-                                // `if decoded.len() == 32 { data.extend_from_slice(&decoded); }`
-                                // But `MitoVM` code for `types::ACCOUNT` expects `decode_u32` (index).
-                                // This suggests `five-sdk` passes indices for ACCOUNT type.
-                                // The check for str_val len 44 seems to imply it could be a pubkey string.
-                                // If it's a pubkey string, maybe we should fall back to treating it as PUBKEY type?
-                                // But `is_account_type` was forced.
-                                // If the VM expects an index for ACCOUNT, we must provide an index.
-                                // If we only have a pubkey, we are in trouble unless the VM handles pubkeys for ACCOUNT type?
-                                // Looking at `five-vm-mito/src/context.rs`:
-                                // `t if t == types::ACCOUNT => { let idx = ...; ValueRef::AccountRef(idx...) }`
-                                // So VM definitively expects an index.
-                                // The previous VLE code branch `if decoded.len() == 32` for ACCOUNT seems wrong if VM expects index?
-                                // Or maybe previous VM handled it differently?
-                                // "MitoVM: 1. Parse Parameters" in `context.rs` (previous revision)
-                                // `t if t == types::ACCOUNT => { let (idx, consumed) = VLE::decode_u32(...) ... }`
-                                // So it always expected an index.
-                                // The `str_val` branch in VLEEncoder was likely creating invalid data for the VM if it output 32 bytes.
-                                // Unless `decode_u32` somehow consumed 32 bytes? No.
-                                // So I will assume numeric index is required for ACCOUNT.
-                                // I will log a warning if string is passed for ACCOUNT.
+                                // ACCOUNT parameters must be indices, not pubkey strings.
                                 warn_message("Warning: ACCOUNT parameter should be an index, not a string pubkey.");
                             }
                         }
@@ -4938,13 +4893,13 @@ fn process_multi_errors(
                     }
                 }
             } else if source_map.len() == 1 {
-                // If only one source is provided and error has no file, assume it's that one
+                // If only one source is provided and error has no file, use that source.
                 if let Some(source) = source_map.values().next() {
                     e.context.source_line = Some(source.clone());
                 }
             }
         } else if source_map.len() == 1 {
-            // No location but only one source? Still inject it for general context
+            // No location but only one source: inject for context.
             if let Some(source) = source_map.values().next() {
                 e.context.source_line = Some(source.clone());
             }
@@ -4965,7 +4920,7 @@ fn process_multi_errors(
         // Since suggestion engine is part of the ErrorSystem which is global,
         // we can try to generate suggestions here if appropriate, or rely on what's in the error context
         // However, currently CompilerError doesn't hold suggestions directly in the struct definition in lib.rs
-        // Wait, looking at types.rs, CompilerError doesn't have suggestions field.
+        // CompilerError does not have a suggestions field.
         // Suggestions are generated by SuggestionEngine.
         
         // We'll use the global suggestion engine

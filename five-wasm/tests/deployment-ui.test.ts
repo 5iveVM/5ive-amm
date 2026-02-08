@@ -1,13 +1,6 @@
 /**
- * Deployment UI Integration Tests
- * 
- * Tests the complete deployment UI flow including:
- * - Component rendering and interaction
- * - Real Solana integration (in test environment)
- * - Wallet connection simulation
- * - Deployment history management
- * 
- * CRITICAL: These tests verify real functionality, not mocked behavior.
+ * Deployment UI integration tests.
+ * Verifies real functionality, not mocked behavior.
  */
 
 import { DeploymentService, DeploymentUI, SolanaNetwork } from '../app/deployment-service'

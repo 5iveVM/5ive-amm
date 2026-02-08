@@ -11,9 +11,6 @@ export interface LoadedProjectConfig {
   rootDir: string;
 }
 
-/**
- * Load project configuration, discovering five.toml if needed.
- */
 export async function loadProjectConfig(
   projectPath?: string,
   cwd: string = process.cwd()
@@ -58,7 +55,6 @@ export async function loadProjectConfig(
     keypairPath: deploy.keypair_path,
     multiFileMode: build.multi_file_mode ?? false,
     optimizations: {
-      enableVLE: optimizations.enable_vle ?? true,
       enableCompression: optimizations.enable_compression ?? true,
       enableConstraintOptimization: optimizations.enable_constraint_optimization ?? true,
       optimizationLevel: 'production'
@@ -70,9 +66,6 @@ export async function loadProjectConfig(
   return { config, configPath, rootDir };
 }
 
-/**
- * Discover five.toml path starting from cwd or explicit project path.
- */
 export async function findConfigPath(
   projectPath?: string,
   cwd: string = process.cwd()
@@ -118,9 +111,6 @@ async function searchUpwards(startDir: string): Promise<string | null> {
   return null;
 }
 
-/**
- * Load build manifest if present.
- */
 export async function loadBuildManifest(rootDir: string): Promise<BuildManifest | null> {
   const manifestPath = join(rootDir, '.five', 'build.json');
   try {
@@ -131,9 +121,6 @@ export async function loadBuildManifest(rootDir: string): Promise<BuildManifest 
   }
 }
 
-/**
- * Write build manifest to .five/build.json.
- */
 export async function writeBuildManifest(rootDir: string, manifest: BuildManifest): Promise<string> {
   const manifestDir = join(rootDir, '.five');
   await mkdir(manifestDir, { recursive: true });
@@ -142,9 +129,6 @@ export async function writeBuildManifest(rootDir: string, manifest: BuildManifes
   return manifestPath;
 }
 
-/**
- * Compute SHA-256 hash of a buffer.
- */
 export function computeHash(data: Buffer | Uint8Array): string {
   const hash = createHash('sha256');
   hash.update(data);

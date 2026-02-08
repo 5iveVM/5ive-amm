@@ -1,12 +1,4 @@
-/**
- * Five Parameter Encoder
- * 
- * Handles parameter encoding for Five VM:
- * - Fixed-size encoding for efficient bytecode
- * - Type coercion based on ABI information
- * - Parameter validation and error handling
- * - Integration with BytecodeEncoder
- */
+// Parameter encoding for Five VM.
 
 import {
   EncodedParameter,
@@ -17,9 +9,7 @@ import {
   FiveParameter
 } from '../types.js';
 
-/**
- * Type ID mapping (matches Five VM protocol)
- */
+// Type ID mapping (matches Five VM protocol).
 const TYPE_IDS: Record<FiveType, number> = {
   'u8': 1,
   'u16': 2,
@@ -36,9 +26,6 @@ const TYPE_IDS: Record<FiveType, number> = {
   'array': 13
 };
 
-/**
- * Parameter encoder for Five VM execution
- */
 export class ParameterEncoder {
   private debug: boolean;
 
@@ -52,9 +39,6 @@ export class ParameterEncoder {
 
   // ==================== Pure Parameter Encoding ====================
 
-  /**
-   * Encode parameter data only (no instruction discriminators)
-   */
   async encodeParameterData(
     parameters: any[] = [],
     functionSignature?: FiveFunction
@@ -72,9 +56,6 @@ export class ParameterEncoder {
     return encodedData;
   }
 
-  /**
-   * Encode parameters with ABI-driven type coercion
-   */
   encodeParametersWithABI(
     parameters: any[],
     functionSignature: FiveFunction,
@@ -113,9 +94,7 @@ export class ParameterEncoder {
 
   // ==================== Type Coercion ====================
 
-  /**
-   * Coerce value to specific Five VM type
-   */
+  /// Coerce value to a Five VM type.
   coerceValue(value: any, targetType: FiveType): any {
     if (this.debug) {
       console.log(`[ParameterEncoder] Coercing value ${JSON.stringify(value)} to ${targetType}`);
@@ -162,9 +141,7 @@ export class ParameterEncoder {
 
   // ==================== Private Methods ====================
 
-  /**
-   * Use BytecodeEncoder for parameter data only
-   */
+  /// Use BytecodeEncoder for parameter data only.
   private async encodeParametersInternal(parameters: any[], functionSignature?: FiveFunction): Promise<Buffer> {
     try {
       // Import BytecodeEncoder
@@ -193,9 +170,7 @@ export class ParameterEncoder {
     }
   }
 
-  /**
-   * Encode individual parameter
-   */
+  /// Encode individual parameter.
   private encodeParameter(value: any, type: FiveType, index: number): EncodedParameter {
     const coercedValue = this.coerceValue(value, type);
     const typeId = TYPE_IDS[type];

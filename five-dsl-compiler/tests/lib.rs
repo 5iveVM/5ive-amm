@@ -2822,9 +2822,9 @@ fn test_import_verification_bytecode_generation_address() {
 #[test]
 fn test_import_verification_bytecode_generation_pda() {
     // Test that PDA seed imports generate bytecode with FEATURE_IMPORT_VERIFICATION flag
-    // NOTE: This test is a placeholder for future PDA import syntax support
-    // Currently the DSL parser doesn't support array literal imports like: use ["vault", "user"];
-    // For now, we test that the ImportTable can serialize PDA seeds correctly
+    // Placeholder for future PDA import syntax support.
+    // DSL parser doesn't support array literal imports like: use ["vault", "user"].
+    // Verify ImportTable serializes PDA seeds correctly.
 
     use five_dsl_compiler::bytecode_generator::import_table::ImportTable;
 

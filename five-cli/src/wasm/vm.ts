@@ -1,9 +1,4 @@
-/**
- * Five VM WASM Integration
- * 
- * Real integration with Five VM WASM bindings for script execution,
- * partial execution, and bytecode analysis.
- */
+// Five VM WASM integration.
 
 import { 
   VMExecutionOptions, 
@@ -17,7 +12,6 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { ConfigManager } from '../config/ConfigManager.js';
 
-// Real Five VM WASM imports
 let FiveVMWasm: any;
 let WasmAccount: any;
 let ParameterEncoder: any;
@@ -36,14 +30,10 @@ export class FiveVM {
     this.logger = logger;
   }
 
-  /**
-   * Initialize the VM with real Five VM WASM module
-   */
   async initialize(): Promise<void> {
     try {
       console.log('[DEBUG] Starting VM WASM initialization...');
 
-      // Try multiple candidate locations for the WASM bundle to be robust
       const cfg = await ConfigManager.getInstance().get();
       const prefer = cfg.wasm?.loader || 'auto';
       const configured = Array.isArray(cfg.wasm?.modulePaths) ? cfg.wasm!.modulePaths! : [];
@@ -164,26 +154,18 @@ export class FiveVM {
     }
   }
 
-  /**
-   * Check if we're in WASM-only execution mode (vs network deployment)
-   */
   private isWasmOnlyExecution(): boolean {
-    // Check command line arguments to determine execution context
     const args = process.argv;
     
-    // If called with "local" subcommand, always use WASM-only mode
     if (args.includes('local')) {
       return true;
     }
     
-    // Check for test-runner.sh or similar local testing scripts
     const scriptName = process.argv[1];
     if (scriptName && (scriptName.includes('test-runner') || scriptName.includes('local'))) {
       return true;
     }
     
-    // For now, default to WASM-only execution for all cases
-    // TODO: Add proper network deployment detection when deployment flow is implemented
     return true;
   }
 
@@ -220,9 +202,6 @@ export class FiveVM {
     return !this.looksLikeScriptHeader(data);
   }
 
-  /**
-   * Execute bytecode using real Five VM
-   */
   async execute(options: VMExecutionOptions): Promise<VMExecutionResult> {
     if (!this.initialized) {
       throw this.createVMError('VM not initialized');
@@ -231,7 +210,6 @@ export class FiveVM {
     const startTime = Date.now();
 
     try {
-      // Context-aware bytecode handling
       let scriptData: Uint8Array;
       
       const hasScriptHeader = this.looksLikeScriptHeader(options.bytecode);
@@ -258,38 +236,31 @@ export class FiveVM {
         );
       }
 
-      // Create VM instance with script data
       this.vm = new FiveVMWasm(scriptData);
       
       this.logger.debug(`Executing script data (${scriptData.length} bytes)`);
 
-      // Convert accounts to WASM format
       const wasmAccounts = this.convertAccountsToWasm(options.accounts || []);
 
-      // Prepare input data (VLE encoded if needed)
+      // Prepare input data
       const inputData = options.inputData || new Uint8Array(0);
 
-      // Execute with partial execution support
       const result = this.vm.execute_partial(inputData, wasmAccounts);
 
       const executionTime = Date.now() - startTime;
 
-      // Convert WASM result to our format
       let resultValue = null;
       let success = false;
       let status = 'Failed';
       let errorMessage = undefined;
 
-      // Parse the result based on WASM output format
       this.logger.debug(`VM result type: ${typeof result}, value: ${JSON.stringify(result)}`);
       
       if (typeof result === 'string') {
-        // Handle string result like "Ok(Some(U64(2)))" or "Err(StackError)"
         if (result.startsWith('Ok(')) {
           success = true;
           status = 'Completed';
           
-          // Extract value from Ok(Some(ValueType(value))) format
           const u64Match = result.match(/Ok\(Some\(U64\((\d+)\)\)\)/);
           const u8Match = result.match(/Ok\(Some\(U8\((\d+)\)\)\)/);
           const i64Match = result.match(/Ok\(Some\(I64\((-?\d+)\)\)\)/);
@@ -306,7 +277,6 @@ export class FiveVM {
           } else if (result === 'Ok(None)') {
             resultValue = null;
           } else {
-            // Fallback: try to extract any numeric value for backward compatibility
             const fallbackMatch = result.match(/Ok\(Some\(\w+\((\d+)\)\)\)/);
             if (fallbackMatch) {
               resultValue = parseInt(fallbackMatch[1]);
@@ -320,11 +290,9 @@ export class FiveVM {
           errorMessage = result.replace('Err(', '').replace(')', '');
         }
       } else {
-        // Handle object result format  
         this.logger.debug(`Object result properties: ${Object.getOwnPropertyNames(result)}`);
         this.logger.debug(`Object result methods: ${Object.getOwnPropertyNames(Object.getPrototypeOf(result))}`);
         
-        // Use getter methods for WASM object properties  
         const resultStatus = typeof result.status === 'function' ? result.status() : result.status;
         success = resultStatus === 'Completed';
         status = resultStatus || 'Completed'; // Default to Completed for partial execution
@@ -332,13 +300,11 @@ export class FiveVM {
         const resultErrorMessage = typeof result.error_message === 'function' ? result.error_message() : result.error_message;
         errorMessage = resultErrorMessage;
         
-        // Access WASM getter properties directly (not function calls)
         this.logger.debug(`has_result_value type: ${typeof result.has_result_value}, value: ${result.has_result_value}`);
         this.logger.debug(`get_result_value type: ${typeof result.get_result_value}, value: ${result.get_result_value}`);
         
         if (result.has_result_value) {
           const rawValue = result.get_result_value;
-          // Handle BigInt values from WASM
           if (typeof rawValue === 'bigint') {
             resultValue = Number(rawValue);
             this.logger.debug(`Got BigInt result value, converted to number: ${resultValue}`);
@@ -351,7 +317,6 @@ export class FiveVM {
           this.logger.debug(`Got result value from result_value: ${JSON.stringify(resultValue)}`);
         }
         
-        // Try accessing properties directly as they might be getters
         try {
           if (resultValue === null && result.result_value !== undefined) {
             resultValue = result.result_value;
@@ -393,9 +358,7 @@ export class FiveVM {
     }
   }
 
-  /**
-   * Execute with function parameters using proper VLE encoding
-   */
+  // Execute with fixed-width parameter encoding.
   async executeFunction(
     bytecode: Uint8Array,
     functionIndex: number,
@@ -407,70 +370,41 @@ export class FiveVM {
     }
 
     try {
-      // Debug parameter encoding
       console.log(`[WASM VM] executeFunction called:`);
       console.log(`  Function index: ${functionIndex}`);
       console.log(`  Parameters:`, parameters);
       console.log(`  Parameter count: ${parameters.length}`);
       
-      // Use proper VLE encoding that MitoVM expects
-      console.log(`[WASM VM] Using proper VLE parameter encoding with function index`);
-      
-      // Convert parameters to VLE encoder format - force complex encoding for type prefixes
-      const paramDefinitions = parameters.map((p, i) => ({
-        name: `param${i}`,
-        type: p.type
-      }));
-      
-      const paramValues: any = {};
-      parameters.forEach((p, i) => {
-        paramValues[`param${i}`] = p.value;
-      });
-      
-      console.log(`[WASM VM] VLE parameter definitions:`, paramDefinitions);
-      console.log(`[WASM VM] VLE parameter values:`, paramValues);
-      
-      // Import VLE encoder and force complex encoding that includes type bytes
-      const { VLEEncoder } = await import('../lib/vle-encoder.js');
-      
-      // Use pure VLE compression - encode only parameter values without types
-      console.log(`[WASM VM] Using pure VLE compression for parameters`);
-      
-      // ENGINEERING INTEGRITY FIX: Use proper instruction format with discriminator + function index
-      // The complete instruction format is: [discriminator(2), function_index(VLE), param_count(VLE), param1(VLE), param2(VLE)]
-      
-      const simpleValues = parameters.map(param => param.value);
-      
-      console.log(`[WASM VM] Pure VLE encoding with values:`, simpleValues);
-      if (!ParameterEncoder || !ParameterEncoder.encode_execute_vle) {
-        throw new Error('ParameterEncoder WASM binding not loaded');
+      if (!ParameterEncoder || !ParameterEncoder.encode_execute) {
+        throw new Error('ParameterEncoder WASM binding not loaded or missing encode_execute');
       }
-      const rawVLEParams = ParameterEncoder.encode_execute_vle(functionIndex, simpleValues);
-      console.log(`[WASM VM] Raw VLE params (param_count + values):`, Array.from(rawVLEParams));
-      
-      // Use FiveSDK to create proper instruction format: [discriminator(2), function_index(VLE), ...rawVLEParams]
-      const { FiveSDK } = await import('five-sdk');
-      const properInstructionData = (FiveSDK as any).encodeExecuteInstruction(functionIndex, new Uint8Array(rawVLEParams));
-      
-      console.log(`[WASM VM] Complete instruction data:`, Array.from(properInstructionData));
-      console.log(`[WASM VM] Complete instruction data (hex):`, Buffer.from(properInstructionData).toString('hex'));
-      
+
+      const simpleValues = parameters.map(param => param.value);
+      const rawParams = ParameterEncoder.encode_execute(functionIndex, simpleValues);
+
+      const { BytecodeEncoder } = await import('five-sdk');
+      const discriminator = new Uint8Array([9]);
+      const functionIndexBytes = BytecodeEncoder.encodeU32(functionIndex);
+      const instructionData = new Uint8Array(
+        discriminator.length + functionIndexBytes.length + rawParams.length
+      );
+      instructionData.set(discriminator, 0);
+      instructionData.set(functionIndexBytes, discriminator.length);
+      instructionData.set(rawParams, discriminator.length + functionIndexBytes.length);
+
       return await this.execute({
         bytecode,
-        inputData: properInstructionData,
+        inputData: instructionData,
         accounts: accounts || []
       });
     } catch (error) {
-      console.error(`[WASM VM] VLE parameter encoding failed:`, error);
+      console.error(`[WASM VM] Parameter encoding failed:`, error);
       console.error(`[WASM VM] Encoder input was:`, { functionIndex, parameters });
       console.error(`[WASM VM] Error details:`, error);
       throw this.createVMError('Function execution failed', error as Error);
     }
   }
 
-  /**
-   * Get VM state information
-   */
   async getState(): Promise<any> {
     if (!this.vm) {
       throw this.createVMError('No VM instance available');
@@ -484,9 +418,6 @@ export class FiveVM {
     }
   }
 
-  /**
-   * Validate bytecode before execution
-   */
   async validateBytecode(bytecode: Uint8Array): Promise<{ valid: boolean; error?: string }> {
     if (!this.initialized) {
       throw this.createVMError('VM not initialized');
@@ -503,9 +434,6 @@ export class FiveVM {
     }
   }
 
-  /**
-   * Get VM constants and opcodes
-   */
   getVMConstants(): any {
     if (!this.initialized) {
       throw this.createVMError('VM not initialized');
@@ -519,9 +447,6 @@ export class FiveVM {
     }
   }
 
-  /**
-   * Convert accounts to WASM format
-   */
   private convertAccountsToWasm(accounts: AccountInfo[]): any[] {
     const wasmAccounts = [];
 
@@ -544,9 +469,6 @@ export class FiveVM {
     return wasmAccounts;
   }
 
-  /**
-   * Create a standardized VM error
-   */
   private createVMError(message: string, cause?: Error): CLIError {
     const error = new Error(message) as CLIError;
     error.name = 'VMError';
@@ -564,37 +486,27 @@ export class FiveVM {
     return error;
   }
 
-  /**
-   * Get VM capabilities and version info
-   */
   getVMInfo(): { version: string; features: string[] } {
     if (!this.initialized) {
       throw this.createVMError('VM not initialized');
     }
 
-    // Return basic info since real VM doesn't expose this directly
     return {
       version: '1.0.0',
       features: [
         'partial-execution',
         'system-call-detection', 
-        'vle-parameter-encoding',
+        'fixed-parameter-encoding',
         'account-simulation',
         'bytecode-validation'
       ]
     };
   }
 
-  /**
-   * Check if VM is ready for execution
-   */
   isReady(): boolean {
     return this.initialized;
   }
 
-  /**
-   * Clean up VM resources
-   */
   cleanup(): void {
     this.vm = null;
     this.logger.debug('VM resources cleaned up');

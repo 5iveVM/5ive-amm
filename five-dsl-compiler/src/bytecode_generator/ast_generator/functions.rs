@@ -1,7 +1,4 @@
-//! Function and method call generation
-//!
-//! This module handles generation of method calls, function calls including
-//! built-in functions, syscalls, and cross-program invocations.
+//! Function and method call generation.
 
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
@@ -574,10 +571,10 @@ impl ASTGenerator {
                      emitter.emit_opcode(DUP); // val, val/256, val/256 (for next iter update)
                      
                      // Update temp with val/256 for next iteration
-                     // Wait, I can't swap easily.
+                     // Swap not available here.
                      // Saving val/256 to temp NOW is better
                      self.emit_set_local(emitter, temp_idx, "__temp_u64_ser_update"); 
-                     // Stack: val, val/256 (Wait, SET_LOCAL consumed top)
+                     // Stack: val, val/256 (SET_LOCAL consumed top)
                      // So stack: val. We need (val/256) for subtraction.
                      
                      // Optimization:
@@ -592,10 +589,10 @@ impl ASTGenerator {
                      // SUB -> remainder (byte)
                      // Stack has byte.
                      
-                     // Let's implement that sequence
+                     // Implement sequence.
                  }
                  
-                 // Wait, loop logic inside:
+                 // Loop logic:
                  // We are changing temp inside loop.
                  // And leaving bytes on stack.
                  

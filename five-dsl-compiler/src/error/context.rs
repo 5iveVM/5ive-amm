@@ -1,14 +1,8 @@
-//! Source context extraction and management
-//!
-//! This module provides utilities for extracting source code context around
-//! error locations, which is essential for generating helpful error messages.
+//! Source context extraction.
 
 use crate::error::types::{ErrorContext, SourceLocation};
 
-/// Source context extractor
-///
-/// Extracts relevant source code context around error locations to provide
-/// helpful error messages with visual context.
+/// Extracts source code context around error locations.
 pub struct SourceContextExtractor {
     /// Number of lines to show before the error line
     pub lines_before: usize,

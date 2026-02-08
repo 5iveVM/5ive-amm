@@ -1,7 +1,4 @@
-// Compiler Pipeline Module
-//
-// Provides the core CompilationPipeline that eliminates duplicate
-// compilation logic across 4 different compile methods.
+// Compiler pipeline shared across compile entry points.
 
 use crate::ast::AstNode;
 use crate::bytecode_generator::{types::FIVEABI, DslBytecodeGenerator};
@@ -28,7 +25,7 @@ pub enum CompilationMode {
 pub enum OptimizationLevel {
     /// V1: Basic opcodes only, no pattern fusion
     V1,
-    /// V2: VLE + zero-copy optimizations
+    /// V2: zero-copy optimizations
     V2,
     /// V3: Full pattern fusion with advanced opcodes
     V3,
@@ -60,7 +57,7 @@ pub struct CompilationConfig {
 }
 
 impl CompilationConfig {
-    /// Create a new configuration with sensible defaults
+    /// Create a new configuration with defaults
     pub fn new(mode: CompilationMode) -> Self {
         Self {
             mode,
@@ -69,7 +66,7 @@ impl CompilationConfig {
             optimization_level: OptimizationLevel::V2,
             include_debug_info: matches!(mode, CompilationMode::Testing),
 
-            enable_module_namespaces: true, // Enabled: critical for multi-module compilation
+            enable_module_namespaces: true,
         }
     }
 
@@ -124,11 +121,7 @@ impl Default for CompilationConfig {
     }
 }
 
-/// Core compilation pipeline that executes all compilation phases.
-///
-/// This struct consolidates compilation logic into a single reusable pipeline to ensure consistent behavior.
-///
-/// Uses `&'a str` instead of `String` to avoid unnecessary allocations during compilation.
+/// Core compilation pipeline.
 pub struct CompilationPipeline<'a> {
     pub(crate) metrics: MetricsCollector,
     pub(crate) error_collector: integration::ErrorCollector,
@@ -139,11 +132,6 @@ pub struct CompilationPipeline<'a> {
 }
 
 impl<'a> CompilationPipeline<'a> {
-    /// Create a new compilation pipeline for the given source code.
-    ///
-    /// Initializes the error system, metrics collector, and error collector.
-    ///
-    /// Performance: Source is stored as `&str` to avoid unnecessary allocations.
     pub fn new(source: &'a str, filename: Option<&'a str>) -> Self {
         if let Err(e) = integration::initialize_error_system() {
             eprintln!("Warning: Failed to initialize enhanced error system: {}", e);
@@ -159,9 +147,6 @@ impl<'a> CompilationPipeline<'a> {
         }
     }
 
-    /// Execute the tokenization phase.
-    ///
-    /// Converts source code into a stream of tokens.
     pub fn tokenize(&mut self) -> Result<Vec<Token>, CompilerError> {
         let source = self.source;
         execute_phase!(
@@ -178,10 +163,6 @@ impl<'a> CompilationPipeline<'a> {
         )
     }
 
-    /// Execute the parsing phase.
-    ///
-    /// Converts tokens into an Abstract Syntax Tree (AST).
-    /// Also records source statistics in metrics.
     pub fn parse(&mut self, tokens: Vec<Token>) -> Result<AstNode, CompilerError> {
         // Record source statistics before parsing
         self.metrics.record_source_stats(self.source, &tokens);

@@ -1,12 +1,6 @@
 /**
- * Stacks VM Playground - Integrated Development Environment
- * 
- * Combines WASM compilation, testing, and real Solana deployment capabilities
- * in a unified development experience. Provides code editing, compilation,
- * testing, and deployment all in one interface.
- * 
- * CRITICAL: All deployments are REAL transactions to actual Solana networks.
- * No simulations or mock deployments are allowed in this playground.
+ * Stacks VM playground for compiling, testing, and deploying.
+ * Uses real Solana deployments only (no simulation).
  */
 
 import { WasmCompilerService, PartialExecutionSummary, WasmAccountInterface } from './wasm-compiler';
@@ -359,7 +353,7 @@ function mint(to: pubkey, amount: u64) {
         this.updateCompilationState({ inProgress: true, success: false });
 
         try {
-            // For now, we'll simulate compilation by creating test bytecode
+            // Simulate compilation by creating test bytecode
             // In a real implementation, this would call the DSL compiler
             const bytecode = this.createTestBytecode(this.state.currentProject.sourceCode);
             

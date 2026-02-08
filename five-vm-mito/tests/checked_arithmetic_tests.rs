@@ -207,36 +207,11 @@ fn test_checked_arithmetic_with_locals() {
     });
 
     // Provide input: [Func=0 (u32), Count=2 (u32), Param1(0)=u64(0), Param2(0)=u64(0)]
-    // Total: 4 + 4 + 8 + 8 = 24 bytes? Or are params u8?
-    // LOAD_PARAM loads from parameters array.
-    // If we use `LOAD_PARAM`, we need params in `ctx.parameters`.
-    // The previous test used `[0, 2, 0, 0]`. It assumed [func(u8), count(u8), p1(u8), p2(u8)]?
-    // But `LOAD_PARAM` operates on `u64`.
-    // If the input parsing now expects u32 func index and u32 count...
-    // We should construct it properly.
-
-    // However, if `execute_direct` just parses func/count and ignores the rest (or parses params based on count),
-    // and `LOAD_PARAM` accesses `ctx.parameters`.
-    // We need `ctx.parameters` to be populated.
-
-    // Let's assume input format: [func_idx(u32), param_count(u32), p1(u64), p2(u64)...]?
-    // Or did I define param format as something else?
-    // In `five-wasm`, I used `[func_idx(u32), param_count(u32), ...]` and params were variable.
-    // But `MitoVM` parses input.
-    // Let's assume params are u64 if not specified otherwise (legacy `LOAD_INPUT` used u8, but `LOAD_PARAM` uses `u64`).
-    // Actually, `LOAD_PARAM` returns `Value::U64`.
-    // The parameters in `ctx` are `[u64; MAX_PARAMETERS]`.
-    // So the input parser must parse them as u64?
-    // Let's construct a safe input:
+    // Fixed-width input: [func_idx(u32), param_count(u32), type(u8), value..., ...]
     let mut input = vec![];
     input.extend_from_slice(&0u32.to_le_bytes()); // Func 0
     input.extend_from_slice(&2u32.to_le_bytes()); // Count 2
-    // Param 1 (0) - encoded as ?
-    // If `MitoVM` expects Typed params (0x80 sentinel), we should use that?
-    // Or does it assume untyped u64?
-    // Given the changes, it likely expects:
-    // [func(u32), count(u32), Type(u8), Value(u64), Type(u8), Value(u64)]
-    // Use Type 4 (U64) for both params
+    // Type 4 (U64) for both params
     input.push(4); // Type U64
     input.extend_from_slice(&0u64.to_le_bytes());
     input.push(4); // Type U64

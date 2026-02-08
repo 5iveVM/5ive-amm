@@ -1,7 +1,4 @@
-//! Utility functions and extension methods
-//!
-//! This module contains helper functions for parsing addresses,
-//! extension methods for DslBytecodeGenerator, and test functions.
+//! Utility functions and extension methods.
 
 use super::super::OpcodeEmitter;
 use super::super::{
@@ -17,7 +14,7 @@ impl ASTGenerator {
 
     /// Parse program ID string to 32-byte array
     pub(super) fn parse_program_id(&self, program_id: &str) -> Result<[u8; 32], VMError> {
-        // For now, convert the program ID string to a fixed 32-byte array
+        // Convert the program ID string to a fixed 32-byte array.
         // In a real implementation, this would parse a base58 Solana public key
         let mut bytes = [0u8; 32];
         let id_bytes = program_id.as_bytes();

@@ -1,11 +1,4 @@
-//! Comprehensive integration tests for Five VM WASM
-//!
-//! Tests the complete DSL compiler + MitoVM pipeline using the same test scripts
-//! as the Five CLI to ensure consistency between Rust and WASM implementations.
-//!
-//! Test Modes (controlled by FIVE_TEST_MODE environment variable):
-//! - "wasm" (default): Direct MitoVM execution (fast, good for basic functionality)
-//! - "localnet": Five CLI on-chain execution (comprehensive, requires local validator)
+//! Integration tests for Five VM WASM.
 
 #[cfg(test)]
 mod tests {

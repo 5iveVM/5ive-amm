@@ -1,7 +1,4 @@
-//! Expression generation methods
-//!
-//! This module handles generation of binary expressions, unary expressions,
-//! and literal values with optimizations like constant folding.
+//! Expression generation methods.
 
 use super::super::opcodes::OpcodePatterns;
 use super::super::OpcodeEmitter;

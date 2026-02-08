@@ -1,8 +1,4 @@
-// Fused Opcode Optimization Module
-//
-// This module provides pattern matching and emission of fused opcodes
-// to reduce CU consumption by combining common multi-opcode patterns
-// into single opcodes.
+// Fused opcode optimizations.
 
 use crate::ast::AstNode;
 use super::super::OpcodeEmitter;

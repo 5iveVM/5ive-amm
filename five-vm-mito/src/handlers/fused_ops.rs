@@ -175,16 +175,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             // Load first pubkey
             let account1 = ctx.get_account_for_read(acc1_idx)?;
             let pubkey1_ref: &[u8] = if offset1 == 0x3FFF {
-                // Sentinel: Use Account Key (0x3FFF = 2-byte VLE sentinel, but now using u32, let's keep the check for compatibility or define a new constant?)
-                // Assuming 0x3FFF was just an arbitrary large value. With u32 we can use u32::MAX.
-                // But tests might rely on 0x3FFF. Let's keep it or use u32::MAX.
-                // Actually if offset is u32, a real offset of 0x3FFF (16KB) is valid.
-                // We should probably use u32::MAX for sentinel if we are raw byte enforced.
-                // But changing sentinel might break ABI if compiler doesn't change.
-                // For now, I'll keep 0x3FFF but note it's weird with u32.
-                // Or better, use a high bit flag?
-                // The previous VLE max for 2 bytes is 16383 (0x3FFF).
-                // Let's assume we stick with 0x3FFF as the sentinel for now.
+                // Sentinel: Use Account Key. Kept as 0x3FFF for backward compatibility.
                 account1.key().as_ref()
             } else {
                 // Use Data Field

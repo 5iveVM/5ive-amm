@@ -1,6 +1,4 @@
-// Type definitions for the bytecode generator module
-//
-// This module contains all data structures used throughout the bytecode generation process.
+// Bytecode generator data structures.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -272,7 +270,7 @@ pub const BULK_PUSH_N: u8 = 0xE0;
 pub const BULK_FIELD_ACCESS: u8 = 0xE1;
 pub const ARITHMETIC_CHAIN: u8 = 0xE2;
 
-/// Account access optimizations - using standard LOAD_FIELD/STORE_FIELD with VLE + zero-copy by default
+/// Account access optimizations.
 pub const BATCH_ACCOUNT_ACCESS: u8 = 0xE5;
 
 /// Scope management opcodes

@@ -1,10 +1,3 @@
-/**
- * Type definitions for Five CLI
- * 
- * Comprehensive type system covering WASM integration, CLI operations,
- * compilation pipeline, and VM execution contexts.
- */
-
 // CLI Configuration and Options
 export interface CLIConfig {
   rootDir: string;
@@ -60,7 +53,6 @@ export interface CompilationOptions {
   target?: CompilationTarget;
   includeDebugInfo?: boolean;
   maxBytecodeSize?: number;
-  enableVLE?: boolean;
   enableCompression?: boolean;
   includeMetrics?: boolean;
   metricsFormat?: "json" | "csv" | "toml";
@@ -279,7 +271,6 @@ export interface ProjectConfig {
 }
 
 export interface ProjectOptimizations {
-  enableVLE: boolean;
   enableCompression: boolean;
   enableConstraintOptimization: boolean;
   optimizationLevel: 'production';

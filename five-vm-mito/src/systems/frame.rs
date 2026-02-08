@@ -133,17 +133,7 @@ impl<'a> FrameManager<'a> {
             while self.local_count > 0 {
                 let pos = (self.local_base + self.local_count - 1) as usize;
                 if pos < self.locals.len() {
-                    // Check if empty via assume_init is a bit risky if uninit, 
-                    // but we just set it or it was used.
-                    // Actually, let's just decrement count and rely on compiler.
-                    // But the original code consolidated.
-                    // For MaybeUninit specific optimization, we might skip the shrinking loop 
-                    // if we can't easily check for equality.
-                    // But assume_init() is cheap for ValueRef (it's Copy).
-                    
-                    // Optimization: Skip shrinking loop for performance?
-                    // The prompt implies "Zero-Cost ... avoiding CPU cost". 
-                    // Let's keep it simple and just decrement if last one is being cleared.
+                    // Trim only when clearing the last slot.
                     break;
                 }
                 self.local_count -= 1;

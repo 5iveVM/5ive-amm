@@ -1,8 +1,4 @@
-/**
- * Five CLI Config Command
- * 
- * Manage Five CLI configuration settings for networks, keypairs, and deployment options.
- */
+// Config command.
 
 import chalk from 'chalk';
 import ora from 'ora';

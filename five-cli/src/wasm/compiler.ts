@@ -1,9 +1,4 @@
-/**
- * Five Compiler WASM Integration
- *
- * Real integration with Five VM WASM bindings for DSL compilation,
- * ABI generation, and bytecode optimization.
- */
+// Five compiler WASM integration.
 
 import { readFile, writeFile } from "fs/promises";
 import {
@@ -36,10 +31,6 @@ export class FiveCompilerWasm {
     this.logger = logger;
   }
 
-  /**
-   * Initialize the compiler with real Five VM WASM module
-   * The Node.js target (from wasm-pack --target nodejs) is pre-initialized
-   */
   async initialize(): Promise<void> {
     try {
       // Try multiple candidate locations (mirrors vm.ts logic)

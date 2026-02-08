@@ -1,9 +1,4 @@
-/**
- * Five CLI Format Command
- *
- * Code formatting for Five VM source files with configurable style,
- * automatic fixing, and check mode.
- */
+// Format command.
 
 import { readFile, writeFile, readdir, stat } from 'fs/promises';
 import { extname, basename, join } from 'path';
@@ -15,9 +10,6 @@ import {
   CommandContext
 } from '../types.js';
 
-/**
- * Five format command implementation
- */
 export const fmtCommand: CommandDefinition = {
   name: 'fmt',
   description: 'Format Five VM source code',

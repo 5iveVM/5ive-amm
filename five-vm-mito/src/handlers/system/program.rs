@@ -15,11 +15,7 @@ use pinocchio::{syscalls, pubkey::Pubkey};
 pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_RETURN_DATA");
 
-    // Pop arguments: program_id_buffer (ref), length (u64), data_buffer (ref)
-    // Stack order: pushed data, length, program_id. Pop reverses it.
-    // Wait, usually: push A, push B. Pop -> B.
-    // If func(data, len, pid), push data, push len, push pid.
-    // Pop -> pid, len, data.
+    // Pop arguments in reverse push order: pid, len, data.
 
     let pid_ref = ctx.pop()?;
     let length = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
@@ -133,7 +129,7 @@ pub fn handle_syscall_get_stack_height(ctx: &mut ExecutionManager) -> CompactRes
 pub fn handle_syscall_get_processed_sibling_instruction(_ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_PROCESSED_SIBLING_INSTRUCTION - Not Implemented Fully");
     // This syscall requires complex struct mapping (ProcessedSiblingInstruction).
-    // For now, we return 0 (false/failure) or implement basic stub.
+    // Stubbed: return 0 (false/failure).
     // To implement fully, we need to pop buffers for meta, program_id, data, accounts.
 
     // Placeholder behavior:

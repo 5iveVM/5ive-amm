@@ -223,7 +223,7 @@ export class OnChainAccountManager {
     // Note: Writing data directly to an account requires special instructions
     // This is a simplified implementation. In practice, you would use the Five VM program
     // or SystemProgram.allocate + loader to write data.
-    // For now, we'll just log that data would be written.
+    // Log that data would be written.
     if (this.options.debug) {
       console.log(`[OnChainAccountManager] Data would be written via Five VM program`);
     }

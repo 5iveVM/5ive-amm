@@ -1,10 +1,4 @@
-/**
- * Five CLI Deploy-and-Execute Command
- * 
- * Combined command that deploys bytecode to Solana and then executes it.
- * Perfect for testing workflows where you need real on-chain execution.
- * Designed for localnet testing and development workflows.
- */
+// Deploy-and-execute command.
 
 import { readFile } from 'fs/promises';
 import { extname } from 'path';
@@ -21,9 +15,6 @@ import { ConfigOverrides } from '../config/types.js';
 import { FiveFileManager } from '../utils/FiveFileManager.js';
 import { section, success as uiSuccess, error as uiError, isTTY } from '../utils/cli-ui.js';
 
-/**
- * Five deploy-and-execute command implementation
- */
 export const deployAndExecuteCommand: CommandDefinition = {
   name: 'deploy-and-execute',
   description: 'Deploy bytecode to Solana and execute immediately (perfect for testing)',

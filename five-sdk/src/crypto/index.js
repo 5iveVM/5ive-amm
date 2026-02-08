@@ -1,8 +1,5 @@
 /**
- * Five SDK Crypto Operations
- *
- * Client-agnostic cryptographic operations including PDA derivation, base58 encoding,
- * and rent calculations. Pure implementation without external blockchain dependencies.
+ * Five SDK crypto utilities.
  */
 import bs58 from 'bs58';
 /**
@@ -23,7 +20,7 @@ export class PDAUtils {
             const crypto = await import('crypto');
             // Simulate Solana's createWithSeed logic
             // address = base58(sha256(base_pubkey + seed + program_id))
-            // For now, use a simplified approach - we'll need the actual deployer's pubkey
+            // Use simplified approach; requires deployer's pubkey
             // Return seed-based result that's compatible with System Program
             return {
                 address: 'EaHahm4bQSg6jkSqQWHZ15LZypaGF9z9Aj5YMiawQwCp', // Temporarily use the expected address from error
@@ -66,7 +63,7 @@ export class PDAUtils {
      * Simplified curve check (placeholder for real ed25519 curve validation)
      */
     static isOffCurve(hash) {
-        // Simplified check - in real implementation would validate against ed25519 curve
+        // Simplified check; real implementation should validate against ed25519 curve
         // This is a probabilistic check that works for most cases
         return hash[31] < 128; // Simple heuristic
     }

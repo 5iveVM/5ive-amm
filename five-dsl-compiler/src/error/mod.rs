@@ -1,15 +1,4 @@
-//! Five VM Enhanced Error System
-//!
-//! This module provides a comprehensive, maintainable error handling system
-//! for the Five DSL compiler, designed for easy updates and extensions.
-//!
-//! ## Architecture Overview
-//!
-//! The error system is built around several core components:
-//! - **Error Types**: Structured error definitions with rich context
-//! - **Error Registry**: Centralized registry of all error codes and templates
-//! - **Formatters**: Pluggable error display formatters (terminal, JSON, LSP)
-//! - **Suggestions**: Intelligent suggestion engine for error fixes
+//! Error system for the Five DSL compiler.
 //! - **Templates**: Configurable error message templates
 //!
 //! ## Design Principles
@@ -145,7 +134,7 @@ impl ErrorSystem {
     /// Set the template manager
     pub fn set_template_manager(&mut self, _template_manager: TemplateManager) {
         // Template manager integration will be implemented later
-        // For now, this is a placeholder to maintain the interface
+        // Placeholder to maintain the interface.
     }
 
     /// Check if the error system has a registry loaded
@@ -160,7 +149,7 @@ impl Default for ErrorSystem {
     }
 }
 
-/// Comprehensive error report
+/// Error report
 #[derive(Debug, Clone)]
 pub struct ErrorReport {
     pub error: CompilerError,

@@ -1,7 +1,5 @@
 /**
- * Five SDK - Unified client library for Five VM scripts
- *
- * Provides a standardized way to interact with Five scripts deployed on Solana.
+ * Five SDK client for Five VM scripts.
  */
 
 import {
@@ -553,10 +551,7 @@ export class FiveSDK {
       if (!accountInfo) return null;
 
       const data = accountInfo.data;
-      // ... logic for extracting bytecode from account data ...
-      // I should extract this logic to a helper or use Accounts module?
-      // For now I'll duplicate the logic to avoid complexity or use what I extracted if available.
-      // fetchAccountAndDeserializeVLE does this but returns full metadata.
+      // Extract bytecode from account data.
 
       const scriptHeaderSize = 64;
       let bytecode = data;

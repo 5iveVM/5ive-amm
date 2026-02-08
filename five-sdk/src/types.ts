@@ -1,8 +1,5 @@
 /**
- * Type definitions for Five SDK
- * 
- * Comprehensive type system covering WASM integration,
- * compilation pipeline, and VM execution contexts.
+ * Type definitions for Five SDK.
  */
 
 // ==================== Project Configuration ====================

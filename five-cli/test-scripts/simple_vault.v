@@ -14,7 +14,7 @@ set_authorized_user(authority: account @signer) {
         authorized_user = authority.key;
     }
     
-    // Simplified withdraw - requires authorization
+    // Withdraw requires authorization
 withdraw(authority: account @signer, amount: u64) {
 require(authority.key == authorized_user);
 require(balance >= amount);

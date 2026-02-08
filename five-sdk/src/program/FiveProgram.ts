@@ -94,7 +94,7 @@ export class FiveProgram {
           return (...args: any[]) => {
             const builder = target.function(prop);
             // TODO: Robust argument mapping based on ABI types
-            // For now, simpler map: if args[0] is object, assume named params
+            // Simple map: if args[0] is object, assume named params
             if (args.length === 1 && typeof args[0] === 'object' && !Array.isArray(args[0])) {
               builder.args(args[0]);
             }

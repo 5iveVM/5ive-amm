@@ -1,6 +1,4 @@
-// DSL Tokenizer Module - Complete Production Version
-//
-// Handles lexical analysis for the Five DSL with KISS/DRY/zero-copy principles
+// DSL tokenizer for the Five language.
 
 use five_vm_mito::error::VMError;
 use std::iter::Peekable;

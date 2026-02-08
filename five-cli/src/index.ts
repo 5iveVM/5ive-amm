@@ -1,14 +1,9 @@
 #!/usr/bin/env node
-/**
- * Five CLI - Script Entrypoint
- */
+// Five CLI entrypoint.
 
 import chalk from 'chalk';
 import { createCLI } from './cli.js';
 
-/**
- * Main execution when run as script
- */
 export async function main() {
   try {
     const cli = createCLI({
@@ -23,8 +18,7 @@ export async function main() {
   }
 }
 
-// Execute main if this file is run directly
-// Handle various execution contexts (direct, npx, global install)
+// Execute main when run directly (npx/global installs included).
 const isMainModule = (
   import.meta.url === `file://${process.argv[1]}` ||
   process.argv[1].endsWith('dist/index.js') ||

@@ -1,7 +1,4 @@
-//! Comprehensive tests for type-safe AST structures
-//!
-//! Tests the new Expression, Statement, and Definition enums generated from node_metadata.toml
-//! Ensures 100% coverage of all 48 AST node variants and their conversions.
+//! Tests for type-safe AST structures.
 
 use five_dsl_compiler::ast::{AstNode, generated::*, BlockKind};
 use five_protocol::Value;

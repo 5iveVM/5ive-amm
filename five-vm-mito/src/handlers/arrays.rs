@@ -554,7 +554,7 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
 
                 ctx.push(ValueRef::HeapString(heap_id))?;
                 debug_log!(
-                    "MitoVM: Heap String created at heap_id={} with {} bytes (VLE)",
+                    "MitoVM: Heap String created at heap_id={} with {} bytes",
                     heap_id,
                     string_length
                 );
@@ -582,7 +582,7 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
 
             ctx.push(ValueRef::StringRef(array_id as u16))?;
             debug_log!(
-                "MitoVM: String created at array_id={} with {} bytes (VLE)",
+                "MitoVM: String created at array_id={} with {} bytes",
                 array_id,
                 string_length
             );

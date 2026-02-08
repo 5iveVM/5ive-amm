@@ -1,8 +1,4 @@
-//! Bytecode parser utilities for external tooling
-//!
-//! This module provides utilities for parsing Five VM bytecode to extract
-//! embedded function name metadata for IDE integration, debugging tools,
-//! and ecosystem composability features.
+//! Bytecode parser utilities for external tooling.
 
 use five_protocol::opcodes;
 use std::borrow::Cow;
@@ -10,7 +6,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{self, Display};
 
-/// Function call information extracted from bytecode
+/// Function call information extracted from bytecode.
 #[derive(Debug, Clone)]
 pub struct CallInfo<'a> {
     pub position: usize,
@@ -19,7 +15,7 @@ pub struct CallInfo<'a> {
     pub function_name: Option<Cow<'a, str>>,
 }
 
-/// Bytecode parsing results containing extracted metadata
+/// Bytecode parsing results containing extracted metadata.
 #[derive(Debug, Clone)]
 pub struct BytecodeMetadata<'a> {
     /// All function calls found in the bytecode with their metadata
@@ -30,7 +26,7 @@ pub struct BytecodeMetadata<'a> {
     pub bytecode_size: usize,
 }
 
-/// Errors that can occur while parsing bytecode
+/// Errors that can occur while parsing bytecode.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BytecodeParseError {
     /// Bytecode ended before a complete CALL instruction was read
@@ -64,12 +60,11 @@ impl Display for BytecodeParseError {
 
 impl Error for BytecodeParseError {}
 
-/// Fast bytecode parser for extracting function call metadata
+/// Fast bytecode parser for extracting function call metadata.
 pub struct BytecodeParser;
 
 impl BytecodeParser {
-    /// Parse bytecode and extract all function call metadata
-    /// This function is designed for tooling use only, not VM execution
+    /// Parse bytecode and extract function call metadata.
     pub fn parse_function_calls<'a>(
         bytecode: &'a [u8],
     ) -> Result<BytecodeMetadata<'a>, BytecodeParseError> {

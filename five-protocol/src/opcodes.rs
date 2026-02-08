@@ -1,37 +1,6 @@
-//! Unified Opcode Definitions for Five VM Protocol
-//!
-//! This module provides the authoritative opcode definitions for all Five VMs.
-//! Opcodes are organized by functional categories with no conflicts.
-//!
-//! # 🚨 MIGRATION NOTICE - Protocol Cleanup (August 2024)
-//!
-//! **10 redundant opcodes have been REMOVED** to minimize on-chain binary size and prepare for V3 optimizations:
-//!
-//! ## Removed Constraint Immediates (use fixed-size variants):
-//! - `CHECK_SIGNER_IMM` (0x65) → use `CHECK_SIGNER` + u8 account_index
-//! - `CHECK_WRITABLE_IMM` (0x66) → use `CHECK_WRITABLE` + u8 account_index
-//! - `CHECK_OWNER_IMM` (0x67) → use `CHECK_OWNER` + account_index + pubkey
-//! - `CHECK_INITIALIZED_IMM` (0x68) → use `CHECK_INITIALIZED` + u8 account_index
-//! - `CHECK_PDA_IMM` (0x69) → use `CHECK_PDA` + account_index
-//! - `CHECK_BATCH_IMM` (0x6A) → use multiple individual constraint checks
-//! - `CHECK_UNINITIALIZED_IMM` (0x6B) → use `CHECK_UNINITIALIZED` + u8 account_index
-//!
-//! ## Removed Redundant Array Operations:
-//! - `READ_DATA` (0xA2) → use `GET_DATA` (0x56) for account data access
-//! - `ARRAY_LEN` (0xA7) → use `ARRAY_LENGTH` (0xAE) for all length operations
-//! - `STRING_LENGTH` (0xB0) → use `ARRAY_LENGTH` (0xAE) - strings are arrays
-//!
-//! **See `OPCODE-MIGRATION-GUIDE.md` for detailed migration instructions.**
-//!
-//! ## Benefits:
-//! - 🚀 **10 opcode slots freed** for V3 pattern fusion optimizations
-//! - 📦 **Smaller on-chain binary** (~300 bytes handler code removed)
-//! - 🎯 **Consistent API** - single way to do each operation
-//! - ⚡ **Better flexibility** - fixed-size encoding supports dynamic parameters
+//! Opcode definitions for the Five VM protocol.
 
-/// Opcode allocation table - single source of truth
-/// Each range is 16 opcodes (0x0-0xF) for future expansion
-/// 🎯 LOGICAL ORGANIZATION: Similar operations grouped together
+/// Opcode allocation table - single source of truth.
 pub mod ranges {
     /// Control flow operations: 0x00-0x0F
     pub const CONTROL_BASE: u8 = 0x00;
