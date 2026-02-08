@@ -1,9 +1,7 @@
 //! Stack operations handler for MitoVM (0x10-0x1F)
 //!
-//! 🎯 LOGICAL REORGANIZATION: All stack operations consolidated
-//! This module handles ONLY stack operations in the 0x10-0x1F range including
+//! This module handles stack operations in the 0x10-0x1F range including
 //! POP, DUP, SWAP, PICK, ROT, DROP, OVER, and PUSH operations.
-//! It manages the value stack and handles type-specific serialization.
 
 use crate::{
     context::ExecutionManager,

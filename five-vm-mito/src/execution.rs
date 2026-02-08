@@ -173,14 +173,6 @@ impl MitoVM {
             // Set current opcode in context for error reporting.
             ctx.set_current_opcode(opcode);
 
-            #[cfg(feature = "debug-logs")]
-            if opcode == LOAD_INPUT {
-                debug_log!(
-                    "MitoVM: CONFIRMED - This is LOAD_INPUT opcode ({})",
-                    LOAD_INPUT
-                );
-            }
-
             // Dispatch opcode to appropriate handler.
             let result = match opcode {
                 // Control Flow (0x00-0x0F)

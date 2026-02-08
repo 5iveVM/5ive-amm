@@ -1,9 +1,7 @@
 //! Constraint operations handler for MitoVM (0x70-0x7F)
 //!
-//! 🎯 LOGICAL REORGANIZATION: All constraint validation operations consolidated
 //! This module handles constraint validation operations including CHECK_SIGNER,
 //! CHECK_WRITABLE, CHECK_OWNER, CHECK_INITIALIZED, CHECK_PDA, CHECK_UNINITIALIZED.
-//! It manages Solana account constraint validation for security.
 
 use crate::{
     context::ExecutionManager,
