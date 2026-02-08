@@ -86,7 +86,7 @@ tx.add(
 // 4) Deploy instruction with real bytecode - DISCRIMINATOR 8
 const deployData = Buffer.concat([
   Buffer.from([8]), // Discriminator 8 for Deploy
-  Buffer.from([bytecode.length, 0, 0, 0]), // u32 LE length
+  Buffer.from([bytecode.length, 0, 0, 0]), // Fixed-width U32 LE length
   Buffer.from([0]), // permissions = 0
   bytecode  // actual bytecode
 ]);

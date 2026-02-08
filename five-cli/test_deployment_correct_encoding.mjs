@@ -79,13 +79,13 @@ tx.add(
   })
 );
 
-// 4) Deploy instruction - USE writeUInt32LE
+// 4) Deploy instruction - USE writeUInt32LE (Fixed-width U32 Little Endian)
 const lengthBuffer = Buffer.allocUnsafe(4);
 lengthBuffer.writeUInt32LE(bytecode.length, 0);
 
 const deployData = Buffer.concat([
   Buffer.from([8]), // Discriminator 8
-  lengthBuffer, // u32 LE length
+  lengthBuffer, // Fixed-width U32 LE length
   Buffer.from([0]), // permissions
   bytecode // actual bytecode
 ]);

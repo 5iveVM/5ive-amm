@@ -359,6 +359,7 @@ export class FiveVM {
   }
 
   // Execute with fixed-width parameter encoding.
+  // Uses ParameterEncoder.encode_execute which produces packed bytes.
   async executeFunction(
     bytecode: Uint8Array,
     functionIndex: number,
