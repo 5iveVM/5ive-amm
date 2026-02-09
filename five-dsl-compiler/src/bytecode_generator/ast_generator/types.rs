@@ -75,7 +75,7 @@ pub struct ASTGenerator {
 
     /// Jumps that need to be patched with correct offsets.
     pub(super) jump_patches: Vec<JumpPatch>,
-    /// BR_EQ_U8 instructions that need to be patched with correct VLE offsets.
+    /// BR_EQ_U8 instructions that need to be patched with correct fixed-width offsets.
     pub(super) br_eq_u8_patches: Vec<BrEqU8Patch>,
     /// Function calls that need to be patched with correct addresses.
     pub(super) function_patches: Vec<FunctionPatch>,

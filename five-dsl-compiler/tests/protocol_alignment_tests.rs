@@ -170,3 +170,59 @@ fn inspector_respects_protocol_tuple_operand_width() {
     assert_eq!(BytecodeInspector::instruction_size(&script, 0), 2);
     assert_eq!(BytecodeInspector::instruction_size(&script, 2), 1);
 }
+
+#[test]
+fn inspector_respects_protocol_alloc_locals_width() {
+    let script = vec![opcodes::ALLOC_LOCALS, 0x02, opcodes::HALT];
+    assert_eq!(BytecodeInspector::instruction_size(&script, 0), 2);
+    assert_eq!(BytecodeInspector::instruction_size(&script, 2), 1);
+}
+
+#[test]
+fn inspector_respects_protocol_store_and_load_widths() {
+    let script = vec![
+        opcodes::STORE,
+        0x01,
+        0x44,
+        0x33,
+        0x22,
+        0x11,
+        opcodes::LOAD,
+        opcodes::HALT,
+    ];
+
+    assert_eq!(BytecodeInspector::instruction_size(&script, 0), 6);
+    assert_eq!(BytecodeInspector::instruction_size(&script, 6), 1);
+    assert_eq!(BytecodeInspector::instruction_size(&script, 7), 1);
+}
+
+#[test]
+fn disassembler_advances_past_store_and_load_using_protocol_sizes() {
+    let script = vec![
+        opcodes::STORE,
+        0x01,
+        0x44,
+        0x33,
+        0x22,
+        0x11,
+        opcodes::LOAD,
+        opcodes::HALT,
+    ];
+    let lines = disassemble(&script);
+
+    assert!(
+        lines.iter().any(|line| line.contains("0000: STORE")),
+        "expected STORE line in disassembly: {:?}",
+        lines
+    );
+    assert!(
+        lines.iter().any(|line| line.contains("0006: LOAD")),
+        "expected LOAD line after 6-byte STORE instruction: {:?}",
+        lines
+    );
+    assert!(
+        lines.iter().any(|line| line.contains("0007: HALT")),
+        "expected HALT line after LOAD: {:?}",
+        lines
+    );
+}

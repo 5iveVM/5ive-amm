@@ -762,7 +762,7 @@ impl FunctionDispatcher {
         // - params[] array: accessed by LOAD_PARAM - uses 1-based unified index
         //
         // For account params: offset = account position (0-based among accounts only)
-        // For data params: offset = position in params array (1-based, matching VLE)
+        // For data params: offset = position in params array (1-based in bytecode semantics)
 
         // CALL-BASED DISPATCH indexing:
         // After CALL, the new frame has pushed data params at indices 1..N.

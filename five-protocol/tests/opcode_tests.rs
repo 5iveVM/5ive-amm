@@ -1,8 +1,8 @@
 use five_protocol::{
     get_opcode_info, is_valid_opcode, opcode_compute_cost, opcode_name,
-    operand_size, OPCODE_TABLE,
+    operand_size, parser, BytecodeBuilder, ParseError, OPCODE_TABLE,
     // Import some key opcodes to test against
-    ADD, CREATE_TUPLE, JUMP, PUSH_STRING, PUSH_U16, PUSH_U16_W, RETURN,
+    ADD, ALLOC_LOCALS, BR_EQ_U8, CREATE_TUPLE, JUMP, LOAD, PUSH_STRING, PUSH_U16, PUSH_U16_W, RETURN, STORE,
 };
 use std::collections::HashSet;
 
@@ -94,8 +94,96 @@ fn test_operand_size_uses_canonical_fixed_and_variable_widths() {
     assert_eq!(operand_size(PUSH_U16_W, &[0x34, 0x12], true), Some(2));
 
     assert_eq!(operand_size(CREATE_TUPLE, &[0x03], false), Some(1));
+    assert_eq!(operand_size(ALLOC_LOCALS, &[0x04], false), Some(1));
+    assert_eq!(operand_size(BR_EQ_U8, &[0x02, 0x34, 0x12], false), Some(3));
+    assert_eq!(operand_size(STORE, &[0x01, 0x44, 0x33, 0x22, 0x11], false), Some(5));
+    assert_eq!(operand_size(LOAD, &[], false), Some(0));
 
     // PUSH_STRING uses u32 length prefix + bytes.
     assert_eq!(operand_size(PUSH_STRING, &[0x03, 0x00, 0x00, 0x00, b'a', b'b', b'c'], false), Some(7));
     assert_eq!(operand_size(PUSH_STRING, &[0x03, 0x00], false), None);
+}
+
+#[test]
+fn parser_uses_canonical_widths_for_corrected_opcodes() {
+    let script = {
+        let mut b = BytecodeBuilder::new();
+        b.emit_header(1, 1)
+            .emit_opcode(ALLOC_LOCALS)
+            .emit_u8(2)
+            .emit_opcode(CREATE_TUPLE)
+            .emit_u8(3)
+            .emit_opcode(STORE)
+            .emit_u8(1)
+            .emit_u32(0x1122_3344)
+            .emit_opcode(LOAD)
+            .emit_halt();
+        b.build()
+    };
+
+    let parsed = parser::parse_bytecode(&script);
+    assert!(parsed.errors.is_empty(), "parser errors: {:?}", parsed.errors);
+
+    let alloc = parsed.instructions[0];
+    assert_eq!(alloc.opcode, ALLOC_LOCALS);
+    assert_eq!(alloc.size, 2);
+    assert_eq!(alloc.arg1, 2);
+
+    let tuple = parsed.instructions[1];
+    assert_eq!(tuple.opcode, CREATE_TUPLE);
+    assert_eq!(tuple.size, 2);
+    assert_eq!(tuple.arg1, 3);
+
+    let store = parsed.instructions[2];
+    assert_eq!(store.opcode, STORE);
+    assert_eq!(store.size, 6);
+    assert_eq!(store.arg1, 1);
+    assert_eq!(store.arg2, 0x1122_3344);
+
+    let load = parsed.instructions[3];
+    assert_eq!(load.opcode, LOAD);
+    assert_eq!(load.size, 1);
+    assert_eq!(load.arg1, 0);
+    assert_eq!(load.arg2, 0);
+}
+
+#[test]
+fn parser_rejects_legacy_short_store_operand_form() {
+    let script = {
+        let mut b = BytecodeBuilder::new();
+        b.emit_header(1, 1)
+            .emit_opcode(STORE)
+            .emit_u8(1)
+            .emit_u8(0x7f)
+            .emit_halt();
+        b.build()
+    };
+
+    let parsed = parser::parse_bytecode(&script);
+    assert!(
+        parsed.errors.contains(&ParseError::InstructionOutOfBounds),
+        "expected canonical parser to reject short STORE operand form: {:?}",
+        parsed.errors
+    );
+}
+
+#[test]
+fn parser_decodes_br_eq_u8_compare_and_offset() {
+    let script = {
+        let mut b = BytecodeBuilder::new();
+        b.emit_header(1, 1)
+            .emit_opcode(BR_EQ_U8)
+            .emit_u8(7)
+            .emit_u16(0x0012)
+            .emit_halt();
+        b.build()
+    };
+
+    let parsed = parser::parse_bytecode(&script);
+    assert!(parsed.errors.is_empty(), "parser errors: {:?}", parsed.errors);
+    let br = parsed.instructions[0];
+    assert_eq!(br.opcode, BR_EQ_U8);
+    assert_eq!(br.size, 4);
+    assert_eq!(br.arg1, 7);
+    assert_eq!(br.arg2, 0x0012);
 }

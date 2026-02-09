@@ -148,7 +148,9 @@ pub const BYTE_SWAP_32: u8 = 0x3E; // Swap bytes in u32 (endian conversion)
 pub const BYTE_SWAP_64: u8 = 0x3F; // Swap bytes in u64 (endian conversion)
 
 // ===== MEMORY OPERATIONS (0x40-0x4F) =====
-// All memory operations use zero-copy by default where possible
+// Canonical encodings:
+// - STORE: account_index_u8 + offset_u32 immediate operands
+// - LOAD: stack-address form (no immediate operand)
 pub const STORE: u8 = 0x40;
 pub const LOAD: u8 = 0x41;
 pub const STORE_FIELD: u8 = 0x42; // STORE_FIELD account_index_u8, offset_u32
@@ -281,7 +283,7 @@ pub const PUSH_STRING_W: u8 = 0xB8;
 
 // ===== NIBBLE IMMEDIATE OPERATIONS (0xD0-0xD7) =====
 // BPF optimization: single-byte encoding for common local variable operations
-// GET_LOCAL and SET_LOCAL with hardcoded indices 0-3 (no VLE operand needed)
+// GET_LOCAL and SET_LOCAL with hardcoded indices 0-3 (no extra operand byte needed)
 
 // Nibble immediate GET_LOCAL operations
 pub const GET_LOCAL_0: u8 = 0xD0; // GET_LOCAL with index 0 (single byte)
@@ -399,9 +401,9 @@ pub const RET: u8 = RETURN;
 pub const JZ: u8 = JUMP_IF_NOT;
 
 // DEPRECATED OPERATIONS REMOVED:
-// - RLE/Compact encoding operations (VLE-only architecture)
+// - RLE/compact encoding operations
 // - Register operations (system is now pure stack machine)
-// - Compression markers (not used with VLE-only approach)
+// - Compression markers (not used in canonical bytecode format)
 
 // ===== COMPACT FIELD IDs FOR BUILT-IN ACCOUNT PROPERTIES =====
 pub const FIELD_LAMPORTS: u8 = 0; // account.lamports
@@ -439,6 +441,7 @@ pub enum ArgType {
     FusedSubAdd,    // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
     ParamImm,       // param(u8) + imm(u8)
     FieldImm,       // acc(u8) + off(u32) + imm(u8)
+    CompareU8Offset16, // compare(u8) + rel_offset(u16)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -454,7 +457,7 @@ pub struct OpcodeInfo {
 
 /// Complete opcode information table (const for zero-allocation lookup)
 pub const OPCODE_TABLE: &[OpcodeInfo] = &[
-    // Control flow (now VLE optimized)
+    // Control flow
     OpcodeInfo {
         opcode: HALT,
         name: "HALT",
@@ -514,7 +517,7 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: BR_EQ_U8,
         name: "BR_EQ_U8",
-        arg_type: ArgType::U8,
+        arg_type: ArgType::CompareU8Offset16,
         stack_effect: -1,
         compute_cost: 3,
     },
@@ -578,10 +581,10 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: CREATE_TUPLE,
         name: "CREATE_TUPLE",
-        arg_type: ArgType::None,
+        arg_type: ArgType::U8,
         stack_effect: -127,
         compute_cost: 2,
-    }, // Dynamic: -(n-1)
+    }, // Dynamic: -(n-1), immediate u8 element count
     OpcodeInfo {
         opcode: TUPLE_GET,
         name: "TUPLE_GET",
@@ -985,17 +988,17 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: STORE,
         name: "STORE",
-        arg_type: ArgType::U32,
+        arg_type: ArgType::AccountField,
         stack_effect: -1,
         compute_cost: 2,
-    },
+    }, // account_index_u8 + field_offset_u32
     OpcodeInfo {
         opcode: LOAD,
         name: "LOAD",
-        arg_type: ArgType::U32,
+        arg_type: ArgType::None,
         stack_effect: 1,
         compute_cost: 2,
-    },
+    }, // stack-address form (no immediate)
     OpcodeInfo {
         opcode: STORE_FIELD,
         name: "STORE_FIELD",
@@ -1092,10 +1095,10 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     OpcodeInfo {
         opcode: ALLOC_LOCALS,
         name: "ALLOC_LOCALS",
-        arg_type: ArgType::None,
+        arg_type: ArgType::U8,
         stack_effect: 0,
         compute_cost: 2,
-    },
+    }, // local_count_u8
     OpcodeInfo {
         opcode: DEALLOC_LOCALS,
         name: "DEALLOC_LOCALS",
@@ -1324,7 +1327,7 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: -127,
         compute_cost: 12,
     },
-    // Additional VLE PUSH operations
+    // Additional PUSH operations
     OpcodeInfo {
         opcode: PUSH_U32,
         name: "PUSH_U32",
@@ -1844,6 +1847,7 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
         ArgType::FusedSubAdd => 11,
         ArgType::ParamImm => 2,
         ArgType::FieldImm => 6,
+        ArgType::CompareU8Offset16 => 3,
     })
 }
 

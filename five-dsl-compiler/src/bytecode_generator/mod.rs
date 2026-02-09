@@ -733,32 +733,7 @@ impl DslBytecodeGenerator {
         while i < self.bytecode.len() {
             let op = self.bytecode[i];
             last_op = Some(op);
-            let mut size = BytecodeInspector::instruction_size(&self.bytecode, i);
-            match op {
-                five_protocol::opcodes::PUSH_U8
-                | five_protocol::opcodes::PUSH_U16
-                | five_protocol::opcodes::PUSH_U32
-                | five_protocol::opcodes::PUSH_U64
-                | five_protocol::opcodes::PUSH_I64
-                | five_protocol::opcodes::PUSH_BOOL
-                | five_protocol::opcodes::PUSH_PUBKEY
-                | five_protocol::opcodes::PUSH_U128
-                | five_protocol::opcodes::PUSH_STRING => {
-                    size = 2;
-                }
-                five_protocol::opcodes::PUSH_U8_W
-                | five_protocol::opcodes::PUSH_U16_W
-                | five_protocol::opcodes::PUSH_U32_W
-                | five_protocol::opcodes::PUSH_U64_W
-                | five_protocol::opcodes::PUSH_I64_W
-                | five_protocol::opcodes::PUSH_BOOL_W
-                | five_protocol::opcodes::PUSH_PUBKEY_W
-                | five_protocol::opcodes::PUSH_U128_W
-                | five_protocol::opcodes::PUSH_STRING_W => {
-                    size = 3;
-                }
-                _ => {}
-            }
+            let size = BytecodeInspector::instruction_size(&self.bytecode, i);
             if size == 0 {
                 break;
             }

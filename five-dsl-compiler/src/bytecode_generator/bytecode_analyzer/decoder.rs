@@ -60,9 +60,23 @@ fn decode_single_instruction(analyzer: &mut AdvancedBytecodeAnalyzer) -> Result<
             1,
         )
     };
+    let pool_enabled = (analyzer.features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+    let expected_operand_size = five_protocol::opcodes::operand_size(
+        opcode,
+        &analyzer.bytecode[analyzer.position..],
+        pool_enabled,
+    )
+    .ok_or(VMError::InvalidOperation)?;
+    if analyzer.position + expected_operand_size > analyzer.bytecode.len() {
+        return Err(VMError::InvalidOperation);
+    }
 
     // Decode operands based on argument type - this is the key intelligence!
     let operands = decode_operands(analyzer, arg_type, opcode)?;
+    let consumed_operand_size = analyzer.position - (start_offset + 1);
+    if consumed_operand_size != expected_operand_size {
+        return Err(VMError::InvalidOperation);
+    }
 
     let size = analyzer.position - start_offset;
     let raw_bytes = analyzer.bytecode[start_offset..analyzer.position].to_vec();
@@ -89,36 +103,6 @@ fn decode_single_instruction(analyzer: &mut AdvancedBytecodeAnalyzer) -> Result<
         control_flow,
         raw_bytes,
     })
-}
-
-/// Helper to read VLE encoded value
-fn read_vle(analyzer: &mut AdvancedBytecodeAnalyzer) -> Result<(u64, Vec<u8>, usize), VMError> {
-    let mut value = 0u64;
-    let mut size = 0;
-    let mut bytes = Vec::new();
-    let mut shift = 0;
-
-    while analyzer.position < analyzer.bytecode.len() && size < 10 {
-        let byte = analyzer.bytecode[analyzer.position];
-        analyzer.position += 1;
-        size += 1;
-        bytes.push(byte);
-
-        value |= ((byte & 0x7F) as u64) << shift;
-        shift += 7;
-
-        if (byte & 0x80) == 0 {
-            return Ok((value, bytes, size));
-        }
-    }
-
-    // If we reach here, VLE was too long or truncated
-    if size == 0 {
-            Err(VMError::InvalidInstructionPointer)
-    } else {
-            // Return what we have if truncated, or valid result if ended properly
-            Ok((value, bytes, size))
-    }
 }
 
 /// Decode operands based on ArgType - this provides the intelligence about what follows each opcode
@@ -202,135 +186,81 @@ fn decode_operands(
             }
         }
         ArgType::U16 => {
-            // JUMP family uses fixed u16, PUSH_U16 uses VLE
-            if opcode == JUMP || opcode == JUMP_IF || opcode == JUMP_IF_NOT {
-                if analyzer.position + 1 < analyzer.bytecode.len() {
-                    let value = u16::from_le_bytes([
-                        analyzer.bytecode[analyzer.position],
-                        analyzer.bytecode[analyzer.position + 1],
-                    ]);
-                    operands.push(OperandInfo {
-                        operand_type: "u16_fixed".to_string(),
-                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
-                        decoded_value: Some(value.to_string()),
-                        size: 2,
-                        description: "16-bit unsigned integer (Fixed)".to_string(),
-                    });
-                    analyzer.position += 2;
-                }
-            } else {
-                // PUSH_U16 and others use VLE
-                let (value, bytes, size) = read_vle(analyzer)?;
+            if analyzer.position + 1 < analyzer.bytecode.len() {
+                let value = u16::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                ]);
                 operands.push(OperandInfo {
-                    operand_type: "u16_vle".to_string(),
-                    raw_value: bytes,
+                    operand_type: "u16".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
                     decoded_value: Some(value.to_string()),
-                    size,
-                    description: "16-bit unsigned integer (VLE)".to_string(),
+                    size: 2,
+                    description: "16-bit unsigned integer".to_string(),
                 });
+                analyzer.position += 2;
             }
         }
         ArgType::U32 => {
-            if opcode == STORE {
-                // STORE uses [account_index_u8, field_offset_u32] (Fixed)
-                // Protocol metadata says ArgType::U32 but VM reads u8 + u32
-                if analyzer.position < analyzer.bytecode.len() {
-                        let acc_idx = analyzer.bytecode[analyzer.position];
-                        analyzer.position += 1;
-                        operands.push(OperandInfo {
-                        operand_type: "account_index".to_string(),
-                        raw_value: vec![acc_idx],
-                        decoded_value: Some(acc_idx.to_string()),
-                        size: 1,
-                        description: "Account Index".to_string(),
-                    });
-                }
-                if analyzer.position + 3 < analyzer.bytecode.len() {
-                    let value = u32::from_le_bytes([
-                        analyzer.bytecode[analyzer.position],
-                        analyzer.bytecode[analyzer.position + 1],
-                        analyzer.bytecode[analyzer.position + 2],
-                        analyzer.bytecode[analyzer.position + 3],
-                    ]);
-                    operands.push(OperandInfo {
-                        operand_type: "u32_fixed".to_string(),
-                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
-                        decoded_value: Some(value.to_string()),
-                        size: 4,
-                        description: "32-bit unsigned integer (Fixed)".to_string(),
-                    });
-                    analyzer.position += 4;
-                }
-            } else if analyzer.position + 3 < analyzer.bytecode.len() && (opcode == LOAD || opcode == LOAD_GLOBAL || opcode == STORE_GLOBAL) {
-                    // Legacy/Other ops using fixed U32?
-                    // PUSH_U32 uses VLE.
-                    // LOAD_GLOBAL uses ArgType::U16 according to table.
-                    // LOAD uses ArgType::U32. VM says LOAD is not implemented.
-                    // Safe to default to VLE for PUSH_U32, check others.
-                    if opcode == PUSH_U32 {
-                        let (value, bytes, size) = read_vle(analyzer)?;
-                        operands.push(OperandInfo {
-                        operand_type: "u32_vle".to_string(),
-                        raw_value: bytes,
-                        decoded_value: Some(value.to_string()),
-                        size,
-                        description: "32-bit unsigned integer (VLE)".to_string(),
-                    });
-                    } else {
-                        // Default to Fixed for unknown/legacy ops sharing ArgType::U32 if any
-                        let value = u32::from_le_bytes([
-                        analyzer.bytecode[analyzer.position],
-                        analyzer.bytecode[analyzer.position + 1],
-                        analyzer.bytecode[analyzer.position + 2],
-                        analyzer.bytecode[analyzer.position + 3],
-                    ]);
-                    operands.push(OperandInfo {
-                        operand_type: "u32".to_string(),
-                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
-                        decoded_value: Some(value.to_string()),
-                        size: 4,
-                        description: "32-bit unsigned integer".to_string(),
-                    });
-                    analyzer.position += 4;
-                    }
-            } else {
-                    // Default VLE for PUSH_U32
-                    let (value, bytes, size) = read_vle(analyzer)?;
-                    operands.push(OperandInfo {
-                    operand_type: "u32_vle".to_string(),
-                    raw_value: bytes,
+            if analyzer.position + 3 < analyzer.bytecode.len() {
+                let value = u32::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                    analyzer.bytecode[analyzer.position + 3],
+                ]);
+                operands.push(OperandInfo {
+                    operand_type: "u32".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
                     decoded_value: Some(value.to_string()),
-                    size,
-                    description: "32-bit unsigned integer (VLE)".to_string(),
+                    size: 4,
+                    description: "32-bit unsigned integer".to_string(),
                 });
+                analyzer.position += 4;
             }
         }
         ArgType::U64 => {
-            // PUSH_U64 / PUSH_I64 use VLE
-            let (value, bytes, size) = read_vle(analyzer)?;
-            operands.push(OperandInfo {
-                operand_type: "u64_vle".to_string(),
-                raw_value: bytes,
-                decoded_value: Some(value.to_string()),
-                size,
-                description: "64-bit unsigned integer (VLE)".to_string(),
-            });
+            if analyzer.position + 7 < analyzer.bytecode.len() {
+                let value = u64::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                    analyzer.bytecode[analyzer.position + 3],
+                    analyzer.bytecode[analyzer.position + 4],
+                    analyzer.bytecode[analyzer.position + 5],
+                    analyzer.bytecode[analyzer.position + 6],
+                    analyzer.bytecode[analyzer.position + 7],
+                ]);
+                operands.push(OperandInfo {
+                    operand_type: "u64".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 8].to_vec(),
+                    decoded_value: Some(value.to_string()),
+                    size: 8,
+                    description: "64-bit unsigned integer".to_string(),
+                });
+                analyzer.position += 8;
+            }
         }
         ArgType::ValueType => {
             // This is for PUSH instructions - they have a type byte followed by the value
             decode_push_operands(analyzer, &mut operands)?;
         }
         ArgType::FunctionIndex => {
-            if analyzer.position < analyzer.bytecode.len() {
-                let value = analyzer.bytecode[analyzer.position];
+            if analyzer.position + 3 < analyzer.bytecode.len() {
+                let value = u32::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                    analyzer.bytecode[analyzer.position + 3],
+                ]);
                 operands.push(OperandInfo {
                     operand_type: "function_index".to_string(),
-                    raw_value: vec![value],
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
                     decoded_value: Some(format!("function_{}", value)),
-                    size: 1,
-                    description: "Function index for dispatch".to_string(),
+                    size: 4,
+                    description: "Function index (u32)".to_string(),
                 });
-                analyzer.position += 1;
+                analyzer.position += 4;
             }
         }
         ArgType::LocalIndex => {
@@ -396,7 +326,7 @@ fn decode_operands(
             }
         }
         ArgType::AccountField => {
-            // Account field access: account_index (u8) + field_offset (VLE)
+            // Account field access: account_index (u8) + field_offset (u32)
             if analyzer.position < analyzer.bytecode.len() {
                 let account_idx = analyzer.bytecode[analyzer.position];
                 operands.push(OperandInfo {
@@ -408,31 +338,21 @@ fn decode_operands(
                 });
                 analyzer.position += 1;
 
-                // Decode VLE for field offset
-                if analyzer.position < analyzer.bytecode.len() {
-                    let mut field_offset = 0u64;
-                    let mut vle_size = 0;
-                    let mut byte_val;
-
-                    while analyzer.position < analyzer.bytecode.len() && vle_size < 9 {
-                        byte_val = analyzer.bytecode[analyzer.position];
-                        analyzer.position += 1;
-                        vle_size += 1;
-
-                        field_offset |= ((byte_val & 0x7f) as u64) << (7 * (vle_size - 1));
-
-                        if (byte_val & 0x80) == 0 {
-                            break;
-                        }
-                    }
-
+                if analyzer.position + 3 < analyzer.bytecode.len() {
+                    let field_offset = u32::from_le_bytes([
+                        analyzer.bytecode[analyzer.position],
+                        analyzer.bytecode[analyzer.position + 1],
+                        analyzer.bytecode[analyzer.position + 2],
+                        analyzer.bytecode[analyzer.position + 3],
+                    ]);
                     operands.push(OperandInfo {
                         operand_type: "field_offset".to_string(),
-                        raw_value: analyzer.bytecode[analyzer.position - vle_size..analyzer.position].to_vec(),
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
                         decoded_value: Some(format!("offset_{}", field_offset)),
-                        size: vle_size,
-                        description: "Field offset (VLE encoded)".to_string(),
+                        size: 4,
+                        description: "Field offset (u32)".to_string(),
                     });
+                    analyzer.position += 4;
                 }
             }
         }
@@ -465,7 +385,7 @@ fn decode_operands(
             }
         }
         ArgType::AccountFieldParam => {
-            // acc(u8) + offset(VLE) + param(u8)
+            // acc(u8) + offset(u32) + param(u8)
             if analyzer.position < analyzer.bytecode.len() {
                 let acc = analyzer.bytecode[analyzer.position];
                 operands.push(OperandInfo {
@@ -477,15 +397,21 @@ fn decode_operands(
                 });
                 analyzer.position += 1;
 
-                if analyzer.position < analyzer.bytecode.len() {
-                    let (val, bytes, size) = read_vle(analyzer)?;
+                if analyzer.position + 3 < analyzer.bytecode.len() {
+                    let val = u32::from_le_bytes([
+                        analyzer.bytecode[analyzer.position],
+                        analyzer.bytecode[analyzer.position + 1],
+                        analyzer.bytecode[analyzer.position + 2],
+                        analyzer.bytecode[analyzer.position + 3],
+                    ]);
                     operands.push(OperandInfo {
                         operand_type: "field_offset".to_string(),
-                        raw_value: bytes,
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
                         decoded_value: Some(format!("offset_{}", val)),
-                        size: size,
-                        description: "Field offset (VLE)".to_string(),
+                        size: 4,
+                        description: "Field offset (u32)".to_string(),
                     });
+                    analyzer.position += 4;
 
                     if analyzer.position < analyzer.bytecode.len() {
                         let param = analyzer.bytecode[analyzer.position];
@@ -502,7 +428,7 @@ fn decode_operands(
             }
         }
         ArgType::FusedAccAcc => {
-            // acc1(u8) + offset1(VLE) + acc2(u8) + offset2(VLE)
+            // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
             if analyzer.position < analyzer.bytecode.len() {
                 let acc1 = analyzer.bytecode[analyzer.position];
                 operands.push(OperandInfo {
@@ -514,14 +440,23 @@ fn decode_operands(
                 });
                 analyzer.position += 1;
 
-                let (val1, bytes1, size1) = read_vle(analyzer)?;
+                if analyzer.position + 3 >= analyzer.bytecode.len() {
+                    return Ok(operands);
+                }
+                let val1 = u32::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                    analyzer.bytecode[analyzer.position + 3],
+                ]);
                 operands.push(OperandInfo {
                     operand_type: "field_offset".to_string(),
-                    raw_value: bytes1,
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
                     decoded_value: Some(format!("offset1_{}", val1)),
-                    size: size1,
-                    description: "First Field Offset".to_string(),
+                    size: 4,
+                    description: "First field offset (u32)".to_string(),
                 });
+                analyzer.position += 4;
 
                 if analyzer.position < analyzer.bytecode.len() {
                     let acc2 = analyzer.bytecode[analyzer.position];
@@ -534,14 +469,23 @@ fn decode_operands(
                     });
                     analyzer.position += 1;
 
-                    let (val2, bytes2, size2) = read_vle(analyzer)?;
+                    if analyzer.position + 3 >= analyzer.bytecode.len() {
+                        return Ok(operands);
+                    }
+                    let val2 = u32::from_le_bytes([
+                        analyzer.bytecode[analyzer.position],
+                        analyzer.bytecode[analyzer.position + 1],
+                        analyzer.bytecode[analyzer.position + 2],
+                        analyzer.bytecode[analyzer.position + 3],
+                    ]);
                     operands.push(OperandInfo {
                         operand_type: "field_offset".to_string(),
-                        raw_value: bytes2,
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
                         decoded_value: Some(format!("offset2_{}", val2)),
-                        size: size2,
-                        description: "Second Field Offset".to_string(),
+                        size: 4,
+                        description: "Second field offset (u32)".to_string(),
                     });
+                    analyzer.position += 4;
                 }
             }
         }
@@ -580,7 +524,7 @@ fn decode_operands(
             }
         }
         ArgType::FusedSubAdd => {
-            // acc1(u8) + off1(VLE) + acc2(u8) + off2(VLE) + param(u8)
+            // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
             if analyzer.position < analyzer.bytecode.len() {
                 let acc1 = analyzer.bytecode[analyzer.position];
                 operands.push(OperandInfo {
@@ -592,14 +536,23 @@ fn decode_operands(
                 });
                 analyzer.position += 1;
 
-                let (val1, bytes1, size1) = read_vle(analyzer)?;
+                if analyzer.position + 3 >= analyzer.bytecode.len() {
+                    return Ok(operands);
+                }
+                let val1 = u32::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                    analyzer.bytecode[analyzer.position + 3],
+                ]);
                 operands.push(OperandInfo {
                     operand_type: "field_offset".to_string(),
-                    raw_value: bytes1,
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
                     decoded_value: Some(format!("offset1_{}", val1)),
-                    size: size1,
-                    description: "First Field Offset".to_string(),
+                    size: 4,
+                    description: "First field offset (u32)".to_string(),
                 });
+                analyzer.position += 4;
 
                 if analyzer.position < analyzer.bytecode.len() {
                     let acc2 = analyzer.bytecode[analyzer.position];
@@ -612,14 +565,23 @@ fn decode_operands(
                     });
                     analyzer.position += 1;
 
-                    let (val2, bytes2, size2) = read_vle(analyzer)?;
+                    if analyzer.position + 3 >= analyzer.bytecode.len() {
+                        return Ok(operands);
+                    }
+                    let val2 = u32::from_le_bytes([
+                        analyzer.bytecode[analyzer.position],
+                        analyzer.bytecode[analyzer.position + 1],
+                        analyzer.bytecode[analyzer.position + 2],
+                        analyzer.bytecode[analyzer.position + 3],
+                    ]);
                     operands.push(OperandInfo {
                         operand_type: "field_offset".to_string(),
-                        raw_value: bytes2,
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
                         decoded_value: Some(format!("offset2_{}", val2)),
-                        size: size2,
-                        description: "Second Field Offset".to_string(),
+                        size: 4,
+                        description: "Second field offset (u32)".to_string(),
                     });
+                    analyzer.position += 4;
 
                     if analyzer.position < analyzer.bytecode.len() {
                         let param = analyzer.bytecode[analyzer.position];
@@ -660,7 +622,7 @@ fn decode_operands(
             }
         }
         ArgType::FieldImm => {
-            // acc(u8) + off(VLE) + imm(u8)
+            // acc(u8) + off(u32) + imm(u8)
             if analyzer.position < analyzer.bytecode.len() {
                 let acc = analyzer.bytecode[analyzer.position];
                 operands.push(OperandInfo {
@@ -672,14 +634,23 @@ fn decode_operands(
                 });
                 analyzer.position += 1;
 
-                let (val, bytes, size) = read_vle(analyzer)?;
+                if analyzer.position + 3 >= analyzer.bytecode.len() {
+                    return Ok(operands);
+                }
+                let val = u32::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                    analyzer.bytecode[analyzer.position + 3],
+                ]);
                 operands.push(OperandInfo {
                     operand_type: "field_offset".to_string(),
-                    raw_value: bytes,
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
                     decoded_value: Some(format!("offset_{}", val)),
-                    size: size,
-                    description: "Field Offset".to_string(),
+                    size: 4,
+                    description: "Field offset (u32)".to_string(),
                 });
+                analyzer.position += 4;
 
                 if analyzer.position < analyzer.bytecode.len() {
                     let imm = analyzer.bytecode[analyzer.position];
@@ -694,10 +665,32 @@ fn decode_operands(
                 }
             }
         }
-    }
+        ArgType::CompareU8Offset16 => {
+            if analyzer.position + 2 < analyzer.bytecode.len() {
+                let compare = analyzer.bytecode[analyzer.position];
+                let offset = u16::from_le_bytes([
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                ]);
 
-    // Handle special cases for specific opcodes that have unique operand patterns
-    decode_special_operands(analyzer, opcode, &mut operands)?;
+                operands.push(OperandInfo {
+                    operand_type: "compare_u8".to_string(),
+                    raw_value: vec![compare],
+                    decoded_value: Some(compare.to_string()),
+                    size: 1,
+                    description: "Compare value (u8)".to_string(),
+                });
+                operands.push(OperandInfo {
+                    operand_type: "offset_u16".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position + 1..analyzer.position + 3].to_vec(),
+                    decoded_value: Some(offset.to_string()),
+                    size: 2,
+                    description: "Relative jump offset (u16)".to_string(),
+                });
+                analyzer.position += 3;
+            }
+        }
+    }
 
     Ok(operands)
 }
@@ -837,49 +830,6 @@ fn decode_push_operands(analyzer: &mut AdvancedBytecodeAnalyzer, operands: &mut 
 
     Ok(())
 }
-
-/// Decode special operands for specific opcodes
-fn decode_special_operands(
-    analyzer: &mut AdvancedBytecodeAnalyzer,
-    opcode: u8,
-    operands: &mut Vec<OperandInfo>,
-) -> Result<(), VMError> {
-    use five_protocol::opcodes::*;
-
-    match opcode {
-        // COMPACT_FIELD_LOAD | COMPACT_FIELD_STORE removed - use LOAD_FIELD/STORE_FIELD instead
-        LOAD_INPUT => {
-            // LOAD_INPUT has type + param_index
-            if operands.is_empty() && analyzer.position + 1 < analyzer.bytecode.len() {
-                let type_byte = analyzer.bytecode[analyzer.position];
-                let param_index = analyzer.bytecode[analyzer.position + 1];
-
-                operands.push(OperandInfo {
-                    operand_type: "input_type".to_string(),
-                    raw_value: vec![type_byte],
-                    decoded_value: Some(decode_value_type_name(type_byte)),
-                    size: 1,
-                    description: "Expected input parameter type".to_string(),
-                });
-
-                operands.push(OperandInfo {
-                    operand_type: "param_index".to_string(),
-                    raw_value: vec![param_index],
-                    decoded_value: Some(format!("param_{}", param_index)),
-                    size: 1,
-                    description: "Parameter index in function".to_string(),
-                });
-
-                analyzer.position += 2;
-            }
-        }
-        // Add more special cases as needed
-        _ => {}
-    }
-
-    Ok(())
-}
-
 /// Generate semantic description for an instruction
 fn generate_instruction_description(
     opcode: u8,
@@ -974,17 +924,7 @@ fn generate_instruction_description(
             }
         }
         LOAD => {
-            if !operands.is_empty() {
-                format!(
-                    "Load value from account {}",
-                    operands[0]
-                        .decoded_value
-                        .as_ref()
-                        .unwrap_or(&"?".to_string())
-                )
-            } else {
-                "Load value from account".to_string()
-            }
+            "Load value from stack-provided address".to_string()
         }
         // COMPACT_FIELD_LOAD/COMPACT_FIELD_STORE removed
         GET_CLOCK => "Get current Solana clock".to_string(),

@@ -46,32 +46,24 @@ impl ASTGenerator {
         Ok(())
     }
 
-    /// Helper to patch BR_EQ_U8 VLE offsets in bytecode
+    /// Helper to patch BR_EQ_U8 fixed-width offsets in bytecode
     pub(super) fn patch_br_eq_u8_offset<T: OpcodeEmitter>(
         &self,
         emitter: &mut T,
         offset_pos: usize,
         target: usize,
     ) -> Result<(), VMError> {
-        // Calculate relative offset from the VLE offset position to target
+        // Calculate relative offset from the offset field to target.
         // BR_EQ_U8 offset is relative to the current instruction pointer
         let relative_offset = target as i32 - (offset_pos as i32 + 2);
 
-        // Validate that the offset fits in i16 range (VLE u16 with sign interpretation)
+        // Validate that the offset fits in i16 range.
         if relative_offset < i16::MIN as i32 || relative_offset > i16::MAX as i32 {
             return Err(VMError::InvalidInstructionPointer);
         }
 
-        // Force 2-byte VLE encoding for the offset to fill the reserved space (emitted as u16(0))
-        // Format: 0x80 | (low 7 bits) , (high 7 bits)
-        // This ensures check_br_eq_u8 matches patch size exactly.
-        let val = relative_offset as u16;
-        let byte0 = 0x80 | (val & 0x7F) as u8;
-        let byte1 = ((val >> 7) & 0x7F) as u8;
-        
-        // Patch using u16 (LE) which writes [byte0, byte1]
-        let patch_val = (byte1 as u16) << 8 | (byte0 as u16);
-        emitter.patch_u16(offset_pos, patch_val);
+        // Patch using canonical fixed-width little-endian u16 encoding.
+        emitter.patch_u16(offset_pos, relative_offset as u16);
 
         Ok(())
     }
@@ -152,7 +144,7 @@ impl ASTGenerator {
             self.patch_jump_offset(emitter, patch.position, *target_position + base_offset)?;
         }
 
-        // Patch BR_EQ_U8 instructions with VLE-encoded relative offsets
+        // Patch BR_EQ_U8 instructions with fixed-width relative offsets.
         for patch in &self.br_eq_u8_patches {
             let target_position = self
                 .label_positions
@@ -190,7 +182,7 @@ impl ASTGenerator {
         _emitter: &mut T,
     ) -> Result<(), VMError> {
         // Full implementation would:
-        // 1. Scan bytecode for all instructions with variable-length encoding.
+        // 1. Scan bytecode for all instructions and their canonical operand widths.
         // 2. Build an offset map for actual instruction positions.
         // 3. Update all label_positions entries to match real bytecode structure.
         // 4. Verify all jump_patches reference valid labels.

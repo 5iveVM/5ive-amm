@@ -4,26 +4,24 @@ This document tracks known limitations and correctness issues in the AST generat
 
 ## Medium Priority Issues
 
-### 1. VLE Patching Limitation (jumps.rs:68)
+### 1. BR_EQ_U8 Offset Range Limitation (jumps.rs)
 
 **Location**: `jumps.rs:68` - `patch_br_eq_u8_offset()`
 
-**Issue**: Assumes VLE encoding is always 2 bytes, which may not be true for large offsets.
+**Issue**: BR_EQ_U8 uses a fixed-width `u16` offset field; patching currently enforces i16-range relative offsets.
 
-**Severity**: MEDIUM - Works for most cases (offsets < 16384) but could fail for very large functions
+**Severity**: MEDIUM - Very large relative jumps can overflow the enforced range and fail patching.
 
-**Current Workaround**: Uses `patch_u16()` method which assumes fixed 2-byte encoding
+**Current Workaround**: Uses `patch_u16()` with explicit bounds checks before patching.
 
 **Proper Solution**:
-Add `patch_vle_u16()` method to OpcodeEmitter trait that:
-1. Determines actual VLE encoding size used
-2. Patches the correct number of bytes
-3. Handles size changes gracefully
+Define and enforce canonical BR_EQ_U8 branch semantics end-to-end (signed vs unsigned offset),
+then update patching/validation to match VM execution exactly.
 
 **Test Coverage Needed**:
 - Test with large bytecode files (> 16KB)
 - Test BR_EQ_U8 jumps across large distances
-- Verify VLE encoding consistency
+- Verify fixed-width branch offset handling remains consistent
 
 ---
 
@@ -61,7 +59,7 @@ BULK_LOAD account_idx, [field1, field2, field3]
 All issues are tracked with inline `TODO(correctness)` or `TODO(enhancement)` comments in the source code.
 
 **Priority Order**:
-1. **Medium**: Issue #1 - VLE patching
+1. **Medium**: Issue #1 - BR_EQ_U8 offset range/semantics
 2. **Low**: Issue #2 - Pattern optimization
 
 **Recommended Next Steps**:

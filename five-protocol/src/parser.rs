@@ -1,6 +1,6 @@
 //! Bytecode parser for the optimized header and fixed-size immediates.
 
-use crate::opcodes::{get_opcode_info, ArgType};
+use crate::opcodes::{get_opcode_info, operand_size, ArgType};
 use crate::{ConstantPoolDescriptor, OptimizedHeader};
 use crate::{FunctionNameEntry, FunctionNameMetadata};
 use alloc::format;
@@ -232,19 +232,29 @@ fn parse_instruction_with_features(
     }
 
     let opcode = bytecode[offset];
-    let info = get_opcode_info(opcode);
-    if info.is_none() {
+    let Some(info) = get_opcode_info(opcode) else {
         return Err(ParseError::InvalidOpcode);
+    };
+    let arg_type = info.arg_type;
+    let pool_enabled = (features & crate::FEATURE_CONSTANT_POOL) != 0;
+    let remaining = if offset + 1 <= bytecode.len() {
+        &bytecode[offset + 1..]
+    } else {
+        &[]
+    };
+    let expected_operand_bytes =
+        operand_size(opcode, remaining, pool_enabled).ok_or(ParseError::InstructionOutOfBounds)?;
+    let expected_total_size = 1 + expected_operand_bytes;
+    if offset + expected_total_size > bytecode.len() {
+        return Err(ParseError::InstructionOutOfBounds);
     }
-
-    let arg_type = info.unwrap().arg_type;
 
     let mut arg1 = 0u64;
     let mut arg2 = 0u64;
     let mut total_size = 1; // opcode size
 
     // Constant pool mode: PUSH_* operands are indices (u8 or u16 for _W)
-    if (features & crate::FEATURE_CONSTANT_POOL) != 0 {
+    if pool_enabled {
         match opcode {
             crate::opcodes::PUSH_U8
             | crate::opcodes::PUSH_U16
@@ -577,10 +587,23 @@ fn parse_instruction_with_features(
             arg1 = (acc << 32) | off;
             arg2 = imm;
         }
+        ArgType::CompareU8Offset16 => {
+            if offset + total_size + 2 >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let compare = bytecode[offset + total_size] as u64;
+            let rel = u16::from_le_bytes([
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+            ]) as u64;
+            arg1 = compare;
+            arg2 = rel;
+            total_size += 3;
+        }
     }
 
-    // Check bounds
-    if offset + total_size > bytecode.len() {
+    // Final size check: parser decode must match canonical protocol sizing.
+    if offset + total_size > bytecode.len() || total_size != expected_total_size {
         return Err(ParseError::InstructionOutOfBounds);
     }
 

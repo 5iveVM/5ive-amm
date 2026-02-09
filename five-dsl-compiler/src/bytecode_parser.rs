@@ -157,56 +157,11 @@ impl BytecodeParser {
         })
     }
 
-    /// Get the operand size for a given opcode (simplified version for parsing)
+    /// Get operand size for an opcode using canonical protocol metadata.
     fn get_operand_size(opcode: u8, bytecode: &[u8], position: usize, features: u32) -> usize {
-        if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
-            match opcode {
-                opcodes::PUSH_U8
-                | opcodes::PUSH_U16
-                | opcodes::PUSH_U32
-                | opcodes::PUSH_U64
-                | opcodes::PUSH_I64
-                | opcodes::PUSH_BOOL
-                | opcodes::PUSH_PUBKEY
-                | opcodes::PUSH_U128
-                | opcodes::PUSH_STRING => return 1, // pool index (u8)
-                opcodes::PUSH_U8_W
-                | opcodes::PUSH_U16_W
-                | opcodes::PUSH_U32_W
-                | opcodes::PUSH_U64_W
-                | opcodes::PUSH_I64_W
-                | opcodes::PUSH_BOOL_W
-                | opcodes::PUSH_PUBKEY_W
-                | opcodes::PUSH_U128_W
-                | opcodes::PUSH_STRING_W => return 2, // pool index (u16)
-                _ => {}
-            }
-        }
-
-        match opcode {
-            opcodes::PUSH_U8 | opcodes::PUSH_BOOL => 1,
-            opcodes::PUSH_U64 | opcodes::PUSH_I64 => 8,
-            opcodes::PUSH_PUBKEY => 32,
-            opcodes::PUSH_U128 => 16,
-            opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 4,
-            opcodes::JUMP | opcodes::JUMP_IF_NOT | opcodes::JUMP_IF => 2,
-            opcodes::BR_EQ_U8 => 3,
-            opcodes::PUSH_STRING => {
-                if position + 4 <= bytecode.len() {
-                    let len = u32::from_le_bytes([
-                        bytecode[position],
-                        bytecode[position + 1],
-                        bytecode[position + 2],
-                        bytecode[position + 3],
-                    ]) as usize;
-                    4 + len
-                } else {
-                    0
-                }
-            }
-            // CALL is handled specially above
-            _ => 0,
-        }
+        let pool_enabled = (features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+        let remaining = bytecode.get(position..).unwrap_or(&[]);
+        five_protocol::opcodes::operand_size(opcode, remaining, pool_enabled).unwrap_or(0)
     }
 
     /// Extract function interface information for ecosystem composability

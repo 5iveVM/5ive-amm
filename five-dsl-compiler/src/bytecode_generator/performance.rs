@@ -386,7 +386,7 @@ impl ZeroCopyOptimizer {
             return Ok(false);
         }
 
-        // Use standard LOAD_FIELD - already optimized with VLE + zero-copy by default
+        // Use standard LOAD_FIELD - canonical fixed-width + zero-copy access.
         emitter.emit_opcode(LOAD_FIELD);
         emitter.emit_u8(0); // Account index
         emitter.emit_u32(0); // Field offset (fixed format)

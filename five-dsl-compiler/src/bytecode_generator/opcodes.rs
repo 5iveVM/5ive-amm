@@ -392,101 +392,41 @@ pub struct OpcodeAnalyzer;
 impl OpcodeAnalyzer {
     /// Check if an opcode requires immediate operands
     pub fn requires_operands(opcode: u8) -> bool {
-        matches!(
-            opcode,
-            opcodes::PUSH_U8
-                | opcodes::PUSH_U16
-                | opcodes::PUSH_U32
-                | opcodes::PUSH_U64
-                | opcodes::PUSH_I64
-                | opcodes::PUSH_BOOL
-                | opcodes::PUSH_PUBKEY
-                | opcodes::PUSH_STRING
-                | opcodes::PUSH_U8_W
-                | opcodes::PUSH_U16_W
-                | opcodes::PUSH_U32_W
-                | opcodes::PUSH_U64_W
-                | opcodes::PUSH_I64_W
-                | opcodes::PUSH_BOOL_W
-                | opcodes::PUSH_PUBKEY_W
-                | opcodes::PUSH_U128_W
-                | opcodes::PUSH_STRING_W
-                | opcodes::LOAD_FIELD
-                | opcodes::STORE_FIELD
-                | opcodes::JUMP
-                | opcodes::JUMP_IF_NOT
-                | opcodes::JUMP_IF
-                | opcodes::CALL
-                | opcodes::CALL_EXTERNAL
-                | opcodes::BR_EQ_U8
-                | opcodes::PUSH_ARRAY_LITERAL
-                | opcodes::PUSH_STRING_LITERAL
-                | opcodes::CREATE_ARRAY
-                | opcodes::CHECK_SIGNER
-                | opcodes::CHECK_WRITABLE
-                | opcodes::CHECK_OWNER
-                | opcodes::CHECK_INITIALIZED
-                | opcodes::CHECK_PDA
-                | opcodes::CHECK_UNINITIALIZED
-                | opcodes::LOAD_ACCOUNT
-                | opcodes::SAVE_ACCOUNT
-                | opcodes::GET_ACCOUNT
-                | opcodes::GET_LAMPORTS
-                | opcodes::SET_LAMPORTS
-                | opcodes::GET_DATA
-                | opcodes::GET_KEY
-                | opcodes::GET_OWNER
-                | opcodes::INIT_ACCOUNT
-                | opcodes::INIT_PDA_ACCOUNT
-                | opcodes::SET_LOCAL
-                | opcodes::GET_LOCAL
-                | opcodes::LOAD_PARAM
-                | opcodes::STORE_PARAM
-                | opcodes::CAST
-                | opcodes::TRANSFER_DEBIT
-                | opcodes::TRANSFER_CREDIT
-                | opcodes::EQ_ZERO_JUMP
-                | opcodes::GT_ZERO_JUMP
-                | opcodes::LT_ZERO_JUMP
-                | opcodes::CHECK_SIGNER_WRITABLE
-                | opcodes::REQUIRE_PARAM_GT_ZERO
-        )
+        Self::operand_size(opcode) > 0
     }
 
     /// Get the logical size of operands for an opcode
     /// Returns the maximum expected size in bytes for analysis purposes.
     pub fn operand_size(opcode: u8) -> usize {
-        match opcode {
-            opcodes::PUSH_U64 | opcodes::PUSH_I64 => 8, // Fixed 8 bytes
-            opcodes::PUSH_U128 => 16,
-            opcodes::PUSH_BOOL => 1,
-            opcodes::PUSH_PUBKEY => 32,
-            opcodes::PUSH_STRING => 4, // Fixed u32 length
-            opcodes::PUSH_U8 => 1,
-            opcodes::PUSH_U16 => 2, // Fixed 2 bytes
-            opcodes::PUSH_U32 => 4, // Fixed 4 bytes
-            opcodes::PUSH_U8_W
-            | opcodes::PUSH_U16_W
-            | opcodes::PUSH_U32_W
-            | opcodes::PUSH_U64_W
-            | opcodes::PUSH_I64_W
-            | opcodes::PUSH_BOOL_W
-            | opcodes::PUSH_U128_W
-            | opcodes::PUSH_PUBKEY_W
-            | opcodes::PUSH_STRING_W => 2, // u16 pool index
-            opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 5, // u8 + u32
-            opcodes::JUMP | opcodes::JUMP_IF_NOT | opcodes::JUMP_IF => 2, // 16-bit offset
-            opcodes::CALL => 3, // 8-bit param_count + 16-bit function_address
-            opcodes::BR_EQ_U8 => 3, // u8 + u16 offset
-            opcodes::CALL_EXTERNAL => 4, // account_index(1) + offset(2) + param_count(1)
-            opcodes::PUSH_ARRAY_LITERAL | opcodes::PUSH_STRING_LITERAL | opcodes::CREATE_ARRAY => 1,
-            opcodes::CHECK_SIGNER | opcodes::CHECK_WRITABLE | opcodes::CHECK_OWNER | opcodes::CHECK_INITIALIZED | opcodes::CHECK_PDA | opcodes::CHECK_UNINITIALIZED => 1, // u8 account index
-            opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT | opcodes::GET_LAMPORTS | opcodes::SET_LAMPORTS | opcodes::GET_DATA | opcodes::GET_KEY | opcodes::GET_OWNER | opcodes::INIT_ACCOUNT | opcodes::INIT_PDA_ACCOUNT => 1, // u8 account index
-            opcodes::SET_LOCAL | opcodes::GET_LOCAL | opcodes::LOAD_PARAM | opcodes::STORE_PARAM | opcodes::CAST => 1,
-            opcodes::TRANSFER_DEBIT | opcodes::TRANSFER_CREDIT => 1, // u8 account index
-            opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => 2, // u16 offset
-            _ => 0,
+        if let Some(size) = opcodes::operand_size(opcode, &[], false) {
+            return size;
         }
+
+        if let Some(info) = opcodes::get_opcode_info(opcode) {
+            return match info.arg_type {
+                opcodes::ArgType::None => 0,
+                opcodes::ArgType::U8
+                | opcodes::ArgType::ValueType
+                | opcodes::ArgType::LocalIndex
+                | opcodes::ArgType::AccountIndex => 1,
+                opcodes::ArgType::U16 | opcodes::ArgType::U16Fixed => 2,
+                opcodes::ArgType::U32
+                | opcodes::ArgType::U32Fixed
+                | opcodes::ArgType::FunctionIndex => 4,
+                opcodes::ArgType::U64 => 8,
+                opcodes::ArgType::CallExternal => 4,
+                opcodes::ArgType::CallInternal => 3,
+                opcodes::ArgType::AccountField => 5,
+                opcodes::ArgType::AccountFieldParam => 6,
+                opcodes::ArgType::FusedAccAcc => 10,
+                opcodes::ArgType::FusedSubAdd => 11,
+                opcodes::ArgType::ParamImm => 2,
+                opcodes::ArgType::FieldImm => 6,
+                opcodes::ArgType::CompareU8Offset16 => 3,
+            };
+        }
+
+        0
     }
 
     /// Check if an opcode is a control flow instruction
