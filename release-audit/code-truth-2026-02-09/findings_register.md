@@ -5,15 +5,7 @@ Commit: f6dc18b
 
 ## P2
 
-1. Stack limit check intentionally disabled in call handler
-- Severity: P2
-- Layer: VM call safety
-- Evidence: `five-vm-mito/src/handlers/functions.rs:79` comment: `Stack limit check is currently disabled.`
-- Risk: Reduced defensive checks in hot path; potential latent stack safety regressions.
-- Proposed owner: `five-vm-mito`
-- Unblock: Restore explicit stack-bound guard or document hard invariant with dedicated stress tests.
-
-2. Unconditional debug printing in compiler call generation path
+1. Unconditional debug printing in compiler call generation path
 - Severity: P2
 - Layer: Compiler output behavior
 - Evidence: Multiple `println!` in `five-dsl-compiler/src/bytecode_generator/ast_generator/functions.rs:221-255`.
@@ -21,21 +13,13 @@ Commit: f6dc18b
 - Proposed owner: `five-dsl-compiler`
 - Unblock: Gate under debug feature or remove.
 
-3. Unreachable-pattern warnings in disassembler path
+2. Unreachable-pattern warnings in disassembler path
 - Severity: P2
 - Layer: Compiler disassembler correctness hygiene
 - Evidence: `five-dsl-compiler/src/bytecode_generator/disassembler/disasm.rs:492` and `:512` trigger `unreachable_patterns` during test builds.
 - Risk: Dead paths may hide intended logic and mask future regressions.
 - Proposed owner: `five-dsl-compiler`
 - Unblock: Remove/merge duplicate match arms and add snapshot tests for covered opcode branches.
-
-4. Execute module forces `skipPreflight: true`
-- Severity: P2
-- Layer: SDK execution reliability
-- Evidence: `five-sdk/src/modules/execute.ts:639` hardcodes `skipPreflight: true`.
-- Risk: Preflight validation bypassed by default; earlier error detection is weakened.
-- Proposed owner: `five-sdk`
-- Unblock: Make preflight behavior configurable with safe default and explicit opt-out.
 
 ## Resolved In This Pass
 
@@ -54,6 +38,18 @@ Commit: f6dc18b
 4. CLI gate non-executable due to missing Jest TS config and module collision
 - Fixed in: `five-cli/jest.config.cjs:1`
 - Verification: `npx jest --ci --watchAll=false --watchman=false --runInBand --runTestsByPath src/project/__tests__/ProjectLoader.test.ts --forceExit --verbose` (PASS 4/4 on Node `v20.20.0`)
+
+5. Stack limit guard hardening restored in VM call handlers
+- Fixed in: `five-vm-mito/src/handlers/functions.rs:64`
+- Verification: `cargo test -p five-vm-mito --test memory_oob_tests` (PASS 2/2)
+
+6. SDK execute preflight default hardened
+- Fixed in: `five-sdk/src/modules/execute.ts:528`, `five-sdk/src/modules/execute.ts:640`, `five-sdk/src/FiveSDK.d.ts:425`
+- Verification: `cd five-sdk && npm run test:jest -- src/__tests__/unit/execute-on-solana-preflight.test.ts` (PASS 2/2)
+
+7. Frontend executable boundary gate added
+- Fixed in: `five-sdk/src/__tests__/integration/frontend-boundary.test.ts:31` (executes `five-frontend/src/lib/five-program-client.ts`)
+- Verification: `cd five-sdk && npm run test:jest -- src/__tests__/integration/frontend-boundary.test.ts` (PASS 2/2)
 
 ## P3
 

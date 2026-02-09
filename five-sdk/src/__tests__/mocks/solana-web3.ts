@@ -1,0 +1,55 @@
+export const __calls = {
+  getLatestBlockhash: [] as any[],
+  sendRawTransaction: [] as any[],
+  confirmTransaction: [] as any[],
+};
+
+export class PublicKey {
+  constructor(private readonly value: string) {}
+  toString() {
+    return this.value;
+  }
+}
+
+export class TransactionInstruction {
+  keys: any[];
+  programId: PublicKey;
+  data: Buffer;
+  constructor(config: any) {
+    this.keys = config.keys;
+    this.programId = config.programId;
+    this.data = config.data;
+  }
+}
+
+export class Transaction {
+  instructions: any[] = [];
+  feePayer: PublicKey | undefined;
+  recentBlockhash: string | undefined;
+  add(ix: any) {
+    this.instructions.push(ix);
+    return this;
+  }
+  serialize() {
+    return Buffer.from([9, 9, 9]);
+  }
+}
+
+export class Connection {
+  constructor(_url: string, _commitment: string) {}
+
+  async getLatestBlockhash() {
+    __calls.getLatestBlockhash.push([]);
+    return { blockhash: "latest-bh" };
+  }
+
+  async sendRawTransaction(payload: Buffer, options: any) {
+    __calls.sendRawTransaction.push([payload, options]);
+    return "sig-123";
+  }
+
+  async confirmTransaction(signature: string, commitment: string) {
+    __calls.confirmTransaction.push([signature, commitment]);
+    return { value: { err: null } };
+  }
+}

@@ -525,6 +525,7 @@ export async function executeOnSolana(
     computeUnitLimit?: number;
     computeUnitPrice?: number;
     maxRetries?: number;
+    skipPreflight?: boolean;
     vmStateAccount?: string;
     fiveVMProgramId?: string;
     abi?: any;
@@ -636,7 +637,7 @@ export async function executeOnSolana(
     const signature = await connection.sendRawTransaction(
       transaction.serialize(),
       {
-        skipPreflight: true,
+        skipPreflight: options.skipPreflight ?? false,
         preflightCommitment: "confirmed",
         maxRetries: options.maxRetries || 3,
       },

@@ -422,6 +422,7 @@ export declare class FiveSDK {
         computeUnitLimit?: number;
         computeUnitPrice?: number;
         maxRetries?: number;
+        skipPreflight?: boolean;
         vmStateAccount?: string;
     }): Promise<{
         success: boolean;

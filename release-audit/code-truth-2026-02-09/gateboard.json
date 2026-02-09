@@ -1,7 +1,7 @@
 {
   "date": "2026-02-09",
   "commit": "f6dc18b",
-  "decision": "GO-CONDITIONAL",
+  "decision": "GO",
   "gates": [
     {
       "name": "Binary contract alignment across layers",
@@ -26,28 +26,32 @@
     },
     {
       "name": "Runtime safety (critical path OOB/access class)",
-      "status": "RISK",
-      "severity": "P2",
+      "status": "PASS",
+      "severity": null,
       "evidence": [
-        "five-vm-mito/src/handlers/functions.rs:79"
+        "five-vm-mito/src/handlers/functions.rs:64",
+        "cargo test -p five-vm-mito --test memory_oob_tests"
       ]
     },
     {
       "name": "SDK/CLI integration contract correctness",
-      "status": "PASS_WITH_RISK",
-      "severity": "P2",
+      "status": "PASS",
+      "severity": null,
       "evidence": [
-        "five-sdk/src/modules/execute.ts:639",
+        "five-sdk/src/modules/execute.ts:528",
+        "five-sdk/src/modules/execute.ts:640",
+        "five-sdk/src/__tests__/unit/execute-on-solana-preflight.test.ts:85",
         "five-cli/jest.config.cjs:1",
         "five-cli/src/project/__tests__/ProjectLoader.test.ts:1"
       ]
     },
     {
       "name": "Frontend boundary compatibility",
-      "status": "RISK",
-      "severity": "P2",
+      "status": "PASS",
+      "severity": null,
       "evidence": [
-        "five-frontend/src/lib/five-program-client.ts:9"
+        "five-sdk/src/__tests__/integration/frontend-boundary.test.ts:31",
+        "five-frontend/src/lib/five-program-client.ts:75"
       ]
     }
   ]

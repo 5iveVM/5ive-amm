@@ -8,7 +8,7 @@ use crate::{
     error::{CompactResult, VMErrorCode},
     handlers::syscalls::*,
     types::CallFrame,
-    MAX_CALL_DEPTH, MAX_PARAMETERS,
+    MAX_CALL_DEPTH, MAX_PARAMETERS, STACK_SIZE,
 };
 use five_protocol::{opcodes::*, FEATURE_FUNCTION_METADATA, FEATURE_FUNCTION_NAMES};
 
@@ -60,6 +60,21 @@ fn validate_call_depth(ctx: &ExecutionManager, limit: usize, _op: &str) -> Compa
     Ok(())
 }
 
+#[inline(always)]
+fn validate_stack_limit(ctx: &ExecutionManager, _op: &str) -> CompactResult<()> {
+    if ctx.size() > STACK_SIZE {
+        #[cfg(feature = "debug-logs")]
+        debug_log!(
+            "MitoVM: {} stack overflow - size: {}, max: {}",
+            _op,
+            ctx.size() as u32,
+            STACK_SIZE as u32
+        );
+        return Err(VMErrorCode::StackOverflow);
+    }
+    Ok(())
+}
+
 fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!(
         "MitoVM: CALL opcode encountered - stack size: {}, call depth: {}",
@@ -75,8 +90,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     );
 
     validate_call_depth(ctx, MAX_CALL_DEPTH, "CALL")?;
-    
-    // Stack limit check is currently disabled.
+    validate_stack_limit(ctx, "CALL")?;
 
     let param_count = ctx.fetch_byte()?;
     let func_addr = ctx.fetch_u16()? as usize;
@@ -142,7 +156,9 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let current_local_base = ctx.local_base();
 
     // Check if we have enough space for callee's locals before pushing frame
-    let new_local_base = current_local_base + current_local_count;
+    let new_local_base = current_local_base
+        .checked_add(current_local_count)
+        .ok_or(VMErrorCode::CallStackOverflow)?;
     let locals_to_allocate = (param_count as usize).max(3);
     if (new_local_base as usize + locals_to_allocate) > crate::MAX_LOCALS {
         // Return CallStackOverflow instead of LocalsOverflow to indicate call depth limit
@@ -356,6 +372,8 @@ fn validate_external_function_constraints(
 }
 
 fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    validate_stack_limit(ctx, "CALL_EXTERNAL")?;
+
     let account_index = ctx.fetch_byte()? as usize;
     let func_offset = ctx.fetch_u16()? as usize;
     let param_count = ctx.fetch_byte()?;
@@ -489,7 +507,9 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let current_local_base = ctx.local_base();
 
     // Check if we have enough space for callee's locals before pushing frame
-    let new_local_base = current_local_base + current_local_count;
+    let new_local_base = current_local_base
+        .checked_add(current_local_count)
+        .ok_or(VMErrorCode::CallStackOverflow)?;
     let locals_to_allocate = (param_count as usize).max(3);
     if (new_local_base as usize + locals_to_allocate) > crate::MAX_LOCALS {
         // Return CallStackOverflow instead of LocalsOverflow to indicate call depth limit

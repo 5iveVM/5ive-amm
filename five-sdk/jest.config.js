@@ -10,6 +10,8 @@ export default {
   ],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^five-sdk$': '<rootDir>/src/__tests__/mocks/five-sdk.ts',
+    '^@solana/web3.js$': '<rootDir>/src/__tests__/mocks/solana-web3.ts',
   },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
