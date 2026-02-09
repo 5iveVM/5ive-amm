@@ -1,3 +1,4 @@
+use five_dsl_compiler::bytecode_generator::disassembler::disassemble;
 use five_dsl_compiler::DslCompiler;
 use five_dsl_compiler::bytecode_generator::disassembler::BytecodeInspector;
 use five_protocol::{
@@ -125,5 +126,40 @@ fn inspector_uses_canonical_call_external_instruction_size() {
     assert!(
         inspector.contains_opcode(opcodes::PUSH_U8),
         "inspector should not skip instructions that follow CALL_EXTERNAL"
+    );
+}
+
+#[test]
+fn disassembler_uses_protocol_width_for_push_u16_without_pool() {
+    let script = vec![opcodes::PUSH_U16, 0x34, 0x12, opcodes::HALT];
+    let lines = disassemble(&script);
+
+    assert!(
+        lines.iter().any(|line| line.contains("PUSH_U16 4660")),
+        "expected little-endian PUSH_U16 immediate in disassembly: {:?}",
+        lines
+    );
+    assert!(
+        lines.iter().any(|line| line.contains("0003: HALT")),
+        "expected HALT after 3-byte PUSH_U16 instruction: {:?}",
+        lines
+    );
+}
+
+#[test]
+fn disassembler_fallback_respects_protocol_operand_sizes() {
+    // LOAD_GLOBAL has a u16 operand in the protocol opcode table and is decoded by fallback.
+    let script = vec![opcodes::LOAD_GLOBAL, 0x02, 0x00, opcodes::HALT];
+    let lines = disassemble(&script);
+
+    assert!(
+        lines.iter().any(|line| line.contains("0000: LOAD_GLOBAL")),
+        "expected LOAD_GLOBAL line in disassembly: {:?}",
+        lines
+    );
+    assert!(
+        lines.iter().any(|line| line.contains("0003: HALT")),
+        "expected fallback decoder to advance by protocol-defined operand width: {:?}",
+        lines
     );
 }

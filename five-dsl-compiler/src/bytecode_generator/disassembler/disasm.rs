@@ -55,14 +55,19 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 }
             }
             opcodes::PUSH_U16 => {
-                if pc + 1 < bytes.len() {
-                    let idx = bytes[pc + 1];
-                    if pool_enabled {
+                if pool_enabled {
+                    if pc + 1 < bytes.len() {
+                        let idx = bytes[pc + 1];
                         lines.push(format!("{:04X}: PUSH_U16 idx={}", pc, idx));
+                        pc += 2;
                     } else {
-                        lines.push(format!("{:04X}: PUSH_U16 {}", pc, idx));
+                        lines.push(format!("{:04X}: PUSH_U16 <truncated>", pc));
+                        break;
                     }
-                    pc += 2;
+                } else if pc + 3 <= bytes.len() {
+                    let raw = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
+                    lines.push(format!("{:04X}: PUSH_U16 {}", pc, raw));
+                    pc += 3;
                 } else {
                     lines.push(format!("{:04X}: PUSH_U16 <truncated>", pc));
                     break;
@@ -489,16 +494,6 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
-            opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT => {
-                if pc + 3 <= bytes.len() {
-                    let target = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
-                    lines.push(format!("{:04X}: {} target=0x{:04X}", pc, opcode_name(op), target));
-                    pc += 3;
-                } else {
-                    lines.push(format!("{:04X}: {} <truncated>", pc, opcode_name(op)));
-                    break;
-                }
-            }
             opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => {
                 if pc + 3 <= bytes.len() {
                     let target = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
@@ -509,18 +504,19 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
-            opcodes::LOAD_PARAM => {
-                if pc + 2 <= bytes.len() {
-                    lines.push(format!("{:04X}: LOAD_PARAM idx={}", pc, bytes[pc + 1]));
-                    pc += 2;
-                } else {
-                    lines.push(format!("{:04X}: LOAD_PARAM <truncated>", pc));
-                    break;
-                }
-            }
             _ => {
                 lines.push(format!("{:04X}: {}", pc, opcode_name(op)));
-                pc += 1
+                if let Some(operand_size) = operand_size_from_protocol(op, &bytes[pc + 1..], pool_enabled) {
+                    let instruction_size = 1 + operand_size;
+                    if pc + instruction_size <= bytes.len() {
+                        pc += instruction_size;
+                    } else {
+                        lines.push(format!("{:04X}: {} <truncated>", pc, opcode_name(op)));
+                        break;
+                    }
+                } else {
+                    pc += 1;
+                }
             }
         }
     }
@@ -530,6 +526,63 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
 /// Human-friendly opcode name lookup.
 fn opcode_name(op: u8) -> &'static str {
     five_protocol::opcodes::opcode_name(op)
+}
+
+fn operand_size_from_protocol(op: u8, remaining: &[u8], pool_enabled: bool) -> Option<usize> {
+    match op {
+        opcodes::PUSH_U16
+        | opcodes::PUSH_U32
+        | opcodes::PUSH_U64
+        | opcodes::PUSH_I64
+        | opcodes::PUSH_BOOL
+        | opcodes::PUSH_PUBKEY
+        | opcodes::PUSH_U128
+        | opcodes::PUSH_STRING if pool_enabled => return Some(1),
+        opcodes::PUSH_U8_W
+        | opcodes::PUSH_U16_W
+        | opcodes::PUSH_U32_W
+        | opcodes::PUSH_U64_W
+        | opcodes::PUSH_I64_W
+        | opcodes::PUSH_BOOL_W
+        | opcodes::PUSH_PUBKEY_W
+        | opcodes::PUSH_U128_W
+        | opcodes::PUSH_STRING_W => return Some(2),
+        opcodes::PUSH_STRING => {
+            if remaining.len() < 4 {
+                return None;
+            }
+            let len =
+                u32::from_le_bytes([remaining[0], remaining[1], remaining[2], remaining[3]])
+                    as usize;
+            return Some(4 + len);
+        }
+        opcodes::PUSH_ARRAY_LITERAL | opcodes::PUSH_STRING_LITERAL => {
+            if remaining.is_empty() {
+                return None;
+            }
+            return Some(1 + remaining[0] as usize);
+        }
+        _ => {}
+    }
+
+    five_protocol::opcodes::get_opcode_info(op).map(|info| match info.arg_type {
+        opcodes::ArgType::None => 0,
+        opcodes::ArgType::U8
+        | opcodes::ArgType::ValueType
+        | opcodes::ArgType::LocalIndex
+        | opcodes::ArgType::AccountIndex => 1,
+        opcodes::ArgType::U16 | opcodes::ArgType::U16Fixed => 2,
+        opcodes::ArgType::U32 | opcodes::ArgType::FunctionIndex | opcodes::ArgType::U32Fixed => 4,
+        opcodes::ArgType::U64 => 8,
+        opcodes::ArgType::CallExternal => 4,
+        opcodes::ArgType::CallInternal => 3,
+        opcodes::ArgType::AccountField => 5,
+        opcodes::ArgType::AccountFieldParam => 6,
+        opcodes::ArgType::FusedAccAcc => 10,
+        opcodes::ArgType::FusedSubAdd => 11,
+        opcodes::ArgType::ParamImm => 2,
+        opcodes::ArgType::FieldImm => 6,
+    })
 }
 
 /// Alias for disassemble to fix build issues

@@ -288,59 +288,20 @@ fn find_instructions_start(bytes: &[u8]) -> usize {
 
 /// Get human-readable opcode name
 fn opcode_name(opcode: u8) -> &'static str {
-    match opcode {
-        opcodes::JUMP => "JUMP",
-        opcodes::JUMP_IF => "JUMP_IF",
-        opcodes::JUMP_IF_NOT => "JUMP_IF_NOT",
-        opcodes::CALL => "CALL",
-        opcodes::BR_EQ_U8 => "BR_EQ_U8",
-        opcodes::CALL_EXTERNAL => "CALL_EXTERNAL",
-        _ => "UNKNOWN",
-    }
+    opcodes::opcode_name(opcode)
 }
 
 /// Get operand size for an opcode
-fn get_operand_size(opcode: u8, _remaining: &[u8], pool_enabled: bool) -> usize {
+fn get_operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> usize {
     match opcode {
-        // No operands
-        opcodes::HALT | opcodes::RETURN | opcodes::RETURN_VALUE |
-        opcodes::POP | opcodes::DUP | opcodes::DUP2 | opcodes::SWAP |
-        opcodes::ADD | opcodes::SUB | opcodes::MUL | opcodes::DIV | opcodes::MOD |
-        opcodes::EQ | opcodes::NEQ | opcodes::GT | opcodes::LT | opcodes::GTE | opcodes::LTE |
-        opcodes::AND | opcodes::OR | opcodes::NOT | opcodes::REQUIRE | opcodes::ASSERT |
-        opcodes::ADD_CHECKED | opcodes::SUB_CHECKED | opcodes::MUL_CHECKED |
-        opcodes::PUSH_ZERO | opcodes::PUSH_ONE | opcodes::PUSH_0 | opcodes::PUSH_1 |
-        opcodes::PUSH_2 | opcodes::PUSH_3 |
-        opcodes::GET_LOCAL_0 | opcodes::GET_LOCAL_1 | opcodes::GET_LOCAL_2 | opcodes::GET_LOCAL_3 |
-        opcodes::SET_LOCAL_0 | opcodes::SET_LOCAL_1 | opcodes::SET_LOCAL_2 | opcodes::SET_LOCAL_3 |
-        opcodes::LOAD_PARAM_0 | opcodes::LOAD_PARAM_1 | opcodes::LOAD_PARAM_2 | opcodes::LOAD_PARAM_3 => 0,
-
-        // Single byte operands
-        opcodes::PUSH_U8 | opcodes::PUSH_BOOL |
-        opcodes::CHECK_SIGNER | opcodes::CHECK_WRITABLE | opcodes::CHECK_INITIALIZED |
-        opcodes::CHECK_UNINITIALIZED |
-        opcodes::SET_LOCAL | opcodes::GET_LOCAL | opcodes::LOAD_PARAM | opcodes::STORE_PARAM |
-        opcodes::ALLOC_LOCALS | opcodes::DEALLOC_LOCALS |
-        opcodes::CAST |
-        opcodes::CREATE_ARRAY | opcodes::PUSH_ARRAY_LITERAL |
-        // Account opcodes taking 1 byte account index
-        opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT | 
-        opcodes::GET_LAMPORTS | opcodes::SET_LAMPORTS | opcodes::GET_DATA | 
-        opcodes::GET_KEY | opcodes::GET_OWNER |
-        // Fused: single byte operands
-        opcodes::CHECK_SIGNER_WRITABLE |  // acc(u8)
-        opcodes::REQUIRE_PARAM_GT_ZERO => 1, // param(u8)
-
-        // Constant pool indexed pushes (u8 index)
         opcodes::PUSH_U16
         | opcodes::PUSH_U32
         | opcodes::PUSH_U64
         | opcodes::PUSH_I64
+        | opcodes::PUSH_BOOL
         | opcodes::PUSH_PUBKEY
         | opcodes::PUSH_U128
-        | opcodes::PUSH_STRING if pool_enabled => 1,
-
-        // Constant pool wide pushes (u16 index)
+        | opcodes::PUSH_STRING if pool_enabled => return 1,
         opcodes::PUSH_U8_W
         | opcodes::PUSH_U16_W
         | opcodes::PUSH_U32_W
@@ -349,70 +310,44 @@ fn get_operand_size(opcode: u8, _remaining: &[u8], pool_enabled: bool) -> usize 
         | opcodes::PUSH_BOOL_W
         | opcodes::PUSH_PUBKEY_W
         | opcodes::PUSH_U128_W
-        | opcodes::PUSH_STRING_W => 2,
-
-        // Two byte operands
-        opcodes::REQUIRE_PARAM_LTE_IMM => 2, // param(u8) + imm(u8)
-
-        opcodes::PUSH_U16 => 2,
-        opcodes::PUSH_U32 => 4,
-        opcodes::PUSH_U64 | opcodes::PUSH_I64 => 8,
-
-        // LOAD_FIELD/STORE_FIELD: account_index(1) + field_offset(4)
-        opcodes::LOAD_FIELD | opcodes::STORE_FIELD | opcodes::LOAD_FIELD_PUBKEY => {
-            1 + 4
-        }
-
-        // Fused opcodes with acc(u8) + offset(u32) format
-        opcodes::REQUIRE_NOT_BOOL |  // acc(u8) offset(u32)
-        opcodes::STORE_FIELD_ZERO => {  // acc(u8) offset(u32)
-            1 + 4
-        }
-
-        // Fused opcodes with acc(u8) + offset(u32) + param/acc(u8) format
-        opcodes::REQUIRE_GTE_U64 |     // acc(u8) offset(u32) param(u8)
-        opcodes::FIELD_ADD_PARAM |     // acc(u8) offset(u32) param(u8)
-        opcodes::FIELD_SUB_PARAM |     // acc(u8) offset(u32) param(u8)
-        opcodes::STORE_PARAM_TO_FIELD | // acc(u8) offset(u32) param(u8)
-        opcodes::STORE_KEY_TO_FIELD |  // acc(u8) offset(u32) key_acc(u8)
-        opcodes::REQUIRE_FIELD_EQ_IMM => { // acc(u8) offset(u32) imm(u8)
-            2 + 4
-        }
-
-        // Fused opcodes with acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32) format
-        opcodes::REQUIRE_EQ_PUBKEY |   // acc1(u8) offset1(u32) acc2(u8) offset2(u32)
-        opcodes::REQUIRE_EQ_FIELDS => {  // acc1(u8) offset1(u32) acc2(u8) offset2(u32)
-            2 + 4 + 4
-        }
-        
-        // FusedSubAdd: acc1(u8) off1(u32) acc2(u8) off2(u32) param(u8)
-        opcodes::FIELD_SUB_ADD_PARAM => {
-            3 + 4 + 4
-        }
-
-        // PUSH_PUBKEY: 32 bytes
-        opcodes::PUSH_PUBKEY => 32,
-
-        // PUSH_U128: 16 bytes
-        opcodes::PUSH_U128 => 16,
-
-        // PUSH_STRING: fixed u32 length + string bytes
+        | opcodes::PUSH_STRING_W => return 2,
         opcodes::PUSH_STRING => {
-            // Need to read the length.
-            // If remaining is short, return what we can or just length size
-            if _remaining.len() >= 4 {
-                let len = u32::from_le_bytes([_remaining[0], _remaining[1], _remaining[2], _remaining[3]]);
-                4 + len as usize
-            } else {
-                4 // At least 4 bytes for length
+            if remaining.len() < 4 {
+                return 4;
             }
+            let len = u32::from_le_bytes([remaining[0], remaining[1], remaining[2], remaining[3]]);
+            return 4 + len as usize;
         }
+        opcodes::PUSH_ARRAY_LITERAL | opcodes::PUSH_STRING_LITERAL => {
+            if remaining.is_empty() {
+                return 0;
+            }
+            return 1 + remaining[0] as usize;
+        }
+        _ => {}
+    }
 
-        // CREATE_TUPLE: element_count(1)
-        opcodes::CREATE_TUPLE => 1,
-
-        // Default: assume no operands
-        _ => 0,
+    if let Some(info) = opcodes::get_opcode_info(opcode) {
+        match info.arg_type {
+            opcodes::ArgType::None => 0,
+            opcodes::ArgType::U8
+            | opcodes::ArgType::ValueType
+            | opcodes::ArgType::LocalIndex
+            | opcodes::ArgType::AccountIndex => 1,
+            opcodes::ArgType::U16 | opcodes::ArgType::U16Fixed => 2,
+            opcodes::ArgType::U32 | opcodes::ArgType::FunctionIndex | opcodes::ArgType::U32Fixed => 4,
+            opcodes::ArgType::U64 => 8,
+            opcodes::ArgType::CallExternal => 4,
+            opcodes::ArgType::CallInternal => 3,
+            opcodes::ArgType::AccountField => 5,
+            opcodes::ArgType::AccountFieldParam => 6,
+            opcodes::ArgType::FusedAccAcc => 10,
+            opcodes::ArgType::FusedSubAdd => 11,
+            opcodes::ArgType::ParamImm => 2,
+            opcodes::ArgType::FieldImm => 6,
+        }
+    } else {
+        0
     }
 }
 
