@@ -973,8 +973,8 @@ impl<'a> ExecutionContext<'a> {
         // Store function index at params[0]
         self.frame.set_parameter(0, ValueRef::U64(function_index as u64))?;
 
-        // 2. Parameter Count (u32)
-        if offset + 4 > input_len { return Ok(()); }
+        // 2. Parameter Count (u32) - required for canonical execute envelope.
+        if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
         let param_count = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
         offset += 4;
 

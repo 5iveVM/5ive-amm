@@ -2,7 +2,7 @@
  * Input validation tests.
  */
 
-import { describe, it, expect, beforeEach, fail } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import {
   InputValidator,
   ValidationError,
@@ -381,7 +381,7 @@ describe('Input Validation Framework', () => {
       const largeArray = new Array(DEFAULT_VALIDATION_CONFIG.maxArrayLength + 1).fill(0);
       try {
         validator.validateParameter(largeArray, 'testContext');
-        fail('Expected validation to throw error');
+        throw new Error('Expected validation to throw error');
       } catch (error) {
         expect(error).toBeInstanceOf(ValidationError);
         const validationError = error as ValidationError;

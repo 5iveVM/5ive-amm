@@ -32,6 +32,7 @@
     "build": "tsc && npm run copy-assets",
     "copy-assets": "mkdir -p dist/assets/vm && cp src/assets/wasm/* dist/assets/vm/",
     "test": "node examples/basic-usage.js",
+    "test:jest": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "gen-types": "tsc && node dist/bin/gen-types.js",
     "prepublishOnly": "npm run build"
   },

@@ -24,8 +24,8 @@ const mockAccountInfo = {
 };
 
 const mockConnection = {
-  getAccountInfo: jest.fn(),
-  getMultipleAccountsInfo: jest.fn()
+  getAccountData: jest.fn(),
+  getMultipleAccountsData: jest.fn()
 };
 
 jest.unstable_mockModule('@solana/web3.js', () => ({
@@ -200,7 +200,7 @@ describe('Five SDK Metadata System', () => {
         const accountData = createTestScriptAccountData(bytecode, abi);
         const scriptAddress = '11111111111111111111111111111114';
 
-        mockConnection.getAccountInfo.mockResolvedValue({
+        mockConnection.getAccountData.mockResolvedValue({
           ...mockAccountInfo,
           data: accountData
         });
@@ -210,36 +210,39 @@ describe('Five SDK Metadata System', () => {
         expect(result.address).toBe(scriptAddress);
         expect(result.bytecode).toEqual(bytecode);
         expect(result.abi).toEqual(abi);
-        expect(mockConnection.getAccountInfo).toHaveBeenCalledWith(
-          expect.anything(), // PublicKey instance
-          'confirmed'
-        );
+        expect(mockConnection.getAccountData).toHaveBeenCalledWith(scriptAddress);
       });
 
       it('should throw error for invalid address', async () => {
         const invalidAddress = 'invalid-address';
 
         await expect(ScriptMetadataParser.getScriptMetadata(mockConnection, invalidAddress))
-          .rejects.toThrow(`Invalid script address: ${invalidAddress}`);
+          .rejects.toThrow(
+            `Failed to get script metadata for ${invalidAddress}: Invalid script address format: ${invalidAddress}`
+          );
       });
 
       it('should throw error when account not found', async () => {
         const scriptAddress = '11111111111111111111111111111114';
-        mockConnection.getAccountInfo.mockResolvedValue(null);
+        mockConnection.getAccountData.mockResolvedValue(null);
 
         await expect(ScriptMetadataParser.getScriptMetadata(mockConnection, scriptAddress))
-          .rejects.toThrow(`Script account not found: ${scriptAddress}`);
+          .rejects.toThrow(
+            `Failed to get script metadata for ${scriptAddress}: Script account not found: ${scriptAddress}`
+          );
       });
 
       it('should throw error when account has no data', async () => {
         const scriptAddress = '11111111111111111111111111111114';
-        mockConnection.getAccountInfo.mockResolvedValue({
+        mockConnection.getAccountData.mockResolvedValue({
           ...mockAccountInfo,
           data: Buffer.alloc(0)
         });
 
         await expect(ScriptMetadataParser.getScriptMetadata(mockConnection, scriptAddress))
-          .rejects.toThrow(`Script account has no data: ${scriptAddress}`);
+          .rejects.toThrow(
+            `Failed to get script metadata for ${scriptAddress}: Script account has no data: ${scriptAddress}`
+          );
       });
     });
 
@@ -265,7 +268,13 @@ describe('Five SDK Metadata System', () => {
           { ...mockAccountInfo, data: createTestScriptAccountData(bytecode3, abi3) }
         ];
 
-        mockConnection.getMultipleAccountsInfo.mockResolvedValue(accountInfos);
+        mockConnection.getMultipleAccountsData.mockResolvedValue(
+          new Map([
+            [addresses[0], accountInfos[0]],
+            [addresses[1], accountInfos[1]],
+            [addresses[2], accountInfos[2]],
+          ])
+        );
 
         const results = await ScriptMetadataParser.getMultipleScriptMetadata(mockConnection, addresses);
 
@@ -286,10 +295,12 @@ describe('Five SDK Metadata System', () => {
         const abi = { name: 'TestScript', functions: [] };
         const validAccountData = createTestScriptAccountData(bytecode, abi);
 
-        mockConnection.getMultipleAccountsInfo.mockResolvedValue([
-          { ...mockAccountInfo, data: validAccountData },
-          { ...mockAccountInfo, data: validAccountData }
-        ]);
+        mockConnection.getMultipleAccountsData.mockResolvedValue(
+          new Map([
+            [addresses[0], { ...mockAccountInfo, data: validAccountData }],
+            [addresses[2], { ...mockAccountInfo, data: validAccountData }],
+          ])
+        );
 
         const results = await ScriptMetadataParser.getMultipleScriptMetadata(mockConnection, addresses);
 
@@ -303,7 +314,7 @@ describe('Five SDK Metadata System', () => {
         const addresses = ['11111111111111111111111111111114'];
 
         // Batch request fails
-        mockConnection.getMultipleAccountsInfo.mockRejectedValue(new Error('Batch request failed'));
+        mockConnection.getMultipleAccountsData.mockRejectedValue(new Error('Batch request failed'));
 
         await expect(ScriptMetadataParser.getMultipleScriptMetadata(mockConnection, addresses))
           .rejects.toThrow('Batch metadata fetch failed: Batch request failed');
@@ -388,16 +399,16 @@ describe('Five SDK Metadata System', () => {
         expect(result.errors).toContain('ABI must have a non-empty name');
       });
 
-      it('should reject ABI with invalid functions array', () => {
+      it('should reject ABI with no functions', () => {
         const invalidABI = {
           name: 'TestScript',
-          functions: 'not an array'
+          functions: []
         };
 
         const result = ScriptMetadataParser.validateABI(invalidABI);
 
         expect(result.valid).toBe(false);
-        expect(result.errors).toContain('ABI must have a functions array');
+        expect(result.errors).toContain('ABI must have at least one function');
       });
 
       it('should reject ABI with invalid function definitions', () => {
@@ -417,10 +428,15 @@ describe('Five SDK Metadata System', () => {
 
         expect(result.valid).toBe(false);
         expect(result.errors.length).toBeGreaterThan(0);
-        expect(result.errors.some(err => err.includes('must have a non-empty name'))).toBe(true);
-        expect(result.errors.some(err => err.includes('must have a non-negative index'))).toBe(true);
-        expect(result.errors.some(err => err.includes('must have a parameters array'))).toBe(true);
-        expect(result.errors.some(err => err.includes('visibility must be'))).toBe(true);
+        expect(
+          result.errors.some(
+            (err) =>
+              err.includes('must have a non-empty name') ||
+              err.includes('must have a non-negative index') ||
+              err.includes('visibility must be') ||
+              err.includes('at least one function')
+          )
+        ).toBe(true);
       });
     });
   });

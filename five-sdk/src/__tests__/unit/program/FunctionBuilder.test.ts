@@ -40,9 +40,9 @@ describe('FunctionBuilder', () => {
     ],
   };
 
-  const SCRIPT_ACCOUNT = '5w4epP8qZS4STiUDhj1jgJL4yqYPJnNvQTYYKVWfRQSZ';
-  const FROM_ACCOUNT = 'from123456789012345678901234567890123456789012';
-  const TO_ACCOUNT = 'to123456789012345678901234567890123456789012';
+  const SCRIPT_ACCOUNT = 'So11111111111111111111111111111111111111112';
+  const FROM_ACCOUNT = 'SysvarRent111111111111111111111111111111111';
+  const TO_ACCOUNT = 'SysvarC1ock11111111111111111111111111111111';
 
   describe('accounts', () => {
     it('should accept string addresses', () => {
@@ -167,8 +167,8 @@ describe('FunctionBuilder', () => {
 
       expect(instruction).toBeDefined();
       expect(instruction.programId).toBe(program.getFiveVMProgramId());
-      expect(instruction.accounts).toBeDefined();
-      expect(instruction.accounts.length).toBeGreaterThan(0);
+      expect(instruction.keys).toBeDefined();
+      expect(instruction.keys.length).toBeGreaterThan(0);
       expect(instruction.data).toBeDefined();
     });
 
@@ -181,8 +181,8 @@ describe('FunctionBuilder', () => {
 
       const instruction = await builder.instruction();
 
-      const fromAcct = instruction.accounts.find((a) => a.pubkey === FROM_ACCOUNT);
-      const toAcct = instruction.accounts.find((a) => a.pubkey === TO_ACCOUNT);
+      const fromAcct = instruction.keys.find((a) => a.pubkey === FROM_ACCOUNT);
+      const toAcct = instruction.keys.find((a) => a.pubkey === TO_ACCOUNT);
 
       expect(fromAcct).toBeDefined();
       expect(fromAcct?.isSigner).toBe(true);

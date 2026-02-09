@@ -11,7 +11,7 @@
 // exported behind the "test-fixtures" feature for use in integration tests
 // (e.g., five-solana verifier alignment).
 
-use crate::{BytecodeBuilder, JUMP};
+use crate::{types, BytecodeBuilder, JUMP};
 
 /// Return a valid header bytecode with minimal content: header + HALT
 pub fn valid_header() -> alloc::vec::Vec<u8> {
@@ -37,4 +37,94 @@ pub fn operand_truncation() -> alloc::vec::Vec<u8> {
     // Emit only 1 byte of the 2-byte JUMP offset
     b.emit_u8(0);
     b.build()
+}
+
+fn push_u32_le(out: &mut alloc::vec::Vec<u8>, value: u32) {
+    out.extend_from_slice(&value.to_le_bytes());
+}
+
+fn push_u64_param(out: &mut alloc::vec::Vec<u8>, value: u64) {
+    out.push(types::U64);
+    out.extend_from_slice(&value.to_le_bytes());
+}
+
+fn push_bool_param(out: &mut alloc::vec::Vec<u8>, value: bool) {
+    // VM parser expects bool payload as fixed-width LE u32.
+    out.push(types::BOOL);
+    let encoded = if value { 1u32 } else { 0u32 };
+    out.extend_from_slice(&encoded.to_le_bytes());
+}
+
+fn push_string_param(out: &mut alloc::vec::Vec<u8>, value: &[u8]) {
+    out.push(types::STRING);
+    push_u32_le(out, value.len() as u32);
+    out.extend_from_slice(value);
+}
+
+fn push_pubkey_param(out: &mut alloc::vec::Vec<u8>, value: [u8; 32]) {
+    out.push(types::PUBKEY);
+    out.extend_from_slice(&value);
+}
+
+fn push_account_param(out: &mut alloc::vec::Vec<u8>, account_index: u32) {
+    // VM parser expects account index as fixed-width LE u32.
+    out.push(types::ACCOUNT);
+    out.extend_from_slice(&account_index.to_le_bytes());
+}
+
+/// Minimal execute payload in canonical fixed-width format:
+/// [function_index:u32 LE][param_count:u32 LE]
+pub fn execute_payload_minimal() -> alloc::vec::Vec<u8> {
+    let mut out = alloc::vec::Vec::new();
+    push_u32_le(&mut out, 0);
+    push_u32_le(&mut out, 0);
+    out
+}
+
+/// Canonical typed execute payload:
+/// [function_index:u32][param_count:u32]
+/// then N params encoded as [type_id][fixed-or-length-prefixed bytes].
+pub fn execute_payload_typed_sample() -> alloc::vec::Vec<u8> {
+    let mut out = alloc::vec::Vec::new();
+    push_u32_le(&mut out, 2); // function index
+    push_u32_le(&mut out, 5); // parameter count
+    push_u64_param(&mut out, 42);
+    push_bool_param(&mut out, true);
+    push_string_param(&mut out, b"hi");
+    push_pubkey_param(&mut out, [7u8; 32]);
+    push_account_param(&mut out, 3);
+    out
+}
+
+/// Invalid payload: function index truncated (requires 4 bytes).
+pub fn execute_payload_truncated_function_index() -> alloc::vec::Vec<u8> {
+    alloc::vec![0x01, 0x02, 0x03]
+}
+
+/// Invalid payload: truncated parameter count (requires 4 bytes).
+pub fn execute_payload_truncated_param_count() -> alloc::vec::Vec<u8> {
+    let mut out = alloc::vec::Vec::new();
+    push_u32_le(&mut out, 1);
+    out.extend_from_slice(&[0xAA, 0xBB]); // short param_count
+    out
+}
+
+/// Invalid payload: parameter claims U64 but value is truncated.
+pub fn execute_payload_truncated_u64_param() -> alloc::vec::Vec<u8> {
+    let mut out = alloc::vec::Vec::new();
+    push_u32_le(&mut out, 1);
+    push_u32_le(&mut out, 1);
+    out.push(types::U64);
+    out.extend_from_slice(&[0x11, 0x22, 0x33, 0x44]); // short u64
+    out
+}
+
+/// Invalid payload: unsupported/unknown type id.
+pub fn execute_payload_unknown_type() -> alloc::vec::Vec<u8> {
+    let mut out = alloc::vec::Vec::new();
+    push_u32_le(&mut out, 1);
+    push_u32_le(&mut out, 1);
+    out.push(0xFF);
+    out.extend_from_slice(&0u64.to_le_bytes());
+    out
 }

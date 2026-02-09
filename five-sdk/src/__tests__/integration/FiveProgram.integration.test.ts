@@ -84,14 +84,15 @@ describe('FiveProgram Integration', () => {
     ],
   };
 
-  const COUNTER_SCRIPT = 'CounterScriptAccount1234567890123456789012';
-  const COUNTER_ACCOUNT = 'CounterAccount12345678901234567890123456';
-  const OWNER_ACCOUNT = 'OwnerAccount1234567890123456789012345678';
+  const COUNTER_SCRIPT = 'So11111111111111111111111111111111111111112';
+  const COUNTER_ACCOUNT = 'SysvarRent111111111111111111111111111111111';
+  const OWNER_ACCOUNT = 'SysvarC1ock11111111111111111111111111111111';
 
   describe('FiveProgram API', () => {
     it('should create program from ABI', () => {
       const program = FiveProgram.fromABI(COUNTER_SCRIPT, counterABI);
-      expect(program).toBeDefined();
+      expect(program.getScriptAccount()).toBe(COUNTER_SCRIPT);
+      expect(program.getFunctions()).toEqual(['initialize', 'increment', 'add_amount']);
     });
 
     it('should list available functions', () => {
@@ -153,7 +154,7 @@ describe('FiveProgram Integration', () => {
         .function('increment')
         .accounts({ counter: COUNTER_ACCOUNT, owner: OWNER_ACCOUNT });
 
-      expect(result).toBeDefined();
+      expect(result.getFunctionDef().name).toBe('increment');
       expect(result.getAccounts().counter).toBe(COUNTER_ACCOUNT);
     });
 
@@ -166,9 +167,12 @@ describe('FiveProgram Integration', () => {
           owner: OWNER_ACCOUNT,
         });
 
-      // Note: SystemProgram auto-injection happens in instruction() method
-      // We can't easily test it here without mocking FiveSDK
-      expect(builder).toBeDefined();
+      const instruction = await builder.instruction();
+      const systemProgramKey = instruction.keys.find(
+        (key) => key.pubkey === '11111111111111111111111111111111'
+      );
+      expect(systemProgramKey).toBeDefined();
+      expect(systemProgramKey?.isWritable).toBe(false);
     });
 
     it('should validate required parameters', async () => {
@@ -176,11 +180,8 @@ describe('FiveProgram Integration', () => {
       const builder = program
         .function('increment')
         .accounts({ counter: COUNTER_ACCOUNT });
-        // Missing 'owner' account
-
-      // This should fail when we try to generate the instruction
-      // (We can't easily test without mocking FiveSDK)
-      expect(builder.getAccounts().counter).toBe(COUNTER_ACCOUNT);
+      // Missing 'owner' account
+      await expect(builder.instruction()).rejects.toThrow("Missing required account 'owner'");
     });
   });
 
@@ -196,7 +197,7 @@ describe('FiveProgram Integration', () => {
       const program = FiveProgram.fromABI(COUNTER_SCRIPT, counterABI);
       try {
         program.function('invalid');
-        fail('Should have thrown');
+        throw new Error('Should have thrown');
       } catch (error) {
         const message = (error as Error).message;
         expect(message).toContain('initialize');

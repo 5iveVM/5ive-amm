@@ -116,6 +116,22 @@ describe('ParameterEncoder', () => {
         encoder.encodeParametersWithABI(params, emptySig, { strict: true });
       }).toThrow(ParameterEncodingError);
     });
+
+    it('maps pubkey and string types to canonical protocol ids', () => {
+      const sig = {
+        name: 'with_pubkey',
+        index: 1,
+        parameters: [
+          { name: 'owner', type: 'pubkey' },
+          { name: 'label', type: 'string' }
+        ]
+      };
+      const params = ['11111111111111111111111111111111111111111111', 'vault'];
+      const encoded = encoder.encodeParametersWithABI(params, sig);
+
+      expect(encoded[0].type).toBe(10); // pubkey
+      expect(encoded[1].type).toBe(11); // string
+    });
   });
 
   describe('encodeParameterData', () => {
@@ -127,6 +143,20 @@ describe('ParameterEncoder', () => {
 
       expect(mockEncodeExecute).toHaveBeenCalled();
       expect(result).toEqual(Buffer.from([1, 2, 3]));
+    });
+
+    it('passes inferred parameter names/types to BytecodeEncoder', async () => {
+      mockEncodeExecute.mockResolvedValue(new Uint8Array([9]));
+      await encoder.encodeParameterData([5, false]);
+
+      const [functionIndex, defs, values] = mockEncodeExecute.mock.calls[0];
+      expect(functionIndex).toBe(0);
+      expect(defs[0].name).toBe('param_0');
+      expect(defs[0].type).toBe('u64');
+      expect(defs[1].name).toBe('param_1');
+      expect(defs[1].type).toBe('bool');
+      expect(values.param_0).toBe(5);
+      expect(values.param_1).toBe(false);
     });
 
     it('should throw if encoder fails', async () => {

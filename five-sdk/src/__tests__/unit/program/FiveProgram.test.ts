@@ -66,9 +66,9 @@ describe('FiveProgram', () => {
   describe('fromABI', () => {
     it('should create FiveProgram from ABI', () => {
       const program = FiveProgram.fromABI(SCRIPT_ACCOUNT, mockABI);
-      expect(program).toBeDefined();
       expect(program.getScriptAccount()).toBe(SCRIPT_ACCOUNT);
       expect(program.getABI()).toBe(mockABI);
+      expect(program.getFunctions()).toEqual(['initialize', 'transfer']);
     });
 
     it('should use provided options', () => {
@@ -102,8 +102,8 @@ describe('FiveProgram', () => {
     it('should return FunctionBuilder for valid function', () => {
       const program = FiveProgram.fromABI(SCRIPT_ACCOUNT, mockABI);
       const builder = program.function('initialize');
-      expect(builder).toBeDefined();
       expect(builder.getFunctionDef().name).toBe('initialize');
+      expect(builder.getFunctionDef().index).toBe(0);
     });
 
     it('should throw error for non-existent function', () => {
@@ -117,7 +117,7 @@ describe('FiveProgram', () => {
       const program = FiveProgram.fromABI(SCRIPT_ACCOUNT, mockABI);
       try {
         program.function('invalid');
-        fail('Should have thrown');
+        throw new Error('Should have thrown');
       } catch (error) {
         expect((error as Error).message).toContain('Available: initialize, transfer');
       }

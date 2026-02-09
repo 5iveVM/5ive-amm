@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import {
   FiveAccountManager,
   AccountUtils,
@@ -19,7 +19,10 @@ import {
 
 describe('Five SDK Account System - Real Implementation Tests', () => {
   let accountManager: FiveAccountManager;
-  let mockConnection: Connection;
+  let accountFetcher: {
+    getAccountData: (address: string) => Promise<any>;
+    getMultipleAccountsData: (addresses: string[]) => Promise<Map<string, any>>;
+  };
 
   // Use real, valid Solana addresses
   const FIVE_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'; // Valid 44-char base58
@@ -28,9 +31,36 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
   const ANOTHER_VALID_ADDRESS = 'SysvarC1ock11111111111111111111111111111111'; // Valid clock sysvar
 
   beforeEach(() => {
-    // Create a connection instance for testing (doesn't need to connect to actual network for account creation tests)
-    mockConnection = new Connection('http://127.0.0.1:8899', 'confirmed');
-    accountManager = new FiveAccountManager(mockConnection, FIVE_PROGRAM_ID);
+    accountManager = new FiveAccountManager(FIVE_PROGRAM_ID);
+    accountFetcher = {
+      async getAccountData(address: string) {
+        if (address === VALID_USER_ADDRESS || address === ANOTHER_VALID_ADDRESS) {
+          return {
+            address,
+            data: new Uint8Array([1, 2, 3]),
+            owner: FIVE_PROGRAM_ID,
+            lamports: 1_000_000,
+          };
+        }
+        return null;
+      },
+      async getMultipleAccountsData(addresses: string[]) {
+        const map = new Map<string, any>();
+        for (const address of addresses) {
+          if (address === VALID_USER_ADDRESS || address === ANOTHER_VALID_ADDRESS) {
+            map.set(address, {
+              address,
+              data: new Uint8Array([1, 2, 3]),
+              owner: FIVE_PROGRAM_ID,
+              lamports: 1_000_000,
+            });
+          } else {
+            map.set(address, null);
+          }
+        }
+        return map;
+      },
+    };
   });
 
   describe('FiveAccountManager', () => {
@@ -38,7 +68,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
       it('should create script account with real PDA and rent calculation', async () => {
         const bytecode = new Uint8Array([0x46, 0x49, 0x56, 0x45, 0x01, 0x02, 0x03]); // "FIVE" + data
 
-        const result = await accountManager.createScriptAccount(bytecode);
+        const result = await accountManager.createScriptAccount(bytecode, VALID_USER_ADDRESS);
 
         // Verify result structure
         expect(result).toHaveProperty('address');
@@ -68,8 +98,8 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
       it('should be deterministic for same bytecode', async () => {
         const bytecode = new Uint8Array([1, 2, 3, 4, 5]);
 
-        const result1 = await accountManager.createScriptAccount(bytecode);
-        const result2 = await accountManager.createScriptAccount(bytecode);
+        const result1 = await accountManager.createScriptAccount(bytecode, VALID_USER_ADDRESS);
+        const result2 = await accountManager.createScriptAccount(bytecode, VALID_USER_ADDRESS);
 
         expect(result1.address).toBe(result2.address);
         expect(result1.bump).toBe(result2.bump);
@@ -79,7 +109,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
       it('should handle large bytecode', async () => {
         const largeBytecode = new Uint8Array(10000).fill(42); // 10KB bytecode
 
-        const result = await accountManager.createScriptAccount(largeBytecode);
+        const result = await accountManager.createScriptAccount(largeBytecode, VALID_USER_ADDRESS);
 
         expect(() => new PublicKey(result.address)).not.toThrow();
         expect(result.rentLamports).toBeGreaterThan(1000000); // Should be more expensive than small scripts
@@ -102,7 +132,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
           ]
         };
 
-        const result = await accountManager.createMetadataAccount(scriptAccount);
+        const result = await accountManager.createMetadataAccount(scriptAccount, VALID_USER_ADDRESS);
 
         expect(result).toHaveProperty('address');
         expect(result).toHaveProperty('bump');
@@ -141,7 +171,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
           ]
         };
 
-        const result = await accountManager.createMetadataAccount(scriptAccount);
+        const result = await accountManager.createMetadataAccount(scriptAccount, VALID_USER_ADDRESS);
 
         expect(() => new PublicKey(result.address)).not.toThrow();
         // Complex ABI should require more rent
@@ -267,7 +297,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
         const constraints: AccountConstraints = {
           maxAccounts: 10,
           maxTotalSize: 50000,
-          maxRentCost: 0.1 * LAMPORTS_PER_SOL,
+          maxRentCost: 100_000_000,
           requiredTypes: [AccountType.SCRIPT]
         };
 
@@ -276,7 +306,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
         expect(result.valid).toBe(true);
         expect(result.errors).toHaveLength(0);
         expect(result.costs).toBeDefined();
-        expect(result.costs!.total).toBeGreaterThan(0);
+        expect(result.costs!.totalCost).toBeGreaterThan(0);
       });
 
       it('should detect constraint violations', async () => {
@@ -290,7 +320,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
         const constraints: AccountConstraints = {
           maxAccounts: 10, // Violated
           maxTotalSize: 50000,
-          maxRentCost: 0.1 * LAMPORTS_PER_SOL,
+          maxRentCost: 100_000_000,
           requiredTypes: [AccountType.SCRIPT] // Not satisfied
         };
 
@@ -315,7 +345,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
         const constraints: AccountConstraints = {
           maxAccounts: 10,
           maxTotalSize: 50000, // Violated
-          maxRentCost: 1 * LAMPORTS_PER_SOL,
+          maxRentCost: 1_000_000_000,
           requiredTypes: [AccountType.SCRIPT]
         };
 
@@ -355,18 +385,14 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
         // In a real test environment, you'd mock the connection at a higher level
         // or use a test validator
         
-        try {
-          await accountManager.getAccountInfo(VALID_USER_ADDRESS);
-          // If no error, the address handling worked (even if RPC call failed)
-        } catch (error) {
-          // Expected in test environment without real RPC
-          expect(error).toBeDefined();
-        }
+        const result = await accountManager.getAccountInfo(VALID_USER_ADDRESS, accountFetcher);
+        expect(result).not.toBeNull();
+        expect(result?.address).toBe(VALID_USER_ADDRESS);
       });
 
       it('should reject invalid addresses', async () => {
         // Invalid addresses should return null, not throw
-        const result = await accountManager.getAccountInfo('invalid-address');
+        const result = await accountManager.getAccountInfo('invalid-address', accountFetcher);
         expect(result).toBeNull();
       });
     });
@@ -379,7 +405,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
           ANOTHER_VALID_ADDRESS
         ];
 
-        const results = await accountManager.getMultipleAccountInfos(addresses);
+        const results = await accountManager.getMultipleAccountInfos(addresses, accountFetcher);
 
         expect(results.size).toBe(3);
         // Invalid addresses should return null
@@ -392,7 +418,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
       });
 
       it('should handle empty address list', async () => {
-        const results = await accountManager.getMultipleAccountInfos([]);
+        const results = await accountManager.getMultipleAccountInfos([], accountFetcher);
         expect(results.size).toBe(0);
       });
     });

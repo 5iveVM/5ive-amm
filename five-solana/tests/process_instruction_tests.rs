@@ -72,8 +72,11 @@ mod tests {
             _ => panic!("Expected Deploy instruction"),
         }
 
-        // Test Execute
-        let input_params = vec![1, 2, 3];
+        // Test Execute with canonical payload:
+        // [function_index:u32 LE][param_count:u32 LE]
+        let mut input_params = Vec::new();
+        input_params.extend_from_slice(&0u32.to_le_bytes());
+        input_params.extend_from_slice(&0u32.to_le_bytes());
         let mut exec_data = vec![EXECUTE_INSTRUCTION];
         exec_data.extend_from_slice(&input_params);
 

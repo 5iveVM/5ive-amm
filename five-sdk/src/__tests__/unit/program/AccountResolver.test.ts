@@ -2,6 +2,7 @@
  * Unit tests for AccountResolver class
  */
 
+import { describe, expect, it, jest } from '@jest/globals';
 import { AccountResolver } from '../../../program/AccountResolver.js';
 import type { FunctionDefinition } from '../../../metadata/index.js';
 

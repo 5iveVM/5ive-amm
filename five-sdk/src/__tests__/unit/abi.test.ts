@@ -72,26 +72,26 @@ describe('ABI Utilities', () => {
 
     it('should find exact match', () => {
       const func = findFunctionInABI(abi, 'simple_func');
-      expect(func).toBeDefined();
       expect(func?.name).toBe('simple_func');
+      expect(func?.index).toBe(1);
     });
 
     it('should find qualified name match', () => {
       const func = findFunctionInABI(abi, 'module::func');
-      expect(func).toBeDefined();
       expect(func?.name).toBe('module::func');
+      expect(func?.index).toBe(0);
     });
 
     it('should find function by unqualified name in qualified ABI', () => {
       const func = findFunctionInABI(abi, 'func'); // matches module::func
-      expect(func).toBeDefined();
       expect(func?.name).toBe('module::func');
+      expect(func?.index).toBe(0);
     });
 
     it('should find function by partial qualified name', () => {
         const func = findFunctionInABI(abi, 'module::nested'); // matches other::module::nested
-        expect(func).toBeDefined();
         expect(func?.name).toBe('other::module::nested');
+        expect(func?.index).toBe(2);
     });
 
     it('should return undefined if not found', () => {

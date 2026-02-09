@@ -1,7 +1,12 @@
 #[cfg(test)]
 mod deploy_verification_tests {
     use five::instructions::verify_bytecode_content;
-    use five_protocol::{bytecode, opcodes::*};
+    use five_protocol::{
+        bytecode, opcodes::*,
+        test_fixtures::{
+            invalid_call_target, operand_truncation, valid_header,
+        },
+    };
 
     #[test]
     fn test_verify_valid_minimal_bytecode() {
@@ -155,5 +160,20 @@ mod deploy_verification_tests {
         let large_bytecode = vec![0u8; five_protocol::MAX_SCRIPT_SIZE + 1];
         let result = verify_bytecode_content(&large_bytecode);
         assert!(matches!(result, Err(pinocchio::program_error::ProgramError::Custom(8101))));
+    }
+
+    #[test]
+    fn verifier_and_parser_align_on_shared_fixtures() {
+        let valid = valid_header();
+        assert!(verify_bytecode_content(&valid).is_ok());
+        assert!(five_protocol::parser::parse_bytecode(&valid).errors.is_empty());
+
+        let invalid_call = invalid_call_target();
+        assert!(verify_bytecode_content(&invalid_call).is_err());
+        assert!(!five_protocol::parser::parse_bytecode(&invalid_call).errors.is_empty());
+
+        let truncated = operand_truncation();
+        assert!(verify_bytecode_content(&truncated).is_err());
+        assert!(!five_protocol::parser::parse_bytecode(&truncated).errors.is_empty());
     }
 }

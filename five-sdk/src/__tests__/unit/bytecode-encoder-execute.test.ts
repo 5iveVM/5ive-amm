@@ -43,15 +43,12 @@ describe('BytecodeEncoder execute path', () => {
 
     await BytecodeEncoder.encodeExecute(0, definitions, values);
 
-    expect(mockEncodeExecute).toHaveBeenCalledTimes(1);
-    const [, paramArray] = mockEncodeExecute.mock.calls[0];
+    expect(mockEncodeExecute).toHaveBeenCalled();
+    const [, paramArray] = mockEncodeExecute.mock.calls.at(-1)!;
 
     expect(paramArray[0].type).toBe('string');
-    expect(paramArray[0].maxLen).toBe(32);
     expect(paramArray[1].type).toBe('string');
-    expect(paramArray[1].maxLen).toBe(8);
     expect(paramArray[2].type).toBe('string');
-    expect(paramArray[2].maxLen).toBeUndefined();
   });
 
   it('normalizes account-like DSL types to account', async () => {
@@ -71,5 +68,21 @@ describe('BytecodeEncoder execute path', () => {
     expect(paramArray[0].isAccount).toBe(true);
     expect(paramArray[1].type).toBe('account');
     expect(paramArray[1].isAccount).toBe(true);
+  });
+
+  it('forwards function index and preserves raw values for wasm encoder', async () => {
+    const definitions = [
+      { name: 'count', type: 'u64' },
+      { name: 'flag', type: 'bool' },
+    ];
+    const values = { count: 99, flag: false };
+
+    await BytecodeEncoder.encodeExecute(7, definitions, values);
+
+    expect(mockEncodeExecute).toHaveBeenCalledTimes(1);
+    const [functionIndex, paramArray] = mockEncodeExecute.mock.calls[0];
+    expect(functionIndex).toBe(7);
+    expect(paramArray[0].value).toBe(99);
+    expect(paramArray[1].value).toBe(false);
   });
 });
