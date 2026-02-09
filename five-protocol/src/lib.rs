@@ -32,7 +32,8 @@ pub const SCRIPT_MAGIC: u32 = 0x45564935;
 /// Version 3
 pub const SCRIPT_VERSION: u8 = 3;
 
-pub const MAX_CALL_DEPTH: usize = 32;
+// Keep protocol/runtime aligned with on-chain VM stack limits.
+pub const MAX_CALL_DEPTH: usize = 8;
 pub const MAX_FUNCTION_PARAMS: usize = 32;
 pub const MAX_LOCALS: usize = 256;
 pub const MAX_FUNCTIONS: usize = 255;

@@ -190,7 +190,7 @@ impl BytecodeInspector {
                 }
                 1
             }
-            opcodes::CALL_EXTERNAL => 8, // acc(u8) + offset(u16) + param(u8)
+            opcodes::CALL_EXTERNAL => 5, // opcode + acc(u8) + offset(u16) + param(u8)
             opcodes::CALL_NATIVE => 2,   // id(u8)
 
             // Jumps

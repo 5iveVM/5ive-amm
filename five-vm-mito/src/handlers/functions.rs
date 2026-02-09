@@ -10,7 +10,7 @@ use crate::{
     types::CallFrame,
     MAX_CALL_DEPTH, MAX_PARAMETERS,
 };
-use five_protocol::{opcodes::*, FEATURE_FUNCTION_METADATA};
+use five_protocol::{opcodes::*, FEATURE_FUNCTION_METADATA, FEATURE_FUNCTION_NAMES};
 
 #[inline(always)]
 pub fn handle_functions(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
@@ -204,34 +204,99 @@ fn skip_call_metadata(ctx: &mut ExecutionManager) -> CompactResult<()> {
 #[inline]
 fn parse_function_constraints(
     external_bytecode: &[u8],
-    _func_offset: usize,
+    func_selector: usize,
 ) -> CompactResult<(u8, [u8; 16])> {
     // Check if bytecode has enough data for header
-    if external_bytecode.len() < 10 {
+    if external_bytecode.len() < five_protocol::FIVE_HEADER_OPTIMIZED_SIZE {
         return Err(VMErrorCode::InvalidInstructionPointer);
     }
 
     // Get header features to check if constraint metadata is present
-    let features = if external_bytecode.len() >= 8 {
-        u32::from_le_bytes([
-            external_bytecode[4],
-            external_bytecode[5],
-            external_bytecode[6],
-            external_bytecode[7],
-        ])
-    } else {
-        0u32
-    };
+    let features = u32::from_le_bytes([
+        external_bytecode[4],
+        external_bytecode[5],
+        external_bytecode[6],
+        external_bytecode[7],
+    ]);
+    let total_functions = external_bytecode[9] as usize;
 
     // If no constraint metadata feature, assume function has no constraints
     if (features & five_protocol::FEATURE_FUNCTION_CONSTRAINTS) == 0 {
         return Ok((0, [0u8; 16]));
     }
 
-    // Constraint metadata format (after header):
-    // Header (10 bytes) + [optional function name metadata] + constraint metadata
-    // TODO: Parse fixed-width constraint metadata.
-    Ok((0, [0u8; 16]))
+    // Metadata starts immediately after the optimized header.
+    let mut offset = five_protocol::FIVE_HEADER_OPTIMIZED_SIZE;
+
+    // Skip optional function-name metadata section:
+    // [u16 section_size] [u8 name_count] [u8 name_len + bytes]...
+    if (features & FEATURE_FUNCTION_NAMES) != 0 {
+        if offset + 2 > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let section_size =
+            u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
+        offset += 2;
+        if offset + section_size > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        offset += section_size;
+    }
+
+    // Constraint metadata section:
+    // [u16 section_size] [entries...]
+    // Entry (fixed-width): [account_count:u8] [constraint_bitmask:u8;16]
+    // We also accept an optional u8 entry_count prefix inside section payload.
+    if offset + 2 > external_bytecode.len() {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    }
+    let section_size =
+        u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
+    offset += 2;
+    if offset + section_size > external_bytecode.len() {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    }
+    if section_size == 0 {
+        return Ok((0, [0u8; 16]));
+    }
+
+    let section = &external_bytecode[offset..offset + section_size];
+    let entry_size = 17usize;
+
+    let (entry_count, entries_start_in_section) = if section_size == total_functions * entry_size {
+        (total_functions, 0usize)
+    } else if section_size >= 1 && (section_size - 1) % entry_size == 0 {
+        let count = (section_size - 1) / entry_size;
+        if section[0] as usize == count {
+            (count, 1usize)
+        } else {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+    } else if section_size % entry_size == 0 {
+        (section_size / entry_size, 0usize)
+    } else {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    };
+
+    if func_selector >= entry_count {
+        // External calls can pass a function offset in some call paths.
+        // If we cannot resolve selector->entry deterministically, do not enforce.
+        return Ok((0, [0u8; 16]));
+    }
+
+    let entry_offset = entries_start_in_section + (func_selector * entry_size);
+    if entry_offset + entry_size > section.len() {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    }
+
+    let account_count = section[entry_offset];
+    if account_count > 16 {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    }
+
+    let mut constraints = [0u8; 16];
+    constraints.copy_from_slice(&section[entry_offset + 1..entry_offset + entry_size]);
+    Ok((account_count, constraints))
 }
 
 /// Validate that provided accounts match external function's constraint requirements
@@ -547,4 +612,77 @@ fn handle_call_native(ctx: &mut ExecutionManager) -> CompactResult<()> {
         }
     }?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_function_constraints;
+    use five_protocol::{BytecodeBuilder, FEATURE_FUNCTION_CONSTRAINTS, FEATURE_FUNCTION_NAMES};
+
+    #[test]
+    fn parse_constraints_returns_default_when_feature_not_set() {
+        let mut b = BytecodeBuilder::new();
+        b.emit_header(1, 1).emit_halt();
+        let bytecode = b.build();
+
+        let (count, constraints) = parse_function_constraints(&bytecode, 0).expect("parse");
+        assert_eq!(count, 0);
+        assert_eq!(constraints, [0u8; 16]);
+    }
+
+    #[test]
+    fn parse_constraints_reads_fixed_width_entries() {
+        let mut b = BytecodeBuilder::new();
+        b.emit_header(1, 2);
+        b.patch_u32(4, FEATURE_FUNCTION_CONSTRAINTS).expect("features");
+
+        // 2 entries x 17 bytes each
+        b.emit_u16(34);
+        // entry 0: account_count=1, signer on account 0
+        b.emit_u8(1);
+        b.emit_u8(0x01);
+        b.emit_bytes(&[0u8; 15]);
+        // entry 1: account_count=2, signer on account 0, writable on account 1
+        b.emit_u8(2);
+        b.emit_u8(0x01);
+        b.emit_u8(0x02);
+        b.emit_bytes(&[0u8; 14]);
+        b.emit_halt();
+        let bytecode = b.build();
+
+        let (count, constraints) = parse_function_constraints(&bytecode, 1).expect("parse");
+        assert_eq!(count, 2);
+        assert_eq!(constraints[0], 0x01);
+        assert_eq!(constraints[1], 0x02);
+    }
+
+    #[test]
+    fn parse_constraints_skips_function_names_metadata() {
+        let mut b = BytecodeBuilder::new();
+        b.emit_header(1, 1);
+        b.patch_u32(
+            4,
+            FEATURE_FUNCTION_NAMES | FEATURE_FUNCTION_CONSTRAINTS,
+        )
+        .expect("features");
+
+        // Function names section payload:
+        // [name_count=1] [name_len=4] ['t' 'e' 's' 't']
+        b.emit_u16(6);
+        b.emit_u8(1);
+        b.emit_u8(4);
+        b.emit_bytes(b"test");
+
+        // Constraints section payload: one fixed-width entry
+        b.emit_u16(17);
+        b.emit_u8(1);
+        b.emit_u8(0x01);
+        b.emit_bytes(&[0u8; 15]);
+        b.emit_halt();
+        let bytecode = b.build();
+
+        let (count, constraints) = parse_function_constraints(&bytecode, 0).expect("parse");
+        assert_eq!(count, 1);
+        assert_eq!(constraints[0], 0x01);
+    }
 }

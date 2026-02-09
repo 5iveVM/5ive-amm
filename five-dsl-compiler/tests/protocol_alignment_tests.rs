@@ -1,4 +1,5 @@
 use five_dsl_compiler::DslCompiler;
+use five_dsl_compiler::bytecode_generator::disassembler::BytecodeInspector;
 use five_protocol::{
     opcodes, parser, BytecodeBuilder, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC,
 };
@@ -94,5 +95,35 @@ fn protocol_parser_accepts_canonical_call_external_encoding() {
         parsed.errors.is_empty(),
         "canonical CALL_EXTERNAL encoding should parse: {:?}",
         parsed.errors
+    );
+}
+
+#[test]
+fn inspector_uses_canonical_call_external_instruction_size() {
+    let script = {
+        let mut b = BytecodeBuilder::new();
+        b.emit_header(1, 1)
+            .emit_opcode(opcodes::CALL_EXTERNAL)
+            .emit_u8(1)
+            .emit_u16(0x0020)
+            .emit_u8(2)
+            .emit_u8(opcodes::PUSH_U8)
+            .emit_u8(7)
+            .emit_halt();
+        b.build()
+    };
+
+    // Canonical CALL_EXTERNAL encoding is 5 bytes total:
+    // opcode + account_index + offset(u16) + param_count.
+    let call_external_offset = FIVE_HEADER_OPTIMIZED_SIZE;
+    assert_eq!(
+        BytecodeInspector::instruction_size(&script, call_external_offset),
+        5
+    );
+
+    let inspector = BytecodeInspector::new(&script);
+    assert!(
+        inspector.contains_opcode(opcodes::PUSH_U8),
+        "inspector should not skip instructions that follow CALL_EXTERNAL"
     );
 }
