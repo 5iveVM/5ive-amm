@@ -15,6 +15,14 @@ fn make_param(type_name: &str, value: JsValue) -> JsValue {
     obj.into()
 }
 
+fn make_sized_string_param(value: &str, max_len: u32) -> JsValue {
+    let obj = Object::new();
+    Reflect::set(&obj, &"type".into(), &JsValue::from_str("string")).unwrap();
+    Reflect::set(&obj, &"value".into(), &JsValue::from_str(value)).unwrap();
+    Reflect::set(&obj, &"maxLen".into(), &JsValue::from_f64(max_len as f64)).unwrap();
+    obj.into()
+}
+
 fn make_account_param(index: u32) -> JsValue {
     let obj = Object::new();
     Reflect::set(&obj, &"isAccount".into(), &JsValue::from_bool(true)).unwrap();
@@ -155,4 +163,47 @@ fn encode_execute_rejects_non_numeric_account() {
     params.push(&obj.into());
     let err = ParameterEncoder::encode_execute(0, params).unwrap_err();
     assert!(err.as_string().unwrap_or_default().contains("ACCOUNT"));
+}
+
+#[wasm_bindgen_test]
+fn encode_execute_accepts_sized_string_at_exact_boundary() {
+    let params = Array::new();
+    params.push(&make_sized_string_param("abcd", 4));
+
+    let encoded = ParameterEncoder::encode_execute(0, params).unwrap();
+    let encoded_bytes = encoded.to_vec();
+
+    let mut expected = Vec::new();
+    expected.push(types::STRING);
+    expected.extend_from_slice(&(4u32).to_le_bytes());
+    expected.extend_from_slice(b"abcd");
+
+    assert_eq!(encoded_bytes, expected);
+}
+
+#[wasm_bindgen_test]
+fn encode_execute_rejects_sized_string_when_over_boundary() {
+    let params = Array::new();
+    params.push(&make_sized_string_param("abcde", 4));
+
+    let err = ParameterEncoder::encode_execute(0, params).unwrap_err();
+    let msg = err.as_string().unwrap_or_default();
+    assert!(msg.contains("exceeds declared size"));
+    assert!(msg.contains("max 4"));
+}
+
+#[wasm_bindgen_test]
+fn encode_execute_enforces_utf8_byte_length_for_sized_string() {
+    let params = Array::new();
+    // "é" is 2 bytes in UTF-8
+    params.push(&make_sized_string_param("éé", 4)); // exactly 4 bytes
+    let ok = ParameterEncoder::encode_execute(0, params);
+    assert!(ok.is_ok());
+
+    let over = Array::new();
+    over.push(&make_sized_string_param("ééé", 4)); // 6 bytes > 4
+    let err = ParameterEncoder::encode_execute(0, over).unwrap_err();
+    let msg = err.as_string().unwrap_or_default();
+    assert!(msg.contains("exceeds declared size"));
+    assert!(msg.contains("max 4"));
 }

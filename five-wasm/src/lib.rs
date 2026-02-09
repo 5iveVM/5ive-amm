@@ -4685,6 +4685,7 @@ impl ParameterEncoder {
         for i in 0..params.length() {
             let mut param = params.get(i);
             let mut is_account_type = false;
+            let mut max_len: Option<u32> = None;
 
             // Extract type metadata and value if wrapped
             let mut type_str: Option<String> = None;
@@ -4720,6 +4721,17 @@ impl ParameterEncoder {
 
                 if let Ok(val) = js_sys::Reflect::get(&param, &"value".into()) {
                     param = val;
+                }
+                if let Ok(val) = js_sys::Reflect::get(&param, &"maxLen".into()) {
+                    if let Some(raw) = val.as_f64() {
+                        if raw >= 0.0 {
+                            max_len = Some(raw as u32);
+                        }
+                    } else if let Some(raw_str) = val.as_string() {
+                        if let Ok(parsed) = raw_str.parse::<u32>() {
+                            max_len = Some(parsed);
+                        }
+                    }
                 }
             }
 
@@ -4794,6 +4806,16 @@ impl ParameterEncoder {
                     if let Some(str_val) = param.as_string() {
                         let bytes = str_val.as_bytes();
                         let len = bytes.len() as u32;
+                        if let Some(max) = max_len {
+                            if len > max {
+                                return Err(JsValue::from_str(
+                                    &format!(
+                                        "STRING parameter exceeds declared size: got {} bytes, max {}",
+                                        len, max
+                                    )
+                                ));
+                            }
+                        }
                         data.extend_from_slice(&len.to_le_bytes());
                         data.extend_from_slice(bytes);
                     } else if param.is_object() && js_sys::Uint8Array::instanceof(&param) {
@@ -4801,6 +4823,16 @@ impl ParameterEncoder {
                         let mut bytes = vec![0u8; array.length() as usize];
                         array.copy_to(&mut bytes);
                         let len = bytes.len() as u32;
+                        if let Some(max) = max_len {
+                            if len > max {
+                                return Err(JsValue::from_str(
+                                    &format!(
+                                        "STRING parameter exceeds declared size: got {} bytes, max {}",
+                                        len, max
+                                    )
+                                ));
+                            }
+                        }
                         data.extend_from_slice(&len.to_le_bytes());
                         data.extend_from_slice(&bytes);
                     } else {
@@ -4823,6 +4855,16 @@ impl ParameterEncoder {
                         data.push(types::STRING);
                         let bytes = str_val.as_bytes();
                         let len = bytes.len() as u32;
+                        if let Some(max) = max_len {
+                            if len > max {
+                                return Err(JsValue::from_str(
+                                    &format!(
+                                        "STRING parameter exceeds declared size: got {} bytes, max {}",
+                                        len, max
+                                    )
+                                ));
+                            }
+                        }
                         data.extend_from_slice(&len.to_le_bytes());
                         data.extend_from_slice(bytes);
                     } else if let Some(num) = param.as_f64() {

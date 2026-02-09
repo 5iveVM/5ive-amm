@@ -10,6 +10,7 @@ export interface ParameterDefinition {
   isAccount?: boolean;
   is_account?: boolean;
   param_type?: string;
+  maxLen?: number;
 }
 
 export interface ParameterValue {
@@ -35,6 +36,24 @@ const TYPE_IDS: Record<string, number> = {
 };
 
 export class BytecodeEncoder {
+  /**
+   * Parse a raw ABI type string into a canonical execute-encoding type.
+   * Supports sized string syntax like string<32>.
+   */
+  static parseTypeSpec(rawType: string): { baseType: string; maxLen?: number } {
+    const normalized = (rawType || '').toString().trim().toLowerCase();
+
+    const sizedStringMatch = normalized.match(/^string\s*<\s*(\d+)\s*>$/);
+    if (sizedStringMatch) {
+      return {
+        baseType: 'string',
+        maxLen: Number.parseInt(sizedStringMatch[1], 10),
+      };
+    }
+
+    return { baseType: normalized };
+  }
+
   /**
    * Get type ID for encoding.
    */
@@ -69,10 +88,14 @@ export class BytecodeEncoder {
     options: any = {}
   ): Promise<Buffer> {
     // Normalize parameter types before encoding to handle custom types (Mint, TokenAccount, etc.).
-    const normalizedParameters = parameters.map(p => ({
-      ...p,
-      type: this.normalizeType(p)
-    }));
+    const normalizedParameters = parameters.map(p => {
+      const typeSpec = this.getCanonicalTypeSpec(p);
+      return {
+        ...p,
+        type: typeSpec.baseType,
+        maxLen: typeSpec.maxLen,
+      };
+    });
 
     // Load WASM module using shared loader
     if (!wasmModule) {
@@ -143,21 +166,23 @@ export class BytecodeEncoder {
       console.log(`[BytecodeEncoder] Parameters:`, paramValues.map(p => ({
         name: p.param.name,
         type: p.param.type || (p.param as any).param_type,
-        normalized: this.normalizeType(p.param),
+        normalized: this.getCanonicalTypeSpec(p.param).baseType,
+        maxLen: this.getCanonicalTypeSpec(p.param).maxLen,
         isAccount: this.isAccountParam(p.param)
       })));
     }
 
     // Build parameter array with full metadata for fixed-size WASM encoder
     const paramArray = paramValues.map(({ param, value }) => {
-      const normalizedType = this.normalizeType(param);
+      const canonicalType = this.getCanonicalTypeSpec(param);
       // Pass full parameter definition for type-aware encoding
       return {
         name: param.name,
-        type: normalizedType,
-        param_type: normalizedType,
-        isAccount: normalizedType === 'account',
-        is_account: normalizedType === 'account',
+        type: canonicalType.baseType,
+        param_type: canonicalType.baseType,
+        maxLen: canonicalType.maxLen,
+        isAccount: canonicalType.baseType === 'account',
+        is_account: canonicalType.baseType === 'account',
         value: value
       };
     });
@@ -192,22 +217,28 @@ export class BytecodeEncoder {
     if ((param as any).isAccount || (param as any).is_account) {
       return true;
     }
-    const type = this.normalizeType(param);
+    const type = this.getCanonicalTypeSpec(param).baseType;
     return type === 'account';
   }
 
-  private static normalizeType(param: ParameterDefinition): string {
+  private static getCanonicalTypeSpec(param: ParameterDefinition): { baseType: string; maxLen?: number } {
     if (param.isAccount || param.is_account) {
-      return 'account';
+      return { baseType: 'account' };
     }
-    const type = (param.type || param.param_type || '').toString().trim().toLowerCase();
+
+    const rawType = (param.type || param.param_type || '').toString().trim();
+    const parsed = this.parseTypeSpec(rawType);
 
     // Special handling for common account-backed types in the DSL
-    if (['mint', 'tokenaccount'].includes(type)) {
-      return 'account';
+    if (['mint', 'tokenaccount'].includes(parsed.baseType)) {
+      return { baseType: 'account' };
     }
 
-    return type;
+    return parsed;
+  }
+
+  private static normalizeType(param: ParameterDefinition): string {
+    return this.getCanonicalTypeSpec(param).baseType;
   }
 
   /**

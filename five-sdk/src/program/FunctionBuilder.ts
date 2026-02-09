@@ -402,8 +402,8 @@ export class FunctionBuilder {
     // Dynamically import FiveSDK to avoid circular dependencies
     const { FiveSDK } = await import('../FiveSDK.js');
 
-    // Call the SDK's generateExecuteInstruction method
-    // This handles VLE encoding and parameter validation
+    // Call the SDK's generateExecuteInstruction method.
+    // This handles fixed-size typed execute encoding and parameter validation.
     const executionResult = await FiveSDK.generateExecuteInstruction(
       this.scriptAccount,
       this.functionDef.index,  // Use function index directly
