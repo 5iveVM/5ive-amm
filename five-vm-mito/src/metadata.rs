@@ -20,7 +20,7 @@
 use crate::error::VMError;
 
 /// Feature flag constant for import verification.
-pub const FEATURE_IMPORT_VERIFICATION: u32 = 1 << 4;
+pub const FEATURE_IMPORT_VERIFICATION: u32 = five_protocol::FEATURE_IMPORT_VERIFICATION;
 
 /// Callback type for PDA derivation.
 /// Takes seed slices and program_id, returns derived account public key (32 bytes).

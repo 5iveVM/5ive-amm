@@ -200,7 +200,7 @@ impl InterfaceRegistry {
                 }
 
                 // Validate method has reasonable parameter count
-                if method_info.parameters.len() > 32 {
+                if method_info.parameters.len() > five_protocol::MAX_FUNCTION_PARAMS {
                     return Err(VMError::InvalidOperation); // Too many parameters
                 }
             }

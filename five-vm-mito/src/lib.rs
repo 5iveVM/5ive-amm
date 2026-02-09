@@ -119,18 +119,16 @@ pub const FIVE_VM_PROGRAM_ID: [u8; 32] = [
 pub const STACK_SIZE: usize = 32;
 
 /// Maximum number of local variables allowed globally.
-/// Reduced to 32 to fit within the SBF 4KB stack limit.
-pub const MAX_LOCALS: usize = 32;
+pub const MAX_LOCALS: usize = five_protocol::MAX_LOCALS;
 
 /// Maximum function parameters (limited by parameter array size)
-pub const MAX_PARAMETERS: usize = 12;
+pub const MAX_PARAMETERS: usize = five_protocol::MAX_FUNCTION_PARAMS;
 
 /// Maximum script size in bytes.
-pub const MAX_SCRIPT_SIZE: usize = 10_000;
+pub const MAX_SCRIPT_SIZE: usize = five_protocol::MAX_SCRIPT_SIZE;
 
 /// Function call stack depth (bounded by stack limits).
-// Allow deeper nested calls (language-basics nested-calls-4-levels requires at least 5 frames).
-pub const MAX_CALL_DEPTH: usize = 8;
+pub const MAX_CALL_DEPTH: usize = five_protocol::MAX_CALL_DEPTH;
 
 /// Temporary buffer size for byte operations (heap-backed in context).
 pub const TEMP_BUFFER_SIZE: usize = five_protocol::TEMP_BUFFER_SIZE; // default 512

@@ -713,9 +713,7 @@ impl MitoVM {
     /// Fast metadata offset computation
     #[inline]
     fn compute_metadata_end(script: &[u8], features: u32, public_count: u8) -> usize {
-        const FEATURE_FUNCTION_NAMES: u32 = 1 << 8;
-
-        if (features & FEATURE_FUNCTION_NAMES) == 0 || public_count == 0 {
+        if (features & five_protocol::FEATURE_FUNCTION_NAMES) == 0 || public_count == 0 {
             return FIVE_HEADER_OPTIMIZED_SIZE;
         }
 

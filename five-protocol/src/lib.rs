@@ -34,8 +34,8 @@ pub const SCRIPT_VERSION: u8 = 3;
 
 // Keep protocol/runtime aligned with on-chain VM stack limits.
 pub const MAX_CALL_DEPTH: usize = 8;
-pub const MAX_FUNCTION_PARAMS: usize = 32;
-pub const MAX_LOCALS: usize = 256;
+pub const MAX_FUNCTION_PARAMS: usize = 12;
+pub const MAX_LOCALS: usize = 32;
 pub const MAX_FUNCTIONS: usize = 255;
 
 // Optimized header constants
@@ -43,7 +43,7 @@ pub const FIVE_HEADER_OPTIMIZED_SIZE: usize = 10;
 pub const FIVE_MAGIC: [u8; 4] = *b"5IVE";
 pub const FIVE_DEPLOY_MAGIC: [u8; 4] = *b"5DEP";
 pub const TEMP_BUFFER_SIZE: usize = 512;
-pub const MAX_SCRIPT_SIZE: usize = 64 * 1024;
+pub const MAX_SCRIPT_SIZE: usize = 10_000;
 
 // Feature flags for header
 pub const FEATURE_FUSED_BRANCH: u32 = 1 << 0;
