@@ -228,6 +228,18 @@ export class BytecodeEncoder {
 
     const rawType = (param.type || param.param_type || '').toString().trim();
     const parsed = this.parseTypeSpec(rawType);
+    const explicitMaxLen = (param as any).maxLen;
+
+    if (
+      parsed.baseType === 'string' &&
+      explicitMaxLen !== undefined &&
+      explicitMaxLen !== null
+    ) {
+      const maxLen = Number.parseInt(String(explicitMaxLen), 10);
+      if (!Number.isNaN(maxLen)) {
+        return { baseType: 'string', maxLen };
+      }
+    }
 
     // Special handling for common account-backed types in the DSL
     if (['mint', 'tokenaccount'].includes(parsed.baseType)) {

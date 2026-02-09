@@ -1,10 +1,30 @@
 use five_vm_mito::{
+    AccountInfo,
     MitoVM,
+    FIVE_VM_PROGRAM_ID,
     systems::resource::ResourceManager,
     error::VMErrorCode,
     stack::StackStorage,
 };
+use five_protocol::{FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC, opcodes::*};
 use pinocchio::pubkey::Pubkey;
+use solana_sdk::system_program;
+
+fn create_account(data: Vec<u8>) -> AccountInfo {
+    let key = system_program::ID.to_bytes();
+    let owner: Pubkey = [1u8; 32];
+    let lamports: Box<u64> = Box::new(0);
+    AccountInfo::new(
+        &key,
+        false,
+        true,
+        Box::leak(lamports),
+        Box::leak(data.into_boxed_slice()),
+        &owner,
+        false,
+        0,
+    )
+}
 
 #[test]
 fn test_resource_manager_heap_tracking() {
@@ -67,6 +87,49 @@ fn test_recursion_stack_overflow() {
         },
         _ => panic!("Expected overflow error, got: {:?}", error_code),
     }
+}
+
+#[test]
+fn test_call_external_returns_call_stack_overflow_on_locals_window_overflow() {
+    // External script account data includes a 64-byte ScriptAccountHeader prefix.
+    let mut external_script = Vec::new();
+    external_script.extend_from_slice(&FIVE_MAGIC);
+    external_script.extend_from_slice(&0u32.to_le_bytes());
+    external_script.push(1); // public functions
+    external_script.push(1); // total functions
+    external_script.push(HALT);
+
+    let mut account_data = vec![0u8; 64];
+    account_data.extend_from_slice(&external_script);
+    let external_account = create_account(account_data);
+    let accounts = [external_account];
+
+    let mut main_script = Vec::new();
+    main_script.extend_from_slice(&FIVE_MAGIC);
+    main_script.extend_from_slice(&0u32.to_le_bytes());
+    main_script.push(1); // public functions
+    main_script.push(1); // total functions
+    main_script.extend_from_slice(&[
+        ALLOC_LOCALS, 31, // Set current local window close to MAX_LOCALS (32)
+        CALL_EXTERNAL, 0, // account index
+        FIVE_HEADER_OPTIMIZED_SIZE as u8, 0, // external function offset
+        3, // param count => requires at least 3 locals in callee
+        HALT,
+    ]);
+
+    let mut storage = StackStorage::new();
+    let result = MitoVM::execute_direct(
+        &main_script,
+        &[],
+        &accounts,
+        &FIVE_VM_PROGRAM_ID,
+        &mut storage,
+    );
+
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    let error_code = VMErrorCode::from(err);
+    assert_eq!(error_code, VMErrorCode::CallStackOverflow);
 }
 
 #[test]

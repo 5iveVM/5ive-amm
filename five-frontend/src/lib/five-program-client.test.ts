@@ -132,6 +132,86 @@ describe("five-program-client boundary", () => {
     expect(connectionCalls.confirmTransaction).toHaveBeenCalledWith("sig-123", "confirmed");
   });
 
+  it("falls back to wallet.sendTransaction when signTransaction is unsupported", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const wallet = {
+      publicKey: { toString: () => "Wallet1111111111111111111111111111111111" } as any,
+      signTransaction: jest.fn(async () => {
+        throw new Error("signTransaction is not a function");
+      }),
+      sendTransaction: jest.fn(async () => "sig-fallback"),
+    };
+
+    const result = await executeFunction({
+      network: "localnet",
+      scriptAccount: "Script1111111111111111111111111111111111",
+      abi: {
+        name: "test",
+        functions: [{ name: "run", index: 0, parameters: [] }],
+      },
+      functionName: "run",
+      accounts: {},
+      args: {},
+      wallet,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.signature).toBe("sig-fallback");
+    expect(wallet.signTransaction).toHaveBeenCalledTimes(1);
+    expect(wallet.sendTransaction).toHaveBeenCalledTimes(1);
+    expect(connectionCalls.sendRawTransaction).not.toHaveBeenCalled();
+    expect(connectionCalls.confirmTransaction).toHaveBeenCalledWith("sig-fallback", "confirmed");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
+  });
+
+  it("supports wallets that only expose sendTransaction", async () => {
+    const wallet = {
+      publicKey: { toString: () => "Wallet1111111111111111111111111111111111" } as any,
+      sendTransaction: jest.fn(async () => "sig-send-only"),
+    };
+
+    const result = await executeFunction({
+      network: "localnet",
+      scriptAccount: "Script1111111111111111111111111111111111",
+      abi: {
+        name: "test",
+        functions: [{ name: "run", index: 0, parameters: [] }],
+      },
+      functionName: "run",
+      accounts: {},
+      args: {},
+      wallet,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.signature).toBe("sig-send-only");
+    expect(wallet.sendTransaction).toHaveBeenCalledTimes(1);
+    expect(connectionCalls.sendRawTransaction).not.toHaveBeenCalled();
+    expect(connectionCalls.confirmTransaction).toHaveBeenCalledWith("sig-send-only", "confirmed");
+  });
+
+  it("throws when wallet has neither signTransaction nor sendTransaction", async () => {
+    const wallet = {
+      publicKey: { toString: () => "Wallet1111111111111111111111111111111111" } as any,
+    };
+
+    await expect(
+      executeFunction({
+        network: "localnet",
+        scriptAccount: "Script1111111111111111111111111111111111",
+        abi: {
+          name: "test",
+          functions: [{ name: "run", index: 0, parameters: [] }],
+        },
+        functionName: "run",
+        accounts: {},
+        args: {},
+        wallet,
+      }),
+    ).rejects.toThrow("Wallet adapter does not support signTransaction or sendTransaction");
+  });
+
   it("creates FiveProgram with network-specific program id", () => {
     const abi = { name: "test", functions: [] };
 

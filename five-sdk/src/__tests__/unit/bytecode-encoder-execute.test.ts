@@ -49,6 +49,9 @@ describe('BytecodeEncoder execute path', () => {
     expect(paramArray[0].type).toBe('string');
     expect(paramArray[1].type).toBe('string');
     expect(paramArray[2].type).toBe('string');
+    expect(paramArray[0].maxLen).toBe(32);
+    expect(paramArray[1].maxLen).toBe(8);
+    expect(paramArray[2].maxLen).toBeUndefined();
   });
 
   it('normalizes account-like DSL types to account', async () => {
