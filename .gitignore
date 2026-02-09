@@ -46,3 +46,4 @@ runbooks/
 /five-dex-frontend/out
 test-ledger/
 test-ledger*/
+/five-cli/.npm-cache
