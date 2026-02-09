@@ -249,7 +249,9 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
 
             // Handle other opcodes - use get_operand_size
             _ => {
-                offset += 1 + get_operand_size(opcode, bytecode.get(offset + 1..).unwrap_or(&[]), pool_enabled);
+                let remaining = bytecode.get(offset + 1..).unwrap_or(&[]);
+                let operand_size = opcodes::operand_size(opcode, remaining, pool_enabled).unwrap_or(0);
+                offset += 1 + operand_size;
             }
         }
     }
@@ -289,66 +291,6 @@ fn find_instructions_start(bytes: &[u8]) -> usize {
 /// Get human-readable opcode name
 fn opcode_name(opcode: u8) -> &'static str {
     opcodes::opcode_name(opcode)
-}
-
-/// Get operand size for an opcode
-fn get_operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> usize {
-    match opcode {
-        opcodes::PUSH_U16
-        | opcodes::PUSH_U32
-        | opcodes::PUSH_U64
-        | opcodes::PUSH_I64
-        | opcodes::PUSH_BOOL
-        | opcodes::PUSH_PUBKEY
-        | opcodes::PUSH_U128
-        | opcodes::PUSH_STRING if pool_enabled => return 1,
-        opcodes::PUSH_U8_W
-        | opcodes::PUSH_U16_W
-        | opcodes::PUSH_U32_W
-        | opcodes::PUSH_U64_W
-        | opcodes::PUSH_I64_W
-        | opcodes::PUSH_BOOL_W
-        | opcodes::PUSH_PUBKEY_W
-        | opcodes::PUSH_U128_W
-        | opcodes::PUSH_STRING_W => return 2,
-        opcodes::PUSH_STRING => {
-            if remaining.len() < 4 {
-                return 4;
-            }
-            let len = u32::from_le_bytes([remaining[0], remaining[1], remaining[2], remaining[3]]);
-            return 4 + len as usize;
-        }
-        opcodes::PUSH_ARRAY_LITERAL | opcodes::PUSH_STRING_LITERAL => {
-            if remaining.is_empty() {
-                return 0;
-            }
-            return 1 + remaining[0] as usize;
-        }
-        _ => {}
-    }
-
-    if let Some(info) = opcodes::get_opcode_info(opcode) {
-        match info.arg_type {
-            opcodes::ArgType::None => 0,
-            opcodes::ArgType::U8
-            | opcodes::ArgType::ValueType
-            | opcodes::ArgType::LocalIndex
-            | opcodes::ArgType::AccountIndex => 1,
-            opcodes::ArgType::U16 | opcodes::ArgType::U16Fixed => 2,
-            opcodes::ArgType::U32 | opcodes::ArgType::FunctionIndex | opcodes::ArgType::U32Fixed => 4,
-            opcodes::ArgType::U64 => 8,
-            opcodes::ArgType::CallExternal => 4,
-            opcodes::ArgType::CallInternal => 3,
-            opcodes::ArgType::AccountField => 5,
-            opcodes::ArgType::AccountFieldParam => 6,
-            opcodes::ArgType::FusedAccAcc => 10,
-            opcodes::ArgType::FusedSubAdd => 11,
-            opcodes::ArgType::ParamImm => 2,
-            opcodes::ArgType::FieldImm => 6,
-        }
-    } else {
-        0
-    }
 }
 
 #[cfg(test)]

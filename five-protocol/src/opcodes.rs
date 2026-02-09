@@ -1777,6 +1777,76 @@ pub const fn opcode_name(opcode: u8) -> &'static str {
     }
 }
 
+/// Return operand width in bytes for a single opcode, using protocol metadata.
+///
+/// The returned size excludes the opcode byte itself.
+/// Returns `None` when the opcode is unknown or when variable-length operands
+/// are truncated and cannot be sized from `remaining`.
+pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<usize> {
+    if pool_enabled {
+        match opcode {
+            PUSH_U8
+            | PUSH_U16
+            | PUSH_U32
+            | PUSH_U64
+            | PUSH_I64
+            | PUSH_BOOL
+            | PUSH_PUBKEY
+            | PUSH_U128
+            | PUSH_STRING => return Some(1),
+            PUSH_U8_W
+            | PUSH_U16_W
+            | PUSH_U32_W
+            | PUSH_U64_W
+            | PUSH_I64_W
+            | PUSH_BOOL_W
+            | PUSH_U128_W
+            | PUSH_PUBKEY_W
+            | PUSH_STRING_W => return Some(2),
+            _ => {}
+        }
+    }
+
+    match opcode {
+        PUSH_PUBKEY => return Some(32),
+        PUSH_U128 => return Some(16),
+        PUSH_STRING => {
+            if remaining.len() < 4 {
+                return None;
+            }
+            let len = u32::from_le_bytes([remaining[0], remaining[1], remaining[2], remaining[3]])
+                as usize;
+            return Some(4 + len);
+        }
+        PUSH_ARRAY_LITERAL | PUSH_STRING_LITERAL => {
+            if remaining.is_empty() {
+                return None;
+            }
+            return Some(1 + remaining[0] as usize);
+        }
+        // CREATE_TUPLE has an immediate tuple size byte in bytecode format.
+        CREATE_TUPLE => return Some(1),
+        _ => {}
+    }
+
+    let info = get_opcode_info(opcode)?;
+    Some(match info.arg_type {
+        ArgType::None => 0,
+        ArgType::U8 | ArgType::ValueType | ArgType::LocalIndex | ArgType::AccountIndex => 1,
+        ArgType::U16 | ArgType::U16Fixed => 2,
+        ArgType::U32 | ArgType::FunctionIndex | ArgType::U32Fixed => 4,
+        ArgType::U64 => 8,
+        ArgType::CallExternal => 4,
+        ArgType::CallInternal => 3,
+        ArgType::AccountField => 5,
+        ArgType::AccountFieldParam => 6,
+        ArgType::FusedAccAcc => 10,
+        ArgType::FusedSubAdd => 11,
+        ArgType::ParamImm => 2,
+        ArgType::FieldImm => 6,
+    })
+}
+
 /// Get opcode compute cost (zero-allocation)
 #[inline]
 pub const fn opcode_compute_cost(opcode: u8) -> u8 {

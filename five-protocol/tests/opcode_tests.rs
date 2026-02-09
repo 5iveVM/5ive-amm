@@ -1,8 +1,8 @@
 use five_protocol::{
     get_opcode_info, is_valid_opcode, opcode_compute_cost, opcode_name,
-    OPCODE_TABLE,
+    operand_size, OPCODE_TABLE,
     // Import some key opcodes to test against
-    ADD, JUMP, RETURN,
+    ADD, CREATE_TUPLE, JUMP, PUSH_STRING, PUSH_U16, PUSH_U16_W, RETURN,
 };
 use std::collections::HashSet;
 
@@ -87,3 +87,15 @@ fn test_call_native_in_opcode_table() {
     println!("CALL_NATIVE lookup successful: {:?}", info.name);
 }
 
+#[test]
+fn test_operand_size_uses_canonical_fixed_and_variable_widths() {
+    assert_eq!(operand_size(PUSH_U16, &[0x34, 0x12], false), Some(2));
+    assert_eq!(operand_size(PUSH_U16, &[0x07], true), Some(1));
+    assert_eq!(operand_size(PUSH_U16_W, &[0x34, 0x12], true), Some(2));
+
+    assert_eq!(operand_size(CREATE_TUPLE, &[0x03], false), Some(1));
+
+    // PUSH_STRING uses u32 length prefix + bytes.
+    assert_eq!(operand_size(PUSH_STRING, &[0x03, 0x00, 0x00, 0x00, b'a', b'b', b'c'], false), Some(7));
+    assert_eq!(operand_size(PUSH_STRING, &[0x03, 0x00], false), None);
+}

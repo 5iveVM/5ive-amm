@@ -119,121 +119,16 @@ impl BytecodeInspector {
             return 0;
         }
         let op = bytes[offset];
-        if pool_enabled {
-            match op {
-                opcodes::PUSH_U8
-                | opcodes::PUSH_U16
-                | opcodes::PUSH_U32
-                | opcodes::PUSH_U64
-                | opcodes::PUSH_I64
-                | opcodes::PUSH_BOOL
-                | opcodes::PUSH_PUBKEY
-                | opcodes::PUSH_U128
-                | opcodes::PUSH_STRING => return 2,
-                opcodes::PUSH_U8_W
-                | opcodes::PUSH_U16_W
-                | opcodes::PUSH_U32_W
-                | opcodes::PUSH_U64_W
-                | opcodes::PUSH_I64_W
-                | opcodes::PUSH_BOOL_W
-                | opcodes::PUSH_PUBKEY_W
-                | opcodes::PUSH_U128_W
-                | opcodes::PUSH_STRING_W => return 3,
-                _ => {}
+        if op == opcodes::CALL {
+            if offset + 4 <= bytes.len() {
+                return call_size(bytes, offset);
             }
+            return 1;
         }
-        match op {
-            opcodes::PUSH_U8 => 2,
-            opcodes::PUSH_U16 => 3,
-            opcodes::PUSH_U32 => 5,
-            opcodes::PUSH_U64 => 9,
-            opcodes::PUSH_I64 => 9,
-            opcodes::PUSH_BOOL => 2,
-            opcodes::PUSH_PUBKEY => 33,
-            opcodes::PUSH_U128 => 17,
-            opcodes::PUSH_U8_W
-            | opcodes::PUSH_U16_W
-            | opcodes::PUSH_U32_W
-            | opcodes::PUSH_U64_W
-            | opcodes::PUSH_I64_W
-            | opcodes::PUSH_BOOL_W
-            | opcodes::PUSH_PUBKEY_W
-            | opcodes::PUSH_U128_W
-            | opcodes::PUSH_STRING_W => 3,
 
-            // Variable length instructions
-            opcodes::PUSH_STRING => {
-                if offset + 5 <= bytes.len() {
-                    if let Some(len) = read_le_u32(bytes, offset + 1) {
-                        return 5 + len as usize;
-                    }
-                }
-                1 // Truncated
-            }
-            opcodes::PUSH_STRING_LITERAL | opcodes::PUSH_ARRAY_LITERAL => {
-                if offset + 1 < bytes.len() {
-                    let len = bytes[offset+1] as usize;
-                    return 2 + len;
-                }
-                1
-            }
-
-            // Fixed size instructions with arguments
-            opcodes::LOAD_FIELD | opcodes::STORE_FIELD => 6, // acc(u8) + offset(u32)
-            opcodes::LOAD_FIELD_PUBKEY => 6,
-            opcodes::STORE_FIELD_ZERO => 6,
-            opcodes::REQUIRE_NOT_BOOL => 6,
-
-            opcodes::CALL => {
-                if offset + 4 <= bytes.len() {
-                    return call_size(bytes, offset);
-                }
-                1
-            }
-            opcodes::CALL_EXTERNAL => 5, // opcode + acc(u8) + offset(u16) + param(u8)
-            opcodes::CALL_NATIVE => 2,   // id(u8)
-
-            // Jumps
-            opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT => 3, // opcode + u16
-
-            // Branch fusion
-            opcodes::BR_EQ_U8 => 4, // opcode + val(u8) + offset(u16)
-            opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => 3, // opcode + offset(u16)
-
-            // Local variables (index u8)
-            opcodes::SET_LOCAL | opcodes::GET_LOCAL | opcodes::LOAD_PARAM | opcodes::STORE_PARAM
-            | opcodes::CLEAR_LOCAL => 2,
-
-            // Account operations
-            opcodes::LOAD_ACCOUNT | opcodes::SAVE_ACCOUNT | opcodes::GET_ACCOUNT
-            | opcodes::GET_LAMPORTS | opcodes::SET_LAMPORTS | opcodes::GET_DATA
-            | opcodes::GET_KEY | opcodes::GET_OWNER
-            | opcodes::CHECK_OWNER | opcodes::CHECK_PDA => 2,
-
-            // Constraint operations (u8 arg)
-            opcodes::CHECK_SIGNER | opcodes::CHECK_WRITABLE | opcodes::CHECK_INITIALIZED
-            | opcodes::CHECK_UNINITIALIZED | opcodes::CHECK_SIGNER_WRITABLE
-            | opcodes::REQUIRE_PARAM_GT_ZERO => 2,
-
-            // Array creation (u8 arg)
-            opcodes::CREATE_ARRAY => 2,
-
-            // Fused ops
-            opcodes::REQUIRE_GTE_U64 | opcodes::FIELD_ADD_PARAM | opcodes::FIELD_SUB_PARAM
-            | opcodes::STORE_PARAM_TO_FIELD => 7, // acc(u8) + offset(u32) + param(u8)
-
-            opcodes::REQUIRE_EQ_PUBKEY | opcodes::REQUIRE_EQ_FIELDS => 11, // acc1(u8) + off1(u32) + acc2(u8) + off2(u32)
-
-            opcodes::TRANSFER_DEBIT | opcodes::TRANSFER_CREDIT => 2, // param(u8)
-            opcodes::STORE_GLOBAL | opcodes::LOAD_GLOBAL => 3, // offset(u16)
-
-            opcodes::REQUIRE_PARAM_LTE_IMM => 3, // param(u8) + imm(u8)
-            opcodes::REQUIRE_FIELD_EQ_IMM => 7, // acc(u8) + off(u32) + imm(u8)
-
-            opcodes::CAST => 2, // type(u8)
-            opcodes::LOAD_INPUT => 2, // index(u8)
-
-            // All others are 1 byte (including HALT, RETURN, ADD, SUB, etc.)
+        let remaining = &bytes[offset + 1..];
+        match opcodes::operand_size(op, remaining, pool_enabled) {
+            Some(operand_size) if offset + 1 + operand_size <= bytes.len() => 1 + operand_size,
             _ => 1,
         }
     }

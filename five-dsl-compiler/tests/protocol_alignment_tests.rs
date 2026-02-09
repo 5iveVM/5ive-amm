@@ -163,3 +163,10 @@ fn disassembler_fallback_respects_protocol_operand_sizes() {
         lines
     );
 }
+
+#[test]
+fn inspector_respects_protocol_tuple_operand_width() {
+    let script = vec![opcodes::CREATE_TUPLE, 0x02, opcodes::HALT];
+    assert_eq!(BytecodeInspector::instruction_size(&script, 0), 2);
+    assert_eq!(BytecodeInspector::instruction_size(&script, 2), 1);
+}
