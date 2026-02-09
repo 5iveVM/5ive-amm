@@ -2,6 +2,7 @@ import { ScriptMetadata } from "../metadata/index.js";
 import { ScriptMetadataParser } from "../metadata/index.js";
 import { normalizeAbiFunctions } from "../utils/abi.js";
 import { loadWasmVM } from "../wasm/instance.js";
+import { SolanaPublicKeyUtils } from "../crypto/index.js";
 
 export async function fetchAccountAndDeserialize(
   accountAddress: string,
@@ -35,6 +36,14 @@ export async function fetchAccountAndDeserialize(
       console.log(
         `[FiveSDK] Fetching account and deserializing data: ${accountAddress}`,
       );
+    }
+
+    if (!SolanaPublicKeyUtils.isValid(accountAddress)) {
+      return {
+        success: false,
+        error: `Invalid account address format: ${accountAddress}`,
+        logs: [],
+      };
     }
 
     const { PublicKey } = await import("@solana/web3.js");

@@ -80,4 +80,92 @@ describe('execute wire format', () => {
     expect(raw.readUInt32LE(5)).toBe(2);
     expect(Array.from(raw.subarray(9))).toEqual([0xaa, 0xbb]);
   });
+
+  it('supports object-format ABI functions and coerces pubkey/account parameter values', async () => {
+    const scriptAccount = '11111111111111111111111111111111';
+    const ownerPubkey = '11111111111111111111111111111112';
+    const counterPubkey = '11111111111111111111111111111113';
+    const ownerLike = {
+      toBase58: () => ownerPubkey,
+    };
+    const counterLike = {
+      toBase58: () => counterPubkey,
+    };
+
+    const abi = {
+      functions: {
+        transfer: {
+          index: 7,
+          parameters: [
+            { name: 'owner', type: 'pubkey', is_account: false },
+            { name: 'counter', type: 'account', is_account: true },
+          ],
+        },
+      },
+    };
+
+    const result = await ExecuteModule.generateExecuteInstruction(
+      scriptAccount,
+      'transfer',
+      [ownerLike, counterLike],
+      [counterPubkey],
+      undefined,
+      {
+        abi,
+        estimateFees: false,
+      },
+    );
+
+    expect(mockEncodeExecute).toHaveBeenCalledTimes(1);
+    const [functionIndex, , paramValues] = mockEncodeExecute.mock.calls[0];
+    expect(functionIndex).toBe(7);
+    expect(paramValues.owner).toBe(ownerPubkey);
+    expect(paramValues.counter).toBe(1);
+
+    const raw = Buffer.from(result.instruction.data, 'base64');
+    expect(raw[0]).toBe(9);
+    expect(raw.readUInt32LE(1)).toBe(7);
+    expect(raw.readUInt32LE(5)).toBe(2);
+  });
+
+  it('marks payer writable when function has @init + signer account', async () => {
+    const scriptAccount = '11111111111111111111111111111111';
+    const accountToInit = '11111111111111111111111111111112';
+    const payer = '11111111111111111111111111111113';
+    const abi = {
+      functions: [
+        {
+          name: 'initialize',
+          index: 3,
+          parameters: [
+            { name: 'state', type: 'account', is_account: true, attributes: ['init'] },
+            { name: 'payer', type: 'account', is_account: true, attributes: ['signer'] },
+          ],
+        },
+      ],
+    };
+
+    const result = await ExecuteModule.generateExecuteInstruction(
+      scriptAccount,
+      'initialize',
+      [accountToInit, payer],
+      [accountToInit, payer],
+      undefined,
+      {
+        abi,
+        estimateFees: false,
+      },
+    );
+
+    const stateAccountMeta = result.instruction.accounts.find((a: any) => a.pubkey === accountToInit);
+    const payerMeta = result.instruction.accounts.find((a: any) => a.pubkey === payer);
+
+    expect(stateAccountMeta).toBeDefined();
+    expect(stateAccountMeta.isWritable).toBe(true);
+    expect(stateAccountMeta.isSigner).toBe(false);
+
+    expect(payerMeta).toBeDefined();
+    expect(payerMeta.isSigner).toBe(true);
+    expect(payerMeta.isWritable).toBe(true);
+  });
 });

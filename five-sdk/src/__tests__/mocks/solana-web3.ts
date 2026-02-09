@@ -1,3 +1,7 @@
+import { createHash } from "crypto";
+import bs58 from "bs58";
+import { Point } from "@noble/ed25519";
+
 export const __calls = {
   getLatestBlockhash: [] as any[],
   sendRawTransaction: [] as any[],
@@ -5,9 +9,55 @@ export const __calls = {
 };
 
 export class PublicKey {
-  constructor(private readonly value: string) {}
+  private readonly value: string;
+
+  constructor(value: string | Uint8Array | number[]) {
+    if (typeof value === "string") {
+      this.value = value;
+      return;
+    }
+    const bytes = value instanceof Uint8Array ? value : Uint8Array.from(value);
+    this.value = bs58.encode(bytes);
+  }
+
   toString() {
     return this.value;
+  }
+
+  toBase58() {
+    return this.value;
+  }
+
+  static findProgramAddressSync(
+    seeds: Array<Buffer | Uint8Array>,
+    programId: PublicKey,
+  ): [PublicKey, number] {
+    const marker = Buffer.from("ProgramDerivedAddress");
+    const programIdBytes = bs58.decode(programId.toBase58());
+
+    for (let bump = 255; bump >= 1; bump--) {
+      const parts = [
+        ...seeds.map((seed) => Buffer.from(seed)),
+        Buffer.from([bump]),
+        Buffer.from(programIdBytes),
+        marker,
+      ];
+      const hash = createHash("sha256").update(Buffer.concat(parts)).digest();
+
+      let onCurve = false;
+      try {
+        Point.fromHex(hash.toString("hex"));
+        onCurve = true;
+      } catch {
+        onCurve = false;
+      }
+
+      if (!onCurve) {
+        return [new PublicKey(hash), bump];
+      }
+    }
+
+    throw new Error("Unable to find valid program address");
   }
 }
 

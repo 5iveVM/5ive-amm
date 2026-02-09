@@ -32,7 +32,7 @@ jest.mock("five-sdk", () => ({
   FiveProgram: {
     fromABI: (...args: any[]) => mockFromABI(...args),
   },
-}));
+}), { virtual: true });
 
 jest.mock("@solana/web3.js", () => {
   class PublicKey {

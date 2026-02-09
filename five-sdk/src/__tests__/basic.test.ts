@@ -54,26 +54,19 @@ describe('Five SDK Basic Tests', () => {
       expect(decoded).toEqual(Buffer.from(originalData));
     });
 
-    it('should work with VLE encoding simulation', () => {
-      // Simulate Variable Length Encoding for small numbers
-      function encodeVLE(value: number): Uint8Array {
-        const bytes = [];
-        let num = value;
-        
-        while (num >= 0x80) {
-          bytes.push((num & 0x7F) | 0x80);
-          num >>>= 7;
-        }
-        bytes.push(num & 0x7F);
-        
-        return new Uint8Array(bytes);
+    it('should encode little-endian u32 values for fixed execute envelopes', () => {
+      function encodeU32LE(value: number): Uint8Array {
+        const bytes = new Uint8Array(4);
+        bytes[0] = value & 0xff;
+        bytes[1] = (value >> 8) & 0xff;
+        bytes[2] = (value >> 16) & 0xff;
+        bytes[3] = (value >>> 24) & 0xff;
+        return bytes;
       }
 
-      const encoded127 = encodeVLE(127);
-      expect(encoded127).toEqual(new Uint8Array([127]));
-      
-      const encoded128 = encodeVLE(128);
-      expect(encoded128).toEqual(new Uint8Array([0x80, 0x01]));
+      expect(encodeU32LE(127)).toEqual(new Uint8Array([127, 0, 0, 0]));
+      expect(encodeU32LE(128)).toEqual(new Uint8Array([128, 0, 0, 0]));
+      expect(encodeU32LE(1025)).toEqual(new Uint8Array([1, 4, 0, 0]));
     });
 
     it('should handle account structure validation', () => {
@@ -102,24 +95,25 @@ describe('Five SDK Basic Tests', () => {
     });
 
     it('should work with instruction data formatting', () => {
-      // Simulate instruction data creation
-      const discriminator = 2; // Execute instruction
+      // Simulate current execute envelope:
+      // [discriminator(9), function_index(u32 LE), param_count(u32 LE), params...]
+      const discriminator = 9; // Execute instruction
       const functionIndex = 1;
       const paramCount = 2;
       
       const instructionData = new Uint8Array([
         discriminator,
-        functionIndex,
-        paramCount,
+        functionIndex, 0, 0, 0,
+        paramCount, 0, 0, 0,
         // Mock parameter data
         4, 0x64, 0, 0, 0, 0, 0, 0, 0, // u64: 100
         11, 4, 116, 101, 115, 116 // string: "test"
       ]);
 
-      expect(instructionData[0]).toBe(2); // Execute discriminator
-      expect(instructionData[1]).toBe(1); // Function index
-      expect(instructionData[2]).toBe(2); // Parameter count
-      expect(instructionData.length).toBeGreaterThan(3);
+      expect(instructionData[0]).toBe(9); // Execute discriminator
+      expect(instructionData[1]).toBe(1); // Function index LE byte 0
+      expect(instructionData[5]).toBe(2); // Param count LE byte 0
+      expect(instructionData.length).toBeGreaterThan(9);
     });
 
     it('should handle error cases gracefully', () => {

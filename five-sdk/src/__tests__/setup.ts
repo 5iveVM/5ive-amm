@@ -40,11 +40,11 @@ const mockWasmModule = {
   })),
   ParameterEncoder: {
     encode_execute_params: jest.fn((functionIndex: number, params: any[]) => {
-      // Mock VLE encoding: [function_index, param_count, ...params]
+      // Mock fixed execute param payload shape used by tests.
       return new Uint8Array([0, functionIndex, params.length, ...params.flatMap(p => [p.type, p.value])]);
     }),
     encode_execute_vle: jest.fn((functionIndex: number, params: any[]) => {
-        // Mock VLE encoding for SDK calls
+        // Legacy alias retained for older tests/helpers.
         return new Uint8Array([functionIndex, ...params.map(p => typeof p === 'number' ? p : 0)]);
     })
   },
