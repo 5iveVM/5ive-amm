@@ -423,6 +423,8 @@ impl OpcodeAnalyzer {
                 opcodes::ArgType::ParamImm => 2,
                 opcodes::ArgType::FieldImm => 6,
                 opcodes::ArgType::CompareU8Offset16 => 3,
+                opcodes::ArgType::CompareU8Target16 => 3,
+                opcodes::ArgType::TargetU16 => 2,
             };
         }
 
@@ -440,6 +442,8 @@ impl OpcodeAnalyzer {
                 | opcodes::RETURN
                 | opcodes::HALT
                 | opcodes::BR_EQ_U8
+                | opcodes::CMP_EQ_JUMP
+                | opcodes::DEC_JUMP_NZ
                 | opcodes::CALL_EXTERNAL
                 | opcodes::EQ_ZERO_JUMP
                 | opcodes::GT_ZERO_JUMP

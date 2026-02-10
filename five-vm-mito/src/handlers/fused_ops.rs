@@ -52,7 +52,7 @@ fn eq_32_bytes(a: &[u8], a_off: usize, b: &[u8], b_off: usize) -> bool {
 }
 
 /// Handle universal fused operations (0xC0-0xCF)
-#[inline(never)]
+#[inline(always)]
 pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         // REQUIRE_GTE_U64: LOAD_FIELD + LOAD_PARAM + GTE + REQUIRE fused

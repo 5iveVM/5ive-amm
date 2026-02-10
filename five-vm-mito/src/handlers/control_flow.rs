@@ -11,6 +11,16 @@ use crate::{
 };
 use five_protocol::opcodes::*;
 
+#[inline(always)]
+fn value_to_u64(value: five_protocol::ValueRef) -> Option<u64> {
+    match value {
+        five_protocol::ValueRef::U8(v) => Some(v as u64),
+        five_protocol::ValueRef::U64(v) => Some(v),
+        five_protocol::ValueRef::Bool(v) => Some(v as u64),
+        _ => None,
+    }
+}
+
 /// Validate and perform a jump to the given offset.
 /// Returns an error if the offset is out of bounds.
 #[inline(always)]
@@ -212,6 +222,25 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
             } else {
                 debug_log!("MitoVM: BR_EQ_U8 not taken");
                 debug_log!("Compare value: {}", compare_value as u32);
+            }
+        }
+        CMP_EQ_JUMP => {
+            // Compare top stack value with u8 immediate and jump to absolute target when equal.
+            let compare_value = ctx.fetch_byte()?;
+            let target = ctx.fetch_u16()? as usize;
+            let lhs = value_to_u64(ctx.pop()?).ok_or(VMErrorCode::TypeMismatch)?;
+            if lhs == compare_value as u64 {
+                validate_and_jump(ctx, target)?;
+            }
+        }
+        DEC_JUMP_NZ => {
+            // Decrement top stack value in place and jump when result is non-zero.
+            let target = ctx.fetch_u16()? as usize;
+            let current = value_to_u64(ctx.pop()?).ok_or(VMErrorCode::TypeMismatch)?;
+            let next = current.wrapping_sub(1);
+            ctx.push(five_protocol::ValueRef::U64(next))?;
+            if next != 0 {
+                validate_and_jump(ctx, target)?;
             }
         }
         _ => return Err(VMErrorCode::InvalidInstruction),

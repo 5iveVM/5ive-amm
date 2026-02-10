@@ -690,6 +690,47 @@ fn decode_operands(
                 analyzer.position += 3;
             }
         }
+        ArgType::CompareU8Target16 => {
+            if analyzer.position + 2 < analyzer.bytecode.len() {
+                let compare = analyzer.bytecode[analyzer.position];
+                let target = u16::from_le_bytes([
+                    analyzer.bytecode[analyzer.position + 1],
+                    analyzer.bytecode[analyzer.position + 2],
+                ]);
+
+                operands.push(OperandInfo {
+                    operand_type: "compare_u8".to_string(),
+                    raw_value: vec![compare],
+                    decoded_value: Some(compare.to_string()),
+                    size: 1,
+                    description: "Compare value (u8)".to_string(),
+                });
+                operands.push(OperandInfo {
+                    operand_type: "target_u16".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position + 1..analyzer.position + 3].to_vec(),
+                    decoded_value: Some(target.to_string()),
+                    size: 2,
+                    description: "Absolute jump target (u16)".to_string(),
+                });
+                analyzer.position += 3;
+            }
+        }
+        ArgType::TargetU16 => {
+            if analyzer.position + 1 < analyzer.bytecode.len() {
+                let target = u16::from_le_bytes([
+                    analyzer.bytecode[analyzer.position],
+                    analyzer.bytecode[analyzer.position + 1],
+                ]);
+                operands.push(OperandInfo {
+                    operand_type: "target_u16".to_string(),
+                    raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
+                    decoded_value: Some(target.to_string()),
+                    size: 2,
+                    description: "Absolute jump target (u16)".to_string(),
+                });
+                analyzer.position += 2;
+            }
+        }
     }
 
     Ok(operands)

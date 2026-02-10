@@ -328,6 +328,8 @@ impl DslBytecodeGenerator {
         }
 
         self.header_features |= five_protocol::FEATURE_PUBLIC_ENTRY_TABLE;
+        self.header_features |= five_protocol::FEATURE_FAST_DISPATCH_TABLE;
+        self.header_features |= five_protocol::FEATURE_FUSED_BRANCH_OPS;
         Ok(())
     }
 

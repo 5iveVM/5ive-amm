@@ -4,7 +4,7 @@ use pinocchio::{
 
 use five_protocol::{
     opcodes::{self},
-    parser::{parse_header, parse_instruction, ParseError},
+    parser::{parse_code_bounds, parse_instruction_with_features, ParseError},
 };
 
 fn map_parse_error(e: ParseError) -> ProgramError {
@@ -27,7 +27,7 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     }
 
     // Use shared parser to validate header and get start offset
-    let (header, mut offset) = match parse_header(bytecode) {
+    let (header, mut offset, code_end) = match parse_code_bounds(bytecode) {
         Ok(res) => res,
         Err(e) => {
             return Err(map_parse_error(e));
@@ -50,8 +50,8 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     }
 
     // Iterate and verify all instructions
-    while offset < bytecode.len() {
-        match parse_instruction(bytecode, offset) {
+    while offset < code_end {
+        match parse_instruction_with_features(bytecode, offset, header.features) {
             Ok((inst, size)) => {
                 // Additional Semantic Checks
 
@@ -62,7 +62,7 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
                     // We only validate internal targets here.
                     if inst.opcode == opcodes::CALL {
                         let func_addr = inst.arg1 as usize;
-                        if func_addr >= bytecode.len() {
+                        if func_addr >= code_end {
                             return Err(ProgramError::Custom(8122));
                         }
                     }
@@ -74,7 +74,7 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
                     opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP
                 ) {
                     let target = inst.arg1 as usize;
-                    if target >= bytecode.len() {
+                    if target >= code_end {
                         return Err(ProgramError::Custom(8122));
                     }
                 }
@@ -108,7 +108,7 @@ pub fn validate_function_metadata(bytecode: &[u8]) -> ProgramResult {
     // Calling verify_bytecode_content implicitly validates metadata via parse_header.
     // If explicit separate check is needed, we can use parse_header.
 
-    match parse_header(bytecode) {
+    match parse_code_bounds(bytecode) {
         Ok(_) => Ok(()),
         Err(e) => Err(map_parse_error(e)),
     }

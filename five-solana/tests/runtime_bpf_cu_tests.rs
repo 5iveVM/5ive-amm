@@ -85,6 +85,16 @@ struct StepFixture {
     extras: Vec<String>,
     #[serde(default)]
     params: Vec<ParamFixture>,
+    #[serde(default = "default_expected_fixture")]
+    expected: ExpectedFixture,
+}
+
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum ExpectedFixture {
+    Success,
+    Error,
+    SuccessOrError,
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,7 +127,7 @@ async fn token_e2e_bpf_compute_units() {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
-    let fixture_path = repo_root.join("five-templates/token/runtime-fixtures/init_mint.json");
+    let fixture_path = fixture_path_from_env(&repo_root);
     let fixture = load_fixture(&fixture_path);
     let bytecode_path = resolve_bytecode_path(&repo_root, &fixture_path, &fixture.bytecode_path);
     let bytecode = load_or_compile_bytecode(&bytecode_path)
@@ -282,6 +292,10 @@ async fn token_e2e_bpf_compute_units() {
             "burn_user1" => 5_800,
             "freeze_user2" | "thaw_user2" => 6_000,
             "disable_mint" => 6_200,
+            "stable_swap_invariant_iterative" => 35_000,
+            "utilization_kink_rate" => 8_000,
+            "funding_rate_path" => 18_000,
+            "collateral_health_loop" => 16_000,
             _ => 12_000,
         }
     };
@@ -313,21 +327,46 @@ async fn token_e2e_bpf_compute_units() {
             None,
         )
         .await;
-        assert!(result.success, "step {} failed: {:?}", step.name, result.error);
-        assert!(
-            result.units_consumed <= step_budget(&step.name),
-            "step {} consumed {} CU above budget {}",
-            step.name,
-            result.units_consumed,
-            step_budget(&step.name)
-        );
+        match step.expected {
+            ExpectedFixture::Success => {
+                assert!(result.success, "step {} failed: {:?}", step.name, result.error);
+            }
+            ExpectedFixture::Error => {
+                assert!(
+                    !result.success,
+                    "step {} expected deterministic error but succeeded",
+                    step.name
+                );
+            }
+            ExpectedFixture::SuccessOrError => {}
+        }
+        if step.expected != ExpectedFixture::Error {
+            assert!(
+                result.units_consumed <= step_budget(&step.name),
+                "step {} consumed {} CU above budget {}",
+                step.name,
+                result.units_consumed,
+                step_budget(&step.name)
+            );
+        }
         total_units = total_units.saturating_add(result.units_consumed);
-        println!("BPF_CU step={} units={}", step.name, result.units_consumed);
+        println!(
+            "BPF_CU step={} expected={:?} success={} units={}",
+            step.name,
+            step.expected,
+            result.success,
+            result.units_consumed
+        );
     }
 
     println!("BPF_CU fixture={} total_units={}", fixture.name, total_units);
+    let total_budget = if fixture.name == "token_full_e2e" {
+        480_000
+    } else {
+        700_000
+    };
     assert!(
-        total_units <= 480_000,
+        total_units <= total_budget,
         "fixture total {} exceeds regression budget",
         total_units
     );
@@ -445,6 +484,7 @@ async fn minimal_execute_floor_bpf_compute_units() {
             function_index: 0,
             extras: vec!["payer".to_string()],
             params: vec![],
+            expected: ExpectedFixture::Success,
         },
         payload,
     );
@@ -653,6 +693,21 @@ async fn simulate_and_process(
 
 fn default_authority_lamports() -> u64 {
     200_000
+}
+
+fn default_expected_fixture() -> ExpectedFixture {
+    ExpectedFixture::Success
+}
+
+fn fixture_path_from_env(repo_root: &Path) -> PathBuf {
+    if let Ok(override_path) = std::env::var("FIVE_BPF_FIXTURE") {
+        let p = PathBuf::from(&override_path);
+        if p.is_absolute() {
+            return p;
+        }
+        return repo_root.join(p);
+    }
+    repo_root.join("five-templates/token/runtime-fixtures/init_mint.json")
 }
 
 fn load_fixture(path: &Path) -> RuntimeFixture {

@@ -277,6 +277,27 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
+            opcodes::CMP_EQ_JUMP => {
+                if pc + 4 <= bytes.len() {
+                    let val = bytes[pc + 1];
+                    let target = u16::from_le_bytes([bytes[pc + 2], bytes[pc + 3]]);
+                    lines.push(format!("{:04X}: CMP_EQ_JUMP val={} target={}", pc, val, target));
+                    pc += 4;
+                } else {
+                    lines.push(format!("{:04X}: CMP_EQ_JUMP <truncated>", pc));
+                    break;
+                }
+            }
+            opcodes::DEC_JUMP_NZ => {
+                if pc + 3 <= bytes.len() {
+                    let target = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
+                    lines.push(format!("{:04X}: DEC_JUMP_NZ target={}", pc, target));
+                    pc += 3;
+                } else {
+                    lines.push(format!("{:04X}: DEC_JUMP_NZ <truncated>", pc));
+                    break;
+                }
+            }
             opcodes::LOAD_PARAM => {
                 if pc + 1 < bytes.len() {
                     lines.push(format!("{:04X}: LOAD_PARAM idx={}", pc, bytes[pc + 1]));

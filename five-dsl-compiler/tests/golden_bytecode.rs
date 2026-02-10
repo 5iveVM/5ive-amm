@@ -1,5 +1,8 @@
 use five_dsl_compiler::DslCompiler;
-use five_protocol::{opcodes, ConstantPoolDescriptor, FEATURE_CONSTANT_POOL, FEATURE_FUNCTION_NAMES, FIVE_HEADER_OPTIMIZED_SIZE};
+use five_protocol::{
+    opcodes, ConstantPoolDescriptor, FEATURE_CONSTANT_POOL, FEATURE_FUNCTION_NAMES,
+    FEATURE_PUBLIC_ENTRY_TABLE, FIVE_HEADER_OPTIMIZED_SIZE,
+};
 use std::collections::VecDeque;
 
 /// Helper: find all positions of a raw opcode byte in the bytecode
@@ -206,6 +209,13 @@ fn parse_constant_pool_layout(bytecode: &[u8]) -> (Option<(usize, u16)>, usize) 
     let features = u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]]);
     let mut offset = FIVE_HEADER_OPTIMIZED_SIZE;
     if (features & FEATURE_FUNCTION_NAMES) != 0 {
+        if offset + 2 > bytecode.len() {
+            return (None, offset.min(bytecode.len()));
+        }
+        let section_size = u16::from_le_bytes([bytecode[offset], bytecode[offset + 1]]) as usize;
+        offset += 2 + section_size;
+    }
+    if (features & FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
         if offset + 2 > bytecode.len() {
             return (None, offset.min(bytecode.len()));
         }

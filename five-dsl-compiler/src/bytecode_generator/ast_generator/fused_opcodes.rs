@@ -44,7 +44,21 @@ impl ASTGenerator {
             return Ok(true);
         }
 
-        // Pattern 4: pubkey field == pubkey field
+        // Pattern 4: pubkey field == account.key (REQUIRE_OWNER)
+        if let Some((acc_idx, signer_idx, offset)) = self.match_pubkey_field_eq_account_key(condition) {
+            #[cfg(debug_assertions)]
+            println!(
+                "FUSED_DEBUG: EMITTING REQUIRE_OWNER! acc={} signer={} offset={}",
+                acc_idx, signer_idx, offset
+            );
+            emitter.emit_opcode(REQUIRE_OWNER);
+            emitter.emit_u8(acc_idx);
+            emitter.emit_u8(signer_idx);
+            emitter.emit_u32(offset);
+            return Ok(true);
+        }
+
+        // Pattern 5: pubkey field == pubkey field
         if let Some((acc1_idx, offset1, acc2_idx, offset2)) = self.match_pubkey_eq_any(condition) {
             #[cfg(debug_assertions)]
             println!("FUSED_DEBUG: EMITTING REQUIRE_EQ_PUBKEY! acc1={} offset1={} acc2={} offset2={}", acc1_idx, offset1, acc2_idx, offset2);
@@ -81,6 +95,44 @@ impl ASTGenerator {
                 return Some((acc_idx, offset, param_idx));
             }
         }
+        None
+    }
+
+    /// Match pattern: account.pubkey_field == signer.key (or reversed)
+    /// Returns: (account_idx, signer_idx, field_offset)
+    fn match_pubkey_field_eq_account_key(&self, condition: &AstNode) -> Option<(u8, u8, u32)> {
+        if let AstNode::MethodCall { object, method, args } = condition {
+            if method == "eq" && args.len() == 1 {
+                if let (Some((acc_idx, offset)), Some(signer_idx)) = (
+                    self.match_pubkey_field_access(object),
+                    self.match_account_key_access(&args[0]),
+                ) {
+                    return Some((acc_idx, signer_idx, offset));
+                }
+            }
+        }
+
+        let AstNode::BinaryExpression { left, operator, right } = condition else {
+            return None;
+        };
+        if operator != "==" {
+            return None;
+        }
+
+        if let (Some((acc_idx, offset)), Some(signer_idx)) = (
+            self.match_pubkey_field_access(left),
+            self.match_account_key_access(right),
+        ) {
+            return Some((acc_idx, signer_idx, offset));
+        }
+
+        if let (Some((acc_idx, offset)), Some(signer_idx)) = (
+            self.match_pubkey_field_access(right),
+            self.match_account_key_access(left),
+        ) {
+            return Some((acc_idx, signer_idx, offset));
+        }
+
         None
     }
 

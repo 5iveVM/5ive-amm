@@ -56,6 +56,9 @@ pub const FEATURE_FUNCTION_CONSTRAINTS: u32 = 1 << 9;  // Function constraint me
 pub const FEATURE_CONSTANT_POOL: u32 = 1 << 10; // Constant pool descriptor + pool data present
 pub const FEATURE_CONSTANT_POOL_STRINGS: u32 = 1 << 11; // String blob present (fat pointers in pool)
 pub const FEATURE_PUBLIC_ENTRY_TABLE: u32 = 1 << 12; // Compact public entry offset table metadata
+pub const FEATURE_FAST_DISPATCH_TABLE: u32 = 1 << 13; // Dispatcher uses direct compact entry table path
+pub const FEATURE_FUSED_BRANCH_OPS: u32 = 1 << 14; // Fused branch/control-flow opcodes are present
+pub const FEATURE_COUNTED_LOOPS: u32 = 1 << 15; // Counted loop opcodes are present
 
 // Address constants
 pub const MAX_U16_ADDRESS: usize = u16::MAX as usize;

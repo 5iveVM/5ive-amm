@@ -2,7 +2,7 @@
 
 use super::scope_analyzer;
 use super::types::*;
-use super::{AccountSystem, OpcodeEmitter, OpcodePatterns};
+use super::{AccountSystem, OpcodeEmitter};
 use super::import_table::ImportTable;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::bytecode_generator::types; // Import the module directly
@@ -447,18 +447,13 @@ impl FunctionDispatcher {
             // Load function index from parameter 0 using nibble immediate to avoid LOAD_PARAM 0 rejection
             emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_0);
 
-            // Compare with current function index using constant pool
-            OpcodePatterns::emit_push_u16(emitter, i as u16)?;
-            
-            emitter.emit_opcode(five_protocol::opcodes::EQ);
-            
-            // Jump to this function's Call Block if match
-            emitter.emit_opcode(five_protocol::opcodes::JUMP_IF);
-            
+            // Fast fused compare+jump path for public dispatcher checks.
+            emitter.emit_opcode(five_protocol::opcodes::CMP_EQ_JUMP);
+            emitter.emit_u8(i as u8);
+
             let patch_pos = emitter.get_position();
             jump_patch_locations.push((i, function.name.clone(), patch_pos));
-            
-            emitter.emit_u16(0xFFFF); // Placeholder offset to Call Block
+            emitter.emit_u16(0xFFFF); // Placeholder absolute offset to Call Block
         }
         
         println!("DEBUG: Finished Checks Loop. Position: {}", emitter.get_position());

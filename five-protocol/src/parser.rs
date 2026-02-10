@@ -67,6 +67,12 @@ impl ParseError {
 
 /// Parse header and return basic info + instruction start offset.
 pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseError> {
+    let (header, code_start, _) = parse_code_bounds(bytecode)?;
+    Ok((header, code_start))
+}
+
+/// Parse header and return validated code bounds `[code_start, code_end)`.
+pub fn parse_code_bounds(bytecode: &[u8]) -> Result<(OptimizedHeader, usize, usize), ParseError> {
     if bytecode.len() < crate::FIVE_HEADER_OPTIMIZED_SIZE {
         return Err(ParseError::HeaderTooShort);
     }
@@ -93,7 +99,7 @@ pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseEr
 
     if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0 {
         if offset + 2 > bytecode.len() {
-             return Ok((header, offset));
+             return Ok((header, offset, bytecode.len()));
         }
 
         let section_size = u16::from_le_bytes([bytecode[offset], bytecode[offset+1]]);
@@ -103,7 +109,7 @@ pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseEr
 
     if (header.features & crate::FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
         if offset + 2 > bytecode.len() {
-            return Ok((header, offset));
+            return Ok((header, offset, bytecode.len()));
         }
 
         let section_size = u16::from_le_bytes([bytecode[offset], bytecode[offset + 1]]) as usize;
@@ -164,10 +170,15 @@ pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseEr
             }
         }
 
-        return Ok((header, code_offset));
+        let code_end = desc.string_blob_offset as usize;
+        if code_offset > code_end || code_end > bytecode.len() {
+            return Err(ParseError::HeaderTooShort);
+        }
+
+        return Ok((header, code_offset, code_end));
     }
 
-    Ok((header, offset))
+    Ok((header, offset, bytecode.len()))
 }
 
 /// Parse bytecode and return parsed metadata with validation errors
@@ -175,7 +186,7 @@ pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode<'_> {
     let mut instructions = alloc::vec::Vec::new();
     let mut errors = alloc::vec::Vec::new();
 
-    let (header, start_offset) = match parse_header(bytecode) {
+    let (header, start_offset, code_end) = match parse_code_bounds(bytecode) {
         Ok(res) => res,
         Err(e) => {
             errors.push(e);
@@ -196,7 +207,7 @@ pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode<'_> {
 
     // Parse instructions
     let mut offset = start_offset;
-    while offset < bytecode.len() {
+    while offset < code_end {
         match parse_instruction_with_features(bytecode, offset, header.features) {
             Ok((inst, size)) => {
                 // Validate CALL targets (arg1 is function address/offset)
@@ -232,7 +243,7 @@ pub fn parse_instruction(
     parse_instruction_with_features(bytecode, offset, 0)
 }
 
-fn parse_instruction_with_features(
+pub fn parse_instruction_with_features(
     bytecode: &[u8],
     offset: usize,
     features: u32,
@@ -426,10 +437,11 @@ fn parse_instruction_with_features(
             total_size += 4;
         }
         ArgType::CallInternal => {
-            if offset + total_size + 2 >= bytecode.len() {
+            if offset + total_size + 3 > bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            // Consumes 3 bytes: param_count (u8) + function_address (u16)
+            // Consumes 3 operand bytes: param_count (u8) + function_address (u16)
+            // Total CALL size is fixed-width 4 bytes including opcode.
             let param_count = bytecode[offset + total_size] as u64;
             let addr_bytes = [
                 bytecode[offset + total_size + 1],
@@ -610,6 +622,30 @@ fn parse_instruction_with_features(
             arg2 = rel;
             total_size += 3;
         }
+        ArgType::CompareU8Target16 => {
+            if offset + total_size + 2 >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let compare = bytecode[offset + total_size] as u64;
+            let target = u16::from_le_bytes([
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+            ]) as u64;
+            arg1 = compare;
+            arg2 = target;
+            total_size += 3;
+        }
+        ArgType::TargetU16 => {
+            if offset + total_size + 1 >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let target = u16::from_le_bytes([
+                bytecode[offset + total_size],
+                bytecode[offset + total_size + 1],
+            ]) as u64;
+            arg1 = target;
+            total_size += 2;
+        }
     }
 
     // Final size check: parser decode must match canonical protocol sizing.
@@ -688,7 +724,8 @@ fn parse_function_names(
 
 /// Parse optimized bytecode with metadata sections
 pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String> {
-    let (header, start_offset) = parse_header(bytecode).map_err(|e| e.message().to_string())?;
+    let (header, start_offset, code_end) =
+        parse_code_bounds(bytecode).map_err(|e| e.message().to_string())?;
 
     let mut metadata_offset = crate::FIVE_HEADER_OPTIMIZED_SIZE;
     let function_names = if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0 {
@@ -719,7 +756,7 @@ pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String>
 
     let mut instructions = Vec::new();
     let mut offset = bytecode_start;
-    while offset < bytecode.len() {
+    while offset < code_end {
         match parse_instruction_with_features(bytecode, offset, header.features) {
             Ok((inst, size)) => {
                 // Validate CALL targets (arg1 is function address/offset)

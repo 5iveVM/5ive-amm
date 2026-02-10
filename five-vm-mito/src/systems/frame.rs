@@ -98,20 +98,41 @@ impl<'a> FrameManager<'a> {
             debug_log!("LOCAL_DEBUG: get_local index out of bounds: {} >= {}", index, self.local_count);
             return Err(VMErrorCode::LocalsOverflow);
         }
-        // SAFETY: We assume the compiler/verifier ensures locals are initialized before use.
-        // Bounds checking is done above.
+        // SAFETY: Slots in [local_base, local_base+local_count) are initialized either by:
+        // - allocate_locals() filling them with Empty, or
+        // - set_local() growing and initializing intermediate slots.
         unsafe {
-            Ok(self.locals[self.local_base as usize + index as usize].assume_init())
+            let value = self.locals[self.local_base as usize + index as usize].assume_init();
+            if value.is_empty() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            Ok(value)
         }
     }
 
     #[inline(always)]
     pub fn set_local(&mut self, index: u8, value: ValueRef) -> CompactResult<()> {
-        if index >= self.local_count {
-            debug_log!("LOCAL_DEBUG: set_local index out of bounds: {} >= {}", index, self.local_count);
+        let absolute_index = self.local_base as usize + index as usize;
+        if absolute_index >= MAX_LOCALS {
+            debug_log!(
+                "LOCAL_DEBUG: set_local absolute index out of bounds: {} >= {}",
+                absolute_index,
+                MAX_LOCALS
+            );
             return Err(VMErrorCode::LocalsOverflow);
         }
-        self.locals[self.local_base as usize + index as usize] = core::mem::MaybeUninit::new(value);
+
+        if index >= self.local_count {
+            let old_count = self.local_count;
+            // When expanding, clear intermediate slots so stale values are never reused.
+            for slot in old_count..index {
+                let pos = self.local_base as usize + slot as usize;
+                self.locals[pos] = core::mem::MaybeUninit::new(ValueRef::Empty);
+            }
+            self.local_count = index.saturating_add(1);
+        }
+
+        self.locals[absolute_index] = core::mem::MaybeUninit::new(value);
         Ok(())
     }
 
@@ -168,12 +189,13 @@ impl<'a> FrameManager<'a> {
         if (self.local_base as usize + count as usize) > MAX_LOCALS {
             return Err(VMErrorCode::LocalsOverflow);
         }
-
-        // Optimization: Zero-Cost Locals Initialization
-        // We do NOT initialize memory. It contains garbage or previous values.
-        // Security relies on the specific script compiler ensuring variables 
-        // are assigned before read (STORE_LOCAL before LOAD_LOCAL).
-        
+        // Initialize newly exposed slots to Empty to prevent stale-value reuse.
+        if count > self.local_count {
+            for slot in self.local_count..count {
+                let pos = self.local_base as usize + slot as usize;
+                self.locals[pos] = core::mem::MaybeUninit::new(ValueRef::Empty);
+            }
+        }
         self.local_count = count;
         Ok(())
     }

@@ -271,6 +271,50 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                 offset += 4;
             }
 
+            // CMP_EQ_JUMP: compare_value(u8) + absolute_target(u16)
+            opcodes::CMP_EQ_JUMP => {
+                if offset + 4 > scan_len {
+                    break;
+                }
+                let target = u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]);
+                jump_count += 1;
+                if target as usize >= scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: "CMP_EQ_JUMP",
+                        target,
+                        reason: format!(
+                            "Out of bounds: target {} >= bytecode length {}",
+                            target, scan_len
+                        ),
+                    });
+                }
+                offset += 4;
+            }
+
+            // DEC_JUMP_NZ: absolute_target(u16)
+            opcodes::DEC_JUMP_NZ => {
+                if offset + 3 > scan_len {
+                    break;
+                }
+                let target = u16::from_le_bytes([bytecode[offset + 1], bytecode[offset + 2]]);
+                jump_count += 1;
+                if target as usize >= scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: "DEC_JUMP_NZ",
+                        target,
+                        reason: format!(
+                            "Out of bounds: target {} >= bytecode length {}",
+                            target, scan_len
+                        ),
+                    });
+                }
+                offset += 3;
+            }
+
             // CALL_EXTERNAL: account_index(1) + offset(2) + param_count(1)
             opcodes::CALL_EXTERNAL => {
                 offset += 5;

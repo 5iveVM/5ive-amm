@@ -16,6 +16,20 @@ const SYSTEM_PROGRAM_ID: [u8; 32] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]; // Solana system program ID: 11111111111111111111111111111111
 
+#[inline(always)]
+fn read_u64_le(data: &[u8], offset: usize) -> u64 {
+    let raw = unsafe { core::ptr::read_unaligned(data.as_ptr().add(offset) as *const u64) };
+    u64::from_le(raw)
+}
+
+#[inline(always)]
+fn eq_32_bytes(a: &[u8], b: &[u8]) -> bool {
+    read_u64_le(a, 0) == read_u64_le(b, 0)
+        && read_u64_le(a, 8) == read_u64_le(b, 8)
+        && read_u64_le(a, 16) == read_u64_le(b, 16)
+        && read_u64_le(a, 24) == read_u64_le(b, 24)
+}
+
 macro_rules! check_constraint {
     ($ctx:expr, $name:literal, $account:ident, $check:expr) => {{
         let account_idx = $ctx.fetch_byte()?;
@@ -141,19 +155,21 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             let account = ctx.get_account_for_read(account_idx)?;
             let data = unsafe { account.borrow_data_unchecked() };
             
-            if (field_offset as usize) + 32 > data.len() {
+            let start = field_offset as usize;
+            let end = start + 32;
+            if end > data.len() {
                 debug_log!("MitoVM: REQUIRE_OWNER failed - field offset out of bounds");
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            
-            let field_pubkey = &data[field_offset as usize..field_offset as usize + 32];
+
+            let field_pubkey = &data[start..end];
 
             // Get the signer's key
             let signer = ctx.get_account_for_read(signer_idx)?;
             let signer_key = signer.key();
 
             // Compare and require equal
-            if field_pubkey != signer_key.as_ref() {
+            if !eq_32_bytes(field_pubkey, signer_key.as_ref()) {
                 debug_log!("MitoVM: REQUIRE_OWNER failed - pubkey mismatch");
                 return Err(VMErrorCode::ConstraintViolation);
             }

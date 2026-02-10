@@ -1100,14 +1100,12 @@ impl<'a> ExecutionContext<'a> {
         // 1. Parse parameters
         self.parse_parameters()?;
 
-        // 2. Preserve historical local initialization behavior for compatibility.
+        // 2. Allocate a small initial local frame.
+        // SET_LOCAL can grow this frame on demand (and clears intermediate slots),
+        // which preserves correctness while keeping headroom for nested CALL frames.
         let param_count = self.frame.param_len as usize;
-        let locals_to_allocate = if param_count > 0 {
-            core::cmp::min(param_count, MAX_LOCALS)
-        } else {
-            3
-        };
-        self.allocate_locals(locals_to_allocate as u8)?;
+        let initial_locals = core::cmp::max(param_count as u8, 3);
+        self.allocate_locals(initial_locals)?;
 
         // Mirror parameters into initial locals (legacy behavior relied on by some scripts).
         for i in 1..=param_count {
@@ -1123,7 +1121,7 @@ impl<'a> ExecutionContext<'a> {
             ValueRef::U64(v) => v as u8,
             _ => 0,
         };
-        if func_index >= self.public_function_count {
+        if self.public_function_count > 0 && func_index >= self.public_function_count {
             return Err(VMErrorCode::FunctionVisibilityViolation);
         }
         let dispatch_ip = if self.public_entry_table_count > 0 {
