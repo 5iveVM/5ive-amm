@@ -17,10 +17,15 @@ use five_protocol::{ConstantPoolDescriptor, Value, ValueRef, FIVE_HEADER_OPTIMIZ
 
 
 use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
+#[cfg(not(target_os = "solana"))]
+use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(feature = "debug-logs")]
 use heapless::String as HString;
 // Import all opcodes - using hierarchical match structure to prevent stack overflow.
 use five_protocol::opcodes::*;
+
+#[cfg(not(target_os = "solana"))]
+static LAST_COMPUTE_UNITS: AtomicU64 = AtomicU64::new(0);
 
 /// Execution state snapshot returned from VM operations.
 /// Used primarily for WASM integration and external monitoring.
@@ -62,6 +67,12 @@ pub struct VMExecutionContext {
 pub struct MitoVM;
 
 impl MitoVM {
+    #[cfg(not(target_os = "solana"))]
+    #[inline]
+    pub fn last_compute_units_consumed() -> u64 {
+        LAST_COMPUTE_UNITS.load(Ordering::Relaxed)
+    }
+
     /// Prepare execution environment with fixed-width parameters and function dispatch.
     #[inline(never)]
     fn initialize_execution_context<'a>(
@@ -477,11 +488,17 @@ impl MitoVM {
             Ok(()) => {
                 let result = crate::resolution::finalize_execution_result(&mut ctx)
                     .map_err(VMError::from);
+                #[cfg(not(target_os = "solana"))]
+                LAST_COMPUTE_UNITS.store(ctx.compute_units_consumed(), Ordering::Relaxed);
                 // Clear temp buffer to avoid reusing stale data between runs
                 ctx.reset_temp_buffer();
                 result
             }
-            Err(e) => Err(VMError::from(e)),
+            Err(e) => {
+                #[cfg(not(target_os = "solana"))]
+                LAST_COMPUTE_UNITS.store(ctx.compute_units_consumed(), Ordering::Relaxed);
+                Err(VMError::from(e))
+            }
         }
     }
 

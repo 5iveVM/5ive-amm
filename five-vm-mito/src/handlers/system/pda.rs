@@ -226,7 +226,8 @@ fn push_pda_result(ctx: &mut ExecutionManager, pda_pubkey: [u8; 32], bump: u8) -
 
     // Calculate size
     let size = pda_ref.serialized_size() + bump_ref.serialized_size();
-    let tuple_offset = ctx.alloc_temp(size as u8)?;
+    let tuple_size = u8::try_from(size).map_err(|_| VMErrorCode::OutOfMemory)?;
+    let tuple_offset = ctx.alloc_temp(tuple_size)?;
 
     // Serialize into temp buffer
     // Access temp_buffer via separate borrow to satisfy checker
@@ -242,7 +243,7 @@ fn push_pda_result(ctx: &mut ExecutionManager, pda_pubkey: [u8; 32], bump: u8) -
     }
 
     // Push TupleRef
-    ctx.push(ValueRef::TupleRef(tuple_offset, size as u8))
+    ctx.push(ValueRef::TupleRef(tuple_offset, tuple_size))
 }
 
 /// Handle PDA operations for program derived addresses

@@ -1,6 +1,36 @@
 5ive Testing Guide
 This guide provides step-by-step instructions for testing the Five VM ecosystem, from validator setup to running end-to-end (E2E) verification tests for templates.
 
+0. Validator-Free Runtime Harness (Preferred for CI)
+Run the in-process onchain harness tests in `five-solana` (no `solana-test-validator` required):
+
+```bash
+./five-solana/scripts/run-runtime-tests.sh
+```
+
+If you need to run a single suite:
+
+```bash
+cargo test -p five --test runtime_template_fixture_tests -- --nocapture
+```
+
+Run only one template's runtime fixtures from that template folder:
+
+```bash
+cd five-templates/token
+./run-runtime-fixtures.sh
+```
+
+Use localnet tests as parity checks after the runtime harness passes.
+
+Add new script coverage by dropping JSON fixtures under:
+
+```bash
+five-templates/<template>/runtime-fixtures/*.json
+```
+
+The generic runtime test auto-discovers those fixtures and executes them through `five-solana` deploy/execute entrypoints.
+
 1. Local Validator Setup
 Before running any tests, ensure you have a clean local Solana validator running.
 

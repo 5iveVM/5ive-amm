@@ -40,6 +40,55 @@ fn canonical_typed_payload() -> Vec<u8> {
     out
 }
 
+fn token_like_init_mint_payload() -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(&0u32.to_le_bytes()); // function index: init_mint
+    out.extend_from_slice(&7u32.to_le_bytes()); // 7 params
+
+    // freeze_authority: pubkey
+    out.push(types::PUBKEY);
+    out.extend_from_slice(&[9u8; 32]);
+
+    // decimals: u8 (fixed-width envelope uses u32 payload)
+    out.push(types::U8);
+    out.extend_from_slice(&6u32.to_le_bytes());
+
+    // name: "TestToken" (9)
+    out.push(types::STRING);
+    out.extend_from_slice(&9u32.to_le_bytes());
+    out.extend_from_slice(b"TestToken");
+
+    // symbol: "TEST" (4)
+    out.push(types::STRING);
+    out.extend_from_slice(&4u32.to_le_bytes());
+    out.extend_from_slice(b"TEST");
+
+    // uri: "https://example.com/token" (25)
+    out.push(types::STRING);
+    out.extend_from_slice(&25u32.to_le_bytes());
+    out.extend_from_slice(b"https://example.com/token");
+
+    // account placeholders (mint_account, authority)
+    out.push(types::ACCOUNT);
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.push(types::ACCOUNT);
+    out.extend_from_slice(&1u32.to_le_bytes());
+
+    out
+}
+
+fn many_large_strings_payload(string_count: u32, string_len: u32) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&string_count.to_le_bytes());
+    for _ in 0..string_count {
+        out.push(types::STRING);
+        out.extend_from_slice(&string_len.to_le_bytes());
+        out.extend_from_slice(&vec![b'x'; string_len as usize]);
+    }
+    out
+}
+
 #[test]
 fn parse_parameters_decodes_fixed_width_execute_envelope() {
     let payload = canonical_typed_payload();
@@ -103,4 +152,46 @@ fn parse_parameters_rejects_unknown_type_id() {
     let mut ctx = new_context(&payload, &mut storage);
     let err = ctx.parse_parameters().unwrap_err();
     assert_eq!(err, VMErrorCode::TypeMismatch);
+}
+
+#[test]
+fn parse_parameters_token_shape_parses_without_panicking() {
+    let payload = token_like_init_mint_payload();
+    let mut storage = StackStorage::new();
+    let mut ctx = new_context(&payload, &mut storage);
+
+    ctx.parse_parameters().expect("token-shaped payload should parse");
+    let params = ctx.parameters();
+    assert!(matches!(params[1], ValueRef::TempRef(_, 32)));
+    assert_eq!(params[2], ValueRef::U8(6));
+    assert!(matches!(params[3], ValueRef::StringRef(_)));
+    assert!(matches!(params[4], ValueRef::StringRef(_)));
+    assert!(matches!(params[5], ValueRef::StringRef(_)));
+    assert_eq!(params[6], ValueRef::AccountRef(0, 0));
+    assert_eq!(params[7], ValueRef::AccountRef(1, 0));
+}
+
+#[test]
+fn parse_parameters_many_large_strings_fails_gracefully() {
+    let payload = many_large_strings_payload(4, 130);
+    let mut storage = StackStorage::new();
+    let mut ctx = new_context(&payload, &mut storage);
+
+    let err = ctx.parse_parameters().unwrap_err();
+    assert!(matches!(err, VMErrorCode::MemoryError | VMErrorCode::OutOfMemory));
+}
+
+#[test]
+fn parse_parameters_rejects_large_string_without_panicking() {
+    let mut payload = Vec::new();
+    payload.extend_from_slice(&0u32.to_le_bytes());
+    payload.extend_from_slice(&1u32.to_le_bytes());
+    payload.push(types::STRING);
+    payload.extend_from_slice(&300u32.to_le_bytes());
+    payload.extend_from_slice(&vec![b'a'; 300]);
+
+    let mut storage = StackStorage::new();
+    let mut ctx = new_context(&payload, &mut storage);
+    let err = ctx.parse_parameters().unwrap_err();
+    assert_eq!(err, VMErrorCode::OutOfMemory);
 }

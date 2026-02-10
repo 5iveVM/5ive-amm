@@ -8,7 +8,22 @@ use crate::{
     debug_log,
     error::{CompactResult, VMErrorCode},
 };
-use five_protocol::opcodes::*;
+use five_protocol::{opcodes::*, ValueRef};
+
+#[inline(always)]
+fn param_value(ctx: &ExecutionManager, param_idx: u8) -> CompactResult<ValueRef> {
+    ctx.parameters()
+        .get(param_idx as usize)
+        .cloned()
+        .ok_or(VMErrorCode::InvalidParameter)
+}
+
+#[inline(always)]
+fn param_u64(ctx: &ExecutionManager, param_idx: u8) -> CompactResult<u64> {
+    param_value(ctx, param_idx)?
+        .as_u64()
+        .ok_or(VMErrorCode::TypeMismatch)
+}
 
 /// Handle universal fused operations (0xC0-0xCF)
 #[inline(never)]
@@ -37,9 +52,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let field_value = u64::from_le_bytes(field_bytes);
 
             // Load param value using same pattern as locals.rs
-            let param_value = ctx.parameters()[param_idx as usize]
-                .as_u64()
-                .ok_or(VMErrorCode::TypeMismatch)?;
+            let param_value = param_u64(ctx, param_idx)?;
 
             // GTE + REQUIRE fused
             if field_value < param_value {
@@ -83,9 +96,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let param_idx = ctx.fetch_byte()?;
 
             // Load param value first using same pattern as locals.rs
-            let param_value = ctx.parameters()[param_idx as usize]
-                .as_u64()
-                .ok_or(VMErrorCode::TypeMismatch)?;
+            let param_value = param_u64(ctx, param_idx)?;
 
             // Get account for write
             let account = ctx.get_account_for_write(acc_idx)?;
@@ -119,9 +130,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let param_idx = ctx.fetch_byte()?;
 
             // Load param value first using same pattern as locals.rs
-            let param_value = ctx.parameters()[param_idx as usize]
-                .as_u64()
-                .ok_or(VMErrorCode::TypeMismatch)?;
+            let param_value = param_u64(ctx, param_idx)?;
 
             // Get account for write
             let account = ctx.get_account_for_write(acc_idx)?;
@@ -152,9 +161,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         REQUIRE_PARAM_GT_ZERO => {
             let param_idx = ctx.fetch_byte()?;
 
-            let param_value = ctx.parameters()[param_idx as usize]
-                .as_u64()
-                .ok_or(VMErrorCode::TypeMismatch)?;
+            let param_value = param_u64(ctx, param_idx)?;
 
             if param_value == 0 {
                 debug_log!("MitoVM: REQUIRE_PARAM_GT_ZERO failed: param is 0");
@@ -168,47 +175,41 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         // Saves 300 CU
         REQUIRE_EQ_PUBKEY => {
             let acc1_idx = ctx.fetch_byte()?;
-            let offset1 = ctx.fetch_u32()?; // Use u32 for large offsets and sentinel
+            let offset1 = ctx.fetch_u32()?;
             let acc2_idx = ctx.fetch_byte()?;
-            let offset2 = ctx.fetch_u32()?; // Use u32 for large offsets and sentinel
+            let offset2 = ctx.fetch_u32()?;
 
-            // Load first pubkey
+            // Legacy sentinel is intentionally unsupported.
+            if offset1 == 0x3FFF || offset2 == 0x3FFF {
+                debug_log!("MitoVM: REQUIRE_EQ_PUBKEY uses unsupported legacy sentinel offset 0x3FFF");
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+
+            // Load first pubkey field
             let account1 = ctx.get_account_for_read(acc1_idx)?;
-            let pubkey1_ref: &[u8] = if offset1 == 0x3FFF {
-                // Sentinel: Use Account Key. Kept as 0x3FFF for backward compatibility.
-                account1.key().as_ref()
-            } else {
-                // Use Data Field
-                let data1 = unsafe { account1.borrow_data_unchecked() };
-                if (offset1 as usize) + 32 > data1.len() {
-                    debug_log!(
-                        "MitoVM: REQUIRE_EQ_PUBKEY acc1 bounds check failed: offset={} + 32 > len={}", 
-                        offset1, 
-                        data1.len()
-                    );
-                    return Err(VMErrorCode::InvalidAccountData);
-                }
-                &data1[offset1 as usize..offset1 as usize + 32]
-            };
+            let data1 = unsafe { account1.borrow_data_unchecked() };
+            if (offset1 as usize) + 32 > data1.len() {
+                debug_log!(
+                    "MitoVM: REQUIRE_EQ_PUBKEY acc1 bounds check failed: offset={} + 32 > len={}", 
+                    offset1, 
+                    data1.len()
+                );
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            let pubkey1_ref: &[u8] = &data1[offset1 as usize..offset1 as usize + 32];
 
-            // Load second pubkey
+            // Load second pubkey field
             let account2 = ctx.get_account_for_read(acc2_idx)?;
-            let pubkey2_ref: &[u8] = if offset2 == 0x3FFF {
-                // Sentinel: Use Account Key
-                account2.key().as_ref()
-            } else {
-                // Use Data Field
-                let data2 = unsafe { account2.borrow_data_unchecked() };
-                if (offset2 as usize) + 32 > data2.len() {
-                    debug_log!(
-                        "MitoVM: REQUIRE_EQ_PUBKEY acc2 bounds check failed: offset={} + 32 > len={}", 
-                        offset2, 
-                        data2.len()
-                    );
-                    return Err(VMErrorCode::InvalidAccountData);
-                }
-                &data2[offset2 as usize..offset2 as usize + 32]
-            };
+            let data2 = unsafe { account2.borrow_data_unchecked() };
+            if (offset2 as usize) + 32 > data2.len() {
+                debug_log!(
+                    "MitoVM: REQUIRE_EQ_PUBKEY acc2 bounds check failed: offset={} + 32 > len={}", 
+                    offset2, 
+                    data2.len()
+                );
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            let pubkey2_ref: &[u8] = &data2[offset2 as usize..offset2 as usize + 32];
 
             // Compare
             if pubkey1_ref != pubkey2_ref {
@@ -248,7 +249,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
 
             // Load param value generically
             // Clone the ValueRef (cheap, just references)
-            let param_value = ctx.parameters()[param_idx as usize].clone();
+            let param_value = param_value(ctx, param_idx)?;
 
             // Store to field
             let account = ctx.get_account_for_write(acc_idx)?;
@@ -357,9 +358,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let param_idx = ctx.fetch_byte()?;
 
             // 1. Load parameter
-            let param_value = ctx.parameters()[param_idx as usize]
-                .as_u64()
-                .ok_or(VMErrorCode::TypeMismatch)?;
+            let param_value = param_u64(ctx, param_idx)?;
 
             // 2. Process Account 1 (Subtract)
             {
@@ -399,9 +398,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let param_idx = ctx.fetch_byte()?;
             let imm = ctx.fetch_byte()? as u64;
 
-            let param_value = ctx.parameters()[param_idx as usize]
-                .as_u64()
-                .ok_or(VMErrorCode::TypeMismatch)?;
+            let param_value = param_u64(ctx, param_idx)?;
 
             if param_value > imm {
                 debug_log!("MitoVM: REQUIRE_PARAM_LTE_IMM failed: {} > {}", param_value, imm);

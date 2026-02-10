@@ -999,9 +999,13 @@ impl<'a> ExecutionContext<'a> {
                     if offset + len > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
 
                     // Temp buffer layout: [len:u8, type:u8, bytes...]
-                    // Length is stored as u8 in temp buffer metadata.
                     let total_size = 2 + len;
                     if total_size > crate::TEMP_BUFFER_SIZE { return Err(VMErrorCode::OutOfMemory); }
+                    // Current temp allocator uses u8 offsets/sizes; reject values
+                    // that would wrap and cause out-of-bounds writes.
+                    if len > u8::MAX as usize || total_size > u8::MAX as usize {
+                        return Err(VMErrorCode::OutOfMemory);
+                    }
 
                     let array_id = self.alloc_temp(total_size as u8)?;
 
@@ -1009,7 +1013,12 @@ impl<'a> ExecutionContext<'a> {
                     self.memory.temp_buffer[array_id as usize + 1] = 1; // Type 1 (String?)
 
                     // Copy bytes
-                    self.memory.temp_buffer[array_id as usize + 2..array_id as usize + 2 + len]
+                    let dst_start = array_id as usize + 2;
+                    let dst_end = dst_start + len;
+                    if dst_end > self.memory.temp_buffer.len() {
+                        return Err(VMErrorCode::MemoryError);
+                    }
+                    self.memory.temp_buffer[dst_start..dst_end]
                         .copy_from_slice(&self.instruction_data[offset..offset + len]);
 
                     offset += len;
@@ -1141,6 +1150,7 @@ pub type ExecutionManager<'a> = ExecutionContext<'a>;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use five_protocol::types;
     #[test]
     fn invoke_instruction_succeeds() {
         let program_id = Pubkey::from([1u8; 32]);
@@ -1210,5 +1220,46 @@ mod tests {
         let signer = Signer::from(&signer_seeds);
         let result = ctx.invoke_signed_instruction::<1>(&instruction, &[&accounts[0]], &[signer]);
         assert!(result.is_ok(), "Invoke signed should succeed in test env");
+    }
+
+    #[test]
+    fn parse_parameters_rejects_oversized_string_without_panic() {
+        let program_id = Pubkey::from([3u8; 32]);
+        let mut lamports = 0u64;
+        let mut data_buf: [u8; 0] = [];
+        let account = AccountInfo::new(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut data_buf,
+            &program_id,
+            true,
+            0,
+        );
+        let accounts = [account];
+        let mut storage = StackStorage::new();
+
+        let string_len: u32 = 300;
+        let mut instruction_data = vec![];
+        instruction_data.extend_from_slice(&0u32.to_le_bytes()); // function index
+        instruction_data.extend_from_slice(&1u32.to_le_bytes()); // param count
+        instruction_data.push(types::STRING);
+        instruction_data.extend_from_slice(&string_len.to_le_bytes());
+        instruction_data.extend_from_slice(&vec![b'a'; string_len as usize]);
+
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &instruction_data,
+            0,
+            &mut storage,
+            0, 0, 0, 0, 0, 0,
+        );
+
+        let result = ctx.parse_parameters();
+        assert!(result.is_err(), "oversized string must be rejected");
+        assert_eq!(result.unwrap_err(), VMErrorCode::OutOfMemory);
     }
 }

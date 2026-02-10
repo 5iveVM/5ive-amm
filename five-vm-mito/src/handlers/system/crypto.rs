@@ -147,8 +147,8 @@ macro_rules! impl_hash_syscall {
             #[cfg(not(target_os = "solana"))]
             {
                 debug_log!(
-                    "HASH SYSCALL MOCK vals_ptr={:p} val_len={}",
-                    vals_ptr,
+                    "HASH SYSCALL MOCK vals_ptr={} val_len={}",
+                    vals_ptr as usize,
                     val_len
                 );
                 unsafe { *result_ptr = 0; } // Zero mock

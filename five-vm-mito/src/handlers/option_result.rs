@@ -336,7 +336,8 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 return Err(VMErrorCode::OutOfMemory);
             }
 
-            let offset = ctx.alloc_temp(total_size as u8)?;
+            let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+            let offset = ctx.alloc_temp(alloc_size)?;
 
             // Pop elements and write them (reverse order pop, so we write from end to start to preserve order)
             let mut write_pos = offset as usize + total_size;
@@ -348,7 +349,7 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                     .map_err(|_| VMErrorCode::ProtocolError)?;
             }
 
-            ctx.push(ValueRef::TupleRef(offset, total_size as u8))?;
+            ctx.push(ValueRef::TupleRef(offset, alloc_size))?;
         }
         TUPLE_GET => {
             debug_log!("MitoVM: TUPLE_GET - get tuple element");

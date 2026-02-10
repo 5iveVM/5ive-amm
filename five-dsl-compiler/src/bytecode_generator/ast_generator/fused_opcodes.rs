@@ -222,9 +222,9 @@ impl ASTGenerator {
                         
                         emitter.emit_opcode(FIELD_SUB_ADD_PARAM);
                         emitter.emit_u8(acc1_idx);
-                        emitter.emit_u16(offset1 as u16);
+                        emitter.emit_u32(offset1);
                         emitter.emit_u8(acc2_idx);
-                        emitter.emit_u16(offset2 as u16);
+                        emitter.emit_u32(offset2);
                         emitter.emit_u8(param1_idx);
                         
                         return Ok(Some(2)); // Consumed 2 statements
@@ -424,9 +424,8 @@ impl ASTGenerator {
 
     // ===== REQUIRE_EQ_PUBKEY Pattern Matching =====
 
-    /// Match pattern: Pubkey equality check
+    /// Match pattern: pubkey-field equality check (field-to-field only).
     /// Returns: (acc1_idx, offset1, acc2_idx, offset2)
-    /// offset2 is 0x3FFF for account.key, or field offset for account.field
     fn match_pubkey_eq_any(&self, condition: &AstNode) -> Option<(u8, u32, u8, u32)> {
         // Pattern 1: MethodCall - field.eq(other)
         if let AstNode::MethodCall { object, method, args } = condition {
@@ -434,10 +433,7 @@ impl ASTGenerator {
                 // Left side: pubkey field
                 let (acc1_idx, offset1) = self.match_pubkey_field_access(object)?;
                 
-                // Right side: account.key OR pubkey field
-                if let Some(acc2_idx) = self.match_account_key_access(&args[0]) {
-                     return Some((acc1_idx, offset1, acc2_idx, 0x3FFF));
-                }
+                // Right side: pubkey field
                 if let Some((acc2_idx, offset2)) = self.match_pubkey_field_access(&args[0]) {
                      return Some((acc1_idx, offset1, acc2_idx, offset2));
                 }
@@ -455,12 +451,7 @@ impl ASTGenerator {
                     #[cfg(debug_assertions)]
                     println!("FUSED_DEBUG: Left side matched pubkey field: acc={} offset={}", acc1_idx, offset1);
 
-                    // Right side: account.key OR pubkey field
-                    if let Some(acc2_idx) = self.match_account_key_access(right) {
-                         #[cfg(debug_assertions)]
-                         println!("FUSED_DEBUG: Right side matched account key: acc={}", acc2_idx);
-                         return Some((acc1_idx, offset1, acc2_idx, 0x3FFF));
-                    }
+                    // Right side: pubkey field
                     if let Some((acc2_idx, offset2)) = self.match_pubkey_field_access(right) {
                          #[cfg(debug_assertions)]
                          println!("FUSED_DEBUG: Right side matched pubkey field: acc={} offset={}", acc2_idx, offset2);

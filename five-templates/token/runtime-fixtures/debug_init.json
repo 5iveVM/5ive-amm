@@ -1,0 +1,30 @@
+{
+  "name": "debug_init",
+  "program_seed": 71,
+  "bytecode_path": "../src/token.bin",
+  "permissions": 0,
+  "authority": { "name": "payer", "key_seed": 90, "lamports": 20000000 },
+  "vm_state_name": "vm_state",
+  "script_name": "script",
+  "vm_fees": { "deploy_fee_bps": 0, "execute_fee_bps": 0 },
+  "extra_accounts": [
+    { "name": "user1", "key_seed": 91, "owner": "program", "lamports": 20000000, "data_len": 0, "is_signer": true, "is_writable": true, "executable": false },
+    { "name": "mint_account", "key_seed": 92, "owner": "system", "lamports": 0, "data_len": 0, "is_signer": true, "is_writable": true, "executable": false },
+    { "name": "system_program", "key_seed": 0, "owner": "system", "lamports": 0, "data_len": 0, "is_signer": false, "is_writable": false, "executable": true }
+  ],
+  "steps": [
+    {
+      "name": "init_mint_no_account_params",
+      "function_index": 0,
+      "extras": ["mint_account", "user1", "system_program"],
+      "params": [
+        { "kind": "pubkey_account", "account": "user1" },
+        { "kind": "u8", "value": 6 },
+        { "kind": "string", "value": "TestToken" },
+        { "kind": "string", "value": "TEST" },
+        { "kind": "string", "value": "https://example.com/token" }
+      ],
+      "expected": "success"
+    }
+  ]
+}

@@ -47,7 +47,19 @@
       "Bash(npm run test:*)",
       "Bash(FIVE_PROGRAM_ID='6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k' FIVE_ARTIFACT='five-token-baseline.five' node:*)",
       "Bash(FIVE_PROGRAM_ID=6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k npm run test:e2e:*)",
-      "Bash(FIVE_PROGRAM_ID=6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k FIVE_ARTIFACT=five-token-baseline.five node:*)"
+      "Bash(FIVE_PROGRAM_ID=6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k FIVE_ARTIFACT=five-token-baseline.five node:*)",
+      "Bash(npm -C /Users/amberjackson/Documents/Development/five-org/five-mono/five-cli run test -- --runInBand)",
+      "Bash(npm -C /Users/amberjackson/Documents/Development/five-org/five-mono/five-frontend run build)",
+      "Bash(npm -C five-cli run test -- --runInBand)",
+      "Bash(npm -C /Users/amberjackson/Documents/Development/five-org/five-mono/five-sdk run test:jest -- --runInBand)",
+      "Bash(./scripts/mvp-release-gate.sh:*)",
+      "Bash(bash:*)",
+      "Bash(solana program deploy:*)",
+      "Bash(killall:*)",
+      "Bash(cargo clean:*)",
+      "Bash(FIVE_PROGRAM_ID=\"6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k\" bash e2e-token-test.sh:*)",
+      "Bash(FIVE_PROGRAM_ID=\"6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k\" node:*)",
+      "Bash(FIVE_PROGRAM_ID=\"6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k\" FIVE_ARTIFACT=\"five-token-template.five\" node:*)"
     ]
   }
 }

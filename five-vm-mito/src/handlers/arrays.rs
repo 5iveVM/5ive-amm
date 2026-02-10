@@ -141,7 +141,8 @@ fn handle_array_literals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 11 | _ => 1, // String and others default to variable-size
             };
             // Allocate temp buffer space
-            let array_id = ctx.alloc_temp(total_size as u8)?;
+            let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+            let array_id = ctx.alloc_temp(alloc_size)?;
 
             // Write array header
             ctx.temp_buffer_mut()[array_id as usize] = element_count; // length
@@ -440,7 +441,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
             }
 
             // Allocate temp buffer space
-            let array_id = ctx.alloc_temp(total_size as u8)?;
+            let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+            let array_id = ctx.alloc_temp(alloc_size)?;
 
             // Write array header for string
             ctx.temp_buffer_mut()[array_id as usize] = string_length; // length
@@ -501,7 +503,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                     return Ok(());
                 }
 
-                let array_id = ctx.alloc_temp(total_size as u8)?;
+                let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+                let array_id = ctx.alloc_temp(alloc_size)?;
                 ctx.temp_buffer_mut()[array_id as usize] = string_length as u8;
                 ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
                 ctx.temp_buffer_mut()[array_id as usize + 2..array_id as usize + 2 + string_length as usize]
@@ -562,7 +565,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
             }
 
             // Allocate temp buffer space
-            let array_id = ctx.alloc_temp(total_size as u8)?;
+            let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+            let array_id = ctx.alloc_temp(alloc_size)?;
 
             // Write array header for string
             ctx.temp_buffer_mut()[array_id as usize] = string_length as u8; // length (safe because total_size <= 62)
@@ -625,7 +629,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                 return Ok(());
             }
 
-            let array_id = ctx.alloc_temp(total_size as u8)?;
+            let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+            let array_id = ctx.alloc_temp(alloc_size)?;
             ctx.temp_buffer_mut()[array_id as usize] = string_length as u8;
             ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
             ctx.temp_buffer_mut()[array_id as usize + 2..array_id as usize + 2 + string_length as usize]
@@ -702,7 +707,8 @@ fn handle_array_creation(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             };
 
             // Allocate space and initialize header
-            let array_id = ctx.alloc_temp(total_size as u8)?;
+            let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+            let array_id = ctx.alloc_temp(alloc_size)?;
             ctx.temp_buffer_mut()[array_id as usize] = capacity; // length = number of elements
             ctx.temp_buffer_mut()[array_id as usize + 1] = array_element_type; // element_type
 

@@ -6,7 +6,80 @@ use crate::{
     error::{CompactResult, VMErrorCode},
 };
 use five_protocol::{opcodes::*, ValueRef};
-use pinocchio::sysvars::{clock::Clock, rent::Rent, Sysvar};
+use pinocchio::sysvars::{
+    clock::Clock,
+    rent::{
+        Rent, DEFAULT_BURN_PERCENT, DEFAULT_EXEMPTION_THRESHOLD, DEFAULT_LAMPORTS_PER_BYTE_YEAR,
+    },
+    Sysvar,
+};
+
+#[inline(always)]
+fn host_fallback_clock() -> Clock {
+    Clock {
+        slot: 0,
+        epoch_start_timestamp: 0,
+        epoch: 0,
+        leader_schedule_epoch: 0,
+        unix_timestamp: 0,
+    }
+}
+
+#[inline(always)]
+#[allow(deprecated)]
+fn host_fallback_rent() -> Rent {
+    Rent {
+        lamports_per_byte_year: DEFAULT_LAMPORTS_PER_BYTE_YEAR,
+        exemption_threshold: DEFAULT_EXEMPTION_THRESHOLD,
+        burn_percent: DEFAULT_BURN_PERCENT,
+    }
+}
+
+#[inline(always)]
+pub(crate) fn get_clock_cached(ctx: &mut ExecutionManager) -> CompactResult<Clock> {
+    if let Some(cached) = ctx.cached_clock {
+        return Ok(cached);
+    }
+
+    let clock = match Clock::get() {
+        Ok(clock) => clock,
+        Err(_) => {
+            #[cfg(not(target_os = "solana"))]
+            {
+                host_fallback_clock()
+            }
+            #[cfg(target_os = "solana")]
+            {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+        }
+    };
+    ctx.cached_clock = Some(clock);
+    Ok(clock)
+}
+
+#[inline(always)]
+pub(crate) fn get_rent_cached(ctx: &mut ExecutionManager) -> CompactResult<Rent> {
+    if let Some(cached) = ctx.cached_rent {
+        return Ok(cached);
+    }
+
+    let rent = match Rent::get() {
+        Ok(rent) => rent,
+        Err(_) => {
+            #[cfg(not(target_os = "solana"))]
+            {
+                host_fallback_rent()
+            }
+            #[cfg(target_os = "solana")]
+            {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+        }
+    };
+    ctx.cached_rent = Some(rent);
+    Ok(rent)
+}
 
 /// Serialize Clock sysvar data to buffer in little-endian format.
 /// Layout: [slot:8][epoch_start_timestamp:8][epoch:8][leader_schedule_epoch:8][unix_timestamp:8]
@@ -25,14 +98,7 @@ pub fn handle_sysvar_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
     match opcode {
         GET_CLOCK => {
             debug_log!("MitoVM: GET_CLOCK operation");
-
-            let clock = if let Some(cached) = ctx.cached_clock {
-                cached
-            } else {
-                let fetched = Clock::get().map_err(|_| VMErrorCode::InvalidOperation)?;
-                ctx.cached_clock = Some(fetched);
-                fetched
-            };
+            let clock = get_clock_cached(ctx)?;
 
             // Clock structure requires 40 bytes.
             let temp_buffer = ctx.temp_buffer_mut();
@@ -47,13 +113,7 @@ pub fn handle_sysvar_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             debug_log!("MitoVM: GET_RENT operation");
             
             let space = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let rent = if let Some(cached) = ctx.cached_rent {
-                cached
-            } else {
-                let fetched = Rent::get().map_err(|_| VMErrorCode::InvalidOperation)?;
-                ctx.cached_rent = Some(fetched);
-                fetched
-            };
+            let rent = get_rent_cached(ctx)?;
 
             let min_balance = rent.minimum_balance(space as usize);
             ctx.push(ValueRef::U64(min_balance))?;
@@ -69,14 +129,7 @@ pub fn handle_sysvar_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 #[inline(always)]
 pub fn handle_syscall_get_clock_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_CLOCK_SYSVAR");
-
-    let clock = if let Some(cached) = ctx.cached_clock {
-        cached
-    } else {
-        let fetched = Clock::get().map_err(|_| VMErrorCode::InvalidOperation)?;
-        ctx.cached_clock = Some(fetched);
-        fetched
-    };
+    let clock = get_clock_cached(ctx)?;
 
     let temp_buffer = ctx.temp_buffer_mut();
     if temp_buffer.len() < 40 {
@@ -92,14 +145,7 @@ pub fn handle_syscall_get_clock_sysvar(ctx: &mut ExecutionManager) -> CompactRes
 #[inline(always)]
 pub fn handle_syscall_get_rent_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_RENT_SYSVAR");
-
-    let rent = if let Some(cached) = ctx.cached_rent {
-        cached
-    } else {
-        let fetched = Rent::get().map_err(|_| VMErrorCode::InvalidOperation)?;
-        ctx.cached_rent = Some(fetched);
-        fetched
-    };
+    let rent = get_rent_cached(ctx)?;
 
     #[allow(deprecated)]
     let lamports_per_byte_year = rent.lamports_per_byte_year;

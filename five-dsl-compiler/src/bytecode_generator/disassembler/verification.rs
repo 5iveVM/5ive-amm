@@ -231,8 +231,37 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                     });
                 }
 
-                // Use call_size helper to properly skip the CALL with potential metadata
-                offset += super::call_decoder::call_size(bytecode, offset);
+                // CALL is fixed-width in current bytecode format.
+                offset += 4;
+            }
+
+            // REQUIRE_EQ_PUBKEY: reject legacy key sentinel offsets (0x3FFF).
+            opcodes::REQUIRE_EQ_PUBKEY => {
+                if offset + 11 > scan_len {
+                    break;
+                }
+                let offset1 = u32::from_le_bytes([
+                    bytecode[offset + 2],
+                    bytecode[offset + 3],
+                    bytecode[offset + 4],
+                    bytecode[offset + 5],
+                ]);
+                let offset2 = u32::from_le_bytes([
+                    bytecode[offset + 7],
+                    bytecode[offset + 8],
+                    bytecode[offset + 9],
+                    bytecode[offset + 10],
+                ]);
+                if offset1 == 0x3FFF || offset2 == 0x3FFF {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: "REQUIRE_EQ_PUBKEY",
+                        target: 0x3FFF,
+                        reason: "Legacy sentinel offset 0x3FFF is unsupported".to_string(),
+                    });
+                }
+                offset += 11;
             }
 
 
@@ -345,5 +374,37 @@ mod tests {
         ];
         let result = verify_jump_targets(&bytecode);
         assert!(result.is_valid);
+    }
+
+    #[test]
+    fn test_rejects_legacy_pubkey_sentinel() {
+        let bytecode = vec![
+            opcodes::REQUIRE_EQ_PUBKEY,
+            1, // acc1
+            0x00, 0x00, 0x00, 0x00, // offset1
+            2, // acc2
+            0xFF, 0x3F, 0x00, 0x00, // offset2 = 0x3FFF (legacy sentinel)
+            opcodes::HALT,
+        ];
+        let result = verify_jump_targets(&bytecode);
+        assert!(!result.is_valid);
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.errors[0].opcode_name, "REQUIRE_EQ_PUBKEY");
+        assert_eq!(result.errors[0].target, 0x3FFF);
+    }
+
+    #[test]
+    fn test_call_is_fixed_width_for_scanning() {
+        let bytecode = vec![
+            opcodes::CALL,
+            0x00,       // param_count
+            0x09, 0x00, // target=9
+            0xFF, 0x3F, // metadata-like bytes that must be treated as payload bytes
+            opcodes::JUMP_IF,
+            0x09, 0x00, // valid jump target
+            opcodes::HALT,
+        ];
+        let result = verify_jump_targets(&bytecode);
+        assert!(result.is_valid, "{}", result.error_summary());
     }
 }

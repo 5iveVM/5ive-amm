@@ -54,7 +54,7 @@ pub fn process_instruction(
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    debug_log!("Program ID: {:?}", program_id);
+    debug_log!("Program ID");
     debug_log!("Accounts provided: {}", accounts.len());
 
     debug_log!("Instruction data length: {}", instruction_data.len());

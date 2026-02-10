@@ -24,42 +24,45 @@ pub fn handle_advanced(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             let value = ctx.pop()?;
             let value_size = value.serialized_size();
             let total_size = 1 + value_size;
-            let offset = ctx.alloc_temp(total_size as u8)?;
+            let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+            let offset = ctx.alloc_temp(alloc_size)?;
             ctx.temp_buffer_mut()[offset as usize] = 1; // Ok tag
             value
                 .serialize_into(
                     &mut ctx.temp_buffer_mut()[offset as usize + 1..offset as usize + total_size],
                 )
                 .map_err(|_| VMErrorCode::ProtocolError)?;
-            ctx.push(ValueRef::ResultRef(offset, total_size as u8))?;
+            ctx.push(ValueRef::ResultRef(offset, alloc_size))?;
         }
         RESULT_ERR => {
             debug_log!("MitoVM: RESULT_ERR - create Result::Err value");
             let error_value = ctx.pop()?;
             let value_size = error_value.serialized_size();
             let total_size = 1 + value_size;
-            let offset = ctx.alloc_temp(total_size as u8)?;
+            let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+            let offset = ctx.alloc_temp(alloc_size)?;
             ctx.temp_buffer_mut()[offset as usize] = 0; // Err tag
             error_value
                 .serialize_into(
                     &mut ctx.temp_buffer_mut()[offset as usize + 1..offset as usize + total_size],
                 )
                 .map_err(|_| VMErrorCode::ProtocolError)?;
-            ctx.push(ValueRef::ResultRef(offset, total_size as u8))?;
+            ctx.push(ValueRef::ResultRef(offset, alloc_size))?;
         }
         OPTIONAL_SOME => {
             debug_log!("MitoVM: OPTIONAL_SOME - create Optional::Some value");
             let value = ctx.pop()?;
             let value_size = value.serialized_size();
             let total_size = 1 + value_size;
-            let offset = ctx.alloc_temp(total_size as u8)?;
+            let alloc_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+            let offset = ctx.alloc_temp(alloc_size)?;
             ctx.temp_buffer_mut()[offset as usize] = 1; // Some tag
             value
                 .serialize_into(
                     &mut ctx.temp_buffer_mut()[offset as usize + 1..offset as usize + total_size],
                 )
                 .map_err(|_| VMErrorCode::ProtocolError)?;
-            ctx.push(ValueRef::OptionalRef(offset, total_size as u8))?;
+            ctx.push(ValueRef::OptionalRef(offset, alloc_size))?;
         }
         OPTIONAL_NONE => {
             debug_log!("MitoVM: OPTIONAL_NONE - create Optional::None value");

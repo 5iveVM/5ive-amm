@@ -252,6 +252,49 @@ async function sendInstruction(connection, instructionData, signers, label = '')
     }
 }
 
+// ============================================================================
+// HELPER: Deployment Ownership Precheck
+// ============================================================================
+
+async function assertDeploymentOwnership(connection) {
+    subheader('Deployment Ownership Precheck');
+
+    const checks = [
+        { label: 'Script Account', pubkey: TOKEN_SCRIPT_ACCOUNT },
+        { label: 'VM State PDA', pubkey: VM_STATE_PDA }
+    ];
+
+    for (const check of checks) {
+        let accountInfo;
+        try {
+            accountInfo = await connection.getAccountInfo(check.pubkey, 'confirmed');
+        } catch (err) {
+            throw new Error(
+                `${check.label} lookup failed (${check.pubkey.toBase58()}): ${err.message}\n` +
+                `RPC: ${RPC_URL}`
+            );
+        }
+
+        if (!accountInfo) {
+            throw new Error(
+                `${check.label} not found on-chain: ${check.pubkey.toBase58()}\n` +
+                `Run deploy-to-five-vm.mjs to create/update deployment accounts.`
+            );
+        }
+
+        if (!accountInfo.owner.equals(FIVE_PROGRAM_ID)) {
+            throw new Error(
+                `${check.label} owner mismatch for ${check.pubkey.toBase58()}\n` +
+                `Expected owner: ${FIVE_PROGRAM_ID.toBase58()}\n` +
+                `Actual owner:   ${accountInfo.owner.toBase58()}\n` +
+                `Redeploy with deploy-to-five-vm.mjs and ensure deployment-config.json is current.`
+            );
+        }
+
+        info(`${check.label} owner verified: ${check.pubkey.toBase58()}`);
+    }
+}
+
 // ============================================================================ 
 // TOKEN ABI (Embedded for reliability)
 // ============================================================================ 
@@ -405,6 +448,9 @@ async function main() {
     const secretKey = JSON.parse(fs.readFileSync(PAYER_KEYPAIR_PATH, 'utf-8'));
     const payer = Keypair.fromSecretKey(Uint8Array.from(secretKey));
     info(`Payer: ${payer.publicKey.toBase58()}`);
+
+    // 2.5 Validate deployment ownership before building any instruction.
+    await assertDeploymentOwnership(connection);
 
     // 2. Setup FiveProgram
     const program = FiveProgram.fromABI(TOKEN_SCRIPT_ACCOUNT.toBase58(), TOKEN_ABI, {

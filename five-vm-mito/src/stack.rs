@@ -5,8 +5,8 @@ use crate::{
 use five_protocol::ValueRef;
 use core::mem::{size_of, align_of};
 
-/// Total storage size flattened to 32KB
-pub const STORAGE_SIZE: usize = 32768;
+/// Total storage size flattened to 16KB to stay within SBF heap limits.
+pub const STORAGE_SIZE: usize = 16384;
 
 // Calculate offsets and sizes
 // We use align_of to ensure proper alignment padding

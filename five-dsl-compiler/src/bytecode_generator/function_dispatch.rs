@@ -418,7 +418,7 @@ impl FunctionDispatcher {
         emitter: &mut T,
         ast: &AstNode,
         _ast_generator: &mut super::ASTGenerator,
-        _account_system: &AccountSystem, // Add account_system parameter
+        account_system: &AccountSystem,
     ) -> Result<(), VMError> {
         // Only generate dispatcher if we have functions to dispatch
         if !self.has_callable_functions(ast) {
@@ -480,28 +480,27 @@ impl FunctionDispatcher {
 
             // Stack mode: LOAD_PARAM + CALL.
             let mut actual_data_count: u8 = 0;
+            let mut data_param_index: u8 = 0;
 
             for param in function_parameters.iter() {
                 let is_account = super::account_utils::is_account_parameter(
                     &param.param_type,
                     &param.attributes,
-                    None
+                    Some(account_system.get_account_registry()),
                 );
                 if is_account { continue; }
 
                 actual_data_count += 1;
-                let original_index = function_parameters.iter()
-                    .position(|p| p.name == param.name)
-                    .unwrap_or(0) as u8 + 1;
+                data_param_index += 1;
 
                 // Use optimized opcodes if possible
-                match original_index {
+                match data_param_index {
                     1 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_1),
                     2 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_2),
                     3 => emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_3),
                     _ => {
                         emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM);
-                        emitter.emit_u8(original_index);
+                        emitter.emit_u8(data_param_index);
                     }
                 }
             }

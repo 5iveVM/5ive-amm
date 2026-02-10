@@ -27,10 +27,18 @@ impl<'a> MemoryManager<'a> {
 
     #[inline(always)]
     pub fn alloc_temp(&mut self, size: u8) -> CompactResult<u8> {
+        // Temp offsets are represented as u8 in ValueRef::TempRef.
+        // Reject allocations that would produce an unrepresentable offset.
+        if self.temp_pos > u8::MAX as usize {
+            return Err(VMErrorCode::OutOfMemory);
+        }
         if self.temp_pos + size as usize > self.temp_buffer.len() {
             return Err(VMErrorCode::MemoryError);
         }
         let offset = self.temp_pos;
+        if offset + size as usize > u8::MAX as usize + 1 {
+            return Err(VMErrorCode::OutOfMemory);
+        }
         self.temp_pos += size as usize;
         Ok(offset as u8)
     }
@@ -69,8 +77,14 @@ impl<'a> MemoryManager<'a> {
     #[inline(always)]
     pub fn allocate_temp_slot(&mut self) -> CompactResult<u8> {
         let slot_size = 17u8;
+        if self.temp_pos > u8::MAX as usize {
+            return Err(VMErrorCode::OutOfMemory);
+        }
         if self.temp_pos + slot_size as usize > self.temp_buffer.len() {
             return Err(VMErrorCode::MemoryError);
+        }
+        if self.temp_pos + slot_size as usize > u8::MAX as usize + 1 {
+            return Err(VMErrorCode::OutOfMemory);
         }
         let offset = self.temp_pos as u8;
         self.temp_pos += slot_size as usize;

@@ -17,6 +17,7 @@ This template provides everything needed to create and test a fully-featured tok
 ### One-Command Testing
 
 ```bash
+./run-runtime-fixtures.sh              # Fast validator-free runtime fixture test
 ./e2e-token-test.sh                    # Build and test locally
 ./e2e-token-test.sh --deploy           # Build, deploy to localnet, and test
 ./e2e-token-test.sh --help             # Show all options
@@ -46,6 +47,7 @@ This template provides everything needed to create and test a fully-featured tok
 
 | File | Purpose |
 |------|---------|
+| `run-runtime-fixtures.sh` | Run token runtime fixture through five-solana harness (no validator) |
 | `e2e-token-test.sh` | **Automated shell script runner** (easiest to use) |
 | `e2e-token-test.mjs` | Node.js E2E test with 3 users, transaction IDs, CU tracking |
 | `e2e-test-report.json` | Generated test results |

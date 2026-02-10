@@ -10,7 +10,9 @@ use crate::{
 };
 use core::{mem, ptr};
 use five_protocol::ValueRef;
-use pinocchio::sysvars::{clock::Clock, Sysvar};
+use pinocchio::sysvars::clock::Clock;
+
+use super::sysvars::get_clock_cached;
 
 /// Maximum number of arguments a syscall can accept.
 const MAX_SYSCALL_ARGS: usize = 8;
@@ -47,7 +49,7 @@ fn syscall_sol_log(ctx: &mut ExecutionManager, args: &[ValueRef]) -> CompactResu
 
 /// Wrapper for `sol_get_clock_sysvar` – returns the Clock sysvar.
 fn syscall_get_clock(ctx: &mut ExecutionManager, _args: &[ValueRef]) -> CompactResult<ValueRef> {
-    let clock = Clock::get().map_err(|_| VMErrorCode::InvalidOperation)?;
+    let clock = get_clock_cached(ctx)?;
     let buf = ctx.temp_buffer_mut();
     let size = mem::size_of::<Clock>();
     if buf.len() < size {
@@ -56,7 +58,8 @@ fn syscall_get_clock(ctx: &mut ExecutionManager, _args: &[ValueRef]) -> CompactR
     unsafe {
         ptr::copy_nonoverlapping(&clock as *const Clock as *const u8, buf.as_mut_ptr(), size);
     }
-    Ok(ValueRef::TupleRef(0, size as u8))
+    let tuple_size = u8::try_from(size).map_err(|_| VMErrorCode::OutOfMemory)?;
+    Ok(ValueRef::TupleRef(0, tuple_size))
 }
 
 /// Static table mapping syscall IDs to wrappers and CU costs.

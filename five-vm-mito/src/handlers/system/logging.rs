@@ -88,7 +88,7 @@ pub fn handle_syscall_log_pubkey(ctx: &mut ExecutionManager) -> CompactResult<()
     }
     #[cfg(not(target_os = "solana"))]
     {
-        debug_log!("SOL_LOG_PUBKEY: {:?}", pubkey);
+        debug_log!("SOL_LOG_PUBKEY");
     }
 
     Ok(())
