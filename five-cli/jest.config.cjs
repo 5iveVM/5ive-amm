@@ -7,8 +7,12 @@ module.exports = {
   modulePathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/assets/vm/pkg/'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^five-sdk$': '<rootDir>/__mocks__/five-sdk.js',
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(chalk|ora|ansi-styles|supports-color|strip-ansi|color-convert|color-name|escape-string-regexp|get-stream|is-unicode-supported)/)'
+  ],
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',

@@ -3,18 +3,24 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 
 // Mocks for ESM-only dependencies
-jest.mock('chalk', () => ({
-  __esModule: true,
-  default: {
-    bold: (s: string) => s,
-    green: (s: string) => s,
-    red: (s: string) => s,
-    gray: (s: string) => s,
-    cyan: (s: string) => s,
-    yellow: (s: string) => s,
-    hex: () => (s: string) => s
-  }
-}));
+jest.mock('chalk', () => {
+  const mockColorFunction = (s: string) => s;
+  return {
+    __esModule: true,
+    default: {
+      bold: mockColorFunction,
+      green: mockColorFunction,
+      red: mockColorFunction,
+      gray: mockColorFunction,
+      cyan: mockColorFunction,
+      yellow: mockColorFunction,
+      magenta: mockColorFunction,
+      magentaBright: mockColorFunction,
+      white: mockColorFunction,
+      hex: () => mockColorFunction
+    }
+  };
+});
 
 jest.mock('ora', () => {
   const spinner = {

@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 // Five CLI entry point.
 
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
+import { readFileSync } from 'fs';
 
 import {
   CLIConfig,
@@ -277,19 +274,15 @@ ${commandExample('five help <command>', 'Get help for specific command')}
    */
   private getVersion(): string {
     try {
-      // Get the directory of the current module 
-      // (in dist/cli.js, so package.json is one level up)
-      const currentDir = dirname(fileURLToPath(import.meta.url));
-
       const possiblePaths = [
-        join(currentDir, '../package.json'),     // From dist/
-        join(currentDir, 'package.json'),        // From root (if running ts-node)
-        join(this.config.rootDir, 'package.json') // Fallback
+        join(this.config.rootDir, 'five-cli', 'package.json'), // From workspace root
+        join(this.config.rootDir, 'package.json'), // Root level
       ];
 
       for (const path of possiblePaths) {
         try {
-          const packageJson = require(path);
+          const content = readFileSync(path, 'utf-8');
+          const packageJson = JSON.parse(content);
           if (packageJson.version) {
             return packageJson.version;
           }
@@ -298,7 +291,7 @@ ${commandExample('five help <command>', 'Get help for specific command')}
         }
       }
 
-      return '1.0.1'; // Fallback that matches our current target
+      return '1.0.1'; // Fallback version
     } catch {
       return '1.0.1';
     }

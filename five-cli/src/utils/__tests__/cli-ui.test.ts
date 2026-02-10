@@ -1,9 +1,21 @@
-jest.mock('chalk', () => ({
-  __esModule: true,
-  default: {
-    hex: () => (s: string) => s
-  }
-}));
+jest.mock('chalk', () => {
+  const mockColorFunction = (s: string) => s;
+  return {
+    __esModule: true,
+    default: {
+      hex: () => mockColorFunction,
+      white: mockColorFunction,
+      gray: mockColorFunction,
+      magenta: mockColorFunction,
+      magentaBright: mockColorFunction,
+      green: mockColorFunction,
+      yellow: mockColorFunction,
+      red: mockColorFunction,
+      cyan: mockColorFunction,
+      bold: mockColorFunction
+    }
+  };
+});
 
 import { brandLine, section, success, error, hint, commandNotFound } from '../cli-ui.js';
 
