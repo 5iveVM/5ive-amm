@@ -296,11 +296,10 @@ impl ASTGenerator {
         emitter.emit_u8(index_offset as u8);
         let patch_pos = emitter.get_position();
         emitter.emit_u16(0);
-        let loop_start_pos = *self
-            .label_positions
-            .get(&start_label)
-            .ok_or(VMError::InvalidInstructionPointer)?;
-        self.patch_jump_offset(emitter, patch_pos, loop_start_pos)?;
+        self.jump_patches.push(super::types::JumpPatch {
+            position: patch_pos,
+            target_label: start_label.clone(),
+        });
 
         // Preserve post-loop value of index variable: i = upper_bound.
         self.generate_ast_node(emitter, upper_bound)?;

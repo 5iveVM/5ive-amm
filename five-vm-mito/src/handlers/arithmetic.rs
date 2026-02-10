@@ -226,6 +226,81 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             // Use this for financial calculations where overflow is a bug
             polymorphic_binary_op_checked_overflow!(ctx, "MUL_CHECKED", checked_mul);
         }
+        MUL_DIV => {
+            // MUL_DIV: Fused (a * b) / c for common DeFi math patterns.
+            // Stack before: [..., a, b, c]
+            // Stack after:  [..., (a*b)/c]
+            let sp = ctx.stack.sp as usize;
+            if sp >= 3 {
+                let c_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 1) };
+                let b_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 2) };
+                let a_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 3) };
+
+                // Hot path: all operands are u64/u8 and stay in u64.
+                let a_u64 = match a_val {
+                    ValueRef::U64(v) => Some(v),
+                    ValueRef::U8(v) => Some(v as u64),
+                    _ => None,
+                };
+                let b_u64 = match b_val {
+                    ValueRef::U64(v) => Some(v),
+                    ValueRef::U8(v) => Some(v as u64),
+                    _ => None,
+                };
+                let c_u64 = match c_val {
+                    ValueRef::U64(v) => Some(v),
+                    ValueRef::U8(v) => Some(v as u64),
+                    _ => None,
+                };
+
+                if let (Some(a), Some(b), Some(c)) = (a_u64, b_u64, c_u64) {
+                    if c == 0 {
+                        return Err(VMErrorCode::DivisionByZero.into());
+                    }
+                    let result = a.wrapping_mul(b).wrapping_div(c);
+                    unsafe {
+                        *ctx.stack.stack.get_unchecked_mut(sp - 3) = ValueRef::U64(result);
+                    }
+                    ctx.stack.sp -= 2;
+                    return Ok(());
+                }
+
+                // Slow path: any u128 participation promotes operation to u128.
+                let a_u128 = match a_val {
+                    ValueRef::U128(v) => Some(v),
+                    ValueRef::U64(v) => Some(v as u128),
+                    ValueRef::U8(v) => Some(v as u128),
+                    _ => None,
+                }
+                .ok_or(VMErrorCode::TypeMismatch)?;
+                let b_u128 = match b_val {
+                    ValueRef::U128(v) => Some(v),
+                    ValueRef::U64(v) => Some(v as u128),
+                    ValueRef::U8(v) => Some(v as u128),
+                    _ => None,
+                }
+                .ok_or(VMErrorCode::TypeMismatch)?;
+                let c_u128 = match c_val {
+                    ValueRef::U128(v) => Some(v),
+                    ValueRef::U64(v) => Some(v as u128),
+                    ValueRef::U8(v) => Some(v as u128),
+                    _ => None,
+                }
+                .ok_or(VMErrorCode::TypeMismatch)?;
+
+                if c_u128 == 0 {
+                    return Err(VMErrorCode::DivisionByZero.into());
+                }
+
+                let result = a_u128.wrapping_mul(b_u128).wrapping_div(c_u128);
+                unsafe {
+                    *ctx.stack.stack.get_unchecked_mut(sp - 3) = ValueRef::U128(result);
+                }
+                ctx.stack.sp -= 2;
+            } else {
+                return Err(VMErrorCode::StackUnderflow.into());
+            }
+        }
         GT => {
             polymorphic_comparison_op!(ctx, "GT", >);
         }

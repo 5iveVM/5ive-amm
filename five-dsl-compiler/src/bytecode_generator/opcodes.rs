@@ -479,6 +479,7 @@ impl OpcodeAnalyzer {
                 | opcodes::ADD
                 | opcodes::SUB
                 | opcodes::MUL
+                | opcodes::MUL_DIV
                 | opcodes::ADD_CHECKED
                 | opcodes::SUB_CHECKED
                 | opcodes::MUL_CHECKED

@@ -254,6 +254,7 @@ impl MitoVM {
                 ADD_CHECKED => handle_arithmetic(ADD_CHECKED, ctx),
                 SUB_CHECKED => handle_arithmetic(SUB_CHECKED, ctx),
                 MUL_CHECKED => handle_arithmetic(MUL_CHECKED, ctx),
+                MUL_DIV => handle_arithmetic(MUL_DIV, ctx),
 
                 // Logical Operations (0x30-0x3F)
                 AND => handle_logical(AND, ctx),

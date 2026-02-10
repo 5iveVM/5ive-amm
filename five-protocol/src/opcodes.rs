@@ -124,9 +124,7 @@ pub const NEG: u8 = 0x2B; // Unary negation (-value)
 pub const ADD_CHECKED: u8 = 0x2C; // Checked addition (errors on overflow)
 pub const SUB_CHECKED: u8 = 0x2D; // Checked subtraction (errors on underflow)
 pub const MUL_CHECKED: u8 = 0x2E; // Checked multiplication (errors on overflow)
-
-// ===== AVAILABLE SLOT (0x2F) =====
-// 0x2F available for future arithmetic operations (DIV_CHECKED, etc.)
+pub const MUL_DIV: u8 = 0x2F; // Fused multiply/divide: (a * b) / c
 
 // ===== LOGICAL OPERATIONS (0x30-0x3F) =====
 pub const AND: u8 = 0x30;
@@ -859,6 +857,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         name: "DIV",
         arg_type: ArgType::None,
         stack_effect: -1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: MUL_DIV,
+        name: "MUL_DIV",
+        arg_type: ArgType::None,
+        stack_effect: -2,
         compute_cost: 3,
     },
     OpcodeInfo {
