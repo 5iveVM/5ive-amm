@@ -181,7 +181,8 @@ impl MitoVM {
             }
             */
 
-            // Set current opcode in context for error reporting.
+            // Track opcode only in off-chain builds where it is read by snapshots/debug tooling.
+            #[cfg(not(target_os = "solana"))]
             ctx.set_current_opcode(opcode);
 
             // Dispatch opcode to appropriate handler.

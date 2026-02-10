@@ -958,29 +958,35 @@ impl<'a> ExecutionContext<'a> {
     pub fn parse_parameters(&mut self) -> CompactResult<()> {
         // Clear params first not needed as we overwrite
         self.reset_temp_buffer();
+        self.frame.param_len = 0;
         let mut offset = 0;
         let input_len = self.instruction_data.len();
 
         if input_len == 0 {
+            self.frame.parameters[0] = ValueRef::U64(0);
+            for i in 1..self.frame.parameters.len() {
+                self.frame.parameters[i] = ValueRef::Empty;
+            }
             return Ok(());
         }
 
         // 1. Function Index (u32)
         if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-        let function_index = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+        let function_index = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
         offset += 4;
 
         // Store function index at params[0]
-        self.frame.set_parameter(0, ValueRef::U64(function_index as u64))?;
+        self.frame.parameters[0] = ValueRef::U64(function_index as u64);
 
         // 2. Parameter Count (u32) - required for canonical execute envelope.
         if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-        let param_count = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+        let param_count = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
         offset += 4;
 
         // Limit count to available slots (MAX_PARAMETERS - 1 for func index)
         // params[0] is func index. params[1..8] are arguments.
         let count = (param_count as usize).min(MAX_PARAMETERS - 1);
+        self.frame.param_len = count as u8;
 
         // Fixed-size, typed parameter parsing. Type-id sentinel is reserved.
 
@@ -1022,31 +1028,31 @@ impl<'a> ExecutionContext<'a> {
                         .copy_from_slice(&self.instruction_data[offset..offset + len]);
 
                     offset += len;
-                    self.frame.set_parameter(i + 1, ValueRef::StringRef(array_id as u16))?;
+                    self.frame.parameters[i + 1] = ValueRef::StringRef(array_id as u16);
                 }
                 t if t == types::BOOL => {
                     if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                    let val = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+                    let val = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
                     offset += 4;
-                    self.frame.set_parameter(i + 1, ValueRef::Bool(val != 0))?;
+                    self.frame.parameters[i + 1] = ValueRef::Bool(val != 0);
                 }
                 t if t == types::U8 => {
                      if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                     let val = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+                     let val = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
                      offset += 4;
-                     self.frame.set_parameter(i + 1, ValueRef::U8(val as u8))?;
+                     self.frame.parameters[i + 1] = ValueRef::U8(val as u8);
                 }
                 t if t == types::U32 => {
                      if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                     let val = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+                     let val = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
                      offset += 4;
-                     self.frame.set_parameter(i + 1, ValueRef::U64(val as u64))?;
+                     self.frame.parameters[i + 1] = ValueRef::U64(val as u64);
                 }
                 t if t == types::U64 => {
                      if offset + 8 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                     let val = u64::from_le_bytes(self.instruction_data[offset..offset+8].try_into().unwrap());
+                     let val = u64::from_le_bytes(self.instruction_data[offset..offset + 8].try_into().unwrap());
                      offset += 8;
-                     self.frame.set_parameter(i + 1, ValueRef::U64(val))?;
+                     self.frame.parameters[i + 1] = ValueRef::U64(val);
                 }
                 t if t == types::PUBKEY => {
                      if offset + 32 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
@@ -1054,13 +1060,13 @@ impl<'a> ExecutionContext<'a> {
                      self.memory.temp_buffer[temp_offset as usize..temp_offset as usize + 32]
                         .copy_from_slice(&self.instruction_data[offset..offset + 32]);
                      offset += 32;
-                     self.frame.set_parameter(i + 1, ValueRef::TempRef(temp_offset, 32))?;
+                     self.frame.parameters[i + 1] = ValueRef::TempRef(temp_offset, 32);
                 }
                 t if t == types::ACCOUNT => {
                     if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                    let idx = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap());
+                    let idx = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
                     offset += 4;
-                    self.frame.set_parameter(i + 1, ValueRef::AccountRef(idx as u8, 0))?;
+                    self.frame.parameters[i + 1] = ValueRef::AccountRef(idx as u8, 0);
                 }
                 _ => {
                     // Fallback to U64 if type unknown or generic (assuming 8 bytes)
@@ -1068,6 +1074,11 @@ impl<'a> ExecutionContext<'a> {
                     return Err(VMErrorCode::TypeMismatch);
                 }
              }
+        }
+
+        // Clear trailing slots so parameters from previous invocations are never reused.
+        for i in (count + 1)..self.frame.parameters.len() {
+            self.frame.parameters[i] = ValueRef::Empty;
         }
 
         Ok(())
@@ -1079,65 +1090,33 @@ impl<'a> ExecutionContext<'a> {
         // 1. Parse parameters
         self.parse_parameters()?;
 
-        // 2. Count parameters
-        let mut param_count: u8 = 0;
-        let mut max_param_index: u8 = 0;
+        // 2. Preserve historical local initialization behavior for compatibility.
+        let param_count = self.frame.param_len as usize;
+        let locals_to_allocate = if param_count > 0 {
+            core::cmp::min(param_count, MAX_LOCALS)
+        } else {
+            3
+        };
+        self.allocate_locals(locals_to_allocate as u8)?;
 
-        // Skip index 0 (func index)
-        // Access parameters through frame to satisfy borrow checker if needed, but self.frame is accessible
-        let params_len = self.frame.parameters().len();
-        // We can't iterate self.frame.parameters() while mutating self.
-        // So we just index.
-        for i in 1..params_len {
-            if !self.frame.parameters[i].is_empty() {
-                param_count = param_count.saturating_add(1);
-                max_param_index = i as u8;
+        // Mirror parameters into initial locals (legacy behavior relied on by some scripts).
+        for i in 1..=param_count {
+            let local_index = (i - 1) as u8;
+            if (local_index as usize) < MAX_LOCALS {
+                let param = self.frame.parameters[i];
+                self.set_local(local_index, param)?;
             }
         }
 
-        // 3. Setup frame
-        self.frame.param_len = param_count;
-
-        let locals_to_allocate = if max_param_index > 0 {
-            max_param_index
-        } else {
-            3 // Default
+        // 3. Dispatch
+        let func_index = match self.frame.parameters[0] {
+            ValueRef::U64(v) => v as u8,
+            _ => 0,
         };
-
-        self.allocate_locals(locals_to_allocate)?;
-
-        // 4. Push params and init locals
-        for i in 1..params_len {
-             let param = self.frame.parameters[i];
-             if param.is_empty() { continue; }
-
-             self.push(param)?;
-
-             let local_index = (i - 1) as u8;
-             if (local_index as usize) < MAX_LOCALS {
-                 self.set_local(local_index, param)?;
-             }
+        if func_index >= self.public_function_count {
+            return Err(VMErrorCode::FunctionVisibilityViolation);
         }
-
-        // 5. Dispatch
-        let func_index_val = self.frame.parameters[0];
-        let dispatch_ip = if !func_index_val.is_empty() {
-             if let ValueRef::U64(func_index) = func_index_val {
-                 if (func_index as u8) >= self.public_function_count {
-                     return Err(VMErrorCode::FunctionVisibilityViolation);
-                 }
-
-                 if func_index == 0 {
-                     default_start_ip
-                 } else {
-                     default_start_ip
-                 }
-             } else {
-                 default_start_ip
-             }
-        } else {
-             default_start_ip
-        };
+        let dispatch_ip = default_start_ip;
 
         self.set_ip(dispatch_ip);
         Ok(dispatch_ip)

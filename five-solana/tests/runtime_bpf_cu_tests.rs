@@ -8,6 +8,7 @@ use std::{
 
 use five::instructions::{DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
 use five::state::{FIVEVMState, ScriptAccountHeader};
+use five_protocol::opcodes::HALT;
 use harness::compile::load_or_compile_bytecode;
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use serde::Deserialize;
@@ -262,7 +263,8 @@ async fn token_e2e_bpf_compute_units() {
         fixture.permissions,
     );
     let deploy_signers = collect_signers(&accounts, &[fixture.authority.name.as_str()]);
-    let deploy_result = simulate_and_process(&mut ctx, vec![deploy_ix], deploy_signers).await;
+    let deploy_result =
+        simulate_and_process(&mut ctx, vec![deploy_ix], deploy_signers, Some(1_400_000)).await;
     assert!(deploy_result.success, "deploy failed: {:?}", deploy_result.error);
     println!("BPF_CU deploy={}", deploy_result.units_consumed);
 
@@ -288,13 +290,153 @@ async fn token_e2e_bpf_compute_units() {
             })
             .collect();
 
-        let result = simulate_and_process(&mut ctx, vec![execute_ix], collect_signers(&accounts, &signer_names)).await;
+        let result = simulate_and_process(
+            &mut ctx,
+            vec![execute_ix],
+            collect_signers(&accounts, &signer_names),
+            None,
+        )
+        .await;
         assert!(result.success, "step {} failed: {:?}", step.name, result.error);
         total_units = total_units.saturating_add(result.units_consumed);
         println!("BPF_CU step={} units={}", step.name, result.units_consumed);
     }
 
     println!("BPF_CU fixture={} total_units={}", fixture.name, total_units);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn minimal_execute_floor_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let bpf_dir = repo_root.join("target/deploy");
+    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
+
+    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
+        .expect("missing target/deploy/five-keypair.json; run cargo-build-sbf first")
+        .pubkey();
+
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
+    let authority_signer = Keypair::new();
+    let authority_pubkey = authority_signer.pubkey();
+    accounts.insert(
+        "payer".to_string(),
+        RuntimeAccount {
+            pubkey: authority_pubkey,
+            signer: Some(authority_signer),
+            owner: system_program::id(),
+            lamports: 20_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data).unwrap();
+        vm_state.initialize(authority_pubkey.to_bytes());
+        vm_state.deploy_fee_bps = 0;
+        vm_state.execute_fee_bps = 0;
+    }
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
+            data: vm_state_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let bytecode = {
+        let mut b = vec![b'5', b'I', b'V', b'E', 0, 0, 0, 0, 1, 1];
+        b.push(HALT);
+        b
+    };
+    accounts.insert(
+        "script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut program_test = ProgramTest::new("five", program_id, None);
+    program_test.prefer_bpf(true);
+    for account in accounts.values() {
+        program_test.add_account(
+            account.pubkey,
+            Account {
+                lamports: account.lamports,
+                data: account.data.clone(),
+                owner: account.owner,
+                executable: account.executable,
+                rent_epoch: 0,
+            },
+        );
+    }
+    let mut ctx = program_test.start_with_context().await;
+
+    let deploy_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "script",
+        "vm_state",
+        "payer",
+        &bytecode,
+        0,
+    );
+    let deploy_result = simulate_and_process(
+        &mut ctx,
+        vec![deploy_ix],
+        collect_signers(&accounts, &["payer"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_result.success, "minimal deploy failed: {:?}", deploy_result.error);
+
+    let payload = canonical_execute_payload(0, &[]);
+    let execute_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "script",
+        "vm_state",
+        &StepFixture {
+            name: "halt".to_string(),
+            function_index: 0,
+            extras: vec!["payer".to_string()],
+            params: vec![],
+        },
+        payload,
+    );
+    let execute_result = simulate_and_process(
+        &mut ctx,
+        vec![execute_ix],
+        collect_signers(&accounts, &["payer"]),
+        None,
+    )
+    .await;
+    assert!(
+        execute_result.success,
+        "minimal execute failed: {:?}",
+        execute_result.error
+    );
+
+    println!(
+        "BPF_CU minimal_execute_floor={}",
+        execute_result.units_consumed
+    );
 }
 
 fn resolve_owner(owner: AccountOwner, program_id: Pubkey, authority: Pubkey, self_key: Pubkey) -> Pubkey {
@@ -414,9 +556,12 @@ async fn simulate_and_process(
     ctx: &mut ProgramTestContext,
     instructions: Vec<Instruction>,
     extra_signers: Vec<&Keypair>,
+    cu_limit: Option<u32>,
 ) -> TxOutcome {
     let mut all_instructions = Vec::with_capacity(instructions.len() + 1);
-    all_instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(1_400_000));
+    if let Some(limit) = cu_limit {
+        all_instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(limit));
+    }
     all_instructions.extend(instructions);
 
     let mut signers: Vec<&Keypair> = Vec::with_capacity(1 + extra_signers.len());

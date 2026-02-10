@@ -153,9 +153,7 @@ macro_rules! debug_log {
 
 #[cfg(not(feature = "debug-logs"))]
 macro_rules! debug_log {
-    ($($arg:tt)*) => {
-        let _ = format_args!($($arg)*);
-    }
+    ($($arg:tt)*) => {};
 }
 
 pub(crate) use debug_log;

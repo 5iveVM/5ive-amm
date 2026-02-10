@@ -77,7 +77,8 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         PUSH_PUBKEY => {
             if pool_enabled {
                 let idx = ctx.fetch_byte()? as u16;
-                let bytes = ctx.read_pool_bytes(idx, 4)?.to_vec();
+                let mut bytes = [0u8; 32];
+                bytes.copy_from_slice(ctx.read_pool_bytes(idx, 4)?);
                 let offset = ctx.alloc_temp(32)?;
                 ctx.temp_buffer_mut()[offset as usize..offset as usize + 32]
                     .copy_from_slice(&bytes);
@@ -173,7 +174,8 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                 return Err(VMErrorCode::InvalidInstruction);
             }
             let idx = ctx.fetch_u16()?;
-            let bytes = ctx.read_pool_bytes(idx, 4)?.to_vec();
+            let mut bytes = [0u8; 32];
+            bytes.copy_from_slice(ctx.read_pool_bytes(idx, 4)?);
             let offset = ctx.alloc_temp(32)?;
             ctx.temp_buffer_mut()[offset as usize..offset as usize + 32]
                 .copy_from_slice(&bytes);
