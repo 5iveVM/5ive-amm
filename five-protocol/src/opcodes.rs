@@ -1671,6 +1671,16 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: -1,
         compute_cost: 2,
     },
+    // Constraint fused owner check
+    OpcodeInfo {
+        opcode: REQUIRE_OWNER,
+        name: "REQUIRE_OWNER",
+        // Encoded as: account_idx(u8), signer_idx(u8), field_offset(u32) => 6 bytes
+        // We reuse AccountFieldParam for fixed-size parsing/alignment.
+        arg_type: ArgType::AccountFieldParam,
+        stack_effect: 0,
+        compute_cost: 4,
+    },
     // ===== TIER 1 UNIVERSAL FUSED OPCODES (0xC0-0xC6) =====
     OpcodeInfo {
         opcode: 0xC0, // REQUIRE_GTE_U64

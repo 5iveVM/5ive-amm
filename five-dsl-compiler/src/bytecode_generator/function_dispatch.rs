@@ -483,6 +483,16 @@ impl FunctionDispatcher {
             if function.is_public {
                 self.public_entry_points
                     .push((function_index as u8, call_block_start));
+
+                // Public entry invocations already have parameters parsed into the
+                // VM parameter frame by EXECUTE payload decoding. Jump directly to
+                // the function body to avoid redundant stack shuffling + CALL frame setup.
+                emitter.emit_opcode(five_protocol::opcodes::JUMP);
+                let jump_offset_pos = emitter.get_position();
+                self.dispatch_patch_locations
+                    .insert(function.name.clone(), jump_offset_pos);
+                emitter.emit_u16(0xFFFF); // Placeholder for function offset
+                continue;
             }
 
             // For functions with parameters, we need to move them from the input parameters

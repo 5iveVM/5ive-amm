@@ -44,10 +44,7 @@ impl ASTGenerator {
             return Ok(true);
         }
 
-        // Pattern 4: Pubkey equality check (REQUIRE_EQ_PUBKEY)
-        // Matches: 
-        // - require(field == account.key)
-        // - require(field == field)
+        // Pattern 4: pubkey field == pubkey field
         if let Some((acc1_idx, offset1, acc2_idx, offset2)) = self.match_pubkey_eq_any(condition) {
             #[cfg(debug_assertions)]
             println!("FUSED_DEBUG: EMITTING REQUIRE_EQ_PUBKEY! acc1={} offset1={} acc2={} offset2={}", acc1_idx, offset1, acc2_idx, offset2);

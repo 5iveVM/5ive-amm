@@ -216,12 +216,8 @@ impl<'a> FrameManager<'a> {
 
     #[inline(always)]
     pub fn allocate_params(&mut self, count: u8) -> CompactResult<()> {
-        let previous_span = (self.param_len as usize + 1).min(self.parameters.len());
-        let next_span = (count as usize + 1).min(self.parameters.len());
-        let clear_span = core::cmp::max(previous_span, next_span);
-        for i in 0..clear_span {
-            self.parameters[i] = ValueRef::Empty;
-        }
+        // Hot path: callers always write params[1..=count] immediately and LOAD_PARAM
+        // enforces param_len bounds, so eagerly clearing this span is redundant.
         self.param_start = 0;
         self.param_len = count;
         Ok(())

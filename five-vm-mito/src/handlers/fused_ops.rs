@@ -8,6 +8,7 @@ use crate::{
     debug_log,
     error::{CompactResult, VMErrorCode},
 };
+use core::ptr;
 use five_protocol::{opcodes::*, ValueRef};
 
 #[inline(always)]
@@ -20,9 +21,34 @@ fn param_value(ctx: &ExecutionManager, param_idx: u8) -> CompactResult<ValueRef>
 
 #[inline(always)]
 fn param_u64(ctx: &ExecutionManager, param_idx: u8) -> CompactResult<u64> {
-    param_value(ctx, param_idx)?
-        .as_u64()
-        .ok_or(VMErrorCode::TypeMismatch)
+    let value = ctx
+        .parameters()
+        .get(param_idx as usize)
+        .ok_or(VMErrorCode::InvalidParameter)?;
+    value.as_u64().ok_or(VMErrorCode::TypeMismatch)
+}
+
+#[inline(always)]
+fn read_u64_le(data: &[u8], offset: usize) -> u64 {
+    // Safe because callers perform bounds checks before calling.
+    let raw = unsafe { ptr::read_unaligned(data.as_ptr().add(offset) as *const u64) };
+    u64::from_le(raw)
+}
+
+#[inline(always)]
+fn write_u64_le(data: &mut [u8], offset: usize, value: u64) {
+    // Safe because callers perform bounds checks before calling.
+    unsafe {
+        ptr::write_unaligned(data.as_mut_ptr().add(offset) as *mut u64, value.to_le());
+    }
+}
+
+#[inline(always)]
+fn eq_32_bytes(a: &[u8], a_off: usize, b: &[u8], b_off: usize) -> bool {
+    read_u64_le(a, a_off) == read_u64_le(b, b_off)
+        && read_u64_le(a, a_off + 8) == read_u64_le(b, b_off + 8)
+        && read_u64_le(a, a_off + 16) == read_u64_le(b, b_off + 16)
+        && read_u64_le(a, a_off + 24) == read_u64_le(b, b_off + 24)
 }
 
 /// Handle universal fused operations (0xC0-0xCF)
@@ -46,10 +72,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                 return Err(VMErrorCode::InvalidAccountData);
             }
             
-            let field_bytes: [u8; 8] = data[field_offset as usize..field_offset as usize + 8]
-                .try_into()
-                .map_err(|_| VMErrorCode::InvalidAccountData)?;
-            let field_value = u64::from_le_bytes(field_bytes);
+            let field_value = read_u64_le(&data, field_offset as usize);
 
             // Load param value using same pattern as locals.rs
             let param_value = param_u64(ctx, param_idx)?;
@@ -108,15 +131,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             }
             
             // Read current value
-            let field_bytes: [u8; 8] = data[field_offset as usize..field_offset as usize + 8]
-                .try_into()
-                .map_err(|_| VMErrorCode::InvalidAccountData)?;
-            let current_value = u64::from_le_bytes(field_bytes);
+            let current_value = read_u64_le(&data, field_offset as usize);
 
             // Add and store
             let new_value = current_value.wrapping_add(param_value);
-            data[field_offset as usize..field_offset as usize + 8]
-                .copy_from_slice(&new_value.to_le_bytes());
+            write_u64_le(data, field_offset as usize, new_value);
             
             debug_log!("MitoVM: FIELD_ADD_PARAM: {} + {} = {}", current_value, param_value, new_value);
         }
@@ -142,15 +161,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             }
             
             // Read current value
-            let field_bytes: [u8; 8] = data[field_offset as usize..field_offset as usize + 8]
-                .try_into()
-                .map_err(|_| VMErrorCode::InvalidAccountData)?;
-            let current_value = u64::from_le_bytes(field_bytes);
+            let current_value = read_u64_le(&data, field_offset as usize);
 
             // Sub and store
             let new_value = current_value.wrapping_sub(param_value);
-            data[field_offset as usize..field_offset as usize + 8]
-                .copy_from_slice(&new_value.to_le_bytes());
+            write_u64_le(data, field_offset as usize, new_value);
             
             debug_log!("MitoVM: FIELD_SUB_PARAM: {} - {} = {}", current_value, param_value, new_value);
         }
@@ -179,12 +194,6 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let acc2_idx = ctx.fetch_byte()?;
             let offset2 = ctx.fetch_u32()?;
 
-            // Legacy sentinel is intentionally unsupported.
-            if offset1 == 0x3FFF || offset2 == 0x3FFF {
-                debug_log!("MitoVM: REQUIRE_EQ_PUBKEY uses unsupported legacy sentinel offset 0x3FFF");
-                return Err(VMErrorCode::InvalidInstruction);
-            }
-
             // Load first pubkey field
             let account1 = ctx.get_account_for_read(acc1_idx)?;
             let data1 = unsafe { account1.borrow_data_unchecked() };
@@ -196,8 +205,6 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                 );
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            let pubkey1_ref: &[u8] = &data1[offset1 as usize..offset1 as usize + 32];
-
             // Load second pubkey field
             let account2 = ctx.get_account_for_read(acc2_idx)?;
             let data2 = unsafe { account2.borrow_data_unchecked() };
@@ -209,10 +216,8 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                 );
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            let pubkey2_ref: &[u8] = &data2[offset2 as usize..offset2 as usize + 32];
-
             // Compare
-            if pubkey1_ref != pubkey2_ref {
+            if !eq_32_bytes(&data1, offset1 as usize, &data2, offset2 as usize) {
                 debug_log!("MitoVM: REQUIRE_EQ_PUBKEY failed: pubkeys don't match");
                 return Err(VMErrorCode::ConstraintViolation);
             }
@@ -282,8 +287,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             }
             
             // Store zero (8 bytes for u64)
-            data[field_offset as usize..field_offset as usize + 8]
-                .copy_from_slice(&0u64.to_le_bytes());
+            write_u64_le(data, field_offset as usize, 0);
             
             debug_log!("MitoVM: STORE_FIELD_ZERO at offset {}", field_offset);
         }
@@ -330,18 +334,14 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             if (offset1 as usize) + 32 > data1.len() {
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            let field1 = &data1[offset1 as usize..offset1 as usize + 32];
-
             // Load second field
             let account2 = ctx.get_account_for_read(acc2_idx)?;
             let data2 = unsafe { account2.borrow_data_unchecked() };
             if (offset2 as usize) + 32 > data2.len() {
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            let field2 = &data2[offset2 as usize..offset2 as usize + 32];
-
             // Compare
-            if field1 != field2 {
+            if !eq_32_bytes(&data1, offset1 as usize, &data2, offset2 as usize) {
                 debug_log!("MitoVM: REQUIRE_EQ_FIELDS failed: fields don't match");
                 return Err(VMErrorCode::ConstraintViolation);
             }
@@ -369,10 +369,10 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                     return Err(VMErrorCode::InvalidAccountData);
                 }
                 
-                let current1 = u64::from_le_bytes(data1[off1 as usize..off1 as usize + 8].try_into().unwrap());
+                let current1 = read_u64_le(&data1, off1 as usize);
                 // Use wrapping sub for consistency with other ops, could use checked if desired
                 let new_val1 = current1.wrapping_sub(param_value);
-                data1[off1 as usize..off1 as usize + 8].copy_from_slice(&new_val1.to_le_bytes());
+                write_u64_le(data1, off1 as usize, new_val1);
             }
 
             // 3. Process Account 2 (Add)
@@ -384,9 +384,9 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                     return Err(VMErrorCode::InvalidAccountData);
                 }
                 
-                let current2 = u64::from_le_bytes(data2[off2 as usize..off2 as usize + 8].try_into().unwrap());
+                let current2 = read_u64_le(&data2, off2 as usize);
                 let new_val2 = current2.wrapping_add(param_value);
-                data2[off2 as usize..off2 as usize + 8].copy_from_slice(&new_val2.to_le_bytes());
+                write_u64_le(data2, off2 as usize, new_val2);
             }
             
             debug_log!("MitoVM: FIELD_SUB_ADD_PARAM transferred {} from acc{} to acc{}", param_value, acc1_idx, acc2_idx);
@@ -420,7 +420,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                 return Err(VMErrorCode::InvalidAccountData);
             }
             
-            let field_val = u64::from_le_bytes(data[offset as usize..offset as usize + 8].try_into().unwrap());
+            let field_val = read_u64_le(&data, offset as usize);
 
             if field_val != imm {
                 debug_log!("MitoVM: REQUIRE_FIELD_EQ_IMM failed: {} != {}", field_val, imm);

@@ -1,4 +1,4 @@
-use five_dsl_compiler::DslCompiler;
+use five_dsl_compiler::{CompilationMode, DslCompiler};
 use std::env;
 use std::fs;
 use std::process;
@@ -27,8 +27,12 @@ fn main() {
         }
     };
 
-    // Compile the source using the DSL compiler with features
-    match DslCompiler::compile_dsl_with_features(&source, enable_cache) {
+    // Compile in deployment mode to avoid debug-only metadata in runtime artifacts.
+    match DslCompiler::compile_with_mode_and_features(
+        &source,
+        CompilationMode::Deployment,
+        enable_cache,
+    ) {
         Ok(bytecode) => {
             println!("Compilation successful!");
             println!("Bytecode length: {} bytes", bytecode.len());
