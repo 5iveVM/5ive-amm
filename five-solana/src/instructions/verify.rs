@@ -58,7 +58,7 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
                 // Check CALL targets (Internal, External)
                 if matches!(inst.opcode, opcodes::CALL | opcodes::CALL_EXTERNAL) {
                     // For CALL, arg1 is the function address (absolute offset)
-                    // For CALL_EXTERNAL, arg1 bits 0-23 contain the function offset in external script
+                    // For CALL_EXTERNAL, arg1 packs account_index (high bits) and function offset (low 16 bits)
                     // We only validate internal targets here.
                     if inst.opcode == opcodes::CALL {
                         let func_addr = inst.arg1 as usize;

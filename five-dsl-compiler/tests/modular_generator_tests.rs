@@ -82,10 +82,10 @@ mod tests {
         let bytecode = generator.get_metadata_bytes();
 
         // Parse the emitted data (simplified check)
-        // Section size (VLE u16) - approximately 2 bytes
-        // name_count (VLE u32) - 1 byte for 2
-        // For "func1": name_len (VLE u32) - 1 byte for 5, then "func1" (5 bytes)
-        // For "func2": name_len (VLE u32) - 1 byte for 5, then "func2" (5 bytes)
+        // Section size (varint u16) - approximately 2 bytes
+        // name_count (varint u32) - 1 byte for 2
+        // For "func1": name_len (varint u32) - 1 byte for 5, then "func1" (5 bytes)
+        // For "func2": name_len (varint u32) - 1 byte for 5, then "func2" (5 bytes)
 
         // Approximate size check
         assert!(bytecode.len() > 10); // Should have some data

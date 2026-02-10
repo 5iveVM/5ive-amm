@@ -51,25 +51,25 @@ export const compileAndExecuteLocally = async (source, functionName, parameters 
     return FiveSDK.compileAndExecuteLocally(source, functionName, parameters, options);
 };
 /**
- * Quick account fetching and VLE deserialization helper
+ * Quick account fetching and deserialization helper
  */
-export const fetchAccountAndDeserializeVLE = async (accountAddress, connection, options) => {
+export const fetchAccountAndDeserialize = async (accountAddress, connection, options) => {
     const { FiveSDK } = await import('./FiveSDK.js');
-    return FiveSDK.fetchAccountAndDeserializeVLE(accountAddress, connection, options);
+    return FiveSDK.fetchAccountAndDeserialize(accountAddress, connection, options);
 };
 /**
  * Quick batch account fetching helper
  */
-export const fetchMultipleAccountsAndDeserializeVLE = async (accountAddresses, connection, options) => {
+export const fetchMultipleAccountsAndDeserialize = async (accountAddresses, connection, options) => {
     const { FiveSDK } = await import('./FiveSDK.js');
-    return FiveSDK.fetchMultipleAccountsAndDeserializeVLE(accountAddresses, connection, options);
+    return FiveSDK.fetchMultipleAccountsAndDeserialize(accountAddresses, connection, options);
 };
 /**
- * Quick VLE parameter deserialization helper
+ * Quick instruction-parameter deserialization helper
  */
-export const deserializeVLEParameters = async (instructionData, expectedTypes = [], options) => {
+export const deserializeParameters = async (instructionData, expectedTypes = [], options) => {
     const { FiveSDK } = await import('./FiveSDK.js');
-    return FiveSDK.deserializeVLEParameters(instructionData, expectedTypes, options);
+    return FiveSDK.deserializeParameters(instructionData, expectedTypes, options);
 };
 /**
  * Quick execution with state diff tracking helper

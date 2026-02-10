@@ -22,8 +22,8 @@ const error = (msg) => console.log(`❌ ${msg}`);
 const info = (msg) => console.log(`ℹ️  ${msg}`);
 const header = (msg) => console.log(`\n${'='.repeat(70)}\n${msg}\n${'='.repeat(70)}`);
 
-// VLE Encoding for function parameters
-function encodeVLE(value) {
+// varint encoding for function parameters
+function encodeVarint(value) {
     const buffer = [];
     let val = BigInt(value);
     if (val === 0n) return Buffer.from([0]);
@@ -74,26 +74,26 @@ function buildTokenInstruction(
     decimals
 ) {
     const discriminator = Buffer.from([9]); // ExecuteFunction
-    let inputData = encodeVLE(functionIndex);
+    let inputData = encodeVarint(functionIndex);
     
     // Add parameters based on function
     if (functionIndex === 0) { // init_mint(decimals)
-        inputData = Buffer.concat([inputData, encodeVLE(decimals)]);
+        inputData = Buffer.concat([inputData, encodeVarint(decimals)]);
     } else if (functionIndex === 1) { // init_token_account()
         // No additional params
     } else if (functionIndex === 2) { // mint(amount)
-        inputData = Buffer.concat([inputData, encodeVLE(amount)]);
+        inputData = Buffer.concat([inputData, encodeVarint(amount)]);
     } else if (functionIndex === 3) { // burn(amount)
-        inputData = Buffer.concat([inputData, encodeVLE(amount)]);
+        inputData = Buffer.concat([inputData, encodeVarint(amount)]);
     } else if (functionIndex === 4) { // transfer(amount)
-        inputData = Buffer.concat([inputData, encodeVLE(amount)]);
+        inputData = Buffer.concat([inputData, encodeVarint(amount)]);
     } else if (functionIndex === 5) { // approve(delegate, amount)
         // Delegate account is handled separately in transaction keys
-        inputData = Buffer.concat([inputData, encodeVLE(amount)]);
+        inputData = Buffer.concat([inputData, encodeVarint(amount)]);
     } else if (functionIndex === 6) { // revoke()
         // No additional params
     } else if (functionIndex === 7) { // transfer_approved(amount)
-        inputData = Buffer.concat([inputData, encodeVLE(amount)]);
+        inputData = Buffer.concat([inputData, encodeVarint(amount)]);
     } else if (functionIndex === 8 || functionIndex === 9) { // freeze_account() or thaw_account()
         // No additional params
     } else if (functionIndex === 10) { // close_account()

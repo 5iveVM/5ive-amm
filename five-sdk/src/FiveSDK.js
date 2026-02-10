@@ -5,7 +5,7 @@
 import { FiveSDKConfig, FiveScript, FiveBytecode, FiveScriptSource, ScriptAccount, CompilationOptions, CompilationResult, DeploymentOptions, SerializedDeployment, SerializedExecution, SerializableAccount, SerializedInstruction, ExecutionOptions, FIVE_VM_PROGRAM_ID, FiveSDKError, ExecutionSDKError, EncodedParameters, FiveCompiledFile, FiveFunction, FunctionNameEntry, } from "./types.js";
 import { BytecodeCompiler } from "./compiler/BytecodeCompiler.js";
 import { ParameterEncoder } from "./encoding/ParameterEncoder.js";
-import { VLEEncoder } from "../lib/vle-encoder.js";
+import { VarintEncoder } from "../lib/varint-encoder.js";
 import { PDAUtils, Base58Utils, RentCalculator } from "./crypto/index.js";
 import { ScriptMetadataParser, MetadataCache, ScriptMetadata, } from "./metadata/index.js";
 import { normalizeAbiFunctions } from "./utils/abi.js";
@@ -290,7 +290,7 @@ export class FiveSDK {
         }
         // Handle both array format: [{ name: "add", index: 0 }] and object format: { "add": { index: 0 } }
         if (Array.isArray(abi.functions)) {
-            // Array format (legacy)
+            // Array format
             const func = abi.functions.find((f) => f.name === functionName);
             if (!func) {
                 const availableFunctions = abi.functions
@@ -358,7 +358,7 @@ export class FiveSDK {
             if (options.debug) {
                 console.log(`[FiveSDK] WASM VM execution starting...`);
             }
-            // Execute using WASM VM with proper VLE parameter encoding
+            // Execute using WASM VM with proper varint parameter encoding
             const transformedParams = parameters.map((param, index) => ({
                 type: this.inferParameterType(param),
                 value: param,
@@ -611,11 +611,11 @@ export class FiveSDK {
         }
         catch (metadataError) {
             if (options.debug) {
-                console.log(`[FiveSDK] Metadata not available, using VLE encoding with assumed parameter types`);
+                console.log(`[FiveSDK] Metadata not available, using varint encoding with assumed parameter types`);
             }
-            // Use VLE encoding without metadata
+            // Use varint encoding without metadata
             functionIndex = typeof functionName === "number" ? functionName : 0;
-            // Create parameter definitions for VLE encoding (assume all u64)
+            // Create parameter definitions for varint encoding (assume all u64)
             const paramDefs = parameters.map((_, index) => ({
                 name: `param${index}`,
                 type: "u64",
@@ -625,15 +625,15 @@ export class FiveSDK {
                 paramValues[param.name] = parameters[index];
             });
             if (options.debug) {
-                console.log(`[FiveSDK] About to call VLEEncoder.encodeExecuteVLE with:`, {
+                console.log(`[FiveSDK] About to call parameter varint encoder with:`, {
                     functionIndex,
                     paramDefs,
                     paramValues,
                 });
             }
-            encodedParams = await VLEEncoder.encodeExecuteVLE(functionIndex, paramDefs, paramValues);
+            encodedParams = await VarintEncoder.encodeExecute(functionIndex, paramDefs, paramValues);
             if (options.debug) {
-                console.log(`[FiveSDK] VLE encoder returned:`, {
+                console.log(`[FiveSDK] varint encoder returned:`, {
                     encodedLength: encodedParams.length,
                     encodedBytes: Array.from(encodedParams),
                     hex: Buffer.from(encodedParams).toString("hex"),
@@ -841,13 +841,13 @@ export class FiveSDK {
      * Encode execution instruction data
      */
     static encodeExecuteInstruction(functionIndex, encodedParams) {
-        // Execute instruction: [discriminator(9), function_index(VLE), params]
-        // encodedParams contains: [VLE(paramCount), VLE(param1), ...]
+        // Execute instruction: [discriminator(9), function_index(varint), params]
+        // encodedParams contains: [varint(paramCount), varint(param1), ...]
         const parts = [];
         parts.push(new Uint8Array([9])); // Execute discriminator (matches on-chain FIVE program)
-        const functionIndexVLE = FiveSDK.encodeVLENumber(functionIndex);
-        parts.push(functionIndexVLE);
-        parts.push(encodedParams); // Contains: [VLE(paramCount), VLE(param1), ...]
+        const functionIndexEncoded = FiveSDK.encodeVarintNumber(functionIndex);
+        parts.push(functionIndexEncoded);
+        parts.push(encodedParams); // Contains: [varint(paramCount), varint(param1), ...]
         const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
         const result = new Uint8Array(totalLength);
         let offset = 0;
@@ -864,7 +864,7 @@ export class FiveSDK {
         if (!this.parameterEncoder) {
             await this.initializeComponents();
         }
-        // Use VLE encoder to properly encode parameters
+        // Use varint encoder to properly encode parameters
         const paramDefs = functionDef.parameters || [];
         const paramValues = {};
         // Map parameters to names
@@ -873,16 +873,16 @@ export class FiveSDK {
                 paramValues[param.name] = parameters[index];
             }
         });
-        // Use ONLY VLE encoding - no fallbacks to maintain architecture integrity
-        const encoded = await VLEEncoder.encodeExecuteVLE(functionIndex, paramDefs, paramValues);
+        // Use ONLY varint encoding - no fallbacks to maintain architecture integrity
+        const encoded = await VarintEncoder.encodeExecute(functionIndex, paramDefs, paramValues);
         return encoded;
     }
-    // REMOVED: encodeParametersSimple - Five uses ONLY VLE encoding
-    // REMOVED: Local VLE encoding - Five uses centralized VLE encoder
+    // REMOVED: encodeParametersSimple - Five uses ONLY varint encoding
+    // REMOVED: Local varint encoding - Five uses centralized varint encoder
     /**
-     * VLE encode a number for instruction data
+     * varint encode a number for instruction data
      */
-    static encodeVLENumber(value) {
+    static encodeVarintNumber(value) {
         const bytes = [];
         let num = value;
         while (num >= 0x80) {
@@ -900,7 +900,7 @@ export class FiveSDK {
         return Math.max(5000, 1000 + parameterCount * 500 + functionIndex * 100);
     }
     /**
-     * Infer parameter type from JavaScript value for VLE encoding
+     * Infer parameter type from JavaScript value for varint encoding
      */
     static inferParameterType(value) {
         if (typeof value === "boolean") {
@@ -925,16 +925,16 @@ export class FiveSDK {
             return "string";
         }
     }
-    // ==================== Account Fetching and VLE Deserialization ====================
+    // ==================== Account Fetching and Parameter Deserialization ====================
     /**
-     * Fetch account data and deserialize VLE-encoded script data
+     * Fetch account data and deserialize script/account payloads.
      * This is the method requested for pulling down accounts and deserializing Five script data
      */
-    static async fetchAccountAndDeserializeVLE(accountAddress, connection, // Solana Connection object
+    static async fetchAccountAndDeserialize(accountAddress, connection, // Solana Connection object
     options = {}) {
         try {
             if (options.debug) {
-                console.log(`[FiveSDK] Fetching account and deserializing VLE data: ${accountAddress}`);
+                console.log(`[FiveSDK] Fetching account and deserializing varint data: ${accountAddress}`);
             }
             // Import Solana web3.js for account fetching
             const { PublicKey } = await import("@solana/web3.js");
@@ -993,8 +993,8 @@ export class FiveSDK {
                     const scriptMetadata = ScriptMetadataParser.parseMetadata(accountInfo.data, accountAddress);
                     result.scriptMetadata = scriptMetadata;
                     result.rawBytecode = scriptMetadata.bytecode;
-                    // Create VLE data structure with parsed information
-                    result.vleData = {
+                    // Create varint data structure with parsed information
+                    result.decodedData = {
                         header: {
                             version: scriptMetadata.version,
                             deployedAt: scriptMetadata.deployedAt,
@@ -1008,7 +1008,7 @@ export class FiveSDK {
                             parameters: func.parameters || [],
                         })),
                     };
-                    const parsedFunctions = result.vleData.functions;
+                    const parsedFunctions = result.decodedData.functions;
                     if (options.debug) {
                         console.log(`[FiveSDK] Script metadata parsed successfully:`);
                         console.log(`  - Script name: ${scriptMetadata.abi.name}`);
@@ -1033,25 +1033,25 @@ export class FiveSDK {
                 result.rawBytecode = accountInfo.data;
                 logs.push("Raw account data returned (metadata parsing disabled)");
             }
-            // Validate VLE encoding if requested and we have bytecode
-            if (options.validateVLE && result.rawBytecode) {
+            // Validate varint encoding (varint) if requested and we have bytecode
+            if (options.validateEncoding && result.rawBytecode) {
                 try {
-                    const validation = await this.validateVLEEncoding(result.rawBytecode, options.debug);
+                    const validation = await this.validateBytecodeEncoding(result.rawBytecode, options.debug);
                     if (validation.valid) {
-                        logs.push("VLE encoding validation: PASSED");
+                        logs.push("varint encoding (varint) validation: PASSED");
                         if (options.debug) {
-                            console.log(`[FiveSDK] VLE validation passed: ${validation.info}`);
+                            console.log(`[FiveSDK] varint validation passed: ${validation.info}`);
                         }
                     }
                     else {
-                        logs.push(`VLE encoding validation: FAILED - ${validation.error}`);
+                        logs.push(`varint encoding (varint) validation: FAILED - ${validation.error}`);
                         if (options.debug) {
-                            console.warn(`[FiveSDK] VLE validation failed: ${validation.error}`);
+                            console.warn(`[FiveSDK] varint validation failed: ${validation.error}`);
                         }
                     }
                 }
-                catch (vleError) {
-                    logs.push(`VLE validation error: ${vleError instanceof Error ? vleError.message : "Unknown error"}`);
+                catch (validationError) {
+                    logs.push(`varint validation error: ${validationError instanceof Error ? validationError.message : "Unknown error"}`);
                 }
             }
             return result;
@@ -1059,7 +1059,7 @@ export class FiveSDK {
         catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown account fetch error";
             if (options.debug) {
-                console.error(`[FiveSDK] Account fetch and VLE deserialization failed: ${errorMessage}`);
+                console.error(`[FiveSDK] Account fetch and parameter deserialization failed: ${errorMessage}`);
             }
             return {
                 success: false,
@@ -1069,9 +1069,9 @@ export class FiveSDK {
         }
     }
     /**
-     * Batch fetch multiple accounts and deserialize their VLE data
+     * Batch fetch multiple accounts and deserialize their parameter data
      */
-    static async fetchMultipleAccountsAndDeserializeVLE(accountAddresses, connection, options = {}) {
+    static async fetchMultipleAccountsAndDeserialize(accountAddresses, connection, options = {}) {
         const batchSize = options.batchSize || 100; // Solana RPC limit
         const results = new Map();
         if (options.debug) {
@@ -1084,10 +1084,10 @@ export class FiveSDK {
                 console.log(`[FiveSDK] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(accountAddresses.length / batchSize)}`);
             }
             // Fetch each account in the batch concurrently
-            const batchPromises = batch.map((address) => this.fetchAccountAndDeserializeVLE(address, connection, {
+            const batchPromises = batch.map((address) => this.fetchAccountAndDeserialize(address, connection, {
                 debug: false, // Disable individual debug to avoid spam
                 parseMetadata: options.parseMetadata,
-                validateVLE: options.validateVLE,
+                validateEncoding: options.validateEncoding,
             }));
             const batchResults = await Promise.allSettled(batchPromises);
             // Store results
@@ -1112,27 +1112,28 @@ export class FiveSDK {
         return results;
     }
     /**
-     * Deserialize VLE-encoded parameters from instruction data using WASM decoder
+     * Deserialize parameters from instruction data using WASM decoder.
      */
-    static async deserializeVLEParameters(instructionData, expectedTypes = [], options = {}) {
+    static async deserializeParameters(instructionData, expectedTypes = [], options = {}) {
         try {
             if (options.debug) {
-                console.log(`[FiveSDK] Deserializing VLE parameters from ${instructionData.length} bytes:`);
+                console.log(`[FiveSDK] Deserializing varint parameters from ${instructionData.length} bytes:`);
                 console.log(`[FiveSDK] Instruction data (hex):`, Buffer.from(instructionData).toString("hex"));
                 console.log(`[FiveSDK] Expected parameter types:`, expectedTypes);
             }
-            // Load WASM VM for VLE decoding
+            // Load WASM VM for varint decoding
             const wasmVM = await this.loadWasmVM();
-            // Use WASM ParameterEncoder to decode VLE data
+            // Use WASM ParameterEncoder to decode varint data
             try {
                 const wasmModule = await import("../../assets/vm/five_vm_wasm.js");
                 if (options.debug) {
-                    console.log(`[FiveSDK] Using WASM ParameterEncoder for VLE decoding`);
+                    console.log(`[FiveSDK] Using WASM ParameterEncoder for varint decoding`);
                 }
                 // Decode the instruction data
-                const decodedResult = wasmModule.ParameterEncoder.decode_vle_instruction(instructionData);
+                const decodeInstruction = wasmModule.ParameterEncoder.decode_instruction_varint;
+                const decodedResult = decodeInstruction(instructionData);
                 if (options.debug) {
-                    console.log(`[FiveSDK] VLE decoding result:`, decodedResult);
+                    console.log(`[FiveSDK] varint decoding result:`, decodedResult);
                 }
                 // Parse the decoded result structure
                 const parameters = [];
@@ -1153,18 +1154,18 @@ export class FiveSDK {
             }
             catch (wasmError) {
                 if (options.debug) {
-                    console.warn(`[FiveSDK] WASM VLE decoding failed, attempting manual parsing:`, wasmError);
+                    console.warn(`[FiveSDK] WASM varint decoding failed, attempting manual parsing:`, wasmError);
                 }
-                // Fallback: manual VLE parsing
-                return this.parseVLEInstructionManually(instructionData, expectedTypes, options.debug);
+                // Fallback: manual varint parsing
+                return this.parseInstructionParametersManually(instructionData, expectedTypes, options.debug);
             }
         }
         catch (error) {
             const errorMessage = error instanceof Error
                 ? error.message
-                : "Unknown VLE deserialization error";
+                : "Unknown parameter deserialization error";
             if (options.debug) {
-                console.error(`[FiveSDK] VLE parameter deserialization failed: ${errorMessage}`);
+                console.error(`[FiveSDK] varint parameter deserialization failed: ${errorMessage}`);
             }
             return {
                 success: false,
@@ -1173,9 +1174,9 @@ export class FiveSDK {
         }
     }
     /**
-     * Validate VLE encoding format in bytecode
+     * Validate Five bytecode envelope/header encoding.
      */
-    static async validateVLEEncoding(bytecode, debug = false) {
+    static async validateBytecodeEncoding(bytecode, debug = false) {
         try {
             // Check for Five VM bytecode header
             if (bytecode.length < 6) {
@@ -1200,7 +1201,7 @@ export class FiveSDK {
             const features = bytecode[4];
             const functionCount = bytecode[5];
             if (debug) {
-                console.log(`[FiveSDK] VLE validation - Magic: "5IVE", Features: ${features}, Functions: ${functionCount}`);
+                console.log(`[FiveSDK] varint validation - Magic: "5IVE", Features: ${features}, Functions: ${functionCount}`);
             }
             return {
                 valid: true,
@@ -1210,14 +1211,14 @@ export class FiveSDK {
         catch (error) {
             return {
                 valid: false,
-                error: error instanceof Error ? error.message : "VLE validation error",
+                error: error instanceof Error ? error.message : "varint validation error",
             };
         }
     }
     /**
-     * Manual VLE instruction parsing (fallback when WASM fails)
+     * Manual varint instruction parsing (fallback when WASM fails)
      */
-    static parseVLEInstructionManually(instructionData, expectedTypes, debug = false) {
+    static parseInstructionParametersManually(instructionData, expectedTypes, debug = false) {
         try {
             if (instructionData.length < 2) {
                 return { success: false, error: "Instruction data too short" };
@@ -1227,31 +1228,31 @@ export class FiveSDK {
             const discriminator = instructionData[offset];
             offset += 1;
             if (debug) {
-                console.log(`[FiveSDK] Manual VLE parsing - Discriminator: ${discriminator}`);
+                console.log(`[FiveSDK] Manual varint parsing - Discriminator: ${discriminator}`);
             }
-            // Read function index (VLE encoded)
-            const { value: functionIndex, bytesRead } = this.readVLENumber(instructionData, offset);
+            // Read function index (varint encoded)
+            const { value: functionIndex, bytesRead } = this.readVarintNumber(instructionData, offset);
             offset += bytesRead;
             if (debug) {
-                console.log(`[FiveSDK] Manual VLE parsing - Function index: ${functionIndex}`);
+                console.log(`[FiveSDK] Manual varint parsing - Function index: ${functionIndex}`);
             }
-            // Read parameter count (VLE encoded)
-            const { value: paramCount, bytesRead: paramCountBytes } = this.readVLENumber(instructionData, offset);
+            // Read parameter count (varint encoded)
+            const { value: paramCount, bytesRead: paramCountBytes } = this.readVarintNumber(instructionData, offset);
             offset += paramCountBytes;
             if (debug) {
-                console.log(`[FiveSDK] Manual VLE parsing - Parameter count: ${paramCount}`);
+                console.log(`[FiveSDK] Manual varint parsing - Parameter count: ${paramCount}`);
             }
             // Read parameters
             const parameters = [];
             for (let i = 0; i < paramCount; i++) {
-                const { value: paramValue, bytesRead: paramBytes } = this.readVLENumber(instructionData, offset);
+                const { value: paramValue, bytesRead: paramBytes } = this.readVarintNumber(instructionData, offset);
                 offset += paramBytes;
                 parameters.push({
                     type: expectedTypes[i] || "u64", // Default to u64
                     value: paramValue,
                 });
                 if (debug) {
-                    console.log(`[FiveSDK] Manual VLE parsing - Parameter ${i}: ${paramValue}`);
+                    console.log(`[FiveSDK] Manual varint parsing - Parameter ${i}: ${paramValue}`);
                 }
             }
             return {
@@ -1264,14 +1265,14 @@ export class FiveSDK {
         catch (error) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : "Manual VLE parsing failed",
+                error: error instanceof Error ? error.message : "Manual varint parsing failed",
             };
         }
     }
     /**
-     * Read VLE-encoded number from byte array
+     * Read varint-encoded (varint) number from byte array
      */
-    static readVLENumber(data, offset) {
+    static readVarintNumber(data, offset) {
         let value = 0;
         let shift = 0;
         let bytesRead = 0;
@@ -1324,10 +1325,10 @@ export class FiveSDK {
             if (options.debug) {
                 console.log(`[FiveSDK] Step 1: Fetching BEFORE state for ${accountsToTrack.length} accounts...`);
             }
-            const beforeState = await this.fetchMultipleAccountsAndDeserializeVLE(accountsToTrack, connection, {
+            const beforeState = await this.fetchMultipleAccountsAndDeserialize(accountsToTrack, connection, {
                 debug: false, // Avoid debug spam
                 parseMetadata: true,
-                validateVLE: false, // Skip validation for speed
+                validateEncoding: false, // Skip validation for speed
             });
             let successfulBeforeFetches = 0;
             for (const [address, result] of beforeState.entries()) {
@@ -1374,10 +1375,10 @@ export class FiveSDK {
             if (options.debug) {
                 console.log(`[FiveSDK] Step 3: Fetching AFTER state...`);
             }
-            const afterState = await this.fetchMultipleAccountsAndDeserializeVLE(accountsToTrack, connection, {
+            const afterState = await this.fetchMultipleAccountsAndDeserialize(accountsToTrack, connection, {
                 debug: false,
                 parseMetadata: true,
-                validateVLE: false,
+                validateEncoding: false,
             });
             let successfulAfterFetches = 0;
             for (const [address, result] of afterState.entries()) {
@@ -1728,9 +1729,9 @@ export class FiveSDK {
                 });
             }
             catch (metadataError) {
-                // NO FALLBACK: Metadata is required for proper VLE encoding
+                // NO FALLBACK: Metadata is required for proper varint encoding (varint)
                 // ENGINEERING INTEGRITY: No duplicate code paths, no silent degradation
-                const errorMessage = `Execution instruction generation failed - metadata required for VLE encoding: ${metadataError instanceof Error ? metadataError.message : "Unknown metadata error"}`;
+                const errorMessage = `Execution instruction generation failed - metadata required for varint encoding (varint): ${metadataError instanceof Error ? metadataError.message : "Unknown metadata error"}`;
                 if (options.debug) {
                     console.error(`[FiveSDK] ${errorMessage}`);
                 }

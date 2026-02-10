@@ -41,9 +41,9 @@ These opcodes control the execution flow of the program.
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
 | 0x00 | `HALT` | None | 0 | Stops execution immediately. | Essential for terminating programs cleanly or stopping execution after a specific branch. |
-| 0x01 | `JUMP` | `offset` (U16) | 0 | Unconditional jump to a relative offset. | Enabled loops and unconditional branching logic. |
-| 0x02 | `JUMP_IF` | `offset` (U16) | -1 | Jump if top of stack is true. | Basic conditional branching construct (if/else). |
-| 0x03 | `JUMP_IF_NOT` | `offset` (U16) | -1 | Jump if top of stack is false. | Often more efficient for "unless" logic or guard clauses. |
+| 0x01 | `JUMP` | `offset` (U16) | 0 | Unconditional jump to an absolute bytecode offset. | Enabled loops and unconditional branching logic. |
+| 0x02 | `JUMP_IF` | `offset` (U16) | -1 | Jump to absolute offset if top of stack is true. | Basic conditional branching construct (if/else). |
+| 0x03 | `JUMP_IF_NOT` | `offset` (U16) | -1 | Jump to absolute offset if top of stack is false. | Often more efficient for "unless" logic or guard clauses. |
 | 0x04 | `REQUIRE` | None | -1 | Traps if top of stack is false. | Critical for assertions and security checks (e.g., `require(isAdmin)`). Fails transaction on false. |
 | 0x05 | `ASSERT` | None | -1 | Traps if top of stack is false. | Similar to REQUIRE but semantically used for internal invariants. |
 | 0x06 | `RETURN` | None | 0 | Returns from the current function. | Standard function return mechanism. |
@@ -121,15 +121,15 @@ Standard arithmetic on U64/I64 values.
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
-| 0x40 | `STORE` | `offset` (U32) | -1 | Store to memory. | Writing to global/heap memory. |
-| 0x41 | `LOAD` | `offset` (U32) | +1 | Load from memory. | Reading from global/heap memory. |
+| 0x40 | `STORE` | `acct_idx` (U8), `offset` (U32) | -1 | Store to account field. | Canonical account field write path. |
+| 0x41 | `LOAD` | None | +1 | Load from stack-provided address. | Canonical stack-address load path. |
 | 0x42 | `STORE_FIELD` | `acct_idx` (U8), `offset` (U32) | -1 | Zero-copy store to account data. | **Optimization**: Direct write to account buffer without loading full data. Critical for performance. |
 | 0x43 | `LOAD_FIELD` | `acct_idx` (U8), `offset` (U32) | +1 | Zero-copy load from account data. | **Optimization**: Direct read from account buffer. |
 | 0x44 | `LOAD_INPUT` | `index` (U8) | +1 | Load instruction input. | Accessing raw instruction data. |
 | 0x45 | `STORE_GLOBAL` | `id` (U16) | -1 | Store to global var. | Persisting state across function calls within a transaction. |
 | 0x46 | `LOAD_GLOBAL` | `id` (U16) | +1 | Load from global var. | Accessing global state. |
-| 0x47 | `LOAD_EXTERNAL_FIELD` | None | -1 | Load field from external account. | Reading state from other programs/accounts dynamically. |
-| 0x48 | `LOAD_FIELD_PUBKEY` | `acct_idx`, `offset` | +1 | Load Pubkey from account data. | Specialized zero-copy load for 32-byte keys. |
+| 0x47 | `LOAD_EXTERNAL_FIELD` | `acct_idx` (U8), `offset` (U32) | +1 | Load field from external account. | Reading state from other programs/accounts dynamically. |
+| 0x48 | `LOAD_FIELD_PUBKEY` | `acct_idx` (U8), `offset` (U32) | +1 | Load Pubkey from account data. | Specialized zero-copy load for 32-byte keys. |
 
 #### 6. Account Operations (0x50-0x5F)
 
@@ -196,7 +196,7 @@ Standard arithmetic on U64/I64 values.
 |:---:|:---|:---|:---:|:---|:---|
 | 0x90 | `CALL` | `params` (U8), `addr` (U16) | 0 | Call internal function. | Modular code structure. |
 | 0x91 | `CALL_EXTERNAL` | `acct`, `off`, `params` | 0 | Call into another Five program. | Composability between Five contracts. |
-| 0x92 | `CALL_NATIVE` | None | 0 | Call native host function. | Performance or system access. |
+| 0x92 | `CALL_NATIVE` | `syscall_id` (U8) | 0 | Call native host function. | Performance or system access. |
 | 0x93 | `PREPARE_CALL` | None | 0 | Setup call stack. | Call overhead management. |
 | 0x94 | `FINISH_CALL` | None | 0 | Teardown call stack. | Call overhead management. |
 
@@ -204,7 +204,7 @@ Standard arithmetic on U64/I64 values.
 
 | Opcode | Name | Arguments | Stack Effect | Description | Rationale/Utility |
 |:---:|:---|:---|:---:|:---|:---|
-| 0xA0 | `ALLOC_LOCALS` | None | 0 | Allocate stack frame locals. | Function local state isolation. |
+| 0xA0 | `ALLOC_LOCALS` | `count` (U8) | 0 | Allocate stack frame locals. | Function local state isolation. |
 | 0xA1 | `DEALLOC_LOCALS` | None | 0 | Free locals. | Cleanup. |
 | 0xA2 | `SET_LOCAL` | `idx` (U8) | -1 | Set local var. | Storing temporary values without stack juggling. |
 | 0xA3 | `GET_LOCAL` | `idx` (U8) | +1 | Get local var. | Retrieving temporary values. |
@@ -242,7 +242,7 @@ Highly optimized single-byte instructions for common operations.
 | 0xF6 | `OPTIONAL_GET_VALUE`| None | 0 | Unsafe get. | Performance (if checked externally). |
 | 0xF7 | Reserved | - | - | Reserved. | - |
 | 0xF8 | `CREATE_TUPLE` | `n` | -N+1 | Create tuple of n items. | Grouping values. |
-| 0xF9 | `TUPLE_GET` | `idx` | 0 | Get item from tuple. | Accessing grouped values. |
+| 0xF9 | `TUPLE_GET` | None | 0 | Get item from tuple using stack index semantics. | Accessing grouped values. |
 | 0xFA | `UNPACK_TUPLE` | None | +N-1 | Explode tuple to stack. | Using grouped values. |
 | 0xFB | Reserved | - | - | Reserved. | - |
 | 0xFC | Reserved | - | - | Reserved. | - |

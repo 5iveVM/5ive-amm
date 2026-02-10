@@ -1,4 +1,4 @@
-# Handoff: Five SDK Parameter Encoding - VLE Removal Migration
+# Handoff: Five SDK Parameter Encoding - varint Removal Migration
 
 **Date**: February 8, 2026
 **Branch**: `registers_broken`
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The Five VM ecosystem has **completely removed VLE (Variable Length Encoding) and Register-based opcodes**, but the **SDK's parameter encoder is still using a stub that returns dummy data**. This causes all function parameters to be lost before execution, preventing the Five VM from receiving the actual contract function arguments.
+The Five VM ecosystem has **completely removed varint (Variable Length Encoding) and Register-based opcodes**, but the **SDK's parameter encoder is still using a stub that returns dummy data**. This causes all function parameters to be lost before execution, preventing the Five VM from receiving the actual contract function arguments.
 
 **Impact**: E2E token and counter tests fail with "Provided owner is not allowed" error (secondary symptom of missing account creation parameters).
 
@@ -60,10 +60,10 @@ export const ParameterEncoder = {
 - Returns fixed stub regardless of parameter count/types
 - No actual bytecode generation for parameters
 
-### VLE Removal Impact
-The original encoder used VLE (Variable Length Encoding), which has been **completely removed** from:
-- Five Protocol (`five-protocol/src/opcodes.rs` - no VLE references)
-- Five VM (`five-vm-mito` - stack-based, no VLE decoding)
+### varint Removal Impact
+The original encoder used varint (Variable Length Encoding), which has been **completely removed** from:
+- Five Protocol (`five-protocol/src/opcodes.rs` - no varint references)
+- Five VM (`five-vm-mito` - stack-based, no varint decoding)
 - Five DSL Compiler (`five-dsl-compiler` - emits fixed-size opcodes)
 
 **New Protocol**: All values use **fixed-size little-endian encoding**:
@@ -231,10 +231,10 @@ echo "<base64_data>" | base64 -d | xxd
 **Branch Name**: `registers_broken` suggests recent major refactoring
 **Recent Changes**:
 - Removed register-based opcodes (commit: `72f4ad8`)
-- Removed VLE encoding (commit: `77bf138`)
+- Removed varint encoding (commit: `77bf138`)
 - Reference stack virtualization (commit: `510bf90`)
 
-These changes removed VLE completely, but SDK wasn't updated. The stub encoder is a temporary placeholder that was never replaced with proper fixed-size implementation.
+These changes removed varint completely, but SDK wasn't updated. The stub encoder is a temporary placeholder that was never replaced with proper fixed-size implementation.
 
 ---
 

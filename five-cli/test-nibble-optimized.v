@@ -8,7 +8,7 @@ pub test_nibble_optimized() -> u64 {
     // Heavy use of locals 0-3 (nibble immediate GET_LOCAL_0-3, 1 byte each)
     let sum1 = a + b;       // GET_LOCAL_0 + GET_LOCAL_1 (2 bytes total)
     let sum2 = c + d;       // GET_LOCAL_2 + GET_LOCAL_3 (2 bytes total)
-    let final_result = sum1 + sum2; // GET_LOCAL_4 + GET_LOCAL_5 (VLE, 4 bytes total)
+    let final_result = sum1 + sum2; // GET_LOCAL_4 + GET_LOCAL_5 (varint, 4 bytes total)
     
     return final_result;
 }

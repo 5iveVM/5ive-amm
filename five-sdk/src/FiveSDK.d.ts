@@ -248,26 +248,25 @@ export declare class FiveSDK {
      */
     private static encodeParametersWithABI;
     /**
-     * VLE encode a number for instruction data
+     * Varint encode a number for instruction data
      */
-    private static encodeVLENumber;
+    private static encodeVarintNumber;
     /**
      * Estimate compute units for function execution
      */
     private static estimateComputeUnits;
     /**
-     * Infer parameter type from JavaScript value for VLE encoding
+     * Infer parameter type from JavaScript value for varint encoding (varint)
      */
     private static inferParameterType;
     /**
-     * Fetch account data and deserialize VLE-encoded script data
-     * This is the method requested for pulling down accounts and deserializing Five script data
+     * Fetch account data and deserialize script/account payloads.
+     * Canonical neutral entrypoint.
      */
-    static fetchAccountAndDeserializeVLE(accountAddress: string, connection: any, // Solana Connection object
-    options?: {
+    static fetchAccountAndDeserialize(accountAddress: string, connection: any, options?: {
         debug?: boolean;
         parseMetadata?: boolean;
-        validateVLE?: boolean;
+        validateEncoding?: boolean;
     }): Promise<{
         success: boolean;
         accountInfo?: {
@@ -278,7 +277,7 @@ export declare class FiveSDK {
         };
         scriptMetadata?: ScriptMetadata;
         rawBytecode?: Uint8Array;
-        vleData?: {
+        decodedData?: {
             header: any;
             bytecode: Uint8Array;
             abi?: any;
@@ -292,26 +291,28 @@ export declare class FiveSDK {
         logs?: string[];
     }>;
     /**
-     * Batch fetch multiple accounts and deserialize their VLE data
+     * Batch fetch multiple accounts and deserialize script/account payloads.
+     * Canonical neutral entrypoint.
      */
-    static fetchMultipleAccountsAndDeserializeVLE(accountAddresses: string[], connection: any, options?: {
+    static fetchMultipleAccountsAndDeserialize(accountAddresses: string[], connection: any, options?: {
         debug?: boolean;
         parseMetadata?: boolean;
-        validateVLE?: boolean;
+        validateEncoding?: boolean;
         batchSize?: number;
     }): Promise<Map<string, {
         success: boolean;
         accountInfo?: any;
         scriptMetadata?: ScriptMetadata;
         rawBytecode?: Uint8Array;
-        vleData?: any;
+        decodedData?: any;
         error?: string;
         logs?: string[];
     }>>;
     /**
-     * Deserialize VLE-encoded parameters from instruction data using WASM decoder
+     * Deserialize instruction parameters from instruction data.
+     * Canonical neutral entrypoint.
      */
-    static deserializeVLEParameters(instructionData: Uint8Array, expectedTypes?: string[], options?: {
+    static deserializeParameters(instructionData: Uint8Array, expectedTypes?: string[], options?: {
         debug?: boolean;
     }): Promise<{
         success: boolean;
@@ -324,17 +325,16 @@ export declare class FiveSDK {
         error?: string;
     }>;
     /**
-     * Validate VLE encoding format in bytecode
+     * Validate Five bytecode envelope/header encoding.
+     * Canonical neutral entrypoint.
      */
-    private static validateVLEEncoding;
-    /**
-     * Manual VLE instruction parsing (fallback when WASM fails)
-     */
-    private static parseVLEInstructionManually;
-    /**
-     * Read VLE-encoded number from byte array
-     */
-    private static readVLENumber;
+    static validateBytecodeEncoding(bytecode: Uint8Array, debug?: boolean): Promise<{
+        valid: boolean;
+        info?: string;
+        error?: string;
+    }>;
+    private static parseInstructionParametersManually;
+    private static readVarintNumber;
     /**
      * Execute script with before/after account state tracking
      * This fetches account data before execution, runs the script, then fetches after

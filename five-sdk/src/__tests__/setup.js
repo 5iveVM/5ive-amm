@@ -37,7 +37,7 @@ const mockWasmModule = {
     })),
     ParameterEncoder: {
         encode_execute_params: jest.fn((functionIndex, params) => {
-            // Mock VLE encoding: [function_index, param_count, ...params]
+            // Mock varint encoding: [function_index, param_count, ...params]
             return new Uint8Array([0, functionIndex, params.length, ...params.flatMap(p => [p.type, p.value])]);
         })
     },

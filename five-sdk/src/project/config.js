@@ -24,7 +24,6 @@ export function parseProjectConfig(parsedToml) {
         keypairPath: deploy.keypair_path,
         multiFileMode: build.multi_file_mode ?? false,
         optimizations: {
-            enableVLE: optimizations.enable_vle ?? true,
             enableCompression: optimizations.enable_compression ?? true,
             enableConstraintOptimization: optimizations.enable_constraint_optimization ?? true,
             optimizationLevel: 'production'

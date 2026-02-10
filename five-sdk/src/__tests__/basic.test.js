@@ -43,7 +43,7 @@ describe('Five SDK Basic Tests', () => {
             const decoded = Buffer.from(encoded, 'base64');
             expect(decoded).toEqual(Buffer.from(originalData));
         });
-        it('should work with VLE encoding simulation', () => {
+        it('should work with varint encoding simulation', () => {
             // Simulate Variable Length Encoding for small numbers
             function encodeVLE(value) {
                 const bytes = [];

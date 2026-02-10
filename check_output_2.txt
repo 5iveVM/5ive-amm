@@ -864,7 +864,7 @@ warning: unused import: `Deserialize`
 warning: unused variable: `value`
     --> five-wasm/src/lib.rs:1627:39
      |
-1627 |                          if let Some((value, size)) = VLE::decode_u16(&bytes[1..]) {
+1627 |                          if let Some((value, size)) = varint::decode_u16(&bytes[1..]) {
      |                                       ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
      |
      = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
@@ -872,19 +872,19 @@ warning: unused variable: `value`
 warning: unused variable: `value`
     --> five-wasm/src/lib.rs:1649:39
      |
-1649 |                          if let Some((value, size)) = VLE::decode_u32(&bytes[1..]) {
+1649 |                          if let Some((value, size)) = varint::decode_u32(&bytes[1..]) {
      |                                       ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
 
 warning: unused variable: `value`
     --> five-wasm/src/lib.rs:1662:35
      |
-1662 |                      if let Some((value, size)) = VLE::decode_u64(&bytes[1..]) {
+1662 |                      if let Some((value, size)) = varint::decode_u64(&bytes[1..]) {
      |                                   ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
 
 warning: unused variable: `value`
     --> five-wasm/src/lib.rs:1674:35
      |
-1674 |                      if let Some((value, size)) = VLE::decode_u32(&bytes[2..]) {
+1674 |                      if let Some((value, size)) = varint::decode_u32(&bytes[2..]) {
      |                                   ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
 
 warning: variable does not need to be mutable

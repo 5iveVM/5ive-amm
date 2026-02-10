@@ -90,7 +90,7 @@ T+0   Test Setup                      ✅
 
 T+1   Build init_mint Instruction    ✅
       - Parameters: 7 fields
-      - VLE Encoding: 85 bytes
+      - varint Encoding: 85 bytes
       - Accounts: 3 + SystemProgram
 
 T+2   Send Transaction                ✅

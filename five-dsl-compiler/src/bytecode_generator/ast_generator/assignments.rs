@@ -170,7 +170,7 @@ impl ASTGenerator {
                 return Err(VMError::InvalidScript); // Attempting to assign to immutable field
             }
 
-            // Protocol V3: STORE_FIELD account_index_u8, offset_vle
+            // Protocol V3: STORE_FIELD account_index_u8, offset_u32
             // Script fields use account_index=0 (the script account itself)
             emitter.emit_opcode(STORE_FIELD);
             emitter.emit_u8(0); // Script account is always index 0
@@ -443,7 +443,7 @@ impl ASTGenerator {
                     if let Some(script_field_info) =
                         self.global_symbol_table.get(account_name)
                     {
-                        // Protocol V3: STORE_FIELD account_index_u8, offset_vle
+                        // Protocol V3: STORE_FIELD account_index_u8, offset_u32
                         emitter.emit_opcode(STORE_FIELD);
                         emitter.emit_u8(0); // Script account is always index 0
                         emitter.emit_u32(script_field_info.offset);

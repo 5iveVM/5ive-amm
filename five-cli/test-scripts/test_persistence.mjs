@@ -136,7 +136,7 @@ async function buildExecuteInstruction(connection, payer, scriptAccount, vmState
     // Discriminator for ExecuteFunction is 9
     const discriminator = Buffer.from([9]);
 
-    // Simple VLE encoding for function index
+    // Simple varint encoding for function index
     let data = Buffer.concat([discriminator, Buffer.from([functionIndex])]);
 
     // Standard keys: script, vm_state, signer

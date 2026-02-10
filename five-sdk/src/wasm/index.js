@@ -7,7 +7,7 @@
 // Direct re-exports from CLI WASM modules
 export { FiveVM } from '../../wasm/vm.js';
 export { FiveCompilerWasm } from '../../wasm/compiler.js';
-// VLE encoder from lib
-export { VLEEncoder } from '../../lib/vle-encoder.js';
+// varint encoder from lib
+export { VarintEncoder } from '../../lib/varint-encoder.js';
 // Simple WASM utilities (no over-engineering)
 //# sourceMappingURL=index.js.map

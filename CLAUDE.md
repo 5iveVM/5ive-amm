@@ -17,7 +17,7 @@ The system compiles Five DSL source code (`.v` files) to compact bytecode that e
 
 ```
 five-mono/
-├── five-protocol/       # Shared protocol: opcodes, types, VLE encoding, headers
+├── five-protocol/       # Shared protocol: opcodes, types, varint encoding, headers
 ├── five-dsl-compiler/   # Rust compiler: DSL → bytecode
 ├── five-vm-mito/        # Core VM: zero-allocation Solana execution engine
 ├── five-solana/         # Solana program wrapper for on-chain execution
@@ -109,7 +109,7 @@ Five DSL (.v) → Tokenizer → Parser → Type Checker → Bytecode Generator �
 1. **Tokenization** - Lexical analysis into tokens
 2. **Parsing** - Build Abstract Syntax Tree (AST)
 3. **Type Checking** - Semantic analysis with cross-module symbol resolution
-4. **Bytecode Generation** - Emit optimized bytecode with VLE encoding
+4. **Bytecode Generation** - Emit optimized bytecode with varint encoding
 
 ### VM Execution Model
 
@@ -117,7 +117,7 @@ The Five VM is a **stack-based virtual machine** with:
 - **64-byte temp buffer** for intermediate values
 - **Zero-allocation design** for Solana compute efficiency
 - **Lazy-loading** for account data (AccountRef pattern)
-- **VLE encoding** reduces bytecode size by 30-50%
+- **varint encoding** reduces bytecode size by 30-50%
 
 Key opcode categories (see `five-protocol/OPCODE_SPEC.md`):
 - Control flow: `HALT`, `JUMP`, `JUMP_IF`, `REQUIRE`, `RETURN`
@@ -143,7 +143,7 @@ The `five-solana` crate wraps the VM and handles:
 ### five-protocol
 - `src/opcodes.rs` - All VM opcode definitions
 - `src/types.rs` - Type constants and `ImportableAccountHeader`
-- `src/encoding.rs` - VLE encoding/decoding
+- `src/encoding.rs` - varint encoding/decoding
 - `OPCODE_SPEC.md` - RFC-1 opcode specification
 
 ### five-dsl-compiler
@@ -165,8 +165,8 @@ The `five-solana` crate wraps the VM and handles:
 
 ### five-sdk
 - `src/FiveSDK.ts` - Main SDK class (compilation, execution, instruction generation)
-- `src/encoding/ParameterEncoder.ts` - VLE parameter encoding
-- `src/lib/vle-encoder.ts` - VLE utility implementation
+- `src/encoding/ParameterEncoder.ts` - varint parameter encoding
+- `src/lib/varint-encoder.js` - varint utility implementation
 
 ## Five DSL Language
 

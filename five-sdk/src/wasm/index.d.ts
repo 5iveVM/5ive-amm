@@ -6,5 +6,5 @@
  */
 export { FiveVM } from '../../wasm/vm.js';
 export { FiveCompilerWasm } from '../../wasm/compiler.js';
-export { VLEEncoder } from '../../lib/vle-encoder.js';
+export { VarintEncoder } from '../../lib/varint-encoder.js';
 //# sourceMappingURL=index.d.ts.map

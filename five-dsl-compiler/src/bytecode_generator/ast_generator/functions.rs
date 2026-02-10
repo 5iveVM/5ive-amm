@@ -230,7 +230,7 @@ impl ASTGenerator {
                         // Found external import - emit CALL_EXTERNAL opcode
                         println!("DEBUG: SUCCESS! Found import for module '{}', emitting CALL_EXTERNAL (145)", module_name);
                         
-                        // CALL_EXTERNAL format: opcode(1) + account_index(1) + func_offset(4) + param_count(1)
+                        // CALL_EXTERNAL format: opcode(1) + account_index(1) + func_offset(u16) + param_count(1)
                         emitter.emit_opcode(CALL_EXTERNAL);
                         emitter.emit_u8(ext_import.account_index);
                         

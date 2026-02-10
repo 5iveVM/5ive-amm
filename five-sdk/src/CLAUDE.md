@@ -131,7 +131,7 @@ const instruction = {
 - Function indices and parameters are encoded using fixed-size Little Endian integers
 - Type coercion based on ABI information from compilation
 - Automatic parameter validation and encoding
-- Simplified decoding logic compared to VLE
+- Simplified decoding logic compared to varint-style flows
 
 ### Test Runner Integration
 The SDK includes a programmatic test runner (`testing/TestRunner.ts`) that provides:

@@ -254,7 +254,7 @@ describe.skip('Five SDK Integration Tests', () => {
             // Verify instruction data
             const decodedData = Buffer.from(result.instruction.data, 'base64');
             expect(decodedData[0]).toBe(2); // Execute discriminator
-            expect(decodedData[1]).toBe(1); // Function index (VLE encoded)
+            expect(decodedData[1]).toBe(1); // Function index (varint encoded)
         });
         it('should resolve function name to index', async () => {
             const scriptAccount = TestConstants.TEST_SCRIPT_ACCOUNT;

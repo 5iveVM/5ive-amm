@@ -252,7 +252,7 @@ fix: restore VM compilation cfg gate and pass account metadata to SDK
 
 - Fix five-vm-mito compilation on non-Solana targets by restoring test cfg gate
 - Pass account metadata from FunctionBuilder to SDK encoder for correct isWritable flags
-- Add parameter encoder framework for fixed-size bytecode generation (post-VLE removal)
+- Add parameter encoder framework for fixed-size bytecode generation (post-varint removal)
 - Add debug logging to trace parameter encoding issues
 
 This addresses the foundation for parameter encoding but module loading issue

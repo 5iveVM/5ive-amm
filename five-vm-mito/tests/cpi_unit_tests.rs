@@ -123,7 +123,7 @@ mod cpi_invoke_tests {
 mod cpi_serialization_format_tests {
     /// Test fixed-width encoding for small values
     #[test]
-    fn test_vle_encoding_small_value() {
+    fn test_varint_encoding_small_value() {
         // Values < 128 should encode as single byte
         let value = 100u32;
         let encoded = value.to_le_bytes();
@@ -132,7 +132,7 @@ mod cpi_serialization_format_tests {
 
     /// Test fixed-width encoding for large values
     #[test]
-    fn test_vle_encoding_large_value() {
+    fn test_varint_encoding_large_value() {
         // Large values need multiple bytes
         let value = 16384u32;
         assert!(value >= 128, "Large value requires multi-byte encoding");

@@ -65,12 +65,12 @@ export declare const compileAndExecuteLocally: (source: string, functionName: st
     compilationErrors?: never;
 }>;
 /**
- * Quick account fetching and VLE deserialization helper
+ * Quick account fetching and deserialization helper
  */
-export declare const fetchAccountAndDeserializeVLE: (accountAddress: string, connection: any, options?: {
+export declare const fetchAccountAndDeserialize: (accountAddress: string, connection: any, options?: {
     debug?: boolean;
     parseMetadata?: boolean;
-    validateVLE?: boolean;
+    validateEncoding?: boolean;
 }) => Promise<{
     success: boolean;
     accountInfo?: {
@@ -81,7 +81,7 @@ export declare const fetchAccountAndDeserializeVLE: (accountAddress: string, con
     };
     scriptMetadata?: import("./metadata/index.js").ScriptMetadata;
     rawBytecode?: Uint8Array;
-    vleData?: {
+    decodedData?: {
         header: any;
         bytecode: Uint8Array;
         abi?: any;
@@ -97,24 +97,24 @@ export declare const fetchAccountAndDeserializeVLE: (accountAddress: string, con
 /**
  * Quick batch account fetching helper
  */
-export declare const fetchMultipleAccountsAndDeserializeVLE: (accountAddresses: string[], connection: any, options?: {
+export declare const fetchMultipleAccountsAndDeserialize: (accountAddresses: string[], connection: any, options?: {
     debug?: boolean;
     parseMetadata?: boolean;
-    validateVLE?: boolean;
+    validateEncoding?: boolean;
     batchSize?: number;
 }) => Promise<Map<string, {
     success: boolean;
     accountInfo?: any;
     scriptMetadata?: import("./metadata/index.js").ScriptMetadata;
     rawBytecode?: Uint8Array;
-    vleData?: any;
+    decodedData?: any;
     error?: string;
     logs?: string[];
 }>>;
 /**
- * Quick VLE parameter deserialization helper
+ * Quick instruction-parameter deserialization helper
  */
-export declare const deserializeVLEParameters: (instructionData: Uint8Array, expectedTypes?: string[], options?: {
+export declare const deserializeParameters: (instructionData: Uint8Array, expectedTypes?: string[], options?: {
     debug?: boolean;
 }) => Promise<{
     success: boolean;

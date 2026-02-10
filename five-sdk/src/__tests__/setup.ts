@@ -43,9 +43,8 @@ const mockWasmModule = {
       // Mock fixed execute param payload shape used by tests.
       return new Uint8Array([0, functionIndex, params.length, ...params.flatMap(p => [p.type, p.value])]);
     }),
-    encode_execute_vle: jest.fn((functionIndex: number, params: any[]) => {
-        // Legacy alias retained for older tests/helpers.
-        return new Uint8Array([functionIndex, ...params.map(p => typeof p === 'number' ? p : 0)]);
+    encode_execute: jest.fn((functionIndex: number, params: any[]) => {
+      return new Uint8Array([functionIndex, ...params.map(p => typeof p === 'number' ? p : 0)]);
     })
   },
   BytecodeAnalyzer: {

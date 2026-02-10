@@ -23,7 +23,7 @@ Successfully executed improved E2E tests against the Five VM token contract and 
 Program:        6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k
 Function:       init_mint (index 0)
 Parameters:     7 fields
-Parameter Size: 85 bytes (VLE encoded)
+Parameter Size: 85 bytes (varint encoded)
 
 Pre-Flight Simulation:  ✅ ENABLED
 Simulation Status:      ❌ FAILED
@@ -76,7 +76,7 @@ Test Result:   ❌ FAILED (exit code 1)
    
 2. Build init_mint Instruction
    ├─ Parameters: 7 fields
-   ├─ VLE Encoding: 85 bytes
+   ├─ varint Encoding: 85 bytes
    ├─ Account Resolution: 3 accounts + SystemProgram
    └─ Instruction Data: CQCABwwCDAMKPCKb...
 

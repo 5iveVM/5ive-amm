@@ -398,6 +398,8 @@ export class WasmCompilerService {
             opcode === ops.CREATE_ARRAY || opcode === ops.SET_LOCAL ||
             opcode === ops.GET_LOCAL || opcode === ops.LOAD_PARAM ||
             opcode === ops.STORE_PARAM || opcode === ops.CAST ||
+            opcode === ops.ALLOC_LOCALS || opcode === ops.CREATE_TUPLE ||
+            opcode === ops.CALL_NATIVE || opcode === ops.LOAD_INPUT ||
             opcode === ops.TRANSFER_DEBIT || opcode === ops.TRANSFER_CREDIT ||
             opcode === ops.BULK_LOAD_FIELD_N) {
             return 2; // opcode + u8
@@ -468,8 +470,17 @@ export class WasmCompilerService {
             return 2;
         }
 
-        if (opcode === ops.LOAD_FIELD || opcode === ops.STORE_FIELD) {
+        if (opcode === ops.STORE || opcode === ops.LOAD_FIELD || opcode === ops.STORE_FIELD ||
+            opcode === ops.LOAD_EXTERNAL_FIELD || opcode === ops.LOAD_FIELD_PUBKEY) {
             return 6; // opcode + u8 + u32
+        }
+
+        if (opcode === ops.LOAD) {
+            return 1; // no immediate operand
+        }
+
+        if (opcode === ops.LOAD_GLOBAL || opcode === ops.STORE_GLOBAL) {
+            return 3; // opcode + u16 id
         }
 
         if (opcode === ops.LOAD_ACCOUNT ||

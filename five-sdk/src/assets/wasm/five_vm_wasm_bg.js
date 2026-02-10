@@ -209,6 +209,15 @@ if (!('encodeInto' in cachedTextEncoder)) {
 
 let WASM_VECTOR_LEN = 0;
 
+function findWasmExport(predicate, description) {
+    for (const [name, value] of Object.entries(wasm)) {
+        if (typeof value === 'function' && predicate(name)) {
+            return value;
+        }
+    }
+    throw new Error(`WASM export not found: ${description}`);
+}
+
 const BytecodeAnalyzerFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_bytecodeanalyzer_free(ptr >>> 0, 1));
@@ -229,9 +238,9 @@ const TestResultFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_testresult_free(ptr >>> 0, 1));
 
-const VLEEncoderFinalization = (typeof FinalizationRegistry === 'undefined')
+const VarintEncoderFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_vleencoder_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => findWasmExport((name) => name.endsWith('_encoder_free') && !name.includes('parameter'), 'encoder free')(ptr >>> 0, 1));
 
 const WasmAccountFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
@@ -536,7 +545,7 @@ export class FiveVMWasm {
 if (Symbol.dispose) FiveVMWasm.prototype[Symbol.dispose] = FiveVMWasm.prototype.free;
 
 /**
- * Parameter encoding utilities using VLE and protocol types
+ * Parameter encoding utilities using varint and protocol types
  */
 export class ParameterEncoder {
     __destroy_into_raw() {
@@ -550,15 +559,15 @@ export class ParameterEncoder {
         wasm.__wbg_parameterencoder_free(ptr, 0);
     }
     /**
-     * Encode function parameters using VLE compression
+     * Encode function parameters using varint compression
      * Returns ONLY parameter data - SDK handles discriminator AND function index
-     * Each parameter value is VLE-encoded regardless of its declared type for maximum compression
+     * Each parameter value is varint-encoded regardless of its declared type for maximum compression
      * @param {number} _function_index
      * @param {Array<any>} params
      * @returns {Uint8Array}
      */
-    static encode_execute_vle(_function_index, params) {
-        const ret = wasm.parameterencoder_encode_execute_vle(_function_index, params);
+    static encode_execute(_function_index, params) {
+        const ret = findWasmExport((name) => name.startsWith('parameterencoder_encode_execute_'), 'parameter encode execute')(_function_index, params);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -723,18 +732,18 @@ export class TestResult {
 if (Symbol.dispose) TestResult.prototype[Symbol.dispose] = TestResult.prototype.free;
 
 /**
- * VLE Encoding utilities for JavaScript
+ * Varint encoding utilities for JavaScript
  */
-export class VLEEncoder {
+export class VarintEncoder {
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
         this.__wbg_ptr = 0;
-        VLEEncoderFinalization.unregister(this);
+        VarintEncoderFinalization.unregister(this);
         return ptr;
     }
     free() {
         const ptr = this.__destroy_into_raw();
-        wasm.__wbg_vleencoder_free(ptr, 0);
+        findWasmExport((name) => name.endsWith('_encoder_free') && !name.includes('parameter'), 'encoder free')(ptr, 0);
     }
     /**
      * Encode a u32 value using Variable-Length Encoding
@@ -743,7 +752,7 @@ export class VLEEncoder {
      * @returns {Array<any>}
      */
     static encode_u32(value) {
-        const ret = wasm.vleencoder_encode_u32(value);
+        const ret = findWasmExport((name) => name.endsWith('encoder_encode_u32'), 'encoder encode_u32')(value);
         return ret;
     }
     /**
@@ -753,7 +762,7 @@ export class VLEEncoder {
      * @returns {Array<any>}
      */
     static encode_u16(value) {
-        const ret = wasm.vleencoder_encode_u16(value);
+        const ret = findWasmExport((name) => name.endsWith('encoder_encode_u16'), 'encoder encode_u16')(value);
         return ret;
     }
     /**
@@ -765,7 +774,7 @@ export class VLEEncoder {
     static decode_u32(bytes) {
         const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.vleencoder_decode_u32(ptr0, len0);
+        const ret = findWasmExport((name) => name.endsWith('encoder_decode_u32'), 'encoder decode_u32')(ptr0, len0);
         return ret;
     }
     /**
@@ -777,7 +786,7 @@ export class VLEEncoder {
     static decode_u16(bytes) {
         const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.vleencoder_decode_u16(ptr0, len0);
+        const ret = findWasmExport((name) => name.endsWith('encoder_decode_u16'), 'encoder decode_u16')(ptr0, len0);
         return ret;
     }
     /**
@@ -786,7 +795,7 @@ export class VLEEncoder {
      * @returns {number}
      */
     static encoded_size_u32(value) {
-        const ret = wasm.vleencoder_encoded_size_u32(value);
+        const ret = findWasmExport((name) => name.endsWith('encoder_encoded_size_u32'), 'encoder encoded_size_u32')(value);
         return ret >>> 0;
     }
     /**
@@ -795,11 +804,11 @@ export class VLEEncoder {
      * @returns {number}
      */
     static encoded_size_u16(value) {
-        const ret = wasm.vleencoder_encoded_size_u16(value);
+        const ret = findWasmExport((name) => name.endsWith('encoder_encoded_size_u16'), 'encoder encoded_size_u16')(value);
         return ret >>> 0;
     }
 }
-if (Symbol.dispose) VLEEncoder.prototype[Symbol.dispose] = VLEEncoder.prototype.free;
+if (Symbol.dispose) VarintEncoder.prototype[Symbol.dispose] = VarintEncoder.prototype.free;
 
 /**
  * JavaScript-compatible account representation

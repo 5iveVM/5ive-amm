@@ -18,7 +18,6 @@ entry_point = "src/main.v"
 multi_file_mode = true
 
 [optimizations]
-enable_vle = true
 enable_compression = true
 enable_constraint_optimization = true
 optimization_level = 2

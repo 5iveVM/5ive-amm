@@ -1610,88 +1610,11 @@ fn get_instruction_size(opcode: u8, bytes: &[u8]) -> usize {
 }
 
 fn get_instruction_size_with_features(opcode: u8, bytes: &[u8], features: u32) -> usize {
-    use five_protocol::opcodes::{get_opcode_info, ArgType};
-
-    // Constant pool mode: PUSH_* operands are indices (u8) and _W are u16
-    if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
-        match opcode {
-            five_protocol::opcodes::PUSH_U8
-            | five_protocol::opcodes::PUSH_U16
-            | five_protocol::opcodes::PUSH_U32
-            | five_protocol::opcodes::PUSH_U64
-            | five_protocol::opcodes::PUSH_I64
-            | five_protocol::opcodes::PUSH_BOOL
-            | five_protocol::opcodes::PUSH_PUBKEY
-            | five_protocol::opcodes::PUSH_U128
-            | five_protocol::opcodes::PUSH_STRING => {
-                return 2;
-            }
-            five_protocol::opcodes::PUSH_U8_W
-            | five_protocol::opcodes::PUSH_U16_W
-            | five_protocol::opcodes::PUSH_U32_W
-            | five_protocol::opcodes::PUSH_U64_W
-            | five_protocol::opcodes::PUSH_I64_W
-            | five_protocol::opcodes::PUSH_BOOL_W
-            | five_protocol::opcodes::PUSH_PUBKEY_W
-            | five_protocol::opcodes::PUSH_U128_W
-            | five_protocol::opcodes::PUSH_STRING_W => {
-                return 3;
-            }
-            _ => {}
-        }
-    }
-
-    // Attempt to get from protocol table first
-    if let Some(info) = get_opcode_info(opcode) {
-        match info.arg_type {
-            ArgType::None => 1,
-            ArgType::U8 => 2,
-            ArgType::U16 | ArgType::U16Fixed => 3, // 1 + 2
-            ArgType::U32 | ArgType::U32Fixed | ArgType::FunctionIndex => 5, // 1 + 4
-            ArgType::U64 => 9, // 1 + 8
-            ArgType::AccountField => 6, // 1 + 1(u8) + 4(u32)
-            ArgType::AccountFieldParam => 7, // 1 + 1(u8) + 4(u32) + 1(u8)
-            ArgType::FusedAccAcc => 12, // 1 + 1 + 4 + 1 + 4
-            ArgType::FusedSubAdd => 12, // 1 + 1 + 4 + 1 + 4 + 1
-            ArgType::ParamImm => 3, // 1 + 1 + 1
-            ArgType::FieldImm => 7, // 1 + 1 + 4 + 1 (u8 imm? or u64 imm?) Check protocol.
-            // Check protocol for FieldImm: acc(u8) + off(u32) + imm(u8). 1+1+4+1 = 7.
-
-            // CallExternal: 1 + 4 bytes args (account_idx + func_offset + param_count) = 5 total.
-            ArgType::CallExternal => 5,
-
-            ArgType::CallInternal => 4, // 1 + 1(param) + 2(addr) = 4.
-            // Parser: ArgType::CallInternal => total_size += 3.
-            // So total instruction size is 4.
-
-            _ => {
-                // Fallback for types not explicitly sized above or PUSH_STRING
-                if opcode == five_protocol::opcodes::PUSH_STRING {
-                    // PUSH_STRING length_u32 + bytes
-                    if bytes.len() >= 5 {
-                        let len = u32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
-                        5 + len
-                    } else {
-                        5 // At least header
-                    }
-                } else if opcode == five_protocol::opcodes::PUSH_STRING_W {
-                    3
-                } else if opcode == five_protocol::opcodes::CALL_EXTERNAL {
-                    5
-                } else if opcode == five_protocol::opcodes::CALL {
-                    4
-                } else {
-                    // Safe default for unhandled ArgTypes (LocalIndex, AccountIndex, ValueType -> all u8).
-                    if matches!(info.arg_type, ArgType::LocalIndex | ArgType::AccountIndex | ArgType::ValueType) {
-                        2
-                    } else {
-                        1
-                    }
-                }
-            }
-        }
-    } else {
-        1
+    let pool_enabled = (features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+    let remaining = if bytes.len() > 1 { &bytes[1..] } else { &[] };
+    match five_protocol::opcodes::operand_size(opcode, remaining, pool_enabled) {
+        Some(operand_bytes) => 1 + operand_bytes,
+        None => 1,
     }
 }
 

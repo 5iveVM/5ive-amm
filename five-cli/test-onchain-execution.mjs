@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Test on-chain execution with VLE encoding
+ * Test on-chain execution with varint encoding
  */
 
 import { FiveSDK } from './dist/sdk/FiveSDK.js';
@@ -9,7 +9,7 @@ import { Connection, Keypair } from '@solana/web3.js';
 import { readFile } from 'fs/promises';
 
 async function testOnChainExecution() {
-  console.log('🧪 Testing on-chain execution with VLE encoding...');
+  console.log('🧪 Testing on-chain execution with varint encoding...');
   
   try {
     // Setup connection

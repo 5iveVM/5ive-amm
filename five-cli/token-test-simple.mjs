@@ -22,8 +22,8 @@ const error = (msg) => console.log(`❌ ${msg}`);
 const info = (msg) => console.log(`ℹ️  ${msg}`);
 const header = (msg) => console.log(`\n${'='.repeat(70)}\n${msg}\n${'='.repeat(70)}`);
 
-// VLE Encoding for function parameters
-function encodeVLE(value) {
+// varint encoding for function parameters
+function encodeVarint(value) {
     const buffer = [];
     let val = BigInt(value);
     if (val === 0n) return Buffer.from([0]);
@@ -72,13 +72,13 @@ function buildSimpleInstruction(
     decimals = 0
 ) {
     const discriminator = Buffer.from([9]); // ExecuteFunction
-    let inputData = encodeVLE(functionIndex);
+    let inputData = encodeVarint(functionIndex);
 
     // Add function-specific parameters
     if ([0].includes(functionIndex)) { // init_mint
-        inputData = Buffer.concat([inputData, encodeVLE(decimals)]);
+        inputData = Buffer.concat([inputData, encodeVarint(decimals)]);
     } else if ([2, 3, 4, 5, 7].includes(functionIndex)) { // mint, burn, transfer, approve, transfer_approved
-        inputData = Buffer.concat([inputData, encodeVLE(amount)]);
+        inputData = Buffer.concat([inputData, encodeVarint(amount)]);
     }
 
     // Build account keys - always include script, vm_state, signer

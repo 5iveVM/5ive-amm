@@ -563,7 +563,7 @@ export default function IdePage() {
 
       if (paramEncoderRef.current) {
         try {
-          encodedParams = paramEncoderRef.current.encode_execute_vle(selectedFunctionIndex, executionParams);
+          encodedParams = paramEncoderRef.current.encode_execute(selectedFunctionIndex, executionParams);
         } catch (e) {
           appendLog(`Parameter encoding failed: ${e}`, 'error');
           throw e; // Rethrow to stop execution

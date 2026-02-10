@@ -12,7 +12,6 @@ entry_point = "src/token.v"
 multi_file_mode = false
 
 [optimizations]
-enable_vle = true
 enable_compression = true
 enable_constraint_optimization = true
 optimization_level = 2
