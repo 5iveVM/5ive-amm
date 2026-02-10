@@ -269,6 +269,22 @@ async fn token_e2e_bpf_compute_units() {
     println!("BPF_CU deploy={}", deploy_result.units_consumed);
 
     let mut total_units = deploy_result.units_consumed;
+    // Regression guardrails (BPF CU). Tighten over time.
+    let step_budget = |name: &str| -> u64 {
+        match name {
+            "init_mint" => 10_000,
+            "init_token_account_user1" | "init_token_account_user2" | "init_token_account_user3" => 8_500,
+            "mint_to_user1" | "mint_to_user2" | "mint_to_user3" => 4_500,
+            "transfer_user2_to_user3" => 4_500,
+            "approve_user3_to_user2" => 4_800,
+            "transfer_from_user3_to_user1_by_user2" => 5_800,
+            "revoke_user3" => 4_500,
+            "burn_user1" => 5_800,
+            "freeze_user2" | "thaw_user2" => 6_000,
+            "disable_mint" => 6_200,
+            _ => 12_000,
+        }
+    };
     for step in &fixture.steps {
         let payload = build_payload(&accounts, step);
         let execute_ix = build_execute_instruction(
@@ -298,11 +314,23 @@ async fn token_e2e_bpf_compute_units() {
         )
         .await;
         assert!(result.success, "step {} failed: {:?}", step.name, result.error);
+        assert!(
+            result.units_consumed <= step_budget(&step.name),
+            "step {} consumed {} CU above budget {}",
+            step.name,
+            result.units_consumed,
+            step_budget(&step.name)
+        );
         total_units = total_units.saturating_add(result.units_consumed);
         println!("BPF_CU step={} units={}", step.name, result.units_consumed);
     }
 
     println!("BPF_CU fixture={} total_units={}", fixture.name, total_units);
+    assert!(
+        total_units <= 480_000,
+        "fixture total {} exceeds regression budget",
+        total_units
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -435,6 +463,11 @@ async fn minimal_execute_floor_bpf_compute_units() {
 
     println!(
         "BPF_CU minimal_execute_floor={}",
+        execute_result.units_consumed
+    );
+    assert!(
+        execute_result.units_consumed <= 1_200,
+        "minimal floor regressed to {}",
         execute_result.units_consumed
     );
 }

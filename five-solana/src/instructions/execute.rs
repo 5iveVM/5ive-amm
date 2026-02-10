@@ -30,35 +30,38 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
          return Err(e);
     }
 
-    // Collect execution fee.
-    let vm_accounts = {
-        // SAFETY: State account program-owned, read-only.
-        let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
-        let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
-        let fee = calculate_fee(STANDARD_TX_FEE, vm_state.execute_fee_bps);
-        if fee > 0 {
-             let admin_key = vm_state.authority;
-             let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
-             let payer_account = accounts.iter()
-                 .filter(|a| a.is_signer() && *a.key() != *vm_state_account.key() && *a.key() != *script_account.key())
-                 .max_by_key(|a| a.lamports());
+    // SAFETY: state account is program-owned and read-only here.
+    let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+    let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
+    let fee = calculate_fee(STANDARD_TX_FEE, vm_state.execute_fee_bps);
+    if fee > 0 {
+        let admin_key = vm_state.authority;
+        let mut admin_account: Option<&AccountInfo> = None;
+        let mut payer_account: Option<&AccountInfo> = None;
+        let mut system_program: Option<&AccountInfo> = None;
 
-             if let Some(recipient) = admin_account {
-                 if let Some(payer) = payer_account {
-                     let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
-                     transfer_fee(payer, recipient, fee, system_program)?;
-                 } else {
-                     return Err(ProgramError::MissingRequiredSignature);
-                 }
-             } else {
-                 // Error 1107 matches test expectation (likely FeeCollectorMissing)
-                 return Err(ProgramError::Custom(1107));
-             }
-             &accounts[1..]  // Skip Script account, start from VM State
-        } else {
-             &accounts[1..]  // Skip Script account, start from VM State
+        // Skip [script, vm_state] by construction.
+        for account in &accounts[2..] {
+            if account.key().as_ref() == &[0u8; 32] {
+                system_program = Some(account);
+            }
+            if *account.key() == admin_key {
+                admin_account = Some(account);
+            }
+            if account.is_signer() {
+                payer_account = match payer_account {
+                    Some(current) if current.lamports() >= account.lamports() => Some(current),
+                    _ => Some(account),
+                };
+            }
         }
-    };
+
+        let recipient = admin_account.ok_or(ProgramError::Custom(1107))?;
+        let payer = payer_account.ok_or(ProgramError::MissingRequiredSignature)?;
+        transfer_fee(payer, recipient, fee, system_program)?;
+    }
+    // VM sees [vm_state, ...remaining execution accounts].
+    let vm_accounts = &accounts[1..];
 
     // Parse script header from script account
     let script_data = unsafe { script_account.borrow_data_unchecked() };

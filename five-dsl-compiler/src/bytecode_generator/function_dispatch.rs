@@ -36,6 +36,9 @@ pub struct FunctionDispatcher {
     /// Vec of (patch_position, target_position) within the code section
     dispatch_jump_patches: Vec<(usize, usize)>,
 
+    /// Public function entry points (function index -> call block offset in code section)
+    public_entry_points: Vec<(u8, usize)>,
+
     /// Import verification table for Five bytecode accounts
     /// Stores both direct addresses and PDA seeds for imported Five bytecode
     import_table: ImportTable,
@@ -52,6 +55,7 @@ impl FunctionDispatcher {
             imported_fields: HashMap::new(),
             dispatch_patch_locations: HashMap::new(),
             dispatch_jump_patches: Vec::new(),
+            public_entry_points: Vec::new(),
             import_table: ImportTable::new(),
         }
     }
@@ -406,6 +410,11 @@ impl FunctionDispatcher {
         &self.import_table
     }
 
+    /// Public function entry points for compact entry-table metadata emission.
+    pub fn get_public_entry_points(&self) -> &[(u8, usize)] {
+        &self.public_entry_points
+    }
+
     /// Generate function dispatch logic at the beginning of bytecode
     /// Implements a jump table to route execution to the correct function based on index
     /// Generate function dispatch logic at the beginning of bytecode
@@ -432,7 +441,7 @@ impl FunctionDispatcher {
         
         // We need to track where the jump offsets are so we can patch them 
         // to point to the Call Blocks we'll generate next.
-        let mut jump_patch_locations = Vec::new();
+        let mut jump_patch_locations: Vec<(usize, String, usize)> = Vec::new();
 
         for (i, function) in self.functions.iter().enumerate() {
             // Load function index from parameter 0 using nibble immediate to avoid LOAD_PARAM 0 rejection
@@ -447,7 +456,7 @@ impl FunctionDispatcher {
             emitter.emit_opcode(five_protocol::opcodes::JUMP_IF);
             
             let patch_pos = emitter.get_position();
-            jump_patch_locations.push((function.name.clone(), patch_pos));
+            jump_patch_locations.push((i, function.name.clone(), patch_pos));
             
             emitter.emit_u16(0xFFFF); // Placeholder offset to Call Block
         }
@@ -462,7 +471,8 @@ impl FunctionDispatcher {
 
         // 2. Generate Call Blocks
         // Each block jumps directly to the function (not CALL, to avoid call depth issues)
-        for (name, patch_pos) in jump_patch_locations {
+        self.public_entry_points.clear();
+        for (function_index, name, patch_pos) in jump_patch_locations {
             let function = self.functions.iter().find(|f| f.name == name)
                 .ok_or(VMError::InvalidScript)?;
             
@@ -470,6 +480,10 @@ impl FunctionDispatcher {
             let call_block_start = emitter.get_position();
             println!("DEBUG: Patching {} at {} to point to Call Block at {}", name, patch_pos, call_block_start);
             self.dispatch_jump_patches.push((patch_pos, call_block_start));
+            if function.is_public {
+                self.public_entry_points
+                    .push((function_index as u8, call_block_start));
+            }
 
             // For functions with parameters, we need to move them from the input parameters
             // Jump directly to the function body to preserve parameter indexing

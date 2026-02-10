@@ -101,6 +101,16 @@ pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseEr
         offset += section_size as usize;
     }
 
+    if (header.features & crate::FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
+        if offset + 2 > bytecode.len() {
+            return Ok((header, offset));
+        }
+
+        let section_size = u16::from_le_bytes([bytecode[offset], bytecode[offset + 1]]) as usize;
+        offset += 2;
+        offset += section_size;
+    }
+
     if offset > bytecode.len() {
         return Err(ParseError::HeaderTooShort); // Metadata claimed to be larger than bytecode
     }
@@ -680,17 +690,31 @@ fn parse_function_names(
 pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String> {
     let (header, start_offset) = parse_header(bytecode).map_err(|e| e.message().to_string())?;
 
-    let (function_names, bytecode_start) = if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0
-    {
-        // If parse_header returned start_offset that already skipped metadata, we might need to backtrack
-        // if we want to extract names.
-        // parse_header returns the instruction start, which is AFTER metadata.
-        // We know metadata starts at fixed offset 10.
-        let mut offset = crate::FIVE_HEADER_OPTIMIZED_SIZE;
-        let (metadata, final_offset) = parse_function_names(bytecode, &mut offset)?;
-        (Some(metadata), final_offset)
+    let mut metadata_offset = crate::FIVE_HEADER_OPTIMIZED_SIZE;
+    let function_names = if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0 {
+        let (metadata, final_offset) = parse_function_names(bytecode, &mut metadata_offset)?;
+        metadata_offset = final_offset;
+        Some(metadata)
     } else {
-        (None, start_offset)
+        None
+    };
+    if (header.features & crate::FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
+        if metadata_offset + 2 > bytecode.len() {
+            return Err("Public entry table section size OOB".to_string());
+        }
+        let section_size =
+            u16::from_le_bytes([bytecode[metadata_offset], bytecode[metadata_offset + 1]]) as usize;
+        metadata_offset += 2;
+        if metadata_offset + section_size > bytecode.len() {
+            return Err("Public entry table section OOB".to_string());
+        }
+        metadata_offset += section_size;
+    }
+
+    let bytecode_start = if (header.features & crate::FEATURE_CONSTANT_POOL) != 0 {
+        start_offset
+    } else {
+        metadata_offset
     };
 
     let mut instructions = Vec::new();

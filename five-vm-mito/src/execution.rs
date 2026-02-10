@@ -96,7 +96,14 @@ impl MitoVM {
             debug_log!("MitoVM: Account count: {}", accounts.len() as u32);
         }
 
-        let (start_ip, public_function_count, total_function_count, header_features, pool_desc) =
+        let (
+            start_ip,
+            public_function_count,
+            total_function_count,
+            header_features,
+            pool_desc,
+            public_entry_table,
+        ) =
             Self::parse_optimized_header(script)?;
 
         debug_log!("MitoVM: Creating ExecutionManager...");
@@ -120,6 +127,9 @@ impl MitoVM {
             pool_desc.map(|d| d.string_blob_len).unwrap_or(0),
         );
         ctx.set_header_features(header_features);
+        if let Some((offset, count)) = public_entry_table {
+            ctx.set_public_entry_table(offset, count);
+        }
         ctx.set_ip(start_ip);
         debug_log!("MitoVM: ExecutionManager created with IP set to {}", start_ip as u32);
 
@@ -623,9 +633,18 @@ impl MitoVM {
     }
 
     /// Parse optimized script header (10 bytes)
-    /// Returns (instruction_pointer_start, public_function_count, total_function_count, features, pool_desc)
+    /// Returns (instruction_pointer_start, public_function_count, total_function_count, features, pool_desc, public_entry_table)
     #[inline]
-    fn parse_optimized_header(script: &[u8]) -> CompactResult<(usize, u8, u8, u32, Option<ConstantPoolDescriptor>)> {
+    fn parse_optimized_header(
+        script: &[u8],
+    ) -> CompactResult<(
+        usize,
+        u8,
+        u8,
+        u32,
+        Option<ConstantPoolDescriptor>,
+        Option<(u32, u8)>,
+    )> {
         if script.len() < FIVE_HEADER_OPTIMIZED_SIZE {
             return Err(VMErrorCode::InvalidScript);
         }
@@ -648,7 +667,8 @@ impl MitoVM {
             return Err(VMErrorCode::InvalidScript);
         }
 
-        let metadata_end = Self::compute_metadata_end(script, features, public_function_count);
+        let (metadata_end, public_entry_table) =
+            Self::parse_metadata_sections(script, features, public_function_count)?;
         let mut start_ip = metadata_end;
         let mut pool_desc = None;
 
@@ -725,28 +745,51 @@ impl MitoVM {
             total_function_count,
             features,
             pool_desc,
+            public_entry_table,
         ))
     }
 
-    /// Fast metadata offset computation
+    /// Parse metadata sections and return final offset + optional public-entry descriptor.
     #[inline]
-    fn compute_metadata_end(script: &[u8], features: u32, public_count: u8) -> usize {
-        if (features & five_protocol::FEATURE_FUNCTION_NAMES) == 0 || public_count == 0 {
-            return FIVE_HEADER_OPTIMIZED_SIZE;
-        }
-
-        // Metadata format was validated at deploy-time
+    fn parse_metadata_sections(
+        script: &[u8],
+        features: u32,
+        public_count: u8,
+    ) -> CompactResult<(usize, Option<(u32, u8)>)> {
         let mut offset = FIVE_HEADER_OPTIMIZED_SIZE;
+        let mut public_entry = None;
 
-        // Use fixed u16 for section size
-        if offset + 2 <= script.len() {
-            let section_size = u16::from_le_bytes([script[offset], script[offset + 1]]);
+        if (features & five_protocol::FEATURE_FUNCTION_NAMES) != 0 && public_count > 0 {
+            if offset + 2 > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            let section_size = u16::from_le_bytes([script[offset], script[offset + 1]]) as usize;
             offset += 2;
-            (offset + section_size as usize).min(script.len())
-        } else {
-            // Malformed but we sanitize bounds
-            script.len()
+            if offset + section_size > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            offset += section_size;
         }
+
+        if (features & five_protocol::FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
+            if offset + 2 > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            let section_size = u16::from_le_bytes([script[offset], script[offset + 1]]) as usize;
+            offset += 2;
+            if section_size == 0 || offset + section_size > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            let count = script[offset];
+            let expected = 1usize + (count as usize) * 2;
+            if expected > section_size || count > public_count {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            public_entry = Some((offset as u32, count));
+            offset += section_size;
+        }
+
+        Ok((offset, public_entry))
     }
 
 }
@@ -776,7 +819,7 @@ mod tests {
     #[test]
     fn parse_optimized_header_success() {
         let script = build_script(3, 3, &[0x00, 0x00, 0x00]);
-        let (start_ip, public_function_count, total_function_count, features, _) =
+        let (start_ip, public_function_count, total_function_count, features, _, _) =
             MitoVM::parse_optimized_header(&script).unwrap();
         assert_eq!(start_ip, FIVE_HEADER_OPTIMIZED_SIZE);
         assert_eq!(public_function_count, 3);
@@ -795,7 +838,7 @@ mod tests {
         ];
         let result = MitoVM::parse_optimized_header(&script);
         assert!(result.is_ok());
-        let (start_ip, public_count, total_count, _, _) = result.unwrap();
+        let (start_ip, public_count, total_count, _, _, _) = result.unwrap();
         assert_eq!(public_count, 1);
         assert_eq!(total_count, 1);
         assert_eq!(start_ip, 10);

@@ -216,8 +216,11 @@ impl<'a> FrameManager<'a> {
 
     #[inline(always)]
     pub fn allocate_params(&mut self, count: u8) -> CompactResult<()> {
-        for slot in self.parameters.iter_mut() {
-            *slot = ValueRef::Empty;
+        let previous_span = (self.param_len as usize + 1).min(self.parameters.len());
+        let next_span = (count as usize + 1).min(self.parameters.len());
+        let clear_span = core::cmp::max(previous_span, next_span);
+        for i in 0..clear_span {
+            self.parameters[i] = ValueRef::Empty;
         }
         self.param_start = 0;
         self.param_len = count;

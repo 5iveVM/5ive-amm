@@ -296,6 +296,41 @@ impl DslBytecodeGenerator {
         Ok(())
     }
 
+    /// Emit compact public entry table metadata.
+    /// Format: [section_size:u16][public_entry_count:u8][entry_offset:u16 * count]
+    /// Offsets are relative to the start of the code section.
+    pub fn emit_public_entry_table_metadata(
+        &mut self,
+        entries: &[(u8, usize)],
+    ) -> Result<(), String> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+        if entries.len() > u8::MAX as usize {
+            return Err("Too many public entries for metadata".to_string());
+        }
+
+        let mut sorted = entries.to_vec();
+        sorted.sort_by_key(|(idx, _)| *idx);
+
+        let count = sorted.len() as u8;
+        let section_size = 1usize + (count as usize) * 2;
+        let section_size_u16 =
+            u16::try_from(section_size).map_err(|_| "Public entry section too large".to_string())?;
+
+        self.metadata_bytes
+            .extend_from_slice(&section_size_u16.to_le_bytes());
+        self.metadata_bytes.push(count);
+        for (_, offset) in sorted {
+            let rel = u16::try_from(offset)
+                .map_err(|_| "Public entry offset exceeds u16 range".to_string())?;
+            self.metadata_bytes.extend_from_slice(&rel.to_le_bytes());
+        }
+
+        self.header_features |= five_protocol::FEATURE_PUBLIC_ENTRY_TABLE;
+        Ok(())
+    }
+
     /// Main entry point for bytecode generation
     pub fn generate(&mut self, ast: &AstNode) -> Result<Vec<u8>, VMError> {
         // Clear previous state
@@ -394,7 +429,6 @@ impl DslBytecodeGenerator {
                 self.emit_function_name_metadata()
                     .map_err(|_| VMError::InvalidInstruction)?;
             }
-
             // Save import table for later emission after main bytecode
             let import_table = dispatcher.get_import_table().clone();
 
@@ -437,6 +471,11 @@ impl DslBytecodeGenerator {
                     &mut ast_generator,
                     &self.symbol_table.clone(),
                 )?;
+
+                if public_count > 0 {
+                    self.emit_public_entry_table_metadata(dispatcher.get_public_entry_points())
+                        .map_err(|_| VMError::InvalidInstruction)?;
+                }
 
                 // No header metadata patching needed.
 

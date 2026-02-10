@@ -55,6 +55,7 @@ pub const FEATURE_FUNCTION_CONSTRAINTS: u32 = 1 << 9;  // Function constraint me
 // Constant pool features
 pub const FEATURE_CONSTANT_POOL: u32 = 1 << 10; // Constant pool descriptor + pool data present
 pub const FEATURE_CONSTANT_POOL_STRINGS: u32 = 1 << 11; // String blob present (fat pointers in pool)
+pub const FEATURE_PUBLIC_ENTRY_TABLE: u32 = 1 << 12; // Compact public entry offset table metadata
 
 // Address constants
 pub const MAX_U16_ADDRESS: usize = u16::MAX as usize;

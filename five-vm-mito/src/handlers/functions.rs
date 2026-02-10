@@ -145,10 +145,36 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: internal CALL params={} stack={}", param_count as u64, ctx.size() as u64);
 
     ctx.allocate_params(param_count + 1)?;
-    for i in 0..param_count {
-        let value = ctx.pop()?;
-        let idx = (param_count - i) as usize;
-        ctx.parameters_mut()[idx] = value;
+    // Hot path for the common small-arity case.
+    match param_count {
+        0 => {}
+        1 => {
+            let p1 = ctx.pop()?;
+            ctx.parameters_mut()[1] = p1;
+        }
+        2 => {
+            let p2 = ctx.pop()?;
+            let p1 = ctx.pop()?;
+            let params = ctx.parameters_mut();
+            params[1] = p1;
+            params[2] = p2;
+        }
+        3 => {
+            let p3 = ctx.pop()?;
+            let p2 = ctx.pop()?;
+            let p1 = ctx.pop()?;
+            let params = ctx.parameters_mut();
+            params[1] = p1;
+            params[2] = p2;
+            params[3] = p3;
+        }
+        _ => {
+            for i in 0..param_count {
+                let value = ctx.pop()?;
+                let idx = (param_count - i) as usize;
+                ctx.parameters_mut()[idx] = value;
+            }
+        }
     }
 
     let current_ip = ctx.ip();

@@ -52,6 +52,8 @@ pub struct ExecutionContext<'a> {
     pub pool_slots: u16,
     pub string_blob_offset: u32,
     pub string_blob_len: u32,
+    pub public_entry_table_offset: u32,
+    pub public_entry_table_count: u8,
 
     // External Solana state.
     pub program_id: Pubkey,
@@ -144,6 +146,8 @@ impl<'a> ExecutionContext<'a> {
             pool_slots,
             string_blob_offset,
             string_blob_len,
+            public_entry_table_offset: 0,
+            public_entry_table_count: 0,
             program_id,
             instruction_data,
             halted: false,
@@ -286,6 +290,12 @@ impl<'a> ExecutionContext<'a> {
     #[inline(always)]
     pub fn set_header_features(&mut self, features: u32) {
         self.header_features = features;
+    }
+
+    #[inline(always)]
+    pub fn set_public_entry_table(&mut self, offset: u32, count: u8) {
+        self.public_entry_table_offset = offset;
+        self.public_entry_table_count = count;
     }
 
     #[inline(always)]
@@ -1116,7 +1126,26 @@ impl<'a> ExecutionContext<'a> {
         if func_index >= self.public_function_count {
             return Err(VMErrorCode::FunctionVisibilityViolation);
         }
-        let dispatch_ip = default_start_ip;
+        let dispatch_ip = if self.public_entry_table_count > 0 {
+            if func_index >= self.public_entry_table_count {
+                return Err(VMErrorCode::FunctionVisibilityViolation);
+            }
+            let base = self.public_entry_table_offset as usize;
+            let entry_pos = base + 1 + (func_index as usize) * 2;
+            if entry_pos + 1 >= self.bytecode.len() {
+                return Err(VMErrorCode::InvalidInstructionPointer);
+            }
+            let rel = u16::from_le_bytes([self.bytecode[entry_pos], self.bytecode[entry_pos + 1]]);
+            let absolute = default_start_ip
+                .checked_add(rel as usize)
+                .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+            if absolute >= self.bytecode.len() {
+                return Err(VMErrorCode::InvalidInstructionPointer);
+            }
+            absolute
+        } else {
+            default_start_ip
+        };
 
         self.set_ip(dispatch_ip);
         Ok(dispatch_ip)

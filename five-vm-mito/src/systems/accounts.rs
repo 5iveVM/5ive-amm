@@ -36,10 +36,6 @@ impl<'a> AccountManager<'a> {
     #[inline(always)]
     pub fn get(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         self.lazy_validator.ensure_validated(index, self.accounts)?;
-
-        if index as usize >= self.accounts.len() {
-            return Err(VMErrorCode::InvalidAccountIndex);
-        }
         Ok(&self.accounts[index as usize])
     }
 

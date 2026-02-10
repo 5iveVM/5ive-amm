@@ -19,10 +19,6 @@ macro_rules! debug_log {
             // pinocchio_log requires literal format strings; callers pass literals.
             pinocchio_log::log!($fmt $(, $arg)*);
         }
-        #[cfg(not(feature = "debug-logs"))]
-        {
-            let _ = format_args!($fmt $(, $arg)*);
-        }
     };
 }
 

@@ -24,21 +24,33 @@ pub fn emit_constraint_checks<T: OpcodeEmitter>(
         // Resolve account index (absolute index in VM)
         let account_idx = account_index_from_param_index(param_index as u8);
         
+        let mut has_signer = false;
+        let mut has_writable = false;
         // Process attributes
         for attribute in &param.attributes {
             match attribute.name.as_str() {
                 "signer" => {
-                    emit_signer_check(emitter, account_idx)?;
+                    has_signer = true;
                 }
                 "mut" | "writable" => {
-                    // Implicitly handled by loader, but we could add explicit check:
-                    emit_writable_check(emitter, account_idx)?;
+                    has_writable = true;
                 }
                 "has" => {
                     emit_has_check(emitter, account_idx, param, attribute, parameters, account_registry)?;
                 }
 
                  _ => {}
+            }
+        }
+        if has_signer && has_writable {
+            emitter.emit_opcode(CHECK_SIGNER_WRITABLE);
+            emitter.emit_u8(account_idx);
+        } else {
+            if has_signer {
+                emit_signer_check(emitter, account_idx)?;
+            }
+            if has_writable {
+                emit_writable_check(emitter, account_idx)?;
             }
         }
     }
@@ -185,4 +197,3 @@ fn emit_has_check<T: OpcodeEmitter>(
 
     Ok(())
 }
-
