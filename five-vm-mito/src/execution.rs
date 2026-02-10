@@ -210,6 +210,7 @@ impl MitoVM {
                 BR_EQ_U8 => handle_control_flow(BR_EQ_U8, ctx),
                 CMP_EQ_JUMP => handle_control_flow(CMP_EQ_JUMP, ctx),
                 DEC_JUMP_NZ => handle_control_flow(DEC_JUMP_NZ, ctx),
+                DEC_LOCAL_JUMP_NZ => handle_control_flow(DEC_LOCAL_JUMP_NZ, ctx),
 
                 // Stack Operations (0x10-0x1F)
                 POP => handle_stack_ops(POP, ctx),

@@ -425,6 +425,7 @@ impl OpcodeAnalyzer {
                 opcodes::ArgType::CompareU8Offset16 => 3,
                 opcodes::ArgType::CompareU8Target16 => 3,
                 opcodes::ArgType::TargetU16 => 2,
+                opcodes::ArgType::LocalTarget16 => 3,
             };
         }
 
@@ -444,6 +445,7 @@ impl OpcodeAnalyzer {
                 | opcodes::BR_EQ_U8
                 | opcodes::CMP_EQ_JUMP
                 | opcodes::DEC_JUMP_NZ
+                | opcodes::DEC_LOCAL_JUMP_NZ
                 | opcodes::CALL_EXTERNAL
                 | opcodes::EQ_ZERO_JUMP
                 | opcodes::GT_ZERO_JUMP

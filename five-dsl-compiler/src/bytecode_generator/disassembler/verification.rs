@@ -315,6 +315,28 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                 offset += 3;
             }
 
+            // DEC_LOCAL_JUMP_NZ: local_index(u8) + absolute_target(u16)
+            opcodes::DEC_LOCAL_JUMP_NZ => {
+                if offset + 4 > scan_len {
+                    break;
+                }
+                let target = u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]);
+                jump_count += 1;
+                if target as usize >= scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: "DEC_LOCAL_JUMP_NZ",
+                        target,
+                        reason: format!(
+                            "Out of bounds: target {} >= bytecode length {}",
+                            target, scan_len
+                        ),
+                    });
+                }
+                offset += 4;
+            }
+
             // CALL_EXTERNAL: account_index(1) + offset(2) + param_count(1)
             opcodes::CALL_EXTERNAL => {
                 offset += 5;

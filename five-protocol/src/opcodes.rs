@@ -73,6 +73,7 @@ pub const NOP: u8 = 0x08; // No operation
 pub const BR_EQ_U8: u8 = 0x09; // Fused compare-and-branch: compare with u8, jump if equal
 pub const CMP_EQ_JUMP: u8 = 0x0A; // Compare stack top with u8 immediate and jump to absolute u16 target if equal
 pub const DEC_JUMP_NZ: u8 = 0x0B; // Decrement stack top and jump to absolute u16 target when result != 0
+pub const DEC_LOCAL_JUMP_NZ: u8 = 0x0C; // Decrement local[u8] and jump to absolute u16 target when result != 0
 
 // ===== ALL STACK OPERATIONS (0x10-0x1F) =====
 // 🎯 LOGICAL GROUPING: All stack manipulation + ALL PUSH operations consolidated
@@ -446,6 +447,7 @@ pub enum ArgType {
     CompareU8Offset16, // compare(u8) + rel_offset(u16)
     CompareU8Target16, // compare(u8) + abs_target(u16)
     TargetU16, // abs_target(u16)
+    LocalTarget16, // local_index(u8) + abs_target(u16)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -536,6 +538,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         opcode: DEC_JUMP_NZ,
         name: "DEC_JUMP_NZ",
         arg_type: ArgType::TargetU16,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: DEC_LOCAL_JUMP_NZ,
+        name: "DEC_LOCAL_JUMP_NZ",
+        arg_type: ArgType::LocalTarget16,
         stack_effect: 0,
         compute_cost: 2,
     },
@@ -1878,6 +1887,7 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
         ArgType::CompareU8Offset16 => 3,
         ArgType::CompareU8Target16 => 3,
         ArgType::TargetU16 => 2,
+        ArgType::LocalTarget16 => 3,
     })
 }
 

@@ -646,6 +646,19 @@ pub fn parse_instruction_with_features(
             arg1 = target;
             total_size += 2;
         }
+        ArgType::LocalTarget16 => {
+            if offset + total_size + 2 >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
+            let local_index = bytecode[offset + total_size] as u64;
+            let target = u16::from_le_bytes([
+                bytecode[offset + total_size + 1],
+                bytecode[offset + total_size + 2],
+            ]) as u64;
+            arg1 = local_index;
+            arg2 = target;
+            total_size += 3;
+        }
     }
 
     // Final size check: parser decode must match canonical protocol sizing.

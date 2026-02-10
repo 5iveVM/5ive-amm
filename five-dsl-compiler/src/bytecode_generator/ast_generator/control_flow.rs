@@ -8,6 +8,308 @@ use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    fn contains_identifier(node: &AstNode, ident: &str) -> bool {
+        match node {
+            AstNode::Identifier(name) => name == ident,
+            AstNode::Program {
+                field_definitions,
+                instruction_definitions,
+                event_definitions,
+                account_definitions,
+                interface_definitions,
+                import_statements,
+                init_block,
+                constraints_block,
+                ..
+            } => {
+                field_definitions
+                    .iter()
+                    .any(|n| Self::contains_identifier(n, ident))
+                    || instruction_definitions
+                        .iter()
+                        .any(|n| Self::contains_identifier(n, ident))
+                    || event_definitions
+                        .iter()
+                        .any(|n| Self::contains_identifier(n, ident))
+                    || account_definitions
+                        .iter()
+                        .any(|n| Self::contains_identifier(n, ident))
+                    || interface_definitions
+                        .iter()
+                        .any(|n| Self::contains_identifier(n, ident))
+                    || import_statements
+                        .iter()
+                        .any(|n| Self::contains_identifier(n, ident))
+                    || init_block
+                        .as_ref()
+                        .is_some_and(|n| Self::contains_identifier(n, ident))
+                    || constraints_block
+                        .as_ref()
+                        .is_some_and(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::Block { statements, .. } => {
+                statements.iter().any(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::Assignment { target, value } => {
+                target == ident || Self::contains_identifier(value, ident)
+            }
+            AstNode::FieldAssignment { object, value, .. } => {
+                Self::contains_identifier(object, ident) || Self::contains_identifier(value, ident)
+            }
+            AstNode::RequireStatement { condition } => Self::contains_identifier(condition, ident),
+            AstNode::MethodCall { object, args, .. } => {
+                Self::contains_identifier(object, ident)
+                    || args.iter().any(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::LetStatement { value, .. } => Self::contains_identifier(value, ident),
+            AstNode::TupleDestructuring { value, .. } => Self::contains_identifier(value, ident),
+            AstNode::TupleAssignment { targets, value } => {
+                targets.iter().any(|n| Self::contains_identifier(n, ident))
+                    || Self::contains_identifier(value, ident)
+            }
+            AstNode::FunctionCall { args, .. } => {
+                args.iter().any(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::EmitStatement { fields, .. } => fields
+                .iter()
+                .any(|f| Self::contains_identifier(&f.value, ident)),
+            AstNode::IfStatement {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                Self::contains_identifier(condition, ident)
+                    || Self::contains_identifier(then_branch, ident)
+                    || else_branch
+                        .as_ref()
+                        .is_some_and(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::MatchExpression { expression, arms } => {
+                Self::contains_identifier(expression, ident)
+                    || arms
+                        .iter()
+                        .any(|arm| Self::contains_identifier(&arm.body, ident))
+            }
+            AstNode::ReturnStatement { value } => value
+                .as_ref()
+                .is_some_and(|n| Self::contains_identifier(n, ident)),
+            AstNode::StructLiteral { fields } => fields
+                .iter()
+                .any(|f| Self::contains_identifier(&f.value, ident)),
+            AstNode::ArrayLiteral { elements } | AstNode::TupleLiteral { elements } => {
+                elements.iter().any(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::FieldAccess { object, .. } | AstNode::TupleAccess { object, .. } => {
+                Self::contains_identifier(object, ident)
+            }
+            AstNode::ArrayAccess { array, index } => {
+                Self::contains_identifier(array, ident) || Self::contains_identifier(index, ident)
+            }
+            AstNode::ErrorPropagation { expression }
+            | AstNode::UnaryExpression {
+                operand: expression,
+                ..
+            } => Self::contains_identifier(expression, ident),
+            AstNode::TemplateLiteral { parts } => {
+                parts.iter().any(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::BinaryExpression { left, right, .. } => {
+                Self::contains_identifier(left, ident) || Self::contains_identifier(right, ident)
+            }
+            AstNode::ForLoop {
+                init,
+                condition,
+                update,
+                body,
+            } => {
+                init.as_ref()
+                    .is_some_and(|n| Self::contains_identifier(n, ident))
+                    || condition
+                        .as_ref()
+                        .is_some_and(|n| Self::contains_identifier(n, ident))
+                    || update
+                        .as_ref()
+                        .is_some_and(|n| Self::contains_identifier(n, ident))
+                    || Self::contains_identifier(body, ident)
+            }
+            AstNode::ForInLoop { iterable, body, .. }
+            | AstNode::ForOfLoop { iterable, body, .. } => {
+                Self::contains_identifier(iterable, ident) || Self::contains_identifier(body, ident)
+            }
+            AstNode::WhileLoop { condition, body } | AstNode::DoWhileLoop { condition, body } => {
+                Self::contains_identifier(condition, ident) || Self::contains_identifier(body, ident)
+            }
+            AstNode::SwitchStatement {
+                discriminant,
+                cases,
+                default_case,
+            } => {
+                Self::contains_identifier(discriminant, ident)
+                    || cases.iter().any(|c| {
+                        Self::contains_identifier(&c.pattern, ident)
+                            || c.body.iter().any(|n| Self::contains_identifier(n, ident))
+                    })
+                    || default_case
+                        .as_ref()
+                        .is_some_and(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::ArrowFunction { body, .. }
+            | AstNode::TestFunction { body, .. }
+            | AstNode::TestModule { body, .. } => Self::contains_identifier(body, ident),
+            AstNode::AssertStatement { args, .. } => {
+                args.iter().any(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::InterfaceDefinition { functions, .. } => {
+                functions.iter().any(|n| Self::contains_identifier(n, ident))
+            }
+            AstNode::InterfaceFunction { .. }
+            | AstNode::ImportStatement { .. }
+            | AstNode::Literal(_)
+            | AstNode::StringLiteral { .. }
+            | AstNode::EnumVariantAccess { .. }
+            | AstNode::BreakStatement { .. }
+            | AstNode::ContinueStatement { .. }
+            | AstNode::ErrorTypeDefinition { .. }
+            | AstNode::AccountDefinition { .. }
+            | AstNode::FieldDefinition { .. }
+            | AstNode::InstructionDefinition { .. }
+            | AstNode::EventDefinition { .. } => false,
+        }
+    }
+
+    fn is_one_literal(node: &AstNode) -> bool {
+        matches!(
+            node,
+            AstNode::Literal(five_protocol::Value::U8(1))
+                | AstNode::Literal(five_protocol::Value::U64(1))
+        )
+    }
+
+    fn try_parse_counted_while<'a>(
+        &self,
+        condition: &'a AstNode,
+        body: &'a AstNode,
+    ) -> Option<(&'a str, &'a AstNode, AstNode)> {
+        let (index_name, upper_bound) = match condition {
+            AstNode::BinaryExpression {
+                operator,
+                left,
+                right,
+            } if operator == "<" => match left.as_ref() {
+                AstNode::Identifier(name) => (name.as_str(), right.as_ref()),
+                _ => return None,
+            },
+            AstNode::MethodCall { object, method, args } if method == "lt" && args.len() == 1 => {
+                match object.as_ref() {
+                    AstNode::Identifier(name) => (name.as_str(), &args[0]),
+                    _ => return None,
+                }
+            }
+            _ => return None,
+        };
+
+        match upper_bound {
+            AstNode::Identifier(_) | AstNode::Literal(_) => {}
+            _ => return None,
+        }
+
+        let (statements, kind) = match body {
+            AstNode::Block { statements, kind } if !statements.is_empty() => (statements, kind),
+            _ => return None,
+        };
+
+        let last = statements.last()?;
+        let has_increment = matches!(
+            last,
+            AstNode::Assignment { target, value }
+                if target == index_name
+                    && matches!(
+                        value.as_ref(),
+                        AstNode::BinaryExpression { operator, left, right }
+                            if operator == "+"
+                                && matches!(left.as_ref(), AstNode::Identifier(name) if name == index_name)
+                                && Self::is_one_literal(right)
+                    )
+        );
+        if !has_increment {
+            return None;
+        }
+
+        let core_stmts = &statements[..statements.len() - 1];
+        if core_stmts
+            .iter()
+            .any(|stmt| Self::contains_identifier(stmt, index_name))
+        {
+            return None;
+        }
+        if core_stmts.iter().any(|stmt| {
+            matches!(
+                stmt,
+                AstNode::BreakStatement { .. } | AstNode::ContinueStatement { .. }
+            )
+        }) {
+            return None;
+        }
+
+        Some((
+            index_name,
+            upper_bound,
+            AstNode::Block {
+                statements: core_stmts.to_vec(),
+                kind: kind.clone(),
+            },
+        ))
+    }
+
+    fn generate_counted_while<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        condition: &AstNode,
+        index_name: &str,
+        upper_bound: &AstNode,
+        core_body: &AstNode,
+    ) -> Result<(), VMError> {
+        let index_offset = self
+            .local_symbol_table
+            .get(index_name)
+            .map(|f| f.offset)
+            .ok_or(VMError::UndefinedIdentifier)?;
+
+        let start_label = self.new_label();
+        let end_label = self.new_label();
+
+        // Keep original while semantics when starting condition is false.
+        self.generate_ast_node(emitter, condition)?;
+        self.emit_jump(emitter, JUMP_IF_NOT, end_label.clone());
+
+        // countdown = upper_bound - index, stored in the index slot to avoid
+        // introducing a synthetic local that might exceed preallocated locals.
+        self.generate_ast_node(emitter, upper_bound)?;
+        self.emit_get_local(emitter, index_offset, "counted while index");
+        emitter.emit_opcode(SUB);
+        self.emit_set_local(emitter, index_offset, "counted while countdown init");
+
+        self.place_label(emitter, start_label.clone());
+        self.generate_ast_node(emitter, core_body)?;
+
+        emitter.emit_opcode(DEC_LOCAL_JUMP_NZ);
+        emitter.emit_u8(index_offset as u8);
+        let patch_pos = emitter.get_position();
+        emitter.emit_u16(0);
+        let loop_start_pos = *self
+            .label_positions
+            .get(&start_label)
+            .ok_or(VMError::InvalidInstructionPointer)?;
+        self.patch_jump_offset(emitter, patch_pos, loop_start_pos)?;
+
+        // Preserve post-loop value of index variable: i = upper_bound.
+        self.generate_ast_node(emitter, upper_bound)?;
+        self.emit_set_local(emitter, index_offset, "counted while final index");
+
+        self.place_label(emitter, end_label);
+        Ok(())
+    }
+
     /// Generate while loop with break/continue support
     pub(super) fn generate_while_loop<T: OpcodeEmitter>(
         &mut self,
@@ -15,6 +317,18 @@ impl ASTGenerator {
         condition: &AstNode,
         body: &AstNode,
     ) -> Result<(), VMError> {
+        if let Some((index_name, upper_bound, core_body)) =
+            self.try_parse_counted_while(condition, body)
+        {
+            return self.generate_counted_while(
+                emitter,
+                condition,
+                index_name,
+                upper_bound,
+                &core_body,
+            );
+        }
+
         let start_label = self.new_label();
         let end_label = self.new_label();
 

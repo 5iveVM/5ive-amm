@@ -298,6 +298,20 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
+            opcodes::DEC_LOCAL_JUMP_NZ => {
+                if pc + 4 <= bytes.len() {
+                    let local = bytes[pc + 1];
+                    let target = u16::from_le_bytes([bytes[pc + 2], bytes[pc + 3]]);
+                    lines.push(format!(
+                        "{:04X}: DEC_LOCAL_JUMP_NZ local={} target={}",
+                        pc, local, target
+                    ));
+                    pc += 4;
+                } else {
+                    lines.push(format!("{:04X}: DEC_LOCAL_JUMP_NZ <truncated>", pc));
+                    break;
+                }
+            }
             opcodes::LOAD_PARAM => {
                 if pc + 1 < bytes.len() {
                     lines.push(format!("{:04X}: LOAD_PARAM idx={}", pc, bytes[pc + 1]));
