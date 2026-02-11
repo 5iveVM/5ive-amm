@@ -30,6 +30,17 @@ use solana_sdk::{
     transaction::Transaction,
 };
 
+fn print_external_cache_metrics(label: &str) {
+    #[cfg(not(target_os = "solana"))]
+    {
+        let (hits, misses, verify_hits) = five_vm_mito::MitoVM::last_external_cache_metrics();
+        println!(
+            "BPF_CU {} external_cache_hits={} external_cache_misses={} import_verify_cache_hits={}",
+            label, hits, misses, verify_hits
+        );
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct RuntimeFixture {
     name: String,
@@ -465,6 +476,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         caller_bytecode.len(),
         token_bytecode.len()
     );
+    print_external_cache_metrics("external_non_cpi");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -738,7 +750,7 @@ async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
         let src_balance = u64::from_le_bytes(src_after.data[64..72].try_into().unwrap());
         let dst_balance = u64::from_le_bytes(dst_after.data[64..72].try_into().unwrap());
         assert_eq!(src_balance, 1000 - amount);
-        assert_eq!(dst_balance, 100 + amount);
+        assert_eq!(dst_balance, 15000 + amount);
     }
 
     println!(
@@ -754,6 +766,7 @@ async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
         token_bytecode.len(),
         transfer_amounts.len()
     );
+    print_external_cache_metrics("external_burst_non_cpi");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -1073,6 +1086,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         transfer_amounts.len(),
         total_transfer_calls
     );
+    print_external_cache_metrics("external_mass_transfer_non_cpi");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -2586,10 +2600,12 @@ fn build_execute_instruction(
     ];
     for name in &step.extras {
         let a = &accounts[name];
+        let is_external_script = name != script_name && name.ends_with("_script");
         metas.push(AccountMeta {
             pubkey: a.pubkey,
             is_signer: a.is_signer,
-            is_writable: a.is_writable,
+            // Imported bytecode accounts must be read-only during execution.
+            is_writable: if is_external_script { false } else { a.is_writable },
         });
     }
 

@@ -240,6 +240,7 @@ pub const CALL_EXTERNAL: u8 = 0x91; // Call function in external account bytecod
 pub const CALL_NATIVE: u8 = 0x92; // MOVED FROM 0x82 (not implemented)
 pub const PREPARE_CALL: u8 = 0x93; // MOVED FROM 0x83 (not implemented)
 pub const FINISH_CALL: u8 = 0x94; // MOVED FROM 0x84 (not implemented)
+pub const CALL_EXTERNAL_FAST: u8 = 0x95; // Fast-path external call (same wire format as CALL_EXTERNAL)
 
 
 // ===== LOCAL VARIABLE OPERATIONS (0xA0-0xAF) =====
@@ -1124,6 +1125,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::CallExternal,
         stack_effect: 0,
         compute_cost: 8,
+    }, // account_index_u8 + offset_u16 + param_count_u8
+    OpcodeInfo {
+        opcode: CALL_EXTERNAL_FAST,
+        name: "CALL_EXTERNAL_FAST",
+        arg_type: ArgType::CallExternal,
+        stack_effect: 0,
+        compute_cost: 6,
     }, // account_index_u8 + offset_u16 + param_count_u8
     OpcodeInfo {
         opcode: CALL_NATIVE,

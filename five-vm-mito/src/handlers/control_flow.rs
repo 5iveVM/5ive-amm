@@ -96,10 +96,22 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 ctx.set_local_count(frame.local_count);
                 ctx.set_local_base(frame.local_base); // Restore per-frame local window
 
-                // Restore bytecode context
-                if frame.bytecode_context == crate::types::ROOT_CONTEXT {
+                // Restore caller bytecode directly from saved script slice pointer.
+                if frame.bytecode_context != crate::types::ROOT_CONTEXT
+                    && frame.caller_script_ptr != 0
+                    && frame.caller_script_len > 0
+                {
+                    // SAFETY: Stored from a live script slice at call time and valid for tx lifetime.
+                    let script = unsafe {
+                        core::slice::from_raw_parts(
+                            frame.caller_script_ptr as *const u8,
+                            frame.caller_script_len as usize,
+                        )
+                    };
+                    ctx.set_script(script);
+                } else if frame.bytecode_context == crate::types::ROOT_CONTEXT {
+                    // Compatibility fallback for old frames.
                     ctx.set_script(ctx.root_bytecode);
-                    ctx.current_context = crate::types::ROOT_CONTEXT;
                 } else {
                     let account = ctx.accounts.get_unchecked(frame.bytecode_context)?;
                     let data = unsafe { account.borrow_data_unchecked() };
@@ -108,8 +120,8 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                         return Err(VMErrorCode::AccountDataEmpty);
                     }
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
-                    ctx.current_context = frame.bytecode_context;
                 }
+                ctx.current_context = frame.bytecode_context;
 
                 // Verify IP against restored script
                 if ctx.ip() >= ctx.script().len() {
@@ -154,10 +166,22 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 ctx.set_local_count(frame.local_count);
                 ctx.set_local_base(frame.local_base); // Restore per-frame local window
 
-                // Restore bytecode context
-                if frame.bytecode_context == crate::types::ROOT_CONTEXT {
+                // Restore caller bytecode directly from saved script slice pointer.
+                if frame.bytecode_context != crate::types::ROOT_CONTEXT
+                    && frame.caller_script_ptr != 0
+                    && frame.caller_script_len > 0
+                {
+                    // SAFETY: Stored from a live script slice at call time and valid for tx lifetime.
+                    let script = unsafe {
+                        core::slice::from_raw_parts(
+                            frame.caller_script_ptr as *const u8,
+                            frame.caller_script_len as usize,
+                        )
+                    };
+                    ctx.set_script(script);
+                } else if frame.bytecode_context == crate::types::ROOT_CONTEXT {
+                    // Compatibility fallback for old frames.
                     ctx.set_script(ctx.root_bytecode);
-                    ctx.current_context = crate::types::ROOT_CONTEXT;
                 } else {
                     let account = ctx.accounts.get_unchecked(frame.bytecode_context)?;
                     let data = unsafe { account.borrow_data_unchecked() };
@@ -166,8 +190,8 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                         return Err(VMErrorCode::AccountDataEmpty);
                     }
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
-                    ctx.current_context = frame.bytecode_context;
                 }
+                ctx.current_context = frame.bytecode_context;
 
                 // Verify IP against restored script
                 if ctx.ip() > ctx.script().len() {

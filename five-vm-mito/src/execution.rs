@@ -26,6 +26,12 @@ use five_protocol::opcodes::*;
 
 #[cfg(not(target_os = "solana"))]
 static LAST_COMPUTE_UNITS: AtomicU64 = AtomicU64::new(0);
+#[cfg(not(target_os = "solana"))]
+static LAST_EXTERNAL_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
+#[cfg(not(target_os = "solana"))]
+static LAST_EXTERNAL_CACHE_MISSES: AtomicU64 = AtomicU64::new(0);
+#[cfg(not(target_os = "solana"))]
+static LAST_IMPORT_VERIFY_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
 
 /// Execution state snapshot returned from VM operations.
 /// Used primarily for WASM integration and external monitoring.
@@ -71,6 +77,16 @@ impl MitoVM {
     #[inline]
     pub fn last_compute_units_consumed() -> u64 {
         LAST_COMPUTE_UNITS.load(Ordering::Relaxed)
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    #[inline]
+    pub fn last_external_cache_metrics() -> (u64, u64, u64) {
+        (
+            LAST_EXTERNAL_CACHE_HITS.load(Ordering::Relaxed),
+            LAST_EXTERNAL_CACHE_MISSES.load(Ordering::Relaxed),
+            LAST_IMPORT_VERIFY_CACHE_HITS.load(Ordering::Relaxed),
+        )
     }
 
     /// Prepare execution environment with fixed-width parameters and function dispatch.
@@ -366,6 +382,7 @@ impl MitoVM {
                 // Function Operations (0x90-0x9F)
                 CALL => handle_functions(CALL, ctx),
                 CALL_EXTERNAL => handle_functions(CALL_EXTERNAL, ctx),
+                CALL_EXTERNAL_FAST => handle_functions(CALL_EXTERNAL_FAST, ctx),
                 CALL_NATIVE => handle_functions(CALL_NATIVE, ctx),
                 PREPARE_CALL => handle_functions(PREPARE_CALL, ctx),
                 FINISH_CALL => handle_functions(FINISH_CALL, ctx),
@@ -515,12 +532,26 @@ impl MitoVM {
                 let result = crate::resolution::finalize_execution_result(&mut ctx)
                     .map_err(VMError::from);
                 #[cfg(not(target_os = "solana"))]
+                {
+                    let (hits, misses, verify_hits) = ctx.external_cache_metrics();
+                    LAST_EXTERNAL_CACHE_HITS.store(hits as u64, Ordering::Relaxed);
+                    LAST_EXTERNAL_CACHE_MISSES.store(misses as u64, Ordering::Relaxed);
+                    LAST_IMPORT_VERIFY_CACHE_HITS.store(verify_hits as u64, Ordering::Relaxed);
+                }
+                #[cfg(not(target_os = "solana"))]
                 LAST_COMPUTE_UNITS.store(ctx.compute_units_consumed(), Ordering::Relaxed);
                 // Clear temp buffer to avoid reusing stale data between runs
                 ctx.reset_temp_buffer();
                 result
             }
             Err(e) => {
+                #[cfg(not(target_os = "solana"))]
+                {
+                    let (hits, misses, verify_hits) = ctx.external_cache_metrics();
+                    LAST_EXTERNAL_CACHE_HITS.store(hits as u64, Ordering::Relaxed);
+                    LAST_EXTERNAL_CACHE_MISSES.store(misses as u64, Ordering::Relaxed);
+                    LAST_IMPORT_VERIFY_CACHE_HITS.store(verify_hits as u64, Ordering::Relaxed);
+                }
                 #[cfg(not(target_os = "solana"))]
                 LAST_COMPUTE_UNITS.store(ctx.compute_units_consumed(), Ordering::Relaxed);
                 Err(VMError::from(e))

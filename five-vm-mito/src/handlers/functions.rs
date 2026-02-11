@@ -7,7 +7,7 @@ use crate::{
     debug_log,
     error::{CompactResult, VMErrorCode},
     handlers::syscalls::*,
-    types::CallFrame,
+    types::{CallFrame, ExternalCallCacheEntry},
     MAX_CALL_DEPTH, MAX_PARAMETERS, STACK_SIZE,
 };
 use five_protocol::{opcodes::*, ValueRef, FEATURE_FUNCTION_METADATA, FEATURE_FUNCTION_NAMES};
@@ -29,10 +29,10 @@ pub fn handle_functions(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             }
             res
         }
-        CALL_EXTERNAL => {
+        CALL_EXTERNAL | CALL_EXTERNAL_FAST => {
             let res = handle_call_external(ctx);
             if res.is_err() {
-                debug_log!("MitoVM: CALL_EXTERNAL Failed");
+                debug_log!("MitoVM: CALL_EXTERNAL(_FAST) Failed");
             }
             res
         }
@@ -200,6 +200,8 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
         caller_len,
         ctx.current_context,
         ctx.external_account_remap(),
+        ctx.script().as_ptr() as usize,
+        ctx.script().len() as u32,
     ))?;
 
     // Set callee's local base to end of caller's locals (per-frame window)
@@ -371,6 +373,29 @@ fn external_selector(name: &str) -> u16 {
         hash = hash.wrapping_mul(PRIME);
     }
     (hash & 0xFFFF) as u16
+}
+
+#[inline]
+fn external_code_fingerprint(external_bytecode: &[u8]) -> u32 {
+    const OFFSET: u32 = 0x811C9DC5;
+    const PRIME: u32 = 0x01000193;
+    let mut hash = OFFSET ^ (external_bytecode.len() as u32);
+    let sample_len = external_bytecode.len().min(16);
+    for b in &external_bytecode[..sample_len] {
+        hash ^= *b as u32;
+        hash = hash.wrapping_mul(PRIME);
+    }
+    if external_bytecode.len() >= five_protocol::FIVE_HEADER_OPTIMIZED_SIZE {
+        hash ^= u32::from_le_bytes([
+            external_bytecode[4],
+            external_bytecode[5],
+            external_bytecode[6],
+            external_bytecode[7],
+        ]);
+        hash = hash.wrapping_mul(PRIME);
+        hash ^= (external_bytecode[8] as u32) << 8 | external_bytecode[9] as u32;
+    }
+    hash
 }
 
 #[inline]
@@ -554,10 +579,13 @@ fn validate_external_function_constraints(
 
     for i in 0..account_count as usize {
         let constraint_bitmask = constraints[i];
+        if constraint_bitmask == 0 {
+            continue;
+        }
+        let account = ctx.get_account(i as u8)?;
 
         // bit 0: @signer constraint
         if (constraint_bitmask & 0x01) != 0 {
-            let account = ctx.get_account(i as u8)?;
             if !account.is_signer() {
                 debug_log!(
                     "MitoVM: CALL_EXTERNAL constraint violation - account {} not signer",
@@ -569,7 +597,6 @@ fn validate_external_function_constraints(
 
         // bit 1: @mut constraint (writable)
         if (constraint_bitmask & 0x02) != 0 {
-            let account = ctx.get_account(i as u8)?;
             if !account.is_writable() {
                 debug_log!(
                     "MitoVM: CALL_EXTERNAL constraint violation - account {} not writable",
@@ -581,7 +608,6 @@ fn validate_external_function_constraints(
 
         // bit 3: @init constraint (must be initialized - has data)
         if (constraint_bitmask & 0x08) != 0 {
-            let account = ctx.get_account(i as u8)?;
             if account.data_len() == 0 {
                 debug_log!(
                     "MitoVM: CALL_EXTERNAL constraint violation - account {} not initialized",
@@ -624,6 +650,8 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     }
 
     let resolved_account_index = ctx.resolve_account_index_for_context(account_index as u8) as usize;
+    let resolved_account_index_u8 =
+        u8::try_from(resolved_account_index).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
 
     // Validate account index
     if resolved_account_index >= ctx.accounts().len() {
@@ -635,35 +663,91 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         return Err(VMErrorCode::AccountNotFound);
     }
 
-    // Optimization: Get account reference once
-    let account = ctx.get_account(resolved_account_index as u8)?;
+    let (external_bytecode, code_fingerprint, is_authorized) =
+        if let Some((hot_fingerprint, hot_authorized)) = ctx.external_hot_ctx_lookup(resolved_account_index_u8) {
+            let script = ctx
+                .external_hot_ctx_script(resolved_account_index_u8)
+                .ok_or(VMErrorCode::AccountDataEmpty)?;
+            (script, hot_fingerprint, hot_authorized)
+        } else {
+            // Optimization: resolve and validate account only on first use per transaction.
+            let account = ctx.get_account(resolved_account_index_u8)?;
 
-    // Validate account has data
-    let account_data_len = account.data_len();
-    if account_data_len == 0 {
-        debug_log!(
-            "MitoVM: CALL_EXTERNAL account {} has no data",
-            account_index as u32
-        );
-        return Err(VMErrorCode::AccountDataEmpty);
-    }
+            // For cache safety and predictable semantics, external bytecode account must be read-only.
+            if account.is_writable() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
 
-    // SAFETY: Account has been validated (index check above). borrow_data_unchecked is safe
-    // within Solana runtime context as account data is guaranteed to remain valid for the
-    // duration of the transaction. Creating slice from valid data pointer.
-    // On Solana, all Five bytecode accounts start with a 64-byte ScriptAccountHeader
-    let external_bytecode_raw = unsafe {
-        let data_slice = account.borrow_data_unchecked();
-        core::slice::from_raw_parts(data_slice.as_ptr(), data_slice.len())
-    };
-    
-    // Skip 64-byte ScriptAccountHeader to get actual bytecode
-    const SCRIPT_ACCOUNT_HEADER_LEN: usize = 64;
-    if external_bytecode_raw.len() < SCRIPT_ACCOUNT_HEADER_LEN {
-        debug_log!("MitoVM: CALL_EXTERNAL account too small for header");
-        return Err(VMErrorCode::AccountDataEmpty);
-    }
-    let external_bytecode = &external_bytecode_raw[SCRIPT_ACCOUNT_HEADER_LEN..];
+            // Validate account has data
+            let account_data_len = account.data_len();
+            if account_data_len == 0 {
+                debug_log!(
+                    "MitoVM: CALL_EXTERNAL account {} has no data",
+                    account_index as u32
+                );
+                return Err(VMErrorCode::AccountDataEmpty);
+            }
+
+            // SAFETY: Account has been validated (index check above). borrow_data_unchecked is safe
+            // within Solana runtime context as account data is guaranteed to remain valid for the
+            // duration of the transaction. Creating slice from valid data pointer.
+            // On Solana, all Five bytecode accounts start with a 64-byte ScriptAccountHeader
+            let external_bytecode_raw = unsafe {
+                let data_slice = account.borrow_data_unchecked();
+                core::slice::from_raw_parts(data_slice.as_ptr(), data_slice.len())
+            };
+
+            // Skip 64-byte ScriptAccountHeader to get actual bytecode
+            const SCRIPT_ACCOUNT_HEADER_LEN: usize = 64;
+            if external_bytecode_raw.len() < SCRIPT_ACCOUNT_HEADER_LEN {
+                debug_log!("MitoVM: CALL_EXTERNAL account too small for header");
+                return Err(VMErrorCode::AccountDataEmpty);
+            }
+            let external_bytecode = &external_bytecode_raw[SCRIPT_ACCOUNT_HEADER_LEN..];
+            let code_fingerprint = external_code_fingerprint(external_bytecode);
+
+            // NEW: Import verification for Five bytecode accounts.
+            // Check if the account matches verified imports using zero-copy metadata.
+            let pda_derivation_fn: Option<crate::metadata::PdaDerivationFn> = Some(|seeds, program_id| {
+                #[cfg(target_os = "solana")]
+                {
+                    let (key, _bump) = pinocchio::pubkey::find_program_address(seeds, unsafe {
+                        &*(program_id as *const _ as *const pinocchio::pubkey::Pubkey)
+                    });
+                    key
+                }
+                #[cfg(not(target_os = "solana"))]
+                {
+                    let _ = seeds;
+                    let _ = program_id;
+                    [0u8; 32]
+                }
+            });
+
+            let is_authorized = if let Some(cached) =
+                ctx.import_verify_cache_lookup(resolved_account_index_u8, code_fingerprint)
+            {
+                cached
+            } else {
+                let authorized = ctx.import_metadata.verify_account(
+                    account.key(),
+                    &ctx.program_id,
+                    pda_derivation_fn,
+                );
+                ctx.import_verify_cache_store(resolved_account_index_u8, code_fingerprint, authorized);
+                authorized
+            };
+
+            ctx.external_hot_ctx_store(
+                resolved_account_index_u8,
+                external_bytecode.as_ptr() as usize,
+                external_bytecode.len(),
+                code_fingerprint,
+                is_authorized,
+            )?;
+
+            (external_bytecode, code_fingerprint, is_authorized)
+        };
     
     debug_log!(
         "MitoVM: CALL_EXTERNAL loaded external_bytecode length: {}",
@@ -683,51 +767,53 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         }
     }
 
-    // Parse and validate constraint metadata from external bytecode
-    // This ensures the external function's account requirements are met
-    let (resolved_func_offset, resolved_func_index) =
-        resolve_external_function_target(external_bytecode, function_selector)?;
-
-    let constraint_selector = resolved_func_index.unwrap_or(0);
-    let (required_account_count, constraints) =
-        parse_function_constraints(external_bytecode, constraint_selector)?;
+    // Fast path: transaction-local selector/constraint resolution cache
+    let (resolved_func_offset, required_account_count, constraints) =
+        if let Some(entry) = ctx.external_call_cache_lookup(
+            resolved_account_index as u8,
+            function_selector,
+            code_fingerprint,
+        ) {
+            (
+                entry.func_offset as usize,
+                entry.required_account_count,
+                entry.constraints,
+            )
+        } else {
+            let (resolved_func_offset, resolved_func_index) =
+                resolve_external_function_target(external_bytecode, function_selector)?;
+            let constraint_selector = resolved_func_index.unwrap_or(0);
+            let (required_account_count, constraints) =
+                parse_function_constraints(external_bytecode, constraint_selector)?;
+            let func_offset_u16 =
+                u16::try_from(resolved_func_offset).map_err(|_| VMErrorCode::InvalidInstructionPointer)?;
+            let func_index_u8 = match resolved_func_index {
+                Some(idx) => u8::try_from(idx).map_err(|_| VMErrorCode::InvalidInstructionPointer)?,
+                None => u8::MAX,
+            };
+            ctx.external_call_cache_store(ExternalCallCacheEntry {
+                resolved_account_index: resolved_account_index as u8,
+                selector: function_selector,
+                func_offset: func_offset_u16,
+                func_index: func_index_u8,
+                required_account_count,
+                constraints,
+                code_fingerprint,
+                valid: true,
+            });
+            (
+                resolved_func_offset,
+                required_account_count,
+                constraints,
+            )
+        };
 
     // Validate that the provided accounts satisfy external function's constraints
     if required_account_count > 0 {
         validate_external_function_constraints(ctx, required_account_count, &constraints)?;
     }
 
-    // NEW: Import verification for Five bytecode accounts
-    // Check if the account matches verified imports using zero-copy metadata
-    let pda_derivation_fn: Option<crate::metadata::PdaDerivationFn> = Some(|seeds, program_id| {
-        #[cfg(target_os = "solana")]
-        {
-            // On Solana, use pinocchio's find_program_address which calls the runtime syscall
-            let (key, _bump) = pinocchio::pubkey::find_program_address(seeds, unsafe {
-                &*(program_id as *const _ as *const pinocchio::pubkey::Pubkey)
-            });
-            key
-        }
-        #[cfg(not(target_os = "solana"))]
-        {
-            // On non-Solana targets (host tests, simulations), we can't reliably derive PDAs
-            // without a crypto library that implements ed25519 point validation.
-            // Pinocchio's implementation panics or returns None on host.
-            //
-            // We return a zeroed key here which will cause verification to fail unless expected key is also zero.
-            // This ensures we don't return an incorrect PDA that might be accepted.
-            // Users running off-chain tests should mock import verification if needed.
-            let _ = seeds;
-            let _ = program_id;
-            [0u8; 32]
-        }
-    });
-
-    if !ctx.import_metadata.verify_account(
-        account.key(),
-        &ctx.program_id,
-        pda_derivation_fn,
-    ) {
+    if !is_authorized {
         return Err(VMErrorCode::UnauthorizedBytecodeInvocation);
     }
 
@@ -740,10 +826,42 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Materialize CALL_EXTERNAL arguments in call order.
     let mut call_args = [ValueRef::Empty; MAX_PARAMETERS];
-    for i in 0..param_count {
-        let value = ctx.pop()?;
-        let idx = (param_count - i - 1) as usize;
-        call_args[idx] = value;
+    match param_count {
+        0 => {}
+        1 => {
+            call_args[0] = ctx.pop()?;
+        }
+        2 => {
+            let p2 = ctx.pop()?;
+            let p1 = ctx.pop()?;
+            call_args[0] = p1;
+            call_args[1] = p2;
+        }
+        3 => {
+            let p3 = ctx.pop()?;
+            let p2 = ctx.pop()?;
+            let p1 = ctx.pop()?;
+            call_args[0] = p1;
+            call_args[1] = p2;
+            call_args[2] = p3;
+        }
+        4 => {
+            let p4 = ctx.pop()?;
+            let p3 = ctx.pop()?;
+            let p2 = ctx.pop()?;
+            let p1 = ctx.pop()?;
+            call_args[0] = p1;
+            call_args[1] = p2;
+            call_args[2] = p3;
+            call_args[3] = p4;
+        }
+        _ => {
+            for i in 0..param_count {
+                let value = ctx.pop()?;
+                let idx = (param_count - i - 1) as usize;
+                call_args[idx] = value;
+            }
+        }
     }
 
     // Check if we have enough space for callee's locals before pushing frame
@@ -765,6 +883,8 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         caller_len,
         ctx.current_context,
         ctx.external_account_remap(),
+        ctx.script().as_ptr() as usize,
+        ctx.script().len() as u32,
     ))?;
 
     // Set callee's local base to end of caller's locals (per-frame window)
