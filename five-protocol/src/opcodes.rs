@@ -461,6 +461,80 @@ pub struct OpcodeInfo {
     pub compute_cost: u8, // Estimated compute units
 }
 
+const INVALID_ARG_TYPE_ID: u8 = 0xFF;
+
+#[inline]
+const fn encode_arg_type(arg_type: ArgType) -> u8 {
+    match arg_type {
+        ArgType::None => 0,
+        ArgType::U8 => 1,
+        ArgType::U16 => 2,
+        ArgType::U32 => 3,
+        ArgType::U64 => 4,
+        ArgType::U16Fixed => 5,
+        ArgType::U32Fixed => 6,
+        ArgType::LocalIndex => 7,
+        ArgType::AccountIndex => 8,
+        ArgType::ValueType => 9,
+        ArgType::CallExternal => 10,
+        ArgType::CallInternal => 11,
+        ArgType::FunctionIndex => 12,
+        ArgType::AccountField => 13,
+        ArgType::AccountFieldParam => 14,
+        ArgType::FusedAccAcc => 15,
+        ArgType::FusedSubAdd => 16,
+        ArgType::ParamImm => 17,
+        ArgType::FieldImm => 18,
+        ArgType::CompareU8Offset16 => 19,
+        ArgType::CompareU8Target16 => 20,
+        ArgType::TargetU16 => 21,
+        ArgType::LocalTarget16 => 22,
+    }
+}
+
+#[inline]
+const fn decode_arg_type(id: u8) -> Option<ArgType> {
+    match id {
+        0 => Some(ArgType::None),
+        1 => Some(ArgType::U8),
+        2 => Some(ArgType::U16),
+        3 => Some(ArgType::U32),
+        4 => Some(ArgType::U64),
+        5 => Some(ArgType::U16Fixed),
+        6 => Some(ArgType::U32Fixed),
+        7 => Some(ArgType::LocalIndex),
+        8 => Some(ArgType::AccountIndex),
+        9 => Some(ArgType::ValueType),
+        10 => Some(ArgType::CallExternal),
+        11 => Some(ArgType::CallInternal),
+        12 => Some(ArgType::FunctionIndex),
+        13 => Some(ArgType::AccountField),
+        14 => Some(ArgType::AccountFieldParam),
+        15 => Some(ArgType::FusedAccAcc),
+        16 => Some(ArgType::FusedSubAdd),
+        17 => Some(ArgType::ParamImm),
+        18 => Some(ArgType::FieldImm),
+        19 => Some(ArgType::CompareU8Offset16),
+        20 => Some(ArgType::CompareU8Target16),
+        21 => Some(ArgType::TargetU16),
+        22 => Some(ArgType::LocalTarget16),
+        _ => None,
+    }
+}
+
+const fn build_opcode_arg_type_table() -> [u8; 256] {
+    let mut table = [INVALID_ARG_TYPE_ID; 256];
+    let mut i = 0;
+    while i < OPCODE_TABLE.len() {
+        let info = &OPCODE_TABLE[i];
+        table[info.opcode as usize] = encode_arg_type(info.arg_type);
+        i += 1;
+    }
+    table
+}
+
+const OPCODE_ARG_TYPE_TABLE: [u8; 256] = build_opcode_arg_type_table();
+
 /// Complete opcode information table (const for zero-allocation lookup)
 pub const OPCODE_TABLE: &[OpcodeInfo] = &[
     // Control flow
@@ -1826,7 +1900,7 @@ pub const fn get_opcode_info(opcode: u8) -> Option<&'static OpcodeInfo> {
 /// Check if opcode is valid (zero-allocation)
 #[inline]
 pub const fn is_valid_opcode(opcode: u8) -> bool {
-    get_opcode_info(opcode).is_some()
+    OPCODE_ARG_TYPE_TABLE[opcode as usize] != INVALID_ARG_TYPE_ID
 }
 
 /// Get opcode name for debugging (zero-allocation)
@@ -1890,8 +1964,8 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
         _ => {}
     }
 
-    let info = get_opcode_info(opcode)?;
-    Some(match info.arg_type {
+    let arg_type = decode_arg_type(OPCODE_ARG_TYPE_TABLE[opcode as usize])?;
+    Some(match arg_type {
         ArgType::None => 0,
         ArgType::U8 | ArgType::ValueType | ArgType::LocalIndex | ArgType::AccountIndex => 1,
         ArgType::U16 | ArgType::U16Fixed => 2,

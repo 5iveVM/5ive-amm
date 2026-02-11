@@ -3,8 +3,8 @@ use pinocchio::{
 };
 
 use five_protocol::{
-    opcodes::{self},
-    parser::{parse_code_bounds, parse_instruction_with_features, ParseError},
+    opcodes::{self, get_opcode_info, operand_size},
+    parser::{parse_code_bounds, ParseError},
 };
 
 fn map_parse_error(e: ParseError) -> ProgramError {
@@ -49,53 +49,73 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
         return Err(ProgramError::Custom(8106));
     }
 
-    // Iterate and verify all instructions
+    let pool_enabled = (header.features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+
+    // Iterate and verify all instructions using a minimal decode path.
+    // We only decode immediate operands for opcodes that need semantic target checks.
     while offset < code_end {
-        match parse_instruction_with_features(bytecode, offset, header.features) {
-            Ok((inst, size)) => {
-                // Additional Semantic Checks
+        let opcode = bytecode[offset];
+        if get_opcode_info(opcode).is_none() {
+            // Preserve existing compatibility behavior: return opcode as custom error.
+            return Err(ProgramError::Custom(opcode as u32));
+        }
 
-                // Check CALL targets (Internal, External)
-                if matches!(inst.opcode, opcodes::CALL | opcodes::CALL_EXTERNAL) {
-                    // For CALL, arg1 is the function address (absolute offset)
-                    // For CALL_EXTERNAL, arg1 packs account_index (high bits) and function offset (low 16 bits)
-                    // We only validate internal targets here.
-                    if inst.opcode == opcodes::CALL {
-                        let func_addr = inst.arg1 as usize;
-                        if func_addr >= code_end {
-                            return Err(ProgramError::Custom(8122));
-                        }
-                    }
-                }
+        let remaining = if offset + 1 <= bytecode.len() {
+            &bytecode[offset + 1..]
+        } else {
+            &[]
+        };
+        let operand_bytes = operand_size(opcode, remaining, pool_enabled)
+            .ok_or(ProgramError::Custom(8130))?;
+        let next = offset
+            .checked_add(1 + operand_bytes)
+            .ok_or(ProgramError::Custom(8130))?;
+        if next > code_end {
+            return Err(ProgramError::Custom(8130));
+        }
 
-                // Check JUMP target bounds
-                if matches!(inst.opcode, 
-                    opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT |
-                    opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP
-                ) {
-                    let target = inst.arg1 as usize;
-                    if target >= code_end {
-                        return Err(ProgramError::Custom(8122));
-                    }
-                }
-
-                // Check FunctionIndex bounds (if used by other instructions like CALL_INDIRECT if it existed)
-                // Current protocol primarily uses CALL (Internal) or CALL_EXTERNAL
-
-                // Note: parse_instruction handles PUSH_STRING_LITERAL and PUSH_STRING bounds checks
-                // by using the correct ArgType and skipping bytes.
-
-                offset += size;
-            }
-            Err(e) => {
-                // If it's InvalidOpcode, we can try to return the opcode as error for compatibility
-                if e == ParseError::InvalidOpcode {
-                    let opcode = bytecode[offset];
-                    return Err(ProgramError::Custom(opcode as u32));
-                }
-                return Err(map_parse_error(e));
+        // CALL param_count(u8) + function_address(u16)
+        if opcode == opcodes::CALL {
+            let func_addr = u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]) as usize;
+            if func_addr >= code_end {
+                return Err(ProgramError::Custom(8122));
             }
         }
+
+        // Absolute jump targets encoded as u16.
+        if matches!(
+            opcode,
+            opcodes::JUMP
+                | opcodes::JUMP_IF
+                | opcodes::JUMP_IF_NOT
+                | opcodes::EQ_ZERO_JUMP
+                | opcodes::GT_ZERO_JUMP
+                | opcodes::LT_ZERO_JUMP
+                | opcodes::DEC_JUMP_NZ
+        ) {
+            let target = u16::from_le_bytes([bytecode[offset + 1], bytecode[offset + 2]]) as usize;
+            if target >= code_end {
+                return Err(ProgramError::Custom(8122));
+            }
+        }
+
+        // DEC_LOCAL_JUMP_NZ local_index(u8) + target(u16)
+        if opcode == opcodes::DEC_LOCAL_JUMP_NZ {
+            let target = u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]) as usize;
+            if target >= code_end {
+                return Err(ProgramError::Custom(8122));
+            }
+        }
+
+        // CMP_EQ_JUMP compare(u8) + target(u16)
+        if opcode == opcodes::CMP_EQ_JUMP {
+            let target = u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]) as usize;
+            if target >= code_end {
+                return Err(ProgramError::Custom(8122));
+            }
+        }
+
+        offset = next;
     }
 
     Ok(())
