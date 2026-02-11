@@ -1,0 +1,229 @@
+
+        use "1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh"::{transfer};
+
+        pub fn mass_transfer(
+            s1: account @mut,
+            d1: account @mut,
+            s2: account @mut,
+            d2: account @mut,
+            s3: account @mut,
+            d3: account @mut,
+            s4: account @mut,
+            d4: account @mut,
+            s5: account @mut,
+            d5: account @mut,
+            s6: account @mut,
+            d6: account @mut,
+            s7: account @mut,
+            d7: account @mut,
+            s8: account @mut,
+            d8: account @mut,
+            s9: account @mut,
+            d9: account @mut,
+            s10: account @mut,
+            d10: account @mut,
+            s11: account @mut,
+            d11: account @mut,
+            owner: account @mut,
+            ext0: account
+        ) {
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s4, d4, owner, 40);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s5, d5, owner, 50);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s6, d6, owner, 60);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s7, d7, owner, 70);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s8, d8, owner, 80);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s9, d9, owner, 90);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s10, d10, owner, 100);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+            ext0::transfer(s11, d11, owner, 110);
+        }
+    

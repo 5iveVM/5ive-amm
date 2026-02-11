@@ -597,7 +597,8 @@ async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
         let mut dst_data = vec![0u8; 192];
         dst_data[0..32].copy_from_slice(Pubkey::new_unique().as_ref());
         dst_data[32..64].copy_from_slice(mint_pubkey.as_ref());
-        dst_data[64..72].copy_from_slice(&100u64.to_le_bytes());
+        // Increase balance to accommodate all transfers
+        dst_data[64..72].copy_from_slice(&15000u64.to_le_bytes());
         dst_data[72] = 0;
         accounts.insert(
             format!("dest_token_{}", i),
@@ -769,7 +770,8 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
     let token_bytecode = fs::read(&token_bytecode_path)
         .unwrap_or_else(|e| panic!("failed reading {}: {}", token_bytecode_path.display(), e));
 
-    let transfer_amounts: Vec<u64> = (1u64..=10).map(|n| n * 10).collect();
+    // Maximize transfers: 11 pairs (22 accounts) + owner + ext0 = 24 params (at limit)
+    let transfer_amounts: Vec<u64> = (1u64..=11).map(|n| n * 10).collect();
     let pair_count = transfer_amounts.len();
 
     let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
@@ -833,7 +835,10 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         let i = idx + 1;
         signature_parts.push(format!("s{i}: account @mut"));
         signature_parts.push(format!("d{i}: account @mut"));
-        call_lines.push(format!("ext0::transfer(s{i}, d{i}, owner, {amount});"));
+        // Do many transfers per pair to maximize CU usage (18 calls per pair)
+        for _ in 0..18 {
+            call_lines.push(format!("ext0::transfer(s{i}, d{i}, owner, {amount});"));
+        }
     }
     signature_parts.push("owner: account @mut".to_string());
     signature_parts.push("ext0: account".to_string());
@@ -851,6 +856,15 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         signature_parts.join(",\n            "),
         call_lines.join("\n            ")
     );
+
+    // Write generated script to file so it can be inspected and compiled manually
+    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let script_file = output_dir.join("five-templates/mass-transfer-generated.v");
+    let _ = fs::write(&script_file, &caller_source).map_err(|e| {
+        eprintln!("Warning: could not write generated script to {}: {}", script_file.display(), e)
+    });
+    println!("Generated mass_transfer script written to: {}", script_file.display());
+
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller mass-transfer script should compile");
     accounts.insert(
@@ -874,7 +888,8 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         let mut src_data = vec![0u8; 192];
         src_data[0..32].copy_from_slice(owner_pubkey.as_ref());
         src_data[32..64].copy_from_slice(mint_pubkey.as_ref());
-        src_data[64..72].copy_from_slice(&1000u64.to_le_bytes());
+        // Increase balance to support 20 transfers per pair: 10 * 20 * 11 pairs = ~2200, use 30000 to be safe
+        src_data[64..72].copy_from_slice(&30000u64.to_le_bytes());
         src_data[72] = 0;
         accounts.insert(
             format!("source_token_{}", i),
@@ -893,7 +908,8 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         let mut dst_data = vec![0u8; 192];
         dst_data[0..32].copy_from_slice(Pubkey::new_unique().as_ref());
         dst_data[32..64].copy_from_slice(mint_pubkey.as_ref());
-        dst_data[64..72].copy_from_slice(&100u64.to_le_bytes());
+        // Increase balance to accommodate all transfers
+        dst_data[64..72].copy_from_slice(&15000u64.to_le_bytes());
         dst_data[72] = 0;
         accounts.insert(
             format!("dest_token_{}", i),
@@ -1013,6 +1029,11 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         execute.error
     );
 
+    // Verify final balances after all transfers
+    // Each pair gets transferred 18 times from source to destination
+    // Initial: src = 30000, dst = 15000
+    // Final: src = 30000 - (18 * amount)
+    //        dst = 15000 + (18 * amount)
     for (i, amount) in transfer_amounts.iter().enumerate() {
         let src_name = format!("source_token_{}", i + 1);
         let dst_name = format!("dest_token_{}", i + 1);
@@ -1032,12 +1053,14 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
             .expect("destination token account missing");
         let src_balance = u64::from_le_bytes(src_after.data[64..72].try_into().unwrap());
         let dst_balance = u64::from_le_bytes(dst_after.data[64..72].try_into().unwrap());
-        assert_eq!(src_balance, 1000 - amount);
-        assert_eq!(dst_balance, 100 + amount);
+        assert_eq!(src_balance, 30000 - (18 * amount), "source {} balance mismatch", i + 1);
+        assert_eq!(dst_balance, 15000 + (18 * amount), "destination {} balance mismatch", i + 1);
     }
 
+    // Total transfer calls: 18 calls per pair
+    let total_transfer_calls = transfer_amounts.len() * 18;
     println!(
-        "BPF_CU external_mass_transfer_non_cpi deploy_token={} deploy_caller={} execute={} total={} caller_bytecode_size={} token_bytecode_size={} transfers={}",
+        "BPF_CU external_mass_transfer_non_cpi deploy_token={} deploy_caller={} execute={} total={} caller_bytecode_size={} token_bytecode_size={} transfer_pairs={} total_calls={}",
         deploy_token.units_consumed,
         deploy_caller.units_consumed,
         execute.units_consumed,
@@ -1047,7 +1070,8 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
             .saturating_add(execute.units_consumed),
         caller_bytecode.len(),
         token_bytecode.len(),
-        transfer_amounts.len()
+        transfer_amounts.len(),
+        total_transfer_calls
     );
 }
 

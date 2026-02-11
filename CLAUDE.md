@@ -116,6 +116,13 @@ cargo test -p five --test runtime_bpf_cu_tests -- --nocapture
 CARGO_TARGET_DIR=/tmp/five-target \
 FIVE_BPF_FIXTURE=five-templates/token/runtime-fixtures/init_mint.json \
 cargo test -p five --test runtime_bpf_cu_tests -- --nocapture
+
+# Direct external-call CU tests (non-CPI) for token.v
+# Requires token bytecode present at five-templates/token/src/token.bin
+cargo-build-sbf --manifest-path five-solana/Cargo.toml
+cargo test -p five --test runtime_bpf_cu_tests external_token_transfer_non_cpi_bpf_compute_units -- --nocapture
+cargo test -p five --test runtime_bpf_cu_tests external_token_transfer_burst_non_cpi_bpf_compute_units -- --nocapture
+cargo test -p five --test runtime_bpf_cu_tests external_token_transfer_mass_non_cpi_bpf_compute_units -- --nocapture
 ```
 
 What the harness prints:
@@ -123,6 +130,7 @@ What the harness prints:
 - `BPF_CU step=<name> ... units=<n>` = per public function call CU.
 - `BPF_CU deploy=...` = script deployment CU in the harness.
 - `BPF_CU fixture=<name> total_units=...` = aggregate run cost.
+- `BPF_CU external_*` lines = non-CPI external call runs (transfer, burst, mass).
 
 Fixture location and format:
 - Primary fixture file for DeFi math benchmarking:
@@ -137,6 +145,7 @@ Important notes for stable CU measurements:
 - Always recompile `.v -> .bin` before measuring after compiler/opcode changes.
 - The test function name is `token_e2e_bpf_compute_units`, but it runs whichever fixture is selected by `FIVE_BPF_FIXTURE`.
 - Keep fixture inputs valid for expected-success steps (for example, avoid values that violate `require(...)` constraints), or mark those steps with expected error.
+- The mass external transfer test currently uses 10 transfer pairs to stay within `MAX_FUNCTION_PARAMS=24`.
 
 Common failures:
 - `failed reading fixture ... No such file or directory`
@@ -145,6 +154,9 @@ Common failures:
   - Fixture parameters violated DSL `require(...)` checks.
 - CU unexpectedly regresses
   - Rebuild SBF and recompile fixture bytecode, then rerun with same fixture and target dir.
+- `invalid instruction data` in external-call tests
+  - Ensure `token.bin` is built and the SBF program is rebuilt.
+  - Note: `external_token_all_public_non_cpi_bpf_compute_units` is `#[ignore]` pending support for non-`transfer` external calls.
 
 ### Interface CPI CU tests (SPL + Anchor, no validator)
 
