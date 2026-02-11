@@ -3172,3 +3172,45 @@ fn test_external_imported_items_reject_unknown_function() {
         "calling function outside imported items must fail"
     );
 }
+
+#[test]
+fn test_external_imported_items_allow_unqualified_call() {
+    let source = r#"
+        use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{transfer};
+
+        pub execute(
+            TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA: Account,
+            source_account: Account,
+            destination_account: Account,
+            owner: Account
+        ) {
+            transfer(source_account, destination_account, owner, 10);
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("unqualified external call should compile");
+    let disassembly = five_dsl_compiler::bytecode_generator::disassembler::disassemble(&bytecode);
+    assert!(
+        disassembly.iter().any(|line| line.contains("CALL_EXTERNAL")),
+        "unqualified imported call should emit CALL_EXTERNAL; disassembly:\n{}",
+        disassembly.join("\n")
+    );
+}
+
+#[test]
+fn test_external_imported_items_unqualified_ambiguous_call_fails() {
+    let source = r#"
+        use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{transfer};
+        use "11111111111111111111111111111111"::{transfer};
+
+        pub execute(token_program: Account, system_program: Account) {
+            transfer();
+        }
+    "#;
+
+    let result = DslCompiler::compile_dsl(source);
+    assert!(
+        result.is_err(),
+        "ambiguous unqualified external function call must fail compilation"
+    );
+}

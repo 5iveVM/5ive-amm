@@ -5,11 +5,51 @@ use super::types::ASTGenerator;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::bytecode_generator::account_utils::account_index_from_param_index;
 use crate::type_checker::{InterfaceInfo, InterfaceMethod};
+use core::cmp::Ordering;
 use five_protocol::opcodes::*;
 use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    fn try_emit_unqualified_external_call<T: OpcodeEmitter>(
+        &self,
+        emitter: &mut T,
+        name: &str,
+        arg_count: usize,
+    ) -> Result<bool, VMError> {
+        // Candidate set is deduplicated by account index because each external import is
+        // currently registered under multiple keys (e.g. extN and identifier alias).
+        let mut candidates: Vec<(u8, u16)> = Vec::new();
+        for ext_import in self.external_imports.values() {
+            let selector = if let Some(sel) = ext_import.functions.get(name) {
+                *sel
+            } else if ext_import.allow_any_function {
+                Self::external_selector(name)
+            } else {
+                continue;
+            };
+
+            if !candidates.iter().any(|(acc_idx, _)| *acc_idx == ext_import.account_index) {
+                candidates.push((ext_import.account_index, selector));
+            }
+        }
+
+        match candidates.len().cmp(&1) {
+            Ordering::Equal => {
+                let (default_account_index, selector) = candidates[0];
+                let account_index =
+                    self.resolve_external_account_index("__external__", default_account_index)?;
+                emitter.emit_opcode(CALL_EXTERNAL);
+                emitter.emit_u8(account_index);
+                emitter.emit_u16(selector);
+                emitter.emit_u8(arg_count as u8);
+                Ok(true)
+            }
+            Ordering::Greater => Err(VMError::InvalidScript),
+            Ordering::Less => Ok(false),
+        }
+    }
+
     /// Generate method call bytecode
     pub(super) fn generate_method_call<T: OpcodeEmitter>(
         &mut self,
@@ -240,6 +280,13 @@ impl ASTGenerator {
                     }
                 }
 
+                // Unqualified imported function call.
+                // Example:
+                //   use "<address>"::{transfer};
+                //   transfer(...)
+                if self.try_emit_unqualified_external_call(emitter, name, args.len())? {
+                    return Ok(());
+                }
 
                 // User-defined function call - always use CALL opcode
                 // Track function call for resource allocation
@@ -688,5 +735,46 @@ mod tests {
         assert_eq!(emitter.bytes[0], CALL_EXTERNAL);
         assert_eq!(emitter.bytes[1], 1); // account index with runtime offset
         assert_eq!(emitter.bytes[4], 0); // param count
+    }
+
+    #[test]
+    fn emits_call_external_for_unqualified_imported_function() {
+        let mut gen = ASTGenerator::new();
+        gen.current_function_parameters = Some(vec![InstructionParameter {
+            name: "any_account".to_string(),
+            param_type: TypeNode::Primitive("Account".to_string()),
+            is_optional: false,
+            default_value: None,
+            attributes: vec![Attribute {
+                name: "mut".to_string(),
+                args: vec![],
+            }],
+            is_init: false,
+            init_config: None,
+        }]);
+        let mut funcs = HashMap::new();
+        funcs.insert("transfer".to_string(), ASTGenerator::external_selector("transfer"));
+        gen.register_external_import("ext0".to_string(), 0, false, funcs);
+
+        let mut emitter = MockEmitter::new();
+        gen.generate_function_call(&mut emitter, "transfer", &[])
+            .expect("unqualified imported call should succeed");
+
+        assert_eq!(emitter.bytes[0], CALL_EXTERNAL);
+        assert_eq!(emitter.bytes[1], 1);
+        assert_eq!(emitter.bytes[4], 0);
+    }
+
+    #[test]
+    fn rejects_ambiguous_unqualified_external_call() {
+        let mut gen = ASTGenerator::new();
+        let mut funcs = HashMap::new();
+        funcs.insert("transfer".to_string(), ASTGenerator::external_selector("transfer"));
+        gen.register_external_import("ext0".to_string(), 0, false, funcs.clone());
+        gen.register_external_import("ext1".to_string(), 1, false, funcs);
+
+        let mut emitter = MockEmitter::new();
+        let result = gen.generate_function_call(&mut emitter, "transfer", &[]);
+        assert!(result.is_err());
     }
 }

@@ -78,6 +78,11 @@ cargo test -p five-vm-mito
 # Run compiler tests with output
 cargo test -p five-dsl-compiler -- --nocapture
 
+# Focused regressions for external import/use call resolution
+cargo test -p five-dsl-compiler --lib bytecode_generator::ast_generator::functions::tests -- --nocapture
+cargo test -p five-dsl-compiler --test lib test_external_imported_items_allow_unqualified_call -- --nocapture
+cargo test -p five-dsl-compiler --test lib test_external_imported_items_unqualified_ambiguous_call_fails -- --nocapture
+
 # Run E2E template tests (requires localnet)
 cd five-templates/counter && node e2e-counter-test.mjs
 cd five-templates/token && node e2e-token-test.mjs
