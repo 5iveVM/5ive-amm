@@ -136,6 +136,33 @@ impl<'a> FrameManager<'a> {
         Ok(())
     }
 
+    /// Decrement a numeric local in place and return the new value.
+    /// Accepts U8/U64/Bool and normalizes storage to U64.
+    #[inline(always)]
+    pub fn dec_local_u64(&mut self, index: u8) -> CompactResult<u64> {
+        if index >= self.local_count {
+            return Err(VMErrorCode::LocalsOverflow);
+        }
+
+        let absolute_index = self.local_base as usize + index as usize;
+        if absolute_index >= MAX_LOCALS {
+            return Err(VMErrorCode::LocalsOverflow);
+        }
+
+        let current = unsafe { self.locals[absolute_index].assume_init() };
+        let current_u64 = match current {
+            ValueRef::U8(v) => v as u64,
+            ValueRef::U64(v) => v,
+            ValueRef::Bool(v) => v as u64,
+            ValueRef::Empty => return Err(VMErrorCode::InvalidOperation),
+            _ => return Err(VMErrorCode::TypeMismatch),
+        };
+
+        let next = current_u64.wrapping_sub(1);
+        self.locals[absolute_index] = core::mem::MaybeUninit::new(ValueRef::U64(next));
+        Ok(next)
+    }
+
     #[inline(always)]
     pub fn clear_local(&mut self, index: u8) -> CompactResult<()> {
         if index >= self.local_count {

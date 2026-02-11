@@ -44,6 +44,15 @@ impl ASTGenerator {
             return Ok(true);
         }
 
+        // Pattern 3b: local.gt(0) / local >= 1 (REQUIRE_LOCAL_GT_ZERO)
+        if let Some(local_idx) = self.match_local_gt_zero(condition) {
+            #[cfg(debug_assertions)]
+            println!("FUSED_DEBUG: EMITTING REQUIRE_LOCAL_GT_ZERO! local={}", local_idx);
+            emitter.emit_opcode(REQUIRE_LOCAL_GT_ZERO);
+            emitter.emit_u8(local_idx);
+            return Ok(true);
+        }
+
         // Pattern 4: pubkey field == account.key (REQUIRE_OWNER)
         if let Some((acc_idx, signer_idx, offset)) = self.match_pubkey_field_eq_account_key(condition) {
             #[cfg(debug_assertions)]
@@ -173,6 +182,45 @@ impl ASTGenerator {
         None
     }
 
+    /// Match pattern: local.gt(0) or local >= 1 (non-zero locals)
+    fn match_local_gt_zero(&self, condition: &AstNode) -> Option<u8> {
+        // MethodCall patterns
+        if let AstNode::MethodCall { object, method, args } = condition {
+            if args.len() == 1 {
+                if method == "gt" && self.is_literal_zero(&args[0]) {
+                    return self.match_local_identifier(object);
+                }
+                if method == "gte" && self.is_literal_one(&args[0]) {
+                    return self.match_local_identifier(object);
+                }
+            }
+        }
+
+        // BinaryExpression patterns
+        if let AstNode::BinaryExpression { left, operator, right } = condition {
+            if operator == ">" && self.is_literal_zero(right) {
+                return self.match_local_identifier(left);
+            }
+            if operator == ">=" && self.is_literal_one(right) {
+                return self.match_local_identifier(left);
+            }
+        }
+
+        None
+    }
+
+    /// Match a local variable identifier (non-parameter).
+    fn match_local_identifier(&self, node: &AstNode) -> Option<u8> {
+        if let AstNode::Identifier(name) = node {
+            if let Some(field_info) = self.local_symbol_table.get(name) {
+                if !field_info.is_parameter && field_info.offset <= u8::MAX as u32 {
+                    return Some(field_info.offset as u8);
+                }
+            }
+        }
+        None
+    }
+
     /// Match a u64 field access: account.field
     pub(super) fn match_u64_field_access(&self, node: &AstNode) -> Option<(u8, u32)> {
         if let AstNode::FieldAccess { object, field } = node {
@@ -228,6 +276,14 @@ impl ASTGenerator {
     fn is_literal_zero(&self, node: &AstNode) -> bool {
         if let AstNode::Literal(value) = node {
             return value.as_u64() == Some(0);
+        }
+        false
+    }
+
+    /// Check if node is literal 1
+    fn is_literal_one(&self, node: &AstNode) -> bool {
+        if let AstNode::Literal(value) = node {
+            return value.as_u64() == Some(1);
         }
         false
     }

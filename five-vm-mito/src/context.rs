@@ -455,6 +455,11 @@ impl<'a> ExecutionContext<'a> {
         self.frame.clear_local(index)
     }
 
+    #[inline(always)]
+    pub fn dec_local_u64(&mut self, index: u8) -> CompactResult<u64> {
+        self.frame.dec_local_u64(index)
+    }
+
     // --- Account operations with lazy validation (delegated to AccountManager) ---
 
     #[inline(always)]

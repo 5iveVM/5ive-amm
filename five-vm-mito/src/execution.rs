@@ -329,6 +329,7 @@ impl MitoVM {
                 FIELD_ADD_PARAM => crate::handlers::fused_ops::handle_fused_ops(FIELD_ADD_PARAM, ctx),
                 FIELD_SUB_PARAM => crate::handlers::fused_ops::handle_fused_ops(FIELD_SUB_PARAM, ctx),
                 REQUIRE_PARAM_GT_ZERO => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_PARAM_GT_ZERO, ctx),
+                REQUIRE_LOCAL_GT_ZERO => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_LOCAL_GT_ZERO, ctx),
                 REQUIRE_EQ_PUBKEY => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_EQ_PUBKEY, ctx),
                 CHECK_SIGNER_WRITABLE => crate::handlers::fused_ops::handle_fused_ops(CHECK_SIGNER_WRITABLE, ctx),
                 // Tier 3 fused opcodes (0xC7-0xCA)

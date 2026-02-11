@@ -185,6 +185,28 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             debug_log!("MitoVM: REQUIRE_PARAM_GT_ZERO passed: {} > 0", param_value);
         }
 
+        // REQUIRE_LOCAL_GT_ZERO: GET_LOCAL + PUSH_0 + GT + REQUIRE fused
+        // Encoding: local(u8)
+        // Saves 200+ CU in tight loops
+        REQUIRE_LOCAL_GT_ZERO => {
+            let local_idx = ctx.fetch_byte()?;
+            let local_value = ctx.get_local(local_idx)?;
+            let local_u64 = local_value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+
+            if local_u64 == 0 {
+                debug_log!(
+                    "MitoVM: REQUIRE_LOCAL_GT_ZERO failed: local {} is 0",
+                    local_idx
+                );
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+            debug_log!(
+                "MitoVM: REQUIRE_LOCAL_GT_ZERO passed: local {} = {}",
+                local_idx,
+                local_u64
+            );
+        }
+
         // REQUIRE_EQ_PUBKEY: Compare two pubkey fields from accounts
         // Encoding: acc1(u8) offset1(u32) acc2(u8) offset2(u32)
         // Saves 300 CU

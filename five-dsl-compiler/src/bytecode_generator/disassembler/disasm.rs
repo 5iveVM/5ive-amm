@@ -382,6 +382,15 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
+            opcodes::REQUIRE_LOCAL_GT_ZERO => {
+                if pc + 1 < bytes.len() {
+                    lines.push(format!("{:04X}: REQUIRE_LOCAL_GT_ZERO local={}", pc, bytes[pc + 1]));
+                    pc += 2;
+                } else {
+                    lines.push(format!("{:04X}: REQUIRE_LOCAL_GT_ZERO <truncated>", pc));
+                    break;
+                }
+            }
             opcodes::REQUIRE_EQ_PUBKEY => {
                 // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
                 if pc + 11 <= bytes.len() {

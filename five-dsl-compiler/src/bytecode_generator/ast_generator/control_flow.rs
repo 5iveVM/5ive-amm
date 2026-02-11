@@ -6,6 +6,7 @@ use crate::ast::{AstNode, MatchArm};
 use crate::bytecode_generator::types::LoopContext;
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
+use std::collections::HashSet;
 
 impl ASTGenerator {
     fn contains_identifier(node: &AstNode, ident: &str) -> bool {
@@ -185,6 +186,93 @@ impl ASTGenerator {
         )
     }
 
+    fn is_pure_expression(node: &AstNode) -> bool {
+        match node {
+            AstNode::Literal(_) | AstNode::Identifier(_) => true,
+            AstNode::UnaryExpression { operand, .. } => Self::is_pure_expression(operand),
+            AstNode::BinaryExpression { left, right, .. } => {
+                Self::is_pure_expression(left) && Self::is_pure_expression(right)
+            }
+            _ => false,
+        }
+    }
+
+    fn collect_identifiers(node: &AstNode, out: &mut Vec<String>) {
+        match node {
+            AstNode::Identifier(name) => out.push(name.clone()),
+            AstNode::UnaryExpression { operand, .. } => Self::collect_identifiers(operand, out),
+            AstNode::BinaryExpression { left, right, .. } => {
+                Self::collect_identifiers(left, out);
+                Self::collect_identifiers(right, out);
+            }
+            _ => {}
+        }
+    }
+
+    fn assigns_to(node: &AstNode, ident: &str) -> bool {
+        match node {
+            AstNode::Assignment { target, .. } => target == ident,
+            AstNode::LetStatement { name, .. } => name == ident,
+            AstNode::TupleAssignment { targets, .. } => targets.iter().any(|t| {
+                matches!(t, AstNode::Identifier(name) if name == ident)
+            }),
+            AstNode::TupleDestructuring { targets, .. } => targets.iter().any(|t| t == ident),
+            AstNode::Block { statements, .. } => statements.iter().any(|s| Self::assigns_to(s, ident)),
+            AstNode::IfStatement { then_branch, else_branch, .. } => {
+                Self::assigns_to(then_branch, ident)
+                    || else_branch
+                        .as_ref()
+                        .is_some_and(|n| Self::assigns_to(n, ident))
+            }
+            AstNode::MatchExpression { arms, .. } => arms.iter().any(|arm| Self::assigns_to(&arm.body, ident)),
+            AstNode::WhileLoop { body, .. }
+            | AstNode::DoWhileLoop { body, .. }
+            | AstNode::ForInLoop { body, .. }
+            | AstNode::ForOfLoop { body, .. }
+            | AstNode::ArrowFunction { body, .. }
+            | AstNode::TestFunction { body, .. }
+            | AstNode::TestModule { body, .. } => Self::assigns_to(body, ident),
+            AstNode::ForLoop { init, update, body, .. } => {
+                init.as_ref().is_some_and(|n| Self::assigns_to(n, ident))
+                    || update.as_ref().is_some_and(|n| Self::assigns_to(n, ident))
+                    || Self::assigns_to(body, ident)
+            }
+            _ => false,
+        }
+    }
+
+    fn is_loop_invariant_let(
+        &self,
+        name: &str,
+        value: &AstNode,
+        params: &HashSet<String>,
+        hoisted: &HashSet<String>,
+        statements: &[AstNode],
+        index: usize,
+    ) -> bool {
+        if !Self::is_pure_expression(value) {
+            return false;
+        }
+
+        let mut idents = Vec::new();
+        Self::collect_identifiers(value, &mut idents);
+        for ident in idents {
+            if params.contains(&ident) || hoisted.contains(&ident) {
+                continue;
+            }
+            return false;
+        }
+
+        // Reject if reassigned later in the loop body.
+        for stmt in statements.iter().skip(index + 1) {
+            if Self::assigns_to(stmt, name) {
+                return false;
+            }
+        }
+
+        true
+    }
+
     fn try_parse_counted_while<'a>(
         &self,
         condition: &'a AstNode,
@@ -277,6 +365,79 @@ impl ASTGenerator {
 
         let start_label = self.new_label();
         let end_label = self.new_label();
+
+        // Hoist loop-invariant lets (pure expressions that only depend on params or already-hoisted locals).
+        if let AstNode::Block { statements, kind } = core_body {
+            let mut params = HashSet::new();
+            for (name, info) in &self.local_symbol_table {
+                if info.is_parameter {
+                    params.insert(name.clone());
+                }
+            }
+
+            let mut hoisted = Vec::new();
+            let mut remaining = Vec::new();
+            let mut hoisted_names = HashSet::new();
+
+            for (idx, stmt) in statements.iter().enumerate() {
+                if let AstNode::LetStatement { name, value, .. } = stmt {
+                    if self.is_loop_invariant_let(
+                        name,
+                        value,
+                        &params,
+                        &hoisted_names,
+                        statements,
+                        idx,
+                    ) {
+                        hoisted.push(stmt.clone());
+                        hoisted_names.insert(name.clone());
+                        continue;
+                    }
+                }
+                remaining.push(stmt.clone());
+            }
+
+            if !hoisted.is_empty() {
+                for stmt in &hoisted {
+                    self.generate_ast_node(emitter, stmt)?;
+                }
+
+                let body_block = AstNode::Block {
+                    statements: remaining,
+                    kind: kind.clone(),
+                };
+
+                // Keep original while semantics when starting condition is false.
+                self.generate_ast_node(emitter, condition)?;
+                self.emit_jump(emitter, JUMP_IF_NOT, end_label.clone());
+
+                // countdown = upper_bound - index, stored in the index slot to avoid
+                // introducing a synthetic local that might exceed preallocated locals.
+                self.generate_ast_node(emitter, upper_bound)?;
+                self.emit_get_local(emitter, index_offset, "counted while index");
+                emitter.emit_opcode(SUB);
+                self.emit_set_local(emitter, index_offset, "counted while countdown init");
+
+                self.place_label(emitter, start_label.clone());
+                self.generate_ast_node(emitter, &body_block)?;
+
+                emitter.emit_opcode(DEC_LOCAL_JUMP_NZ);
+                emitter.emit_u8(index_offset as u8);
+                let patch_pos = emitter.get_position();
+                emitter.emit_u16(0);
+                self.jump_patches.push(super::types::JumpPatch {
+                    position: patch_pos,
+                    target_label: start_label.clone(),
+                });
+
+                // Preserve post-loop value of index variable: i = upper_bound.
+                self.generate_ast_node(emitter, upper_bound)?;
+                self.emit_set_local(emitter, index_offset, "counted while final index");
+
+                self.place_label(emitter, end_label);
+                return Ok(());
+            }
+        }
 
         // Keep original while semantics when starting condition is false.
         self.generate_ast_node(emitter, condition)?;

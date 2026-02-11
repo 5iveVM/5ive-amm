@@ -247,9 +247,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
             // Decrement local[index] and jump to target when new value is non-zero.
             let local_index = ctx.fetch_byte()?;
             let target = ctx.fetch_u16()? as usize;
-            let current = value_to_u64(ctx.get_local(local_index)?).ok_or(VMErrorCode::TypeMismatch)?;
-            let next = current.wrapping_sub(1);
-            ctx.set_local(local_index, five_protocol::ValueRef::U64(next))?;
+            let next = ctx.dec_local_u64(local_index)?;
             if next != 0 {
                 validate_and_jump(ctx, target)?;
             }
