@@ -507,15 +507,15 @@ impl ASTGenerator {
                 }
             }
              (TypeNode::Primitive(name), AstNode::Literal(val)) if name == "u64" => {
-                if let Value::U64(v) = val {
-                    let bytes = v.to_le_bytes();
-                    for b in bytes {
-                        emitter.emit_const_u8(b)?;
-                    }
-                    Ok(8) // eight u8 stack values
-                } else {
-                     Err(VMError::TypeMismatch)
+                let v = val
+                    .as_u64()
+                    .or_else(|| val.as_i64().filter(|i| *i >= 0).map(|i| i as u64))
+                    .ok_or(VMError::TypeMismatch)?;
+                let bytes = v.to_le_bytes();
+                for b in bytes {
+                    emitter.emit_const_u8(b)?;
                 }
+                Ok(8) // eight u8 stack values
              }
              // For variables (Identifiers) or other expressions
              (TypeNode::Primitive(name), _) if name == "u8" => {
@@ -539,54 +539,12 @@ impl ASTGenerator {
                         self.generate_ast_node(emitter, arg)?;
                     }
                  
-                 // We need to split this u64 into 8 u8s on the stack.
-                 // Using temp local strategy
+                 // Split u64 into 8 LE bytes on stack using a temp local.
                  let temp_idx = self.field_counter; 
                  self.field_counter += 1;
                  
                  // Store value in temp
                  self.emit_set_local(emitter, temp_idx, "__temp_u64_ser");
-                 
-                 // Extract 8 bytes (Little Endian)
-                 // val % 256, (val/256)%256, ...
-                 for _ in 0..8 {
-                     // Get current value
-                     self.emit_get_local(emitter, temp_idx, "__temp_u64_ser");
-                     
-                     // Calculate byte: val % 256
-                     // val - (val/256 * 256)
-                     emitter.emit_opcode(DUP); // val, val
-                     emitter.emit_const_u64(256)?; // val, val, 256
-                     emitter.emit_opcode(DIV); // val, val/256
-                     emitter.emit_opcode(DUP); // val, val/256, val/256 (for next iter update)
-                     
-                     // Update temp with val/256 for next iteration
-                     // Swap not available here.
-                     // Saving val/256 to temp NOW is better
-                     self.emit_set_local(emitter, temp_idx, "__temp_u64_ser_update"); 
-                     // Stack: val, val/256 (SET_LOCAL consumed top)
-                     // So stack: val. We need (val/256) for subtraction.
-                     
-                     // Optimization:
-                     // LOAD temp
-                     // DUP
-                     // PUSH 256
-                     // DIV
-                     // DUP
-                     // SET LOCAL temp (consumed) -> temp is now val/256
-                     // PUSH 256
-                     // MUL
-                     // SUB -> remainder (byte)
-                     // Stack has byte.
-                     
-                     // Implement sequence.
-                 }
-                 
-                 // Loop logic:
-                 // We are changing temp inside loop.
-                 // And leaving bytes on stack.
-                 
-                 // Reset temp logic:
                  for _ in 0..8 {
                      self.emit_get_local(emitter, temp_idx, "__temp_u64_ser"); // Val
                      emitter.emit_opcode(DUP); // Val, Val

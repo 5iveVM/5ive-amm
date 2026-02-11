@@ -59,7 +59,8 @@
       "Bash(cargo clean:*)",
       "Bash(FIVE_PROGRAM_ID=\"6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k\" bash e2e-token-test.sh:*)",
       "Bash(FIVE_PROGRAM_ID=\"6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k\" node:*)",
-      "Bash(FIVE_PROGRAM_ID=\"6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k\" FIVE_ARTIFACT=\"five-token-template.five\" node:*)"
+      "Bash(FIVE_PROGRAM_ID=\"6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k\" FIVE_ARTIFACT=\"five-token-template.five\" node:*)",
+      "Bash(CARGO_TARGET_DIR=/tmp/five-target cargo test:*)"
     ]
   }
 }

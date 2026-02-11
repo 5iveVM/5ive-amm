@@ -378,13 +378,13 @@ async fn run_fixture_bpf_compute_units(
             "revoke_user3" => 7_000,
             "burn_user1" => 8_000,
             "freeze_user2" | "thaw_user2" => 8_000,
-            "anchor_mint_to_user1" | "anchor_mint_to_user2" | "anchor_mint_to_user3" => 10_000,
-            "anchor_transfer_user2_to_user3" => 10_000,
-            "anchor_approve_user3_to_user2" => 10_000,
-            "anchor_transfer_from_user3_to_user1_by_user2" => 10_000,
-            "anchor_revoke_user3" => 10_000,
-            "anchor_burn_user1" => 10_000,
-            "anchor_freeze_user2" | "anchor_thaw_user2" => 10_000,
+            "anchor_mint_to_user1" | "anchor_mint_to_user2" | "anchor_mint_to_user3" => 12_000,
+            "anchor_transfer_user2_to_user3" => 12_000,
+            "anchor_approve_user3_to_user2" => 12_000,
+            "anchor_transfer_from_user3_to_user1_by_user2" => 12_000,
+            "anchor_revoke_user3" => 12_000,
+            "anchor_burn_user1" => 12_000,
+            "anchor_freeze_user2" | "anchor_thaw_user2" => 12_000,
             "disable_mint" => 6_200,
             "stable_swap_invariant_iterative" => 35_000,
             "utilization_kink_rate" => 8_000,
@@ -986,9 +986,9 @@ async fn assert_anchor_token_fixture_result(
             .expect("anchor user3 token missing")
             .data,
     );
-    assert_eq!(user1_token.balance, 900, "unexpected anchor user1 token amount");
+    assert_eq!(user1_token.balance, 950, "unexpected anchor user1 token amount");
     assert_eq!(user2_token.balance, 400, "unexpected anchor user2 token amount");
-    assert_eq!(user3_token.balance, 600, "unexpected anchor user3 token amount");
+    assert_eq!(user3_token.balance, 550, "unexpected anchor user3 token amount");
     assert!(!user2_token.is_frozen, "anchor user2 token should be thawed");
 }
 

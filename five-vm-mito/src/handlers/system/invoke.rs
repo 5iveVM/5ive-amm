@@ -160,6 +160,33 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 
                             write_offset += 32;
                             offset += 3;
+                        } else if type_id == five_protocol::types::ACCOUNT {
+                            // ValueRef::AccountRef(u8, u16): [type_id][account_idx][offset_lo][offset_hi]
+                            // For CPI data packing, AccountRef only supports offset=0 and resolves
+                            // to the account address (pubkey), not account data bytes.
+                            if offset + 3 >= temp.len() {
+                                return Err(VMErrorCode::MemoryViolation);
+                            }
+                            if write_offset + 32 > data.len() {
+                                return Err(VMErrorCode::InvalidOperation);
+                            }
+
+                            let account_idx = temp[offset + 1] as usize;
+                            let mut off_bytes = [0u8; 2];
+                            off_bytes.copy_from_slice(&temp[offset + 2..offset + 4]);
+                            let account_offset = u16::from_le_bytes(off_bytes);
+                            if account_offset != 0 {
+                                return Err(VMErrorCode::TypeMismatch);
+                            }
+                            let accounts = ctx.accounts();
+                            if account_idx >= accounts.len() {
+                                return Err(VMErrorCode::InvalidAccountIndex);
+                            }
+
+                            data[write_offset..write_offset + 32]
+                                .copy_from_slice(accounts[account_idx].key().as_ref());
+                            write_offset += 32;
+                            offset += 4;
                         } else if type_id == 16 {
                             // ValueRef::TempRef(u8, u8): [type_id][temp_offset][len]
                             // Accept TempRef(len=32) as pubkey bytes.

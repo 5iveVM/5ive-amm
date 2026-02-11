@@ -110,22 +110,48 @@
       "expected": "success"
     },
     {
-      "name": "anchor_burn_user1",
+      "name": "anchor_approve_user3_to_user2",
       "function_index": 4,
+      "extras": ["user3_token", "user3", "anchor_program"],
+      "params": [
+        {
+          "kind": "pubkey_account",
+          "account": "user2"
+        }
+      ],
+      "expected": "success"
+    },
+    {
+      "name": "anchor_transfer_from_user3_to_user1_by_user2",
+      "function_index": 5,
+      "extras": ["user3_token", "user1_token", "user2", "anchor_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "anchor_revoke_user3",
+      "function_index": 6,
+      "extras": ["user3_token", "user3", "anchor_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "anchor_burn_user1",
+      "function_index": 7,
       "extras": ["mint", "user1_token", "user1", "anchor_program"],
       "params": [],
       "expected": "success"
     },
     {
       "name": "anchor_freeze_user2",
-      "function_index": 5,
+      "function_index": 8,
       "extras": ["mint", "user2_token", "user1", "anchor_program"],
       "params": [],
       "expected": "success"
     },
     {
       "name": "anchor_thaw_user2",
-      "function_index": 6,
+      "function_index": 9,
       "extras": ["mint", "user2_token", "user1", "anchor_program"],
       "params": [],
       "expected": "success"
