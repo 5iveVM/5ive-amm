@@ -38,7 +38,7 @@ pub const OPCODE_SPEC_VERSION: u16 = 1;
 
 // Keep protocol/runtime aligned with on-chain VM stack limits.
 pub const MAX_CALL_DEPTH: usize = 8;
-pub const MAX_FUNCTION_PARAMS: usize = 12;
+pub const MAX_FUNCTION_PARAMS: usize = 24;
 pub const MAX_LOCALS: usize = 32;
 pub const MAX_FUNCTIONS: usize = 255;
 

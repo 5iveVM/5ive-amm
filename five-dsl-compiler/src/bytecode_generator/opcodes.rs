@@ -45,6 +45,8 @@ pub trait OpcodeEmitter {
     fn emit_const_u128(&mut self, value: u128) -> Result<(), VMError>;
     fn emit_const_pubkey(&mut self, value: &[u8; 32]) -> Result<(), VMError>;
     fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError>;
+    /// Intern a u16 constant in the constant pool and return its pool slot index.
+    fn intern_u16_const(&mut self, value: u16) -> Result<u16, VMError>;
 }
 
 /// Implementation of OpcodeEmitter for the main generator
@@ -200,6 +202,11 @@ impl OpcodeEmitter for super::DslBytecodeGenerator {
         let idx = self.constant_pool.add_string(value)?;
         self.emit_pool_indexed(opcodes::PUSH_STRING, opcodes::PUSH_STRING_W, idx);
         Ok(())
+    }
+
+    fn intern_u16_const(&mut self, value: u16) -> Result<u16, VMError> {
+        let idx = self.constant_pool.add_u64(value as u64)?;
+        Ok(idx)
     }
 }
 

@@ -1,6 +1,6 @@
 //! Type definitions for MitoVM.
 
-use crate::MAX_LOCALS;
+use crate::{MAX_LOCALS, MAX_PARAMETERS};
 use five_protocol::ValueRef;
 
 /// Stack-allocated local variable storage optimized for minimal memory usage.
@@ -29,6 +29,7 @@ pub struct CallFrame {
     pub param_start: u8,    // Start index of caller parameters in shared array
     pub param_len: u8,      // Length of caller parameter slice
     pub bytecode_context: u8, // Context identifier: u8::MAX = Root, otherwise account index
+    pub account_remap: [u8; MAX_PARAMETERS + 1], // External-call account remap snapshot
 }
 
 impl CallFrame {
@@ -41,6 +42,7 @@ impl CallFrame {
             param_start: 0,
             param_len: 0,
             bytecode_context,
+            account_remap: [u8::MAX; MAX_PARAMETERS + 1],
         }
     }
 
@@ -52,6 +54,7 @@ impl CallFrame {
         param_start: u8,
         param_len: u8,
         bytecode_context: u8,
+        account_remap: [u8; MAX_PARAMETERS + 1],
     ) -> Self {
         Self {
             return_address,
@@ -60,6 +63,7 @@ impl CallFrame {
             param_start,
             param_len,
             bytecode_context,
+            account_remap,
         }
     }
 }

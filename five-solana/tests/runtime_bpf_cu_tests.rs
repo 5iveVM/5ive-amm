@@ -9,6 +9,7 @@ use std::{
 
 use five::instructions::{DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
 use five::state::{FIVEVMState, ScriptAccountHeader};
+use five_dsl_compiler::DslCompiler;
 use five_protocol::opcodes::HALT;
 use harness::compile::load_or_compile_bytecode;
 use harness::fixtures::{canonical_execute_payload, TypedParam};
@@ -147,6 +148,38 @@ struct RuntimeAccount {
     executable: bool,
 }
 
+const TOKEN_ALL_PUBLIC_CALLS: [&str; 14] = [
+    "ext0::mint_to(mint_account, user1_token, user1, 1000);",
+    "ext0::mint_to(mint_account, user2_token, user1, 500);",
+    "ext0::mint_to(mint_account, user3_token, user1, 500);",
+    "ext0::transfer(user2_token, user3_token, user2, 100);",
+    "ext0::approve(user3_token, user3, new_mint_authority_pk, 150);",
+    "ext0::transfer_from(user3_token, user1_token, user2, 50);",
+    "ext0::revoke(user3_token, user3);",
+    "ext0::burn(mint_account, user1_token, user1, 100);",
+    "ext0::freeze_account(mint_account, user2_token, user1);",
+    "ext0::thaw_account(mint_account, user2_token, user1);",
+    "ext0::transfer(user1_token, user2_token, user1, 10);",
+    "ext0::transfer(user2_token, user1_token, user2, 10);",
+    "ext0::approve(user1_token, user1, new_mint_authority_pk, 1);",
+    "ext0::revoke(user1_token, user1);",
+];
+
+const TOKEN_ALL_PUBLIC_POST_CALLS: [&str; 4] = [
+    "ext0::set_mint_authority(mint_account, user1, new_mint_authority_pk);",
+    "ext0::set_freeze_authority(mint_account, user1, new_freeze_authority_pk);",
+    "ext0::disable_mint(mint_account, user2);",
+    "ext0::disable_freeze(mint_account, user2);",
+];
+
+struct ExternalAllPublicRun {
+    deploy_token_units: u64,
+    deploy_caller_units: u64,
+    execute_units: u64,
+    caller_bytecode_size: usize,
+    token_bytecode_size: usize,
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn token_e2e_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -159,6 +192,910 @@ async fn spl_token_interface_cpi_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let fixture_path = repo_root.join("five-templates/cpi-examples/runtime-fixtures/spl-token-mint-e2e.json");
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(120_000)).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn external_token_transfer_non_cpi_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let bpf_dir = repo_root.join("target/deploy");
+    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
+
+    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
+        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
+        .pubkey();
+
+    let token_bytecode_path = repo_root.join("five-templates/token/src/token.bin");
+    let token_bytecode = fs::read(&token_bytecode_path)
+        .unwrap_or_else(|e| panic!("failed reading {}: {}", token_bytecode_path.display(), e));
+
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
+    let owner_signer = Keypair::new();
+    let owner_pubkey = owner_signer.pubkey();
+    accounts.insert(
+        "owner".to_string(),
+        RuntimeAccount {
+            pubkey: owner_pubkey,
+            signer: Some(owner_signer),
+            owner: system_program::id(),
+            lamports: 20_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
+            .expect("invalid vm state account layout");
+        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.deploy_fee_bps = 0;
+        vm_state.execute_fee_bps = 0;
+    }
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
+            data: vm_state_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let token_script_pubkey = Pubkey::new_unique();
+    accounts.insert(
+        "token_script".to_string(),
+        RuntimeAccount {
+            pubkey: token_script_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let token_import_address = bs58::encode(token_script_pubkey.to_bytes()).into_string();
+    let caller_source = format!(
+        r#"
+        use "{token_import_address}"::{{transfer}};
+
+        pub fn call_transfer(
+            source_account: account @mut,
+            destination_account: account @mut,
+            owner: account @mut,
+            ext0: account
+        ) {{
+            ext0::transfer(source_account, destination_account, owner, 50);
+        }}
+    "#
+    );
+    let caller_bytecode =
+        DslCompiler::compile_dsl(&caller_source).expect("caller script should compile");
+    accounts.insert(
+        "caller_script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mint_pubkey = Pubkey::new_unique();
+    let source_token_pubkey = Pubkey::new_unique();
+    let destination_token_pubkey = Pubkey::new_unique();
+
+    let mut source_data = vec![0u8; 192];
+    source_data[0..32].copy_from_slice(owner_pubkey.as_ref());
+    source_data[32..64].copy_from_slice(mint_pubkey.as_ref());
+    source_data[64..72].copy_from_slice(&500u64.to_le_bytes());
+    source_data[72] = 0;
+    accounts.insert(
+        "source_token".to_string(),
+        RuntimeAccount {
+            pubkey: source_token_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(source_data.len()),
+            data: source_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut destination_data = vec![0u8; 192];
+    destination_data[0..32].copy_from_slice(destination_token_pubkey.as_ref());
+    destination_data[32..64].copy_from_slice(mint_pubkey.as_ref());
+    destination_data[64..72].copy_from_slice(&100u64.to_le_bytes());
+    destination_data[72] = 0;
+    accounts.insert(
+        "destination_token".to_string(),
+        RuntimeAccount {
+            pubkey: destination_token_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(destination_data.len()),
+            data: destination_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut program_test = ProgramTest::new("five", program_id, None);
+    program_test.prefer_bpf(true);
+    for account in accounts.values() {
+        if account.pubkey == program_id || account.pubkey == system_program::id() {
+            continue;
+        }
+        program_test.add_account(
+            account.pubkey,
+            Account {
+                lamports: account.lamports,
+                data: account.data.clone(),
+                owner: account.owner,
+                executable: account.executable,
+                rent_epoch: 0,
+            },
+        );
+    }
+    let mut ctx = program_test.start_with_context().await;
+
+    let deploy_token_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "token_script",
+        "vm_state",
+        "owner",
+        &token_bytecode,
+        0,
+    );
+    let deploy_token = simulate_and_process(
+        &mut ctx,
+        vec![deploy_token_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_token.success, "token deploy failed: {:?}", deploy_token.error);
+
+    let deploy_caller_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        "owner",
+        &caller_bytecode,
+        0,
+    );
+    let deploy_caller = simulate_and_process(
+        &mut ctx,
+        vec![deploy_caller_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+
+    let step = StepFixture {
+        name: "external_transfer_non_cpi".to_string(),
+        function_index: 0,
+        extras: vec![
+            "source_token".to_string(),
+            "destination_token".to_string(),
+            "owner".to_string(),
+            "token_script".to_string(),
+        ],
+        params: vec![
+            ParamFixture::AccountRef {
+                account: "source_token".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "destination_token".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "owner".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "token_script".to_string(),
+            },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+    let execute_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        &step,
+        build_payload(&accounts, &step),
+    );
+    let execute = simulate_and_process(
+        &mut ctx,
+        vec![execute_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        execute.success,
+        "external transfer execution failed: {:?}",
+        execute.error
+    );
+
+    let source_after = ctx
+        .banks_client
+        .get_account(source_token_pubkey)
+        .await
+        .expect("fetch source account")
+        .expect("source token account missing");
+    let destination_after = ctx
+        .banks_client
+        .get_account(destination_token_pubkey)
+        .await
+        .expect("fetch destination account")
+        .expect("destination token account missing");
+    let source_balance = u64::from_le_bytes(source_after.data[64..72].try_into().unwrap());
+    let destination_balance = u64::from_le_bytes(destination_after.data[64..72].try_into().unwrap());
+    assert_eq!(source_balance, 450);
+    assert_eq!(destination_balance, 150);
+
+    println!(
+        "BPF_CU external_non_cpi deploy_token={} deploy_caller={} execute={} total={} caller_bytecode_size={} token_bytecode_size={}",
+        deploy_token.units_consumed,
+        deploy_caller.units_consumed,
+        execute.units_consumed,
+        deploy_token
+            .units_consumed
+            .saturating_add(deploy_caller.units_consumed)
+            .saturating_add(execute.units_consumed),
+        caller_bytecode.len(),
+        token_bytecode.len()
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let bpf_dir = repo_root.join("target/deploy");
+    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
+
+    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
+        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
+        .pubkey();
+
+    let token_bytecode_path = repo_root.join("five-templates/token/src/token.bin");
+    let token_bytecode = fs::read(&token_bytecode_path)
+        .unwrap_or_else(|e| panic!("failed reading {}: {}", token_bytecode_path.display(), e));
+
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
+    let owner_signer = Keypair::new();
+    let owner_pubkey = owner_signer.pubkey();
+    accounts.insert(
+        "owner".to_string(),
+        RuntimeAccount {
+            pubkey: owner_pubkey,
+            signer: Some(owner_signer),
+            owner: system_program::id(),
+            lamports: 50_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
+            .expect("invalid vm state account layout");
+        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.deploy_fee_bps = 0;
+        vm_state.execute_fee_bps = 0;
+    }
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
+            data: vm_state_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let token_script_pubkey = Pubkey::new_unique();
+    accounts.insert(
+        "token_script".to_string(),
+        RuntimeAccount {
+            pubkey: token_script_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let token_import_address = bs58::encode(token_script_pubkey.to_bytes()).into_string();
+    let caller_source = format!(
+        r#"
+        use "{token_import_address}"::{{transfer}};
+
+        pub fn burst_transfer(
+            s1: account @mut, d1: account @mut,
+            s2: account @mut, d2: account @mut,
+            s3: account @mut, d3: account @mut,
+            s4: account @mut, d4: account @mut,
+            owner: account @mut,
+            ext0: account
+        ) {{
+            ext0::transfer(s1, d1, owner, 10);
+            ext0::transfer(s2, d2, owner, 20);
+            ext0::transfer(s3, d3, owner, 30);
+            ext0::transfer(s4, d4, owner, 40);
+        }}
+    "#
+    );
+    let caller_bytecode =
+        DslCompiler::compile_dsl(&caller_source).expect("caller burst script should compile");
+    accounts.insert(
+        "caller_script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mint_pubkey = Pubkey::new_unique();
+    for i in 1..=4 {
+        let src_key = Pubkey::new_unique();
+        let dst_key = Pubkey::new_unique();
+        let mut src_data = vec![0u8; 192];
+        src_data[0..32].copy_from_slice(owner_pubkey.as_ref());
+        src_data[32..64].copy_from_slice(mint_pubkey.as_ref());
+        src_data[64..72].copy_from_slice(&1000u64.to_le_bytes());
+        src_data[72] = 0;
+        accounts.insert(
+            format!("source_token_{}", i),
+            RuntimeAccount {
+                pubkey: src_key,
+                signer: None,
+                owner: program_id,
+                lamports: Rent::default().minimum_balance(src_data.len()),
+                data: src_data,
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+
+        let mut dst_data = vec![0u8; 192];
+        dst_data[0..32].copy_from_slice(Pubkey::new_unique().as_ref());
+        dst_data[32..64].copy_from_slice(mint_pubkey.as_ref());
+        dst_data[64..72].copy_from_slice(&100u64.to_le_bytes());
+        dst_data[72] = 0;
+        accounts.insert(
+            format!("dest_token_{}", i),
+            RuntimeAccount {
+                pubkey: dst_key,
+                signer: None,
+                owner: program_id,
+                lamports: Rent::default().minimum_balance(dst_data.len()),
+                data: dst_data,
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
+
+    let mut program_test = ProgramTest::new("five", program_id, None);
+    program_test.prefer_bpf(true);
+    for account in accounts.values() {
+        if account.pubkey == program_id || account.pubkey == system_program::id() {
+            continue;
+        }
+        program_test.add_account(
+            account.pubkey,
+            Account {
+                lamports: account.lamports,
+                data: account.data.clone(),
+                owner: account.owner,
+                executable: account.executable,
+                rent_epoch: 0,
+            },
+        );
+    }
+    let mut ctx = program_test.start_with_context().await;
+
+    let deploy_token_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "token_script",
+        "vm_state",
+        "owner",
+        &token_bytecode,
+        0,
+    );
+    let deploy_token = simulate_and_process(
+        &mut ctx,
+        vec![deploy_token_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_token.success, "token deploy failed: {:?}", deploy_token.error);
+
+    let deploy_caller_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        "owner",
+        &caller_bytecode,
+        0,
+    );
+    let deploy_caller = simulate_and_process(
+        &mut ctx,
+        vec![deploy_caller_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+
+    let burst_step = StepFixture {
+        name: "external_transfer_burst_non_cpi".to_string(),
+        function_index: 0,
+        extras: vec![
+            "source_token_1".to_string(), "dest_token_1".to_string(),
+            "source_token_2".to_string(), "dest_token_2".to_string(),
+            "source_token_3".to_string(), "dest_token_3".to_string(),
+            "source_token_4".to_string(), "dest_token_4".to_string(),
+            "owner".to_string(),
+            "token_script".to_string(),
+        ],
+        params: vec![
+            ParamFixture::AccountRef { account: "source_token_1".to_string() },
+            ParamFixture::AccountRef { account: "dest_token_1".to_string() },
+            ParamFixture::AccountRef { account: "source_token_2".to_string() },
+            ParamFixture::AccountRef { account: "dest_token_2".to_string() },
+            ParamFixture::AccountRef { account: "source_token_3".to_string() },
+            ParamFixture::AccountRef { account: "dest_token_3".to_string() },
+            ParamFixture::AccountRef { account: "source_token_4".to_string() },
+            ParamFixture::AccountRef { account: "dest_token_4".to_string() },
+            ParamFixture::AccountRef { account: "owner".to_string() },
+            ParamFixture::AccountRef { account: "token_script".to_string() },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+
+    let execute_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        &burst_step,
+        build_payload(&accounts, &burst_step),
+    );
+    let execute = simulate_and_process(
+        &mut ctx,
+        vec![execute_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        execute.success,
+        "burst external transfer execution failed: {:?}",
+        execute.error
+    );
+
+    let transfer_amounts = [10u64, 20, 30, 40];
+    for (i, amount) in transfer_amounts.iter().enumerate() {
+        let src_name = format!("source_token_{}", i + 1);
+        let dst_name = format!("dest_token_{}", i + 1);
+        let src_pk = accounts[&src_name].pubkey;
+        let dst_pk = accounts[&dst_name].pubkey;
+        let src_after = ctx
+            .banks_client
+            .get_account(src_pk)
+            .await
+            .expect("fetch source account")
+            .expect("source token account missing");
+        let dst_after = ctx
+            .banks_client
+            .get_account(dst_pk)
+            .await
+            .expect("fetch destination account")
+            .expect("destination token account missing");
+        let src_balance = u64::from_le_bytes(src_after.data[64..72].try_into().unwrap());
+        let dst_balance = u64::from_le_bytes(dst_after.data[64..72].try_into().unwrap());
+        assert_eq!(src_balance, 1000 - amount);
+        assert_eq!(dst_balance, 100 + amount);
+    }
+
+    println!(
+        "BPF_CU external_burst_non_cpi deploy_token={} deploy_caller={} execute={} total={} caller_bytecode_size={} token_bytecode_size={} transfers={}",
+        deploy_token.units_consumed,
+        deploy_caller.units_consumed,
+        execute.units_consumed,
+        deploy_token
+            .units_consumed
+            .saturating_add(deploy_caller.units_consumed)
+            .saturating_add(execute.units_consumed),
+        caller_bytecode.len(),
+        token_bytecode.len(),
+        transfer_amounts.len()
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let bpf_dir = repo_root.join("target/deploy");
+    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
+
+    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
+        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
+        .pubkey();
+
+    let token_bytecode_path = repo_root.join("five-templates/token/src/token.bin");
+    let token_bytecode = fs::read(&token_bytecode_path)
+        .unwrap_or_else(|e| panic!("failed reading {}: {}", token_bytecode_path.display(), e));
+
+    let transfer_amounts: Vec<u64> = (1u64..=10).map(|n| n * 10).collect();
+    let pair_count = transfer_amounts.len();
+
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
+    let owner_signer = Keypair::new();
+    let owner_pubkey = owner_signer.pubkey();
+    accounts.insert(
+        "owner".to_string(),
+        RuntimeAccount {
+            pubkey: owner_pubkey,
+            signer: Some(owner_signer),
+            owner: system_program::id(),
+            lamports: 120_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
+            .expect("invalid vm state account layout");
+        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.deploy_fee_bps = 0;
+        vm_state.execute_fee_bps = 0;
+    }
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
+            data: vm_state_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let token_script_pubkey = Pubkey::new_unique();
+    accounts.insert(
+        "token_script".to_string(),
+        RuntimeAccount {
+            pubkey: token_script_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let token_import_address = bs58::encode(token_script_pubkey.to_bytes()).into_string();
+    let mut signature_parts = Vec::new();
+    let mut call_lines = Vec::new();
+    for (idx, amount) in transfer_amounts.iter().enumerate() {
+        let i = idx + 1;
+        signature_parts.push(format!("s{i}: account @mut"));
+        signature_parts.push(format!("d{i}: account @mut"));
+        call_lines.push(format!("ext0::transfer(s{i}, d{i}, owner, {amount});"));
+    }
+    signature_parts.push("owner: account @mut".to_string());
+    signature_parts.push("ext0: account".to_string());
+
+    let caller_source = format!(
+        r#"
+        use "{token_import_address}"::{{transfer}};
+
+        pub fn mass_transfer(
+            {}
+        ) {{
+            {}
+        }}
+    "#,
+        signature_parts.join(",\n            "),
+        call_lines.join("\n            ")
+    );
+    let caller_bytecode =
+        DslCompiler::compile_dsl(&caller_source).expect("caller mass-transfer script should compile");
+    accounts.insert(
+        "caller_script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mint_pubkey = Pubkey::new_unique();
+    for i in 1..=pair_count {
+        let src_key = Pubkey::new_unique();
+        let dst_key = Pubkey::new_unique();
+        let mut src_data = vec![0u8; 192];
+        src_data[0..32].copy_from_slice(owner_pubkey.as_ref());
+        src_data[32..64].copy_from_slice(mint_pubkey.as_ref());
+        src_data[64..72].copy_from_slice(&1000u64.to_le_bytes());
+        src_data[72] = 0;
+        accounts.insert(
+            format!("source_token_{}", i),
+            RuntimeAccount {
+                pubkey: src_key,
+                signer: None,
+                owner: program_id,
+                lamports: Rent::default().minimum_balance(src_data.len()),
+                data: src_data,
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+
+        let mut dst_data = vec![0u8; 192];
+        dst_data[0..32].copy_from_slice(Pubkey::new_unique().as_ref());
+        dst_data[32..64].copy_from_slice(mint_pubkey.as_ref());
+        dst_data[64..72].copy_from_slice(&100u64.to_le_bytes());
+        dst_data[72] = 0;
+        accounts.insert(
+            format!("dest_token_{}", i),
+            RuntimeAccount {
+                pubkey: dst_key,
+                signer: None,
+                owner: program_id,
+                lamports: Rent::default().minimum_balance(dst_data.len()),
+                data: dst_data,
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
+
+    let mut program_test = ProgramTest::new("five", program_id, None);
+    program_test.prefer_bpf(true);
+    for account in accounts.values() {
+        if account.pubkey == program_id || account.pubkey == system_program::id() {
+            continue;
+        }
+        program_test.add_account(
+            account.pubkey,
+            Account {
+                lamports: account.lamports,
+                data: account.data.clone(),
+                owner: account.owner,
+                executable: account.executable,
+                rent_epoch: 0,
+            },
+        );
+    }
+    let mut ctx = program_test.start_with_context().await;
+
+    let deploy_token_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "token_script",
+        "vm_state",
+        "owner",
+        &token_bytecode,
+        0,
+    );
+    let deploy_token = simulate_and_process(
+        &mut ctx,
+        vec![deploy_token_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_token.success, "token deploy failed: {:?}", deploy_token.error);
+
+    let deploy_caller_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        "owner",
+        &caller_bytecode,
+        0,
+    );
+    let deploy_caller = simulate_and_process(
+        &mut ctx,
+        vec![deploy_caller_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+
+    let mut extras = Vec::with_capacity(pair_count * 2 + 2);
+    let mut params = Vec::with_capacity(pair_count * 2 + 2);
+    for i in 1..=pair_count {
+        let s = format!("source_token_{}", i);
+        let d = format!("dest_token_{}", i);
+        extras.push(s.clone());
+        extras.push(d.clone());
+        params.push(ParamFixture::AccountRef { account: s });
+        params.push(ParamFixture::AccountRef { account: d });
+    }
+    extras.push("owner".to_string());
+    extras.push("token_script".to_string());
+    params.push(ParamFixture::AccountRef {
+        account: "owner".to_string(),
+    });
+    params.push(ParamFixture::AccountRef {
+        account: "token_script".to_string(),
+    });
+
+    let mass_step = StepFixture {
+        name: "external_transfer_mass_non_cpi".to_string(),
+        function_index: 0,
+        extras,
+        params,
+        expected: ExpectedFixture::Success,
+    };
+
+    let execute_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        &mass_step,
+        build_payload(&accounts, &mass_step),
+    );
+    let execute = simulate_and_process(
+        &mut ctx,
+        vec![execute_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        execute.success,
+        "mass external transfer execution failed: {:?}",
+        execute.error
+    );
+
+    for (i, amount) in transfer_amounts.iter().enumerate() {
+        let src_name = format!("source_token_{}", i + 1);
+        let dst_name = format!("dest_token_{}", i + 1);
+        let src_pk = accounts[&src_name].pubkey;
+        let dst_pk = accounts[&dst_name].pubkey;
+        let src_after = ctx
+            .banks_client
+            .get_account(src_pk)
+            .await
+            .expect("fetch source account")
+            .expect("source token account missing");
+        let dst_after = ctx
+            .banks_client
+            .get_account(dst_pk)
+            .await
+            .expect("fetch destination account")
+            .expect("destination token account missing");
+        let src_balance = u64::from_le_bytes(src_after.data[64..72].try_into().unwrap());
+        let dst_balance = u64::from_le_bytes(dst_after.data[64..72].try_into().unwrap());
+        assert_eq!(src_balance, 1000 - amount);
+        assert_eq!(dst_balance, 100 + amount);
+    }
+
+    println!(
+        "BPF_CU external_mass_transfer_non_cpi deploy_token={} deploy_caller={} execute={} total={} caller_bytecode_size={} token_bytecode_size={} transfers={}",
+        deploy_token.units_consumed,
+        deploy_caller.units_consumed,
+        execute.units_consumed,
+        deploy_token
+            .units_consumed
+            .saturating_add(deploy_caller.units_consumed)
+            .saturating_add(execute.units_consumed),
+        caller_bytecode.len(),
+        token_bytecode.len(),
+        transfer_amounts.len()
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "Pending external selector/runtime support for non-transfer public functions"]
+async fn external_token_all_public_non_cpi_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let full_call_count = TOKEN_ALL_PUBLIC_CALLS.len() + TOKEN_ALL_PUBLIC_POST_CALLS.len();
+
+    let mut prefix_runs: Vec<ExternalAllPublicRun> = Vec::with_capacity(full_call_count + 1);
+    for prefix in 0..=full_call_count {
+        prefix_runs.push(run_external_token_all_public_profile(&repo_root, prefix, false).await);
+    }
+
+    println!("BPF_CU external_all_public_non_cpi_per_function_deltas_begin");
+    for idx in 1..=full_call_count {
+        let total_with = prefix_runs[idx].execute_units;
+        let total_prev = prefix_runs[idx - 1].execute_units;
+        let delta = total_with.saturating_sub(total_prev);
+        let call_name = if idx <= TOKEN_ALL_PUBLIC_CALLS.len() {
+            TOKEN_ALL_PUBLIC_CALLS[idx - 1]
+        } else {
+            TOKEN_ALL_PUBLIC_POST_CALLS[idx - TOKEN_ALL_PUBLIC_CALLS.len() - 1]
+        };
+        println!(
+            "BPF_CU external_call_delta idx={} delta={} total_with_prefix={} caller_bytecode_size={} call={}",
+            idx,
+            delta,
+            total_with,
+            prefix_runs[idx].caller_bytecode_size,
+            call_name
+        );
+    }
+    println!("BPF_CU external_all_public_non_cpi_per_function_deltas_end");
+
+    let full = run_external_token_all_public_profile(&repo_root, full_call_count, true).await;
+    println!(
+        "BPF_CU external_all_public_non_cpi deploy_token={} deploy_caller={} execute={} total={} caller_bytecode_size={} token_bytecode_size={} calls={}",
+        full.deploy_token_units,
+        full.deploy_caller_units,
+        full.execute_units,
+        full.deploy_token_units
+            .saturating_add(full.deploy_caller_units)
+            .saturating_add(full.execute_units),
+        full.caller_bytecode_size,
+        full.token_bytecode_size,
+        full_call_count,
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -736,6 +1673,435 @@ fn resolve_owner(owner: AccountOwner, program_id: Pubkey, authority: Pubkey, sel
         AccountOwner::SelfAccount => self_key,
         AccountOwner::SplTokenProgram => spl_token::id(),
         AccountOwner::AnchorTokenProgram => anchor_token_program_id(),
+    }
+}
+
+fn build_external_all_public_caller_source(token_import_address: &str, call_count: usize) -> String {
+    let calls = TOKEN_ALL_PUBLIC_CALLS
+        .iter()
+        .chain(TOKEN_ALL_PUBLIC_POST_CALLS.iter())
+        .take(call_count)
+        .copied()
+        .collect::<Vec<_>>()
+        .join("\n            ");
+
+    format!(
+        r#"
+        use "{token_import_address}"::{{
+            init_mint,
+            init_token_account,
+            mint_to,
+            transfer,
+            transfer_from,
+            approve,
+            revoke,
+            burn,
+            freeze_account,
+            thaw_account,
+            set_mint_authority,
+            set_freeze_authority,
+            disable_mint,
+            disable_freeze
+        }};
+
+        pub fn call_all_public_functions(
+            mint_account: account @mut,
+            user1_token: account @mut,
+            user2_token: account @mut,
+            user3_token: account @mut,
+            user1: account @mut,
+            user2: account @mut,
+            user3: account @mut,
+            ext0: account,
+            new_mint_authority_pk: pubkey,
+            new_freeze_authority_pk: pubkey
+        ) {{
+            {calls}
+        }}
+    "#
+    )
+}
+
+fn seed_external_token_all_public_accounts(
+    accounts: &mut BTreeMap<String, RuntimeAccount>,
+    program_id: Pubkey,
+    user1_pubkey: Pubkey,
+    user2_pubkey: Pubkey,
+    user3_pubkey: Pubkey,
+) {
+    let mint_pubkey = Pubkey::new_unique();
+    let mut mint_data = vec![0u8; 256];
+    mint_data[0..32].copy_from_slice(user1_pubkey.as_ref()); // authority
+    mint_data[32..64].copy_from_slice(user1_pubkey.as_ref()); // freeze authority
+    mint_data[64..72].copy_from_slice(&0u64.to_le_bytes()); // supply
+    mint_data[72] = 6; // decimals
+    accounts.insert(
+        "mint_account".to_string(),
+        RuntimeAccount {
+            pubkey: mint_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(mint_data.len()),
+            data: mint_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    for (name, owner_pk) in [
+        ("user1_token", user1_pubkey),
+        ("user2_token", user2_pubkey),
+        ("user3_token", user3_pubkey),
+    ] {
+        let token_pubkey = Pubkey::new_unique();
+        let mut token_data = vec![0u8; 192];
+        token_data[0..32].copy_from_slice(owner_pk.as_ref());
+        token_data[32..64].copy_from_slice(mint_pubkey.as_ref());
+        token_data[64..72].copy_from_slice(&0u64.to_le_bytes());
+        token_data[72] = 0; // is_frozen
+        token_data[73..81].copy_from_slice(&0u64.to_le_bytes()); // delegated_amount
+        token_data[81..113].copy_from_slice(&[0u8; 32]); // delegate
+        token_data[113] = 1; // initialized
+        accounts.insert(
+            name.to_string(),
+            RuntimeAccount {
+                pubkey: token_pubkey,
+                signer: None,
+                owner: program_id,
+                lamports: Rent::default().minimum_balance(token_data.len()),
+                data: token_data,
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
+}
+
+async fn run_external_token_all_public_profile(
+    repo_root: &Path,
+    call_count: usize,
+    assert_full_state: bool,
+) -> ExternalAllPublicRun {
+    let bpf_dir = repo_root.join("target/deploy");
+    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
+
+    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
+        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
+        .pubkey();
+
+    let token_bytecode_path = repo_root.join("five-templates/token/src/token.bin");
+    let token_bytecode = fs::read(&token_bytecode_path)
+        .unwrap_or_else(|e| panic!("failed reading {}: {}", token_bytecode_path.display(), e));
+
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
+    let payer_signer = Keypair::new();
+    let payer_pubkey = payer_signer.pubkey();
+    accounts.insert(
+        "payer".to_string(),
+        RuntimeAccount {
+            pubkey: payer_pubkey,
+            signer: Some(payer_signer),
+            owner: system_program::id(),
+            lamports: 80_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let user1_signer = Keypair::new();
+    let user1_pubkey = user1_signer.pubkey();
+    accounts.insert(
+        "user1".to_string(),
+        RuntimeAccount {
+            pubkey: user1_pubkey,
+            signer: Some(user1_signer),
+            owner: system_program::id(),
+            lamports: 40_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    let user2_signer = Keypair::new();
+    let user2_pubkey = user2_signer.pubkey();
+    accounts.insert(
+        "user2".to_string(),
+        RuntimeAccount {
+            pubkey: user2_pubkey,
+            signer: Some(user2_signer),
+            owner: system_program::id(),
+            lamports: 40_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    let user3_signer = Keypair::new();
+    let user3_pubkey = user3_signer.pubkey();
+    accounts.insert(
+        "user3".to_string(),
+        RuntimeAccount {
+            pubkey: user3_pubkey,
+            signer: Some(user3_signer),
+            owner: system_program::id(),
+            lamports: 40_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
+            .expect("invalid vm state account layout");
+        vm_state.initialize(payer_pubkey.to_bytes());
+        vm_state.deploy_fee_bps = 0;
+        vm_state.execute_fee_bps = 0;
+    }
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
+            data: vm_state_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let token_script_pubkey = Pubkey::new_unique();
+    accounts.insert(
+        "token_script".to_string(),
+        RuntimeAccount {
+            pubkey: token_script_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    seed_external_token_all_public_accounts(
+        &mut accounts,
+        program_id,
+        user1_pubkey,
+        user2_pubkey,
+        user3_pubkey,
+    );
+
+    let token_import_address = bs58::encode(token_script_pubkey.to_bytes()).into_string();
+    let caller_source = build_external_all_public_caller_source(&token_import_address, call_count);
+    let caller_bytecode =
+        DslCompiler::compile_dsl(&caller_source).expect("external all-public caller should compile");
+    accounts.insert(
+        "caller_script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut program_test = ProgramTest::new("five", program_id, None);
+    program_test.prefer_bpf(true);
+    for account in accounts.values() {
+        if account.pubkey == program_id || account.pubkey == system_program::id() {
+            continue;
+        }
+        program_test.add_account(
+            account.pubkey,
+            Account {
+                lamports: account.lamports,
+                data: account.data.clone(),
+                owner: account.owner,
+                executable: account.executable,
+                rent_epoch: 0,
+            },
+        );
+    }
+    let mut ctx = program_test.start_with_context().await;
+
+    let deploy_token_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "token_script",
+        "vm_state",
+        "payer",
+        &token_bytecode,
+        0,
+    );
+    let deploy_token = simulate_and_process(
+        &mut ctx,
+        vec![deploy_token_ix],
+        collect_signers(&accounts, &["payer"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_token.success, "token deploy failed: {:?}", deploy_token.error);
+
+    let deploy_caller_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        "payer",
+        &caller_bytecode,
+        0,
+    );
+    let deploy_caller = simulate_and_process(
+        &mut ctx,
+        vec![deploy_caller_ix],
+        collect_signers(&accounts, &["payer"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+
+    let step = StepFixture {
+        name: "external_all_public_non_cpi".to_string(),
+        function_index: 0,
+        extras: vec![
+            "mint_account".to_string(),
+            "user1_token".to_string(),
+            "user2_token".to_string(),
+            "user3_token".to_string(),
+            "user1".to_string(),
+            "user2".to_string(),
+            "user3".to_string(),
+            "token_script".to_string(),
+        ],
+        params: vec![
+            ParamFixture::AccountRef {
+                account: "mint_account".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "user1_token".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "user2_token".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "user3_token".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "user1".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "user2".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "user3".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "token_script".to_string(),
+            },
+            ParamFixture::PubkeyAccount {
+                account: "user2".to_string(),
+            },
+            ParamFixture::PubkeyAccount {
+                account: "user2".to_string(),
+            },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+
+    let execute_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        &step,
+        build_payload(&accounts, &step),
+    );
+    let execute = simulate_and_process(
+        &mut ctx,
+        vec![execute_ix],
+        collect_signers(
+            &accounts,
+            &["user1", "user2", "user3"],
+        ),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        execute.success,
+        "external all-public execution failed (call_count={}): {:?}",
+        call_count,
+        execute.error
+    );
+
+    if assert_full_state {
+        let mint_account_pk = accounts["mint_account"].pubkey;
+        let user1_token_pk = accounts["user1_token"].pubkey;
+        let user2_token_pk = accounts["user2_token"].pubkey;
+        let user3_token_pk = accounts["user3_token"].pubkey;
+
+        let mint_after = ctx
+            .banks_client
+            .get_account(mint_account_pk)
+            .await
+            .expect("fetch mint account")
+            .expect("mint account missing");
+        let user1_after = ctx
+            .banks_client
+            .get_account(user1_token_pk)
+            .await
+            .expect("fetch user1 token account")
+            .expect("user1 token account missing");
+        let user2_after = ctx
+            .banks_client
+            .get_account(user2_token_pk)
+            .await
+            .expect("fetch user2 token account")
+            .expect("user2 token account missing");
+        let user3_after = ctx
+            .banks_client
+            .get_account(user3_token_pk)
+            .await
+            .expect("fetch user3 token account")
+            .expect("user3 token account missing");
+
+        let supply = u64::from_le_bytes(mint_after.data[64..72].try_into().unwrap());
+        let user1_balance = u64::from_le_bytes(user1_after.data[64..72].try_into().unwrap());
+        let user2_balance = u64::from_le_bytes(user2_after.data[64..72].try_into().unwrap());
+        let user3_balance = u64::from_le_bytes(user3_after.data[64..72].try_into().unwrap());
+        assert_eq!(supply, 1900);
+        assert_eq!(user1_balance, 950);
+        assert_eq!(user2_balance, 400);
+        assert_eq!(user3_balance, 550);
+
+        // Mint authority and freeze authority are zeroed by disable_* calls.
+        assert_eq!(&mint_after.data[0..32], &[0u8; 32]);
+        assert_eq!(&mint_after.data[32..64], &[0u8; 32]);
+        // user2 was frozen then thawed.
+        assert_eq!(user2_after.data[72], 0);
+    }
+
+    ExternalAllPublicRun {
+        deploy_token_units: deploy_token.units_consumed,
+        deploy_caller_units: deploy_caller.units_consumed,
+        execute_units: execute.units_consumed,
+        caller_bytecode_size: caller_bytecode.len(),
+        token_bytecode_size: token_bytecode.len(),
     }
 }
 

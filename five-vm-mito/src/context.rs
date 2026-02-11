@@ -41,6 +41,7 @@ pub struct ExecutionContext<'a> {
     pub root_bytecode: &'a [u8],
     pub current_context: u8,
     pub pc: u16,
+    pub external_account_remap: [u8; MAX_PARAMETERS + 1],
 
     // Function metadata (optimized header V2).
     pub public_function_count: u8, // For external dispatch validation
@@ -134,6 +135,7 @@ impl<'a> ExecutionContext<'a> {
             root_bytecode: bytecode,
             current_context: crate::types::ROOT_CONTEXT,
             pc: start_pc,
+            external_account_remap: [u8::MAX; MAX_PARAMETERS + 1],
             stack: StackManager::new(stack),
             memory: ResourceManager::new(temp, heap),
             frame: FrameManager::new(call_stack, locals),
@@ -464,13 +466,13 @@ impl<'a> ExecutionContext<'a> {
 
     #[inline(always)]
     pub fn get_account(&self, index: u8) -> CompactResult<&'a AccountInfo> {
-        self.accounts.get(index)
+        self.accounts.get(self.resolve_account_index(index))
     }
 
     /// Get account for read access, ensuring pointer freshness
     #[inline(always)]
     pub fn get_account_for_read(&self, index: u8) -> CompactResult<&'a AccountInfo> {
-        let account = self.accounts.get(index)?;
+        let account = self.accounts.get(self.resolve_account_index(index))?;
         // CRITICAL FIX: Force refresh of account pointers before data access
         // to handle stale pointers after CPI.
         account.refresh_after_cpi();
@@ -481,7 +483,7 @@ impl<'a> ExecutionContext<'a> {
     #[inline(always)]
     pub fn get_account_for_write(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         // 1. Get account once
-        let account = self.accounts.get(index)?;
+        let account = self.accounts.get(self.resolve_account_index(index))?;
 
         // 2. Check bytecode authorization inline (avoiding second get)
         if account.data_len() > 0 {
@@ -505,7 +507,36 @@ impl<'a> ExecutionContext<'a> {
     /// Get account without lazy validation (for internal VM use)
     #[inline(always)]
     pub fn get_account_unchecked(&self, index: u8) -> CompactResult<&'a AccountInfo> {
-        self.accounts.get_unchecked(index)
+        self.accounts.get_unchecked(self.resolve_account_index(index))
+    }
+
+    #[inline(always)]
+    fn resolve_account_index(&self, index: u8) -> u8 {
+        if self.current_context != crate::types::ROOT_CONTEXT {
+            let idx = index as usize;
+            if idx < self.external_account_remap.len() {
+                let mapped = self.external_account_remap[idx];
+                if mapped != u8::MAX {
+                    return mapped;
+                }
+            }
+        }
+        index
+    }
+
+    #[inline(always)]
+    pub fn set_external_account_remap(&mut self, remap: [u8; MAX_PARAMETERS + 1]) {
+        self.external_account_remap = remap;
+    }
+
+    #[inline(always)]
+    pub fn external_account_remap(&self) -> [u8; MAX_PARAMETERS + 1] {
+        self.external_account_remap
+    }
+
+    #[inline(always)]
+    pub fn resolve_account_index_for_context(&self, index: u8) -> u8 {
+        self.resolve_account_index(index)
     }
 
     // --- Parameter operations (delegated to FrameManager) ---

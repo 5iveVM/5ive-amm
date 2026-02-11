@@ -113,10 +113,11 @@ fn harness_executes_external_token_transfer_without_cpi() {
             .join("../five-templates/token/src/token.bin"),
     )
     .expect("token.bin fixture should exist");
+    let token_script_key = unique_pubkey(76);
     rt.add_account(
         "token_script",
         AccountSeed {
-            key: [0u8; 32],
+            key: token_script_key,
             owner: program_id,
             lamports: 0,
             data: vec![0u8; five::state::ScriptAccountHeader::LEN + token_bytecode.len()],
@@ -140,22 +141,23 @@ fn harness_executes_external_token_transfer_without_cpi() {
         token_deploy.error
     );
 
-    let caller_source = r#"
-        use "11111111111111111111111111111111"::{transfer};
+    let token_import_address = bs58::encode(token_script_key).into_string();
+    let caller_source = format!(
+        r#"
+        use "{token_import_address}"::{{transfer}};
 
         pub fn call_transfer(
             source_account: account @mut,
             destination_account: account @mut,
             owner: account @mut,
-            ext0: account,
-            amount: u64,
-            _pad: u64
-        ) {
-            ext0::transfer(source_account, destination_account, owner, amount);
-        }
-    "#;
+            ext0: account
+        ) {{
+            ext0::transfer(source_account, destination_account, owner, 50);
+        }}
+    "#
+    );
     let caller_bytecode =
-        DslCompiler::compile_dsl(caller_source).expect("caller script should compile");
+        DslCompiler::compile_dsl(&caller_source).expect("caller script should compile");
     assert!(
         caller_bytecode
             .iter()
@@ -229,8 +231,6 @@ fn harness_executes_external_token_transfer_without_cpi() {
             TypedParam::Account(2),
             TypedParam::Account(3),
             TypedParam::Account(4),
-            TypedParam::U64(50),
-            TypedParam::U64(0),
         ],
     );
     let execute = rt.execute_script(
@@ -238,6 +238,13 @@ fn harness_executes_external_token_transfer_without_cpi() {
         "vm_state",
         &["source_token", "destination_token", "owner", "token_script"],
         &payload,
+    );
+    let cu = five_vm_mito::MitoVM::last_compute_units_consumed();
+    println!(
+        "external_call_metrics: caller_bytecode_len={} token_bytecode_len={} cu={}",
+        caller_bytecode.len(),
+        token_bytecode.len(),
+        cu
     );
     assert!(
         execute.success,

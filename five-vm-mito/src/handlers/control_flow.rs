@@ -101,7 +101,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     ctx.set_script(ctx.root_bytecode);
                     ctx.current_context = crate::types::ROOT_CONTEXT;
                 } else {
-                    let account = ctx.get_account_unchecked(frame.bytecode_context)?;
+                    let account = ctx.accounts.get_unchecked(frame.bytecode_context)?;
                     let data = unsafe { account.borrow_data_unchecked() };
                     const SCRIPT_ACCOUNT_HEADER_LEN: usize = 64;
                     if data.len() < SCRIPT_ACCOUNT_HEADER_LEN {
@@ -121,6 +121,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     return Err(VMErrorCode::InvalidInstructionPointer);
                 }
 
+                ctx.set_external_account_remap(frame.account_remap);
                 ctx.restore_parameters(frame.param_start, frame.param_len); // Restore caller's parameters
 
             } else {
@@ -158,7 +159,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     ctx.set_script(ctx.root_bytecode);
                     ctx.current_context = crate::types::ROOT_CONTEXT;
                 } else {
-                    let account = ctx.get_account_unchecked(frame.bytecode_context)?;
+                    let account = ctx.accounts.get_unchecked(frame.bytecode_context)?;
                     let data = unsafe { account.borrow_data_unchecked() };
                     const SCRIPT_ACCOUNT_HEADER_LEN: usize = 64;
                     if data.len() < SCRIPT_ACCOUNT_HEADER_LEN {
@@ -173,6 +174,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     return Err(VMErrorCode::InvalidInstructionPointer);
                 }
 
+                ctx.set_external_account_remap(frame.account_remap);
                 ctx.restore_parameters(frame.param_start, frame.param_len); // Restore caller's parameters
 
                 // RETURN_VALUE semantics: The return value remains on top of the stack

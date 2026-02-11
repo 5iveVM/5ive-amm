@@ -10,7 +10,7 @@ use crate::{
     types::CallFrame,
     MAX_CALL_DEPTH, MAX_PARAMETERS, STACK_SIZE,
 };
-use five_protocol::{opcodes::*, FEATURE_FUNCTION_METADATA, FEATURE_FUNCTION_NAMES};
+use five_protocol::{opcodes::*, ValueRef, FEATURE_FUNCTION_METADATA, FEATURE_FUNCTION_NAMES};
 
 #[inline(always)]
 pub fn handle_functions(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
@@ -199,6 +199,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
         caller_start,
         caller_len,
         ctx.current_context,
+        ctx.external_account_remap(),
     ))?;
 
     // Set callee's local base to end of caller's locals (per-frame window)
@@ -601,8 +602,9 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     validate_stack_limit(ctx, "CALL_EXTERNAL")?;
 
     let account_index = ctx.fetch_byte()? as usize;
-    let function_selector = ctx.fetch_u16()?;
+    let raw_selector = ctx.fetch_u16()?;
     let param_count = ctx.fetch_byte()?;
+    let function_selector = decode_external_selector(ctx, raw_selector)?;
     
     #[cfg(feature = "debug-logs")]
     debug_log!(
@@ -613,19 +615,28 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         ctx.size() as u64
     );
 
+    if param_count as usize > MAX_PARAMETERS {
+        return Err(VMErrorCode::InvalidOperation);
+    }
+
+    if ctx.size() < param_count as usize {
+        return Err(VMErrorCode::StackError);
+    }
+
+    let resolved_account_index = ctx.resolve_account_index_for_context(account_index as u8) as usize;
 
     // Validate account index
-    if account_index >= ctx.accounts().len() {
+    if resolved_account_index >= ctx.accounts().len() {
         debug_log!(
             "MitoVM: CALL_EXTERNAL invalid account index {} >= account count {}",
-            account_index as u32,
+            resolved_account_index as u32,
             ctx.accounts().len() as u32
         );
         return Err(VMErrorCode::AccountNotFound);
     }
 
     // Optimization: Get account reference once
-    let account = ctx.get_account(account_index as u8)?;
+    let account = ctx.get_account(resolved_account_index as u8)?;
 
     // Validate account has data
     let account_data_len = account.data_len();
@@ -727,6 +738,14 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let current_local_count = ctx.local_count();
     let current_local_base = ctx.local_base();
 
+    // Materialize CALL_EXTERNAL arguments in call order.
+    let mut call_args = [ValueRef::Empty; MAX_PARAMETERS];
+    for i in 0..param_count {
+        let value = ctx.pop()?;
+        let idx = (param_count - i - 1) as usize;
+        call_args[idx] = value;
+    }
+
     // Check if we have enough space for callee's locals before pushing frame
     let new_local_base = current_local_base
         .checked_add(current_local_count)
@@ -745,6 +764,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         caller_start,
         caller_len,
         ctx.current_context,
+        ctx.external_account_remap(),
     ))?;
 
     // Set callee's local base to end of caller's locals (per-frame window)
@@ -754,12 +774,42 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Use max(param_count, 3) to allow functions to use at least 3 local slots by default
     let locals_to_allocate = param_count.max(3);
     ctx.allocate_locals(locals_to_allocate)?;
-    ctx.allocate_params(param_count + 1)?;
-    for i in 0..param_count {
-        let value = ctx.pop()?;
-        let idx = (param_count - i) as usize;
-        ctx.parameters_mut()[idx] = value;
+    // External functions address account arguments by account index; parameter slots are used
+    // for non-account values (e.g. scalar inputs used by fused ops).
+    let mut scalar_arg_count: u8 = 0;
+    for value in call_args.iter().take(param_count as usize) {
+        if !matches!(value, ValueRef::AccountRef(_, _)) {
+            scalar_arg_count = scalar_arg_count.saturating_add(1);
+        }
     }
+    ctx.allocate_params(scalar_arg_count.saturating_add(1))?;
+    {
+        let params = ctx.parameters_mut();
+        params[0] = ValueRef::U64(0);
+        let mut out_idx = 1usize;
+        for value in call_args.iter().take(param_count as usize) {
+            if !matches!(value, ValueRef::AccountRef(_, _)) {
+                params[out_idx] = *value;
+                out_idx += 1;
+            }
+        }
+        for slot in out_idx..params.len() {
+            params[slot] = ValueRef::Empty;
+        }
+    }
+
+    // Build external account remap: external account slots are bound from account args in call order.
+    let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
+    let mut ext_acc_slot = 1usize;
+    for value in call_args.iter().take(param_count as usize) {
+        if let ValueRef::AccountRef(acc_idx, _) = value {
+            if ext_acc_slot < remap.len() {
+                remap[ext_acc_slot] = *acc_idx;
+                ext_acc_slot += 1;
+            }
+        }
+    }
+    ctx.set_external_account_remap(remap);
 
     debug_log!(
         "MitoVM: CALL_EXTERNAL about to switch_to_external_bytecode - current IP: {}, new offset: {}",
@@ -768,7 +818,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     );
     
     ctx.switch_to_external_bytecode(external_bytecode, resolved_func_offset)?;
-    ctx.current_context = account_index as u8;
+    ctx.current_context = resolved_account_index as u8;
     
     debug_log!(
         "MitoVM: CALL_EXTERNAL after switch_to_external_bytecode - new IP: {}, script len: {}",
@@ -777,6 +827,23 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     );
     
     Ok(())
+}
+
+#[inline(always)]
+fn decode_external_selector(ctx: &ExecutionManager, raw: u16) -> CompactResult<u16> {
+    // Tagged selector (bit15) means "constant pool slot in current bytecode context".
+    if (raw & 0x8000) != 0 {
+        if !ctx.pool_enabled() {
+            return Err(VMErrorCode::InvalidInstruction);
+        }
+        let pool_idx = raw & 0x7FFF;
+        let value = ctx.read_pool_slot_u64(pool_idx)?;
+        if value > u16::MAX as u64 {
+            return Err(VMErrorCode::InvalidInstruction);
+        }
+        return Ok(value as u16);
+    }
+    Ok(raw)
 }
 
 fn handle_call_native(ctx: &mut ExecutionManager) -> CompactResult<()> {

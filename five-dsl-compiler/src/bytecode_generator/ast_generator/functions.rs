@@ -230,8 +230,8 @@ impl ASTGenerator {
                             self.resolve_external_account_index(module_name, ext_import.account_index)?;
 
                         // Found external import - emit CALL_EXTERNAL opcode.
-                        // selector format: stable u16 function-name selector hash.
-                        // CALL_EXTERNAL format: opcode(1) + account_index(1) + func_offset(u16) + param_count(1)
+                        // Keep selector as raw u16 for protocol/runtime compatibility.
+                        // CALL_EXTERNAL format: opcode(1) + account_index(1) + selector(u16) + param_count(1)
                         emitter.emit_opcode(CALL_EXTERNAL);
                         emitter.emit_u8(account_index);
                         emitter.emit_u16(selector);
@@ -652,6 +652,7 @@ mod tests {
         fn emit_const_u128(&mut self, value: u128) -> Result<(), VMError> { self.emit_bytes(&value.to_le_bytes()); Ok(()) }
         fn emit_const_pubkey(&mut self, value: &[u8; 32]) -> Result<(), VMError> { self.emit_bytes(value); Ok(()) }
         fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError> { self.emit_bytes(value); Ok(()) }
+        fn intern_u16_const(&mut self, _value: u16) -> Result<u16, VMError> { Ok(0) }
     }
 
     #[test]

@@ -570,12 +570,11 @@ impl DslBytecodeGenerator {
             final_bytecode.extend_from_slice(&self.constant_pool.pool_bytes());
             final_bytecode.extend_from_slice(&self.bytecode);
             final_bytecode.extend_from_slice(string_blob);
-            final_bytecode.extend_from_slice(&self.import_metadata_bytes);
-
-            self.bytecode = final_bytecode;
 
             // CRITICAL: Verify bytecode JUMP targets before deployment
-            let verification_result = disassembler::verify_jump_targets(&self.bytecode);
+            // Import verification metadata is appended after executable code and may contain
+            // arbitrary bytes that look like opcodes, so validate only the executable region.
+            let verification_result = disassembler::verify_jump_targets(&final_bytecode);
             if !verification_result.is_valid {
                 eprintln!("BYTECODE VERIFICATION FAILED:");
                 eprintln!("{}", verification_result.error_summary());
@@ -593,6 +592,9 @@ impl DslBytecodeGenerator {
                     verification_result.jump_count, verification_result.bytecode_length
                 );
             }
+
+            final_bytecode.extend_from_slice(&self.import_metadata_bytes);
+            self.bytecode = final_bytecode;
 
             // Debug: print final bytecode summary to help diagnose missing opcodes in tests
             {
