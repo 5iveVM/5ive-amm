@@ -285,18 +285,37 @@ fn parse_function_constraints(
         offset += section_size;
     }
 
+    // Skip optional public-entry table section when present.
+    if (features & five_protocol::FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
+        if offset + 2 > external_bytecode.len() {
+            return Ok((0, [0u8; 16]));
+        }
+        let public_section_size =
+            u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
+        offset += 2;
+        if offset + public_section_size > external_bytecode.len() {
+            return Ok((0, [0u8; 16]));
+        }
+        offset += public_section_size;
+    }
+
+    // If constant-pool descriptor starts here, there is no dedicated constraints section.
+    if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+        return Ok((0, [0u8; 16]));
+    }
+
     // Constraint metadata section:
     // [u16 section_size] [entries...]
     // Entry (fixed-width): [account_count:u8] [constraint_bitmask:u8;16]
     // We also accept an optional u8 entry_count prefix inside section payload.
     if offset + 2 > external_bytecode.len() {
-        return Err(VMErrorCode::InvalidInstructionPointer);
+        return Ok((0, [0u8; 16]));
     }
     let section_size =
         u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
     offset += 2;
     if offset + section_size > external_bytecode.len() {
-        return Err(VMErrorCode::InvalidInstructionPointer);
+        return Ok((0, [0u8; 16]));
     }
     if section_size == 0 {
         return Ok((0, [0u8; 16]));
@@ -312,12 +331,12 @@ fn parse_function_constraints(
         if section[0] as usize == count {
             (count, 1usize)
         } else {
-            return Err(VMErrorCode::InvalidInstructionPointer);
+            return Ok((0, [0u8; 16]));
         }
     } else if section_size % entry_size == 0 {
         (section_size / entry_size, 0usize)
     } else {
-        return Err(VMErrorCode::InvalidInstructionPointer);
+        return Ok((0, [0u8; 16]));
     };
 
     if func_selector >= entry_count {
@@ -328,17 +347,198 @@ fn parse_function_constraints(
 
     let entry_offset = entries_start_in_section + (func_selector * entry_size);
     if entry_offset + entry_size > section.len() {
-        return Err(VMErrorCode::InvalidInstructionPointer);
+        return Ok((0, [0u8; 16]));
     }
 
     let account_count = section[entry_offset];
     if account_count > 16 {
-        return Err(VMErrorCode::InvalidInstructionPointer);
+        return Ok((0, [0u8; 16]));
     }
 
     let mut constraints = [0u8; 16];
     constraints.copy_from_slice(&section[entry_offset + 1..entry_offset + entry_size]);
     Ok((account_count, constraints))
+}
+
+#[inline]
+fn external_selector(name: &str) -> u16 {
+    const OFFSET: u32 = 0x811C9DC5;
+    const PRIME: u32 = 0x01000193;
+    let mut hash = OFFSET;
+    for b in name.as_bytes() {
+        hash ^= *b as u32;
+        hash = hash.wrapping_mul(PRIME);
+    }
+    (hash & 0xFFFF) as u16
+}
+
+#[inline]
+fn parse_external_layout(
+    external_bytecode: &[u8],
+) -> CompactResult<(usize, Option<(usize, u8)>, Option<(usize, usize)>)> {
+    if external_bytecode.len() < five_protocol::FIVE_HEADER_OPTIMIZED_SIZE {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    }
+
+    let features = u32::from_le_bytes([
+        external_bytecode[4],
+        external_bytecode[5],
+        external_bytecode[6],
+        external_bytecode[7],
+    ]);
+
+    let mut offset = five_protocol::FIVE_HEADER_OPTIMIZED_SIZE;
+    let mut function_names_section: Option<(usize, usize)> = None;
+    let mut public_entry_table: Option<(usize, u8)> = None;
+
+    if (features & FEATURE_FUNCTION_NAMES) != 0 {
+        if offset + 2 > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let section_size =
+            u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
+        let section_start = offset + 2;
+        if section_start + section_size > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        function_names_section = Some((section_start, section_size));
+        offset = section_start + section_size;
+    }
+
+    if (features & five_protocol::FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
+        if offset + 2 > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let section_size =
+            u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
+        let section_start = offset + 2;
+        if section_size == 0 || section_start + section_size > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let count = external_bytecode[section_start];
+        let expected = 1usize + (count as usize) * 2;
+        if expected > section_size {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        public_entry_table = Some((section_start, count));
+        offset = section_start + section_size;
+    }
+
+    let code_start = if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+        let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
+        if offset + desc_size > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let pool_offset = u32::from_le_bytes([
+            external_bytecode[offset],
+            external_bytecode[offset + 1],
+            external_bytecode[offset + 2],
+            external_bytecode[offset + 3],
+        ]) as usize;
+        let pool_slots = u16::from_le_bytes([external_bytecode[offset + 12], external_bytecode[offset + 13]]) as usize;
+        let code_offset = pool_offset + (pool_slots * 8);
+        if code_offset >= external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        code_offset
+    } else {
+        offset
+    };
+
+    Ok((code_start, public_entry_table, function_names_section))
+}
+
+#[inline]
+fn resolve_public_entry_offset(
+    external_bytecode: &[u8],
+    code_start: usize,
+    table_start: usize,
+    table_count: u8,
+    function_index: usize,
+) -> CompactResult<usize> {
+    if function_index >= table_count as usize {
+        return Err(VMErrorCode::InvalidFunctionIndex);
+    }
+    let entry_pos = table_start + 1 + (function_index * 2);
+    if entry_pos + 1 >= external_bytecode.len() {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    }
+
+    let rel = u16::from_le_bytes([
+        external_bytecode[entry_pos],
+        external_bytecode[entry_pos + 1],
+    ]);
+    let absolute = code_start
+        .checked_add(rel as usize)
+        .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+    if absolute >= external_bytecode.len() {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    }
+    Ok(absolute)
+}
+
+fn resolve_external_function_target(
+    external_bytecode: &[u8],
+    selector: u16,
+) -> CompactResult<(usize, Option<usize>)> {
+    let (code_start, public_entry_table, function_names) = parse_external_layout(external_bytecode)?;
+
+    // 1) Preferred path: selector is FNV-1a(name) and function names metadata exists.
+    if let (Some((names_start, names_size)), Some((table_start, table_count))) =
+        (function_names, public_entry_table)
+    {
+        let mut off = names_start;
+        let end = names_start + names_size;
+        if off < end {
+            let name_count = external_bytecode[off] as usize;
+            off += 1;
+            for idx in 0..name_count {
+                if off >= end {
+                    return Err(VMErrorCode::InvalidInstructionPointer);
+                }
+                let len = external_bytecode[off] as usize;
+                off += 1;
+                if off + len > end {
+                    return Err(VMErrorCode::InvalidInstructionPointer);
+                }
+                let name = core::str::from_utf8(&external_bytecode[off..off + len])
+                    .map_err(|_| VMErrorCode::InvalidInstructionPointer)?;
+                off += len;
+                if external_selector(name) == selector {
+                    let abs = resolve_public_entry_offset(
+                        external_bytecode,
+                        code_start,
+                        table_start,
+                        table_count,
+                        idx,
+                    )?;
+                    return Ok((abs, Some(idx)));
+                }
+            }
+        }
+    }
+
+    // 2) Backward compatibility: selector as public function index.
+    if let Some((table_start, table_count)) = public_entry_table {
+        let selector_index = selector as usize;
+        if selector_index < table_count as usize {
+            let abs = resolve_public_entry_offset(
+                external_bytecode,
+                code_start,
+                table_start,
+                table_count,
+                selector_index,
+            )?;
+            return Ok((abs, Some(selector_index)));
+        }
+    }
+
+    // 3) Legacy fallback: selector as absolute bytecode offset.
+    if (selector as usize) < external_bytecode.len() {
+        return Ok((selector as usize, None));
+    }
+
+    Err(VMErrorCode::InvalidInstructionPointer)
 }
 
 /// Validate that provided accounts match external function's constraint requirements
@@ -401,14 +601,14 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     validate_stack_limit(ctx, "CALL_EXTERNAL")?;
 
     let account_index = ctx.fetch_byte()? as usize;
-    let func_offset = ctx.fetch_u16()? as usize;
+    let function_selector = ctx.fetch_u16()?;
     let param_count = ctx.fetch_byte()?;
     
     #[cfg(feature = "debug-logs")]
     debug_log!(
-        "MitoVM: CALL_EXTERNAL acc={} off={} params={} stack={}",
+        "MitoVM: CALL_EXTERNAL acc={} selector={} params={} stack={}",
         account_index as u64,
-        func_offset as u64,
+        function_selector as u64,
         param_count as u64,
         ctx.size() as u64
     );
@@ -437,16 +637,6 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         return Err(VMErrorCode::AccountDataEmpty);
     }
 
-    // Validate function offset within account data
-    if func_offset >= account_data_len {
-        debug_log!(
-            "MitoVM: CALL_EXTERNAL invalid function offset {} >= account data length {}",
-            func_offset as u32,
-            account_data_len as u32
-        );
-        return Err(VMErrorCode::InvalidInstructionPointer);
-    }
-
     // SAFETY: Account has been validated (index check above). borrow_data_unchecked is safe
     // within Solana runtime context as account data is guaranteed to remain valid for the
     // duration of the transaction. Creating slice from valid data pointer.
@@ -469,8 +659,8 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         external_bytecode.len() as u32
     );
     debug_log!(
-        "MitoVM: CALL_EXTERNAL func_offset: {}",
-        func_offset as u32
+        "MitoVM: CALL_EXTERNAL selector: {}",
+        function_selector as u32
     );
     // Log first 20 bytes of external bytecode for debugging
     #[cfg(feature = "debug-logs")]
@@ -484,7 +674,12 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Parse and validate constraint metadata from external bytecode
     // This ensures the external function's account requirements are met
-    let (required_account_count, constraints) = parse_function_constraints(external_bytecode, func_offset)?;
+    let (resolved_func_offset, resolved_func_index) =
+        resolve_external_function_target(external_bytecode, function_selector)?;
+
+    let constraint_selector = resolved_func_index.unwrap_or(0);
+    let (required_account_count, constraints) =
+        parse_function_constraints(external_bytecode, constraint_selector)?;
 
     // Validate that the provided accounts satisfy external function's constraints
     if required_account_count > 0 {
@@ -569,10 +764,10 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!(
         "MitoVM: CALL_EXTERNAL about to switch_to_external_bytecode - current IP: {}, new offset: {}",
         ctx.ip() as u32,
-        func_offset as u32
+        resolved_func_offset as u32
     );
     
-    ctx.switch_to_external_bytecode(external_bytecode, func_offset)?;
+    ctx.switch_to_external_bytecode(external_bytecode, resolved_func_offset)?;
     ctx.current_context = account_index as u8;
     
     debug_log!(
@@ -662,7 +857,7 @@ fn handle_call_native(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_function_constraints;
+    use super::{external_selector, parse_function_constraints, resolve_external_function_target};
     use five_protocol::{BytecodeBuilder, FEATURE_FUNCTION_CONSTRAINTS, FEATURE_FUNCTION_NAMES};
 
     #[test]
@@ -730,5 +925,55 @@ mod tests {
         let (count, constraints) = parse_function_constraints(&bytecode, 0).expect("parse");
         assert_eq!(count, 1);
         assert_eq!(constraints[0], 0x01);
+    }
+
+    fn build_external_script_with_names() -> Vec<u8> {
+        let mut script = Vec::new();
+
+        let features = five_protocol::FEATURE_FUNCTION_NAMES
+            | five_protocol::FEATURE_PUBLIC_ENTRY_TABLE
+            | five_protocol::FEATURE_CONSTANT_POOL;
+
+        // Header
+        script.extend_from_slice(b"5IVE");
+        script.extend_from_slice(&features.to_le_bytes());
+        script.push(1); // public
+        script.push(1); // total
+
+        // Function names section payload: [count=1][len=4]["ping"] => 6 bytes
+        script.extend_from_slice(&(6u16).to_le_bytes());
+        script.push(1);
+        script.push(4);
+        script.extend_from_slice(b"ping");
+
+        // Public entry table payload: [count=1][rel_offset=0]
+        script.extend_from_slice(&(3u16).to_le_bytes());
+        script.push(1);
+        script.extend_from_slice(&(0u16).to_le_bytes());
+
+        // Constant pool descriptor (16 bytes) at offset 23
+        // pool_offset=40 (aligned), pool_slots=0 -> code_start=40
+        script.extend_from_slice(&(40u32).to_le_bytes()); // pool_offset
+        script.extend_from_slice(&(41u32).to_le_bytes()); // string_blob_offset
+        script.extend_from_slice(&(0u32).to_le_bytes()); // string_blob_len
+        script.extend_from_slice(&(0u16).to_le_bytes()); // pool_slots
+        script.extend_from_slice(&(0u16).to_le_bytes()); // reserved
+
+        while script.len() < 40 {
+            script.push(0);
+        }
+        script.push(five_protocol::opcodes::HALT);
+        script
+    }
+
+    #[test]
+    fn resolve_external_function_target_by_name_hash() {
+        let script = build_external_script_with_names();
+        let selector = external_selector("ping");
+        let (offset, function_index) =
+            resolve_external_function_target(&script, selector).expect("resolve");
+
+        assert_eq!(function_index, Some(0));
+        assert_eq!(offset, 40);
     }
 }

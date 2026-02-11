@@ -1,5 +1,6 @@
 mod harness;
 
+use five_dsl_compiler::DslCompiler;
 use five_protocol::opcodes::{HALT, PUSH_BOOL, REQUIRE};
 use harness::fixtures::{TypedParam, canonical_execute_payload};
 use harness::{AccountSeed, ExpectedOutcome, RuntimeHarness, ScriptFixture, script_with_header, unique_pubkey};
@@ -85,4 +86,185 @@ fn fixture_runner_accepts_string_heavy_execute_payload() {
 
     let result = rt.execute_script("script", "vm_state", &["owner"], &payload);
     assert!(result.success, "string-heavy payload should execute through canonical envelope: {:?}", result.error);
+}
+
+#[test]
+fn harness_executes_external_token_transfer_without_cpi() {
+    let program_id = unique_pubkey(71);
+    let mut rt = RuntimeHarness::start(program_id);
+
+    rt.add_account(
+        "owner",
+        AccountSeed {
+            key: unique_pubkey(72),
+            owner: program_id,
+            lamports: 10_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    rt.add_account("vm_state", RuntimeHarness::create_vm_state_seed(program_id));
+    rt.init_vm_state("vm_state", "owner");
+
+    let token_bytecode = std::fs::read(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../five-templates/token/src/token.bin"),
+    )
+    .expect("token.bin fixture should exist");
+    rt.add_account(
+        "token_script",
+        AccountSeed {
+            key: [0u8; 32],
+            owner: program_id,
+            lamports: 0,
+            data: vec![0u8; five::state::ScriptAccountHeader::LEN + token_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let token_deploy = rt.deploy_script(
+        "token_script",
+        "vm_state",
+        "owner",
+        &token_bytecode,
+        0,
+        None,
+    );
+    assert!(
+        token_deploy.success,
+        "token deploy should succeed: {:?}",
+        token_deploy.error
+    );
+
+    let caller_source = r#"
+        use "11111111111111111111111111111111"::{transfer};
+
+        pub fn call_transfer(
+            source_account: account @mut,
+            destination_account: account @mut,
+            owner: account @mut,
+            ext0: account,
+            amount: u64,
+            _pad: u64
+        ) {
+            ext0::transfer(source_account, destination_account, owner, amount);
+        }
+    "#;
+    let caller_bytecode =
+        DslCompiler::compile_dsl(caller_source).expect("caller script should compile");
+    assert!(
+        caller_bytecode
+            .iter()
+            .any(|op| *op == five_protocol::opcodes::CALL_EXTERNAL),
+        "caller bytecode should contain CALL_EXTERNAL"
+    );
+
+    rt.add_account(
+        "caller_script",
+        RuntimeHarness::create_script_account_seed(program_id, caller_bytecode.len()),
+    );
+    let caller_deploy = rt.deploy_script(
+        "caller_script",
+        "vm_state",
+        "owner",
+        &caller_bytecode,
+        0,
+        None,
+    );
+    assert!(
+        caller_deploy.success,
+        "caller deploy should succeed: {:?}",
+        caller_deploy.error
+    );
+
+    let mint_key = unique_pubkey(73);
+    let source_key = unique_pubkey(74);
+    let destination_key = unique_pubkey(75);
+
+    let mut source_data = vec![0u8; 192];
+    source_data[0..32].copy_from_slice(rt.fetch_account("owner").key.as_ref());
+    source_data[32..64].copy_from_slice(mint_key.as_ref());
+    source_data[64..72].copy_from_slice(&500u64.to_le_bytes());
+    source_data[72] = 0;
+
+    let mut destination_data = vec![0u8; 192];
+    destination_data[0..32].copy_from_slice(destination_key.as_ref());
+    destination_data[32..64].copy_from_slice(mint_key.as_ref());
+    destination_data[64..72].copy_from_slice(&100u64.to_le_bytes());
+    destination_data[72] = 0;
+
+    rt.add_account(
+        "source_token",
+        AccountSeed {
+            key: source_key,
+            owner: program_id,
+            lamports: 0,
+            data: source_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    rt.add_account(
+        "destination_token",
+        AccountSeed {
+            key: destination_key,
+            owner: program_id,
+            lamports: 0,
+            data: destination_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let payload = canonical_execute_payload(
+        0,
+        &[
+            TypedParam::Account(1),
+            TypedParam::Account(2),
+            TypedParam::Account(3),
+            TypedParam::Account(4),
+            TypedParam::U64(50),
+            TypedParam::U64(0),
+        ],
+    );
+    let execute = rt.execute_script(
+        "caller_script",
+        "vm_state",
+        &["source_token", "destination_token", "owner", "token_script"],
+        &payload,
+    );
+    assert!(
+        execute.success,
+        "external transfer execution should succeed: {:?}",
+        execute.error
+    );
+
+    let source_after = rt.fetch_account("source_token");
+    let destination_after = rt.fetch_account("destination_token");
+    assert_eq!(
+        read_u64(&source_after.data, 64),
+        450,
+        "source balance should decrease via external transfer"
+    );
+    assert_eq!(
+        read_u64(&destination_after.data, 64),
+        150,
+        "destination balance should increase via external transfer"
+    );
+}
+
+fn read_u64(data: &[u8], offset: usize) -> u64 {
+    let end = offset + 8;
+    let bytes = data
+        .get(offset..end)
+        .expect("read_u64 offset should be in-bounds");
+    let mut arr = [0u8; 8];
+    arr.copy_from_slice(bytes);
+    u64::from_le_bytes(arr)
 }

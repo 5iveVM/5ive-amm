@@ -4,6 +4,20 @@ use super::types::ASTGenerator;
 use super::super::OpcodeEmitter;
 use crate::ast::AstNode;
 use five_vm_mito::error::VMError;
+use std::collections::HashMap;
+
+fn is_valid_identifier_start(ch: char) -> bool {
+    ch.is_ascii_alphabetic() || ch == '_'
+}
+
+fn is_valid_identifier(s: &str) -> bool {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(first) if is_valid_identifier_start(first) => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
 
 impl ASTGenerator {
     pub(super) fn generate_program<T: OpcodeEmitter>(
@@ -16,27 +30,50 @@ impl ASTGenerator {
         constraints_block: &Option<Box<AstNode>>,
         instruction_definitions: &[AstNode],
     ) -> Result<(), VMError> {
-        // Pre-process imports to populate external_imports for CALL_EXTERNAL generation
-        // TEMP FIX: Hardcode offsets for math_lib test case since we don't have a linker yet
-        #[cfg(debug_assertions)]
-        println!("AST Generator: Processing {} import statements", import_statements.len());
+        // Pre-process external imports so qualified calls can emit CALL_EXTERNAL.
+        // Contract: each external import is bound to account index by import order.
+        // If imported_items is present, only those functions are callable.
+        let mut external_import_index: u8 = 0;
         for import_stmt in import_statements {
-            #[cfg(debug_assertions)]
-            println!("AST Generator: Inspecting import: {:?}", import_stmt);
-            let module_name = match &import_stmt {
-                AstNode::ImportStatement { module_specifier, .. } => match module_specifier {
-                    crate::ast::ModuleSpecifier::Local(name) => Some(name.clone()),
-                    crate::ast::ModuleSpecifier::Nested(path) => path.last().cloned(),
-                    crate::ast::ModuleSpecifier::External(path) => Some(path.clone()), // Or parse path if needed
-                },
-                _ => None,
+            let AstNode::ImportStatement {
+                module_specifier,
+                imported_items,
+            } = import_stmt
+            else {
+                continue;
             };
 
-            if let Some(_name) = module_name {
-                // Future: Implement generic external import registration here
-                // This would involve looking up the module in a registry or checking for interface definitions
-                // to populate self.external_imports
+            let crate::ast::ModuleSpecifier::External(address) = module_specifier else {
+                continue;
+            };
+
+            let mut function_selectors = HashMap::new();
+            let allow_any_function = imported_items.is_none();
+            if let Some(items) = imported_items {
+                for fn_name in items {
+                    function_selectors
+                        .insert(fn_name.clone(), Self::external_selector(fn_name));
+                }
             }
+
+            // Preferred key: full external string if it can be used as an identifier.
+            // Fallback key: deterministic synthetic alias.
+            let mut keys = Vec::new();
+            if is_valid_identifier(address) {
+                keys.push(address.clone());
+            }
+            keys.push(format!("ext{}", external_import_index));
+
+            for key in keys {
+                self.register_external_import(
+                    key,
+                    external_import_index,
+                    allow_any_function,
+                    function_selectors.clone(),
+                );
+            }
+
+            external_import_index = external_import_index.saturating_add(1);
         }
 
         // Process field definitions first, populating the global symbol table

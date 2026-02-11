@@ -228,7 +228,7 @@ impl DslBytecodeGenerator {
         }
 
         // Serialize the import table and emit as raw bytes
-        let serialized = import_table.serialize();
+        let serialized = import_table.serialize()?;
         self.import_metadata_bytes = serialized;
 
         println!(

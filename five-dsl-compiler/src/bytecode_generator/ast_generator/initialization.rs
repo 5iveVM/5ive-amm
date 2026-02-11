@@ -118,6 +118,7 @@ impl ASTGenerator {
         &mut self,
         module_name: String,
         account_index: u8,
+        allow_any_function: bool,
         functions: HashMap<String, u16>,
     ) {
         use super::types::ExternalImport;
@@ -126,6 +127,7 @@ impl ASTGenerator {
             ExternalImport {
                 module_name,
                 account_index,
+                allow_any_function,
                 functions,
             },
         );

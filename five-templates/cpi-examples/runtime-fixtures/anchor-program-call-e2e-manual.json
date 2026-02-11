@@ -1,0 +1,134 @@
+{
+  "name": "anchor_token_cpi_e2e_manual",
+  "bytecode_path": "../anchor-program-call-e2e-manual.bin",
+  "permissions": 0,
+  "skip_deploy": true,
+  "authority": {
+    "name": "user1",
+    "lamports": 20000000
+  },
+  "vm_state_name": "vm_state",
+  "script_name": "script",
+  "extra_accounts": [
+    {
+      "name": "user2",
+      "owner": "system",
+      "lamports": 20000000,
+      "data_len": 0,
+      "is_signer": true,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user3",
+      "owner": "system",
+      "lamports": 20000000,
+      "data_len": 0,
+      "is_signer": true,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "mint",
+      "owner": "anchor_token_program",
+      "lamports": 5000000,
+      "data_len": 160,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user1_token",
+      "owner": "anchor_token_program",
+      "lamports": 5000000,
+      "data_len": 128,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user2_token",
+      "owner": "anchor_token_program",
+      "lamports": 5000000,
+      "data_len": 128,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user3_token",
+      "owner": "anchor_token_program",
+      "lamports": 5000000,
+      "data_len": 128,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "anchor_program",
+      "pubkey": "EXYTTMwHkRziMdQ1guGGrThxzX6dJDvhJBzz57JGKmsw",
+      "owner": "system",
+      "lamports": 1,
+      "data_len": 0,
+      "is_signer": false,
+      "is_writable": false,
+      "executable": false
+    }
+  ],
+  "external_programs": [
+    {
+      "kind": "anchor_token_comparison"
+    }
+  ],
+  "steps": [
+    {
+      "name": "manual_anchor_mint_to_user1",
+      "function_index": 0,
+      "extras": ["mint", "user1_token", "user1", "anchor_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "manual_anchor_mint_to_user2",
+      "function_index": 1,
+      "extras": ["mint", "user2_token", "user1", "anchor_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "manual_anchor_mint_to_user3",
+      "function_index": 2,
+      "extras": ["mint", "user3_token", "user1", "anchor_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "manual_anchor_transfer_user2_to_user3",
+      "function_index": 3,
+      "extras": ["user2_token", "user3_token", "user2", "anchor_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "manual_anchor_burn_user1",
+      "function_index": 4,
+      "extras": ["mint", "user1_token", "user1", "anchor_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "manual_anchor_freeze_user2",
+      "function_index": 5,
+      "extras": ["mint", "user2_token", "user1", "anchor_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "manual_anchor_thaw_user2",
+      "function_index": 6,
+      "extras": ["mint", "user2_token", "user1", "anchor_program"],
+      "params": [],
+      "expected": "success"
+    }
+  ]
+}

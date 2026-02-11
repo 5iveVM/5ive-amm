@@ -61,7 +61,7 @@ impl ImportTable {
     ///       [seed_bytes: variable]
     ///   [function_name_len: u8]
     ///   [function_name: variable]
-    pub fn serialize(&self) -> Vec<u8> {
+    pub fn serialize(&self) -> Result<Vec<u8>, String> {
         let mut bytes = Vec::new();
 
         // Import count (max 255)
@@ -73,8 +73,18 @@ impl ImportTable {
                 ImportSpec::Address(pubkey) => {
                     // Type: 0 = address
                     bytes.push(0);
-                    // Address (32 bytes)
-                    bytes.extend_from_slice(pubkey.as_ref());
+                    // Address (32 bytes, base58 decoded)
+                    let decoded = bs58::decode(pubkey)
+                        .into_vec()
+                        .map_err(|_| format!("Invalid base58 pubkey in import: {}", pubkey))?;
+                    if decoded.len() != 32 {
+                        return Err(format!(
+                            "Invalid pubkey length in import (expected 32 bytes, got {}): {}",
+                            decoded.len(),
+                            pubkey
+                        ));
+                    }
+                    bytes.extend_from_slice(&decoded);
                 }
                 ImportSpec::PdaSeeds(seeds) => {
                     // Type: 1 = PDA seeds
@@ -96,7 +106,7 @@ impl ImportTable {
             bytes.extend_from_slice(entry.function_name.as_bytes());
         }
 
-        bytes
+        Ok(bytes)
     }
 
     /// Check if the table is empty (no imports)
@@ -131,7 +141,7 @@ mod tests {
         assert!(table.is_empty());
         assert_eq!(table.len(), 0);
 
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         assert_eq!(serialized.len(), 1);
         assert_eq!(serialized[0], 0); // import_count = 0
     }
@@ -177,7 +187,7 @@ mod tests {
         let address = "11111111111111111111111111111111";
         table.add_import_by_address(address, "transfer".to_string());
 
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         assert!(!serialized.is_empty());
         assert_eq!(serialized[0], 1); // import_count = 1
         assert_eq!(serialized[1], 0); // import_type = 0 (address)
@@ -197,7 +207,7 @@ mod tests {
 
         table.add_import_by_seeds(seeds.clone(), "vault_func".to_string());
 
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         assert_eq!(serialized[0], 1); // import_count = 1
         assert_eq!(serialized[1], 1); // import_type = 1 (PDA seeds)
         assert_eq!(serialized[2], 2); // seed_count = 2
@@ -229,7 +239,7 @@ mod tests {
 
         assert_eq!(table.len(), 3);
 
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         assert_eq!(serialized[0], 3); // import_count = 3
     }
 
@@ -239,7 +249,7 @@ mod tests {
         let address = "11111111111111111111111111111111";
         table.add_import_by_address(address, "myfunction".to_string());
 
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
 
         // Verify structure
         assert_eq!(serialized[0], 1); // 1 import
@@ -264,7 +274,7 @@ mod tests {
         table.add_import_by_seeds(seeds, "func".to_string());
         assert_eq!(table.len(), 1);
 
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         assert_eq!(serialized[2], 4); // seed_count = 4
     }
 
@@ -276,7 +286,7 @@ mod tests {
 
         table.add_import_by_address(address, long_name.clone());
 
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         let name_len = serialized[34] as usize;
         assert_eq!(name_len, long_name.len());
         assert_eq!(&serialized[35..35 + name_len], long_name.as_bytes());
@@ -292,7 +302,7 @@ mod tests {
 
         table.add_import_by_seeds(seeds, "func".to_string());
 
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         assert_eq!(serialized[2], 1); // 1 seed
         assert_eq!(serialized[3], 100); // seed length = 100
     }

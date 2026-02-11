@@ -148,4 +148,18 @@ impl ASTGenerator {
         }
         None
     }
+
+    /// Stable 16-bit selector for external function name resolution.
+    /// Uses FNV-1a and truncates to 16 bits.
+    pub(super) fn external_selector(name: &str) -> u16 {
+        const OFFSET: u32 = 0x811C9DC5;
+        const PRIME: u32 = 0x01000193;
+
+        let mut hash = OFFSET;
+        for b in name.as_bytes() {
+            hash ^= *b as u32;
+            hash = hash.wrapping_mul(PRIME);
+        }
+        (hash & 0xFFFF) as u16
+    }
 }

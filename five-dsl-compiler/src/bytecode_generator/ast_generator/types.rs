@@ -38,7 +38,10 @@ pub struct ExternalImport {
     pub module_name: String,
     /// Account index in the accounts array where the bytecode lives
     pub account_index: u8,
+    /// Whether any function name is allowed (import-all mode)
+    pub allow_any_function: bool,
     /// Mapping of function names to their offsets in the external bytecode
+    /// In hash-selector mode this stores function-name -> selector hash.
     pub functions: HashMap<String, u16>,
 }
 

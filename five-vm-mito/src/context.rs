@@ -964,6 +964,13 @@ impl<'a> ExecutionContext<'a> {
         self.accounts.validated_count()
     }
 
+    /// Set import metadata offset after header parsing.
+    pub fn set_import_metadata_offset(&mut self, metadata_offset: usize) -> CompactResult<()> {
+        self.import_metadata = ImportMetadata::new(self.bytecode, metadata_offset)
+            .map_err(|_| VMErrorCode::InvalidScript)?;
+        Ok(())
+    }
+
     #[inline]
     pub fn validate_bitwise_constraints(&self, constraints: u64) -> CompactResult<()> {
         self.accounts.validate_bitwise_constraints(constraints)

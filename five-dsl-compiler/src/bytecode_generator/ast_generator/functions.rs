@@ -2,7 +2,8 @@
 
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
-use crate::ast::{AstNode, TypeNode};
+use crate::ast::{AstNode, InstructionParameter, TypeNode};
+use crate::bytecode_generator::account_utils::account_index_from_param_index;
 use crate::type_checker::{InterfaceInfo, InterfaceMethod};
 use five_protocol::opcodes::*;
 use five_protocol::Value;
@@ -17,7 +18,6 @@ impl ASTGenerator {
         object: &AstNode,
         args: &[AstNode],
     ) -> Result<(), VMError> {
-        println!("DEBUG: generate_method_call method='{}'", method);
         // Check if this is an interface method call first
         if let AstNode::Identifier(interface_name) = object {
             if let Some(interface_info) = self.interface_registry.get(interface_name) {
@@ -80,7 +80,6 @@ impl ASTGenerator {
         name: &str,
         args: &[AstNode],
     ) -> Result<(), VMError> {
-        println!("DEBUG: generate_function_call name='{}'", name);
         // Generate arguments first (they will be consumed by the function)
         for arg in args {
             self.generate_ast_node(emitter, arg)?;
@@ -217,41 +216,28 @@ impl ASTGenerator {
             _ => {
                 // Check for qualified function names like "math_lib::add"
                 // If the module is registered as external, emit CALL_EXTERNAL instead of CALL
-                
-                println!("DEBUG: Opcode check - CALL: {}, CALL_EXTERNAL: {}", CALL, CALL_EXTERNAL);
-                println!("DEBUG: Checking if '{}' is a qualified external call...", name);
                 if let Some((module_name, func_name)) = Self::parse_qualified_name(name) {
-                    println!("DEBUG: Parsed qualified name: mod='{}', func='{}'", module_name, func_name);
-                    
-                    // debug print all keys
-                    println!("DEBUG: Available external_imports: {:?}", self.external_imports.keys());
-                    
                     if let Some(ext_import) = self.external_imports.get(module_name) {
-                        // Found external import - emit CALL_EXTERNAL opcode
-                        println!("DEBUG: SUCCESS! Found import for module '{}', emitting CALL_EXTERNAL (145)", module_name);
-                        
+                        let selector = if let Some(sel) = ext_import.functions.get(func_name) {
+                            *sel
+                        } else if ext_import.allow_any_function {
+                            Self::external_selector(func_name)
+                        } else {
+                            return Err(VMError::InvalidScript);
+                        };
+
+                        let account_index =
+                            self.resolve_external_account_index(module_name, ext_import.account_index)?;
+
+                        // Found external import - emit CALL_EXTERNAL opcode.
+                        // selector format: stable u16 function-name selector hash.
                         // CALL_EXTERNAL format: opcode(1) + account_index(1) + func_offset(u16) + param_count(1)
                         emitter.emit_opcode(CALL_EXTERNAL);
-                        emitter.emit_u8(ext_import.account_index);
-                        
-                        // Get function offset (error if not found)
-                        let func_offset = ext_import.functions.get(func_name)
-                            .copied()
-                            .ok_or_else(|| {
-                                println!("DEBUG: Function '{}' not found in external interface", func_name);
-                                VMError::InvalidScript
-                            })?;
-                        println!("DEBUG: Function '{}' offset: {}", func_name, func_offset);
-                        // Reverting to u16 to match the VM's expectation
-                        emitter.emit_u16(func_offset);
+                        emitter.emit_u8(account_index);
+                        emitter.emit_u16(selector);
                         emitter.emit_u8(args.len() as u8);
-                        
                         return Ok(());
-                    } else {
-                        println!("DEBUG: FAILURE! Module '{}' NOT found in external_imports", module_name);
                     }
-                } else {
-                     println!("DEBUG: parse_qualified_name returned None for '{}'", name);
                 }
 
 
@@ -283,6 +269,44 @@ impl ASTGenerator {
         }
 
         Ok(())
+    }
+
+    fn resolve_external_account_index(
+        &self,
+        module_name: &str,
+        default_index: u8,
+    ) -> Result<u8, VMError> {
+        let params = self
+            .current_function_parameters
+            .as_ref()
+            .ok_or(VMError::InvalidScript)?;
+
+        let mut account_params: Vec<&InstructionParameter> = Vec::new();
+        let registry = self.account_system.as_ref().map(|s| s.get_account_registry());
+        for p in params {
+            if super::super::account_utils::is_account_parameter(&p.param_type, &p.attributes, registry)
+            {
+                account_params.push(p);
+            }
+        }
+
+        if account_params.is_empty() {
+            return Err(VMError::InvalidScript);
+        }
+
+        if let Some((idx, _)) = account_params
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.name == module_name)
+        {
+            return Ok(account_index_from_param_index(idx as u8));
+        }
+
+        if (default_index as usize) < account_params.len() {
+            Ok(account_index_from_param_index(default_index))
+        } else {
+            Err(VMError::InvalidScript)
+        }
     }
 
     /// Generate bytecode for the invoke_signed function
@@ -584,5 +608,84 @@ impl ASTGenerator {
                  Err(VMError::TypeMismatch)
              }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{Attribute, InstructionParameter, TypeNode};
+    use crate::bytecode_generator::OpcodeEmitter;
+    use std::collections::HashMap;
+
+    struct MockEmitter {
+        bytes: Vec<u8>,
+    }
+
+    impl MockEmitter {
+        fn new() -> Self {
+            Self { bytes: Vec::new() }
+        }
+    }
+
+    impl OpcodeEmitter for MockEmitter {
+        fn emit_opcode(&mut self, opcode: u8) { self.bytes.push(opcode); }
+        fn emit_u8(&mut self, value: u8) { self.bytes.push(value); }
+        fn emit_u16(&mut self, value: u16) { self.bytes.extend_from_slice(&value.to_le_bytes()); }
+        fn emit_u32(&mut self, value: u32) { self.bytes.extend_from_slice(&value.to_le_bytes()); }
+        fn emit_u64(&mut self, value: u64) { self.bytes.extend_from_slice(&value.to_le_bytes()); }
+        fn emit_bytes(&mut self, bytes: &[u8]) { self.bytes.extend_from_slice(bytes); }
+        fn get_position(&self) -> usize { self.bytes.len() }
+        fn patch_u32(&mut self, position: usize, value: u32) {
+            self.bytes[position..position + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        fn patch_u16(&mut self, position: usize, value: u16) {
+            self.bytes[position..position + 2].copy_from_slice(&value.to_le_bytes());
+        }
+        fn should_include_tests(&self) -> bool { false }
+        fn emit_const_u8(&mut self, value: u8) -> Result<(), VMError> { self.emit_u8(value); Ok(()) }
+        fn emit_const_u16(&mut self, value: u16) -> Result<(), VMError> { self.emit_u16(value); Ok(()) }
+        fn emit_const_u32(&mut self, value: u32) -> Result<(), VMError> { self.emit_u32(value); Ok(()) }
+        fn emit_const_u64(&mut self, value: u64) -> Result<(), VMError> { self.emit_u64(value); Ok(()) }
+        fn emit_const_i64(&mut self, value: i64) -> Result<(), VMError> { self.emit_u64(value as u64); Ok(()) }
+        fn emit_const_bool(&mut self, value: bool) -> Result<(), VMError> { self.emit_u8(u8::from(value)); Ok(()) }
+        fn emit_const_u128(&mut self, value: u128) -> Result<(), VMError> { self.emit_bytes(&value.to_le_bytes()); Ok(()) }
+        fn emit_const_pubkey(&mut self, value: &[u8; 32]) -> Result<(), VMError> { self.emit_bytes(value); Ok(()) }
+        fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError> { self.emit_bytes(value); Ok(()) }
+    }
+
+    #[test]
+    fn emits_call_external_for_qualified_external_module() {
+        let mut gen = ASTGenerator::new();
+        gen.current_function_parameters = Some(vec![InstructionParameter {
+            name: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string(),
+            param_type: TypeNode::Primitive("Account".to_string()),
+            is_optional: false,
+            default_value: None,
+            attributes: vec![Attribute {
+                name: "mut".to_string(),
+                args: vec![],
+            }],
+            is_init: false,
+            init_config: None,
+        }]);
+        gen.register_external_import(
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string(),
+            0,
+            true,
+            HashMap::new(),
+        );
+
+        let mut emitter = MockEmitter::new();
+        gen.generate_function_call(
+            &mut emitter,
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA::transfer",
+            &[],
+        )
+        .expect("call generation should succeed");
+
+        assert_eq!(emitter.bytes[0], CALL_EXTERNAL);
+        assert_eq!(emitter.bytes[1], 1); // account index with runtime offset
+        assert_eq!(emitter.bytes[4], 0); // param count
     }
 }

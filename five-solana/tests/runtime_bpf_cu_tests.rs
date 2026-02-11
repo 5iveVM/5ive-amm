@@ -168,6 +168,14 @@ async fn anchor_interface_cpi_bpf_compute_units() {
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(120_000)).await;
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn anchor_interface_manual_borsh_cpi_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let fixture_path =
+        repo_root.join("five-templates/cpi-examples/runtime-fixtures/anchor-program-call-e2e-manual.json");
+    run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(120_000)).await;
+}
+
 async fn run_fixture_bpf_compute_units(
     repo_root: &Path,
     fixture_path: &Path,
@@ -311,7 +319,7 @@ async fn run_fixture_bpf_compute_units(
             },
         );
     }
-    if fixture.name == "anchor_token_cpi_e2e" {
+    if fixture.name == "anchor_token_cpi_e2e" || fixture.name == "anchor_token_cpi_e2e_manual" {
         seed_anchor_token_accounts(&mut accounts, &fixture.authority.name);
     }
 
@@ -460,6 +468,9 @@ async fn run_fixture_bpf_compute_units(
     }
     if fixture.name == "anchor_token_cpi_e2e" {
         assert_anchor_token_fixture_result(&mut ctx, &accounts, &fixture.authority.name).await;
+    }
+    if fixture.name == "anchor_token_cpi_e2e_manual" {
+        assert_anchor_token_manual_fixture_result(&mut ctx, &accounts, &fixture.authority.name).await;
     }
     let total_budget = total_budget_override.unwrap_or_else(|| {
         if fixture.name == "token_full_e2e" {
@@ -989,6 +1000,58 @@ async fn assert_anchor_token_fixture_result(
     assert_eq!(user1_token.balance, 950, "unexpected anchor user1 token amount");
     assert_eq!(user2_token.balance, 400, "unexpected anchor user2 token amount");
     assert_eq!(user3_token.balance, 550, "unexpected anchor user3 token amount");
+    assert!(!user2_token.is_frozen, "anchor user2 token should be thawed");
+}
+
+async fn assert_anchor_token_manual_fixture_result(
+    ctx: &mut ProgramTestContext,
+    accounts: &BTreeMap<String, RuntimeAccount>,
+    authority_name: &str,
+) {
+    let user1 = accounts
+        .get(authority_name)
+        .unwrap_or_else(|| panic!("missing authority `{}` for anchor assertion", authority_name))
+        .pubkey;
+    let mint_key = accounts["mint"].pubkey;
+    let mint_data = ctx
+        .banks_client
+        .get_account(mint_key)
+        .await
+        .expect("fetch anchor mint")
+        .expect("anchor mint missing")
+        .data;
+    let mint_state = decode_anchor_mint(&mint_data);
+    assert_eq!(mint_state.authority, user1, "unexpected anchor mint authority");
+    assert_eq!(mint_state.freeze_authority, user1, "unexpected anchor freeze authority");
+    assert_eq!(mint_state.supply, 1900, "unexpected anchor mint supply");
+
+    let user1_token = decode_anchor_token_account(
+        &ctx.banks_client
+            .get_account(accounts["user1_token"].pubkey)
+            .await
+            .expect("fetch anchor user1 token")
+            .expect("anchor user1 token missing")
+            .data,
+    );
+    let user2_token = decode_anchor_token_account(
+        &ctx.banks_client
+            .get_account(accounts["user2_token"].pubkey)
+            .await
+            .expect("fetch anchor user2 token")
+            .expect("anchor user2 token missing")
+            .data,
+    );
+    let user3_token = decode_anchor_token_account(
+        &ctx.banks_client
+            .get_account(accounts["user3_token"].pubkey)
+            .await
+            .expect("fetch anchor user3 token")
+            .expect("anchor user3 token missing")
+            .data,
+    );
+    assert_eq!(user1_token.balance, 900, "unexpected anchor user1 token amount");
+    assert_eq!(user2_token.balance, 400, "unexpected anchor user2 token amount");
+    assert_eq!(user3_token.balance, 600, "unexpected anchor user3 token amount");
     assert!(!user2_token.is_frozen, "anchor user2 token should be thawed");
 }
 

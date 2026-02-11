@@ -1562,6 +1562,7 @@ name = "five"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "five-dsl-compiler",
  "five-protocol",
  "five-vm-mito",
  "five8_const",

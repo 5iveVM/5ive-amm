@@ -45,6 +45,28 @@ pub struct FunctionDispatcher {
 }
 
 impl FunctionDispatcher {
+    fn external_selector(name: &str) -> u16 {
+        const OFFSET: u32 = 0x811C9DC5;
+        const PRIME: u32 = 0x01000193;
+        let mut hash = OFFSET;
+        for b in name.as_bytes() {
+            hash ^= *b as u32;
+            hash = hash.wrapping_mul(PRIME);
+        }
+        (hash & 0xFFFF) as u16
+    }
+
+    fn is_valid_identifier(s: &str) -> bool {
+        let mut chars = s.chars();
+        let Some(first) = chars.next() else {
+            return false;
+        };
+        if !(first.is_ascii_alphabetic() || first == '_') {
+            return false;
+        }
+        chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+    }
+
     /// Create a new function dispatcher
     pub fn new() -> Self {
         Self {
@@ -321,10 +343,10 @@ impl FunctionDispatcher {
                 } = import_stmt
                 {
                     // Extract account address or module path
-                    let account_address = match module_specifier {
-                        crate::ast::ModuleSpecifier::External(addr) => addr.clone(),
-                        crate::ast::ModuleSpecifier::Local(name) => name.clone(),
-                        crate::ast::ModuleSpecifier::Nested(path) => path.join("::"),
+                    let (account_address, is_external_import) = match module_specifier {
+                        crate::ast::ModuleSpecifier::External(addr) => (addr.clone(), true),
+                        crate::ast::ModuleSpecifier::Local(name) => (name.clone(), false),
+                        crate::ast::ModuleSpecifier::Nested(path) => (path.join("::"), false),
                     };
 
                     // Store import information for both functions and fields
@@ -347,9 +369,11 @@ impl FunctionDispatcher {
                                 (account_address.clone(), Some(vec![item_name.clone()])),
                             );
 
-                            // NEW: Add to import verification table (for Five bytecode accounts)
-                            // Store function_name for verification metadata
-                            self.import_table.add_import_by_address(&account_address, item_name.clone());
+                            // Only external imports are eligible for on-chain import verification metadata.
+                            if is_external_import {
+                                self.import_table
+                                    .add_import_by_address(&account_address, item_name.clone());
+                            }
 
                             println!("DSL Compiler INFO: Imported '{}' from account {} as function/field", item_name, account_address);
                         }
@@ -366,8 +390,11 @@ impl FunctionDispatcher {
                             (account_address.clone(), None),
                         );
 
-                        // NEW: Add to import verification table with generic function name
-                        self.import_table.add_import_by_address(&account_address, "import_all".to_string());
+                        // Only external imports are eligible for on-chain import verification metadata.
+                        if is_external_import {
+                            self.import_table
+                                .add_import_by_address(&account_address, "import_all".to_string());
+                        }
 
                         println!(
                             "DSL Compiler INFO: Imported all functions and fields from account {}",
@@ -584,10 +611,52 @@ impl FunctionDispatcher {
     ) -> Result<(), VMError> {
         if let AstNode::Program {
             instruction_definitions,
+            import_statements,
             init_block,
             ..
         } = ast
         {
+            // Register external imports for AST function-call emission.
+            ast_generator.external_imports.clear();
+            let mut external_import_index: u8 = 0;
+            for import_stmt in import_statements {
+                let AstNode::ImportStatement {
+                    module_specifier,
+                    imported_items,
+                } = import_stmt
+                else {
+                    continue;
+                };
+                let crate::ast::ModuleSpecifier::External(address) = module_specifier else {
+                    continue;
+                };
+
+                let mut selectors = HashMap::new();
+                let allow_any_function = imported_items.is_none();
+                if let Some(items) = imported_items {
+                    for fn_name in items {
+                        selectors.insert(fn_name.clone(), Self::external_selector(fn_name));
+                    }
+                }
+
+                let mut keys = Vec::new();
+                if Self::is_valid_identifier(address) {
+                    keys.push(address.clone());
+                }
+                keys.push(format!("ext{}", external_import_index));
+
+                for key in keys {
+                    ast_generator.register_external_import(
+                        key,
+                        external_import_index,
+                        allow_any_function,
+                        selectors.clone(),
+                    );
+                }
+
+                external_import_index = external_import_index.saturating_add(1);
+            }
+
             // Generate init block first if present
             if let Some(init) = init_block {
                 let init_offset = emitter.get_position();
@@ -1252,7 +1321,7 @@ mod tests {
         assert_eq!(table.len(), 1);
 
         // Verify serialization works
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         assert!(!serialized.is_empty());
         assert_eq!(serialized[0], 1); // import_count = 1
     }
@@ -1280,7 +1349,7 @@ mod tests {
         assert_eq!(table.len(), 3);
 
         // Verify serialization includes all 3 imports
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         assert_eq!(serialized[0], 3); // import_count = 3
     }
 
@@ -1296,7 +1365,7 @@ mod tests {
         assert_eq!(table.len(), 1);
 
         // Verify serialization format
-        let serialized = table.serialize();
+        let serialized = table.serialize().expect("serialize");
         assert_eq!(serialized[0], 1); // import_count = 1
         assert_eq!(serialized[1], 1); // import_type = 1 (PDA seeds)
         assert_eq!(serialized[2], 2); // seed_count = 2

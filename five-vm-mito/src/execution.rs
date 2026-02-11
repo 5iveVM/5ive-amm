@@ -130,6 +130,16 @@ impl MitoVM {
         if let Some((offset, count)) = public_entry_table {
             ctx.set_public_entry_table(offset, count);
         }
+        let import_metadata_offset = if (header_features & five_protocol::FEATURE_IMPORT_VERIFICATION) != 0 {
+            if let Some(desc) = pool_desc {
+                (desc.string_blob_offset as usize).saturating_add(desc.string_blob_len as usize)
+            } else {
+                script.len()
+            }
+        } else {
+            script.len()
+        };
+        ctx.set_import_metadata_offset(import_metadata_offset)?;
         ctx.set_ip(start_ip);
         debug_log!("MitoVM: ExecutionManager created with IP set to {}", start_ip as u32);
 

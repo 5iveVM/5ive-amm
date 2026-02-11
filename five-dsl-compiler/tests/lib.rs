@@ -2993,7 +2993,7 @@ fn test_import_verification_bytecode_generation_pda() {
     import_table.add_import_by_seeds(seeds.clone(), "pda_func".to_string());
 
     // Verify serialization includes seed count and seed data
-    let serialized = import_table.serialize();
+    let serialized = import_table.serialize().expect("serialize");
     assert_eq!(serialized[0], 1); // import_count = 1
     assert_eq!(serialized[1], 1); // import_type = 1 (PDA seeds)
     assert_eq!(serialized[2], 2); // seed_count = 2
@@ -3142,4 +3142,33 @@ fn test_import_verification_prevents_attack() {
     println!("  - Compiler embeds trusted account address in metadata");
     println!("  - VM will reject unauthorized accounts at runtime");
     println!("  - Protection against malicious account substitution");
+}
+
+#[test]
+fn test_external_import_invalid_pubkey_fails_compile() {
+    let source = r#"
+        use "not_a_valid_pubkey";
+
+        pub execute() {}
+    "#;
+
+    let result = DslCompiler::compile_dsl(source);
+    assert!(result.is_err(), "invalid pubkey import must fail compilation");
+}
+
+#[test]
+fn test_external_imported_items_reject_unknown_function() {
+    let source = r#"
+        use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{mint_tokens};
+
+        pub execute(TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA: Account) {
+            TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA::burn_tokens();
+        }
+    "#;
+
+    let result = DslCompiler::compile_dsl(source);
+    assert!(
+        result.is_err(),
+        "calling function outside imported items must fail"
+    );
 }
