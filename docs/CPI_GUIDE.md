@@ -45,8 +45,8 @@ interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
 
 #### @serializer(format)
 Specifies the instruction data encoding format. Supported values:
-- `borsh` - **Default**. Used by Anchor and most Solana programs
-- `bincode` - Used by some legacy Solana programs
+- `bincode` - **Default**. Used for SPL/native program compatibility in Five MVP
+- `borsh` - Used by Anchor programs and selected Solana programs
 - `raw` - Custom binary format (advanced, currently limited)
 
 ```five
@@ -129,7 +129,7 @@ SPLToken.mint_to(mint, to, authority, 500 + 500);
 
 ## Serialization Formats
 
-### Borsh (Default)
+### Borsh (Optional)
 
 Borsh is the standard format used by Anchor and most Solana programs.
 
@@ -362,7 +362,7 @@ Five encodes interfaces in a stack contract (`.stack`) file for on-chain verific
           "discriminator": 7,
           "account_params": 3,
           "data_types": ["u64"],
-          "serializer": "borsh"
+          "serializer": "bincode"
         }
       ]
     }
@@ -456,8 +456,8 @@ CPI adds ~15,000 compute units per call (varies by target program). Budget accor
 |---------|--------|--------|
 | Literal data arguments | ✅ Works | Can't pass variables |
 | Account parameters | ✅ Works | Works as expected |
-| Borsh serialization | ✅ Works | Default, well-tested |
-| Bincode serialization | ✅ Works | Legacy program support |
+| Bincode serialization | ✅ Works | Default, well-tested |
+| Borsh serialization | ✅ Works | Anchor program support |
 | CPI return data | ❌ Not implemented | Can't capture return values |
 | Dynamic data args | ❌ Not implemented | Can only use compile-time constants |
 | Account constraint enforcement | ❌ Not implemented | Constraints parsed but not validated |

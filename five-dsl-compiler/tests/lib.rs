@@ -2773,6 +2773,84 @@ fn test_cpi_duplicate_account_indices() {
     println!("  - Stack will contain duplicate indices: [0, 0, 0]");
 }
 
+#[test]
+fn test_cpi_default_serializer_is_bincode() {
+    use five_dsl_compiler::type_checker::InterfaceSerializer;
+
+    let source = r#"
+        interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
+            transfer @discriminator(3) (from: pubkey, to: pubkey, authority: pubkey, amount: u64);
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer.tokenize().expect("Should tokenize");
+    let mut parser = DslParser::new(tokens);
+    let ast = parser.parse().expect("Should parse");
+
+    let mut registry = InterfaceRegistry::new();
+    registry
+        .preprocess_interfaces(&ast)
+        .expect("Should preprocess interfaces");
+    let spl = registry
+        .get_interface("SPLToken")
+        .expect("SPLToken interface should exist");
+
+    assert!(matches!(spl.serializer, InterfaceSerializer::Bincode));
+}
+
+#[test]
+fn test_anchor_discriminator_array_and_borsh_serializer() {
+    let source = r#"
+        interface CounterProgram @program("11111111111111111111111111111111") @serializer(borsh) {
+            increment @discriminator([0xAA, 0x12, 0x34, 0x56, 0x78, 0xAB, 0xCD, 0xEF]) (
+                counter: pubkey,
+                user: pubkey,
+                amount: u64
+            );
+        }
+
+        pub increment_remote(counter: account @mut, user: account @signer, amount: u64) {}
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer.tokenize().expect("Should tokenize");
+    let mut parser = DslParser::new(tokens);
+    let ast = parser.parse().expect("Should parse");
+
+    if let AstNode::Program {
+        interface_definitions,
+        ..
+    } = ast
+    {
+        assert_eq!(interface_definitions.len(), 1);
+        if let AstNode::InterfaceDefinition {
+            serializer,
+            functions,
+            ..
+        } = &interface_definitions[0]
+        {
+            assert_eq!(serializer.as_deref(), Some("borsh"));
+            if let AstNode::InterfaceFunction {
+                discriminator_bytes,
+                ..
+            } = &functions[0]
+            {
+                assert_eq!(
+                    discriminator_bytes.clone().unwrap_or_default(),
+                    vec![0xAA, 0x12, 0x34, 0x56, 0x78, 0xAB, 0xCD, 0xEF]
+                );
+            } else {
+                panic!("Expected interface function");
+            }
+        } else {
+            panic!("Expected interface definition");
+        }
+    } else {
+        panic!("Expected program AST");
+    }
+}
+
 // =============================================================================
 // TASK 1: Compiler Integration Tests - Import Verification
 // =============================================================================

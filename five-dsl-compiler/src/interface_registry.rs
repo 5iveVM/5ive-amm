@@ -96,7 +96,7 @@ impl InterfaceRegistry {
                 .as_ref()
                 .map(|s| s.as_str())
             {
-                None => InterfaceSerializer::Raw,
+                None => InterfaceSerializer::Bincode,
                 Some("raw") => InterfaceSerializer::Raw,
                 Some("borsh") => InterfaceSerializer::Borsh,
                 Some("bincode") => InterfaceSerializer::Bincode,
@@ -615,6 +615,7 @@ mod tests {
             interface.program_id,
             "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         );
+        assert!(matches!(interface.serializer, InterfaceSerializer::Bincode));
         assert!(interface.methods.contains_key("test_method"));
     }
 

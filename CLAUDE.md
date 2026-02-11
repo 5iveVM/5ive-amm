@@ -77,6 +77,66 @@ cd five-templates/token && node e2e-token-test.mjs
 cd five-cli && npm run test:scripts
 ```
 
+### Benchmarking (BPF CU, no localnet)
+
+Use this workflow when measuring on-chain compute for VM + bytecode execution in-process (via `solana-program-test`) without `solana-test-validator`.
+
+```bash
+# 1) Compile benchmark/template bytecode
+CARGO_TARGET_DIR=/tmp/five-target cargo run -q -p five-dsl-compiler --bin five -- compile \
+  five-templates/defi-bench/src/defi_bench.v \
+  -o five-templates/defi-bench/src/defi_bench.bin \
+  --v2-preview
+
+# Optional: compile token template too
+CARGO_TARGET_DIR=/tmp/five-target cargo run -q -p five-dsl-compiler --bin five -- compile \
+  five-templates/token/src/token.v \
+  -o five-templates/token/src/token.bin \
+  --v2-preview
+
+# 2) Build SBF program used by runtime CU tests
+cargo build-sbf --manifest-path five-solana/Cargo.toml
+
+# 3) Run CU harness with a specific fixture
+# DeFi benchmark fixture
+CARGO_TARGET_DIR=/tmp/five-target \
+FIVE_BPF_FIXTURE=five-templates/defi-bench/runtime-fixtures/defi_bench.json \
+cargo test -p five --test runtime_bpf_cu_tests -- --nocapture
+
+# Token fixture (default if FIVE_BPF_FIXTURE is unset)
+CARGO_TARGET_DIR=/tmp/five-target \
+FIVE_BPF_FIXTURE=five-templates/token/runtime-fixtures/init_mint.json \
+cargo test -p five --test runtime_bpf_cu_tests -- --nocapture
+```
+
+What the harness prints:
+- `BPF_CU minimal_execute_floor=...` = runtime baseline overhead floor.
+- `BPF_CU step=<name> ... units=<n>` = per public function call CU.
+- `BPF_CU deploy=...` = script deployment CU in the harness.
+- `BPF_CU fixture=<name> total_units=...` = aggregate run cost.
+
+Fixture location and format:
+- Primary fixture file for DeFi math benchmarking:
+  - `five-templates/defi-bench/runtime-fixtures/defi_bench.json`
+- Test implementation:
+  - `five-solana/tests/runtime_bpf_cu_tests.rs`
+- Fixtures specify:
+  - `bytecode_path`, `permissions`, `steps[]` with `function_index`, params, and expected outcome.
+
+Important notes for stable CU measurements:
+- Use a fixed target dir (`CARGO_TARGET_DIR=/tmp/five-target`) to reduce rebuild noise.
+- Always recompile `.v -> .bin` before measuring after compiler/opcode changes.
+- The test function name is `token_e2e_bpf_compute_units`, but it runs whichever fixture is selected by `FIVE_BPF_FIXTURE`.
+- Keep fixture inputs valid for expected-success steps (for example, avoid values that violate `require(...)` constraints), or mark those steps with expected error.
+
+Common failures:
+- `failed reading fixture ... No such file or directory`
+  - Fix `FIVE_BPF_FIXTURE` path.
+- Step fails with custom program error (for example `0x232b`)
+  - Fixture parameters violated DSL `require(...)` checks.
+- CU unexpectedly regresses
+  - Rebuild SBF and recompile fixture bytecode, then rerun with same fixture and target dir.
+
 ### Five CLI Usage
 
 ```bash

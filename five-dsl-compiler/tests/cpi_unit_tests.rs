@@ -63,9 +63,15 @@ mod cpi_compilation_tests {
 
     #[test]
     fn test_borsh_serialization_format() {
-        // Borsh is the default serialization format
-        let default_format = "borsh";
-        assert_eq!(default_format, "borsh", "Borsh is default format");
+        // Borsh remains available for Anchor programs via @serializer(borsh)
+        let format = "borsh";
+        assert_eq!(format, "borsh", "Borsh format supported");
+    }
+
+    #[test]
+    fn test_bincode_is_default_serialization_format() {
+        let default_format = "bincode";
+        assert_eq!(default_format, "bincode", "Bincode is default format");
     }
 
     #[test]

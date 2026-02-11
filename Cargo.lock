@@ -1575,6 +1575,7 @@ dependencies = [
  "solana-program",
  "solana-program-test",
  "solana-sdk",
+ "spl-token",
  "time",
  "time-core",
  "time-macros",
@@ -1585,6 +1586,7 @@ dependencies = [
 name = "five-dsl-compiler"
 version = "0.1.0"
 dependencies = [
+ "bs58 0.5.1",
  "chrono",
  "clap 4.5.57",
  "five-protocol",

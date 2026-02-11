@@ -57,7 +57,7 @@ impl TypeCheckerContext {
                         .as_ref()
                         .map(|s| s.as_str())
                     {
-                        None => InterfaceSerializer::Raw,
+                        None => InterfaceSerializer::Bincode,
                         Some("raw") => InterfaceSerializer::Raw,
                         Some("borsh") => InterfaceSerializer::Borsh,
                         Some("bincode") => InterfaceSerializer::Bincode,

@@ -18,6 +18,8 @@ use pinocchio::{
     pubkey::Pubkey,
 };
 
+const MAX_CPI_DATA_LEN: usize = 255;
+
 /// Handle invoke operations for cross-program invocation
 #[inline(always)]
 pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
@@ -50,14 +52,14 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             }
 
             // Pop instruction data
-            let instruction_data: [u8; 32];
+            let instruction_data: [u8; MAX_CPI_DATA_LEN];
             let instruction_len: usize;
 
             let data_ref = ctx.pop()?;
             match data_ref {
                 ValueRef::U64(amount) => {
                     // ... (U64 case)
-                    let mut data = [0u8; 32];
+                    let mut data = [0u8; MAX_CPI_DATA_LEN];
                     let discriminator_bytes = 2u32.to_le_bytes();
                     let amount_bytes = amount.to_le_bytes();
                     data[0..4].copy_from_slice(&discriminator_bytes);
@@ -72,11 +74,11 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                     if end > ctx.temp_buffer().len() {
                         return Err(VMErrorCode::MemoryViolation);
                     }
-                    // Reject instruction data larger than 32 bytes
-                    if len > 32 {
+                    // Reject instruction data larger than VM CPI payload limit.
+                    if len as usize > MAX_CPI_DATA_LEN {
                         return Err(VMErrorCode::InvalidOperation);
                     }
-                    let mut data = [0u8; 32];
+                    let mut data = [0u8; MAX_CPI_DATA_LEN];
                     data[..len as usize]
                         .copy_from_slice(&ctx.temp_buffer()[start..end]);
                     instruction_data = data;
@@ -90,11 +92,11 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                     }
 
                     let element_count = temp[start] as usize;
-                    if element_count > 32 {
+                    if element_count > MAX_CPI_DATA_LEN {
                         return Err(VMErrorCode::InvalidOperation);
                     }
 
-                    let mut data = [0u8; 32];
+                    let mut data = [0u8; MAX_CPI_DATA_LEN];
                     let mut offset = start + 2;
                     let mut write_offset = 0usize;
 
@@ -142,16 +144,47 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                             write_offset += 4;
                             offset += 5;
                         } else if type_id == five_protocol::types::PUBKEY {
-                            if offset + 32 >= temp.len() {
+                            // ValueRef::PubkeyRef(u16): [type_id][offset_lo][offset_hi]
+                            if offset + 2 >= temp.len() {
                                 return Err(VMErrorCode::MemoryViolation);
                             }
                             if write_offset + 32 > data.len() {
                                 return Err(VMErrorCode::InvalidOperation);
                             }
-                            data[write_offset..write_offset + 32]
-                                .copy_from_slice(&temp[offset + 1..offset + 33]);
+
+                            let mut ref_bytes = [0u8; 2];
+                            ref_bytes.copy_from_slice(&temp[offset + 1..offset + 3]);
+                            let pk_ref = ValueRef::PubkeyRef(u16::from_le_bytes(ref_bytes));
+                            let pk_bytes = ctx.extract_pubkey(&pk_ref)?;
+                            data[write_offset..write_offset + 32].copy_from_slice(&pk_bytes);
+
                             write_offset += 32;
-                            offset += 33;
+                            offset += 3;
+                        } else if type_id == 16 {
+                            // ValueRef::TempRef(u8, u8): [type_id][temp_offset][len]
+                            // Accept TempRef(len=32) as pubkey bytes.
+                            if offset + 2 >= temp.len() {
+                                return Err(VMErrorCode::MemoryViolation);
+                            }
+                            if write_offset + 32 > data.len() {
+                                return Err(VMErrorCode::InvalidOperation);
+                            }
+
+                            let temp_offset = temp[offset + 1] as usize;
+                            let temp_len = temp[offset + 2] as usize;
+                            if temp_len != 32 {
+                                return Err(VMErrorCode::TypeMismatch);
+                            }
+
+                            let end = temp_offset + 32;
+                            if end > ctx.temp_buffer().len() {
+                                return Err(VMErrorCode::MemoryViolation);
+                            }
+                            data[write_offset..write_offset + 32]
+                                .copy_from_slice(&ctx.temp_buffer()[temp_offset..end]);
+
+                            write_offset += 32;
+                            offset += 3;
                         } else if type_id == five_protocol::types::U128 {
                             error_log!("INVOKE: Data Element {} TypeID U128 not supported", _i as u64);
                             return Err(VMErrorCode::TypeMismatch);
@@ -318,7 +351,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let program_id = Pubkey::from(program_id_bytes);
 
             // Extract instruction data using stack buffer (no heap!)
-            let mut instruction_data_buf: [u8; 64] = [0u8; 64]; // Stack-allocated instruction buffer
+            let mut instruction_data_buf: [u8; MAX_CPI_DATA_LEN] = [0u8; MAX_CPI_DATA_LEN];
             let instruction_data_len: usize;
 
             match instruction_data_ref {

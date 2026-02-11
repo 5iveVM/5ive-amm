@@ -1,0 +1,155 @@
+{
+  "name": "spl_token_cpi_e2e",
+  "bytecode_path": "../spl-token-mint-e2e.bin",
+  "permissions": 0,
+  "skip_deploy": true,
+  "authority": {
+    "name": "user1",
+    "lamports": 20000000
+  },
+  "vm_state_name": "vm_state",
+  "script_name": "script",
+  "extra_accounts": [
+    {
+      "name": "user2",
+      "owner": "system",
+      "lamports": 20000000,
+      "data_len": 0,
+      "is_signer": true,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user3",
+      "owner": "system",
+      "lamports": 20000000,
+      "data_len": 0,
+      "is_signer": true,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "mint",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 82,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user1_token",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 165,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user2_token",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 165,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user3_token",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 165,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "token_program",
+      "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "owner": "system",
+      "lamports": 1,
+      "data_len": 0,
+      "is_signer": false,
+      "is_writable": false,
+      "executable": false
+    }
+  ],
+  "external_programs": [
+    {
+      "kind": "spl_token"
+    }
+  ],
+  "steps": [
+    {
+      "name": "mint_to_user1",
+      "function_index": 0,
+      "extras": ["mint", "user1_token", "user1", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "mint_to_user2",
+      "function_index": 1,
+      "extras": ["mint", "user2_token", "user1", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "mint_to_user3",
+      "function_index": 2,
+      "extras": ["mint", "user3_token", "user1", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "transfer_user2_to_user3",
+      "function_index": 3,
+      "extras": ["user2_token", "user3_token", "user2", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "approve_user3_to_user2",
+      "function_index": 4,
+      "extras": ["user3_token", "user2", "user3", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "transfer_from_user3_to_user1_by_user2",
+      "function_index": 5,
+      "extras": ["user3_token", "user1_token", "user2", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "revoke_user3",
+      "function_index": 6,
+      "extras": ["user3_token", "user3", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "burn_user1",
+      "function_index": 7,
+      "extras": ["mint", "user1_token", "user1", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "freeze_user2",
+      "function_index": 8,
+      "extras": ["mint", "user2_token", "user1", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "thaw_user2",
+      "function_index": 9,
+      "extras": ["mint", "user2_token", "user1", "token_program"],
+      "params": [],
+      "expected": "success"
+    }
+  ]
+}

@@ -190,7 +190,7 @@ impl ASTGenerator {
                         .as_ref()
                         .map(|s| s.as_str())
                     {
-                        None => InterfaceSerializer::Raw,
+                        None => InterfaceSerializer::Bincode,
                         Some("borsh") => InterfaceSerializer::Borsh,
                         Some("bincode") => InterfaceSerializer::Bincode,
                         Some("raw") => InterfaceSerializer::Raw,

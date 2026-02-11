@@ -3,6 +3,69 @@ use crate::parser::{DslParser, types};
 use crate::tokenizer::{Token};
 use five_vm_mito::error::VMError;
 
+fn parse_serializer_name(parser: &mut DslParser) -> Result<String, VMError> {
+    match &parser.current_token {
+        Token::StringLiteral(s) => {
+            let out = s.clone();
+            parser.advance();
+            Ok(out)
+        }
+        Token::Identifier(s) => {
+            let out = s.clone();
+            parser.advance();
+            Ok(out)
+        }
+        _ => Err(parser.parse_error("serializer name (identifier or string literal)")),
+    }
+}
+
+fn parse_discriminator_args(
+    parser: &mut DslParser,
+) -> Result<(Option<u8>, Option<Vec<u8>>), VMError> {
+    if !matches!(parser.current_token, Token::LeftParen) {
+        return Err(parser.parse_error("'(' after discriminator keyword"));
+    }
+    parser.advance(); // consume '('
+
+    let parsed = if matches!(parser.current_token, Token::LeftBracket) {
+        parser.advance(); // consume '['
+        let mut bytes = Vec::new();
+        while !matches!(parser.current_token, Token::RightBracket)
+            && !matches!(parser.current_token, Token::Eof)
+        {
+            let b = match &parser.current_token {
+                Token::NumberLiteral(n) if *n <= u8::MAX as u64 => *n as u8,
+                _ => return Err(parser.parse_error("number literal (0-255) for discriminator")),
+            };
+            bytes.push(b);
+            parser.advance();
+            if matches!(parser.current_token, Token::Comma) {
+                parser.advance();
+            } else {
+                break;
+            }
+        }
+        if !matches!(parser.current_token, Token::RightBracket) {
+            return Err(parser.parse_error("']' after discriminator bytes"));
+        }
+        parser.advance(); // consume ']'
+        (None, Some(bytes))
+    } else {
+        let disc = match &parser.current_token {
+            Token::NumberLiteral(n) if *n <= u8::MAX as u64 => Some(*n as u8),
+            _ => return Err(parser.parse_error("number literal (0-255) for discriminator")),
+        };
+        parser.advance();
+        (disc, None)
+    };
+
+    if !matches!(parser.current_token, Token::RightParen) {
+        return Err(parser.parse_error("')' after discriminator value"));
+    }
+    parser.advance(); // consume ')'
+    Ok(parsed)
+}
+
 pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNode, VMError> {
     parser.advance(); // consume 'interface'
 
@@ -67,17 +130,15 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
 
     // Optional serializer hint: serializer("borsh") or @serializer("borsh")
     if serializer.is_none() {
-        if matches!(&parser.current_token, Token::Identifier(name) if name == "serializer") {
+        if matches!(&parser.current_token, Token::Identifier(name) if name == "serializer")
+            || matches!(parser.current_token, Token::Serializer)
+        {
             parser.advance(); // consume 'serializer'
             if !matches!(parser.current_token, Token::LeftParen) {
                 return Err(parser.parse_error("'(' after serializer keyword"));
             }
             parser.advance(); // '('
-            let ser = match &parser.current_token {
-                Token::StringLiteral(s) => s.clone(),
-                _ => return Err(parser.parse_error("string literal for serializer name")),
-            };
-            parser.advance();
+            let ser = parse_serializer_name(parser)?;
             if !matches!(parser.current_token, Token::RightParen) {
                 return Err(parser.parse_error("')' after serializer name"));
             }
@@ -87,18 +148,15 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
             let saved_pos = parser.position;
             parser.advance(); // consume '@'
             let is_serializer_attr =
-                matches!(&parser.current_token, Token::Identifier(name) if name == "serializer");
+                matches!(&parser.current_token, Token::Identifier(name) if name == "serializer")
+                    || matches!(parser.current_token, Token::Serializer);
             if is_serializer_attr {
                 parser.advance(); // consume 'serializer'
                 if !matches!(parser.current_token, Token::LeftParen) {
                     return Err(parser.parse_error("'(' after serializer attribute"));
                 }
                 parser.advance(); // '('
-                let ser = match &parser.current_token {
-                    Token::StringLiteral(s) => s.clone(),
-                    _ => return Err(parser.parse_error("string literal for serializer name")),
-                };
-                parser.advance();
+                let ser = parse_serializer_name(parser)?;
                 if !matches!(parser.current_token, Token::RightParen) {
                     return Err(parser.parse_error("')' after serializer name"));
                 }
@@ -151,19 +209,9 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
                     || matches!(parser.current_token, Token::DiscriminatorBytes);
             if is_disc {
                 parser.advance(); // consume 'discriminator'
-                if !matches!(parser.current_token, Token::LeftParen) {
-                    return Err(parser.parse_error("'(' after discriminator keyword"));
-                }
-                parser.advance(); // '('
-                discriminator = match &parser.current_token {
-                    Token::NumberLiteral(n) => Some(*n as u8),
-                    _ => return Err(parser.parse_error("number literal for discriminator")),
-                };
-                parser.advance();
-                if !matches!(parser.current_token, Token::RightParen) {
-                    return Err(parser.parse_error("')' after discriminator value"));
-                }
-                parser.advance(); // ')'
+                let (disc, disc_bytes) = parse_discriminator_args(parser)?;
+                discriminator = disc;
+                discriminator_bytes = disc_bytes;
             } else if is_disc_bytes {
                 parser.advance(); // consume 'discriminator_bytes'
                 if !matches!(parser.current_token, Token::LeftParen) {
@@ -356,22 +404,7 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
             (discriminator, discriminator_bytes)
         } else if matches!(parser.current_token, Token::Discriminator) {
             parser.advance(); // consume 'discriminator'
-            if !matches!(parser.current_token, Token::LeftParen) {
-                return Err(parser.parse_error("'(' after discriminator keyword"));
-            }
-            parser.advance(); // consume '('
-
-            let disc = match &parser.current_token {
-                Token::NumberLiteral(n) => Some(*n as u8),
-                _ => return Err(parser.parse_error("number literal for discriminator")),
-            };
-            parser.advance();
-
-            if !matches!(parser.current_token, Token::RightParen) {
-                return Err(parser.parse_error("')' after discriminator value"));
-            }
-            parser.advance(); // consume ')'
-            (disc, None)
+            parse_discriminator_args(parser)?
         } else if matches!(parser.current_token, Token::DiscriminatorBytes) {
             parser.advance(); // consume 'discriminator_bytes'
             if !matches!(parser.current_token, Token::LeftParen) {

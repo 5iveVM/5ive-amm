@@ -14,15 +14,14 @@ impl ASTGenerator {
 
     /// Parse program ID string to 32-byte array
     pub(super) fn parse_program_id(&self, program_id: &str) -> Result<[u8; 32], VMError> {
-        // Convert the program ID string to a fixed 32-byte array.
-        // In a real implementation, this would parse a base58 Solana public key
+        let decoded = bs58::decode(program_id)
+            .into_vec()
+            .map_err(|_| VMError::InvalidOperation)?;
+        if decoded.len() != 32 {
+            return Err(VMError::InvalidOperation);
+        }
         let mut bytes = [0u8; 32];
-        let id_bytes = program_id.as_bytes();
-
-        // Take up to 32 bytes from the program ID string
-        let len = std::cmp::min(id_bytes.len(), 32);
-        bytes[..len].copy_from_slice(&id_bytes[..len]);
-
+        bytes.copy_from_slice(&decoded);
         Ok(bytes)
     }
 
@@ -180,5 +179,20 @@ mod tests {
 
         assert_eq!(generator.type_node_to_string(&primitive), "u64");
         assert_eq!(generator.type_node_to_string(&array), "[u8; 10]");
+    }
+
+    #[test]
+    fn test_parse_program_id_base58_pubkey() {
+        let generator = ASTGenerator::new();
+        let parsed = generator
+            .parse_program_id("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+            .expect("valid pubkey");
+        assert_eq!(
+            parsed,
+            [
+                6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172,
+                28, 180, 133, 237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
+            ]
+        );
     }
 }

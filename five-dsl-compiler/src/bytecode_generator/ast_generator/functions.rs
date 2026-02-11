@@ -353,19 +353,16 @@ impl ASTGenerator {
         Ok(())
     }
 
-    /// Check if a TypeNode represents a pubkey/account type
-    fn is_pubkey_type(type_node: &TypeNode) -> bool {
-        match type_node {
-            TypeNode::Primitive(name) => name == "pubkey",
-            TypeNode::Account => true,
-            _ => false,
-        }
+    /// Check if a TypeNode represents an account-meta parameter.
+    /// Only explicit `Account` parameters are emitted as account metas.
+    /// `pubkey` parameters are serialized into instruction data.
+    fn is_account_meta_type(type_node: &TypeNode) -> bool {
+        matches!(type_node, TypeNode::Account)
     }
 
     /// Check if a field_type string represents an account type
     fn is_account_type_str(field_type: &str) -> bool {
-        field_type == "pubkey"
-            || field_type == "Account"
+        field_type == "Account"
             || field_type.starts_with("Account<")
     }
 
@@ -413,7 +410,7 @@ impl ASTGenerator {
     }
 
     /// Partition interface method arguments into account indices and data arguments.
-    /// Account parameters (pubkey type) have their indices extracted.
+    /// Account parameters (Account type) have their indices extracted.
     /// Data parameters are collected for serialization.
     /// Returns (account_indices, data_args).
     fn partition_interface_arguments(
@@ -436,7 +433,7 @@ impl ASTGenerator {
             .zip(args.iter())
             .enumerate()
         {
-            if Self::is_pubkey_type(param_type) {
+            if Self::is_account_meta_type(param_type) {
                 // This is an account parameter - resolve to index
                 let param_idx = self.resolve_account_argument(arg)?;
                 account_indices.push(param_idx);
@@ -449,7 +446,7 @@ impl ASTGenerator {
         Ok((account_indices, data_arg_indices))
     }
 
-    /// Emit opcodes to constructing the instruction data byte array on the stack.
+    /// Emit opcodes to construct instruction data values on the stack.
     /// Supports both literals and variables by emitting values dynamically.
     fn emit_instruction_data_construction<T: OpcodeEmitter>(
         &mut self,
@@ -458,8 +455,8 @@ impl ASTGenerator {
         data_arg_indices: &[usize],
         args: &[AstNode],
     ) -> Result<(), VMError> {
-        // Track total byte count for PUSH_ARRAY_LITERAL
-        let mut total_byte_count = 0;
+        // PUSH_ARRAY_LITERAL expects the number of stack values, not final byte length.
+        let mut element_count = 0;
 
         // 1. Emit discriminator bytes
         let discriminator_bytes = interface_method
@@ -469,7 +466,7 @@ impl ASTGenerator {
         
         for byte in discriminator_bytes {
             emitter.emit_const_u8(byte)?;
-            total_byte_count += 1;
+            element_count += 1;
         }
 
         // 2. Emit each data argument
@@ -481,19 +478,18 @@ impl ASTGenerator {
             };
 
             let arg = &args[arg_idx];
-            let bytes_emitted = self.emit_argument_serialization(emitter, param_type, arg)?;
-            total_byte_count += bytes_emitted;
+            let values_emitted = self.emit_argument_serialization(emitter, param_type, arg)?;
+            element_count += values_emitted;
         }
 
         // 3. Create the array ref from the stack values
         emitter.emit_opcode(PUSH_ARRAY_LITERAL);
-        // PUSH_ARRAY_LITERAL takes u8 param for count. 
-        // If > 255, we need to handle it (likely not for now)
-        if total_byte_count > 255 {
-             println!("DEBUG: Instruction data too large ({}) for PUSH_ARRAY_LITERAL", total_byte_count);
+        // PUSH_ARRAY_LITERAL takes a u8 element count.
+        if element_count > 255 {
+             println!("DEBUG: Instruction element count too large ({}) for PUSH_ARRAY_LITERAL", element_count);
              return Err(VMError::InvalidOperation);
         }
-        emitter.emit_u8(total_byte_count as u8);
+        emitter.emit_u8(element_count as u8);
 
         Ok(())
     }
@@ -510,8 +506,8 @@ impl ASTGenerator {
         match (param_type, arg) {
             (TypeNode::Primitive(name), AstNode::Literal(val)) if name == "u8" => {
                 if let Value::U8(v) = val {
-                    emitter.emit_const_u8(*v)?;
-                    Ok(1)
+                     emitter.emit_const_u8(*v)?;
+                    Ok(1) // one stack value
                 } else {
                     Err(VMError::TypeMismatch)
                 }
@@ -522,7 +518,7 @@ impl ASTGenerator {
                     for b in bytes {
                         emitter.emit_const_u8(b)?;
                     }
-                    Ok(8)
+                    Ok(8) // eight u8 stack values
                 } else {
                      Err(VMError::TypeMismatch)
                 }
@@ -535,7 +531,7 @@ impl ASTGenerator {
                  // Five VM usually works with Value enums. Value::U8 is a distinct type.
                  // So we just leave it on stack.
                  // PUSH_ARRAY_LITERAL expects Values.
-                 Ok(1)
+                 Ok(1) // one stack value
              }
              (TypeNode::Primitive(name), _) if name == "u64" => {
                  // Generate code to put u64 value on stack
@@ -615,7 +611,21 @@ impl ASTGenerator {
                       // Byte is left on stack as U8. Correct order (Little Endian: byte0 first).
                  }
                  
-                 Ok(8)
+                 Ok(8) // eight u8 stack values
+             }
+             (TypeNode::Primitive(name), AstNode::Literal(val)) if name == "pubkey" => {
+                 if let Value::Pubkey(pk) = val {
+                     emitter.emit_const_pubkey(pk)?;
+                    Ok(1) // one pubkey stack value
+                 } else {
+                     Err(VMError::TypeMismatch)
+                 }
+             }
+             (TypeNode::Primitive(name), _) if name == "pubkey" => {
+                 // Keep pubkey as a single stack value. INVOKE array packing expands PUBKEY
+                 // typed elements into 32 instruction-data bytes.
+                 self.generate_ast_node(emitter, arg)?;
+                 Ok(1) // one pubkey stack value
              }
              _ => {
                  eprintln!("DEBUG: unsupported dynamic serialization for {:?}", param_type);
