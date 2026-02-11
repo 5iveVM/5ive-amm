@@ -113,6 +113,7 @@ pub struct InterfaceFunctionNode {
     pub name: String,
     pub discriminator: Option<u8>,
     pub discriminator_bytes: Option<Vec<u8>>,
+    pub is_anchor: bool,
 }
 
 /// Account type definition
@@ -188,6 +189,7 @@ pub struct InterfaceDefinitionNode {
     pub name: String,
     pub program_id: Option<String>,
     pub serializer: Option<String>,
+    pub is_anchor: bool,
     pub functions: Vec<AstNode>,
 }
 
@@ -499,8 +501,8 @@ impl From<Definition> for AstNode {
             Definition::EventDefinition(node) => AstNode::EventDefinition{ visibility: node.visibility, name: node.name, fields: node.fields },
             Definition::ErrorTypeDefinition(node) => AstNode::ErrorTypeDefinition{ variants: node.variants, name: node.name },
             Definition::AccountDefinition(node) => AstNode::AccountDefinition{ fields: node.fields, name: node.name, visibility: node.visibility },
-            Definition::InterfaceDefinition(node) => AstNode::InterfaceDefinition{ name: node.name, program_id: node.program_id, serializer: node.serializer, functions: node.functions },
-            Definition::InterfaceFunction(node) => AstNode::InterfaceFunction{ return_type: node.return_type, parameters: node.parameters, name: node.name, discriminator: node.discriminator, discriminator_bytes: node.discriminator_bytes },
+            Definition::InterfaceDefinition(node) => AstNode::InterfaceDefinition{ name: node.name, program_id: node.program_id, serializer: node.serializer, is_anchor: node.is_anchor, functions: node.functions },
+            Definition::InterfaceFunction(node) => AstNode::InterfaceFunction{ return_type: node.return_type, parameters: node.parameters, name: node.name, discriminator: node.discriminator, discriminator_bytes: node.discriminator_bytes, is_anchor: node.is_anchor },
             Definition::ImportStatement(node) => AstNode::ImportStatement{ module_specifier: node.module_specifier, imported_items: node.imported_items },
             Definition::ArrowFunction(node) => AstNode::ArrowFunction{ parameters: node.parameters, body: node.body, is_async: node.is_async, return_type: node.return_type },
             Definition::TestFunction(node) => AstNode::TestFunction{ body: node.body, name: node.name, attributes: node.attributes },

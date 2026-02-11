@@ -17,6 +17,7 @@ pub struct SymbolDefinition {
 pub struct InterfaceMethod {
     pub discriminator: u8,
     pub discriminator_bytes: Option<Vec<u8>>,
+    pub is_anchor: bool,
     pub parameters: Vec<TypeNode>,
     pub return_type: Option<TypeNode>,
 }
@@ -34,6 +35,7 @@ pub enum InterfaceSerializer {
 pub struct InterfaceInfo {
     pub program_id: String,
     pub serializer: InterfaceSerializer,
+    pub is_anchor: bool,
     pub methods: HashMap<String, InterfaceMethod>,
 }
 

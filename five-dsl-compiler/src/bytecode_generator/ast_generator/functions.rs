@@ -363,6 +363,7 @@ impl ASTGenerator {
     /// Check if a field_type string represents an account type
     fn is_account_type_str(field_type: &str) -> bool {
         field_type == "Account"
+            || field_type == "account"
             || field_type.starts_with("Account<")
     }
 
@@ -374,13 +375,6 @@ impl ASTGenerator {
             AstNode::Identifier(name) => {
                 // Look up in local symbol table (function parameters)
                 if let Some(field_info) = self.local_symbol_table.get(name) {
-                    // Validate it's a parameter, not a local variable
-                    // Account parameters now have is_parameter=false to avoid LOAD_PARAM generation.
-                    // So we skip this check or checking type is sufficient.
-                    // if !field_info.is_parameter {
-                    //    return Err(VMError::InvalidOperation); 
-                    // }
-
                     // Validate it's an account type
                     if !Self::is_account_type_str(&field_info.field_type) {
                         return Err(VMError::TypeMismatch);

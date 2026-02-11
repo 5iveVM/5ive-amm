@@ -46,6 +46,10 @@ impl TypeCheckerContext {
                     self.check_types(arg)?;
                 }
 
+                // Force method-call type validation so interface CPI calls
+                // get strict argument checking (including account vs pubkey).
+                self.infer_method_call_type(object, method, args)?;
+
                 // Check for type mismatches in arithmetic operations
                 if matches!(method.as_str(), "add" | "sub" | "mul" | "div") {
                     // Check if we're trying to do arithmetic with incompatible types

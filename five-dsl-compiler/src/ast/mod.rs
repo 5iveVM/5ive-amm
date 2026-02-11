@@ -314,6 +314,7 @@ pub enum AstNode {
         name: String,
         program_id: Option<String>, // Optional custom program ID
         serializer: Option<String>, // Optional serializer hint (raw, borsh, bincode)
+        is_anchor: bool,            // Whether to use Anchor discriminator/serialization defaults
         functions: Vec<AstNode>,
     },
     InterfaceFunction {
@@ -322,6 +323,7 @@ pub enum AstNode {
         return_type: Option<Box<TypeNode>>,
         discriminator: Option<u8>, // Custom discriminator for the instruction
         discriminator_bytes: Option<Vec<u8>>, // Optional multi-byte discriminator
+        is_anchor: bool, // Whether this function follows Anchor conventions
     },
 
     // Import system AST nodes

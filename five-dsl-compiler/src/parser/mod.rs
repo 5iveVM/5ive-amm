@@ -122,6 +122,22 @@ impl DslParser {
                 TokenKind::Interface => {
                     interface_definitions.push(interfaces::parse_interface_definition(self)?);
                 }
+                TokenKind::At => {
+                    // Support attribute-prefixed interface declarations such as:
+                    // @anchor interface Foo @program("...") { ... }
+                    let is_anchor_interface = matches!(
+                        self.tokens.get(self.position + 1),
+                        Some(Token::Identifier(name)) if name == "anchor"
+                    ) && matches!(
+                        self.tokens.get(self.position + 2),
+                        Some(Token::Interface)
+                    );
+                    if is_anchor_interface {
+                        interface_definitions.push(interfaces::parse_interface_definition(self)?);
+                    } else {
+                        return Err(self.unexpected_token());
+                    }
+                }
                 // Testing system: Handle test function definitions
                 TokenKind::Hash => {
                     instruction_definitions.push(instructions::parse_test_function(self)?);

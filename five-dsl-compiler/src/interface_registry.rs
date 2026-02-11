@@ -8,6 +8,7 @@ use crate::ast::{AstNode, TypeNode};
 use crate::type_checker::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
+use sha2::Digest;
 
 /// Global interface registry for two-pass compilation
 /// This provides the single source of truth for all interface definitions
@@ -70,6 +71,7 @@ impl InterfaceRegistry {
                 program_id: _,
                 functions: _,
                 serializer: _,
+                is_anchor: _,
             } => {
                 self.process_interface_definition(node)?;
             }
@@ -83,25 +85,18 @@ impl InterfaceRegistry {
     }
 
     /// Process a single interface definition and add it to the registry
+    /// Process a single interface definition and add it to the registry
     fn process_interface_definition(&mut self, interface_def: &AstNode) -> Result<(), VMError> {
         if let AstNode::InterfaceDefinition {
             name,
             program_id,
             serializer,
+            is_anchor: is_interface_anchor,
             functions,
         } = interface_def
         {
             let mut methods: HashMap<String, InterfaceMethod> = HashMap::new();
-            let serializer = match serializer
-                .as_ref()
-                .map(|s| s.as_str())
-            {
-                None => InterfaceSerializer::Bincode,
-                Some("raw") => InterfaceSerializer::Raw,
-                Some("borsh") => InterfaceSerializer::Borsh,
-                Some("bincode") => InterfaceSerializer::Bincode,
-                Some(_) => return Err(VMError::InvalidOperation),
-            };
+            let serializer_hint = serializer.clone();
 
             // Process all interface functions
             for function_def in functions {
@@ -111,8 +106,11 @@ impl InterfaceRegistry {
                     return_type,
                     discriminator,
                     discriminator_bytes,
+                    is_anchor: is_method_anchor,
                 } = function_def
                 {
+                    let is_anchor = *is_interface_anchor || *is_method_anchor;
+
                     // Convert InstructionParameter to TypeNode for storage
                     let param_types: Vec<TypeNode> = parameters
                         .iter()
@@ -121,16 +119,35 @@ impl InterfaceRegistry {
 
                     let return_type_node = return_type.as_ref().map(|rt| (**rt).clone());
 
+                    // Determine discriminator
+                    // Priority: explicit bytes > explicit u8 > anchor derived > default (0)
+                    let (discriminator_val, discriminator_bytes_val) = if let Some(bytes) = discriminator_bytes {
+                         (discriminator.unwrap_or(0), Some(bytes.clone()))
+                    } else if let Some(disc) = discriminator {
+                         (*disc, None)
+                    } else if is_anchor {
+                         // Derive Anchor discriminator: sha256("global:<method_name>")[..8]
+                         let preimage = format!("global:{}", method_name);
+                         let mut hasher = sha2::Sha256::new();
+                         hasher.update(preimage.as_bytes());
+                         let result = hasher.finalize();
+                         let disc_bytes = result[..8].to_vec();
+                         (0, Some(disc_bytes))
+                    } else {
+                         (0, None)
+                    };
+
                     // Validate discriminator uniqueness within interface
-                    let discriminator_bytes_vec = discriminator_bytes.clone().unwrap_or_else(|| {
-                        vec![discriminator.unwrap_or(0)]
+                    let check_bytes = discriminator_bytes_val.clone().unwrap_or_else(|| {
+                        vec![discriminator_val]
                     });
+                    
                     for existing_info in methods.values() {
                         let existing_bytes = existing_info
                             .discriminator_bytes
                             .clone()
                             .unwrap_or_else(|| vec![existing_info.discriminator]);
-                        if existing_bytes == discriminator_bytes_vec {
+                        if existing_bytes == check_bytes {
                             return Err(VMError::InvalidOperation); // Duplicate discriminator
                         }
                     }
@@ -138,14 +155,31 @@ impl InterfaceRegistry {
                     methods.insert(
                         method_name.clone(),
                         InterfaceMethod {
-                            discriminator: discriminator.unwrap_or(0),
-                            discriminator_bytes: discriminator_bytes.clone(),
+                            discriminator: discriminator_val,
+                            discriminator_bytes: discriminator_bytes_val,
+                            is_anchor,
                             parameters: param_types,
                             return_type: return_type_node,
                         },
                     );
                 }
             }
+
+            let has_anchor_methods = methods.values().any(|m| m.is_anchor);
+            let anchor_mode = *is_interface_anchor || has_anchor_methods;
+            let serializer = match serializer_hint.as_deref() {
+                None => {
+                    if anchor_mode {
+                        InterfaceSerializer::Borsh
+                    } else {
+                        InterfaceSerializer::Bincode
+                    }
+                }
+                Some("raw") => InterfaceSerializer::Raw,
+                Some("borsh") => InterfaceSerializer::Borsh,
+                Some("bincode") => InterfaceSerializer::Bincode,
+                Some(_) => return Err(VMError::InvalidOperation),
+            };
 
             // Validate program ID format
             let validated_program_id = match program_id {
@@ -161,6 +195,7 @@ impl InterfaceRegistry {
             let interface_info = InterfaceInfo {
                 program_id: validated_program_id,
                 serializer,
+                is_anchor: anchor_mode,
                 methods,
             };
 
@@ -574,6 +609,7 @@ mod tests {
             name: "TestInterface".to_string(),
             program_id: Some("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string()),
             serializer: None,
+            is_anchor: false,
             functions: vec![AstNode::InterfaceFunction {
                 name: "test_method".to_string(),
                 parameters: vec![InstructionParameter {
@@ -588,6 +624,7 @@ mod tests {
                 return_type: Some(Box::new(TypeNode::Primitive("u64".to_string()))),
                 discriminator: Some(1),
                 discriminator_bytes: None,
+                is_anchor: false,
             }],
         };
 
@@ -627,6 +664,7 @@ mod tests {
             name: "AnchorStyle".to_string(),
             program_id: Some("11111111111111111111111111111111".to_string()),
             serializer: Some("borsh".to_string()),
+            is_anchor: true,
             functions: vec![AstNode::InterfaceFunction {
                 name: "initialize".to_string(),
                 parameters: vec![InstructionParameter {
@@ -641,6 +679,7 @@ mod tests {
                 return_type: None,
                 discriminator: None,
                 discriminator_bytes: Some(vec![1, 2, 3, 4, 5, 6, 7, 8]),
+                is_anchor: false,
             }],
         };
 

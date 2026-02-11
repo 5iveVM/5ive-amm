@@ -2638,7 +2638,7 @@ fn test_cpi_interface_spl_token_mint_to() {
     // Note: MVP only supports literal values for data args
     let source = r#"
         interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
-            mint_to @discriminator(7) (mint: pubkey, to: pubkey, authority: pubkey, amount: u64);
+            mint_to @discriminator(7) (mint: account, to: account, authority: account, amount: u64);
         }
 
         pub mint_tokens(mint: account @mut, dest: account @mut) {
@@ -2691,7 +2691,7 @@ fn test_cpi_rejects_local_variable_as_account() {
     // Test that local variables are rejected as account arguments
     let source = r#"
         interface ITest @program("11111111111111111111111111111111") {
-            test @discriminator(1) (account: pubkey);
+            test @discriminator(1) (account: account);
         }
 
         pub bad_function(param: account) {
@@ -2709,10 +2709,10 @@ fn test_cpi_rejects_local_variable_as_account() {
 
 #[test]
 fn test_cpi_rejects_expression_as_account() {
-    // Test that only simple identifiers are allowed for account arguments
+    // Test that parameter identifiers are accepted for account arguments
     let source = r#"
         interface ITest @program("11111111111111111111111111111111") {
-            test @discriminator(1) (acct: pubkey);
+            test @discriminator(1) (acct: account);
         }
 
         pub good_function(param: account) {
@@ -2756,7 +2756,7 @@ fn test_cpi_duplicate_account_indices() {
     // Test that the same account can be passed multiple times (allowed)
     let source = r#"
         interface ITransfer @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
-            transfer @discriminator(3) (from: pubkey, to: pubkey, authority: pubkey, amount: u64);
+            transfer @discriminator(3) (from: account, to: account, authority: account, amount: u64);
         }
 
         pub transfer_tokens(account: account @mut) {
@@ -2771,6 +2771,22 @@ fn test_cpi_duplicate_account_indices() {
     println!("✅ Duplicate account indices test passed!");
     println!("  - Same account parameter can be passed multiple times");
     println!("  - Stack will contain duplicate indices: [0, 0, 0]");
+}
+
+#[test]
+fn test_cpi_account_pubkey_mismatch_rejected() {
+    let source = r#"
+        interface IApprove @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
+            approve @discriminator(4) (source: account, delegate: pubkey, authority: account, amount: u64);
+        }
+
+        pub bad_call(source: account @mut, delegate: account, authority: account @signer) {
+            IApprove.approve(source, delegate, authority, 100);
+        }
+    "#;
+
+    let result = DslCompiler::compile_dsl(source);
+    assert!(result.is_err(), "Should reject account passed where pubkey data is required");
 }
 
 #[test]
@@ -2797,6 +2813,72 @@ fn test_cpi_default_serializer_is_bincode() {
         .expect("SPLToken interface should exist");
 
     assert!(matches!(spl.serializer, InterfaceSerializer::Bincode));
+}
+
+#[test]
+fn test_anchor_prefix_interface_derives_discriminator_and_defaults_borsh() {
+    use five_dsl_compiler::type_checker::InterfaceSerializer;
+    use sha2::Digest;
+
+    let source = r#"
+        @anchor interface Counter @program("11111111111111111111111111111111") {
+            initialize(counter: account, user: account, amount: u64);
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer.tokenize().expect("Should tokenize");
+    let mut parser = DslParser::new(tokens);
+    let ast = parser.parse().expect("Should parse");
+
+    let mut registry = InterfaceRegistry::new();
+    registry
+        .preprocess_interfaces(&ast)
+        .expect("Should preprocess interfaces");
+    let counter = registry
+        .get_interface("Counter")
+        .expect("Counter interface should exist");
+
+    assert!(counter.is_anchor);
+    assert!(matches!(counter.serializer, InterfaceSerializer::Borsh));
+
+    let initialize = counter
+        .methods
+        .get("initialize")
+        .expect("initialize method should exist");
+
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(b"global:initialize");
+    let expected = hasher.finalize()[..8].to_vec();
+    assert_eq!(initialize.discriminator_bytes.clone().unwrap_or_default(), expected);
+}
+
+#[test]
+fn test_anchor_discriminator_bytes_bracket_override_parses() {
+    let source = r#"
+        @anchor interface Counter @program("11111111111111111111111111111111") {
+            @discriminator_bytes([1, 2, 3, 4, 5, 6, 7, 8])
+            reset();
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer.tokenize().expect("Should tokenize");
+    let mut parser = DslParser::new(tokens);
+    let ast = parser.parse().expect("Should parse");
+
+    let mut registry = InterfaceRegistry::new();
+    registry
+        .preprocess_interfaces(&ast)
+        .expect("Should preprocess interfaces");
+    let counter = registry
+        .get_interface("Counter")
+        .expect("Counter interface should exist");
+    let reset = counter.methods.get("reset").expect("reset method should exist");
+    assert_eq!(
+        reset.discriminator_bytes.clone().unwrap_or_default(),
+        vec![1, 2, 3, 4, 5, 6, 7, 8]
+    );
 }
 
 #[test]

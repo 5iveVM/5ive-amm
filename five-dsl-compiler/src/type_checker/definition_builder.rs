@@ -91,6 +91,7 @@ impl super::types::TypeCheckerContext {
             name,
             program_id,
             serializer: None,
+            is_anchor: false,
             functions,
         })
     }
@@ -108,6 +109,7 @@ impl super::types::TypeCheckerContext {
             return_type: return_type.map(Box::new),
             discriminator,
             discriminator_bytes: None,
+            is_anchor: false,
         })
     }
 

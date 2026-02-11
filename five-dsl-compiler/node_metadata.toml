@@ -371,6 +371,7 @@ doc = "Cross-program interface definition"
 fields.name = { type = "String", doc = "Interface name" }
 fields.program_id = { type = "Option<String>", doc = "Optional custom program ID" }
 fields.serializer = { type = "Option<String>", doc = "Optional serializer hint (raw, borsh, bincode)" }
+fields.is_anchor = { type = "bool", doc = "Whether to use Anchor discriminator/serialization defaults" }
 fields.functions = { type = "Vec<AstNode>", doc = "Interface methods" }
 
 [nodes.grammar]
@@ -386,6 +387,7 @@ fields.parameters = { type = "Vec<InstructionParameter>", doc = "Method paramete
 fields.return_type = { type = "Option<Box<TypeNode>>", doc = "Optional return type" }
 fields.discriminator = { type = "Option<u8>", doc = "Custom instruction discriminator" }
 fields.discriminator_bytes = { type = "Option<Vec<u8>>", doc = "Optional multi-byte discriminator for Anchor-style CPIs" }
+fields.is_anchor = { type = "bool", doc = "Whether this function follows Anchor conventions" }
 
 [nodes.grammar]
 rule_name = "interface_function"

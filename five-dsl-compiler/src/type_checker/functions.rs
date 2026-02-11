@@ -4,6 +4,7 @@ use super::type_helpers::type_names;
 use super::types::{InterfaceInfo, InterfaceMethod, InterfaceSerializer, TypeCheckerContext};
 use crate::ast::{AstNode, TypeNode};
 use five_vm_mito::error::VMError;
+use sha2::Digest;
 use std::collections::{HashMap, HashSet};
 
 impl TypeCheckerContext {
@@ -17,10 +18,12 @@ impl TypeCheckerContext {
                 name,
                 program_id,
                 serializer,
+                is_anchor: is_interface_anchor,
                 functions,
             } = interface_def
             {
                 let mut methods = HashMap::new();
+                let serializer_hint = serializer.clone();
 
                 for function_def in functions {
                     if let AstNode::InterfaceFunction {
@@ -29,8 +32,11 @@ impl TypeCheckerContext {
                         return_type,
                         discriminator,
                         discriminator_bytes,
+                        is_anchor: is_method_anchor,
                     } = function_def
                     {
+                        let is_anchor = *is_interface_anchor || *is_method_anchor;
+
                         // Convert InstructionParameter to TypeNode for storage
                         let param_types: Vec<TypeNode> = parameters
                             .iter()
@@ -39,11 +45,30 @@ impl TypeCheckerContext {
 
                         let return_type_node = return_type.as_ref().map(|rt| (**rt).clone());
 
+                        // Determine discriminator (duplicate logic from registry for consistency)
+                        // Priority: explicit bytes > explicit u8 > anchor derived > default (0)
+                        let (discriminator_val, discriminator_bytes_val) = if let Some(bytes) = discriminator_bytes {
+                             (discriminator.unwrap_or(0), Some(bytes.clone()))
+                        } else if let Some(disc) = discriminator {
+                             (*disc, None)
+                        } else if is_anchor {
+                             // Derive Anchor discriminator: sha256("global:<method_name>")[..8]
+                             let preimage = format!("global:{}", method_name);
+                             let mut hasher = sha2::Sha256::new();
+                             hasher.update(preimage.as_bytes());
+                             let result = hasher.finalize();
+                             let disc_bytes = result[..8].to_vec();
+                             (0, Some(disc_bytes))
+                        } else {
+                             (0, None)
+                        };
+
                         methods.insert(
                             method_name.clone(),
                             InterfaceMethod {
-                                discriminator: discriminator.unwrap_or(0), // Default to 0 if no discriminator
-                                discriminator_bytes: discriminator_bytes.clone(),
+                                discriminator: discriminator_val,
+                                discriminator_bytes: discriminator_bytes_val,
+                                is_anchor,
                                 parameters: param_types,
                                 return_type: return_type_node,
                             },
@@ -51,18 +76,25 @@ impl TypeCheckerContext {
                     }
                 }
 
+                let has_anchor_methods = methods.values().any(|m: &InterfaceMethod| m.is_anchor);
+                let anchor_mode = *is_interface_anchor || has_anchor_methods;
+
                 let interface_info = InterfaceInfo {
                     program_id: program_id.clone().unwrap_or_default(), // Default to empty if no program ID
-                    serializer: match serializer
-                        .as_ref()
-                        .map(|s| s.as_str())
-                    {
-                        None => InterfaceSerializer::Bincode,
+                    serializer: match serializer_hint.as_deref() {
+                        None => {
+                            if anchor_mode {
+                                 InterfaceSerializer::Borsh 
+                            } else {
+                                 InterfaceSerializer::Bincode
+                            }
+                        },
                         Some("raw") => InterfaceSerializer::Raw,
                         Some("borsh") => InterfaceSerializer::Borsh,
                         Some("bincode") => InterfaceSerializer::Bincode,
                         Some(_) => return Err(VMError::InvalidOperation),
                     },
+                    is_anchor: anchor_mode,
                     methods,
                 };
 

@@ -10,22 +10,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Five Protocol** - Shared protocol definitions, opcodes, and types
 - **Five SDK** - TypeScript SDK for client-side interaction
 - **Five CLI** - Command-line tools for compilation, deployment, and execution
+- **Five Frontend** - Web-based IDE for writing and testing Five DSL contracts
+- **Five LSP** - Language Server Protocol for editor integration and code completion
 
-The system compiles Five DSL source code (`.v` files) to compact bytecode that executes on-chain via the Five Solana program.
+The system compiles Five DSL source code (`.v` files) to compact bytecode that executes on-chain via the Five Solana program. Developers can use the CLI, web IDE, or integrate the SDK directly.
 
 ## Repository Structure
 
 ```
 five-mono/
-├── five-protocol/       # Shared protocol: opcodes, types, varint encoding, headers
-├── five-dsl-compiler/   # Rust compiler: DSL → bytecode
-├── five-vm-mito/        # Core VM: zero-allocation Solana execution engine
-├── five-solana/         # Solana program wrapper for on-chain execution
-├── five-wasm/           # WASM bindings for browser/Node.js execution
-├── five-sdk/            # TypeScript SDK (client-agnostic)
-├── five-cli/            # CLI tools and test infrastructure
-├── five-templates/      # Example contracts (counter, token, etc.)
-└── third_party/         # Vendored dependencies (pinocchio fork)
+├── five-protocol/          # Shared protocol: opcodes, types, varint encoding, headers
+├── five-dsl-compiler/      # Rust compiler: DSL → bytecode
+├── five-vm-mito/           # Core VM: zero-allocation Solana execution engine
+├── five-solana/            # Solana program wrapper for on-chain execution
+├── five-wasm/              # WASM bindings for browser/Node.js execution
+├── five-sdk/               # TypeScript SDK (client-agnostic)
+├── five-cli/               # CLI tools and test infrastructure
+├── five-templates/         # Example contracts (counter, token, AMM, bridge, etc.)
+├── five-frontend/          # Web IDE and UI for Five development
+├── five-dex-frontend/      # DEX-specific frontend components
+├── five-lsp/               # Language Server Protocol implementation for Five DSL
+├── five-scripts/           # Utility scripts and automation
+├── docs/                   # Project documentation
+├── scripts/                # Build and deployment scripts
+├── release-audit/          # Release management and audit tools
+└── third_party/            # Vendored dependencies (pinocchio fork)
 ```
 
 ## Essential Commands
@@ -137,6 +146,41 @@ Common failures:
 - CU unexpectedly regresses
   - Rebuild SBF and recompile fixture bytecode, then rerun with same fixture and target dir.
 
+### Interface CPI CU tests (SPL + Anchor, no validator)
+
+Use this when validating interface-based CPI CU usage for SPL Token and Anchor program calls.
+
+```bash
+# 1) Recompile CPI example bytecode (always do this after compiler changes)
+CARGO_TARGET_DIR=/tmp/five-target cargo run -p five-dsl-compiler --bin five -- compile \
+  five-templates/cpi-examples/spl-token-mint-e2e.v \
+  -o five-templates/cpi-examples/spl-token-mint-e2e.bin
+
+CARGO_TARGET_DIR=/tmp/five-target cargo run -p five-dsl-compiler --bin five -- compile \
+  five-templates/cpi-examples/anchor-program-call-e2e.v \
+  -o five-templates/cpi-examples/anchor-program-call-e2e.bin
+
+# 2) Build the Five SBF program used by runtime_bpf_cu_tests
+cargo-build-sbf --manifest-path five-solana/Cargo.toml --sbf-out-dir target/deploy
+
+# 3) Build external Anchor comparison program .so used by fixture
+cargo-build-sbf \
+  --manifest-path five-templates/anchor-token-comparison/programs/anchor-token-comparison/Cargo.toml \
+  --sbf-out-dir target/deploy
+
+# 4) Run both interface CU tests
+CARGO_TARGET_DIR=/tmp/five-target \
+cargo test -p five --test runtime_bpf_cu_tests interface_cpi_bpf_compute_units -- --nocapture
+```
+
+Notes:
+- Use `-p five` (crate name from `five-solana/Cargo.toml`), not `-p five-solana`.
+- Keep `CARGO_TARGET_DIR=/tmp/five-target` to avoid Cargo lock contention and reduce rebuild noise.
+- The interface fixtures are:
+  - `five-templates/cpi-examples/runtime-fixtures/spl-token-mint-e2e.json`
+  - `five-templates/cpi-examples/runtime-fixtures/anchor-program-call-e2e.json`
+- Current passing Anchor fixture covers mint/transfer/burn/freeze/thaw CPI flow against `anchor_token_comparison.so`.
+
 ### Five CLI Usage
 
 ```bash
@@ -227,6 +271,45 @@ The `five-solana` crate wraps the VM and handles:
 - `src/FiveSDK.ts` - Main SDK class (compilation, execution, instruction generation)
 - `src/encoding/ParameterEncoder.ts` - varint parameter encoding
 - `src/lib/varint-encoder.js` - varint utility implementation
+
+### five-frontend
+- Web-based IDE for Five DSL development
+- Includes code editor, compiler integration, and testing interface
+- LSP-enabled for real-time language features
+
+### five-lsp
+- Language Server Protocol implementation for Five DSL
+- Provides editor integration (VS Code, etc.) with code completion, diagnostics, and navigation
+
+### five-cli
+- `src/commands/` - CLI command implementations
+- TypeScript-based command-line interface for Five development workflow
+
+## Template Examples
+
+Five includes a comprehensive template library in `five-templates/`:
+
+**Core Templates (Actively Maintained):**
+- `counter/` - Simple counter with account initialization
+- `token/` - Full SPL Token-compatible implementation
+- `defi-bench/` - DeFi math benchmarking suite
+- `cpi-examples/` - Cross-program invocation examples (SPL Token, Anchor)
+- `anchor-token-comparison/` - Comparative performance testing
+
+**DeFi Applications:**
+- `amm/` - Automated Market Maker
+- `lending/` - Lending protocol
+- `staking/` - Token staking
+- `oracle/` - Price oracle
+- `vault/` - Vault contract
+
+**Other Applications:**
+- `nft/` - NFT minting and trading
+- `governance/` - DAO governance
+- `bridge/` - Cross-chain bridge
+- `escrow/` - Payment escrow
+
+Each template includes source code (`.v`), fixtures for testing, and integration tests.
 
 ## Five DSL Language
 
@@ -355,34 +438,26 @@ const instruction = await FiveSDK.generateExecuteInstruction(
 
 ## Current Status
 
-### Working
-- Full compilation pipeline
-- Local WASM execution
-- Basic on-chain deployment and execution
-- **SDK parameter encoding for mixed-type functions (FIXED)**
+### Fully Functional
+- ✅ Full compilation pipeline (Five DSL → Bytecode)
+- ✅ Local WASM execution via CLI and SDK
+- ✅ On-chain deployment and execution on Solana
+- ✅ SDK parameter encoding for mixed account/data parameters
+- ✅ Account constraint validation (@mut, @signer, @init)
+- ✅ CPI interface integration (SPL Token, Anchor)
+- ✅ Web IDE and LSP for development workflow
 
-### SDK Parameter Encoding Fix (COMPLETED)
+### Benchmarking & Metrics
+- ✅ BPF compute unit (CU) measurement harness (`runtime_bpf_cu_tests`)
+- ✅ Token template E2E test suite (352,972 CU total)
+- ✅ Counter template with account initialization
+- ✅ CPI performance testing against SPL and Anchor programs
 
-The Five SDK parameter encoding issue for functions with mixed account/data parameters has been resolved:
-
-**Root Cause:** Test was not passing ABI metadata to SDK, which prevented proper account parameter mapping
-
-**Solution Applied:**
-1. Pass `scriptMetadata: counterABI` in options to `FiveSDK.generateExecuteInstruction()`
-2. Merge account and data parameters in correct order based on ABI function definition:
-   ```javascript
-   // Example: for increment(counter, owner) function
-   const mergedParameters = [counterAccount, ownerAccount];  // All in order
-   ```
-3. SDK now correctly:
-   - Identifies which parameters are accounts via ABI
-   - Maps account pubkeys to indices
-   - Encodes all parameters via WASM encoder
-
-**Files Modified:**
-- `five-templates/counter/e2e-counter-test.mjs` - Pass ABI to SDK, merge parameters by ABI order
-
-**Test Results:** Parameters now encode with 77 bytes (previously 0), function calls reach VM bytecode execution
+### Recent Improvements
+- Removed VLE (Variable Length Encoding) terminology; normalized to varint encoding
+- Consolidated parameter encoding through unified WASM encoder
+- Validated protocol/VM/compiler alignment across all three components
+- Expanded template library (token, counter, AMM, bridge, DAO, etc.)
 
 ### Known Issues
 
@@ -391,7 +466,11 @@ Previously resolved:
 - ✅ **@init constraint** - Works correctly (counter template demonstrates this)
 - ✅ **Token template** - Was blocked by string parameter handling in DSL, not @init
 
-See `HANDOFF.md` for detailed current status and next steps.
+**Current Focus Areas:**
+- Protocol/VM alignment validation
+- CPI interface integration and optimization
+- Template expansion and benchmark suite
+- LSP and IDE feature completeness
 
 ## Deployment
 

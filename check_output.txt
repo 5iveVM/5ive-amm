@@ -1,0 +1,270 @@
+    Checking cfg-if v1.0.4
+    Checking serde_core v1.0.228
+    Checking typenum v1.19.0
+    Checking libc v0.2.181
+    Checking utf8parse v0.2.2
+    Checking equivalent v1.0.2
+    Checking colorchoice v1.0.4
+    Checking anstyle-query v1.1.5
+    Checking byteorder v1.5.0
+    Checking hashbrown v0.16.1
+    Checking is_terminal_polyfill v1.70.2
+    Checking anstyle-parse v0.2.7
+    Checking anstyle v1.0.13
+    Checking stable_deref_trait v1.2.1
+    Checking toml_write v0.1.2
+    Checking winnow v0.7.14
+    Checking anstream v0.6.21
+    Checking hash32 v0.3.1
+    Checking core-foundation-sys v0.8.7
+    Checking strsim v0.11.1
+    Checking clap_lex v0.7.7
+    Checking generic-array v0.14.9
+    Checking heapless v0.8.0
+    Checking cpufeatures v0.2.17
+    Checking clap_builder v4.5.57
+    Checking iana-time-zone v0.1.65
+    Checking getrandom v0.3.4
+    Checking indexmap v2.13.0
+    Checking num-traits v0.2.19
+    Checking zmij v1.0.20
+    Checking memchr v2.8.0
+    Checking itoa v1.0.17
+    Checking block-buffer v0.10.4
+    Checking crypto-common v0.1.6
+    Checking pinocchio v0.9.2 (/Users/amberjackson/Documents/Development/five-org/five-mono/third_party/pinocchio)
+    Checking uuid v1.20.0
+    Checking digest v0.10.7
+    Checking glob v0.3.3
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+  --> third_party/pinocchio/src/entrypoint/mod.rs:22:24
+   |
+22 |     BPF_ALIGN_OF_U128, MAX_TX_ACCOUNTS,
+   |                        ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+   --> third_party/pinocchio/src/entrypoint/mod.rs:312:29
+    |
+312 |             MAX_ACCOUNTS <= MAX_TX_ACCOUNTS,
+    |                             ^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+   --> third_party/pinocchio/src/entrypoint/mod.rs:347:61
+    |
+347 |             let mut to_process_plus_one = if MAX_ACCOUNTS < MAX_TX_ACCOUNTS {
+    |                                                             ^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `MAX_TX_ACCOUNTS`: Use the `entrypoint` module instead
+   --> third_party/pinocchio/src/entrypoint/mod.rs:398:31
+    |
+398 |             if MAX_ACCOUNTS < MAX_TX_ACCOUNTS {
+    |                               ^^^^^^^^^^^^^^^
+
+    Checking web-time v1.1.0
+    Checking sha2 v0.10.9
+    Checking hex v0.4.3
+    Checking bs58 v0.5.1
+warning: `pinocchio` (lib) generated 4 warnings
+    Checking solana-nostd-sha256 v0.1.3
+    Checking clap v4.5.57
+    Checking serde v1.0.228
+    Checking serde_json v1.0.149
+    Checking serde_spanned v0.6.9
+    Checking toml_datetime v0.6.11
+    Checking five-protocol v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-mono/five-protocol)
+    Checking chrono v0.4.43
+    Checking toml_edit v0.22.27
+    Checking five-vm-mito v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-mono/five-vm-mito)
+warning: unused variable: `vals_ptr`
+   --> five-vm-mito/src/handlers/system/crypto.rs:141:18
+    |
+141 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vals_ptr`
+...
+162 | impl_hash_syscall!(handle_syscall_sha256, syscalls::sol_sha256, "MitoVM: SYSCALL_SHA256");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: `#[warn(unused_variables)]` on by default
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `val_len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:141:28
+    |
+141 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                            ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_val_len`
+...
+162 | impl_hash_syscall!(handle_syscall_sha256, syscalls::sol_sha256, "MitoVM: SYSCALL_SHA256");
+    | ----------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `vals_ptr`
+   --> five-vm-mito/src/handlers/system/crypto.rs:141:18
+    |
+141 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vals_ptr`
+...
+163 | impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: SYSCALL_KECCAK256");
+    | -------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `val_len`
+   --> five-vm-mito/src/handlers/system/crypto.rs:141:28
+    |
+141 |             let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+    |                            ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_val_len`
+...
+163 | impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: SYSCALL_KECCAK256");
+    | -------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: this warning originates in the macro `impl_hash_syscall` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `ptr_before`
+   --> five-vm-mito/src/handlers/system/init.rs:118:9
+    |
+118 |     let ptr_before = unsafe { account.borrow_data_unchecked().as_ptr() as usize };
+    |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ptr_before`
+
+warning: unused variable: `ptr_after`
+   --> five-vm-mito/src/handlers/system/init.rs:160:9
+    |
+160 |     let ptr_after = unsafe { _account_after.borrow_data_unchecked().as_ptr() as usize };
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ptr_after`
+
+warning: unused variable: `owner_bytes`
+   --> five-vm-mito/src/handlers/system/init.rs:231:9
+    |
+231 |     let owner_bytes = owner.as_ref();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_owner_bytes`
+
+warning: unused variable: `s`
+  --> five-vm-mito/src/handlers/system/logging.rs:27:19
+   |
+27 |         if let Ok(s) = core::str::from_utf8(bytes) {
+   |                   ^ help: if this is intentional, prefix it with an underscore: `_s`
+
+warning: unused variable: `arg5`
+  --> five-vm-mito/src/handlers/system/logging.rs:42:9
+   |
+42 |     let arg5 = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_arg5`
+
+warning: unused variable: `arg4`
+  --> five-vm-mito/src/handlers/system/logging.rs:43:9
+   |
+43 |     let arg4 = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_arg4`
+
+warning: unused variable: `arg3`
+  --> five-vm-mito/src/handlers/system/logging.rs:44:9
+   |
+44 |     let arg3 = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_arg3`
+
+warning: unused variable: `arg2`
+  --> five-vm-mito/src/handlers/system/logging.rs:45:9
+   |
+45 |     let arg2 = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_arg2`
+
+warning: unused variable: `arg1`
+  --> five-vm-mito/src/handlers/system/logging.rs:46:9
+   |
+46 |     let arg1 = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_arg1`
+
+warning: unused variable: `pubkey`
+  --> five-vm-mito/src/handlers/system/logging.rs:83:9
+   |
+83 |     let pubkey = ctx.extract_pubkey(&pk_ref)?;
+   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_pubkey`
+
+warning: unused variable: `count`
+   --> five-vm-mito/src/handlers/system/logging.rs:105:9
+    |
+105 |     let count = match data_ref {
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_count`
+
+warning: unused variable: `pid_offset`
+  --> five-vm-mito/src/handlers/system/program.rs:30:9
+   |
+30 |     let pid_offset = match pid_ref {
+   |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_pid_offset`
+
+warning: unused variable: `offset`
+  --> five-vm-mito/src/handlers/system/program.rs:35:28
+   |
+35 |         ValueRef::ArrayRef(offset) => {
+   |                            ^^^^^^ help: if this is intentional, prefix it with an underscore: `_offset`
+
+warning: unused variable: `data_offset`
+  --> five-vm-mito/src/handlers/system/program.rs:47:9
+   |
+47 |     let data_offset = match data_ref {
+   |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_data_offset`
+
+warning: unused variable: `len`
+  --> five-vm-mito/src/handlers/system/program.rs:90:10
+   |
+90 |     let (len, bytes) = ctx.extract_string_slice(&data_ref)?;
+   |          ^^^ help: if this is intentional, prefix it with an underscore: `_len`
+
+warning: unused variable: `bytes`
+  --> five-vm-mito/src/handlers/system/program.rs:90:15
+   |
+90 |     let (len, bytes) = ctx.extract_string_slice(&data_ref)?;
+   |               ^^^^^ help: if this is intentional, prefix it with an underscore: `_bytes`
+
+    Checking toml v0.8.23
+warning: `five-vm-mito` (lib) generated 20 warnings
+    Checking five-dsl-compiler v0.1.0 (/Users/amberjackson/Documents/Development/five-org/five-mono/five-dsl-compiler)
+warning: unused import: `Sha256`
+  --> five-dsl-compiler/src/interface_registry.rs:11:12
+   |
+11 | use sha2::{Sha256, Digest};
+   |            ^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `Sha256`
+ --> five-dsl-compiler/src/type_checker/functions.rs:8:12
+  |
+8 | use sha2::{Sha256, Digest};
+  |            ^^^^^^
+
+error[E0027]: pattern does not mention field `is_anchor`
+  --> five-dsl-compiler/src/interface_registry.rs:69:13
+   |
+69 | /             AstNode::InterfaceDefinition {
+70 | |                 name: _,
+71 | |                 program_id: _,
+72 | |                 functions: _,
+73 | |                 serializer: _,
+74 | |             } => {
+   | |_____________^ missing field `is_anchor`
+   |
+help: include the missing field in the pattern
+   |
+73 -                 serializer: _,
+74 -             } => {
+73 +                 serializer: _, is_anchor } => {
+   |
+help: if you don't care about this missing field, you can explicitly ignore it
+   |
+73 -                 serializer: _,
+74 -             } => {
+73 +                 serializer: _, is_anchor: _ } => {
+   |
+help: or always ignore missing fields here
+   |
+73 -                 serializer: _,
+74 -             } => {
+73 +                 serializer: _, .. } => {
+   |
+
+For more information about this error, try `rustc --explain E0027`.
+warning: `five-dsl-compiler` (lib) generated 2 warnings
+error: could not compile `five-dsl-compiler` (lib) due to 1 previous error; 2 warnings emitted

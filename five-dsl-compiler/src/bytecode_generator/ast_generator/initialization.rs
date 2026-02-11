@@ -6,6 +6,7 @@ use crate::ast::AstNode;
 use crate::ast::TypeNode;
 use crate::type_checker::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 use five_vm_mito::error::VMError;
+use sha2::Digest;
 
 use std::collections::HashMap;
 
@@ -150,10 +151,12 @@ impl ASTGenerator {
                 name,
                 program_id,
                 serializer,
+                is_anchor,
                 functions,
             } = interface_def
             {
                 let mut methods = HashMap::new();
+                let serializer_hint = serializer.clone();
 
                 for function_def in functions {
                     if let AstNode::InterfaceFunction {
@@ -162,8 +165,10 @@ impl ASTGenerator {
                         return_type,
                         discriminator,
                         discriminator_bytes,
+                        is_anchor: is_method_anchor,
                     } = function_def
                     {
+                        let method_anchor = *is_anchor || *is_method_anchor;
                         // Convert InstructionParameter to TypeNode for storage
                         let param_types: Vec<TypeNode> = parameters
                             .iter()
@@ -172,11 +177,26 @@ impl ASTGenerator {
 
                         let return_type_node = return_type.as_ref().map(|rt| (**rt).clone());
 
+                        let (discriminator_val, discriminator_bytes_val) = if let Some(bytes) = discriminator_bytes {
+                            (discriminator.unwrap_or(0), Some(bytes.clone()))
+                        } else if let Some(disc) = discriminator {
+                            (*disc, None)
+                        } else if method_anchor {
+                            let preimage = format!("global:{}", method_name);
+                            let mut hasher = sha2::Sha256::new();
+                            hasher.update(preimage.as_bytes());
+                            let result = hasher.finalize();
+                            (0, Some(result[..8].to_vec()))
+                        } else {
+                            (0, None)
+                        };
+
                         methods.insert(
                             method_name.clone(),
                             InterfaceMethod {
-                                discriminator: discriminator.unwrap_or(0), // Default to 0 if no discriminator
-                                discriminator_bytes: discriminator_bytes.clone(),
+                                discriminator: discriminator_val,
+                                discriminator_bytes: discriminator_bytes_val,
+                                is_anchor: method_anchor,
                                 parameters: param_types,
                                 return_type: return_type_node,
                             },
@@ -184,18 +204,25 @@ impl ASTGenerator {
                     }
                 }
 
+                let has_anchor_methods = methods.values().any(|m| m.is_anchor);
+                let anchor_mode = *is_anchor || has_anchor_methods;
+
                 let interface_info = InterfaceInfo {
                     program_id: program_id.clone().unwrap_or_default(), // Default to empty if no program ID
-                    serializer: match serializer
-                        .as_ref()
-                        .map(|s| s.as_str())
-                    {
-                        None => InterfaceSerializer::Bincode,
+                    serializer: match serializer_hint.as_deref() {
+                        None => {
+                            if anchor_mode {
+                                InterfaceSerializer::Borsh
+                            } else {
+                                InterfaceSerializer::Bincode
+                            }
+                        }
                         Some("borsh") => InterfaceSerializer::Borsh,
                         Some("bincode") => InterfaceSerializer::Bincode,
                         Some("raw") => InterfaceSerializer::Raw,
                         Some(_) => return Err(VMError::InvalidOperation),
                     },
+                    is_anchor: anchor_mode,
                     methods,
                 };
 
