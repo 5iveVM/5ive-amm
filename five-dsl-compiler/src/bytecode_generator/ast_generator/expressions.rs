@@ -9,6 +9,20 @@ use five_vm_mito::error::VMError;
 use heapless::String;
 
 impl ASTGenerator {
+    #[inline]
+    fn literal_pow2_shift(node: &AstNode) -> Option<u8> {
+        let value = match node {
+            AstNode::Literal(Value::U8(v)) => *v as u64,
+            AstNode::Literal(Value::U64(v)) => *v,
+            _ => return None,
+        };
+        if value != 0 && value.is_power_of_two() {
+            Some(value.trailing_zeros() as u8)
+        } else {
+            None
+        }
+    }
+
     /// Generate binary expression bytecode
     pub(super) fn generate_binary_expression<T: OpcodeEmitter>(
         &mut self,
@@ -80,6 +94,41 @@ impl ASTGenerator {
         right: &AstNode,
         operator: &str,
     ) -> Result<bool, VMError> {
+        // Strength reduction for unsigned hot paths:
+        //   u64 * (2^k) => u64 << k
+        //   u64 / (2^k) => u64 >> k
+        // Keep this strictly typed to avoid changing i64 semantics.
+        let left_type = self
+            .infer_type_from_node(left)
+            .unwrap_or_else(|_| "unknown".to_string());
+        if left_type == "u64" {
+            match operator {
+                "*" => {
+                    if let Some(shift) = Self::literal_pow2_shift(right) {
+                        self.generate_ast_node(emitter, left)?;
+                        emitter.emit_const_u8(shift)?;
+                        emitter.emit_opcode(SHIFT_LEFT);
+                        return Ok(true);
+                    }
+                    if let Some(shift) = Self::literal_pow2_shift(left) {
+                        self.generate_ast_node(emitter, right)?;
+                        emitter.emit_const_u8(shift)?;
+                        emitter.emit_opcode(SHIFT_LEFT);
+                        return Ok(true);
+                    }
+                }
+                "/" => {
+                    if let Some(shift) = Self::literal_pow2_shift(right) {
+                        self.generate_ast_node(emitter, left)?;
+                        emitter.emit_const_u8(shift)?;
+                        emitter.emit_opcode(SHIFT_RIGHT);
+                        return Ok(true);
+                    }
+                }
+                _ => {}
+            }
+        }
+
         // Check if both operands are simple (literals or identifiers)
         if self.is_simple_expression(left) && self.is_simple_expression(right) {
             // For simple expressions, try constant folding optimization

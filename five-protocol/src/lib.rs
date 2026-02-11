@@ -32,6 +32,10 @@ pub const SCRIPT_MAGIC: u32 = 0x45564935;
 /// Version 3
 pub const SCRIPT_VERSION: u8 = 3;
 
+/// Opcode surface compatibility marker.
+/// `1` designates the first locked 5ive opcode specification.
+pub const OPCODE_SPEC_VERSION: u16 = 1;
+
 // Keep protocol/runtime aligned with on-chain VM stack limits.
 pub const MAX_CALL_DEPTH: usize = 8;
 pub const MAX_FUNCTION_PARAMS: usize = 12;
