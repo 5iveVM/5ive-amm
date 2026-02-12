@@ -17,6 +17,8 @@ export interface ProjectConfig {
   commitment?: string;
   rpcUrl?: string;
   programId?: string;
+  namespaceManager?: string;
+  namespaceTreasury?: string;
   keypairPath?: string;
   optimizations?: ProjectOptimizations;
   dependencies?: ProjectDependency[];

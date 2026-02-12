@@ -120,6 +120,11 @@ export const deployCommand: CommandDefinition = {
       flags: '--namespace <scoped>',
       description: 'Bind deployed script to scoped namespace (e.g. @5ive-tech/program)',
       required: false
+    },
+    {
+      flags: '--namespace-manager <script>',
+      description: 'Namespace manager script account (overrides project/env/lockfile)',
+      required: false
     }
   ],
 
@@ -335,13 +340,16 @@ export const deployCommand: CommandDefinition = {
 
       // Execute deployment
       let result: DeploymentResult;
+      const namespaceManagerScript = options.namespace && projectContext
+        ? await resolveNamespaceManagerScript(projectContext.rootDir, projectContext.config.namespaceManager, options.namespaceManager)
+        : undefined;
       if (options.dryRun) {
         if (context.options.verbose) {
           logger.info('Simulating deployment...');
         }
         result = await simulateDeployment(deploymentOptions, options, context);
       } else {
-        if (options.namespace && projectContext) {
+        if (options.namespace && projectContext && !namespaceManagerScript) {
           await validateNamespaceOwnership(
             projectContext.rootDir,
             options.namespace,
@@ -385,12 +393,43 @@ export const deployCommand: CommandDefinition = {
           }
         }
         if (options.namespace) {
+          if (namespaceManagerScript && !options.dryRun) {
+            const rpcUrl = config.networks[config.target].rpcUrl;
+            const connection = new Connection(rpcUrl, 'confirmed');
+            const signerKeypair = await loadKeypair(config.keypairPath, logger);
+
+            const bindResult = await FiveSDK.bindNamespaceOnChain(
+              options.namespace,
+              result.programId,
+              {
+                managerScriptAccount: namespaceManagerScript,
+                connection,
+                signerKeypair,
+                fiveVMProgramId: options.programId || deploymentOptions.fiveVMProgramId,
+                debug: options.debug || context.options.debug || false,
+              },
+            );
+
+            if (context.options.verbose) {
+              logger.info(`Namespace bound on-chain via ${namespaceManagerScript}`);
+              if (bindResult.transactionId) {
+                logger.info(`Namespace bind tx: ${bindResult.transactionId}`);
+              }
+            }
+          }
+
           try {
             await updateLockfileNamespace(
               projectContext.rootDir,
               options.namespace,
               result.programId,
             );
+            if (namespaceManagerScript) {
+              await updateLockfileNamespaceManager(
+                projectContext.rootDir,
+                namespaceManagerScript,
+              );
+            }
           } catch (e) {
             if (context.options.debug) {
               logger.debug(`lockfile namespace cache update failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -436,6 +475,7 @@ async function setupDeploymentOptions(
     vmStateAccount: options.vmStateAccount,
     exportMetadata: buildExportMetadataFromAbi(abi),
     namespace: options.namespace,
+    namespaceManager: options.namespaceManager,
   };
 
 
@@ -611,6 +651,47 @@ export async function updateLockfileNamespace(
   } else {
     lockDoc.namespaces.push(value);
   }
+
+  await writeFile(lockPath, stringifyToml(lockDoc), 'utf8');
+}
+
+async function resolveNamespaceManagerScript(
+  rootDir: string,
+  projectManager?: string,
+  cliOverride?: string,
+): Promise<string | undefined> {
+  if (cliOverride) return cliOverride;
+  if (projectManager) return projectManager;
+  if (process.env.FIVE_NAMESPACE_MANAGER) return process.env.FIVE_NAMESPACE_MANAGER;
+
+  const lockPath = join(rootDir, 'five.lock');
+  try {
+    const content = await readFile(lockPath, 'utf8');
+    const lockDoc: any = parseToml(content);
+    return lockDoc?.namespace_manager?.script_account;
+  } catch {
+    return undefined;
+  }
+}
+
+async function updateLockfileNamespaceManager(
+  rootDir: string,
+  scriptAccount: string,
+): Promise<void> {
+  const lockPath = join(rootDir, 'five.lock');
+  let lockDoc: any = { version: 1, packages: [], namespaces: [] };
+
+  try {
+    const content = await readFile(lockPath, 'utf8');
+    lockDoc = parseToml(content);
+  } catch {
+    // No lockfile yet; create one.
+  }
+
+  lockDoc.namespace_manager = {
+    script_account: scriptAccount,
+    updated_at: new Date().toISOString(),
+  };
 
   await writeFile(lockPath, stringifyToml(lockDoc), 'utf8');
 }

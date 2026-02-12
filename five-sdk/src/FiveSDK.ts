@@ -110,6 +110,50 @@ export class FiveSDK {
     return Namespaces.resolveNamespaceFromLockfile(value, lockfile);
   }
 
+  static async deriveNamespaceAccounts(value: string, fiveVMProgramId: string) {
+    return Namespaces.deriveNamespaceAccounts(value, fiveVMProgramId);
+  }
+
+  static async registerNamespaceTldOnChain(
+    namespaceValue: string,
+    options: {
+      managerScriptAccount: string;
+      connection: any;
+      signerKeypair: any;
+      fiveVMProgramId?: string;
+      debug?: boolean;
+    },
+  ) {
+    return Namespaces.registerNamespaceTldOnChain(namespaceValue, options);
+  }
+
+  static async bindNamespaceOnChain(
+    namespaceValue: string,
+    scriptAccount: string,
+    options: {
+      managerScriptAccount: string;
+      connection: any;
+      signerKeypair: any;
+      fiveVMProgramId?: string;
+      debug?: boolean;
+    },
+  ) {
+    return Namespaces.bindNamespaceOnChain(namespaceValue, scriptAccount, options);
+  }
+
+  static async resolveNamespaceOnChain(
+    namespaceValue: string,
+    options: {
+      managerScriptAccount: string;
+      connection: any;
+      signerKeypair: any;
+      fiveVMProgramId?: string;
+      debug?: boolean;
+    },
+  ) {
+    return Namespaces.resolveNamespaceOnChain(namespaceValue, options);
+  }
+
   // ==================== Script Compilation ====================
 
   static async compile(

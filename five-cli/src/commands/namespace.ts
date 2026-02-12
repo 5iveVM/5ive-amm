@@ -3,17 +3,20 @@
 import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { parse as parseToml, stringify as stringifyToml } from "@iarna/toml";
-import { Keypair } from "@solana/web3.js";
+import { Connection, Keypair } from "@solana/web3.js";
 
 import { CommandContext, CommandDefinition } from "../types.js";
 import { ConfigManager } from "../config/ConfigManager.js";
+import { loadProjectConfig } from "../project/ProjectLoader.js";
 import { section, success as uiSuccess, error as uiError, keyValue } from "../utils/cli-ui.js";
+import { FiveSDK } from "five-sdk";
 
 type NamespaceLock = {
   version?: number;
   packages?: any[];
   namespaces?: Array<{ namespace: string; address: string; updated_at?: string }>;
   namespace_tlds?: Array<{ symbol: string; domain: string; owner: string; registered_at?: string }>;
+  namespace_manager?: { script_account: string; updated_at?: string };
 };
 
 const SYMBOLS = new Set(["!", "@", "#", "$", "%"]);
@@ -68,18 +71,26 @@ async function writeLockfile(rootDir: string, lock: NamespaceLock): Promise<void
   await writeFile(path, stringifyToml(lock), "utf8");
 }
 
-async function inferOwnerFromConfig(context: CommandContext): Promise<string> {
-  const config = await ConfigManager.getInstance().get();
-  const keypairPath = config.keypairPath;
-  if (!keypairPath) {
-    throw new Error("no configured keypair path");
-  }
+async function loadSignerKeypair(keypairPath: string): Promise<Keypair> {
   const path = keypairPath.startsWith("~/")
     ? keypairPath.replace("~", process.env.HOME || "")
     : keypairPath;
   const content = await readFile(path, "utf8");
   const secret = Uint8Array.from(JSON.parse(content));
-  return Keypair.fromSecretKey(secret).publicKey.toBase58();
+  return Keypair.fromSecretKey(secret);
+}
+
+function resolveManagerScriptAccount(
+  options: any,
+  projectContext: Awaited<ReturnType<typeof loadProjectConfig>>,
+  lock: NamespaceLock,
+): string | undefined {
+  return (
+    options.manager ||
+    projectContext?.config?.namespaceManager ||
+    process.env.FIVE_NAMESPACE_MANAGER ||
+    lock.namespace_manager?.script_account
+  );
 }
 
 export const namespaceCommand: CommandDefinition = {
@@ -102,6 +113,21 @@ export const namespaceCommand: CommandDefinition = {
       description: "Project directory (default: cwd)",
       required: false,
     },
+    {
+      flags: "--manager <script-account>",
+      description: "Namespace manager script account address",
+      required: false,
+    },
+    {
+      flags: "--program-id <pubkey>",
+      description: "Override Five VM program ID for PDA derivation",
+      required: false,
+    },
+    {
+      flags: "--local",
+      description: "Use lockfile-only mode (skip on-chain manager calls)",
+      defaultValue: false,
+    },
   ],
   arguments: [
     { name: "action", description: "register | bind | resolve", required: true },
@@ -118,24 +144,88 @@ export const namespaceCommand: CommandDefinition = {
     if (!action || !nsInput) {
       throw new Error("usage: five namespace <register|bind|resolve> <namespace>");
     }
-    const rootDir = options.project || process.cwd();
+    const projectContext = await loadProjectConfig(options.project, process.cwd());
+    const rootDir = projectContext?.rootDir || options.project || process.cwd();
     const lock = await readLockfile(rootDir);
     lock.namespaces ||= [];
     lock.namespace_tlds ||= [];
+    const useLocalOnly = Boolean(options.local);
+    const managerScriptAccount = resolveManagerScriptAccount(options, projectContext, lock);
+
+    const config = await ConfigManager.getInstance().applyOverrides({
+      target: projectContext?.config.cluster as any,
+      network: projectContext?.config.rpcUrl,
+      keypair: projectContext?.config.keypairPath,
+    });
+    const vmProgramId =
+      options.programId ||
+      projectContext?.config.programId ||
+      process.env.FIVE_PROGRAM_ID;
+    let signer: Keypair | undefined;
+    let connection: Connection | undefined;
+
+    const ensureSigner = async (): Promise<Keypair> => {
+      if (!signer) {
+        signer = await loadSignerKeypair(config.keypairPath);
+      }
+      return signer;
+    };
+
+    const ensureConnection = (): Connection => {
+      if (!connection) {
+        const rpcUrl = config.networks[config.target].rpcUrl;
+        connection = new Connection(rpcUrl, "confirmed");
+      }
+      return connection;
+    };
+
+    const owner = options.owner || (await ensureSigner()).publicKey.toBase58();
 
     if (action === "register") {
       const parsed = canonicalizeNamespace(nsInput);
       if (parsed.subprogram) {
         throw new Error("register expects top-level namespace like @domain");
       }
-      const owner = options.owner || (await inferOwnerFromConfig(context));
+      if (useLocalOnly || !managerScriptAccount) {
+        const localOwner = options.owner || owner;
+        const existing = lock.namespace_tlds.find(
+          (entry) => entry.symbol === parsed.symbol && entry.domain === parsed.domain,
+        );
+        if (existing && existing.owner !== localOwner) {
+          throw new Error(`namespace ${parsed.canonical} already registered to ${existing.owner}`);
+        }
+        if (!existing) {
+          lock.namespace_tlds.push({
+            symbol: parsed.symbol,
+            domain: parsed.domain,
+            owner: localOwner,
+            registered_at: new Date().toISOString(),
+          });
+        }
+        await writeLockfile(rootDir, lock);
+        console.log(uiSuccess(`Registered ${parsed.canonical} (local lockfile)`));
+        console.log(keyValue("Owner", localOwner));
+        if (!managerScriptAccount && !useLocalOnly) {
+          console.log(uiError("No namespace manager configured; used local fallback."));
+        }
+        return;
+      }
+
+      const onChain = await FiveSDK.registerNamespaceTldOnChain(parsed.canonical, {
+        managerScriptAccount,
+        connection: ensureConnection(),
+        signerKeypair: await ensureSigner(),
+        fiveVMProgramId: vmProgramId,
+        debug: context.options.debug,
+      });
+
       const existing = lock.namespace_tlds.find(
         (entry) => entry.symbol === parsed.symbol && entry.domain === parsed.domain,
       );
-      if (existing && existing.owner !== owner) {
-        throw new Error(`namespace ${parsed.canonical} already registered to ${existing.owner}`);
-      }
-      if (!existing) {
+      if (existing) {
+        existing.owner = owner;
+        existing.registered_at = existing.registered_at || new Date().toISOString();
+      } else {
         lock.namespace_tlds.push({
           symbol: parsed.symbol,
           domain: parsed.domain,
@@ -143,9 +233,18 @@ export const namespaceCommand: CommandDefinition = {
           registered_at: new Date().toISOString(),
         });
       }
+      lock.namespace_manager = {
+        script_account: managerScriptAccount,
+        updated_at: new Date().toISOString(),
+      };
       await writeLockfile(rootDir, lock);
-      console.log(uiSuccess(`Registered ${parsed.canonical} (local lockfile)`));
+
+      console.log(uiSuccess(`Registered ${parsed.canonical} on-chain`));
       console.log(keyValue("Owner", owner));
+      console.log(keyValue("TLD Account", onChain.tldAddress));
+      if (onChain.transactionId) {
+        console.log(keyValue("Transaction", onChain.transactionId));
+      }
       return;
     }
 
@@ -158,16 +257,34 @@ export const namespaceCommand: CommandDefinition = {
       if (!script) {
         throw new Error("--script <pubkey> is required for bind");
       }
-      const owner = options.owner || (await inferOwnerFromConfig(context));
       const tld = lock.namespace_tlds.find(
         (entry) => entry.symbol === parsed.symbol && entry.domain === parsed.domain,
       );
-      if (!tld) {
-        throw new Error(`top-level namespace ${parsed.symbol}${parsed.domain} is not registered`);
-      }
-      if (tld.owner !== owner) {
+      if (tld && tld.owner !== owner) {
         throw new Error(`only namespace owner can bind subprograms (owner: ${tld.owner})`);
       }
+
+      if (!useLocalOnly && managerScriptAccount) {
+        const onChain = await FiveSDK.bindNamespaceOnChain(parsed.canonical, script, {
+          managerScriptAccount,
+          connection: ensureConnection(),
+          signerKeypair: await ensureSigner(),
+          fiveVMProgramId: vmProgramId,
+          debug: context.options.debug,
+        });
+        lock.namespace_manager = {
+          script_account: managerScriptAccount,
+          updated_at: new Date().toISOString(),
+        };
+        console.log(uiSuccess(`Bound ${parsed.canonical} on-chain`));
+        console.log(keyValue("Binding Account", onChain.bindingAddress));
+        if (onChain.transactionId) {
+          console.log(keyValue("Transaction", onChain.transactionId));
+        }
+      } else if (!managerScriptAccount && !useLocalOnly) {
+        console.log(uiError("No namespace manager configured; used local fallback."));
+      }
+
       const idx = lock.namespaces.findIndex((entry) => entry.namespace === parsed.canonical);
       const value = {
         namespace: parsed.canonical,
@@ -190,6 +307,46 @@ export const namespaceCommand: CommandDefinition = {
       if (!parsed.subprogram) {
         throw new Error("resolve expects namespace with subprogram like @domain/subprogram");
       }
+      if (!useLocalOnly && managerScriptAccount) {
+        try {
+          const onChain = await FiveSDK.resolveNamespaceOnChain(parsed.canonical, {
+            managerScriptAccount,
+            connection: ensureConnection(),
+            signerKeypair: await ensureSigner(),
+            fiveVMProgramId: vmProgramId,
+            debug: context.options.debug,
+          });
+          if (onChain.resolvedScript) {
+            const idx = lock.namespaces.findIndex((entry) => entry.namespace === parsed.canonical);
+            const value = {
+              namespace: parsed.canonical,
+              address: onChain.resolvedScript,
+              updated_at: new Date().toISOString(),
+            };
+            if (idx >= 0) lock.namespaces[idx] = value;
+            else lock.namespaces.push(value);
+            lock.namespace_manager = {
+              script_account: managerScriptAccount,
+              updated_at: new Date().toISOString(),
+            };
+            await writeLockfile(rootDir, lock);
+
+            console.log(section("Namespace Resolution"));
+            console.log(keyValue("Namespace", parsed.canonical));
+            console.log(keyValue("Script", onChain.resolvedScript));
+            console.log(keyValue("Binding Account", onChain.bindingAddress));
+            if (onChain.transactionId) {
+              console.log(keyValue("Transaction", onChain.transactionId));
+            }
+            return;
+          }
+        } catch (e) {
+          if (context.options.debug) {
+            console.log(uiError(`On-chain resolve failed: ${e instanceof Error ? e.message : String(e)}`));
+          }
+        }
+      }
+
       const match = lock.namespaces.find((entry) => entry.namespace === parsed.canonical);
       if (!match) {
         console.log(uiError(`No local binding for ${parsed.canonical}`));
@@ -205,4 +362,3 @@ export const namespaceCommand: CommandDefinition = {
     throw new Error("action must be one of: register, bind, resolve");
   },
 };
-

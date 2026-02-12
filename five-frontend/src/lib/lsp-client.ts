@@ -410,6 +410,122 @@ export class FiveLspClient {
   }
 
   /**
+   * Set a document in the LSP workspace
+   *
+   * This notifies the LSP of a file's content, enabling multi-file analysis.
+   * Call this when a file is opened, created, or modified.
+   *
+   * @param uri - File URI (e.g., "file:///workspace/src/main.v")
+   * @param source - The source code content
+   * @throws Error if there's a compilation error
+   *
+   * @example
+   * ```typescript
+   * await client.setDocument('file:///workspace/src/main.v', sourceCode);
+   * ```
+   */
+  async setDocument(uri: string, source: string): Promise<void> {
+    this.ensureInitialized();
+
+    try {
+      // For now, we store this in the LSP context for future cross-file analysis
+      // This is a placeholder for multi-file workspace tracking
+      // The actual implementation will use the semantic index in Phase 1 Track A
+      console.log(`[FiveLspClient] setDocument: ${uri} (${source.length} chars)`);
+      // TODO: Call actual WASM method when available (set_document)
+    } catch (error) {
+      console.error('[FiveLspClient] Error setting document:', error);
+      throw new Error(`Failed to set document: ${error}`);
+    }
+  }
+
+  /**
+   * Remove a document from the LSP workspace
+   *
+   * Call this when a file is deleted or closed.
+   *
+   * @param uri - File URI (e.g., "file:///workspace/src/main.v")
+   * @throws Error if there's an error
+   *
+   * @example
+   * ```typescript
+   * await client.removeDocument('file:///workspace/src/main.v');
+   * ```
+   */
+  async removeDocument(uri: string): Promise<void> {
+    this.ensureInitialized();
+
+    try {
+      console.log(`[FiveLspClient] removeDocument: ${uri}`);
+      // TODO: Call actual WASM method when available (remove_document)
+    } catch (error) {
+      console.error('[FiveLspClient] Error removing document:', error);
+      throw new Error(`Failed to remove document: ${error}`);
+    }
+  }
+
+  /**
+   * Get workspace symbols matching a query
+   *
+   * Searches for symbols across all files in the workspace.
+   *
+   * @param query - Search query (case-insensitive substring match)
+   * @returns Array of SymbolInformation objects
+   * @throws Error if there's a compilation error
+   *
+   * @example
+   * ```typescript
+   * const symbols = await client.getWorkspaceSymbols('transfer');
+   * symbols.forEach(sym => {
+   *   console.log(`${sym.name} at ${sym.location.uri}`);
+   * });
+   * ```
+   */
+  async getWorkspaceSymbols(query: string): Promise<LspSymbolInformation[]> {
+    this.ensureInitialized();
+
+    try {
+      // TODO: Call actual WASM method when available (get_workspace_symbols)
+      // For now, return empty array
+      console.log(`[FiveLspClient] getWorkspaceSymbols: "${query}"`);
+      return [];
+    } catch (error) {
+      console.error('[FiveLspClient] Error getting workspace symbols:', error);
+      throw new Error(`Failed to get workspace symbols: ${error}`);
+    }
+  }
+
+  /**
+   * Get diagnostics for all files in the workspace
+   *
+   * Returns a map of file URIs to their diagnostics.
+   *
+   * @returns Map of URI to diagnostics array
+   * @throws Error if there's a compilation error
+   *
+   * @example
+   * ```typescript
+   * const allDiagnostics = await client.getWorkspaceDiagnostics();
+   * allDiagnostics.forEach((diags, uri) => {
+   *   console.log(`${uri}: ${diags.length} issues`);
+   * });
+   * ```
+   */
+  async getWorkspaceDiagnostics(): Promise<Map<string, LspDiagnostic[]>> {
+    this.ensureInitialized();
+
+    try {
+      // TODO: Call actual WASM method when available (get_workspace_diagnostics)
+      // For now, return empty map
+      console.log('[FiveLspClient] getWorkspaceDiagnostics');
+      return new Map();
+    } catch (error) {
+      console.error('[FiveLspClient] Error getting workspace diagnostics:', error);
+      throw new Error(`Failed to get workspace diagnostics: ${error}`);
+    }
+  }
+
+  /**
    * Clear all internal caches
    *
    * This forces recompilation on the next analysis call.

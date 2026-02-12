@@ -40,7 +40,11 @@ account BindingHistory {
     updated_at: u64;
 }
 
-pub init_manager(cfg: NamespaceConfig @mut, admin: account @signer, treasury: pubkey) {
+pub init_manager(
+    cfg: NamespaceConfig @mut @init(payer=admin, seeds=["5ns_config"]),
+    admin: account @signer,
+    treasury: pubkey
+) {
     cfg.admin = admin.key;
     cfg.treasury = treasury;
     cfg.at_price_lamports = 1_000_000_000;
@@ -67,7 +71,7 @@ pub set_symbol_price(
 
 pub register_tld(
     cfg: NamespaceConfig,
-    tld: TldRecord @mut,
+    tld: TldRecord @mut @init(payer=owner, seeds=["5ns_tld", symbol, domain]),
     owner: account @signer,
     symbol: string,
     domain: string,
@@ -84,7 +88,7 @@ pub register_tld(
 
 pub bind_subprogram(
     tld: TldRecord,
-    binding: SubprogramBinding @mut,
+    binding: SubprogramBinding @mut @init(payer=owner, seeds=["5ns_binding", symbol, domain, subprogram]),
     owner: account @signer,
     symbol: string,
     domain: string,
@@ -107,7 +111,7 @@ pub bind_subprogram(
 
 pub update_subprogram(
     binding: SubprogramBinding @mut,
-    history: BindingHistory @mut,
+    history: BindingHistory @mut @init(payer=owner, seeds=["5ns_history", binding.symbol, binding.domain, binding.subprogram, binding.version]),
     owner: account @signer,
     next_script_account: pubkey,
     now: u64
@@ -129,4 +133,3 @@ pub update_subprogram(
 pub resolve(binding: SubprogramBinding) -> pubkey {
     return binding.script_account;
 }
-

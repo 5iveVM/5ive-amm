@@ -19,6 +19,7 @@ export interface CLIOptions {
   programId?: string;
   forceLocal?: boolean;
   namespace?: string;
+  namespaceManager?: string;
 }
 
 // WASM Module Types
@@ -244,6 +245,7 @@ export interface DeploymentOptions {
     interfaces?: Array<{ name: string; methodMap?: Record<string, string> }>;
   };
   namespace?: string;
+  namespaceManager?: string;
 }
 
 export interface DeploymentResult {
@@ -269,6 +271,8 @@ export interface ProjectConfig {
   commitment?: string;
   rpcUrl?: string;
   programId?: string;
+  namespaceManager?: string;
+  namespaceTreasury?: string;
   keypairPath?: string;
   optimizations: ProjectOptimizations;
   dependencies: ProjectDependency[];

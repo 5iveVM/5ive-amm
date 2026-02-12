@@ -149,6 +149,7 @@ interface IdeState {
     detectWorkspace: () => void;
     setActivePackage: (packageName: string | null) => void;
     updatePackageBytecode: (packageName: string, bytecode: Uint8Array) => void;
+    syncWorkspaceToLsp: (lspSetDocument: (uri: string, source: string) => Promise<void>) => Promise<void>;
 
     // On-Chain Actions
     toggleAnalysis: () => void;
@@ -582,6 +583,24 @@ export const useIdeStore = create<IdeState>()(
                     }
                 };
             }),
+
+            syncWorkspaceToLsp: async (lspSetDocument) => {
+                // This is called from within a set() reducer, so we access state via get()
+                const state = useIdeStore.getState();
+                try {
+                    // Notify LSP of all open files
+                    for (const filePath of state.openFiles) {
+                        const content = state.files[filePath];
+                        if (content !== undefined) {
+                            const uri = `file:///workspace/${filePath}`;
+                            await lspSetDocument(uri, content);
+                        }
+                    }
+                } catch (error) {
+                    console.error('[IDE] Error syncing workspace to LSP:', error);
+                }
+            },
+
             resetProject: (initialFiles, initialActive) => set((state) => {
                 const files = initialFiles || {
                     'src/main.v': DEFAULT_COUNTER_CODE,

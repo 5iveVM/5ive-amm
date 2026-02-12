@@ -10,9 +10,16 @@ Privileged 5NS management template for:
 Intended usage:
 
 1. Deploy this program with the special symbol permission gate enabled.
-2. Register TLDs with `register_tld`.
-3. Bind/update subprograms with `bind_subprogram` and `update_subprogram`.
-4. Resolve active mapping through `resolve`.
+2. Initialize config with `init_manager`.
+3. Register TLDs with `register_tld`.
+4. Bind/update subprograms with `bind_subprogram` and `update_subprogram`.
+5. Resolve active mapping through `resolve`.
+
+PDA-backed state accounts:
+
+- Config: seeds `["5ns_config"]`
+- TLD: seeds `["5ns_tld", symbol, domain]`
+- Binding: seeds `["5ns_binding", symbol, domain, subprogram]`
+- History: seeds `["5ns_history", symbol, domain, subprogram, version]`
 
 This keeps namespace policy in upgradeable Five bytecode rather than hardcoding behavior in VM Rust code.
-
