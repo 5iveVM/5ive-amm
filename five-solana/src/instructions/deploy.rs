@@ -160,7 +160,7 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     let required_size = ScriptAccountHeader::LEN + bytecode.len();
 
     // Check for deployment fees
-    collect_deploy_fee(vm_state_account, accounts, owner, required_size)?;
+    collect_deploy_fee(program_id, vm_state_account, accounts, owner, required_size)?;
 
     if script_account.data_len() < required_size {
         return Err(ProgramError::Custom(7005));
@@ -214,6 +214,8 @@ pub fn init_large_program(
     let script_account = &accounts[0];
     let owner = &accounts[1];
     let vm_state_account = &accounts[2];
+
+    verify_program_owned(script_account, program_id)?;
 
     // Verify VM state is owned by this program and initialized
     verify_program_owned(vm_state_account, program_id)?;
@@ -353,7 +355,7 @@ pub fn append_bytecode(
         // Collect deployment fee if configured
         {
             let final_size = ScriptAccountHeader::LEN + expected_size;
-            collect_deploy_fee(vm_state_account, accounts, owner, final_size)?;
+            collect_deploy_fee(program_id, vm_state_account, accounts, owner, final_size)?;
         }
 
         let mut final_header = ScriptAccountHeader::create_from_bytecode(
@@ -375,12 +377,13 @@ pub fn append_bytecode(
 
 /// Finalize script upload manually
 pub fn finalize_script_upload(
-    _program_id: &Pubkey,
+    program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
     require_min_accounts(accounts, 2)?;
     let script_account = &accounts[0];
     let owner = &accounts[1];
+    verify_program_owned(script_account, program_id)?;
 
     if !owner.is_signer() {
         return Err(ProgramError::MissingRequiredSignature);

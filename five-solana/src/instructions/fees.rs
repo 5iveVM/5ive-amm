@@ -10,7 +10,13 @@ use crate::{
 use super::{require_min_accounts, require_signer};
 
 /// Transfer fee from payer to recipient
-pub fn transfer_fee(payer: &AccountInfo, recipient: &AccountInfo, amount: u64, system_program: Option<&AccountInfo>) -> ProgramResult {
+pub fn transfer_fee(
+    program_id: &Pubkey,
+    payer: &AccountInfo,
+    recipient: &AccountInfo,
+    amount: u64,
+    system_program: Option<&AccountInfo>,
+) -> ProgramResult {
     if amount == 0 || payer.key() == recipient.key() {
         return Ok(());
     }
@@ -50,11 +56,11 @@ pub fn transfer_fee(payer: &AccountInfo, recipient: &AccountInfo, amount: u64, s
 
         pinocchio::program::invoke(&instruction, &[payer, recipient, system_program])?;
     } else {
-        // Program-owned account (direct modification)
-        // Verify we own it
-        // Note: We don't check program_id here as we might be in a different context,
-        // but generally only owned accounts can be modified.
+        if payer.owner() != program_id {
+            return Err(ProgramError::IllegalOwner);
+        }
 
+        // Program-owned account (direct modification)
         *payer.try_borrow_mut_lamports()? -= amount;
 
         // Use checked_add to prevent overflow in recipient lamports
@@ -69,6 +75,7 @@ pub fn transfer_fee(payer: &AccountInfo, recipient: &AccountInfo, amount: u64, s
 
 /// Collect deployment fee if configured in VM state
 pub fn collect_deploy_fee(
+    program_id: &Pubkey,
     vm_state_account: &AccountInfo,
     accounts: &[AccountInfo],
     payer: &AccountInfo,
@@ -85,7 +92,13 @@ pub fn collect_deploy_fee(
 
         if let Some(recipient) = admin_account {
             let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
-            transfer_fee(payer, recipient, deploy_fee_lamports, system_program)?;
+            transfer_fee(
+                program_id,
+                payer,
+                recipient,
+                deploy_fee_lamports,
+                system_program,
+            )?;
         } else {
             // If fee is required but admin not present, fail
             return Err(ProgramError::MissingRequiredSignature);
@@ -125,4 +138,89 @@ pub fn set_fees(
 
     debug_log!("Fees updated successfully");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pinocchio::account_info::AccountInfo;
+
+    fn create_account_info<'a>(
+        key: &'a Pubkey,
+        is_signer: bool,
+        is_writable: bool,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo {
+        AccountInfo::new(key, is_signer, is_writable, lamports, data, owner, false, 0)
+    }
+
+    #[test]
+    fn transfer_fee_rejects_non_program_owned_direct_debit() {
+        let program_id = Pubkey::from([1u8; 32]);
+        let foreign_owner = Pubkey::from([2u8; 32]);
+        let recipient_owner = program_id;
+        let payer_key = Pubkey::from([3u8; 32]);
+        let recipient_key = Pubkey::from([4u8; 32]);
+
+        let mut payer_lamports = 1_000;
+        let mut recipient_lamports = 100;
+        let mut payer_data = [];
+        let mut recipient_data = [];
+
+        let payer = create_account_info(
+            &payer_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &foreign_owner,
+        );
+        let recipient = create_account_info(
+            &recipient_key,
+            false,
+            true,
+            &mut recipient_lamports,
+            &mut recipient_data,
+            &recipient_owner,
+        );
+
+        let result = transfer_fee(&program_id, &payer, &recipient, 10, None);
+        assert_eq!(result, Err(ProgramError::IllegalOwner));
+    }
+
+    #[test]
+    fn transfer_fee_allows_program_owned_direct_debit() {
+        let program_id = Pubkey::from([9u8; 32]);
+        let payer_key = Pubkey::from([10u8; 32]);
+        let recipient_key = Pubkey::from([11u8; 32]);
+
+        let mut payer_lamports = 1_000;
+        let mut recipient_lamports = 100;
+        let mut payer_data = [];
+        let mut recipient_data = [];
+
+        let payer = create_account_info(
+            &payer_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &program_id,
+        );
+        let recipient = create_account_info(
+            &recipient_key,
+            false,
+            true,
+            &mut recipient_lamports,
+            &mut recipient_data,
+            &program_id,
+        );
+
+        let result = transfer_fee(&program_id, &payer, &recipient, 10, None);
+        assert_eq!(result, Ok(()));
+        assert_eq!(payer.lamports(), 990);
+        assert_eq!(recipient.lamports(), 110);
+    }
 }

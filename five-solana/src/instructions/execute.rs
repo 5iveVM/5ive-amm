@@ -48,7 +48,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
             if *account.key() == admin_key {
                 admin_account = Some(account);
             }
-            if account.is_signer() {
+            if account.is_signer() && account.is_writable() {
                 payer_account = match payer_account {
                     Some(current) if current.lamports() >= account.lamports() => Some(current),
                     _ => Some(account),
@@ -58,7 +58,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
         let recipient = admin_account.ok_or(ProgramError::Custom(1107))?;
         let payer = payer_account.ok_or(ProgramError::MissingRequiredSignature)?;
-        transfer_fee(payer, recipient, fee, system_program)?;
+        transfer_fee(program_id, payer, recipient, fee, system_program)?;
     }
     // VM sees [vm_state, ...remaining execution accounts].
     let vm_accounts = &accounts[1..];
@@ -116,4 +116,84 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     debug_log!("Script executed successfully");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pinocchio::account_info::AccountInfo;
+
+    fn create_account_info<'a>(
+        key: &'a Pubkey,
+        is_signer: bool,
+        is_writable: bool,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo {
+        AccountInfo::new(key, is_signer, is_writable, lamports, data, owner, false, 0)
+    }
+
+    #[test]
+    fn execute_fee_ignores_readonly_signer_as_payer() {
+        let program_id = Pubkey::from([21u8; 32]);
+        let script_key = Pubkey::from([22u8; 32]);
+        let vm_key = Pubkey::from([23u8; 32]);
+        let admin_key = Pubkey::from([24u8; 32]);
+        let payer_key = Pubkey::from([25u8; 32]);
+        let system_owner = Pubkey::default();
+
+        let mut script_lamports = 1_000_000;
+        let mut vm_lamports = 1_000_000;
+        let mut admin_lamports = 1_000_000;
+        let mut payer_lamports = 1_000_000;
+
+        let mut script_data = vec![0u8; ScriptAccountHeader::LEN];
+        let mut vm_data = [0u8; FIVEVMState::LEN];
+        {
+            let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            state.initialize(admin_key);
+            state.execute_fee_lamports = 1;
+        }
+        let mut admin_data = [];
+        let mut payer_data = [];
+
+        let script = create_account_info(
+            &script_key,
+            false,
+            true,
+            &mut script_lamports,
+            script_data.as_mut_slice(),
+            &program_id,
+        );
+        let vm = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let admin = create_account_info(
+            &admin_key,
+            false,
+            true,
+            &mut admin_lamports,
+            &mut admin_data,
+            &system_owner,
+        );
+        // Readonly signer: must NOT be accepted as fee payer.
+        let readonly_signer = create_account_info(
+            &payer_key,
+            true,
+            false,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_owner,
+        );
+
+        let accounts = [script, vm, admin, readonly_signer];
+        let result = execute(&program_id, &accounts, &[]);
+        assert_eq!(result, Err(ProgramError::MissingRequiredSignature));
+    }
 }

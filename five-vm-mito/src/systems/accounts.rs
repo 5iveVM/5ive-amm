@@ -419,3 +419,79 @@ impl<'a> AccountManager<'a> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_account_info<'a>(
+        key: &'a Pubkey,
+        is_signer: bool,
+        is_writable: bool,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo {
+        AccountInfo::new(key, is_signer, is_writable, lamports, data, owner, false, 0)
+    }
+
+    #[test]
+    fn check_authorization_rejects_vm_state_index_zero() {
+        let program_id = Pubkey::from([1u8; 32]);
+        let key = Pubkey::from([2u8; 32]);
+        let mut lamports = 1_000;
+        let mut data = [0u8; 8];
+
+        let account = create_account_info(
+            &key,
+            false,
+            true,
+            &mut lamports,
+            &mut data,
+            &program_id,
+        );
+        let accounts = [account];
+        let manager = AccountManager::new(&accounts, program_id);
+
+        assert_eq!(
+            manager.check_authorization(0),
+            Err(VMErrorCode::ScriptNotAuthorized)
+        );
+    }
+
+    #[test]
+    fn check_authorization_rejects_script_header_accounts() {
+        let program_id = Pubkey::from([7u8; 32]);
+        let vm_key = Pubkey::from([8u8; 32]);
+        let script_key = Pubkey::from([9u8; 32]);
+        let mut vm_lamports = 1_000;
+        let mut script_lamports = 1_000;
+        let mut vm_data = [0u8; 8];
+        let mut script_data = [0u8; 8];
+        script_data[0..4].copy_from_slice(b"5IVE");
+
+        let vm_state = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let script = create_account_info(
+            &script_key,
+            false,
+            true,
+            &mut script_lamports,
+            &mut script_data,
+            &program_id,
+        );
+        let accounts = [vm_state, script];
+        let manager = AccountManager::new(&accounts, program_id);
+
+        assert_eq!(
+            manager.check_authorization(1),
+            Err(VMErrorCode::ScriptNotAuthorized)
+        );
+    }
+}
