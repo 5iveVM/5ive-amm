@@ -1,4 +1,4 @@
-use crate::ast::{AstNode, ModuleSpecifier};
+use crate::ast::{AstNode, ImportItem, ModuleSpecifier};
 use crate::parser::DslParser;
 use crate::tokenizer::{Token, TokenKind};
 use five_vm_mito::error::VMError;
@@ -46,7 +46,7 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
         _ => return Err(parser.parse_error("module identifier or address string")),
     };
 
-    // Parse optional function imports: ::function_name or ::{func1, func2}
+    // Parse optional member imports: ::function_name or ::{method foo, interface Bar, baz}
     let imported_items = if matches!(parser.current_token, Token::DoubleColon) {
         parser.advance(); // consume '::'
 
@@ -58,17 +58,47 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
             while !matches!(parser.current_token, Token::RightBrace)
                 && !matches!(parser.current_token, Token::Eof)
             {
-                if let Token::Identifier(name) = &parser.current_token {
-                    items.push(name.clone());
-                    parser.advance();
-
-                    if matches!(parser.current_token, Token::Comma) {
+                let item = match &parser.current_token {
+                    // Explicit interface import: interface Name
+                    Token::Interface => {
                         parser.advance();
-                    } else {
-                        break;
+                        if let Token::Identifier(name) = &parser.current_token {
+                            let out = ImportItem::Interface(name.clone());
+                            parser.advance();
+                            out
+                        } else {
+                            return Err(parser.parse_error("interface name after 'interface'"));
+                        }
                     }
+                    // Explicit method import: method foo
+                    Token::Identifier(kind) if kind == "method" => {
+                        parser.advance();
+                        if let Token::Identifier(name) = &parser.current_token {
+                            let out = ImportItem::Method(name.clone());
+                            parser.advance();
+                            out
+                        } else {
+                            return Err(parser.parse_error("method name after 'method'"));
+                        }
+                    }
+                    // Backward compatible unqualified symbol import.
+                    Token::Identifier(name) => {
+                        let out = ImportItem::Unqualified(name.clone());
+                        parser.advance();
+                        out
+                    }
+                    _ => {
+                        return Err(parser.parse_error(
+                            "import member (identifier, 'method <name>', or 'interface <name>')",
+                        ));
+                    }
+                };
+                items.push(item);
+
+                if matches!(parser.current_token, Token::Comma) {
+                    parser.advance();
                 } else {
-                    return Err(parser.parse_error("function name identifier in import list"));
+                    break;
                 }
             }
 
@@ -82,9 +112,9 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
             // Single import: use account::function_name
             let name = func_name.clone();
             parser.advance();
-            Some(vec![name])
+            Some(vec![ImportItem::Unqualified(name)])
         } else {
-            return Err(parser.parse_error("function name or '{' after '::'"));
+            return Err(parser.parse_error("import member name or '{' after '::'"));
         }
     } else {
         None // Import all functions

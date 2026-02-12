@@ -302,6 +302,7 @@ impl TypeCheckerContext {
             _ => {
                 if !self.symbol_table.contains_key(name)
                     && !self.interface_registry.contains_key(name)
+                    && !self.imported_external_interfaces.contains(name)
                 {
                     return Err(VMError::UndefinedIdentifier);
                 }

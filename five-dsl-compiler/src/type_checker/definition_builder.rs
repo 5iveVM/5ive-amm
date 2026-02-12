@@ -5,7 +5,7 @@
 
 use crate::ast::{
     generated::*, AstNode, TypeNode, StructField, InstructionParameter,
-    ErrorVariant, ModuleSpecifier, Visibility, TestAttribute,
+    ErrorVariant, ModuleSpecifier, ImportItem, Visibility, TestAttribute,
 };
 
 /// Helper methods for building definitions
@@ -116,7 +116,7 @@ impl super::types::TypeCheckerContext {
     /// Create an import statement
     pub(crate) fn build_import_statement(
         module_specifier: ModuleSpecifier,
-        imported_items: Option<Vec<String>>,
+        imported_items: Option<Vec<ImportItem>>,
     ) -> Definition {
         Definition::ImportStatement(ImportStatementNode {
             module_specifier,

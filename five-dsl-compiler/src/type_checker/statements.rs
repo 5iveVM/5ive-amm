@@ -25,6 +25,7 @@ impl TypeCheckerContext {
                 // Implicitly register new top-level assignments (treated as global fields)
                 if !self.symbol_table.contains_key(target)
                     && !self.interface_registry.contains_key(target)
+                    && !self.imported_external_interfaces.contains(target)
                 {
                     self.symbol_table
                         .insert(target.clone(), (value_type.clone(), false));

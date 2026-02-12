@@ -5,6 +5,7 @@ use super::types::*;
 use super::{AccountSystem, OpcodeEmitter};
 use super::import_table::ImportTable;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
+use crate::ast::ImportItem;
 use crate::bytecode_generator::types; // Import the module directly
 
 use five_vm_mito::error::VMError;
@@ -356,7 +357,34 @@ impl FunctionDispatcher {
                     if let Some(items) = imported_items {
                         // Specific imports: use account::{function_name, field_name}
                         // Store all items as both functions and fields - usage context determines which is used
-                        for item_name in items {
+                        for item in items {
+                            let item_name = item.name().to_string();
+
+                            // Explicit interface imports are external execution namespaces and
+                            // should not be tracked as fields.
+                            if item.is_interface() {
+                                if self.imported_functions.contains_key(&item_name)
+                                    || self.imported_fields.contains_key(&item_name)
+                                {
+                                    return Err(VMError::InvalidScript);
+                                }
+                                if is_external_import {
+                                    self.import_table
+                                        .add_import_by_address(&account_address, item_name.clone());
+                                }
+                                continue;
+                            }
+
+                            if self.imported_functions.contains_key(&item_name)
+                                && self
+                                    .imported_functions
+                                    .get(&item_name)
+                                    .map(|(addr, _)| addr != &account_address)
+                                    .unwrap_or(false)
+                            {
+                                return Err(VMError::InvalidScript);
+                            }
+
                             // Store as imported function for function calls
                             self.imported_functions.insert(
                                 item_name.clone(),
@@ -632,10 +660,27 @@ impl FunctionDispatcher {
                 };
 
                 let mut selectors = HashMap::new();
-                let allow_any_function = imported_items.is_none();
+                let mut allow_any_function = imported_items.is_none();
                 if let Some(items) = imported_items {
-                    for fn_name in items {
-                        selectors.insert(fn_name.clone(), Self::external_selector(fn_name));
+                    for item in items {
+                        match item {
+                            ImportItem::Interface(interface_name) => {
+                                // Imported interface symbols execute externally and allow
+                                // method-based selector derivation at call site.
+                                ast_generator.register_external_import(
+                                    interface_name.clone(),
+                                    external_import_index,
+                                    true,
+                                    HashMap::new(),
+                                );
+                            }
+                            ImportItem::Method(fn_name) | ImportItem::Unqualified(fn_name) => {
+                                selectors.insert(fn_name.clone(), Self::external_selector(fn_name));
+                            }
+                        }
+                    }
+                    if selectors.is_empty() {
+                        allow_any_function = true;
                     }
                 }
 

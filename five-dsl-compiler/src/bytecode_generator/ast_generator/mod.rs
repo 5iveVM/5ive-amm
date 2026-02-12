@@ -161,7 +161,9 @@ impl ASTGenerator {
                             emitter.emit_opcode(LOAD_FIELD);
                             emitter.emit_u8(0);
                             emitter.emit_u32(field_info.offset);
-                        } else if !self.interface_registry.contains_key(name) {
+                        } else if !self.interface_registry.contains_key(name)
+                            && !self.external_imports.contains_key(name)
+                        {
                             // Only return error for truly undefined identifiers
                             return Err(VMError::InvalidScript); // Undefined identifier
                         }

@@ -2,7 +2,7 @@
 
 use crate::ast::{StructField, TypeNode, SourceLocation};
 use crate::type_checker::ModuleScope;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Information about where a symbol is defined
 #[derive(Debug, Clone)]
@@ -56,6 +56,8 @@ pub struct TypeCheckerContext {
     pub(crate) module_scope: Option<ModuleScope>,
     /// Current module being type-checked (for multi-module support)
     pub(crate) current_module: Option<String>,
+    /// Imported external interface namespace symbols from use/import statements.
+    pub(crate) imported_external_interfaces: HashSet<String>,
 }
 
 impl Default for TypeCheckerContext {
@@ -76,6 +78,7 @@ impl TypeCheckerContext {
             function_return_types: HashMap::new(),
             module_scope: None,
             current_module: None,
+            imported_external_interfaces: HashSet::new(),
         }
     }
 

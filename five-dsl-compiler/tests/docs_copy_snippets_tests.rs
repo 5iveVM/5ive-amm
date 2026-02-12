@@ -1,5 +1,5 @@
 use five_dsl_compiler::DslCompiler;
-use five_protocol::opcodes::CALL_EXTERNAL;
+use five_protocol::opcodes::{CALL_EXTERNAL, INVOKE};
 
 #[test]
 fn docs_quick_start_snippet_compiles() {
@@ -80,4 +80,31 @@ fn docs_interface_cpi_snippet_compiles() {
 
     let bytecode = DslCompiler::compile_dsl(source).expect("interface CPI snippet should compile");
     assert!(!bytecode.is_empty());
+}
+
+#[test]
+fn docs_imported_interface_snippet_compiles_to_call_external() {
+    let source = r#"
+        use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{interface TokenOps};
+
+        pub route_call(
+            TokenOps: account,
+            from: account @mut,
+            to: account @mut,
+            authority: account @signer
+        ) {
+            TokenOps.transfer(from, to, authority, 100);
+        }
+    "#;
+
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("imported interface snippet should compile");
+    assert!(
+        bytecode.iter().any(|op| *op == CALL_EXTERNAL),
+        "imported interface method call should emit CALL_EXTERNAL"
+    );
+    assert!(
+        !bytecode.iter().any(|op| *op == INVOKE),
+        "imported interface method call should not emit INVOKE"
+    );
 }

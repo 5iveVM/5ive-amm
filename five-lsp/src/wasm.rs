@@ -180,7 +180,7 @@ impl FiveLspWasm {
     /// const location = result ? JSON.parse(result) : null;
     /// ```
     pub fn get_definition(
-        &self,
+        &mut self,
         uri: &str,
         source: &str,
         line: u32,
@@ -192,10 +192,11 @@ impl FiveLspWasm {
 
         // Get definition from feature module
         let location = goto_definition::get_definition(
-            source,
-            line as usize,
-            character as usize,
+            &mut self.bridge,
             &url,
+            source,
+            line,
+            character,
         );
 
         // Convert to JSON for passing to JavaScript
@@ -226,7 +227,7 @@ impl FiveLspWasm {
     /// const references = JSON.parse(result);  // Array of Location objects
     /// ```
     pub fn find_references(
-        &self,
+        &mut self,
         uri: &str,
         source: &str,
         line: u32,
@@ -238,10 +239,11 @@ impl FiveLspWasm {
 
         // Get references from feature module
         let references = find_references::find_references(
+            &mut self.bridge,
+            &url,
             source,
             line as usize,
             character as usize,
-            &url,
         );
 
         // Convert to JSON for passing to JavaScript
@@ -320,6 +322,7 @@ impl FiveLspWasm {
     ///
     /// Validates that a symbol at the given position can be renamed and returns its name.
     pub fn prepare_rename(
+        &self,
         source: &str,
         line: u32,
         character: u32,
@@ -334,7 +337,7 @@ impl FiveLspWasm {
     ///
     /// Performs a safe rename of a symbol, updating all references to it.
     pub fn rename(
-        &self,
+        &mut self,
         uri: &str,
         source: &str,
         line: u32,
@@ -346,7 +349,7 @@ impl FiveLspWasm {
             .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Perform rename
-        match rename::rename(source, line as usize, character as usize, new_name, &url) {
+        match rename::rename(&mut self.bridge, source, line as usize, character as usize, new_name, &url) {
             Some(edit) => {
                 let json = serde_json::to_string(&edit)
                     .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))?;

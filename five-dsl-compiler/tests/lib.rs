@@ -1,4 +1,4 @@
-use five_dsl_compiler::ast::{AstNode, BlockKind};
+use five_dsl_compiler::ast::{AstNode, BlockKind, ImportItem};
 use five_dsl_compiler::*;
 use five_protocol::opcodes::{
     GT, PUSH_U16, PUSH_U32, PUSH_U64, PUSH_U8, REQUIRE, REQUIRE_LOCAL_GT_ZERO,
@@ -85,7 +85,10 @@ fn test_import_parsing() {
                 }
                 _ => panic!("Expected Local module specifier"),
             }
-            assert_eq!(imported_items, &Some(vec!["Transfer".to_string()]));
+            assert_eq!(
+                imported_items,
+                &Some(vec![ImportItem::Unqualified("Transfer".to_string())])
+            );
         } else {
             panic!("Expected ImportStatement AST node");
         }

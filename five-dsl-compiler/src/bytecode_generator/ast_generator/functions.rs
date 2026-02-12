@@ -68,6 +68,34 @@ impl ASTGenerator {
         object: &AstNode,
         args: &[AstNode],
     ) -> Result<(), VMError> {
+        // Imported interface from `use "<account>"::{interface Name}`.
+        // These calls execute callee bytecode via CALL_EXTERNAL rather than
+        // synthesizing caller-side INVOKE payloads.
+        if let AstNode::Identifier(import_name) = object {
+            if let Some(ext_import) = self.external_imports.get(import_name) {
+                let ext_import = ext_import.clone();
+                // Generate arguments first (CALL_EXTERNAL pops from stack).
+                for arg in args {
+                    self.generate_ast_node(emitter, arg)?;
+                }
+
+                let selector = if let Some(sel) = ext_import.functions.get(method) {
+                    *sel
+                } else if ext_import.allow_any_function {
+                    Self::external_selector(method)
+                } else {
+                    return Err(VMError::InvalidScript);
+                };
+
+                let account_index = self.resolve_external_account_index_strict(import_name)?;
+                emitter.emit_opcode(CALL_EXTERNAL);
+                emitter.emit_u8(account_index);
+                emitter.emit_u16(selector);
+                emitter.emit_u8(args.len() as u8);
+                return Ok(());
+            }
+        }
+
         // Check if this is an interface method call first
         if let AstNode::Identifier(interface_name) = object {
             if let Some(interface_info) = self.interface_registry.get(interface_name) {
@@ -396,6 +424,33 @@ impl ASTGenerator {
         } else {
             Err(VMError::InvalidScript)
         }
+    }
+
+    fn resolve_external_account_index_strict(&self, module_name: &str) -> Result<u8, VMError> {
+        let params = self
+            .current_function_parameters
+            .as_ref()
+            .ok_or(VMError::InvalidScript)?;
+
+        let mut account_params: Vec<&InstructionParameter> = Vec::new();
+        let registry = self.account_system.as_ref().map(|s| s.get_account_registry());
+        for p in params {
+            if super::super::account_utils::is_account_parameter(&p.param_type, &p.attributes, registry)
+            {
+                account_params.push(p);
+            }
+        }
+
+        if let Some((idx, _)) = account_params
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.name == module_name)
+        {
+            return Ok(account_index_from_param_index(idx as u8));
+        }
+
+        // Imported interface execution requires explicit account binding.
+        Err(VMError::InvalidScript)
     }
 
     /// Generate bytecode for the invoke_signed function

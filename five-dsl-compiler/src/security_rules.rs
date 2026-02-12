@@ -440,8 +440,9 @@ pub fn validate_import_security(imports: &[AstNode]) -> Result<(), VMError> {
 
                 // Check for potentially dangerous import patterns
                 for item in items {
-                    if item.starts_with("_") || item.contains("unsafe") {
-                        println!("⚠️  SECURITY WARNING: Importing potentially internal item '{}' from account {}", item, account_address);
+                    let item_name = item.name();
+                    if item_name.starts_with("_") || item_name.contains("unsafe") {
+                        println!("⚠️  SECURITY WARNING: Importing potentially internal item '{}' from account {}", item_name, account_address);
                     }
                 }
             }

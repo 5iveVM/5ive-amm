@@ -35,6 +35,9 @@ impl TypeCheckerContext {
                 } else if self.interface_registry.contains_key(name) {
                     // Interface names are valid identifiers - return a special interface type
                     Ok(TypeNode::Named(format!("interface_{}", name)))
+                } else if self.imported_external_interfaces.contains(name) {
+                    // Imported external interfaces are method namespaces resolved at codegen.
+                    Ok(TypeNode::Named(format!("external_interface_{}", name)))
                 } else {
                     Err(VMError::TypeMismatch)
                 }

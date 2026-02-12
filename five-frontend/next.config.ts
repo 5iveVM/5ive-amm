@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
       type: 'javascript/auto',
     });
 
+    // Handle five-lsp WASM bindings (loaded from public/wasm/)
+    config.module.rules.push({
+      test: /five_lsp\.js$/,
+      type: 'javascript/auto',
+    });
+
     // Handle Monaco Editor minified version NLS loader issue
     // Disable AMD module parsing for Monaco to prevent NLS loader require errors
     config.module.rules.push({

@@ -21,6 +21,7 @@ impl TypeCheckerContext {
                         // Check if identifier exists in symbol table or interface registry
                         if !self.symbol_table.contains_key(name)
                             && !self.interface_registry.contains_key(name)
+                            && !self.imported_external_interfaces.contains(name)
                         {
                             eprintln!(
                                 "Undefined identifier{}: '{}' is not in scope",
@@ -239,6 +240,15 @@ impl TypeCheckerContext {
     ) -> Result<TypeNode, VMError> {
         // Check if this is an interface method call first
         if let AstNode::Identifier(interface_name) = object {
+            if self.imported_external_interfaces.contains(interface_name) {
+                // Imported external interface calls execute remotely through CALL_EXTERNAL.
+                // Stage-1 behavior intentionally avoids reconstructing callee typing rules.
+                for arg in args {
+                    self.infer_type(arg)?;
+                }
+                return Ok(TypeNode::Primitive("unit".to_string()));
+            }
+
             if let Some(interface_info) = self.interface_registry.get(interface_name) {
                 // This is an interface method call - validate it
                 if let Some(interface_method) = interface_info.methods.get(method) {

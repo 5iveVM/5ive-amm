@@ -14,7 +14,8 @@
  * ```
  */
 
-import * as wasmModule from './five-lsp-wasm';
+// WASM module is loaded dynamically from /wasm/five_lsp.js
+// This import statement is not needed as we load it dynamically at runtime
 
 export interface Diagnostic {
   range: {
@@ -33,7 +34,7 @@ export interface Diagnostic {
  * Wraps the WASM-compiled LSP and provides async initialization and error handling.
  */
 export class FiveLspClient {
-  private wasmModule: typeof wasmModule | null = null;
+  private wasmModule: any = null;
   private lsp: any = null;
   private initialized = false;
 

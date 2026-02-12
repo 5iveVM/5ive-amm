@@ -329,7 +329,7 @@ pub enum AstNode {
     // Import system AST nodes
     ImportStatement {
         module_specifier: ModuleSpecifier,
-        imported_items: Option<Vec<String>>, // Specific functions to import (None = all)
+        imported_items: Option<Vec<ImportItem>>, // Specific members to import (None = all)
     },
 
     Identifier(String),
@@ -342,6 +342,35 @@ pub enum ModuleSpecifier {
     Local(String),              // use lib; or import lib;
     Nested(Vec<String>),        // use utils::helpers;
     External(String),           // use "0x123"::{fn1, fn2}; (contract address or PDA seeds)
+}
+
+/// Import member for use/import statements.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ImportItem {
+    /// Backward compatible unresolved symbol kind (defaults to method import today).
+    Unqualified(String),
+    /// Explicit method import (used for function/CALL_EXTERNAL paths).
+    Method(String),
+    /// Explicit interface import (used for method-style external execution paths).
+    Interface(String),
+}
+
+impl ImportItem {
+    pub fn name(&self) -> &str {
+        match self {
+            ImportItem::Unqualified(name) => name,
+            ImportItem::Method(name) => name,
+            ImportItem::Interface(name) => name,
+        }
+    }
+
+    pub fn is_interface(&self) -> bool {
+        matches!(self, ImportItem::Interface(_))
+    }
+
+    pub fn is_method_like(&self) -> bool {
+        matches!(self, ImportItem::Unqualified(_) | ImportItem::Method(_))
+    }
 }
 
 /// Type system AST nodes for Rust+TypeScript hybrid syntax

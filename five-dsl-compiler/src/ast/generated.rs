@@ -2,7 +2,7 @@
 // Generated from node_metadata.toml by generate_ast tool
 // Run: cargo run --bin generate_ast
 
-use crate::ast::{AstNode, BlockKind, TypeNode, StructField, InstructionParameter, EventFieldAssignment, MatchArm, ErrorVariant, StructLiteralField, SwitchCase, TestAttribute, AssertionType, ModuleSpecifier, Visibility};
+use crate::ast::{AstNode, BlockKind, TypeNode, StructField, InstructionParameter, EventFieldAssignment, MatchArm, ErrorVariant, StructLiteralField, SwitchCase, TestAttribute, AssertionType, ModuleSpecifier, ImportItem, Visibility};
 use five_protocol::Value;
 
 // ============================================================================
@@ -226,7 +226,7 @@ pub struct WhileLoopNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportStatementNode {
     pub module_specifier: ModuleSpecifier,
-    pub imported_items: Option<Vec<String>>,
+    pub imported_items: Option<Vec<ImportItem>>,
 }
 
 /// Array literal [...]

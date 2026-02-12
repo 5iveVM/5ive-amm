@@ -39,10 +39,27 @@ impl types::TypeCheckerContext {
                 event_definitions,
                 account_definitions,
                 interface_definitions,
+                import_statements,
                 init_block,
                 constraints_block,
                 ..
             } => {
+                // Capture imported external interface namespaces for method-call validation.
+                self.imported_external_interfaces.clear();
+                for import_stmt in import_statements {
+                    if let AstNode::ImportStatement {
+                        module_specifier: crate::ast::ModuleSpecifier::External(_),
+                        imported_items: Some(items),
+                    } = import_stmt
+                    {
+                        for item in items {
+                            if let crate::ast::ImportItem::Interface(name) = item {
+                                self.imported_external_interfaces.insert(name.clone());
+                            }
+                        }
+                    }
+                }
+
                 // Process global field definitions (now supported)
                 for field_def in field_definitions {
                     self.check_types(field_def)?;

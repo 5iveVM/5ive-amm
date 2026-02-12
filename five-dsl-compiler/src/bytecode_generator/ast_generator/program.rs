@@ -3,6 +3,7 @@
 use super::types::ASTGenerator;
 use super::super::OpcodeEmitter;
 use crate::ast::AstNode;
+use crate::ast::ImportItem;
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
@@ -48,11 +49,27 @@ impl ASTGenerator {
             };
 
             let mut function_selectors = HashMap::new();
-            let allow_any_function = imported_items.is_none();
+            let mut allow_any_function = imported_items.is_none();
             if let Some(items) = imported_items {
-                for fn_name in items {
-                    function_selectors
-                        .insert(fn_name.clone(), Self::external_selector(fn_name));
+                for item in items {
+                    match item {
+                        ImportItem::Interface(interface_name) => {
+                            // Imported interfaces are external-execution namespaces.
+                            self.register_external_import(
+                                interface_name.clone(),
+                                external_import_index,
+                                true,
+                                HashMap::new(),
+                            );
+                        }
+                        ImportItem::Method(fn_name) | ImportItem::Unqualified(fn_name) => {
+                            function_selectors
+                                .insert(fn_name.clone(), Self::external_selector(fn_name));
+                        }
+                    }
+                }
+                if function_selectors.is_empty() {
+                    allow_any_function = true;
                 }
             }
 
