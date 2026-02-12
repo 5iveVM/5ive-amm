@@ -232,6 +232,15 @@ struct ExternalAllPublicRun {
     token_bytecode_size: usize,
 }
 
+struct ExternalBurstRun {
+    deploy_token_units: u64,
+    deploy_caller_units: u64,
+    execute_units: u64,
+    caller_bytecode_size: usize,
+    token_bytecode_size: usize,
+    transfer_count: usize,
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn token_e2e_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -797,6 +806,23 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
 #[tokio::test(flavor = "multi_thread")]
 async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let run = run_external_token_transfer_burst_profile(&repo_root).await;
+    println!(
+        "BPF_CU external_burst_non_cpi deploy_token={} deploy_caller={} execute={} total={} caller_bytecode_size={} token_bytecode_size={} transfers={}",
+        run.deploy_token_units,
+        run.deploy_caller_units,
+        run.execute_units,
+        run.deploy_token_units
+            .saturating_add(run.deploy_caller_units)
+            .saturating_add(run.execute_units),
+        run.caller_bytecode_size,
+        run.token_bytecode_size,
+        run.transfer_count
+    );
+    print_external_cache_metrics("external_burst_non_cpi");
+}
+
+async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> ExternalBurstRun {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
@@ -1069,20 +1095,33 @@ async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
         assert_eq!(dst_balance, 15000 + amount);
     }
 
-    println!(
-        "BPF_CU external_burst_non_cpi deploy_token={} deploy_caller={} execute={} total={} caller_bytecode_size={} token_bytecode_size={} transfers={}",
-        deploy_token.units_consumed,
-        deploy_caller.units_consumed,
-        execute.units_consumed,
-        deploy_token
-            .units_consumed
-            .saturating_add(deploy_caller.units_consumed)
-            .saturating_add(execute.units_consumed),
-        caller_bytecode.len(),
-        token_bytecode.len(),
-        transfer_amounts.len()
+    ExternalBurstRun {
+        deploy_token_units: deploy_token.units_consumed,
+        deploy_caller_units: deploy_caller.units_consumed,
+        execute_units: execute.units_consumed,
+        caller_bytecode_size: caller_bytecode.len(),
+        token_bytecode_size: token_bytecode.len(),
+        transfer_count: transfer_amounts.len(),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn scenario_high_external_call_fanout_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let run = run_external_token_transfer_burst_profile(&repo_root).await;
+    let deploy_total = run
+        .deploy_token_units
+        .saturating_add(run.deploy_caller_units);
+    let total = deploy_total.saturating_add(run.execute_units);
+    print_scenario_line("high_external_call_fanout", run.execute_units, total);
+    assert_no_regression(
+        "scenario_high_external_call_fanout",
+        &CuMetrics {
+            deploy: deploy_total,
+            execute: run.execute_units,
+            total,
+        },
     );
-    print_external_cache_metrics("external_burst_non_cpi");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -1466,20 +1505,6 @@ async fn anchor_interface_manual_borsh_cpi_bpf_compute_units() {
     let fixture_path =
         repo_root.join("five-templates/cpi-examples/runtime-fixtures/anchor-program-call-e2e-manual.json");
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(120_000)).await;
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn scenario_high_external_call_fanout_bpf_compute_units() {
-    // Fanout scenario metric line is emitted separately by external_*_non_cpi tests.
-    print_scenario_line("high_external_call_fanout", 0, 0);
-    assert_no_regression(
-        "scenario_high_external_call_fanout",
-        &CuMetrics {
-            deploy: 0,
-            execute: 0,
-            total: 0,
-        },
-    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -9,11 +9,9 @@ use five::instructions::{DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
 use five::state::{FIVEVMState, ScriptAccountHeader};
 use five_dsl_compiler::DslCompiler;
 use five_protocol::opcodes::{
-    self, ADD, HALT, POP, PUSH_1, PUSH_2, REQUIRE_PARAM_GT_ZERO, SET_LOCAL_0,
-    SUB, MUL, DIV, AND, OR, NOT, BITWISE_AND, SHIFT_LEFT,
-    DUP, SWAP, GET_LOCAL_0, DEC_JUMP_NZ, CMP_EQ_JUMP,
-    REQUIRE, MUL_CHECKED, MUL_DIV, PUSH_U8, PUSH_U16, PUSH_U64,
-    LOAD, STORE,
+    self, ADD, AND, BITWISE_AND, CHECK_SIGNER, DIV, GET_CLOCK, GET_KEY, GET_LOCAL_0, HALT,
+    LOAD_FIELD, MUL, MUL_DIV, NOT, OR, POP, PUSH_1, PUSH_2, PUSH_STRING, PUSH_U8, PUSH_U64,
+    REQUIRE, REQUIRE_PARAM_GT_ZERO, SET_LOCAL_0, SHIFT_LEFT, STORE_FIELD, SUB,
 };
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use harness::perf::{assert_no_regression, print_bench_line, CuMetrics};
@@ -637,6 +635,187 @@ async fn opcode_micro_control_require_cold_single_bpf_cu() {
 
     print_bench_line("control", "REQUIRE", "cold_single", &metrics);
     assert_no_regression("opcode_control_require_single", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_constraint_check_signer_cold_single_bpf_cu() {
+    let program_id = load_program_id();
+    let script = harness::script_with_header(1, 1, &[CHECK_SIGNER, 1, HALT]);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_constraint_check_signer_single",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("constraint", "CHECK_SIGNER", "cold_single", &metrics);
+    assert_no_regression("opcode_constraint_check_signer_single", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_array_push_string_cold_single_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity(12);
+    body.push(PUSH_STRING);
+    body.extend_from_slice(&(3u32).to_le_bytes());
+    body.extend_from_slice(b"fiv");
+    body.push(POP);
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_array_push_string_single",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("array_string", "PUSH_STRING", "cold_single", &metrics);
+    assert_no_regression("opcode_array_push_string_single", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_memory_store_load_field_cold_single_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity(24);
+    body.push(PUSH_U64);
+    body.extend_from_slice(&42u64.to_le_bytes());
+    body.push(STORE_FIELD);
+    body.push(1);
+    body.extend_from_slice(&0u32.to_le_bytes());
+    body.push(LOAD_FIELD);
+    body.push(1);
+    body.extend_from_slice(&0u32.to_le_bytes());
+    body.push(POP);
+    body.push(HALT);
+    let script = harness::script_with_header(1, 1, &body);
+
+    let mut accounts = base_accounts(program_id, 20_000_000);
+    accounts.insert(
+        "script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + script.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + script.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "state_account".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(64),
+            data: vec![0u8; 64],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut ctx = start_context(program_id, &accounts).await;
+    let deploy_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "script",
+        "vm_state",
+        "owner",
+        &script,
+    );
+    let deploy = simulate_and_process(
+        &mut ctx,
+        vec![deploy_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        deploy.success,
+        "opcode_memory_store_load_field_single deploy failed: {:?}",
+        deploy.error
+    );
+
+    let payload = canonical_execute_payload(0, &[]);
+    let execute_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "script",
+        "vm_state",
+        &["state_account", "owner"],
+        payload,
+    );
+    let execute = simulate_and_process(
+        &mut ctx,
+        vec![execute_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        execute.success,
+        "opcode_memory_store_load_field_single execute failed: {:?}",
+        execute.error
+    );
+
+    let state_after = ctx
+        .banks_client
+        .get_account(accounts["state_account"].pubkey)
+        .await
+        .expect("state account fetch")
+        .expect("state account missing");
+    let value = u64::from_le_bytes(
+        state_after.data[0..8]
+            .try_into()
+            .expect("state field decode"),
+    );
+    assert_eq!(value, 42, "STORE_FIELD should update state_account");
+
+    let metrics = CuMetrics {
+        deploy: deploy.units_consumed,
+        execute: execute.units_consumed,
+        total: deploy.units_consumed.saturating_add(execute.units_consumed),
+    };
+    print_bench_line("memory", "STORE_FIELD_LOAD_FIELD", "cold_single", &metrics);
+    assert_no_regression("opcode_memory_store_load_field_single", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_account_get_key_cold_single_bpf_cu() {
+    let program_id = load_program_id();
+    let script = harness::script_with_header(1, 1, &[GET_KEY, 1, POP, HALT]);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_account_get_key_single",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("account", "GET_KEY", "cold_single", &metrics);
+    assert_no_regression("opcode_account_get_key_single", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_system_get_clock_cold_single_bpf_cu() {
+    let program_id = load_program_id();
+    let script = harness::script_with_header(1, 1, &[GET_CLOCK, POP, HALT]);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_system_get_clock_single",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("system", "GET_CLOCK", "cold_single", &metrics);
+    assert_no_regression("opcode_system_get_clock_single", &metrics);
 }
 
 #[test]
