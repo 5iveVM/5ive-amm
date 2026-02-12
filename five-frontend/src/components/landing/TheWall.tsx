@@ -75,7 +75,7 @@ export default function TheWall() {
                                         <XCircle size={20} />
                                         $1,000+
                                     </div>
-                                    <div className="text-xs text-rose-pine-muted mt-2">PAYWALL BARRIER</div>
+                                    <div className="text-xs text-rose-pine-subtle mt-2">PAYWALL BARRIER</div>
                                 </div>
                                 <div className="h-12 w-1 bg-rose-pine-love/20 rounded-full" />
                                 <div className="text-right opacity-50 grayscale group-hover:grayscale-0 transition-all">
@@ -88,7 +88,7 @@ export default function TheWall() {
                             <div className="p-8 bg-rose-pine-surface relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-1 h-full bg-rose-pine-iris" />
                                 <div className="absolute inset-0 bg-rose-pine-iris/5" />
-                                
+
                                 <div className="flex items-center justify-between relative z-10">
                                     <div>
                                         <div className="text-xs font-mono uppercase tracking-widest text-rose-pine-iris mb-1">5IVE Network</div>
@@ -98,7 +98,7 @@ export default function TheWall() {
                                         </div>
                                         <div className="text-xs text-rose-pine-iris mt-2 font-bold tracking-wide">PERMISSIONLESS</div>
                                     </div>
-                                    
+
                                     <div className="text-right">
                                         <div className="text-xs font-mono text-rose-pine-iris">Status</div>
                                         <div className="text-lg font-bold text-rose-pine-text">Mainnet Live</div>

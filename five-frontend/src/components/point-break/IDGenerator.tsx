@@ -70,7 +70,7 @@ export function IDGenerator() {
     };
 
     const shareToTwitter = () => {
-        const text = `I secured my Virtual ID for #SolanaBreakpoint 2025 with @five_org. \n\nGet yours here: https://five.org/point-break \n\n#5IVE #PointBreak`;
+        const text = `I secured my Virtual ID for #SolanaBreakpoint 2025 with @five_org. \n\nGet yours here: https://five.tech/point-break \n\n#5IVE #PointBreak`;
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
     };
 

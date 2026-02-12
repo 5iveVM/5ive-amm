@@ -128,7 +128,7 @@ export default function NapkinToMainnet() {
                                     <Coins size={24} />
                                 </div>
                                 <div>
-                                    <p className="text-xs md:text-sm font-mono uppercase tracking-[0.18em] text-rose-pine-foam/90 mb-2">
+                                    <p className="text-xs md:text-sm font-mono uppercase tracking-[0.18em] text-rose-pine-foam/90 mb-2 text-contrast">
                                         Tear down the wall starts here
                                     </p>
                                     <h2 className="text-3xl md:text-5xl font-black text-rose-pine-text tracking-tight">

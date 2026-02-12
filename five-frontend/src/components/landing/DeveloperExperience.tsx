@@ -127,7 +127,7 @@ export default function DeveloperExperience() {
                                 </div>
                                 <div className="text-[10px] font-mono text-rose-pine-subtle opacity-50 flex items-center gap-2 text-contrast">
                                     <Globe size={10} />
-                                    ide.five.org
+                                    ide.five.tech
                                 </div>
                             </div>
 

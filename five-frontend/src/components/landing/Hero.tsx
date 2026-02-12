@@ -28,14 +28,14 @@ export default function Hero() {
                                 5IVE
                             </h1>
                         </div>
-                        <p className="relative z-10 mb-3 text-xs md:text-sm font-mono uppercase tracking-[0.2em] text-rose-pine-foam/90">
+                        <p className="relative z-10 mb-3 text-xs md:text-sm font-mono uppercase tracking-[0.2em] text-rose-pine-foam/90 text-contrast">
                             Layer 1.5 for Solana
                         </p>
 
                         <p className="relative z-10 text-3xl md:text-5xl font-bold text-rose-pine-subtle tracking-tight max-w-4xl mx-auto drop-shadow-md">
                             Tear down the wall. <span className="text-rose-pine-iris">Build the moat.</span>
                         </p>
-                        <p className="relative z-10 mt-4 text-base md:text-lg text-rose-pine-muted max-w-3xl mx-auto">
+                        <p className="relative z-10 mt-4 text-base md:text-lg text-rose-pine-subtle max-w-3xl mx-auto text-contrast">
                             5IVE is built to make Solana stronger, not compete with it. When barriers fall, ecosystems open. 5IVE brings Solana mainnet to more builders and agentic workflows with fast, composable contracts.
                         </p>
                     </m.div>

@@ -1520,6 +1520,22 @@ async fn scenario_memory_string_heavy_bpf_compute_units() {
     );
 }
 
+// ===== NEW SCENARIO TESTS (PREPARED FOR FUTURE IMPLEMENTATION) =====
+// Scenario test templates created for:
+// 1. scenario_arithmetic_intensive - five-templates/arithmetic-bench/
+//    Tests sustained arithmetic load (ADD, SUB, MUL, DIV operations)
+//    Fixture: five-templates/arithmetic-bench/runtime-fixtures/arithmetic_heavy.json
+//    Bytecode: five-templates/arithmetic-bench/src/arithmetic_bench.bin (473 bytes)
+//
+// 2. scenario_branching_intensive - five-templates/branching-bench/
+//    Tests conditional/validation overhead with branch patterns
+//    Fixture: five-templates/branching-bench/runtime-fixtures/branching.json
+//    Bytecode: five-templates/branching-bench/src/branching_bench.bin (530 bytes)
+//
+// These can be activated by implementing proper fixture-based test harness.
+// The bytecode files are already compiled and ready for use.
+// See CLAUDE.md "Phase 3" for full scenario testing implementation details.
+
 async fn run_fixture_bpf_compute_units(
     repo_root: &Path,
     fixture_path: &Path,

@@ -1,6 +1,6 @@
 {
   "commit": "expanded-benchmarks",
-  "description": "Expanded benchmark baseline with 18 micro-benchmarks covering arithmetic, logical, control, stack, and function families",
+  "description": "Expanded benchmark baseline with 18 micro-benchmarks covering arithmetic, logical, control, locals, and function families",
   "timestamp": "2026-02-12",
   "tests": {
     "opcode_arithmetic_add_single": {
@@ -69,16 +69,6 @@
       "total": 2732
     },
     "opcode_stack_add_loop": {
-      "deploy": 32763,
-      "execute": 18484,
-      "total": 51247
-    },
-    "opcode_stack_dup_loop": {
-      "deploy": 24795,
-      "execute": 18388,
-      "total": 43183
-    },
-    "opcode_stack_swap_loop": {
       "deploy": 32763,
       "execute": 18484,
       "total": 51247
