@@ -19,8 +19,8 @@ impl ASTGenerator {
     ) -> Result<bool, VMError> {
         // Candidate set is deduplicated by account index because each external import is
         // currently registered under multiple keys (e.g. extN and identifier alias).
-        let mut candidates: Vec<(u8, u16)> = Vec::new();
-        for ext_import in self.external_imports.values() {
+        let mut candidates: Vec<(String, u8, u16)> = Vec::new();
+        for (module_name, ext_import) in self.external_imports.iter() {
             let selector = if let Some(sel) = ext_import.functions.get(name) {
                 *sel
             } else if ext_import.allow_any_function {
@@ -29,19 +29,29 @@ impl ASTGenerator {
                 continue;
             };
 
-            if !candidates.iter().any(|(acc_idx, _)| *acc_idx == ext_import.account_index) {
-                candidates.push((ext_import.account_index, selector));
+            if let Some(existing) = candidates
+                .iter_mut()
+                .find(|(_, acc_idx, _)| *acc_idx == ext_import.account_index)
+            {
+                // Prefer deterministic synthetic aliases (`extN`) when available
+                // because they map directly to common runtime account parameter names.
+                let preferred = format!("ext{}", ext_import.account_index);
+                if module_name == &preferred {
+                    existing.0 = module_name.clone();
+                }
+            } else {
+                candidates.push((module_name.clone(), ext_import.account_index, selector));
             }
         }
 
         match candidates.len().cmp(&1) {
             Ordering::Equal => {
-                let (default_account_index, selector) = candidates[0];
+                let (module_name, default_account_index, selector) = &candidates[0];
                 let account_index =
-                    self.resolve_external_account_index("__external__", default_account_index)?;
+                    self.resolve_external_account_index(module_name, *default_account_index)?;
                 emitter.emit_opcode(CALL_EXTERNAL);
                 emitter.emit_u8(account_index);
-                emitter.emit_u16(selector);
+                emitter.emit_u16(*selector);
                 emitter.emit_u8(arg_count as u8);
                 Ok(true)
             }

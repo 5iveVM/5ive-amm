@@ -337,8 +337,8 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                 offset += 4;
             }
 
-            // CALL_EXTERNAL(_FAST): account_index(1) + offset(2) + param_count(1)
-            opcodes::CALL_EXTERNAL | opcodes::CALL_EXTERNAL_FAST => {
+            // CALL_EXTERNAL: account_index(1) + offset(2) + param_count(1)
+            opcodes::CALL_EXTERNAL => {
                 offset += 5;
             }
 

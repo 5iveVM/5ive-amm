@@ -133,3 +133,60 @@ pub fn validate_function_metadata(bytecode: &[u8]) -> ProgramResult {
         Err(e) => Err(map_parse_error(e)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use five_protocol::opcodes;
+
+    fn header(public_count: u8, total_count: u8) -> Vec<u8> {
+        let mut out = Vec::with_capacity(10);
+        out.extend_from_slice(b"5IVE");
+        out.extend_from_slice(&0u32.to_le_bytes()); // features
+        out.push(public_count);
+        out.push(total_count);
+        out
+    }
+
+    #[test]
+    fn verify_accepts_minimal_halt_script() {
+        let mut bytecode = header(1, 1);
+        bytecode.push(opcodes::HALT);
+        assert!(verify_bytecode_content(&bytecode).is_ok());
+    }
+
+    #[test]
+    fn verify_rejects_invalid_opcode_with_opcode_code() {
+        let mut bytecode = header(1, 1);
+        bytecode.push(0x68); // currently unassigned
+        let err = verify_bytecode_content(&bytecode).unwrap_err();
+        assert_eq!(err, ProgramError::Custom(0x68));
+    }
+
+    #[test]
+    fn verify_rejects_call_target_out_of_bounds() {
+        let mut bytecode = header(1, 1);
+        bytecode.push(opcodes::CALL);
+        bytecode.push(0); // param_count
+        bytecode.extend_from_slice(&(0x7FFFu16).to_le_bytes()); // bad target
+        let err = verify_bytecode_content(&bytecode).unwrap_err();
+        assert_eq!(err, ProgramError::Custom(8122));
+    }
+
+    #[test]
+    fn verify_rejects_jump_target_out_of_bounds() {
+        let mut bytecode = header(1, 1);
+        bytecode.push(opcodes::JUMP);
+        bytecode.extend_from_slice(&(0x7FFFu16).to_le_bytes()); // bad target
+        let err = verify_bytecode_content(&bytecode).unwrap_err();
+        assert_eq!(err, ProgramError::Custom(8122));
+    }
+
+    #[test]
+    fn verify_rejects_truncated_instruction() {
+        let mut bytecode = header(1, 1);
+        bytecode.push(opcodes::PUSH_U64); // needs 8 bytes
+        let err = verify_bytecode_content(&bytecode).unwrap_err();
+        assert_eq!(err, ProgramError::Custom(8130));
+    }
+}

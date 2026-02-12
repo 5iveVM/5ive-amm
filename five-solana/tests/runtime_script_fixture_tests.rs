@@ -122,7 +122,7 @@ fn harness_executes_external_token_transfer_without_cpi() {
             lamports: 0,
             data: vec![0u8; five::state::ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
-            is_writable: true,
+            is_writable: false,
             executable: false,
         },
     );
@@ -152,7 +152,7 @@ fn harness_executes_external_token_transfer_without_cpi() {
             owner: account @mut,
             ext0: account
         ) {{
-            ext0::transfer(source_account, destination_account, owner, 50);
+            transfer(source_account, destination_account, owner, 50);
         }}
     "#
     );

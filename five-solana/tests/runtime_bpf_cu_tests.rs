@@ -10,7 +10,10 @@ use std::{
 use five::instructions::{DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
 use five::state::{FIVEVMState, ScriptAccountHeader};
 use five_dsl_compiler::DslCompiler;
-use five_protocol::opcodes::HALT;
+use five_protocol::{
+    opcodes::{self, CALL_EXTERNAL, HALT},
+    parser::parse_code_bounds,
+};
 use harness::compile::load_or_compile_bytecode;
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use serde::Deserialize;
@@ -34,11 +37,43 @@ fn print_external_cache_metrics(label: &str) {
     #[cfg(not(target_os = "solana"))]
     {
         let (hits, misses, verify_hits) = five_vm_mito::MitoVM::last_external_cache_metrics();
-        println!(
-            "BPF_CU {} external_cache_hits={} external_cache_misses={} import_verify_cache_hits={}",
-            label, hits, misses, verify_hits
-        );
+        if hits == 0 && misses == 0 && verify_hits == 0 {
+            println!(
+                "BPF_CU {} external_cache_metrics=unavailable_in_bpf_program_test",
+                label
+            );
+        } else {
+            println!(
+                "BPF_CU {} external_cache_hits={} external_cache_misses={} import_verify_cache_hits={}",
+                label, hits, misses, verify_hits
+            );
+        }
     }
+}
+
+fn print_external_call_opcode_mix(label: &str, bytecode: &[u8]) {
+    let mut call_external = 0usize;
+    if let Ok((header, mut offset, code_end)) = parse_code_bounds(bytecode) {
+        let pool_enabled = (header.features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+        while offset < code_end {
+            let opcode = bytecode[offset];
+            if opcode == CALL_EXTERNAL {
+                call_external += 1;
+            }
+            let remaining = &bytecode[offset + 1..];
+            let Some(operand_bytes) = opcodes::operand_size(opcode, remaining, pool_enabled) else {
+                break;
+            };
+            let Some(next) = offset.checked_add(1 + operand_bytes) else {
+                break;
+            };
+            if next > code_end {
+                break;
+            }
+            offset = next;
+        }
+    }
+    println!("BPF_CU {} call_external={}", label, call_external);
 }
 
 #[derive(Debug, Deserialize)]
@@ -160,27 +195,27 @@ struct RuntimeAccount {
 }
 
 const TOKEN_ALL_PUBLIC_CALLS: [&str; 14] = [
-    "ext0::mint_to(mint_account, user1_token, user1, 1000);",
-    "ext0::mint_to(mint_account, user2_token, user1, 500);",
-    "ext0::mint_to(mint_account, user3_token, user1, 500);",
-    "ext0::transfer(user2_token, user3_token, user2, 100);",
-    "ext0::approve(user3_token, user3, new_mint_authority_pk, 150);",
-    "ext0::transfer_from(user3_token, user1_token, user2, 50);",
-    "ext0::revoke(user3_token, user3);",
-    "ext0::burn(mint_account, user1_token, user1, 100);",
-    "ext0::freeze_account(mint_account, user2_token, user1);",
-    "ext0::thaw_account(mint_account, user2_token, user1);",
-    "ext0::transfer(user1_token, user2_token, user1, 10);",
-    "ext0::transfer(user2_token, user1_token, user2, 10);",
-    "ext0::approve(user1_token, user1, new_mint_authority_pk, 1);",
-    "ext0::revoke(user1_token, user1);",
+    "mint_to(mint_account, user1_token, user1, 1000);",
+    "mint_to(mint_account, user2_token, user1, 500);",
+    "mint_to(mint_account, user3_token, user1, 500);",
+    "transfer(user2_token, user3_token, user2, 100);",
+    "approve(user3_token, user3, new_mint_authority_pk, 150);",
+    "transfer_from(user3_token, user1_token, user2, 50);",
+    "revoke(user3_token, user3);",
+    "burn(mint_account, user1_token, user1, 100);",
+    "freeze_account(mint_account, user2_token, user1);",
+    "thaw_account(mint_account, user2_token, user1);",
+    "transfer(user1_token, user2_token, user1, 10);",
+    "transfer(user2_token, user1_token, user2, 10);",
+    "approve(user1_token, user1, new_mint_authority_pk, 1);",
+    "revoke(user1_token, user1);",
 ];
 
 const TOKEN_ALL_PUBLIC_POST_CALLS: [&str; 4] = [
-    "ext0::set_mint_authority(mint_account, user1, new_mint_authority_pk);",
-    "ext0::set_freeze_authority(mint_account, user1, new_freeze_authority_pk);",
-    "ext0::disable_mint(mint_account, user2);",
-    "ext0::disable_freeze(mint_account, user2);",
+    "set_mint_authority(mint_account, user1, new_mint_authority_pk);",
+    "set_freeze_authority(mint_account, user1, new_freeze_authority_pk);",
+    "disable_mint(mint_account, user2);",
+    "disable_freeze(mint_account, user2);",
 ];
 
 struct ExternalAllPublicRun {
@@ -268,7 +303,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
             lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
-            is_writable: true,
+            is_writable: false,
             executable: false,
         },
     );
@@ -284,12 +319,13 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
             owner: account @mut,
             ext0: account
         ) {{
-            ext0::transfer(source_account, destination_account, owner, 50);
+            transfer(source_account, destination_account, owner, 50);
         }}
     "#
     );
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller script should compile");
+    print_external_call_opcode_mix("external_non_cpi", &caller_bytecode);
     accounts.insert(
         "caller_script".to_string(),
         RuntimeAccount {
@@ -542,7 +578,7 @@ async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
             lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
-            is_writable: true,
+            is_writable: false,
             executable: false,
         },
     );
@@ -560,15 +596,16 @@ async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
             owner: account @mut,
             ext0: account
         ) {{
-            ext0::transfer(s1, d1, owner, 10);
-            ext0::transfer(s2, d2, owner, 20);
-            ext0::transfer(s3, d3, owner, 30);
-            ext0::transfer(s4, d4, owner, 40);
+            transfer(s1, d1, owner, 10);
+            transfer(s2, d2, owner, 20);
+            transfer(s3, d3, owner, 30);
+            transfer(s4, d4, owner, 40);
         }}
     "#
     );
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller burst script should compile");
+    print_external_call_opcode_mix("external_burst_non_cpi", &caller_bytecode);
     accounts.insert(
         "caller_script".to_string(),
         RuntimeAccount {
@@ -836,7 +873,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
             lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
-            is_writable: true,
+            is_writable: false,
             executable: false,
         },
     );
@@ -850,7 +887,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         signature_parts.push(format!("d{i}: account @mut"));
         // Do many transfers per pair to maximize CU usage (18 calls per pair)
         for _ in 0..18 {
-            call_lines.push(format!("ext0::transfer(s{i}, d{i}, owner, {amount});"));
+            call_lines.push(format!("transfer(s{i}, d{i}, owner, {amount});"));
         }
     }
     signature_parts.push("owner: account @mut".to_string());
@@ -880,6 +917,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
 
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller mass-transfer script should compile");
+    print_external_call_opcode_mix("external_mass_transfer_non_cpi", &caller_bytecode);
     accounts.insert(
         "caller_script".to_string(),
         RuntimeAccount {
@@ -1928,7 +1966,7 @@ async fn run_external_token_all_public_profile(
             lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
-            is_writable: true,
+            is_writable: false,
             executable: false,
         },
     );

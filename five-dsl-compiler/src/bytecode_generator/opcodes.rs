@@ -454,7 +454,6 @@ impl OpcodeAnalyzer {
                 | opcodes::DEC_JUMP_NZ
                 | opcodes::DEC_LOCAL_JUMP_NZ
                 | opcodes::CALL_EXTERNAL
-                | opcodes::CALL_EXTERNAL_FAST
                 | opcodes::EQ_ZERO_JUMP
                 | opcodes::GT_ZERO_JUMP
                 | opcodes::LT_ZERO_JUMP

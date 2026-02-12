@@ -29,10 +29,10 @@ pub fn handle_functions(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             }
             res
         }
-        CALL_EXTERNAL | CALL_EXTERNAL_FAST => {
+        CALL_EXTERNAL => {
             let res = handle_call_external(ctx);
             if res.is_err() {
-                debug_log!("MitoVM: CALL_EXTERNAL(_FAST) Failed");
+                debug_log!("MitoVM: CALL_EXTERNAL Failed");
             }
             res
         }

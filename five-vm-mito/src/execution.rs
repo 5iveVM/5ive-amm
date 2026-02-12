@@ -382,7 +382,6 @@ impl MitoVM {
                 // Function Operations (0x90-0x9F)
                 CALL => handle_functions(CALL, ctx),
                 CALL_EXTERNAL => handle_functions(CALL_EXTERNAL, ctx),
-                CALL_EXTERNAL_FAST => handle_functions(CALL_EXTERNAL_FAST, ctx),
                 CALL_NATIVE => handle_functions(CALL_NATIVE, ctx),
                 PREPARE_CALL => handle_functions(PREPARE_CALL, ctx),
                 FINISH_CALL => handle_functions(FINISH_CALL, ctx),

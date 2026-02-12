@@ -240,7 +240,6 @@ pub const CALL_EXTERNAL: u8 = 0x91; // Call function in external account bytecod
 pub const CALL_NATIVE: u8 = 0x92; // MOVED FROM 0x82 (not implemented)
 pub const PREPARE_CALL: u8 = 0x93; // MOVED FROM 0x83 (not implemented)
 pub const FINISH_CALL: u8 = 0x94; // MOVED FROM 0x84 (not implemented)
-pub const CALL_EXTERNAL_FAST: u8 = 0x95; // Fast-path external call (same wire format as CALL_EXTERNAL)
 
 
 // ===== LOCAL VARIABLE OPERATIONS (0xA0-0xAF) =====
@@ -534,6 +533,24 @@ const fn build_opcode_arg_type_table() -> [u8; 256] {
 }
 
 const OPCODE_ARG_TYPE_TABLE: [u8; 256] = build_opcode_arg_type_table();
+
+const INVALID_OPCODE_INDEX: u16 = u16::MAX;
+
+const fn build_opcode_index_table() -> [u16; 256] {
+    let mut table = [INVALID_OPCODE_INDEX; 256];
+    let mut i = 0;
+    while i < OPCODE_TABLE.len() {
+        let slot = OPCODE_TABLE[i].opcode as usize;
+        if table[slot] == INVALID_OPCODE_INDEX {
+            // Preserve existing behavior from linear scan: first matching opcode wins.
+            table[slot] = i as u16;
+        }
+        i += 1;
+    }
+    table
+}
+
+const OPCODE_INDEX_TABLE: [u16; 256] = build_opcode_index_table();
 
 /// Complete opcode information table (const for zero-allocation lookup)
 pub const OPCODE_TABLE: &[OpcodeInfo] = &[
@@ -1199,13 +1216,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::CallExternal,
         stack_effect: 0,
         compute_cost: 8,
-    }, // account_index_u8 + offset_u16 + param_count_u8
-    OpcodeInfo {
-        opcode: CALL_EXTERNAL_FAST,
-        name: "CALL_EXTERNAL_FAST",
-        arg_type: ArgType::CallExternal,
-        stack_effect: 0,
-        compute_cost: 6,
     }, // account_index_u8 + offset_u16 + param_count_u8
     OpcodeInfo {
         opcode: CALL_NATIVE,
@@ -1887,14 +1897,12 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
 /// Get opcode information by opcode value (zero-allocation lookup)
 #[inline]
 pub const fn get_opcode_info(opcode: u8) -> Option<&'static OpcodeInfo> {
-    let mut i = 0;
-    while i < OPCODE_TABLE.len() {
-        if OPCODE_TABLE[i].opcode == opcode {
-            return Some(&OPCODE_TABLE[i]);
-        }
-        i += 1;
+    let idx = OPCODE_INDEX_TABLE[opcode as usize];
+    if idx == INVALID_OPCODE_INDEX {
+        None
+    } else {
+        Some(&OPCODE_TABLE[idx as usize])
     }
-    None
 }
 
 /// Check if opcode is valid (zero-allocation)
