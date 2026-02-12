@@ -1,8 +1,8 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import { useIdeStore } from "@/stores/ide-store";
-import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, FileCode, Function, Layers, Circle, Lock, Eye } from "lucide-react";
+import { ChevronDown, ChevronRight, FileCode, Zap, Layers, Circle, Lock, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LspDocumentSymbol, LspSymbolKind } from "@/types/lsp";
 import { getLspClient } from "@/lib/monaco-lsp";
@@ -121,7 +121,7 @@ export default function OutlinePanel({ maxHeight = "calc(100vh - 400px)" }: Outl
   const getSymbolIcon = (kind: LspSymbolKind | undefined) => {
     switch (kind) {
       case 6: // Function
-        return <Function className="w-4 h-4" />;
+        return <Zap className="w-4 h-4" />;
       case 5: // Class
       case 23: // Interface
         return <Layers className="w-4 h-4" />;
@@ -135,7 +135,7 @@ export default function OutlinePanel({ maxHeight = "calc(100vh - 400px)" }: Outl
     }
   };
 
-  const renderSymbol = (symbol: SymbolNode, depth: number = 0): JSX.Element => {
+  const renderSymbol = (symbol: SymbolNode, depth: number = 0): React.ReactElement => {
     const key = getSymbolKey(symbol);
     const hasChildren = symbol.children && symbol.children.length > 0;
 

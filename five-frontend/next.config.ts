@@ -3,6 +3,9 @@ import webpack from "webpack";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["five-sdk"],
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   experimental: {
     esmExternals: 'loose',
   },

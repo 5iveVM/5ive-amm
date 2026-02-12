@@ -10,8 +10,9 @@ export const fivelspwasm_get_definition: (a: number, b: number, c: number, d: nu
 export const fivelspwasm_find_references: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
 export const fivelspwasm_get_semantic_tokens: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
 export const fivelspwasm_get_document_symbols: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+export const fivelspwasm_get_workspace_symbols: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
 export const fivelspwasm_get_code_actions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
-export const fivelspwasm_prepare_rename: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+export const fivelspwasm_prepare_rename: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
 export const fivelspwasm_rename: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => void;
 export const fivelspwasm_clear_caches: (a: number) => void;
 export const __wbindgen_add_to_stack_pointer: (a: number) => number;

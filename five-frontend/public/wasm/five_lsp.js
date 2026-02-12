@@ -390,6 +390,54 @@ export class FiveLspWasm {
         }
     }
     /**
+     * Get workspace symbols matching a query
+     *
+     * Searches for symbols across the workspace (or current file) that match the query string.
+     * Supports case-insensitive substring matching.
+     *
+     * # Arguments
+     * * `uri` - File URI
+     * * `source` - The source code to search
+     * * `query` - Search query (case-insensitive substring match)
+     *
+     * # Returns
+     * JSON string containing array of SymbolInformation objects
+     * @param {string} uri
+     * @param {string} source
+     * @param {string} query
+     * @returns {string}
+     */
+    get_workspace_symbols(uri, source, query) {
+        let deferred5_0;
+        let deferred5_1;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(uri, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(source, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len1 = WASM_VECTOR_LEN;
+            const ptr2 = passStringToWasm0(query, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len2 = WASM_VECTOR_LEN;
+            wasm.fivelspwasm_get_workspace_symbols(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+            var ptr4 = r0;
+            var len4 = r1;
+            if (r3) {
+                ptr4 = 0; len4 = 0;
+                throw takeObject(r2);
+            }
+            deferred5_0 = ptr4;
+            deferred5_1 = len4;
+            return getStringFromWasm0(ptr4, len4);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+            wasm.__wbindgen_export3(deferred5_0, deferred5_1, 1);
+        }
+    }
+    /**
      * Create a new LSP instance
      *
      * This initializes the compiler bridge and prepares it for use.
@@ -404,17 +452,26 @@ export class FiveLspWasm {
      * Prepare a rename operation
      *
      * Validates that a symbol at the given position can be renamed and returns its name.
+     *
+     * # Arguments
+     * * `uri` - File URI (for multi-file context)
+     * * `source` - The source code
+     * * `line` - 0-indexed line number
+     * * `character` - 0-indexed character position
+     * @param {string} uri
      * @param {string} source
      * @param {number} line
      * @param {number} character
      * @returns {string | undefined}
      */
-    prepare_rename(source, line, character) {
+    prepare_rename(uri, source, line, character) {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            const ptr0 = passStringToWasm0(source, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const ptr0 = passStringToWasm0(uri, wasm.__wbindgen_export, wasm.__wbindgen_export2);
             const len0 = WASM_VECTOR_LEN;
-            wasm.fivelspwasm_prepare_rename(retptr, this.__wbg_ptr, ptr0, len0, line, character);
+            const ptr1 = passStringToWasm0(source, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len1 = WASM_VECTOR_LEN;
+            wasm.fivelspwasm_prepare_rename(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, line, character);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
             var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
@@ -422,12 +479,12 @@ export class FiveLspWasm {
             if (r3) {
                 throw takeObject(r2);
             }
-            let v2;
+            let v3;
             if (r0 !== 0) {
-                v2 = getStringFromWasm0(r0, r1).slice();
+                v3 = getStringFromWasm0(r0, r1).slice();
                 wasm.__wbindgen_export3(r0, r1 * 1, 1);
             }
-            return v2;
+            return v3;
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
         }

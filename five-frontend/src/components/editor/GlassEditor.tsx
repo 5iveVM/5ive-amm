@@ -35,7 +35,7 @@ export default function GlassEditor() {
 
     const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
         setMounted(true);
-        editor.onDidChangeCursorPosition((e) => {
+        editor.onDidChangeCursorPosition((e: any) => {
             setCursorPosition({
                 lineNumber: e.position.lineNumber,
                 column: e.position.column

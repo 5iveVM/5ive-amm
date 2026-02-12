@@ -136,6 +136,21 @@ export class FiveLspWasm {
      */
     get_semantic_tokens(uri: string, source: string): string;
     /**
+     * Get workspace symbols matching a query
+     *
+     * Searches for symbols across the workspace (or current file) that match the query string.
+     * Supports case-insensitive substring matching.
+     *
+     * # Arguments
+     * * `uri` - File URI
+     * * `source` - The source code to search
+     * * `query` - Search query (case-insensitive substring match)
+     *
+     * # Returns
+     * JSON string containing array of SymbolInformation objects
+     */
+    get_workspace_symbols(uri: string, source: string, query: string): string;
+    /**
      * Create a new LSP instance
      *
      * This initializes the compiler bridge and prepares it for use.
@@ -145,8 +160,14 @@ export class FiveLspWasm {
      * Prepare a rename operation
      *
      * Validates that a symbol at the given position can be renamed and returns its name.
+     *
+     * # Arguments
+     * * `uri` - File URI (for multi-file context)
+     * * `source` - The source code
+     * * `line` - 0-indexed line number
+     * * `character` - 0-indexed character position
      */
-    prepare_rename(source: string, line: number, character: number): string | undefined;
+    prepare_rename(uri: string, source: string, line: number, character: number): string | undefined;
     /**
      * Rename a symbol across all occurrences
      *
@@ -168,8 +189,9 @@ export interface InitOutput {
     readonly fivelspwasm_find_references: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly fivelspwasm_get_semantic_tokens: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly fivelspwasm_get_document_symbols: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly fivelspwasm_get_workspace_symbols: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly fivelspwasm_get_code_actions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
-    readonly fivelspwasm_prepare_rename: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly fivelspwasm_prepare_rename: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly fivelspwasm_rename: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => void;
     readonly fivelspwasm_clear_caches: (a: number) => void;
     readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
