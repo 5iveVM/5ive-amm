@@ -163,6 +163,85 @@ Common failures:
   - Ensure `token.bin` is built and the SBF program is rebuilt.
   - Note: `external_token_all_public_non_cpi_bpf_compute_units` is `#[ignore]` pending support for non-`transfer` external calls.
 
+### Unified BPF-CU Benchmark Suite (micro + scenario + regression gates)
+
+Use this suite as the default performance workflow for VM hotpath work.
+
+Files:
+- Harness utilities: `five-solana/tests/harness/perf.rs`
+- Micro opcode suite: `five-solana/tests/runtime_bpf_opcode_micro_cu_tests.rs`
+- Scenario suite: `five-solana/tests/runtime_bpf_cu_tests.rs`
+- Baseline snapshots: `five-solana/tests/benchmarks/baseline/<commit>.json`
+- Regression allowlist: `five-solana/tests/benchmarks/allowlist/<commit>.json`
+- Runner script: `scripts/ci-bpf-bench.sh`
+
+Standard output lines:
+- `BENCH family=<...> opcode=<...> variant=<...> deploy=<...> execute=<...> total=<...>`
+- `SCENARIO name=<...> execute=<...> total=<...>`
+
+Run workflow:
+
+```bash
+# Build SBF + run micro + scenario suites (default baseline key: local)
+./scripts/ci-bpf-bench.sh
+
+# Use a named baseline snapshot key
+FIVE_BENCH_BASELINE_COMMIT=pre-opt-2026-02-12 ./scripts/ci-bpf-bench.sh
+
+# Run suites individually
+cargo test -p five --test runtime_bpf_opcode_micro_cu_tests -- --nocapture
+cargo test -p five --test runtime_bpf_cu_tests -- --nocapture
+```
+
+Regression policy implemented in harness:
+- Strict no-regression check compares current CU vs baseline for `deploy`, `execute`, and `total`.
+- Missing baseline file or test entry is non-fatal and prints:
+  - `BENCH baseline_missing ...`
+  - `BENCH baseline_entry_missing ...`
+- Allowlist entries can exempt specific fields (`deploy`/`execute`/`total`) per test.
+
+Baseline management:
+1. Create/update baseline file at `five-solana/tests/benchmarks/baseline/<commit>.json`.
+2. Add per-test metrics in `tests` map (key = test name used in `assert_no_regression`).
+3. If a regression is intentional, add allowlist entry at:
+   `five-solana/tests/benchmarks/allowlist/<commit>.json`
+   with owner/rationale/expiry commit and optional field list.
+
+Current scenario notes:
+- `scenario_high_cpi_density_bpf_compute_units` and `scenario_memory_string_heavy_bpf_compute_units` run full fixture flows and emit `SCENARIO` lines.
+- `scenario_high_external_call_fanout_bpf_compute_units` currently acts as a regression hook line; high-fanout external execution is still measured by:
+  - `external_token_transfer_burst_non_cpi_bpf_compute_units`
+  - `external_token_transfer_mass_non_cpi_bpf_compute_units`
+
+### Hotpath Optimization Playbook (BPF-first, zero-copy safe)
+
+When optimizing VM execution:
+
+1. Measure first
+- Add/adjust micro benchmark in `runtime_bpf_opcode_micro_cu_tests.rs`.
+- Confirm scenario impact in `runtime_bpf_cu_tests.rs`.
+- Capture BENCH/SCENARIO before changing code.
+
+2. Prioritize safe wins
+- Remove intermediate copies.
+- Convert byte-by-byte decoding to bounded slice decode.
+- Collapse repeated bounds checks into one check when sound.
+- Keep account/signer/writable/owner checks unchanged.
+- Prefer immutable slice reads and stack-local temporaries over heap allocation.
+
+3. Re-run both suites every change
+- Micro suite catches opcode-level regressions.
+- Scenario suite catches system-level regressions and interaction effects.
+
+4. Gate and document
+- If CU worsens, either fix or explicitly allowlist with rationale and expiry.
+- Keep emitted BENCH/SCENARIO format stable for tooling and diffability.
+
+Recommended hotspots to inspect first:
+- Dispatch + locals/stack handlers (`five-vm-mito/src/execution.rs`, `five-vm-mito/src/handlers/locals.rs`, `five-vm-mito/src/handlers/stack_ops.rs`)
+- Input/memory decode paths (`five-vm-mito/src/context.rs`, `five-vm-mito/src/handlers/memory.rs`)
+- External/system call paths (`five-vm-mito/src/handlers/functions.rs`, `five-vm-mito/src/handlers/system/invoke.rs`)
+
 ### Interface CPI CU tests (SPL + Anchor, no validator)
 
 Use this when validating interface-based CPI CU usage for SPL Token and Anchor program calls.

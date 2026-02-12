@@ -5,6 +5,7 @@ target/
 # Generated files
 mito-program-keypair-fixed.json
 *.md
+!CLAUDE.md
 target/deploy/five.so
 
 # System files
