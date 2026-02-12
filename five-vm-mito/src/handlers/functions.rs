@@ -573,16 +573,36 @@ fn validate_external_function_constraints(
     ctx: &ExecutionManager,
     account_count: u8,
     constraints: &[u8; 16],
+    remap: &[u8; MAX_PARAMETERS + 1],
+    bound_account_count: u8,
 ) -> CompactResult<()> {
-    // Validate we have at least the required number of accounts in the accounts array
-    // This is checked implicitly in CALL_EXTERNAL itself, but we validate constraints here
+    // External constraints must be evaluated against the call's account arguments,
+    // not positional transaction accounts.
+    if account_count > bound_account_count {
+        debug_log!(
+            "MitoVM: CALL_EXTERNAL constraint violation - required accounts {} > bound account args {}",
+            account_count as u32,
+            bound_account_count as u32
+        );
+        return Err(VMErrorCode::ConstraintViolation);
+    }
 
     for i in 0..account_count as usize {
         let constraint_bitmask = constraints[i];
         if constraint_bitmask == 0 {
             continue;
         }
-        let account = ctx.get_account(i as u8)?;
+
+        // External account slots are 1-based in the remap table.
+        let remap_slot = i + 1;
+        if remap_slot >= remap.len() {
+            return Err(VMErrorCode::ConstraintViolation);
+        }
+        let mapped_account_index = remap[remap_slot];
+        if mapped_account_index == u8::MAX {
+            return Err(VMErrorCode::ConstraintViolation);
+        }
+        let account = &ctx.accounts()[mapped_account_index as usize];
 
         // bit 0: @signer constraint
         if (constraint_bitmask & 0x01) != 0 {
@@ -622,6 +642,34 @@ fn validate_external_function_constraints(
     }
 
     Ok(())
+}
+
+#[inline]
+fn build_external_account_remap(
+    ctx: &ExecutionManager,
+    call_args: &[ValueRef; MAX_PARAMETERS],
+    param_count: u8,
+) -> CompactResult<([u8; MAX_PARAMETERS + 1], u8)> {
+    let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
+    let mut ext_acc_slot = 1usize;
+
+    for value in call_args.iter().take(param_count as usize) {
+        if let ValueRef::AccountRef(acc_idx, _) = value {
+            if ext_acc_slot >= remap.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            // Always resolve against caller context so nested external calls map to
+            // absolute transaction account indices.
+            let resolved_idx = ctx.resolve_account_index_for_context(*acc_idx);
+            if resolved_idx as usize >= ctx.accounts().len() {
+                return Err(VMErrorCode::InvalidAccountIndex);
+            }
+            remap[ext_acc_slot] = resolved_idx;
+            ext_acc_slot += 1;
+        }
+    }
+
+    Ok((remap, (ext_acc_slot - 1) as u8))
 }
 
 fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
@@ -808,11 +856,6 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
             )
         };
 
-    // Validate that the provided accounts satisfy external function's constraints
-    if required_account_count > 0 {
-        validate_external_function_constraints(ctx, required_account_count, &constraints)?;
-    }
-
     if !is_authorized {
         return Err(VMErrorCode::UnauthorizedBytecodeInvocation);
     }
@@ -862,6 +905,20 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
                 call_args[idx] = value;
             }
         }
+    }
+
+    // Build external account remap: external account slots are bound from account args in call order.
+    let (remap, bound_account_count) = build_external_account_remap(ctx, &call_args, param_count)?;
+
+    // Validate that provided account args satisfy external function constraints.
+    if required_account_count > 0 {
+        validate_external_function_constraints(
+            ctx,
+            required_account_count,
+            &constraints,
+            &remap,
+            bound_account_count,
+        )?;
     }
 
     // Check if we have enough space for callee's locals before pushing frame
@@ -918,17 +975,6 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         }
     }
 
-    // Build external account remap: external account slots are bound from account args in call order.
-    let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
-    let mut ext_acc_slot = 1usize;
-    for value in call_args.iter().take(param_count as usize) {
-        if let ValueRef::AccountRef(acc_idx, _) = value {
-            if ext_acc_slot < remap.len() {
-                remap[ext_acc_slot] = *acc_idx;
-                ext_acc_slot += 1;
-            }
-        }
-    }
     ctx.set_external_account_remap(remap);
 
     debug_log!(
