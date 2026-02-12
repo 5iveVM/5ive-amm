@@ -59,10 +59,10 @@ export default function NapkinToMainnet() {
                             <div className="grid grid-cols-2 h-[320px] relative">
                                 {/* The Wall (Native Solana) */}
                                 <div className="relative p-6 bg-rose-pine-base flex flex-col items-center justify-center border-r border-rose-pine-hl-low/10 group overflow-hidden">
-                                     {/* Cracks and Debris Effect */}
-                                    <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20" />
+                                    {/* Cracks and Debris Effect - Cleaned up */}
+                                    {/* <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20" />Removed noise */}
                                     <div className="absolute top-0 right-0 w-full h-full border-r-[1px] border-r-rose-pine-love/20 skew-x-12 origin-bottom-right scale-y-110 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                                    
+
                                     <div className="z-10 w-full max-w-[220px] flex flex-col items-center gap-4">
                                         <div className="rounded-xl border border-rose-pine-love/25 bg-rose-pine-base/70 px-5 py-4 text-center">
                                             <div className="text-[10px] font-mono uppercase tracking-widest text-rose-pine-subtle mb-1">Anchor Hello World</div>
@@ -85,7 +85,7 @@ export default function NapkinToMainnet() {
                                 <div className="relative p-6 bg-rose-pine-surface flex flex-col items-center justify-center overflow-hidden">
                                     <div className="absolute inset-0 bg-rose-pine-iris/5 animate-pulse" />
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-rose-pine-iris/20 blur-3xl rounded-full" />
-                                    
+
                                     <div className="z-10 w-full max-w-[220px] flex flex-col items-center gap-4">
                                         <div className="rounded-xl border border-rose-pine-iris/30 bg-rose-pine-base/60 px-5 py-4 text-center">
                                             <div className="text-[10px] font-mono uppercase tracking-widest text-rose-pine-subtle mb-1">5ive Hello World</div>
@@ -100,7 +100,7 @@ export default function NapkinToMainnet() {
                                         <Rocket size={14} className="text-rose-pine-iris/90" />
                                     </div>
                                 </div>
-                                
+
                                 {/* Center "Break" Icon */}
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-rose-pine-surface border border-rose-pine-hl-low/20 p-2 rounded-full shadow-lg z-20 text-rose-pine-love">
                                     <Hammer size={20} className="transform -scale-x-100" />

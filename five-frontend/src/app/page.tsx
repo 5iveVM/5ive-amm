@@ -3,10 +3,16 @@ import Hero from "@/components/landing/Hero";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 // Rich Landing Page Sections (Dynamic Imports for performance)
-const NapkinToMainnet = dynamic(() => import("@/components/landing/NapkinToMainnet"));
+const NapkinToMainnet = dynamic(() => import("@/components/landing/NapkinToMainnet"), {
+    loading: () => <div className="h-[500px]" />,
+});
 
-const SuperPowers = dynamic(() => import("@/components/landing/SuperPowers"));
-const DeveloperExperience = dynamic(() => import("@/components/landing/DeveloperExperience"));
+const SuperPowers = dynamic(() => import("@/components/landing/SuperPowers"), {
+    loading: () => <div className="h-[500px]" />,
+});
+const DeveloperExperience = dynamic(() => import("@/components/landing/DeveloperExperience"), {
+    loading: () => <div className="h-[500px]" />,
+});
 
 import Background from "@/components/layout/Background";
 

@@ -20,7 +20,7 @@ export default function Hero() {
                     <m.div
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ duration: 0.7, delay: 1.8, ease: "circOut" }}
+                        transition={{ duration: 0.5, delay: 0.2, ease: "circOut" }}
                         className="relative flex flex-col items-center mb-10"
                     >
                         <div className="relative z-10">
@@ -43,7 +43,7 @@ export default function Hero() {
                     <m.div
                         initial={{ opacity: 0, y: 24 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 2.0, duration: 0.55 }}
+                        transition={{ delay: 0.4, duration: 0.4, ease: "circOut" }}
                         className="flex flex-col sm:flex-row items-center gap-5 mt-6"
                     >
                         <Link href="/ide">

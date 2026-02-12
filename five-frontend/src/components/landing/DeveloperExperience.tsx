@@ -161,24 +161,7 @@ export default function DeveloperExperience() {
                             </div>
                         </motion.div>
 
-                        {/* Floating 'No Tools' badges (Re-positioned) */}
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            whileInView={{ opacity: 1, x: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.8, delay: 0.3 }}
-                            className="absolute left-4 right-4 -bottom-5 md:-bottom-6 flex flex-wrap items-center justify-center gap-2 z-20 pointer-events-none"
-                        >
-                            <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 text-contrast">
-                                rustup update
-                            </div>
-                            <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 text-contrast">
-                                solana-install
-                            </div>
-                            <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 text-contrast">
-                                cargo build-bpf
-                            </div>
-                        </motion.div>
+
 
                     </div>
 

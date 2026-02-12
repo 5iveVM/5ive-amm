@@ -20,7 +20,7 @@ export default function Header() {
 
     return (
         <>
-            <header className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center justify-between px-6 py-3 rounded-full border border-rose-pine-hl-low/20 bg-rose-pine-surface/60 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] w-[90%] max-w-5xl transition-all duration-500 hover:shadow-[0_8px_40px_rgba(0,0,0,0.2)] hover:border-rose-pine-hl-med/30">
+            <header className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center justify-between px-6 py-3 rounded-full border border-rose-pine-hl-low/10 bg-rose-pine-surface/70 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] w-[90%] max-w-5xl transition-all duration-500 hover:shadow-[0_8px_40px_rgba(0,0,0,0.2)] hover:border-rose-pine-hl-med/30">
                 <div className="flex items-center gap-4">
                     <Link href="/" className="font-black text-xl tracking-tighter bg-gradient-to-b from-white via-[#c4a7e7] to-[#eb6f92] bg-clip-text text-transparent hover:opacity-80 transition-opacity" onClick={() => setIsMobileMenuOpen(false)}>
                         5IVE
