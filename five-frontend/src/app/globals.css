@@ -1,6 +1,24 @@
 @import "tailwindcss";
 
 @theme {
+  /* Default Dark Theme Colors */
+  --rp-base: #232136;
+  --rp-surface: #2a273f;
+  --rp-overlay: #393552;
+  --rp-muted: #6e6a86;
+  --rp-subtle: #908caa;
+  --rp-text: #e0def4;
+  --rp-love: #eb6f92;
+  --rp-gold: #f6c177;
+  --rp-rose: #ea9a97;
+  --rp-pine: #3e8fb0;
+  --rp-foam: #9ccfd8;
+  --rp-iris: #c4a7e7;
+  --rp-hl-low: #2a283e;
+  --rp-hl-med: #44415a;
+  --rp-hl-high: #56526e;
+
+  /* Color Theme Tokens for Tailwind */
   --color-rose-pine-base: var(--rp-base);
   --color-rose-pine-surface: var(--rp-surface);
   --color-rose-pine-overlay: var(--rp-overlay);
@@ -173,24 +191,8 @@
   animation: orb-center 30s infinite ease-in-out;
 }
 
-/* Default Dark Theme (Rose Pine Main) */
+/* Default Dark Theme (Rose Pine Main) - Glass Tokens Only */
 :root {
-  --rp-base: #232136;
-  --rp-surface: #2a273f;
-  --rp-overlay: #393552;
-  --rp-muted: #6e6a86;
-  --rp-subtle: #908caa;
-  --rp-text: #e0def4;
-  --rp-love: #eb6f92;
-  --rp-gold: #f6c177;
-  --rp-rose: #ea9a97;
-  --rp-pine: #3e8fb0;
-  --rp-foam: #9ccfd8;
-  --rp-iris: #c4a7e7;
-  --rp-hl-low: #2a283e;
-  --rp-hl-med: #44415a;
-  --rp-hl-high: #56526e;
-
   /* Holographic Glass Tokens (Dark - Refined Rose Pine) */
   /* Base: #232136 -> 35, 33, 54 */
   --glass-bg: rgba(35, 33, 54, 0.5);
@@ -204,6 +206,7 @@
 
 /* Light Theme (Rose Pine Dawn) */
 .light {
+  /* Override Rose Pine colors for light mode */
   --rp-base: #faf4ed;
   --rp-surface: #fffaf3;
   --rp-overlay: #f2e9e1;
