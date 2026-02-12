@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Cloud, Zap, ArrowRight, CheckCircle2, XCircle, Globe } from "lucide-react";
+import { Cloud, Zap, ArrowRight, CheckCircle2, Globe } from "lucide-react";
 import Link from "next/link";
 
 export default function DeveloperExperience() {
@@ -30,26 +30,26 @@ export default function DeveloperExperience() {
                                     <Zap size={24} />
                                 </div>
                                 <h2 className="text-3xl md:text-5xl font-black text-rose-pine-text tracking-tight">
-                                    The Import <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-pine-love to-rose-pine-iris">Revolution</span>
+                                    Imports That <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-pine-love to-rose-pine-iris">Actually Compose</span>
                                 </h2>
                             </div>
 
                             <p className="text-xl text-rose-pine-subtle leading-relaxed mb-8 text-contrast">
-                                Stop writing repetitive integration glue. Five gives you two explicit paths: external bytecode calls (non-CPI) and interface CPI calls, so both human teams and agentic builders can ship faster.
+                                5IVE gives you explicit composition paths without hiding semantics. <code className="bg-rose-pine-overlay px-1.5 py-0.5 rounded text-rose-pine-foam">use</code> works for local modules and external bytecode. Interfaces can be imported (5IVE bytecode path) or declared (true CPI path).
                             </p>
 
                             <ul className="space-y-4 mb-10 text-contrast">
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
-                                    <XCircle className="mt-1 text-rose-pine-muted shrink-0 opacity-50" size={20} />
-                                    <span>No fake abstraction over CPI semantics</span>
+                                    <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
+                                    <span><b>Verified imports</b>: metadata is embedded at compile time and account identity is checked at runtime</span>
                                 </li>
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
-                                    <XCircle className="mt-1 text-rose-pine-muted shrink-0 opacity-50" size={20} />
-                                    <span>No ambiguity between external bytecode and CPI paths</span>
-                                </li>
-                                <li className="flex items-start gap-3 text-rose-pine-text font-medium">
                                     <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
-                                    <span>Use <code className="bg-rose-pine-overlay px-1.5 py-0.5 rounded text-rose-pine-foam">use</code> for external bytecode, <code className="bg-rose-pine-overlay px-1.5 py-0.5 rounded text-rose-pine-foam">interface</code> for CPI</span>
+                                    <span><b>One import model</b>: local modules, external functions, and imported interfaces</span>
+                                </li>
+                                <li className="flex items-start gap-3 text-rose-pine-subtle">
+                                    <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
+                                    <span><b>Explicit execution</b>: external function imports are non-CPI, while interface calls (imported or declared) are CPI</span>
                                 </li>
                             </ul>
                         </motion.div>
@@ -62,7 +62,7 @@ export default function DeveloperExperience() {
 
                         <div className="relative grid gap-6">
 
-                            {/* Comparison Card */}
+                            {/* Composition Card */}
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 whileInView={{ opacity: 1, y: 0 }}
@@ -71,45 +71,31 @@ export default function DeveloperExperience() {
                                 className="rounded-3xl border border-rose-pine-hl-low/20 bg-rose-pine-surface overflow-hidden shadow-2xl shadow-rose-pine-iris/10"
                             >
                                 {/* Header */}
-                                <div className="flex border-b border-rose-pine-hl-low/10">
-                                    <div className="flex-1 p-4 bg-rose-pine-base text-center text-xs font-mono uppercase tracking-widest text-rose-pine-subtle border-r border-rose-pine-hl-low/10 opacity-50 text-contrast">
-                                        Legacy CPI
-                                    </div>
-                                    <div className="flex-1 p-4 bg-rose-pine-surface text-center text-xs font-bold font-mono uppercase tracking-widest text-rose-pine-iris">
-                                        5IVE Import
-                                    </div>
+                                <div className="p-4 bg-rose-pine-base border-b border-rose-pine-hl-low/10 text-center text-xs font-mono uppercase tracking-widest text-rose-pine-iris">
+                                    5IVE Composition Paths
                                 </div>
 
                                 {/* Editor Body */}
-                                <div className="grid grid-cols-2 divide-x divide-rose-pine-hl-low/10 font-mono text-[10px] md:text-xs leading-relaxed">
-
-                                    {/* Legacy Code (Dimmed) */}
-                                    <div className="p-6 bg-rose-pine-surface opacity-40 select-none overflow-hidden relative">
-                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-rose-pine-surface z-10" />
-                                        <span className="text-rose-pine-love">let</span> ix = Instruction {"{"}<br />
-                                        &nbsp;&nbsp;program_id: pid,<br />
-                                        &nbsp;&nbsp;accounts: <span className="text-rose-pine-foam">vec!</span>[<br />
-                                        &nbsp;&nbsp;&nbsp;&nbsp;AccountMeta::new(..),<br />
-                                        &nbsp;&nbsp;&nbsp;&nbsp;AccountMeta::readonly(..),<br />
-                                        &nbsp;&nbsp;],<br />
-                                        &nbsp;&nbsp;data: args.try_to_vec()?,<br />
-                                        {"}"};<br />
-                                        invoke_signed(&ix, accounts, ..)?;
+                                <div className="p-6 md:p-7 space-y-4 font-mono text-[10px] md:text-xs leading-relaxed bg-rose-pine-surface/50">
+                                    <div className="rounded-xl border border-rose-pine-hl-low/20 bg-rose-pine-base/45 p-4">
+                                        <p className="text-[10px] uppercase tracking-wider text-rose-pine-subtle mb-2">use path (local + external non-CPI)</p>
+                                        <span className="text-rose-pine-iris">use</span> <span className="text-rose-pine-gold">utils::helpers</span>;<br />
+                                        <span className="text-rose-pine-iris">use</span> <span className="text-rose-pine-gold">"BYTECODE_ACCOUNT"</span>::{"{transfer}"};<br />
+                                        transfer(from, to, owner, 50);
                                     </div>
 
-                                    {/* 5IVE Code (Bright) */}
-                                    <div className="p-6 bg-rose-pine-surface/50 relative">
-                                        <div className="absolute top-0 right-0 p-2">
-                                            <div className="flex gap-1.5">
-                                                <div className="w-2 h-2 rounded-full bg-rose-pine-foam animate-pulse" />
-                                            </div>
+                                    <div className="rounded-xl border border-rose-pine-hl-low/20 bg-rose-pine-base/45 p-4 space-y-3">
+                                        <p className="text-[10px] uppercase tracking-wider text-rose-pine-subtle">Interface path (CPI)</p>
+                                        <div>
+                                            <span className="text-rose-pine-subtle">// imported interface</span><br />
+                                            <span className="text-rose-pine-iris">use</span> <span className="text-rose-pine-gold">"BYTECODE_ACCOUNT"</span>::{"{SplTokenInterface}"};<br />
+                                            SplTokenInterface.transfer(from, to, owner, 50);
                                         </div>
-                                        <span className="text-rose-pine-iris">use</span> <span className="text-rose-pine-gold">"TOKEN_BYTECODE_ADDRESS"</span>::{"{transfer}"};<br />
-                                        transfer(from, to, owner, amount);<br />
-                                        <br />
-                                        <span className="text-rose-pine-subtle">// CPI path when invoking non-Five programs</span><br />
-                                        interface SPLToken @program("...") {"{ ... }"}<br />
-                                        SPLToken.transfer(from, to, owner, amount);
+                                        <div>
+                                            <span className="text-rose-pine-subtle">// declared interface</span><br />
+                                            interface SplTokenInterface @program("...") {"{ ... }"}<br />
+                                            SplTokenInterface.transfer(from, to, owner, 50);
+                                        </div>
                                     </div>
                                 </div>
                             </motion.div>
@@ -181,12 +167,12 @@ export default function DeveloperExperience() {
                             whileInView={{ opacity: 1, x: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.8, delay: 0.3 }}
-                            className="absolute -left-4 md:-left-12 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-20 pointer-events-none"
+                            className="absolute left-4 right-4 -bottom-5 md:-bottom-6 flex flex-wrap items-center justify-center gap-2 z-20 pointer-events-none"
                         >
                             <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 text-contrast">
                                 rustup update
                             </div>
-                            <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 ml-4 text-contrast">
+                            <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 text-contrast">
                                 solana-install
                             </div>
                             <div className="px-4 py-2 rounded-lg bg-rose-pine-base/90 backdrop-blur border border-rose-pine-love/20 text-rose-pine-subtle text-xs font-mono shadow-xl whitespace-nowrap opacity-60 line-through decoration-rose-pine-love decoration-2 text-contrast">

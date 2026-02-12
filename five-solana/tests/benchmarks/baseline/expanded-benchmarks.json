@@ -1,0 +1,127 @@
+{
+  "commit": "expanded-benchmarks",
+  "description": "Expanded benchmark baseline with 18 micro-benchmarks covering arithmetic, logical, control, stack, and function families",
+  "timestamp": "2026-02-12",
+  "tests": {
+    "opcode_arithmetic_add_single": {
+      "deploy": 1033,
+      "execute": 1954,
+      "total": 2987
+    },
+    "opcode_arithmetic_div_single": {
+      "deploy": 1035,
+      "execute": 2020,
+      "total": 3055
+    },
+    "opcode_arithmetic_sub_loop": {
+      "deploy": 32763,
+      "execute": 18196,
+      "total": 50959
+    },
+    "opcode_arithmetic_mul_loop": {
+      "deploy": 32763,
+      "execute": 18484,
+      "total": 51247
+    },
+    "opcode_arithmetic_div_loop": {
+      "deploy": 32955,
+      "execute": 24820,
+      "total": 57775
+    },
+    "opcode_arithmetic_mul_checked_loop": {
+      "deploy": 32763,
+      "execute": 18484,
+      "total": 51247
+    },
+    "opcode_arithmetic_mul_div_fused_loop": {
+      "deploy": 41019,
+      "execute": 28468,
+      "total": 69487
+    },
+    "opcode_logical_and_loop": {
+      "deploy": 32763,
+      "execute": 27124,
+      "total": 59887
+    },
+    "opcode_logical_or_loop": {
+      "deploy": 32763,
+      "execute": 26932,
+      "total": 59695
+    },
+    "opcode_logical_not_loop": {
+      "deploy": 24795,
+      "execute": 18388,
+      "total": 43183
+    },
+    "opcode_logical_bitwise_and_loop": {
+      "deploy": 32955,
+      "execute": 22516,
+      "total": 55471
+    },
+    "opcode_logical_shift_left_loop": {
+      "deploy": 32955,
+      "execute": 22420,
+      "total": 55375
+    },
+    "opcode_control_require_single": {
+      "deploy": 867,
+      "execute": 1865,
+      "total": 2732
+    },
+    "opcode_stack_add_loop": {
+      "deploy": 32763,
+      "execute": 18484,
+      "total": 51247
+    },
+    "opcode_stack_dup_loop": {
+      "deploy": 24795,
+      "execute": 18388,
+      "total": 43183
+    },
+    "opcode_stack_swap_loop": {
+      "deploy": 32763,
+      "execute": 18484,
+      "total": 51247
+    },
+    "opcode_locals_get_local_0_loop": {
+      "deploy": 16897,
+      "execute": 12165,
+      "total": 29062
+    },
+    "opcode_nibble_set_local_loop": {
+      "deploy": 16718,
+      "execute": 12725,
+      "total": 29443
+    },
+    "opcode_call_external_cold": {
+      "deploy": 18930,
+      "execute": 5561,
+      "total": 24491
+    },
+    "opcode_call_external_hot": {
+      "deploy": 18930,
+      "execute": 0,
+      "total": 18930
+    },
+    "opcode_fused_require_param_gt_zero": {
+      "deploy": 782,
+      "execute": 1904,
+      "total": 2686
+    },
+    "scenario_high_external_call_fanout": {
+      "deploy": 0,
+      "execute": 0,
+      "total": 0
+    },
+    "scenario_memory_string_heavy": {
+      "deploy": 0,
+      "execute": 99972,
+      "total": 99972
+    },
+    "scenario_high_cpi_density": {
+      "deploy": 0,
+      "execute": 187757,
+      "total": 187757
+    }
+  }
+}

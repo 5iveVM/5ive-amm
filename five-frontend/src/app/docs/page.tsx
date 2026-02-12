@@ -53,8 +53,8 @@ pub increment(counter: Counter @mut, authority: account @signer) {
     counter.value = counter.value + 1;
 }`;
 
-// Verified example: mirrors compiler/runtime external-import tests.
-const EXTERNAL_IMPORT_SNIPPET = `use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{transfer};
+// Verified syntax: external function import from a 5IVE bytecode account.
+const EXTERNAL_IMPORT_SNIPPET = `use "11111111111111111111111111111111"::{transfer};
 
 pub settle(
     source_account: account @mut,
@@ -66,8 +66,8 @@ pub settle(
 }`;
 
 // Verified example: compiler rejects ambiguous unqualified imported calls.
-const IMPORT_AMBIGUITY_SNIPPET = `use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{transfer};
-use "11111111111111111111111111111111"::{transfer};
+const IMPORT_AMBIGUITY_SNIPPET = `use "11111111111111111111111111111111"::{transfer};
+use "22222222222222222222222222222222"::{transfer};
 
 pub execute(token_a: account, token_b: account) {
     transfer(); // compile error: ambiguous imported symbol
@@ -131,15 +131,14 @@ function PathDecisionSection() {
             <GlassCard className="p-5 border-l-4 border-l-rose-pine-iris">
                 <h4 className="font-semibold text-rose-pine-text">External bytecode call (non-CPI)</h4>
                 <p className="text-sm text-rose-pine-subtle mt-2">
-                    Use address imports and call imported public functions. This compiles to
-                    <code className="text-rose-pine-iris"> CALL_EXTERNAL </code> in Five VM execution.
+                    Use address imports and call imported public functions directly through 5IVE's external composition path (non-CPI).
                 </p>
             </GlassCard>
             <GlassCard className="p-5 border-l-4 border-l-rose-pine-foam">
                 <h4 className="font-semibold text-rose-pine-text">Interface CPI call</h4>
                 <p className="text-sm text-rose-pine-subtle mt-2">
                     Use interface definitions with <code className="text-rose-pine-iris">@program</code> when invoking
-                    non-Five Solana programs through CPI semantics.
+                    non-5IVE Solana programs through CPI semantics.
                 </p>
             </GlassCard>
         </div>
@@ -214,9 +213,8 @@ export default function DocsPage() {
                         </div>
                         <GlassCard className="p-6 border-l-4 border-l-rose-pine-iris space-y-3">
                             <p className="text-rose-pine-text/90 leading-relaxed">
-                                5IVE is a DSL and VM toolchain for secure Solana applications. Contracts can compose with other Five bytecode accounts through
-                                <code className="text-rose-pine-iris"> CALL_EXTERNAL </code>
-                                without CPI, while still supporting interface-based CPI for non-Five programs.
+                                5IVE is a DSL and VM toolchain for secure Solana applications. Contracts can compose with other 5IVE bytecode accounts through
+                                a native external-call path without CPI, while still supporting interface-based CPI for non-5IVE programs.
                             </p>
                             <p className="text-sm text-rose-pine-subtle">
                                 Product thesis: make mainnet deployable apps economically accessible, then compound defensibility through a template moat and app-store-style distribution surface.
@@ -269,7 +267,8 @@ export default function DocsPage() {
 
                         <GlassCard className="p-6 space-y-4">
                             <p className="text-sm text-rose-pine-subtle">
-                                Use <code className="text-rose-pine-iris">use</code> or <code className="text-rose-pine-iris">import</code> with a bytecode account address. Imported functions can be called unqualified and compile to <code className="text-rose-pine-iris">CALL_EXTERNAL</code>.
+                                Use <code className="text-rose-pine-iris">use</code> with a deployed 5IVE bytecode account address. Imported functions can be called unqualified through 5IVE's non-CPI external-call path.
+                                For non-5IVE programs like SPL Token, use the interface/CPI path below.
                             </p>
                             <DocsEditor filename="external_import_non_cpi.v" code={EXTERNAL_IMPORT_SNIPPET} height="280px" />
                         </GlassCard>
@@ -277,7 +276,7 @@ export default function DocsPage() {
                         <GlassCard className="p-6 space-y-4 border-l-4 border-l-rose-pine-gold">
                             <h4 className="text-sm font-semibold text-rose-pine-gold">Import verification</h4>
                             <p className="text-sm text-rose-pine-subtle">
-                                Five embeds import verification metadata at compile time and validates account identity at runtime before external execution. Unauthorized bytecode substitution is rejected.
+                                5IVE embeds import verification metadata at compile time and validates account identity at runtime before external execution. Unauthorized bytecode substitution is rejected.
                             </p>
                             <div className="bg-rose-pine-base/50 rounded-lg p-4 text-xs text-rose-pine-subtle space-y-1">
                                 <p>Compile time: import metadata stored in script bytecode.</p>
@@ -300,7 +299,7 @@ export default function DocsPage() {
 
                         <GlassCard className="p-6 space-y-4">
                             <p className="text-sm text-rose-pine-subtle">
-                                Interfaces declare non-Five program methods and discriminators. Use this path when true Solana CPI is required.
+                                Interfaces declare non-5IVE program methods and discriminators. Use this path when true Solana CPI is required.
                             </p>
                             <DocsEditor filename="interface_cpi.v" code={INTERFACE_CPI_SNIPPET} height="320px" />
                         </GlassCard>

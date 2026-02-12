@@ -53,7 +53,7 @@ const MarketSection = React.memo(function MarketSection() {
   return (
     <Section
       title="The Market Opportunity"
-      subtitle="Five is entering a market experiencing explosive growth."
+      subtitle="5IVE is entering a market experiencing explosive growth."
       icon={<TrendingUp className="w-8 h-8 text-rose-pine-foam" />}
       color="foam"
       align="right"
@@ -78,7 +78,7 @@ const MarketSection = React.memo(function MarketSection() {
               <p className="text-5xl font-black bg-gradient-to-r from-rose-pine-foam to-rose-pine-gold bg-clip-text text-transparent">
                 $943.3B
               </p>
-              <p className="text-rose-pine-muted">Five is positioned to capture meaningful share</p>
+              <p className="text-rose-pine-muted">5IVE is positioned to capture meaningful share</p>
             </div>
           </div>
         </div>

@@ -7,14 +7,14 @@ import { Section, MoatCard } from "@/components/ui/investor-components";
 
 /**
  * MoatSection Component
- * Explains Five Protocol's unforkable competitive advantages
+ * Explains 5IVE Protocol's unforkable competitive advantages
  * Covers integrated ecosystem, architecture, bytecode format, and protocol stability
  */
 const MoatSection = React.memo(function MoatSection() {
   return (
     <Section
       title="The Unforkable Moat"
-      subtitle="Five isn't just a language. It's an integrated Layer 1.5 ecosystem."
+      subtitle="5IVE isn't just a language. It's an integrated Layer 1.5 ecosystem."
       icon={<Lock className="w-8 h-8 text-rose-pine-love" />}
       color="love"
     >

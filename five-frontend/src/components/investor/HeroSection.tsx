@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 /**
  * HeroSection Component
  * Main hero section for the investor page with animated gradient title
- * Displays the core Five Protocol thesis with key metrics
+ * Displays the core 5IVE Protocol thesis with key metrics
  */
 const HeroSection = React.memo(function HeroSection() {
   return (

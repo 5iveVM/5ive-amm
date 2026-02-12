@@ -42,9 +42,9 @@ export default function GlassEditor() {
             });
         });
 
-        // Initialize Five LSP for real-time diagnostics
+        // Initialize 5IVE LSP for real-time diagnostics
         setupFiveLsp(monacoInstance).catch((error) => {
-            console.error('[GlassEditor] Failed to setup Five LSP:', error);
+            console.error('[GlassEditor] Failed to setup 5IVE LSP:', error);
         });
     };
 

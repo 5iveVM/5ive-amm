@@ -15,7 +15,7 @@ interface ProjectConfigModalProps {
 const DEFAULT_TOML = `[project]
 name = "my-counter-project"
 version = "0.1.0"
-description = "A simple counter contract on Five VM"
+description = "A simple counter contract on 5IVE VM"
 target = "vm"
 
 [build]

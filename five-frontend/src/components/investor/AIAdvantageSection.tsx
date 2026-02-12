@@ -45,7 +45,7 @@ export default function AIAdvantageSection() {
                         transition={{ delay: 0.1 }}
                         className="text-xl md:text-2xl text-rose-pine-subtle max-w-3xl mx-auto leading-relaxed"
                     >
-                        The Five DSL is engineered for speed and simplicity. Write contracts in minutes, not months. Readable enough for humans, concise enough for AI.
+                        The 5IVE DSL is engineered for speed and simplicity. Write contracts in minutes, not months. Readable enough for humans, concise enough for AI.
                     </motion.p>
                 </div>
 
@@ -56,7 +56,7 @@ export default function AIAdvantageSection() {
                         <FeatureBlock
                             icon={<Bot />}
                             title="Concise Syntax"
-                            description="Five scripts are 10x more concise than Rust or Solidity. This means AI agents can generate and manage entire protocol architectures within a single context window, reducing hallucinations."
+                            description="5IVE scripts are 10x more concise than Rust or Solidity. This means AI agents can generate and manage entire protocol architectures within a single context window, reducing hallucinations."
                         />
                         <FeatureBlock
                             icon={<Terminal />}

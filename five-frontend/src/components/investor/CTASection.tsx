@@ -35,7 +35,7 @@ const CTASection = React.memo(function CTASection() {
           transition={{ delay: 0.1 }}
           className="text-lg text-rose-pine-muted max-w-2xl"
         >
-          Five Protocol is ready for production. Developers can start building today.
+          5IVE Protocol is ready for production. Developers can start building today.
         </motion.p>
 
         <motion.div

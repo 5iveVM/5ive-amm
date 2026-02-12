@@ -8,14 +8,14 @@ import { cn } from "@/lib/utils";
 
 /**
  * ComparisonTable Component
- * Detailed comparison between Five, Anchor, and Seahorse frameworks
+ * Detailed comparison between 5IVE, Anchor, and Seahorse frameworks
  * Shows key differentiators including cost, development time, and features
  */
 const ComparisonTable = React.memo(function ComparisonTable() {
   const rows = [
     { metric: "Deployment Cost", anchor: "$126", seahorse: "~$100", five: "$0.002" },
     { metric: "Development Time", anchor: "6-18 months", seahorse: "4-12 months", five: "2-4 weeks" },
-    { metric: "Language", anchor: "Rust", seahorse: "Python + Rust", five: "Five DSL" },
+    { metric: "Language", anchor: "Rust", seahorse: "Python + Rust", five: "5IVE DSL" },
     { metric: "AI Code Generation", anchor: "❌", seahorse: "❌", five: "✅" },
     { metric: "Zero-Allocation VM", anchor: "❌", seahorse: "❌", five: "✅" },
     { metric: "Integrated Toolchain", anchor: "Partial", seahorse: "Partial", five: "✅ Complete" },
@@ -105,12 +105,12 @@ ComparisonTable.displayName = "ComparisonTable";
 /**
  * CompetitiveSection Component
  * Presents competitive analysis against established frameworks
- * Shows why Five is superior to Anchor and Seahorse alternatives
+ * Shows why 5IVE is superior to Anchor and Seahorse alternatives
  */
 const CompetitiveSection = React.memo(function CompetitiveSection() {
   return (
     <Section
-      title="Why Five, Not Anchor?"
+      title="Why 5IVE, Not Anchor?"
       subtitle="An honest comparison with the status quo."
       icon={<Shield className="w-8 h-8 text-rose-pine-pine" />}
       color="pine"

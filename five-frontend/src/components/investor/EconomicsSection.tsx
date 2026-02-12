@@ -7,14 +7,14 @@ import { Section, MetricCard } from "@/components/ui/investor-components";
 
 /**
  * EconomicsSection Component
- * Displays the economic advantages of Five Protocol
+ * Displays the economic advantages of 5IVE Protocol
  * Includes cost comparison, key metrics, and real-world examples
  */
 const EconomicsSection = React.memo(function EconomicsSection() {
   return (
     <Section
       title="The Economics"
-      subtitle="Why Five Protocol changes the game for blockchain development."
+      subtitle="Why 5IVE Protocol changes the game for blockchain development."
       icon={<DollarSign className="w-8 h-8 text-rose-pine-gold" />}
       color="gold"
     >

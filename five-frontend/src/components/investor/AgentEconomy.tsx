@@ -149,7 +149,7 @@ function ProgramTokenShowcase() {
                 </div>
 
                 <p className="max-w-3xl mx-auto text-rose-pine-muted text-lg leading-relaxed mb-12 font-light">
-                    In Five, a "program" isn't a separate executable account. It's a token.
+                    In 5IVE, a "program" isn't a separate executable account. It's a token.
                     This means you can transfer ownership of a smart contract as easily as sending USDC.
                     <span className="text-rose-pine-text font-medium"> Earn royalties</span> on code usage <span className="text-rose-pine-muted text-sm">(Coming Soon)</span>, trade algorithms on AMMs, and speculate on the utility of an agent's logic.
                 </p>

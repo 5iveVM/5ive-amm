@@ -123,7 +123,7 @@ export default function IdePage() {
   useEffect(() => {
     const loadWasm = async () => {
       try {
-        appendLog('Loading Five system...', 'system');
+        appendLog('Loading 5IVE system...', 'system');
         // Dynamic import to avoid SSR issues with WASM
         const wasm = await loadFiveWasm();
         if (typeof wasm.default === 'function') {
@@ -152,11 +152,11 @@ export default function IdePage() {
           console.warn("ParameterEncoder missing");
         }
 
-        appendLog('Five system ready.', 'success');
+        appendLog('5IVE system ready.', 'success');
         setIsSystemReady(true);
       } catch (err) {
         console.error('Failed to load WASM:', err);
-        appendLog(`Failed to load Five system: ${err}`, 'error');
+        appendLog(`Failed to load 5IVE system: ${err}`, 'error');
         // Even on error, we might want to unblock UI or show error state
         setIsSystemReady(true);
       }

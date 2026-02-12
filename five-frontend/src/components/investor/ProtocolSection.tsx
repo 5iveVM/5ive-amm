@@ -6,7 +6,7 @@ import { Section, Card } from "@/components/ui/investor-components";
 
 /**
  * ProtocolSection Component
- * Showcases the core features and benefits of the Five Protocol
+ * Showcases the core features and benefits of the 5IVE Protocol
  * Highlights integrated ecosystem, production-ready status, and execution speed
  */
 const ProtocolSection = React.memo(function ProtocolSection() {
@@ -21,7 +21,7 @@ const ProtocolSection = React.memo(function ProtocolSection() {
         <Card
           title="Complete Ecosystem"
           icon={<Layers className="w-6 h-6 text-rose-pine-foam" />}
-          description="Five DSL language + optimizing compiler + zero-allocation VM + Solana program + JavaScript SDK. No fragmentation, no integration nightmares."
+          description="5IVE DSL language + optimizing compiler + zero-allocation VM + Solana program + JavaScript SDK. No fragmentation, no integration nightmares."
           delay={0.1}
         />
         <Card

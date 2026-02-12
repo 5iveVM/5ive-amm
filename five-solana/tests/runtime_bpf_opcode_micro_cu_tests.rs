@@ -10,6 +10,10 @@ use five::state::{FIVEVMState, ScriptAccountHeader};
 use five_dsl_compiler::DslCompiler;
 use five_protocol::opcodes::{
     self, ADD, HALT, POP, PUSH_1, PUSH_2, REQUIRE_PARAM_GT_ZERO, SET_LOCAL_0,
+    SUB, MUL, DIV, AND, OR, NOT, BITWISE_AND, SHIFT_LEFT,
+    DUP, SWAP, GET_LOCAL_0, DEC_JUMP_NZ, CMP_EQ_JUMP,
+    REQUIRE, MUL_CHECKED, MUL_DIV, PUSH_U8, PUSH_U16, PUSH_U64,
+    LOAD, STORE,
 };
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use harness::perf::{assert_no_regression, print_bench_line, CuMetrics};
@@ -302,6 +306,432 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
     print_bench_line("function", "CALL_EXTERNAL", "hot", &hot);
     assert_no_regression("opcode_call_external_cold", &cold);
     assert_no_regression("opcode_call_external_hot", &hot);
+}
+
+// ===== ARITHMETIC FAMILY BENCHMARKS =====
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_arithmetic_sub_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((4 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_2);
+        body.push(PUSH_1);
+        body.push(SUB);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_arithmetic_sub_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("arithmetic", "SUB", "hot_loop", &metrics);
+    assert_no_regression("opcode_arithmetic_sub_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_arithmetic_mul_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((4 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_2);
+        body.push(PUSH_1);
+        body.push(MUL);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_arithmetic_mul_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("arithmetic", "MUL", "hot_loop", &metrics);
+    assert_no_regression("opcode_arithmetic_mul_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_arithmetic_div_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((4 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_U8);
+        body.push(2);
+        body.push(PUSH_U8);
+        body.push(100);
+        body.push(DIV);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_arithmetic_div_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("arithmetic", "DIV", "hot_loop", &metrics);
+    assert_no_regression("opcode_arithmetic_div_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_arithmetic_mul_checked_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((4 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_U8);
+        body.push(10);
+        body.push(PUSH_U8);
+        body.push(100);
+        body.push(MUL_CHECKED);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_arithmetic_mul_checked_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("arithmetic", "MUL_CHECKED", "hot_loop", &metrics);
+    assert_no_regression("opcode_arithmetic_mul_checked_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_arithmetic_mul_div_fused_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((5 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_U8);
+        body.push(2);
+        body.push(PUSH_U8);
+        body.push(100);
+        body.push(PUSH_U8);
+        body.push(50);
+        body.push(MUL_DIV);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_arithmetic_mul_div_fused_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("arithmetic", "MUL_DIV", "hot_loop", &metrics);
+    assert_no_regression("opcode_arithmetic_mul_div_fused_loop", &metrics);
+}
+
+// ===== LOGICAL FAMILY BENCHMARKS =====
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_logical_and_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((4 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_1);
+        body.push(PUSH_1);
+        body.push(AND);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_logical_and_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("logical", "AND", "hot_loop", &metrics);
+    assert_no_regression("opcode_logical_and_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_logical_or_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((4 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_1);
+        body.push(PUSH_2);
+        body.push(OR);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_logical_or_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("logical", "OR", "hot_loop", &metrics);
+    assert_no_regression("opcode_logical_or_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_logical_not_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((3 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_1);
+        body.push(NOT);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_logical_not_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("logical", "NOT", "hot_loop", &metrics);
+    assert_no_regression("opcode_logical_not_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_logical_bitwise_and_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((4 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_U8);
+        body.push(0xFF);
+        body.push(PUSH_U8);
+        body.push(0x0F);
+        body.push(BITWISE_AND);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_logical_bitwise_and_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("logical", "BITWISE_AND", "hot_loop", &metrics);
+    assert_no_regression("opcode_logical_bitwise_and_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_logical_shift_left_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((4 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_U8);
+        body.push(1);
+        body.push(PUSH_U8);
+        body.push(100);
+        body.push(SHIFT_LEFT);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_logical_shift_left_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("logical", "SHIFT_LEFT", "hot_loop", &metrics);
+    assert_no_regression("opcode_logical_shift_left_loop", &metrics);
+}
+
+// ===== CONTROL FLOW BENCHMARKS =====
+// Note: Complex branching opcodes (DEC_JUMP_NZ, CMP_EQ_JUMP) require careful bytecode construction
+// and are better tested via DSL compilation. These are tested in scenario tests.
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_control_require_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((3 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_1);
+        body.push(REQUIRE);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_control_require_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("control", "REQUIRE", "hot_loop", &metrics);
+    assert_no_regression("opcode_control_require_loop", &metrics);
+}
+
+// ===== MEMORY FAMILY BENCHMARKS =====
+// Note: Memory operations (LOAD, STORE, LOAD_FIELD, STORE_FIELD) are complex and require
+// proper bytecode/context setup. These are better tested via DSL compilation and are
+// measured in scenario tests.
+
+// ===== STACK OPERATIONS BENCHMARKS =====
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_stack_dup_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((3 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_1);
+        body.push(DUP);
+        body.push(POP);
+    }
+    body.push(POP);
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_stack_dup_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("stack", "DUP", "hot_loop", &metrics);
+    assert_no_regression("opcode_stack_dup_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_stack_swap_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((4 * 96) + 1);
+    for _ in 0..96 {
+        body.push(PUSH_1);
+        body.push(PUSH_2);
+        body.push(SWAP);
+        body.push(POP);
+    }
+    body.push(POP);
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_stack_swap_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("stack", "SWAP", "hot_loop", &metrics);
+    assert_no_regression("opcode_stack_swap_loop", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_locals_get_local_0_hot_loop_bpf_cu() {
+    let program_id = load_program_id();
+    let mut body = Vec::with_capacity((3 * 96) + 2);
+    body.push(PUSH_1);
+    body.push(SET_LOCAL_0);
+    for _ in 0..96 {
+        body.push(GET_LOCAL_0);
+        body.push(POP);
+    }
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_locals_get_local_0_loop",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("locals", "GET_LOCAL_0", "hot_loop", &metrics);
+    assert_no_regression("opcode_locals_get_local_0_loop", &metrics);
+}
+
+// ===== COLD SINGLE VARIANT BENCHMARKS =====
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_arithmetic_add_cold_single_bpf_cu() {
+    let program_id = load_program_id();
+    let script = harness::script_with_header(1, 1, &[PUSH_1, PUSH_2, ADD, POP, HALT]);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_arithmetic_add_single",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("arithmetic", "ADD", "cold_single", &metrics);
+    assert_no_regression("opcode_arithmetic_add_single", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_arithmetic_div_cold_single_bpf_cu() {
+    let program_id = load_program_id();
+    let script = harness::script_with_header(1, 1, &[PUSH_U8, 2, PUSH_U8, 100, DIV, POP, HALT]);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_arithmetic_div_single",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("arithmetic", "DIV", "cold_single", &metrics);
+    assert_no_regression("opcode_arithmetic_div_single", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_control_require_cold_single_bpf_cu() {
+    let program_id = load_program_id();
+    let script = harness::script_with_header(1, 1, &[PUSH_1, REQUIRE, HALT]);
+    let metrics = run_single_script_case(
+        program_id,
+        "opcode_control_require_single",
+        script,
+        canonical_execute_payload(0, &[]),
+    )
+    .await;
+
+    print_bench_line("control", "REQUIRE", "cold_single", &metrics);
+    assert_no_regression("opcode_control_require_single", &metrics);
 }
 
 #[test]

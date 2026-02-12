@@ -6,14 +6,14 @@ import { Section, UseCaseCard } from "@/components/ui/investor-components";
 
 /**
  * UseCasesSection Component
- * Showcases real-world applications optimized by Five Protocol
+ * Showcases real-world applications optimized by 5IVE Protocol
  * Includes dynamic NFTs, DeFi, gaming, and enterprise governance use cases
  */
 const UseCasesSection = React.memo(function UseCasesSection() {
   return (
     <Section
       title="Designed For Real Applications"
-      subtitle="Five Protocol optimizes for the highest-value blockchain use cases."
+      subtitle="5IVE Protocol optimizes for the highest-value blockchain use cases."
       icon={<Building2 className="w-8 h-8 text-rose-pine-love" />}
       color="love"
     >
@@ -28,7 +28,7 @@ const UseCasesSection = React.memo(function UseCasesSection() {
         <UseCaseCard
           title="Decentralized Finance"
           icon={<BarChart3 className="w-6 h-6" />}
-          description="Complete DEX implementation in Five DSL. AMMs, liquidity pools, and token swaps with minimal transaction costs."
+          description="Complete DEX implementation in 5IVE DSL. AMMs, liquidity pools, and token swaps with minimal transaction costs."
           color="gold"
           delay={0.2}
         />

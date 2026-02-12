@@ -213,7 +213,7 @@ interface ComparisonItemProps {
 
 /**
  * ComparisonItem component for developer economics comparison
- * Used in Developer Flywheel section for comparing traditional vs Five
+ * Used in Developer Flywheel section for comparing traditional vs 5IVE
  */
 const ComparisonItem = React.memo(function ComparisonItem({
   metric,

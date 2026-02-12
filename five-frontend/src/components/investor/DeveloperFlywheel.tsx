@@ -7,14 +7,14 @@ import { Section, ComparisonItem } from "@/components/ui/investor-components";
 
 /**
  * DeveloperFlywheel Component
- * Illustrates the developer economics and network effects of Five Protocol
+ * Illustrates the developer economics and network effects of 5IVE Protocol
  * Shows comparison metrics and the virtuous cycle of adoption
  */
 const DeveloperFlywheel = React.memo(function DeveloperFlywheel() {
   return (
     <Section
       title="The Developer Flywheel"
-      subtitle="How Five creates unstoppable network effects."
+      subtitle="How 5IVE creates unstoppable network effects."
       icon={<Code2 className="w-8 h-8 text-rose-pine-iris" />}
       color="iris"
     >

@@ -27,27 +27,27 @@ export default function SuperPowers() {
                                     <Box size={24} />
                                 </div>
                                 <h2 className="text-3xl md:text-5xl font-black text-rose-pine-text tracking-tight">
-                                    Build the Moat. <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-pine-love to-rose-pine-iris">Templates + App Store.</span>
+                                    Build the Moat: <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-pine-love to-rose-pine-iris">Distribution, Not Just Deployment.</span>
                                 </h2>
                             </div>
 
                             <p className="text-xl text-rose-pine-subtle leading-relaxed mb-8 text-contrast">
-                                The moat is distribution and composability: audited templates (SPL-style primitives and beyond) plus application packaging in the same execution environment.
-                                <span className="block mt-2 text-rose-pine-text font-medium">Roadmap target: a 10MB account as both runtime host and app-store surface.</span>
+                                Solana composition is constrained by account-list limits, even with LUTs. 5IVE keeps the same account model and packs reusable code into a moat account for native-like execution.
+                                <span className="block mt-2 text-rose-pine-text font-medium">That means thousands of programs, templates, and interfaces can compose from one deploy surface.</span>
                             </p>
 
                             <ul className="space-y-4 mb-10 text-contrast">
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
                                     <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
-                                    <span><b>Template moat</b>: reusable DeFi primitives and higher-level app patterns</span>
+                                    <span><b>Same Solana pattern</b>: standard accounts still work, with a denser execution surface</span>
                                 </li>
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
                                     <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
-                                    <span><b>App-store direction</b>: package, discover, and compose apps in one ecosystem</span>
+                                    <span><b>Composition moat</b>: execute reusable modules from one account (risk engine + vault + AMM + settlement)</span>
                                 </li>
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
                                     <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
-                                    <span>Powered by external bytecode calls and explicit CPI interfaces where needed</span>
+                                    <span><b>New contract classes</b>: strategy marketplaces, agent swarms, and vertical app stacks</span>
                                 </li>
                             </ul>
                         </motion.div>
@@ -68,39 +68,54 @@ export default function SuperPowers() {
                             {/* Header */}
                             <div className="flex border-b border-rose-pine-hl-low/10">
                                 <div className="flex-1 p-4 bg-rose-pine-base text-center text-xs font-mono uppercase tracking-widest text-rose-pine-subtle border-r border-rose-pine-hl-low/10 opacity-70">
-                                    Account Pattern
+                                    Fragmented Stack
                                 </div>
                                 <div className="flex-1 p-4 bg-rose-pine-surface text-center text-xs font-bold font-mono uppercase tracking-widest text-rose-pine-love">
-                                    Global Pattern
+                                    5IVE Moat Stack
                                 </div>
                             </div>
 
                             {/* Body */}
                             <div className="grid grid-cols-2 divide-x divide-rose-pine-hl-low/10 h-[300px]">
 
-                                {/* Left: Standard (Separated) */}
-                                <div className="relative p-6 bg-rose-pine-surface flex flex-col items-center justify-center gap-6 opacity-60">
-                                    {/* Program */}
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className="w-12 h-12 rounded-lg bg-rose-pine-base border border-dashed border-rose-pine-text/20 flex items-center justify-center">
-                                            <Code size={20} className="text-rose-pine-subtle" />
+                                {/* Left: Program -> CPI -> Program + separate state */}
+                                <div className="relative p-6 bg-rose-pine-surface flex flex-col items-center justify-center gap-5 opacity-65">
+                                    <div className="w-full max-w-[190px] flex items-center justify-between">
+                                        <div className="w-[68px] rounded-lg border border-dashed border-rose-pine-text/20 bg-rose-pine-base/50 p-2 flex flex-col items-center gap-1">
+                                            <Code size={14} className="text-rose-pine-subtle" />
+                                            <span className="text-[9px] uppercase font-mono text-rose-pine-subtle">Program A</span>
                                         </div>
-                                        <span className="text-[10px] uppercase font-mono text-rose-pine-subtle text-contrast">Program</span>
+                                        <div className="flex flex-col items-center gap-1 px-1">
+                                            <span className="text-[9px] uppercase font-mono text-rose-pine-love">CPI</span>
+                                            <span className="text-rose-pine-subtle text-xs">-&gt;</span>
+                                        </div>
+                                        <div className="w-[68px] rounded-lg border border-dashed border-rose-pine-text/20 bg-rose-pine-base/50 p-2 flex flex-col items-center gap-1">
+                                            <Code size={14} className="text-rose-pine-subtle" />
+                                            <span className="text-[9px] uppercase font-mono text-rose-pine-subtle">Program B</span>
+                                        </div>
                                     </div>
 
-                                    {/* Link */}
-                                    <div className="h-8 w-[1px] border-l border-dashed border-rose-pine-subtle/20" />
-
-                                    {/* State */}
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className="w-12 h-12 rounded-lg bg-rose-pine-base border border-dashed border-rose-pine-text/20 flex items-center justify-center">
-                                            <Database size={20} className="text-rose-pine-subtle" />
-                                        </div>
-                                        <span className="text-[10px] uppercase font-mono text-rose-pine-subtle text-contrast">State</span>
+                                    <div className="w-full max-w-[190px] flex items-center justify-between">
+                                        <div className="h-4 w-[1px] border-l border-dashed border-rose-pine-subtle/25 ml-[33px]" />
+                                        <div className="h-4 w-[1px] border-l border-dashed border-rose-pine-subtle/25 mr-[33px]" />
                                     </div>
+
+                                    <div className="w-full max-w-[190px] flex items-center justify-between">
+                                        <div className="w-[72px] rounded-lg border border-dashed border-rose-pine-text/20 bg-rose-pine-base/50 p-2 flex flex-col items-center gap-1">
+                                            <Database size={14} className="text-rose-pine-subtle" />
+                                            <span className="text-[9px] uppercase font-mono text-rose-pine-subtle">State A</span>
+                                        </div>
+                                        <div className="w-[72px] rounded-lg border border-dashed border-rose-pine-text/20 bg-rose-pine-base/50 p-2 flex flex-col items-center gap-1">
+                                            <Database size={14} className="text-rose-pine-subtle" />
+                                            <span className="text-[9px] uppercase font-mono text-rose-pine-subtle">State B</span>
+                                        </div>
+                                    </div>
+                                    <span className="mt-2 text-[10px] uppercase font-mono text-rose-pine-subtle text-center text-contrast">
+                                        Account-list constraints (even with LUTs)
+                                    </span>
                                 </div>
 
-                                {/* Right: Unified (Fused) */}
+                                {/* Right: Moat Account + separate state */}
                                 <div className="relative p-6 bg-rose-pine-surface/50 flex flex-col items-center justify-center">
                                     <div className="absolute top-0 right-0 p-2">
                                         <div className="flex gap-1.5">
@@ -108,28 +123,31 @@ export default function SuperPowers() {
                                         </div>
                                     </div>
 
-                                    {/* The Atom */}
-                                    <div className="relative">
-                                        <div className="absolute inset-0 bg-rose-pine-love/20 blur-xl rounded-full animate-pulse" />
-
-                                        <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-rose-pine-love to-rose-pine-iris flex items-center justify-center shadow-lg border border-white/10">
-                                            <div className="flex flex-col items-center">
-                                                <div className="flex gap-1 mb-1">
-                                                    <Code size={14} className="text-white" />
-                                                    <Database size={14} className="text-white" />
-                                                </div>
-                                                <span className="text-[10px] font-black text-white uppercase tracking-widest">Atom</span>
-                                            </div>
-
-                                            {/* Orbitals */}
-                                            <div className="absolute inset-0 rounded-full border border-white/20 w-[120%] h-[120%] -left-[10%] -top-[10%] animate-[spin_10s_linear_infinite]" />
-                                            <div className="absolute inset-0 rounded-full border border-white/10 w-[150%] h-[150%] -left-[25%] -top-[25%] animate-[spin_15s_linear_infinite_reverse]" />
+                                    <div className="relative w-full max-w-[190px] rounded-xl border border-rose-pine-love/30 bg-gradient-to-br from-rose-pine-love/20 to-rose-pine-iris/20 p-4 shadow-lg">
+                                        <div className="text-[10px] uppercase font-mono text-rose-pine-text mb-3 text-center tracking-widest">
+                                            Moat Account
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-[9px] font-mono uppercase">
+                                            <div className="rounded bg-rose-pine-base/70 px-2 py-1 text-rose-pine-foam text-center">Templates</div>
+                                            <div className="rounded bg-rose-pine-base/70 px-2 py-1 text-rose-pine-foam text-center">Interfaces</div>
+                                            <div className="rounded bg-rose-pine-base/70 px-2 py-1 text-rose-pine-foam text-center">Apps</div>
+                                            <div className="rounded bg-rose-pine-base/70 px-2 py-1 text-rose-pine-foam text-center">Modules</div>
+                                        </div>
+                                        <div className="mt-3 text-center text-xs font-black text-rose-pine-love">
+                                            1000+
+                                        </div>
+                                        <div className="text-center text-[10px] uppercase font-mono text-rose-pine-subtle">
+                                            composable units
                                         </div>
                                     </div>
 
-                                        <span className="mt-8 text-xs font-bold text-rose-pine-text uppercase tracking-widest">
-                                        Unified Execution
-                                    </span>
+                                    <div className="h-4 w-[1px] border-l border-dashed border-rose-pine-subtle/35" />
+
+                                    <div className="w-full max-w-[120px] rounded-lg border border-dashed border-rose-pine-text/25 bg-rose-pine-base/50 p-2 flex flex-col items-center gap-1">
+                                        <Database size={14} className="text-rose-pine-subtle" />
+                                        <span className="text-[9px] uppercase font-mono text-rose-pine-subtle">State Account</span>
+                                    </div>
+
                                 </div>
 
                             </div>
