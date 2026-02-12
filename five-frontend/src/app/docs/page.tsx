@@ -8,32 +8,95 @@ import { useState } from "react";
 
 const DATA_TYPES = [
     {
-        type: "u64",
-        desc: "Standard integer for balances and counters.",
-        code: `pub add(a: u64, b: u64) -> u64 {
+        type: "u8..u128",
+        desc: "Unsigned integers for counters, balances, and supply math.",
+        code: `pub bump_counter(value: u8) -> u8 {
+    return value + 1;
+}
+
+pub add_supply(a: u128, b: u128) -> u128 {
     return a + b;
 }`,
     },
     {
-        type: "bool",
-        desc: "Branching and authorization gates.",
-        code: `pub is_positive(v: u64) -> bool {
-    return v > 0;
+        type: "i8..i64",
+        desc: "Signed integers for deltas and directional arithmetic.",
+        code: `pub apply_delta(balance: i64, delta: i64) -> i64 {
+    return balance + delta;
 }`,
     },
     {
-        type: "string",
-        desc: "Names, symbols, and metadata-like fields.",
-        code: `account TokenMeta {
-    name: string;
-    symbol: string;
+        type: "bool",
+        desc: "Feature flags, guards, and branch control.",
+        code: `pub can_execute(is_paused: bool, has_auth: bool) -> bool {
+    return !is_paused && has_auth;
 }`,
     },
     {
         type: "pubkey",
-        desc: "Authorities and account identity fields.",
+        desc: "Authorities, ownership, and account identity.",
         code: `account Config {
     authority: pubkey;
+}`,
+    },
+    {
+        type: "string<N>",
+        desc: "Sized strings for account-safe text fields.",
+        code: `account Metadata {
+    name: string<32>;
+    symbol: string<16>;
+    uri: string<128>;
+}`,
+    },
+    {
+        type: "[T; N]",
+        desc: "Fixed-size arrays for structured collections.",
+        code: `account GuardSet {
+    guardians: [pubkey; 5];
+}`,
+    },
+    {
+        type: "Optional fields",
+        desc: "Optional account fields via ? syntax.",
+        code: `account Profile {
+    authority: pubkey;
+    nickname?: string<32>;
+}`,
+    },
+];
+
+const LANGUAGE_PATTERNS = [
+    {
+        name: "Account Params + Constraints",
+        desc: "Patterns used heavily in templates and runtime harness scripts.",
+        code: `pub settle(
+    source: account @mut,
+    destination: account @mut,
+    owner: account @signer,
+    amount: u64
+) {
+    require(amount > 0);
+}`,
+    },
+    {
+        name: "Control Flow",
+        desc: "If/while flows are used in production templates (AMM/bench patterns).",
+        code: `pub accumulate(limit: u64) -> u64 {
+    let mut i: u64 = 0;
+    let mut total: u64 = 0;
+    while (i < limit) {
+        total = total + i;
+        i = i + 1;
+    }
+    return total;
+}`,
+    },
+    {
+        name: "Option + Result Types",
+        desc: "Generic return types are supported for expressive APIs.",
+        code: `interface TypeShapes @program("11111111111111111111111111111111") {
+    maybe_balance @discriminator(1)(found: bool, balance: u64) -> Option<u64>;
+    validate_amount @discriminator(2)(amount: u64) -> Result<bool, string>;
 }`,
     },
 ];
@@ -57,20 +120,19 @@ pub increment(counter: Counter @mut, authority: account @signer) {
 const EXTERNAL_IMPORT_SNIPPET = `use "11111111111111111111111111111111"::{transfer};
 
 pub settle(
-    source_account: account @mut,
-    destination_account: account @mut,
-    owner: account @signer,
-    token_bytecode: account
+    from: account @mut,
+    to: account @mut,
+    owner: account @signer
 ) {
-    transfer(source_account, destination_account, owner, 50);
+    transfer(from, to, owner, 50);
 }`;
 
 // Verified example: compiler rejects ambiguous unqualified imported calls.
-const IMPORT_AMBIGUITY_SNIPPET = `use "11111111111111111111111111111111"::{transfer};
-use "22222222222222222222222222222222"::{transfer};
+const IMPORT_AMBIGUITY_SNIPPET = `use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{transfer};
+use "11111111111111111111111111111111"::{transfer};
 
-pub execute(token_a: account, token_b: account) {
-    transfer(); // compile error: ambiguous imported symbol
+pub execute(from: account @mut, to: account @mut, owner: account @signer) {
+    transfer(from, to, owner, 50); // compile error: ambiguous imported symbol
 }`;
 
 // Verified example: mirrors interface/CPI compiler tests.
@@ -84,7 +146,7 @@ const INTERFACE_CPI_SNIPPET = `interface SPLToken @program("TokenkegQfeZyiNwAJbN
 }
 
 pub cpi_transfer(from: account @mut, to: account @mut, authority: account @signer) {
-    SPLToken.transfer(from, to, authority, 100);
+    SPLToken.transfer(from, to, authority, 50);
 }`;
 
 const SECURITY_SNIPPET = `account Vault {
@@ -95,7 +157,7 @@ const SECURITY_SNIPPET = `account Vault {
 pub withdraw(vault: Vault @mut, authority: account @signer, amount: u64) {
     require(vault.authority == authority.key);
     require(amount > 0);
-    require(vault.total_assets >= amount);
+    require(vault.total_assets > amount || vault.total_assets == amount);
     vault.total_assets = vault.total_assets - amount;
 }`;
 
@@ -121,6 +183,32 @@ function DataTypesSection() {
                 ))}
             </div>
             <DocsEditor filename={`${active.type}.v`} code={active.code} height="260px" />
+        </div>
+    );
+}
+
+function LanguagePatternsSection() {
+    const [active, setActive] = useState(LANGUAGE_PATTERNS[0]);
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-6">
+            <div className="space-y-2">
+                {LANGUAGE_PATTERNS.map((item) => (
+                    <button
+                        key={item.name}
+                        onClick={() => setActive(item)}
+                        className={`w-full text-left p-3 rounded-lg border transition-all ${
+                            active.name === item.name
+                                ? "bg-rose-pine-surface border-rose-pine-iris/50"
+                                : "bg-white/5 border-white/5 hover:bg-white/10"
+                        }`}
+                    >
+                        <span className="font-bold text-rose-pine-iris text-sm">{item.name}</span>
+                        <p className="text-xs text-rose-pine-muted mt-1">{item.desc}</p>
+                    </button>
+                ))}
+            </div>
+            <DocsEditor filename={`pattern_${active.name.toLowerCase().replace(/\s+/g, "_")}.v`} code={active.code} height="260px" />
         </div>
     );
 }
@@ -237,10 +325,18 @@ export default function DocsPage() {
                             <div className="p-2 rounded-lg bg-rose-pine-rose/10 text-rose-pine-rose"><Code className="w-6 h-6" /></div>
                             <h2 className="text-2xl font-bold text-rose-pine-text">Language Essentials</h2>
                         </div>
+                        <p className="text-sm text-rose-pine-subtle">
+                            These examples reflect real usage across 5IVE templates and BPF-CU runtime harness scripts.
+                        </p>
 
                         <div className="space-y-4">
                             <h3 className="text-lg font-medium text-rose-pine-foam">Data Types</h3>
                             <DataTypesSection />
+                        </div>
+
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-medium text-rose-pine-foam">Core Patterns</h3>
+                            <LanguagePatternsSection />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -250,11 +346,11 @@ export default function DocsPage() {
                             </GlassCard>
                             <GlassCard className="p-5">
                                 <h4 className="font-semibold text-rose-pine-text">Instructions</h4>
-                                <p className="text-sm text-rose-pine-subtle mt-2">Use <code className="text-rose-pine-iris">pub</code> instructions for entrypoints and private helpers for internal logic.</p>
+                                <p className="text-sm text-rose-pine-subtle mt-2">Use <code className="text-rose-pine-iris">pub</code> instructions for entrypoints and module helpers for shared logic.</p>
                             </GlassCard>
                             <GlassCard className="p-5">
                                 <h4 className="font-semibold text-rose-pine-text">Constraints</h4>
-                                <p className="text-sm text-rose-pine-subtle mt-2"><code className="text-rose-pine-iris">@signer</code>, <code className="text-rose-pine-iris">@mut</code>, and <code className="text-rose-pine-iris">@init</code> enforce account behavior at runtime.</p>
+                                <p className="text-sm text-rose-pine-subtle mt-2"><code className="text-rose-pine-iris">@signer</code>, <code className="text-rose-pine-iris">@mut</code>, and <code className="text-rose-pine-iris">@init</code> enforce account behavior and initialization safety.</p>
                             </GlassCard>
                         </div>
                     </section>

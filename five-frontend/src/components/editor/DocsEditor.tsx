@@ -4,7 +4,7 @@ import { Editor as MonacoEditor, useMonaco, OnMount } from "@monaco-editor/react
 import { useThemeStore } from "@/stores/theme-store";
 import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { Play, Loader2, ChevronRight, Terminal, Hammer } from "lucide-react";
+import { Loader2, Hammer } from "lucide-react";
 import { useFiveWasm } from "@/hooks/useFiveWasm";
 import { cn } from "@/lib/utils";
 import { defineMonacoThemes, registerFiveLanguage } from "@/lib/monaco-theme";
@@ -18,11 +18,11 @@ interface DocsEditorProps {
 export default function DocsEditor({ code, filename = "example.five", height = "300px" }: DocsEditorProps) {
     const [mounted, setMounted] = useState(false);
     const [isRunning, setIsRunning] = useState(false);
-    const [logs, setLogs] = useState<string[]>([]);
-    const [showOutput, setShowOutput] = useState(false);
+    const [status, setStatus] = useState("Ready");
+    const [statusKind, setStatusKind] = useState<"idle" | "running" | "success" | "error">("idle");
 
     // New Hook Integration
-    const { isReady, compile, execute } = useFiveWasm();
+    const { isReady, compile } = useFiveWasm();
 
     const monaco = useMonaco();
     const { theme } = useThemeStore();
@@ -44,53 +44,81 @@ export default function DocsEditor({ code, filename = "example.five", height = "
     const handleRun = async () => {
         if (!isReady) return;
         setIsRunning(true);
-        setShowOutput(true);
-        setLogs(["Compiling..."]);
+        setStatusKind("running");
+        setStatus("Compiling...");
 
         try {
             // 1. Compile
             const compileResult = await compile(code);
 
             if (!compileResult.success) {
-                setLogs(prev => [...prev, "Compilation failed:", compileResult.error || "Unknown error"]);
+                setStatusKind("error");
+                setStatus("Compilation failed");
                 setIsRunning(false);
                 return;
             }
 
-            setLogs(prev => [...prev, "Compilation successful."]);
-
             if (compileResult.bytecode) {
-                setLogs(prev => [...prev, `Bytecode generated (${compileResult.bytecode!.length} bytes).`]);
+                setStatusKind("success");
+                setStatus(`Compiled • ${compileResult.bytecode.length} bytes`);
             } else {
-                setLogs(prev => [...prev, "Warning: No bytecode output."]);
+                setStatusKind("success");
+                setStatus("Compilation successful");
             }
 
-        } catch (e) {
-            setLogs(prev => [...prev, `Detailed Error: ${e}`]);
+        } catch {
+            setStatusKind("error");
+            setStatus("Compilation failed");
         } finally {
             setIsRunning(false);
         }
     };
 
     return (
-        <GlassCard className="relative overflow-hidden border-rose-pine-hl-low/50 bg-black/40 flex flex-col">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-white/5 shrink-0">
-                <div className="flex items-center gap-3">
+        <GlassCard className={cn(
+            "relative overflow-hidden flex flex-col",
+            theme === "dark"
+                ? "border-rose-pine-hl-low/50 bg-black/40"
+                : "border-rose-pine-hl-med/40 bg-white/95 shadow-sm"
+        )}>
+            <div className={cn(
+                "flex items-center justify-between gap-3 px-4 py-2.5 border-b shrink-0",
+                theme === "dark"
+                    ? "border-white/5 bg-white/5"
+                    : "border-rose-pine-hl-low/40 bg-rose-pine-surface/35"
+            )}>
+                <div className="flex min-w-0 items-center gap-3">
                     <div className="flex gap-1.5">
                         <div className="w-2.5 h-2.5 rounded-full bg-rose-pine-love/50" />
                         <div className="w-2.5 h-2.5 rounded-full bg-rose-pine-gold/50" />
                         <div className="w-2.5 h-2.5 rounded-full bg-rose-pine-foam/50" />
                     </div>
-                    <span className="text-xs text-rose-pine-muted font-mono">{filename}</span>
+                    <span className="truncate text-xs text-rose-pine-muted font-mono">{filename}</span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    {/* Run Button */}
+                <div className="flex min-w-0 items-center gap-2">
+                    <span
+                        className={cn(
+                            "hidden md:inline truncate text-[11px] font-medium",
+                            statusKind === "error" ? "text-rose-pine-love" :
+                                statusKind === "success" ? "text-rose-pine-foam" :
+                                    statusKind === "running" ? "text-rose-pine-gold" :
+                                        "text-rose-pine-muted"
+                        )}
+                        title={
+                            statusKind === "success" && status.startsWith("Compiled •")
+                                ? `Compilation successful - Bytecode generated (${status.replace("Compiled • ", "")})`
+                                : status
+                        }
+                        aria-live="polite"
+                    >
+                        {status}
+                    </span>
                     <button
                         onClick={handleRun}
                         disabled={!isReady || isRunning}
                         className={cn(
-                            "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
+                            "shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
                             !isReady
                                 ? "opacity-50 cursor-not-allowed bg-white/5 text-rose-pine-muted"
                                 : isRunning
@@ -141,37 +169,6 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                     </div>
                 )}
             </div>
-
-            {/* Output Console (Collapsible) */}
-            {showOutput && (
-                <div className="border-t border-white/10 bg-black/60 p-3 font-mono text-xs">
-                    <div
-                        className="flex items-center gap-2 text-rose-pine-subtle mb-2 cursor-pointer hover:text-rose-pine-text transition-colors select-none"
-                        onClick={() => setShowOutput(false)}
-                    >
-                        <ChevronRight size={12} className="rotate-90" />
-                        <span className="font-bold uppercase tracking-wider text-[10px]">Console Output</span>
-                    </div>
-                    <div className="space-y-1 max-h-32 overflow-y-auto pl-1">
-                        {logs.length === 0 ? (
-                            <span className="text-rose-pine-muted opacity-50 italic">Ready to execute...</span>
-                        ) : (
-                            logs.map((log, i) => (
-                                <div key={i} className="flex gap-2">
-                                    <span className="text-rose-pine-iris">➜</span>
-                                    <span className={cn(
-                                        "break-all",
-                                        log.includes("Error") || log.includes("failed") ? "text-rose-pine-love" :
-                                            log.includes("successful") ? "text-rose-pine-foam" : "text-rose-pine-text"
-                                    )}>
-                                        {log}
-                                    </span>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-            )}
         </GlassCard>
     );
 }
