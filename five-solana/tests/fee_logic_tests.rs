@@ -8,6 +8,6 @@ mod fee_logic_tests {
         let mut vm_state = FIVEVMState::new();
         vm_state.initialize(Pubkey::default());
         assert_eq!(vm_state.deploy_fee_lamports, 10_000);
-        assert_eq!(vm_state.execute_fee_lamports, 80_000);
+        assert_eq!(vm_state.execute_fee_lamports, 85_734);
     }
 }

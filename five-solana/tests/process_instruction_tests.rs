@@ -363,7 +363,7 @@ mod tests {
 
         let vm_state = FIVEVMState::from_account_data(&vm_data).unwrap();
         assert_eq!(vm_state.deploy_fee_lamports, 10_000);
-        assert_eq!(vm_state.execute_fee_lamports, 80_000);
+        assert_eq!(vm_state.execute_fee_lamports, 85_734);
         assert!(vm_state.is_initialized());
     }
 

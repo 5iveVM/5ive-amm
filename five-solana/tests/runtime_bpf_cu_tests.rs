@@ -1221,8 +1221,8 @@ async fn run_fixture_bpf_compute_units(
         .vm_fees
         .as_ref()
         .map(|fees| fees.execute_fee_lamports)
-        .unwrap_or(CU_EXECUTE_FEE_LAMPORTS)
-        .max(1);
+        .filter(|fee| *fee > 0)
+        .unwrap_or(CU_EXECUTE_FEE_LAMPORTS);
 
     accounts.insert(
         fixture.authority.name.clone(),
@@ -1569,7 +1569,8 @@ async fn run_fixture_bpf_compute_units(
         } else {
             700_000
         }
-    });
+    })
+    .saturating_add((fixture.steps.len() as u64).saturating_mul(CU_FEE_STEP_HEADROOM));
     assert!(
         total_units <= total_budget,
         "fixture total {} exceeds regression budget",
@@ -2715,6 +2716,40 @@ fn build_execute_instruction(
         AccountMeta::new(accounts[vm_state_name].pubkey, false),
     ];
     for name in &step.extras {
+        let a = &accounts[name];
+        let is_external_script = name != script_name && name.ends_with("_script");
+        metas.push(AccountMeta {
+            pubkey: a.pubkey,
+            is_signer: a.is_signer,
+            // Imported bytecode accounts must be read-only during execution.
+            is_writable: if is_external_script { false } else { a.is_writable },
+        });
+    }
+
+    Instruction {
+        program_id,
+        accounts: metas,
+        data,
+    }
+}
+
+fn build_execute_instruction_with_extras(
+    program_id: Pubkey,
+    accounts: &BTreeMap<String, RuntimeAccount>,
+    script_name: &str,
+    vm_state_name: &str,
+    extras: &[String],
+    payload: Vec<u8>,
+) -> Instruction {
+    let mut data = Vec::with_capacity(1 + payload.len());
+    data.push(EXECUTE_INSTRUCTION);
+    data.extend_from_slice(&payload);
+
+    let mut metas = vec![
+        AccountMeta::new(accounts[script_name].pubkey, false),
+        AccountMeta::new(accounts[vm_state_name].pubkey, false),
+    ];
+    for name in extras {
         let a = &accounts[name];
         let is_external_script = name != script_name && name.ends_with("_script");
         metas.push(AccountMeta {

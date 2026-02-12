@@ -35,7 +35,8 @@ impl FIVEVMState {
         self.is_initialized = 1;
         self.script_count = 0;
         self.deploy_fee_lamports = 10_000;
-        self.execute_fee_lamports = 80_000;
+        // Targeted baseline: ~$50k/month at 3 TPS when SOL is ~$75.
+        self.execute_fee_lamports = 85_734;
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -473,7 +474,7 @@ mod tests {
         assert!(vm_state.is_initialized());
         assert_eq!(vm_state.authority, authority);
         assert_eq!(vm_state.deploy_fee_lamports, 10_000);
-        assert_eq!(vm_state.execute_fee_lamports, 80_000);
+        assert_eq!(vm_state.execute_fee_lamports, 85_734);
     }
 
     #[test]
