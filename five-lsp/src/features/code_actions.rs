@@ -8,6 +8,7 @@ use std::collections::HashMap;
 /// Get code actions for a diagnostic
 ///
 /// Analyzes the diagnostic message and provides relevant quick fixes.
+/// Offers semantic-aware suggestions for Five DSL errors.
 pub fn get_code_actions(
     source: &str,
     diagnostic: &Diagnostic,
@@ -21,46 +22,26 @@ pub fn get_code_actions(
     // Missing visibility modifier - prepend 'pub ' at start of line
     if message.contains("public") || message.contains("visibility") {
         if let Some(edit) = fix_missing_visibility(source, line_num) {
-            let mut changes = HashMap::new();
-            changes.insert(uri.clone(), vec![edit]);
-
-            actions.push(CodeAction {
-                title: "Add 'pub' modifier".to_string(),
-                kind: Some(CodeActionKind::QUICKFIX),
-                diagnostics: Some(vec![diagnostic.clone()]),
-                edit: Some(WorkspaceEdit {
-                    changes: Some(changes),
-                    change_annotations: None,
-                    document_changes: None,
-                }),
-                command: None,
-                is_preferred: Some(true),
-                disabled: None,
-                data: None,
-            });
+            actions.push(code_action_from_edit(
+                "Add 'pub' modifier",
+                edit,
+                uri.clone(),
+                diagnostic.clone(),
+                true,
+            ));
         }
     }
 
     // Mutability issues - prepend 'mut ' before identifier
     if message.contains("mut") || message.contains("immutable") || message.contains("cannot assign") {
         if let Some(edit) = fix_missing_mutability(source, line_num, &diagnostic.range) {
-            let mut changes = HashMap::new();
-            changes.insert(uri.clone(), vec![edit]);
-
-            actions.push(CodeAction {
-                title: "Add 'mut' modifier".to_string(),
-                kind: Some(CodeActionKind::QUICKFIX),
-                diagnostics: Some(vec![diagnostic.clone()]),
-                edit: Some(WorkspaceEdit {
-                    changes: Some(changes),
-                    change_annotations: None,
-                    document_changes: None,
-                }),
-                command: None,
-                is_preferred: Some(true),
-                disabled: None,
-                data: None,
-            });
+            actions.push(code_action_from_edit(
+                "Add 'mut' modifier",
+                edit,
+                uri.clone(),
+                diagnostic.clone(),
+                true,
+            ));
         }
     }
 
@@ -81,47 +62,81 @@ pub fn get_code_actions(
     // Missing account constraints - add constraint after parameter name
     if message.contains("account") || message.contains("constraint") {
         if let Some(edit) = fix_missing_account_constraint(source, line_num, "@mut") {
-            let mut changes = HashMap::new();
-            changes.insert(uri.clone(), vec![edit]);
-
-            actions.push(CodeAction {
-                title: "Add @mut constraint".to_string(),
-                kind: Some(CodeActionKind::QUICKFIX),
-                diagnostics: Some(vec![diagnostic.clone()]),
-                edit: Some(WorkspaceEdit {
-                    changes: Some(changes),
-                    change_annotations: None,
-                    document_changes: None,
-                }),
-                command: None,
-                is_preferred: None,
-                disabled: None,
-                data: None,
-            });
+            actions.push(code_action_from_edit(
+                "Add @mut constraint",
+                edit,
+                uri.clone(),
+                diagnostic.clone(),
+                false,
+            ));
         }
 
         if let Some(edit) = fix_missing_account_constraint(source, line_num, "@signer") {
-            let mut changes = HashMap::new();
-            changes.insert(uri.clone(), vec![edit]);
-
-            actions.push(CodeAction {
-                title: "Add @signer constraint".to_string(),
-                kind: Some(CodeActionKind::QUICKFIX),
-                diagnostics: Some(vec![diagnostic.clone()]),
-                edit: Some(WorkspaceEdit {
-                    changes: Some(changes),
-                    change_annotations: None,
-                    document_changes: None,
-                }),
-                command: None,
-                is_preferred: None,
-                disabled: None,
-                data: None,
-            });
+            actions.push(code_action_from_edit(
+                "Add @signer constraint",
+                edit,
+                uri.clone(),
+                diagnostic.clone(),
+                false,
+            ));
         }
     }
 
+    // Missing semicolon errors
+    if message.contains("semicolon") || message.contains("expected `;`") {
+        if let Some(edit) = fix_missing_semicolon(source, line_num, diagnostic.range.start.character as usize) {
+            actions.push(code_action_from_edit(
+                "Add semicolon",
+                edit,
+                uri.clone(),
+                diagnostic.clone(),
+                true,
+            ));
+        }
+    }
+
+    // Unused variable warnings
+    if message.contains("unused") || message.contains("not used") {
+        actions.push(CodeAction {
+            title: "Remove unused variable".to_string(),
+            kind: Some(CodeActionKind::QUICKFIX),
+            diagnostics: Some(vec![diagnostic.clone()]),
+            edit: None,
+            command: None,
+            is_preferred: None,
+            disabled: None,
+            data: None,
+        });
+    }
+
     actions
+}
+
+/// Helper to create a CodeAction from a TextEdit
+fn code_action_from_edit(
+    title: &str,
+    edit: TextEdit,
+    uri: lsp_types::Url,
+    diagnostic: Diagnostic,
+    is_preferred: bool,
+) -> CodeAction {
+    let mut changes = HashMap::new();
+    changes.insert(uri, vec![edit]);
+
+    CodeAction {
+        title: title.to_string(),
+        kind: Some(CodeActionKind::QUICKFIX),
+        diagnostics: Some(vec![diagnostic]),
+        edit: Some(WorkspaceEdit {
+            changes: Some(changes),
+            change_annotations: None,
+            document_changes: None,
+        }),
+        command: None,
+        is_preferred: Some(is_preferred),
+        disabled: None,
+        data: None,
+    }
 }
 
 /// Quick fix for missing semicolon
