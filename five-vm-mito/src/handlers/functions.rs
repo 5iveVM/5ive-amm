@@ -637,8 +637,16 @@ fn validate_external_function_constraints(
             }
         }
 
-        // bit 4: @pda constraint - this would require additional validation
-    // PDA validation not implemented.
+        // bit 4: @pda constraint
+        // Fail closed until external-call metadata includes derivation material
+        // sufficient for deterministic PDA verification in this path.
+        if (constraint_bitmask & CONSTRAINT_PDA) != 0 {
+            debug_log!(
+                "MitoVM: CALL_EXTERNAL constraint violation - account {} has unsupported @pda external constraint",
+                i as u32
+            );
+            return Err(VMErrorCode::ConstraintViolation);
+        }
     }
 
     Ok(())

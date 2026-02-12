@@ -159,9 +159,6 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     // Calculate required account size: header + bytecode + metadata
     let required_size = ScriptAccountHeader::LEN + bytecode.len();
 
-    // Check for deployment fees
-    collect_deploy_fee(program_id, vm_state_account, accounts, owner, required_size)?;
-
     if script_account.data_len() < required_size {
         return Err(ProgramError::Custom(7005));
     }
@@ -174,6 +171,9 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
             return Err(ProgramError::Custom(7007));
         }
     }
+
+    // Charge deploy fee only after all non-mutating deployment validations pass.
+    collect_deploy_fee(program_id, vm_state_account, accounts, owner, required_size)?;
 
     // SAFETY: `vm_state_account` verified.
     let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
@@ -247,6 +247,14 @@ pub fn init_large_program(
     let script_data = unsafe { script_account.borrow_data_unchecked() };
     if ScriptAccountHeader::is_valid(&script_data) {
         return Err(ProgramError::Custom(7007));
+    }
+
+    // If the full bytecode is supplied in the initial chunk, charge deploy fee now.
+    // This closes the fee-bypass path where finalize_script_upload could complete upload
+    // without ever entering append_bytecode's completion fee branch.
+    if chunk_len == expected_size {
+        let final_size = ScriptAccountHeader::LEN + expected_size;
+        collect_deploy_fee(program_id, vm_state_account, accounts, owner, final_size)?;
     }
 
     // SAFETY: `vm_state_account` is verified and uniquely borrowed for mutation.
@@ -554,5 +562,150 @@ mod tests {
             deploy(&program_id, &accounts, &bytecode, 0),
             Err(ProgramError::Custom(7007))
         );
+    }
+
+    #[test]
+    fn deploy_does_not_charge_fee_on_failed_overwrite() {
+        let program_id = Pubkey::from([31u8; 32]);
+        let script_key = Pubkey::from([32u8; 32]);
+        let vm_key = Pubkey::from([33u8; 32]);
+        let owner_key = Pubkey::from([34u8; 32]);
+        let admin_key = Pubkey::from([35u8; 32]);
+
+        let bytecode = minimal_valid_bytecode();
+        let mut script_data = vec![0u8; ScriptAccountHeader::LEN + bytecode.len()];
+        let existing_header = ScriptAccountHeader::create_from_bytecode(&bytecode, owner_key, 1, 0);
+        existing_header.copy_into_account(&mut script_data).unwrap();
+        script_data[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + bytecode.len()]
+            .copy_from_slice(&bytecode);
+
+        let mut vm_data = [0u8; FIVEVMState::LEN];
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            vm_state.initialize(admin_key);
+            vm_state.deploy_fee_lamports = 10;
+        }
+
+        let mut script_lamports = 1_000_000;
+        let mut vm_lamports = 1_000_000;
+        let mut owner_lamports = 1_000;
+        let mut admin_lamports = 500;
+        let mut owner_data = [];
+        let mut admin_data = [];
+
+        let script_account = create_account_info(
+            &script_key,
+            false,
+            true,
+            &mut script_lamports,
+            script_data.as_mut_slice(),
+            &program_id,
+        );
+        let vm_account = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let owner = create_account_info(
+            &owner_key,
+            true,
+            true,
+            &mut owner_lamports,
+            &mut owner_data,
+            &program_id,
+        );
+        let admin = create_account_info(
+            &admin_key,
+            false,
+            true,
+            &mut admin_lamports,
+            &mut admin_data,
+            &program_id,
+        );
+
+        let owner_before = owner.lamports();
+        let admin_before = admin.lamports();
+
+        let accounts = [script_account, vm_account, owner, admin];
+        assert_eq!(
+            deploy(&program_id, &accounts, &bytecode, 0),
+            Err(ProgramError::Custom(7007))
+        );
+        assert_eq!(accounts[2].lamports(), owner_before);
+        assert_eq!(accounts[3].lamports(), admin_before);
+    }
+
+    #[test]
+    fn init_large_program_full_chunk_collects_deploy_fee() {
+        let program_id = Pubkey::from([41u8; 32]);
+        let script_key = Pubkey::from([42u8; 32]);
+        let owner_key = Pubkey::from([43u8; 32]);
+        let vm_key = Pubkey::from([44u8; 32]);
+        let admin_key = Pubkey::from([45u8; 32]);
+
+        let bytecode = minimal_valid_bytecode();
+        let expected_size = bytecode.len() as u32;
+
+        let mut script_data = vec![0u8; ScriptAccountHeader::LEN + bytecode.len()];
+        let mut vm_data = [0u8; FIVEVMState::LEN];
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            vm_state.initialize(admin_key);
+            vm_state.deploy_fee_lamports = 25;
+        }
+
+        let mut script_lamports = 1_000_000;
+        let mut owner_lamports = 1_000;
+        let mut vm_lamports = 1_000_000;
+        let mut admin_lamports = 100;
+        let mut owner_data = [];
+        let mut admin_data = [];
+
+        let script_account = create_account_info(
+            &script_key,
+            false,
+            true,
+            &mut script_lamports,
+            script_data.as_mut_slice(),
+            &program_id,
+        );
+        let owner = create_account_info(
+            &owner_key,
+            true,
+            true,
+            &mut owner_lamports,
+            &mut owner_data,
+            &program_id,
+        );
+        let vm_account = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let admin = create_account_info(
+            &admin_key,
+            false,
+            true,
+            &mut admin_lamports,
+            &mut admin_data,
+            &program_id,
+        );
+
+        let owner_before = owner.lamports();
+        let admin_before = admin.lamports();
+        let accounts = [script_account, owner, vm_account, admin];
+
+        assert_eq!(
+            init_large_program(&program_id, &accounts, expected_size, Some(&bytecode)),
+            Ok(())
+        );
+        assert_eq!(accounts[1].lamports(), owner_before - 25);
+        assert_eq!(accounts[3].lamports(), admin_before + 25);
     }
 }
