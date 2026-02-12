@@ -779,11 +779,16 @@ impl<'a> ExecutionContext<'a> {
 
     #[inline]
     pub fn fetch_input_u64(&mut self) -> CompactResult<u64> {
-        let mut result = 0u64;
-        for i in 0..8 {
-            result |= (self.fetch_input_u8()? as u64) << (i * 8);
+        let start = self.input_ptr as usize;
+        let end = start.saturating_add(8);
+        if end > self.instruction_data.len() {
+            return Err(VMErrorCode::InvalidParameter);
         }
-        Ok(result)
+        let bytes: [u8; 8] = self.instruction_data[start..end]
+            .try_into()
+            .map_err(|_| VMErrorCode::InvalidParameter)?;
+        self.input_ptr = self.input_ptr.saturating_add(8);
+        Ok(u64::from_le_bytes(bytes))
     }
 
     // --- Crypto & account operations ---

@@ -16,6 +16,7 @@ use five_protocol::{
 };
 use harness::compile::load_or_compile_bytecode;
 use harness::fixtures::{canonical_execute_payload, TypedParam};
+use harness::perf::{assert_no_regression, print_scenario_line, CuMetrics};
 use serde::Deserialize;
 use solana_program::{
     account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError, program_option::COption, pubkey::Pubkey as ProgramPubkey,
@@ -1467,11 +1468,63 @@ async fn anchor_interface_manual_borsh_cpi_bpf_compute_units() {
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(120_000)).await;
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn scenario_high_external_call_fanout_bpf_compute_units() {
+    // Fanout scenario metric line is emitted separately by external_*_non_cpi tests.
+    print_scenario_line("high_external_call_fanout", 0, 0);
+    assert_no_regression(
+        "scenario_high_external_call_fanout",
+        &CuMetrics {
+            deploy: 0,
+            execute: 0,
+            total: 0,
+        },
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn scenario_high_cpi_density_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let spl_fixture =
+        repo_root.join("five-templates/cpi-examples/runtime-fixtures/spl-token-mint-e2e.json");
+    let anchor_fixture =
+        repo_root.join("five-templates/cpi-examples/runtime-fixtures/anchor-program-call-e2e.json");
+    let spl_total = run_fixture_bpf_compute_units(&repo_root, &spl_fixture, Some(120_000)).await;
+    let anchor_total =
+        run_fixture_bpf_compute_units(&repo_root, &anchor_fixture, Some(120_000)).await;
+    let combined = spl_total.saturating_add(anchor_total);
+    print_scenario_line("high_cpi_density", combined, combined);
+    assert_no_regression(
+        "scenario_high_cpi_density",
+        &CuMetrics {
+            deploy: 0,
+            execute: combined,
+            total: combined,
+        },
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn scenario_memory_string_heavy_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let fixture_path = repo_root.join("five-templates/token/runtime-fixtures/init_mint.json");
+    let total = run_fixture_bpf_compute_units(&repo_root, &fixture_path, None).await;
+    print_scenario_line("memory_string_heavy", total, total);
+    assert_no_regression(
+        "scenario_memory_string_heavy",
+        &CuMetrics {
+            deploy: 0,
+            execute: total,
+            total,
+        },
+    );
+}
+
 async fn run_fixture_bpf_compute_units(
     repo_root: &Path,
     fixture_path: &Path,
     total_budget_override: Option<u64>,
-) {
+) -> u64 {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
@@ -1849,6 +1902,7 @@ async fn run_fixture_bpf_compute_units(
         "fixture total {} exceeds regression budget",
         total_units
     );
+    total_units
 }
 
 fn register_external_programs(

@@ -487,7 +487,12 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                     return Ok(());
                 }
 
-                let string_bytes = ctx.read_string_blob(string_offset, string_length)?.to_vec();
+                let (string_ptr, string_len) = {
+                    let string_bytes = ctx.read_string_blob(string_offset, string_length)?;
+                    (string_bytes.as_ptr(), string_bytes.len())
+                };
+                // SAFETY: pointer originates from immutable bytecode backing storage.
+                let string_bytes = unsafe { core::slice::from_raw_parts(string_ptr, string_len) };
                 let total_size = 2 + string_length as usize;
                 if total_size > 62 {
                     let heap_total_size = 4 + string_length as usize;
@@ -495,8 +500,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                     let length_bytes = string_length.to_le_bytes();
                     ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
                     ctx.get_heap_data_mut(heap_id + 4, string_length)?
-                        .copy_from_slice(&string_bytes);
-                    if core::str::from_utf8(&string_bytes).is_err() {
+                        .copy_from_slice(string_bytes);
+                    if core::str::from_utf8(string_bytes).is_err() {
                         return Err(VMErrorCode::InvalidOperation);
                     }
                     ctx.push(ValueRef::HeapString(heap_id))?;
@@ -508,8 +513,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                 ctx.temp_buffer_mut()[array_id as usize] = string_length as u8;
                 ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
                 ctx.temp_buffer_mut()[array_id as usize + 2..array_id as usize + 2 + string_length as usize]
-                    .copy_from_slice(&string_bytes);
-                if core::str::from_utf8(&string_bytes).is_err() {
+                    .copy_from_slice(string_bytes);
+                if core::str::from_utf8(string_bytes).is_err() {
                     return Err(VMErrorCode::InvalidOperation);
                 }
                 ctx.push(ValueRef::StringRef(array_id as u16))?;
@@ -613,7 +618,12 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                 return Ok(());
             }
 
-            let string_bytes = ctx.read_string_blob(string_offset, string_length)?.to_vec();
+            let (string_ptr, string_len) = {
+                let string_bytes = ctx.read_string_blob(string_offset, string_length)?;
+                (string_bytes.as_ptr(), string_bytes.len())
+            };
+            // SAFETY: pointer originates from immutable bytecode backing storage.
+            let string_bytes = unsafe { core::slice::from_raw_parts(string_ptr, string_len) };
             let total_size = 2 + string_length as usize;
             if total_size > 62 {
                 let heap_total_size = 4 + string_length as usize;
@@ -621,8 +631,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                 let length_bytes = string_length.to_le_bytes();
                 ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
                 ctx.get_heap_data_mut(heap_id + 4, string_length)?
-                    .copy_from_slice(&string_bytes);
-                if core::str::from_utf8(&string_bytes).is_err() {
+                    .copy_from_slice(string_bytes);
+                if core::str::from_utf8(string_bytes).is_err() {
                     return Err(VMErrorCode::InvalidOperation);
                 }
                 ctx.push(ValueRef::HeapString(heap_id))?;
@@ -634,8 +644,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
             ctx.temp_buffer_mut()[array_id as usize] = string_length as u8;
             ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
             ctx.temp_buffer_mut()[array_id as usize + 2..array_id as usize + 2 + string_length as usize]
-                .copy_from_slice(&string_bytes);
-            if core::str::from_utf8(&string_bytes).is_err() {
+                .copy_from_slice(string_bytes);
+            if core::str::from_utf8(string_bytes).is_err() {
                 return Err(VMErrorCode::InvalidOperation);
             }
             ctx.push(ValueRef::StringRef(array_id as u16))?;

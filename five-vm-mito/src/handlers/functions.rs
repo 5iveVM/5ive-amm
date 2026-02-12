@@ -657,9 +657,10 @@ fn build_external_account_remap(
     ctx: &ExecutionManager,
     call_args: &[ValueRef; MAX_PARAMETERS],
     param_count: u8,
-) -> CompactResult<([u8; MAX_PARAMETERS + 1], u8)> {
+) -> CompactResult<([u8; MAX_PARAMETERS + 1], u8, u8)> {
     let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
     let mut ext_acc_slot = 1usize;
+    let mut scalar_arg_count: u8 = 0;
 
     for value in call_args.iter().take(param_count as usize) {
         if let ValueRef::AccountRef(acc_idx, _) = value {
@@ -674,10 +675,12 @@ fn build_external_account_remap(
             }
             remap[ext_acc_slot] = resolved_idx;
             ext_acc_slot += 1;
+        } else {
+            scalar_arg_count = scalar_arg_count.saturating_add(1);
         }
     }
 
-    Ok((remap, (ext_acc_slot - 1) as u8))
+    Ok((remap, (ext_acc_slot - 1) as u8, scalar_arg_count))
 }
 
 fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
@@ -938,7 +941,8 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     }
 
     // Build external account remap: external account slots are bound from account args in call order.
-    let (remap, bound_account_count) = build_external_account_remap(ctx, &call_args, param_count)?;
+    let (remap, bound_account_count, scalar_arg_count) =
+        build_external_account_remap(ctx, &call_args, param_count)?;
 
     // Validate that provided account args satisfy external function constraints.
     if required_account_count > 0 {
@@ -983,12 +987,6 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     ctx.allocate_locals(locals_to_allocate)?;
     // External functions address account arguments by account index; parameter slots are used
     // for non-account values (e.g. scalar inputs used by fused ops).
-    let mut scalar_arg_count: u8 = 0;
-    for value in call_args.iter().take(param_count as usize) {
-        if !matches!(value, ValueRef::AccountRef(_, _)) {
-            scalar_arg_count = scalar_arg_count.saturating_add(1);
-        }
-    }
     ctx.allocate_params(scalar_arg_count.saturating_add(1))?;
     {
         let params = ctx.parameters_mut();

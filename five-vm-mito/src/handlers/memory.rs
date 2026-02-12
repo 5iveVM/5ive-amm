@@ -243,15 +243,14 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 }
                 10 => {
                     // PUBKEY
-                    if (ctx.input_ptr as usize) + 32 > ctx.instruction_data().len() {
+                    let start = ctx.input_ptr as usize;
+                    let end = start.saturating_add(32);
+                    if end > ctx.instruction_data().len() {
                         return Err(VMErrorCode::InvalidInstruction);
                     }
                     // Store current offset before advancing
                     let pubkey_offset = ctx.input_ptr as u16;
-                    // Skip pubkey bytes to advance input pointer
-                    for _ in 0..32 {
-                        ctx.fetch_input_u8()?;
-                    }
+                    ctx.input_ptr = ctx.input_ptr.saturating_add(32);
                     // Push reference to pubkey data
                     ctx.push(ValueRef::PubkeyRef(pubkey_offset))?;
                     debug_log!(

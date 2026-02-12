@@ -54,10 +54,18 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         PUSH_U128 => {
             if pool_enabled {
                 let idx = ctx.fetch_byte()? as u16;
-                let bytes = ctx.read_pool_bytes(idx, 2)?;
-                let mut buf = [0u8; 16];
-                buf.copy_from_slice(bytes);
-                let val = u128::from_le_bytes(buf);
+                let val = {
+                    let bytes = ctx.read_pool_bytes(idx, 2)?;
+                    let lo = u64::from_le_bytes([
+                        bytes[0], bytes[1], bytes[2], bytes[3],
+                        bytes[4], bytes[5], bytes[6], bytes[7],
+                    ]);
+                    let hi = u64::from_le_bytes([
+                        bytes[8], bytes[9], bytes[10], bytes[11],
+                        bytes[12], bytes[13], bytes[14], bytes[15],
+                    ]);
+                    ((hi as u128) << 64) | (lo as u128)
+                };
                 vm_push_u128!(ctx, val);
             } else {
                 let val = ctx.fetch_u128()?;
@@ -77,11 +85,14 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         PUSH_PUBKEY => {
             if pool_enabled {
                 let idx = ctx.fetch_byte()? as u16;
-                let mut bytes = [0u8; 32];
-                bytes.copy_from_slice(ctx.read_pool_bytes(idx, 4)?);
                 let offset = ctx.alloc_temp(32)?;
-                ctx.temp_buffer_mut()[offset as usize..offset as usize + 32]
-                    .copy_from_slice(&bytes);
+                let bytes_ptr = {
+                    let bytes = ctx.read_pool_bytes(idx, 4)?;
+                    bytes.as_ptr()
+                };
+                // SAFETY: pointer is into immutable bytecode memory and length is fixed to 32 bytes.
+                let bytes = unsafe { core::slice::from_raw_parts(bytes_ptr, 32) };
+                ctx.temp_buffer_mut()[offset as usize..offset as usize + 32].copy_from_slice(bytes);
                 ctx.push(ValueRef::TempRef(offset, 32))?;
             } else {
                 let offset = ctx.fetch_pubkey_to_temp()?;
@@ -163,10 +174,18 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                 return Err(VMErrorCode::InvalidInstruction);
             }
             let idx = ctx.fetch_u16()?;
-            let bytes = ctx.read_pool_bytes(idx, 2)?;
-            let mut buf = [0u8; 16];
-            buf.copy_from_slice(bytes);
-            let val = u128::from_le_bytes(buf);
+            let val = {
+                let bytes = ctx.read_pool_bytes(idx, 2)?;
+                let lo = u64::from_le_bytes([
+                    bytes[0], bytes[1], bytes[2], bytes[3],
+                    bytes[4], bytes[5], bytes[6], bytes[7],
+                ]);
+                let hi = u64::from_le_bytes([
+                    bytes[8], bytes[9], bytes[10], bytes[11],
+                    bytes[12], bytes[13], bytes[14], bytes[15],
+                ]);
+                ((hi as u128) << 64) | (lo as u128)
+            };
             vm_push_u128!(ctx, val);
         }
         PUSH_PUBKEY_W => {
@@ -174,11 +193,14 @@ pub fn handle_stack_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                 return Err(VMErrorCode::InvalidInstruction);
             }
             let idx = ctx.fetch_u16()?;
-            let mut bytes = [0u8; 32];
-            bytes.copy_from_slice(ctx.read_pool_bytes(idx, 4)?);
             let offset = ctx.alloc_temp(32)?;
-            ctx.temp_buffer_mut()[offset as usize..offset as usize + 32]
-                .copy_from_slice(&bytes);
+            let bytes_ptr = {
+                let bytes = ctx.read_pool_bytes(idx, 4)?;
+                bytes.as_ptr()
+            };
+            // SAFETY: pointer is into immutable bytecode memory and length is fixed to 32 bytes.
+            let bytes = unsafe { core::slice::from_raw_parts(bytes_ptr, 32) };
+            ctx.temp_buffer_mut()[offset as usize..offset as usize + 32].copy_from_slice(bytes);
             ctx.push(ValueRef::TempRef(offset, 32))?;
         }
         // ===== BASIC STACK OPERATIONS (0x10-0x17) =====

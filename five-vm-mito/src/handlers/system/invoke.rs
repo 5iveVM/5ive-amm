@@ -51,24 +51,22 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 account_indices[(accounts_count - 1 - i) as usize] = idx as usize;
             }
 
-            // Pop instruction data
-            let instruction_data: [u8; MAX_CPI_DATA_LEN];
-            let instruction_len: usize;
-
+            // Pop instruction data and program ID.
             let data_ref = ctx.pop()?;
+            let program_id_ref = ctx.pop()?;
+
+            let mut instruction_data_owned = [0u8; MAX_CPI_DATA_LEN];
+            let instruction_data: &[u8];
             match data_ref {
                 ValueRef::U64(amount) => {
                     // ... (U64 case)
-                    let mut data = [0u8; MAX_CPI_DATA_LEN];
                     let discriminator_bytes = 2u32.to_le_bytes();
                     let amount_bytes = amount.to_le_bytes();
-                    data[0..4].copy_from_slice(&discriminator_bytes);
-                    data[4..12].copy_from_slice(&amount_bytes);
-                    instruction_data = data;
-                    instruction_len = 12;
+                    instruction_data_owned[0..4].copy_from_slice(&discriminator_bytes);
+                    instruction_data_owned[4..12].copy_from_slice(&amount_bytes);
+                    instruction_data = &instruction_data_owned[..12];
                 }
                 ValueRef::TempRef(offset, len) => {
-                    // ... (TempRef case)
                     let start = offset as usize;
                     let end = start + len as usize;
                     if end > ctx.temp_buffer().len() {
@@ -78,11 +76,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                     if len as usize > MAX_CPI_DATA_LEN {
                         return Err(VMErrorCode::InvalidOperation);
                     }
-                    let mut data = [0u8; MAX_CPI_DATA_LEN];
-                    data[..len as usize]
-                        .copy_from_slice(&ctx.temp_buffer()[start..end]);
-                    instruction_data = data;
-                    instruction_len = len as usize;
+                    instruction_data = &ctx.temp_buffer()[start..end];
                 }
                 ValueRef::ArrayRef(array_id) => {
                     let start = array_id as usize;
@@ -96,7 +90,6 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                         return Err(VMErrorCode::InvalidOperation);
                     }
 
-                    let mut data = [0u8; MAX_CPI_DATA_LEN];
                     let mut offset = start + 2;
                     let mut write_offset = 0usize;
 
@@ -113,10 +106,10 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                             if offset + 1 >= temp.len() {
                                 return Err(VMErrorCode::MemoryViolation);
                             }
-                            if write_offset + 1 > data.len() {
+                            if write_offset + 1 > instruction_data_owned.len() {
                                 return Err(VMErrorCode::InvalidOperation);
                             }
-                            data[write_offset] = temp[offset + 1];
+                            instruction_data_owned[write_offset] = temp[offset + 1];
                             write_offset += 1;
                             offset += 2;
                         } else if type_id == five_protocol::types::U64
@@ -125,10 +118,10 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                             if offset + 8 >= temp.len() {
                                 return Err(VMErrorCode::MemoryViolation);
                             }
-                            if write_offset + 8 > data.len() {
+                            if write_offset + 8 > instruction_data_owned.len() {
                                 return Err(VMErrorCode::InvalidOperation);
                             }
-                            data[write_offset..write_offset + 8]
+                            instruction_data_owned[write_offset..write_offset + 8]
                                 .copy_from_slice(&temp[offset + 1..offset + 9]);
                             write_offset += 8;
                             offset += 9;
@@ -136,10 +129,10 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                             if offset + 4 >= temp.len() {
                                 return Err(VMErrorCode::MemoryViolation);
                             }
-                            if write_offset + 4 > data.len() {
+                            if write_offset + 4 > instruction_data_owned.len() {
                                 return Err(VMErrorCode::InvalidOperation);
                             }
-                            data[write_offset..write_offset + 4]
+                            instruction_data_owned[write_offset..write_offset + 4]
                                 .copy_from_slice(&temp[offset + 1..offset + 5]);
                             write_offset += 4;
                             offset += 5;
@@ -148,7 +141,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                             if offset + 2 >= temp.len() {
                                 return Err(VMErrorCode::MemoryViolation);
                             }
-                            if write_offset + 32 > data.len() {
+                            if write_offset + 32 > instruction_data_owned.len() {
                                 return Err(VMErrorCode::InvalidOperation);
                             }
 
@@ -156,7 +149,8 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                             ref_bytes.copy_from_slice(&temp[offset + 1..offset + 3]);
                             let pk_ref = ValueRef::PubkeyRef(u16::from_le_bytes(ref_bytes));
                             let pk_bytes = ctx.extract_pubkey(&pk_ref)?;
-                            data[write_offset..write_offset + 32].copy_from_slice(&pk_bytes);
+                            instruction_data_owned[write_offset..write_offset + 32]
+                                .copy_from_slice(&pk_bytes);
 
                             write_offset += 32;
                             offset += 3;
@@ -167,7 +161,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                             if offset + 3 >= temp.len() {
                                 return Err(VMErrorCode::MemoryViolation);
                             }
-                            if write_offset + 32 > data.len() {
+                            if write_offset + 32 > instruction_data_owned.len() {
                                 return Err(VMErrorCode::InvalidOperation);
                             }
 
@@ -183,7 +177,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                                 return Err(VMErrorCode::InvalidAccountIndex);
                             }
 
-                            data[write_offset..write_offset + 32]
+                            instruction_data_owned[write_offset..write_offset + 32]
                                 .copy_from_slice(accounts[account_idx].key().as_ref());
                             write_offset += 32;
                             offset += 4;
@@ -193,7 +187,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                             if offset + 2 >= temp.len() {
                                 return Err(VMErrorCode::MemoryViolation);
                             }
-                            if write_offset + 32 > data.len() {
+                            if write_offset + 32 > instruction_data_owned.len() {
                                 return Err(VMErrorCode::InvalidOperation);
                             }
 
@@ -207,7 +201,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                             if end > ctx.temp_buffer().len() {
                                 return Err(VMErrorCode::MemoryViolation);
                             }
-                            data[write_offset..write_offset + 32]
+                            instruction_data_owned[write_offset..write_offset + 32]
                                 .copy_from_slice(&ctx.temp_buffer()[temp_offset..end]);
 
                             write_offset += 32;
@@ -221,17 +215,13 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                         }
                     }
 
-                    instruction_data = data;
-                    instruction_len = write_offset;
+                    instruction_data = &instruction_data_owned[..write_offset];
                 }
                 _ => {
                     error_log!("INVOKE: instruction_data type mismatch. Got TypeID: {}", data_ref.type_id() as u64);
                     return Err(VMErrorCode::TypeMismatch);
                 }
             };
-
-            // Pop program ID
-            let program_id_ref = ctx.pop()?;
             
             let program_id_bytes = ctx.extract_pubkey(&program_id_ref).inspect_err(|_e| {
                  error_log!("INVOKE: extract_pubkey failed for TypeID: {}", program_id_ref.type_id() as u64);
@@ -240,7 +230,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 
             debug_log!(
                 "MitoVM: INVOKE instruction_data len: {}",
-                instruction_len as u32
+                instruction_data.len() as u32
             );
             
             // FORCE LOGGING loop - Cleaned up for production
@@ -283,7 +273,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let instruction = Instruction {
                 program_id: &program_id,
                 accounts: &account_metas[..accounts_count as usize], // Use only the filled portion
-                data: &instruction_data[..instruction_len], // Pinocchio requires slice here
+                data: instruction_data, // Pinocchio requires slice here
             };
 
             // Collect account infos for the invoke using stack array
