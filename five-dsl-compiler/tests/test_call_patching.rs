@@ -101,6 +101,9 @@ impl OpcodeEmitter for TestEmitter {
     fn emit_const_string(&mut self, _value: &[u8]) -> Result<(), five_vm_mito::error::VMError> {
         Ok(())
     }
+    fn intern_u16_const(&mut self, value: u16) -> Result<u16, five_vm_mito::error::VMError> {
+        Ok(value)
+    }
 }
 
 // ============================================================================

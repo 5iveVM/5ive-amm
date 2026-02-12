@@ -359,6 +359,38 @@ impl ASTGenerator {
             return Ok(account_index_from_param_index(idx as u8));
         }
 
+        // Devex path: allow descriptive names like `token_bytecode` instead of synthetic
+        // `extN` parameter names for external import bindings.
+        let bytecode_param_positions: Vec<usize> = account_params
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, p)| {
+                let name = p.name.as_str();
+                if name.ends_with("_bytecode") || name.contains("bytecode") {
+                    Some(idx)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if let Some((idx, _)) = account_params
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.name == "token_bytecode")
+        {
+            return Ok(account_index_from_param_index(idx as u8));
+        }
+
+        if !bytecode_param_positions.is_empty() {
+            let selected = if (default_index as usize) < bytecode_param_positions.len() {
+                bytecode_param_positions[default_index as usize]
+            } else {
+                bytecode_param_positions[0]
+            };
+            return Ok(account_index_from_param_index(selected as u8));
+        }
+
         if (default_index as usize) < account_params.len() {
             Ok(account_index_from_param_index(default_index))
         } else {
@@ -786,5 +818,68 @@ mod tests {
         let mut emitter = MockEmitter::new();
         let result = gen.generate_function_call(&mut emitter, "transfer", &[]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn resolves_external_account_from_token_bytecode_param_name() {
+        let mut gen = ASTGenerator::new();
+        gen.current_function_parameters = Some(vec![
+            InstructionParameter {
+                name: "source".to_string(),
+                param_type: TypeNode::Primitive("Account".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "mut".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+            },
+            InstructionParameter {
+                name: "destination".to_string(),
+                param_type: TypeNode::Primitive("Account".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "mut".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+            },
+            InstructionParameter {
+                name: "owner".to_string(),
+                param_type: TypeNode::Primitive("Account".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "signer".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+            },
+            InstructionParameter {
+                name: "token_bytecode".to_string(),
+                param_type: TypeNode::Primitive("Account".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![],
+                is_init: false,
+                init_config: None,
+            },
+        ]);
+
+        let mut funcs = HashMap::new();
+        funcs.insert("transfer".to_string(), ASTGenerator::external_selector("transfer"));
+        gen.register_external_import("ext0".to_string(), 0, false, funcs);
+
+        let mut emitter = MockEmitter::new();
+        gen.generate_function_call(&mut emitter, "transfer", &[])
+            .expect("call generation should succeed");
+
+        assert_eq!(emitter.bytes[0], CALL_EXTERNAL);
+        assert_eq!(emitter.bytes[1], 4); // token_bytecode parameter is the 4th account argument
     }
 }

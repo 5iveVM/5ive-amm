@@ -150,7 +150,7 @@ fn harness_executes_external_token_transfer_without_cpi() {
             source_account: account @mut,
             destination_account: account @mut,
             owner: account @mut,
-            ext0: account
+            token_bytecode: account
         ) {{
             transfer(source_account, destination_account, owner, 50);
         }}
