@@ -161,6 +161,7 @@ pub fn is_numeric_type_name(name: &str) -> bool {
             | type_names::I16
             | type_names::I32
             | type_names::I64
+            | type_names::LAMPORTS
     )
 }
 
@@ -184,6 +185,7 @@ pub fn numeric_type_meta(name: &str) -> Option<(bool /*signed*/, u32 /*bits*/)> 
         type_names::U16 => (false, 16),
         type_names::U32 => (false, 32),
         type_names::U64 => (false, 64),
+        type_names::LAMPORTS => (false, 64),
         type_names::U128 => (false, 128),
         type_names::I8 => (true, 8),
         type_names::I16 => (true, 16),

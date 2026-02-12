@@ -158,9 +158,15 @@ impl ASTGenerator {
         name: &str,
         args: &[AstNode],
     ) -> Result<(), VMError> {
-        // Generate arguments first (they will be consumed by the function)
-        for arg in args {
-            self.generate_ast_node(emitter, arg)?;
+        // Most built-ins consume pre-generated arguments.
+        // A few have custom argument lowering and must not pre-generate here.
+        let has_custom_arg_lowering =
+            matches!(name, "derive_pda" | "invoke_signed" | "transfer_lamports");
+
+        if !has_custom_arg_lowering {
+            for arg in args {
+                self.generate_ast_node(emitter, arg)?;
+            }
         }
 
         // Handle built-in functions (these don't use function dispatch)
@@ -239,6 +245,19 @@ impl ASTGenerator {
                 // New logic for handling invoke_signed
                 // The arguments on the stack should be: [program_id, instruction_data, accounts_count, seeds_count, seed1_len, seed1_data, ...]
                 self.generate_invoke_signed(emitter, args)?;
+            }
+            "transfer_lamports" => {
+                // transfer_lamports(from: account, to: account, amount: u64)
+                // TRANSFER pops: amount, to_idx, from_idx, so emit in that order.
+                if args.len() != 3 {
+                    return Err(VMError::InvalidParameterCount);
+                }
+                let from_idx = self.resolve_account_argument(&args[0])?;
+                let to_idx = self.resolve_account_argument(&args[1])?;
+                emitter.emit_const_u8(from_idx)?;
+                emitter.emit_const_u8(to_idx)?;
+                self.generate_ast_node(emitter, &args[2])?;
+                emitter.emit_opcode(TRANSFER);
             }
 
             // ===== NATIVE SYSCALL FUNCTIONS =====
@@ -541,6 +560,10 @@ impl ASTGenerator {
     fn resolve_account_argument(&self, arg: &AstNode) -> Result<u8, VMError> {
         match arg {
             AstNode::Identifier(name) => {
+                if let Some(param_idx) = self.resolve_account_param_by_name(name) {
+                    return Ok(param_idx);
+                }
+
                 // Look up in local symbol table (function parameters)
                 if let Some(field_info) = self.local_symbol_table.get(name) {
                     // Validate it's an account type
@@ -569,6 +592,25 @@ impl ASTGenerator {
                 Err(VMError::InvalidOperation) // Complex expressions not allowed for accounts
             }
         }
+    }
+
+    fn resolve_account_param_by_name(&self, name: &str) -> Option<u8> {
+        let params = self.current_function_parameters.as_ref()?;
+        let registry = self.account_system.as_ref().map(|s| s.get_account_registry());
+
+        for (idx, param) in params.iter().enumerate() {
+            if param.name != name {
+                continue;
+            }
+            if super::super::account_utils::is_account_parameter(
+                &param.param_type,
+                &param.attributes,
+                registry,
+            ) {
+                return Some(account_index_from_param_index(idx as u8));
+            }
+        }
+        None
     }
 
     /// Partition interface method arguments into account indices and data arguments.

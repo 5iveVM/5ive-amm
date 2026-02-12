@@ -93,30 +93,24 @@ fn is_identifier_char(c: char) -> bool {
 /// Extracts the location information from various AST node types.
 fn node_location(node: &AstNode) -> Option<SourceLocation> {
     match node {
-        AstNode::Identifier { location, .. } => Some(*location),
-        AstNode::IntegerLiteral { location, .. } => Some(*location),
+        // Literals and expressions - most have location field
         AstNode::StringLiteral { location, .. } => Some(*location),
-        AstNode::BooleanLiteral { location, .. } => Some(*location),
         AstNode::BinaryExpression { location, .. } => Some(*location),
         AstNode::UnaryExpression { location, .. } => Some(*location),
-        AstNode::CallExpression { location, .. } => Some(*location),
-        AstNode::IndexExpression { location, .. } => Some(*location),
-        AstNode::MemberExpression { location, .. } => Some(*location),
-        AstNode::TernaryExpression { location, .. } => Some(*location),
-        AstNode::AssignmentStatement { location, .. } => Some(*location),
+        // Statements
         AstNode::IfStatement { location, .. } => Some(*location),
-        AstNode::WhileStatement { location, .. } => Some(*location),
-        AstNode::ForStatement { location, .. } => Some(*location),
-        AstNode::ReturnStatement { location, .. } => Some(*location),
-        AstNode::ExpressionStatement { location, .. } => Some(*location),
-        AstNode::VariableDeclaration { location, .. } => Some(*location),
-        AstNode::FunctionDefinition { location, .. } => Some(*location),
-        AstNode::FieldDeclaration { location, .. } => Some(*location),
-        AstNode::AccountDeclaration { location, .. } => Some(*location),
-        AstNode::InterfaceDefinition { location, .. } => Some(*location),
-        AstNode::EventDefinition { location, .. } => Some(*location),
-        AstNode::ImportStatement { location, .. } => Some(*location),
-        AstNode::UseDeclaration { location, .. } => Some(*location),
+        AstNode::ReturnStatement { .. } => None, // Not all statements have location
+        AstNode::ExpressionStatement { .. } => None,
+        // Declarations
+        AstNode::LetStatement { .. } => None,
+        AstNode::FunctionDefinition { .. } => None,
+        AstNode::FieldDefinition { .. } => None,
+        AstNode::AccountDefinition { .. } => None,
+        AstNode::InterfaceDefinition { .. } => None,
+        AstNode::EventDefinition { .. } => None,
+        AstNode::UseStatement { .. } => None,
+        AstNode::InitBlock { .. } => None,
+        AstNode::ConstraintsBlock { .. } => None,
         _ => None,
     }
 }
@@ -134,7 +128,7 @@ fn get_children(node: &AstNode) -> Vec<&AstNode> {
             event_definitions,
             account_definitions,
             interface_definitions,
-            import_statements,
+            use_statements,
             ..
         } => {
             children.extend(field_definitions.iter());
@@ -142,36 +136,24 @@ fn get_children(node: &AstNode) -> Vec<&AstNode> {
             children.extend(event_definitions.iter());
             children.extend(account_definitions.iter());
             children.extend(interface_definitions.iter());
-            children.extend(import_statements.iter());
+            children.extend(use_statements.iter());
         }
-        AstNode::FunctionDefinition { body, .. } => {
+        AstNode::InstructionDefinition { body, .. } => {
             if let Some(statements) = body {
                 children.extend(statements.iter());
             }
         }
-        AstNode::Block { statements, .. } => {
-            children.extend(statements.iter());
-        }
         AstNode::IfStatement {
             condition,
-            then_block,
-            else_block,
+            body,
+            alternate,
             ..
         } => {
             children.push(condition.as_ref());
-            children.extend(then_block.iter());
-            if let Some(else_stmts) = else_block {
-                children.extend(else_stmts.iter());
+            children.extend(body.iter());
+            if let Some(alt_stmts) = alternate {
+                children.extend(alt_stmts.iter());
             }
-        }
-        AstNode::WhileStatement {
-            condition, body, ..
-        } => {
-            children.push(condition.as_ref());
-            children.extend(body.iter());
-        }
-        AstNode::ForStatement { body, .. } => {
-            children.extend(body.iter());
         }
         AstNode::BinaryExpression { left, right, .. } => {
             children.push(left.as_ref());
@@ -180,28 +162,10 @@ fn get_children(node: &AstNode) -> Vec<&AstNode> {
         AstNode::UnaryExpression { operand, .. } => {
             children.push(operand.as_ref());
         }
-        AstNode::CallExpression { arguments, .. } => {
-            children.extend(arguments.iter());
-        }
-        AstNode::IndexExpression { array, index, .. } => {
-            children.push(array.as_ref());
-            children.push(index.as_ref());
-        }
-        AstNode::MemberExpression { object, .. } => {
-            children.push(object.as_ref());
-        }
-        AstNode::TernaryExpression {
-            condition,
-            then_expr,
-            else_expr,
-            ..
-        } => {
-            children.push(condition.as_ref());
-            children.push(then_expr.as_ref());
-            children.push(else_expr.as_ref());
-        }
-        AstNode::AssignmentStatement { value, .. } => {
-            children.push(value.as_ref());
+        AstNode::LetStatement { value, .. } => {
+            if let Some(val) = value {
+                children.push(val.as_ref());
+            }
         }
         AstNode::ReturnStatement { value, .. } => {
             if let Some(val) = value {
@@ -210,11 +174,6 @@ fn get_children(node: &AstNode) -> Vec<&AstNode> {
         }
         AstNode::ExpressionStatement { expression, .. } => {
             children.push(expression.as_ref());
-        }
-        AstNode::VariableDeclaration { value, .. } => {
-            if let Some(val) = value {
-                children.push(val.as_ref());
-            }
         }
         _ => {}
     }

@@ -14,6 +14,10 @@ use crate::{
 use core::convert::TryFrom;
 use five_protocol::{opcodes::*, ValueRef};
 use pinocchio::pubkey::Pubkey;
+#[cfg(target_os = "solana")]
+use pinocchio::instruction::{AccountMeta, Instruction};
+#[cfg(target_os = "solana")]
+use pinocchio::program::invoke_signed;
 
 /// Execute Solana account operations including creation, metadata access, and lamport management.
 /// Handles the 0x50-0x5F opcode range.
@@ -163,6 +167,75 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
                 "MitoVM: SET_LAMPORTS account {} = {}",
                 account_idx,
                 new_lamports
+            );
+        }
+        TRANSFER | TRANSFER_SIGNED => {
+            let amount = pop_u64!(ctx);
+            let to_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+            let from_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+
+            let from = ctx.get_account(from_idx)?;
+            let to = ctx.get_account(to_idx)?;
+
+            if !from.is_writable() || !to.is_writable() {
+                return Err(VMErrorCode::AccountNotWritable);
+            }
+            if opcode == TRANSFER && !from.is_signer() {
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+
+            #[cfg(target_os = "solana")]
+            {
+                let system_program_id = Pubkey::from([0u8; 32]);
+                let system_program = ctx
+                    .accounts()
+                    .iter()
+                    .find(|a| a.key() == &system_program_id)
+                    .ok_or(VMErrorCode::AccountNotFound)?;
+
+                let mut transfer_data = [0u8; 12];
+                transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes());
+                transfer_data[4..12].copy_from_slice(&amount.to_le_bytes());
+
+                let transfer_metas = [
+                    AccountMeta {
+                        pubkey: from.key(),
+                        is_signer: true,
+                        is_writable: true,
+                    },
+                    AccountMeta {
+                        pubkey: to.key(),
+                        is_signer: false,
+                        is_writable: true,
+                    },
+                ];
+
+                let ix = Instruction {
+                    program_id: system_program.key(),
+                    accounts: &transfer_metas,
+                    data: &transfer_data,
+                };
+
+                invoke_signed::<3>(&ix, &[from, to, system_program], &[])
+                    .map_err(|_| VMErrorCode::InvokeError)?;
+            }
+
+            #[cfg(not(target_os = "solana"))]
+            {
+                if from.lamports() < amount {
+                    return Err(VMErrorCode::ConstraintViolation);
+                }
+                unsafe {
+                    *from.borrow_mut_lamports_unchecked() -= amount;
+                    *to.borrow_mut_lamports_unchecked() += amount;
+                }
+            }
+
+            debug_log!(
+                "MitoVM: TRANSFER from {} to {} amount {}",
+                from_idx,
+                to_idx,
+                amount
             );
         }
         _ => return Err(VMErrorCode::InvalidInstruction.into()),

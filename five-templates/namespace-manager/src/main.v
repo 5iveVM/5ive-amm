@@ -1,4 +1,4 @@
-// 5NS Namespace Manager (template)
+// 5NS Namespace Manager
 // This program is intended to be deployed with privileged permissions
 // so special namespace symbols (! @ # $ %) can be managed without VM patching.
 
@@ -14,17 +14,17 @@ account NamespaceConfig {
 }
 
 account TldRecord {
-    symbol: string;
-    domain: string;
+    symbol: string<4>;
+    domain: string<64>;
     owner: pubkey;
     registered_at: u64;
     updated_at: u64;
 }
 
 account SubprogramBinding {
-    symbol: string;
-    domain: string;
-    subprogram: string;
+    symbol: string<4>;
+    domain: string<64>;
+    subprogram: string<64>;
     script_account: pubkey;
     owner: pubkey;
     version: u64;
@@ -32,9 +32,9 @@ account SubprogramBinding {
 }
 
 account BindingHistory {
-    symbol: string;
-    domain: string;
-    subprogram: string;
+    symbol: string<4>;
+    domain: string<64>;
+    subprogram: string<64>;
     version: u64;
     script_account: pubkey;
     updated_at: u64;
@@ -58,18 +58,18 @@ pub init_manager(
 pub set_symbol_price(
     cfg: NamespaceConfig @mut,
     admin: account @signer,
-    symbol: string,
-    lamports: u64
+    symbol: string<4>,
+    price_lamports: u64
 ) {
     require(admin.key == cfg.admin);
-    if (symbol == "@") { cfg.at_price_lamports = lamports; }
-    if (symbol == "!") { cfg.bang_price_lamports = lamports; }
-    if (symbol == "#") { cfg.hash_price_lamports = lamports; }
-    if (symbol == "$") { cfg.dollar_price_lamports = lamports; }
-    if (symbol == "%") { cfg.percent_price_lamports = lamports; }
+    if (symbol == "@") { cfg.at_price_lamports = price_lamports; }
+    if (symbol == "!") { cfg.bang_price_lamports = price_lamports; }
+    if (symbol == "#") { cfg.hash_price_lamports = price_lamports; }
+    if (symbol == "$") { cfg.dollar_price_lamports = price_lamports; }
+    if (symbol == "%") { cfg.percent_price_lamports = price_lamports; }
 }
 
-pub get_symbol_price(cfg: NamespaceConfig, symbol: string) -> u64 {
+pub get_symbol_price(cfg: NamespaceConfig, symbol: string<4>) -> u64 {
     if (symbol == "@") { return cfg.at_price_lamports; }
     if (symbol == "!") { return cfg.bang_price_lamports; }
     if (symbol == "#") { return cfg.hash_price_lamports; }
@@ -81,22 +81,16 @@ pub get_symbol_price(cfg: NamespaceConfig, symbol: string) -> u64 {
 pub register_tld(
     cfg: NamespaceConfig @mut,
     tld: TldRecord @mut @init(payer=owner, seeds=["5ns_tld", symbol, domain]),
-    owner: account @signer,
+    owner: account @mut @signer,
     treasury_account: account @mut,
-    symbol: string,
+    symbol: string<4>,
     domain: string,
     now: u64
 ) {
-    let price: u64 = get_symbol_price(cfg, symbol);
-
-    require(price > 0);
     require(treasury_account.key == cfg.treasury);
-    require(owner.lamports >= price);
+    let price: u64 = cfg.at_price_lamports;
+    transfer_lamports(owner, treasury_account, price);
 
-    owner.lamports = owner.lamports - price;
-    treasury_account.lamports = treasury_account.lamports + price;
-
-    require(tld.owner == 0 || tld.owner == owner.key);
     tld.symbol = symbol;
     tld.domain = domain;
     tld.owner = owner.key;
@@ -108,16 +102,14 @@ pub register_tld(
 pub bind_subprogram(
     tld: TldRecord,
     binding: SubprogramBinding @mut @init(payer=owner, seeds=["5ns_binding", symbol, domain, subprogram]),
-    owner: account @signer,
-    symbol: string,
+    owner: account @mut @signer,
+    symbol: string<4>,
     domain: string,
     subprogram: string,
     script_account: pubkey,
     now: u64
 ) {
     require(tld.owner == owner.key);
-    require(tld.symbol == symbol);
-    require(tld.domain == domain);
 
     binding.symbol = symbol;
     binding.domain = domain;
@@ -131,7 +123,7 @@ pub bind_subprogram(
 pub update_subprogram(
     binding: SubprogramBinding @mut,
     history: BindingHistory @mut @init(payer=owner, seeds=["5ns_history", binding.symbol, binding.domain, binding.subprogram, binding.version]),
-    owner: account @signer,
+    owner: account @mut @signer,
     next_script_account: pubkey,
     now: u64
 ) {

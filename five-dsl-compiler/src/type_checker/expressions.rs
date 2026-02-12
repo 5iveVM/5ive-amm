@@ -512,6 +512,22 @@ impl TypeCheckerContext {
                 self.infer_type(&args[1])?;
                 Ok(TypeNode::Primitive("void".to_string()))
             }
+            "transfer_lamports" => {
+                // transfer_lamports(from: account, to: account, amount: u64) -> void
+                if args.len() != 3 {
+                    return Err(VMError::InvalidOperation);
+                }
+                let from_ty = self.infer_type(&args[0])?;
+                let to_ty = self.infer_type(&args[1])?;
+                let amount_ty = self.infer_type(&args[2])?;
+                let from_ok = matches!(from_ty, TypeNode::Account | TypeNode::Named(_));
+                let to_ok = matches!(to_ty, TypeNode::Account | TypeNode::Named(_));
+                let amount_ok = matches!(amount_ty, TypeNode::Primitive(ref n) if n == "u64" || n == "lamports");
+                if !from_ok || !to_ok || !amount_ok {
+                    return Err(VMError::TypeMismatch);
+                }
+                Ok(TypeNode::Primitive("void".to_string()))
+            }
             _ => {
                 // For user-defined functions, use pre-registered return type if available; default to void
                 for arg in args {

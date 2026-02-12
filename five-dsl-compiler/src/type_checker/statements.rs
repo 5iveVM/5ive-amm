@@ -135,6 +135,36 @@ impl TypeCheckerContext {
                                 return Err(VMError::UndefinedField);
                             }
                         }
+                        TypeNode::Account => {
+                            self.validate_builtin_account_property(field)?;
+                            let obj_name = if let AstNode::Identifier(obj_name) = object.as_ref() {
+                                obj_name
+                            } else {
+                                return Err(VMError::TypeMismatch);
+                            };
+
+                            if field != "lamports" {
+                                return Err(VMError::ImmutableField);
+                            }
+
+                            let allow_via_account_mut = if let Some(writable) =
+                                &self.current_writable_accounts
+                            {
+                                writable.contains(obj_name)
+                            } else {
+                                false
+                            };
+                            if !allow_via_account_mut {
+                                return Err(VMError::ImmutableField);
+                            }
+
+                            let target_type = TypeNode::Primitive("u64".to_string());
+                            if !self.types_are_compatible(&target_type, &value_type)
+                                && !Self::numeric_literal_fits(&target_type, value)
+                            {
+                                return Err(VMError::TypeMismatch);
+                            }
+                        }
                         TypeNode::Named(account_type_name) => {
                             // Look up account fields with namespace-aware matching
                             let namespace_suffix = format!("::{}", account_type_name);

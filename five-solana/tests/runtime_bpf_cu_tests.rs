@@ -822,6 +822,472 @@ async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
     print_external_cache_metrics("external_burst_non_cpi");
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let bpf_dir = repo_root.join("target/deploy");
+    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
+
+    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
+        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
+        .pubkey();
+
+    let namespace_source_path = repo_root.join("five-templates/namespace-manager/src/main.v");
+    let namespace_source = fs::read_to_string(&namespace_source_path)
+        .unwrap_or_else(|e| panic!("failed reading {}: {}", namespace_source_path.display(), e));
+    let namespace_bytecode =
+        DslCompiler::compile_dsl(&namespace_source).expect("namespace manager should compile");
+
+    const SYMBOL: &str = "@";
+    const DOMAIN: &str = "5ive-tech";
+    const SUBPROGRAM: &str = "program";
+    const REGISTER_PRICE_LAMPORTS: u64 = 1_000_000_000;
+
+    let cfg_pda = Pubkey::find_program_address(&[b"5ns_config"], &program_id).0;
+    let tld_pda =
+        Pubkey::find_program_address(&[b"5ns_tld", SYMBOL.as_bytes(), DOMAIN.as_bytes()], &program_id).0;
+    let binding_pda = Pubkey::find_program_address(
+        &[b"5ns_binding", SYMBOL.as_bytes(), DOMAIN.as_bytes(), SUBPROGRAM.as_bytes()],
+        &program_id,
+    )
+    .0;
+    let bad_binding_pda = Pubkey::find_program_address(
+        &[b"5ns_binding", SYMBOL.as_bytes(), DOMAIN.as_bytes(), b"attacker-program"],
+        &program_id,
+    )
+    .0;
+
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
+    let owner_signer = Keypair::new();
+    let owner_pubkey = owner_signer.pubkey();
+    let attacker_signer = Keypair::new();
+    let attacker_pubkey = attacker_signer.pubkey();
+    let treasury_pubkey = Pubkey::new_unique();
+    let target_script_pubkey = Pubkey::new_unique();
+
+    accounts.insert(
+        "owner".to_string(),
+        RuntimeAccount {
+            pubkey: owner_pubkey,
+            signer: Some(owner_signer),
+            owner: system_program::id(),
+            lamports: 4_000_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "attacker".to_string(),
+        RuntimeAccount {
+            pubkey: attacker_pubkey,
+            signer: Some(attacker_signer),
+            owner: system_program::id(),
+            lamports: 4_000_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "treasury".to_string(),
+        RuntimeAccount {
+            pubkey: treasury_pubkey,
+            signer: None,
+            owner: system_program::id(),
+            lamports: 1_000_000,
+            data: vec![],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "target_script_ref".to_string(),
+        RuntimeAccount {
+            pubkey: target_script_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(0),
+            data: vec![],
+            is_signer: false,
+            is_writable: false,
+            executable: false,
+        },
+    );
+
+    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
+            .expect("invalid vm state account layout");
+        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.deploy_fee_lamports = 0;
+        vm_state.execute_fee_lamports = 0;
+    }
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
+            data: vm_state_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "namespace_script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + namespace_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + namespace_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    for (name, pubkey) in [
+        ("ns_cfg", cfg_pda),
+        ("ns_tld", tld_pda),
+        ("ns_binding", binding_pda),
+        ("ns_binding_bad", bad_binding_pda),
+    ] {
+        accounts.insert(
+            name.to_string(),
+            RuntimeAccount {
+                pubkey,
+                signer: None,
+                owner: system_program::id(),
+                lamports: 0,
+                data: vec![],
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
+    accounts.insert(
+        "system_program".to_string(),
+        RuntimeAccount {
+            pubkey: system_program::id(),
+            signer: None,
+            owner: system_program::id(),
+            lamports: 1,
+            data: vec![],
+            is_signer: false,
+            is_writable: false,
+            executable: true,
+        },
+    );
+
+    let mut program_test = ProgramTest::new("five", program_id, None);
+    program_test.prefer_bpf(true);
+    for account in accounts.values() {
+        if account.pubkey == program_id || account.pubkey == system_program::id() {
+            continue;
+        }
+        program_test.add_account(
+            account.pubkey,
+            Account {
+                lamports: account.lamports,
+                data: account.data.clone(),
+                owner: account.owner,
+                executable: account.executable,
+                rent_epoch: 0,
+            },
+        );
+    }
+    let mut ctx = program_test.start_with_context().await;
+
+    let deploy_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        "owner",
+        &namespace_bytecode,
+        0,
+    );
+    let deploy = simulate_and_process(
+        &mut ctx,
+        vec![deploy_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy.success, "namespace manager deploy failed: {:?}", deploy.error);
+
+    let init_step = StepFixture {
+        name: "namespace_init_manager".to_string(),
+        function_index: 0,
+        extras: vec!["ns_cfg".to_string(), "owner".to_string(), "system_program".to_string()],
+        params: vec![ParamFixture::PubkeyAccount {
+            account: "treasury".to_string(),
+        }],
+        expected: ExpectedFixture::Success,
+    };
+    let init_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &init_step,
+        build_payload(&accounts, &init_step),
+    );
+    let init = simulate_and_process(
+        &mut ctx,
+        vec![init_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(init.success, "init_manager failed: {:?}", init.error);
+
+    let owner_before = ctx
+        .banks_client
+        .get_account(owner_pubkey)
+        .await
+        .expect("owner fetch before register")
+        .expect("owner account must exist")
+        .lamports;
+    let tld_before = ctx
+        .banks_client
+        .get_account(accounts["ns_tld"].pubkey)
+        .await
+        .expect("tld fetch before register")
+        .map(|a| a.lamports)
+        .unwrap_or(0);
+    let treasury_before = ctx
+        .banks_client
+        .get_account(treasury_pubkey)
+        .await
+        .expect("treasury fetch before register")
+        .expect("treasury account must exist")
+        .lamports;
+
+    let register_step = StepFixture {
+        name: "namespace_register_tld".to_string(),
+        function_index: 3,
+        extras: vec![
+            "ns_cfg".to_string(),
+            "ns_tld".to_string(),
+            "owner".to_string(),
+            "treasury".to_string(),
+            "system_program".to_string(),
+        ],
+        params: vec![
+            ParamFixture::String {
+                value: SYMBOL.to_string(),
+            },
+            ParamFixture::String {
+                value: DOMAIN.to_string(),
+            },
+            ParamFixture::U64 { value: 1_700_000_000 },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+    let register_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &register_step,
+        build_payload(&accounts, &register_step),
+    );
+    let register = simulate_and_process(
+        &mut ctx,
+        vec![register_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(register.success, "register_tld failed: {:?}", register.error);
+
+    let owner_after = ctx
+        .banks_client
+        .get_account(owner_pubkey)
+        .await
+        .expect("owner fetch after register")
+        .expect("owner account must exist")
+        .lamports;
+    let tld_after = ctx
+        .banks_client
+        .get_account(accounts["ns_tld"].pubkey)
+        .await
+        .expect("tld fetch after register")
+        .expect("tld account must exist")
+        .lamports;
+    let treasury_after = ctx
+        .banks_client
+        .get_account(treasury_pubkey)
+        .await
+        .expect("treasury fetch after register")
+        .expect("treasury account must exist")
+        .lamports;
+    let tld_rent_debit = tld_after.saturating_sub(tld_before);
+    assert_eq!(
+        owner_before.saturating_sub(owner_after),
+        REGISTER_PRICE_LAMPORTS + tld_rent_debit,
+        "register_tld should debit owner by @-symbol price plus @init rent"
+    );
+    assert_eq!(
+        treasury_after.saturating_sub(treasury_before),
+        REGISTER_PRICE_LAMPORTS,
+        "register_tld should credit treasury by @-symbol price"
+    );
+
+    let bind_step = StepFixture {
+        name: "namespace_bind_subprogram".to_string(),
+        function_index: 4,
+        extras: vec![
+            "ns_tld".to_string(),
+            "ns_binding".to_string(),
+            "owner".to_string(),
+            "system_program".to_string(),
+        ],
+        params: vec![
+            ParamFixture::String {
+                value: SYMBOL.to_string(),
+            },
+            ParamFixture::String {
+                value: DOMAIN.to_string(),
+            },
+            ParamFixture::String {
+                value: SUBPROGRAM.to_string(),
+            },
+            ParamFixture::PubkeyAccount {
+                account: "target_script_ref".to_string(),
+            },
+            ParamFixture::U64 { value: 1_700_000_123 },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+    let bind_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &bind_step,
+        build_payload(&accounts, &bind_step),
+    );
+    let bind = simulate_and_process(
+        &mut ctx,
+        vec![bind_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(bind.success, "bind_subprogram failed: {:?}", bind.error);
+
+    let resolve_step = StepFixture {
+        name: "namespace_resolve".to_string(),
+        function_index: 6,
+        extras: vec!["ns_binding".to_string()],
+        params: vec![],
+        expected: ExpectedFixture::Success,
+    };
+    let resolve_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &resolve_step,
+        build_payload(&accounts, &resolve_step),
+    );
+    let resolve = simulate_and_process(&mut ctx, vec![resolve_ix], vec![], Some(1_400_000)).await;
+    assert!(resolve.success, "resolve failed: {:?}", resolve.error);
+
+    let binding_account = ctx
+        .banks_client
+        .get_account(binding_pda)
+        .await
+        .expect("fetch binding account")
+        .expect("binding account missing");
+    let target_script_bytes = target_script_pubkey.to_bytes();
+    assert!(
+        binding_account
+            .data
+            .windows(target_script_bytes.len())
+            .any(|window| window == target_script_bytes),
+        "binding account should include bound script pubkey"
+    );
+
+    let non_owner_bind_step = StepFixture {
+        name: "namespace_bind_non_owner_rejected".to_string(),
+        function_index: 4,
+        extras: vec![
+            "ns_tld".to_string(),
+            "ns_binding_bad".to_string(),
+            "attacker".to_string(),
+            "system_program".to_string(),
+        ],
+        params: vec![
+            ParamFixture::String {
+                value: SYMBOL.to_string(),
+            },
+            ParamFixture::String {
+                value: DOMAIN.to_string(),
+            },
+            ParamFixture::String {
+                value: "attacker-program".to_string(),
+            },
+            ParamFixture::PubkeyAccount {
+                account: "target_script_ref".to_string(),
+            },
+            ParamFixture::U64 { value: 1_700_000_456 },
+        ],
+        expected: ExpectedFixture::Error,
+    };
+    let non_owner_bind_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &non_owner_bind_step,
+        build_payload(&accounts, &non_owner_bind_step),
+    );
+    let non_owner_bind = simulate_and_process(
+        &mut ctx,
+        vec![non_owner_bind_ix],
+        collect_signers(&accounts, &["attacker"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        !non_owner_bind.success,
+        "non-owner bind should fail, got success"
+    );
+
+    let total = deploy
+        .units_consumed
+        .saturating_add(init.units_consumed)
+        .saturating_add(register.units_consumed)
+        .saturating_add(bind.units_consumed)
+        .saturating_add(resolve.units_consumed)
+        .saturating_add(non_owner_bind.units_consumed);
+    println!(
+        "BPF_CU namespace_manager deploy={} init={} register={} bind={} resolve={} bind_non_owner={} total={}",
+        deploy.units_consumed,
+        init.units_consumed,
+        register.units_consumed,
+        bind.units_consumed,
+        resolve.units_consumed,
+        non_owner_bind.units_consumed,
+        total
+    );
+    assert!(
+        total < 700_000,
+        "namespace manager flow consumed too many CU: {}",
+        total
+    );
+}
+
 async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> ExternalBurstRun {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);

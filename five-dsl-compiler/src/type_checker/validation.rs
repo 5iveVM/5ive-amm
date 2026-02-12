@@ -42,6 +42,11 @@ impl TypeCheckerContext {
         use TypeNode::Primitive;
         match (t1, t2) {
             (Primitive(n1), Primitive(n2)) => {
+                if (n1 == type_names::LAMPORTS && (n2 == type_names::LAMPORTS || n2 == type_names::U64))
+                    || (n2 == type_names::LAMPORTS && (n1 == type_names::LAMPORTS || n1 == type_names::U64))
+                {
+                    return Some(Primitive(type_names::LAMPORTS.to_string()));
+                }
                 let (s1, b1) = numeric_type_meta(n1.as_str())?;
                 let (s2, b2) = numeric_type_meta(n2.as_str())?;
                 let signed = s1 || s2;
@@ -84,6 +89,7 @@ impl TypeCheckerContext {
                 type_names::U16 => (0..=u16::MAX as i128).contains(&lit),
                 type_names::U32 => (0..=u32::MAX as i128).contains(&lit),
                 type_names::U64 => lit >= 0,
+                type_names::LAMPORTS => lit >= 0,
                 type_names::U128 => lit >= 0,
                 type_names::I8 => (i8::MIN as i128..=i8::MAX as i128).contains(&lit),
                 type_names::I16 => (i16::MIN as i128..=i16::MAX as i128).contains(&lit),
@@ -174,7 +180,11 @@ impl TypeCheckerContext {
         }
 
         match (type1, type2) {
-            (TypeNode::Primitive(name1), TypeNode::Primitive(name2)) => name1 == name2,
+            (TypeNode::Primitive(name1), TypeNode::Primitive(name2)) => {
+                name1 == name2
+                    || ((name1 == type_names::LAMPORTS && name2 == type_names::U64)
+                        || (name1 == type_names::U64 && name2 == type_names::LAMPORTS))
+            }
             (TypeNode::Named(name1), TypeNode::Named(name2)) => name1 == name2,
             (TypeNode::Sized { base_type: b1, size: s1 }, TypeNode::Sized { base_type: b2, size: s2 }) => b1 == b2 && s1 == s2,
             (TypeNode::Sized { base_type, .. }, TypeNode::Primitive(p)) => base_type == p,

@@ -16,7 +16,7 @@
 //! ```
 
 use crate::bridge::CompilerBridge;
-use crate::features::{hover, completion, goto_definition, find_references, semantic, code_actions, document_symbols, rename};
+use crate::features::{hover, completion, goto_definition, find_references, semantic, code_actions, document_symbols, workspace_symbols, rename};
 use lsp_types::Url;
 use wasm_bindgen::prelude::*;
 
@@ -277,7 +277,7 @@ impl FiveLspWasm {
     /// Returns all top-level definitions (functions, variables, accounts) for
     /// display in the editor's outline/navigator panel.
     pub fn get_document_symbols(
-        &self,
+        &mut self,
         uri: &str,
         source: &str,
     ) -> Result<String, JsValue> {
@@ -286,7 +286,37 @@ impl FiveLspWasm {
             .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Get document symbols
-        let symbols = document_symbols::get_document_symbols(&self.bridge, source, &url);
+        let symbols = document_symbols::get_document_symbols(&mut self.bridge, source, &url);
+
+        // Convert to JSON
+        serde_json::to_string(&symbols)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+
+    /// Get workspace symbols matching a query
+    ///
+    /// Searches for symbols across the workspace (or current file) that match the query string.
+    /// Supports case-insensitive substring matching.
+    ///
+    /// # Arguments
+    /// * `uri` - File URI
+    /// * `source` - The source code to search
+    /// * `query` - Search query (case-insensitive substring match)
+    ///
+    /// # Returns
+    /// JSON string containing array of SymbolInformation objects
+    pub fn get_workspace_symbols(
+        &mut self,
+        uri: &str,
+        source: &str,
+        query: &str,
+    ) -> Result<String, JsValue> {
+        // Parse URI
+        let url = Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
+        // Get workspace symbols matching query
+        let symbols = workspace_symbols::workspace_symbols(&mut self.bridge, source, query, &url);
 
         // Convert to JSON
         serde_json::to_string(&symbols)
