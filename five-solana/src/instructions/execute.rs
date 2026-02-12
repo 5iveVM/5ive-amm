@@ -15,7 +15,7 @@ use five_vm_mito::VMError;
 use five_vm_mito::error::VMErrorCode;
 
 use super::{
-    fees::{calculate_fee, transfer_fee, STANDARD_TX_FEE},
+    fees::transfer_fee,
     require_min_accounts,
 };
 
@@ -33,7 +33,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     // SAFETY: state account is program-owned and read-only here.
     let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
-    let fee = calculate_fee(STANDARD_TX_FEE, vm_state.execute_fee_bps);
+    let fee = vm_state.execute_fee_lamports as u64;
     if fee > 0 {
         let admin_key = vm_state.authority;
         let mut admin_account: Option<&AccountInfo> = None;

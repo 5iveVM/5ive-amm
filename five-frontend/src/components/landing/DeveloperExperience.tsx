@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Terminal, Cloud, Zap, ArrowRight, CheckCircle2, XCircle, Globe, Laptop } from "lucide-react";
+import { Cloud, Zap, ArrowRight, CheckCircle2, XCircle, Globe } from "lucide-react";
 import Link from "next/link";
 
 export default function DeveloperExperience() {
@@ -35,21 +35,21 @@ export default function DeveloperExperience() {
                             </div>
 
                             <p className="text-xl text-rose-pine-subtle leading-relaxed mb-8 text-contrast">
-                                Stop wrestling with CPI boilerplate. 5IVE treats other programs like native libraries.
+                                Stop writing repetitive integration glue. Five gives you two explicit paths: external bytecode calls (non-CPI) and interface CPI calls, so both human teams and agentic builders can ship faster.
                             </p>
 
                             <ul className="space-y-4 mb-10 text-contrast">
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
                                     <XCircle className="mt-1 text-rose-pine-muted shrink-0 opacity-50" size={20} />
-                                    <span>No manual account meta construction</span>
+                                    <span>No fake abstraction over CPI semantics</span>
                                 </li>
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
                                     <XCircle className="mt-1 text-rose-pine-muted shrink-0 opacity-50" size={20} />
-                                    <span>No serialization overhead</span>
+                                    <span>No ambiguity between external bytecode and CPI paths</span>
                                 </li>
                                 <li className="flex items-start gap-3 text-rose-pine-text font-medium">
                                     <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
-                                    <span>Just <code className="bg-rose-pine-overlay px-1.5 py-0.5 rounded text-rose-pine-foam">import</code> and call</span>
+                                    <span>Use <code className="bg-rose-pine-overlay px-1.5 py-0.5 rounded text-rose-pine-foam">use</code> for external bytecode, <code className="bg-rose-pine-overlay px-1.5 py-0.5 rounded text-rose-pine-foam">interface</code> for CPI</span>
                                 </li>
                             </ul>
                         </motion.div>
@@ -104,10 +104,12 @@ export default function DeveloperExperience() {
                                                 <div className="w-2 h-2 rounded-full bg-rose-pine-foam animate-pulse" />
                                             </div>
                                         </div>
-                                        <span className="text-rose-pine-iris">import</span> <span className="text-rose-pine-gold">"@solana/spl-token"</span>;<br />
+                                        <span className="text-rose-pine-iris">use</span> <span className="text-rose-pine-gold">"TOKEN_BYTECODE_ADDRESS"</span>::{"{transfer}"};<br />
+                                        transfer(from, to, owner, amount);<br />
                                         <br />
-                                        <span className="text-rose-pine-subtle">// Just call it.</span><br />
-                                        SPLToken.transfer(from, to, amount);
+                                        <span className="text-rose-pine-subtle">// CPI path when invoking non-Five programs</span><br />
+                                        interface SPLToken @program("...") {"{ ... }"}<br />
+                                        SPLToken.transfer(from, to, owner, amount);
                                     </div>
                                 </div>
                             </motion.div>

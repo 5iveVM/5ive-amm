@@ -35,8 +35,10 @@ struct AuthorityFixture {
 
 #[derive(Debug, Deserialize)]
 struct FeeFixture {
-    deploy_fee_bps: u32,
-    execute_fee_bps: u32,
+    #[serde(alias = "deploy_fee_bps")]
+    deploy_fee_lamports: u32,
+    #[serde(alias = "execute_fee_bps")]
+    execute_fee_lamports: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -192,8 +194,8 @@ fn run_fixture(repo_root: &Path, fixture_path: &Path, fixture: &RuntimeFixture) 
     if let Some(fees) = &fixture.vm_fees {
         rt.set_vm_fees(
             &fixture.vm_state_name,
-            fees.deploy_fee_bps,
-            fees.execute_fee_bps,
+            fees.deploy_fee_lamports,
+            fees.execute_fee_lamports,
         );
     }
 

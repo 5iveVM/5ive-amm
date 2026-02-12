@@ -1,149 +1,101 @@
 "use client";
 
-import { ArrowRight, Terminal, Hammer } from "lucide-react";
+import { ArrowRight, Terminal } from "lucide-react";
 import Link from "next/link";
-import { m, LazyMotion, domAnimation, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { m, LazyMotion, domAnimation } from "framer-motion";
+
+const WALL_ROWS = 7;
+const WALL_COLS = 12;
+const BLOCK_W = 64;
+const BLOCK_H = 38;
+const BLOCK_GAP = 6;
 
 export default function Hero() {
-    // Generate blocks (client-side only to avoid hydration mismatch)
-    const [blocks, setBlocks] = useState<any[]>([]);
-    
-    useEffect(() => {
-        // More rows/cols for a denser wall
-        const rows = 8;
-        const cols = 12; 
-        const generatedBlocks = Array.from({ length: rows * cols }, (_, i) => {
-            const row = Math.floor(i / cols);
-            const col = i % cols;
-            
-            // Stagger every other row for a brick pattern
-            const xOffset = row % 2 === 0 ? 0 : 40; 
-            
-            return {
-                id: i,
-                // Grid position logic instead of random
-                gridRow: row,
-                gridCol: col,
-                // Explosion vectors based on center of screen
-                x: (Math.random() - 0.5) * 1200,
-                y: (Math.random() - 0.5) * 800 + 200,
-                rotate: (Math.random() - 0.5) * 720,
-                delay: Math.random() * 0.3,
-                
-                content: `$${Math.floor(Math.random() * (900 - 200) + 200)}`,
-                isAccent: Math.random() > 0.85
-            };
-        });
-        setBlocks(generatedBlocks);
-    }, []);
+    const wallBlocks = Array.from({ length: WALL_ROWS * WALL_COLS }, (_, i) => {
+        const row = Math.floor(i / WALL_COLS);
+        const col = i % WALL_COLS;
+        const x = (col - (WALL_COLS - 1) / 2) * (BLOCK_W + BLOCK_GAP);
+        const y = (row - (WALL_ROWS - 1) / 2) * (BLOCK_H + BLOCK_GAP);
+        const side = col < WALL_COLS / 2 ? -1 : 1;
+        const colDistance = Math.abs(col - (WALL_COLS - 1) / 2);
+        const delay = 1.05 + colDistance * 0.025 + row * 0.012;
+
+        return { id: i, row, col, x, y, side, delay };
+    });
 
     return (
         <LazyMotion features={domAnimation}>
             <section className="relative min-h-[90vh] flex flex-col justify-center items-center px-4 pt-20 pb-20 overflow-hidden">
-
-                {/* Background Glows */}
                 <m.div
-                    animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
+                    animate={{ opacity: [0.35, 0.6, 0.35], scale: [1, 1.08, 1] }}
                     transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-rose-pine-iris/10 rounded-full blur-[60px] pointer-events-none will-change-transform translate-z-0"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[840px] h-[840px] bg-rose-pine-iris/10 rounded-full blur-[70px] pointer-events-none"
                 />
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-rose-pine-love/5 rounded-full blur-[60px] pointer-events-none will-change-transform translate-z-0" />
-                <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-rose-pine-foam/5 rounded-full blur-[60px] pointer-events-none will-change-transform translate-z-0" />
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-rose-pine-love/5 rounded-full blur-[60px] pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-rose-pine-foam/5 rounded-full blur-[60px] pointer-events-none" />
 
-                {/* THE WALL OVERLAY */}
-                {/* z index 50 to sit on top of everything. Pointer events auto so we can inspect if needed, but none usually on wall */}
-                <div className="absolute inset-0 top-0 z-50 pointer-events-none flex items-center justify-center">
-                    {/* Container with constrained width to look like a wall section */}
-                    <div className="relative w-[900px] h-[600px] flex flex-wrap content-center justify-center gap-1">
-                        
-                        {/* GRAFFITI LAYER - Absolute positioned over the wall blocks */}
+                <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
+                    <div className="relative w-[920px] h-[560px]">
                         <m.div
-                            initial={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                            animate={{ opacity: 0, scale: 1.2, filter: "blur(10px)" }}
-                            transition={{ duration: 1.2, ease: "easeIn", delay: 2.0 }}
-                            className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none mix-blend-hard-light"
+                            initial={{ opacity: 0.9 }}
+                            animate={{ opacity: 0 }}
+                            transition={{ duration: 0.55, delay: 1.35, ease: "easeOut" }}
+                            className="absolute inset-0 z-20 flex flex-col items-center justify-center"
                         >
-                            <div className="relative">
-                                {/* Spray Paint Drips/Splatter Effect (CSS shapes) */}
-                                <div className="absolute -top-10 -left-10 w-32 h-32 bg-rose-pine-love/20 blur-xl rounded-full" />
-                                <div className="absolute bottom-0 right-0 w-40 h-40 bg-rose-pine-love/20 blur-xl rounded-full" />
-                                
-                                <h2 
-                                    className="text-[12rem] font-black leading-none text-rose-pine-love opacity-90 rotate-[-5deg] drop-shadow-lg font-mono tracking-tighter select-none"
-                                    style={{ 
-                                        maskImage: "url('/noise.png')",
-                                        WebkitMaskImage: "url('/noise.png')",
-                                        maskSize: "contain",
-                                        WebkitMaskSize: "contain"
-                                    }}
-                                >
-                                    THE WALL
-                                </h2>
-                            </div>
-                            
-                            <h3 className="text-5xl font-black text-rose-pine-base bg-rose-pine-love px-6 py-2 rotate-[2deg] -mt-10 uppercase tracking-widest shadow-lg transform skew-x-12 opacity-90">
+                            <h2 className="text-[8rem] md:text-[10rem] font-black leading-none text-rose-pine-love/90 tracking-tight select-none">
+                                THE WALL
+                            </h2>
+                            <div className="-mt-4 px-5 py-1.5 bg-rose-pine-love text-rose-pine-base text-xl font-black uppercase tracking-[0.2em] rounded-sm">
                                 Mainnet Barrier
-                            </h3>
+                            </div>
                         </m.div>
 
-                        <AnimatePresence>
-                            {blocks.map((block) => (
-                                <m.div
-                                    key={block.id}
-                                    layoutId={`block-${block.id}`}
-                                    initial={{ 
-                                        x: 0, 
-                                        y: 0, 
-                                        rotate: 0, 
-                                        opacity: 1,
-                                        scale: 1 
-                                    }}
-                                    animate={{ 
-                                        x: block.x, 
-                                        y: block.y, 
-                                        rotate: block.rotate, 
-                                        opacity: 0,
-                                        scale: 0.5 
-                                    }}
-                                    transition={{ 
-                                        duration: 2.0,  
-                                        ease: [0.22, 1, 0.36, 1], // Custom heavy ease
-                                        delay: 2.0 + block.delay 
-                                    }}
-                                    className={`
-                                        w-24 h-14 
-                                        flex items-center justify-center 
-                                        rounded-sm border-2
-                                        font-mono font-bold text-lg
-                                        shadow-[2px_2px_4px_rgba(0,0,0,0.4)]
-                                        
-                                        ${block.isAccent 
-                                            ? "bg-rose-pine-muted text-rose-pine-base border-rose-pine-subtle/50" // Concrete Grey accent
-                                            : "bg-rose-pine-overlay text-rose-pine-subtle border-rose-pine-hl-low/40"} // Dark concrete
-                                    `}
-                                    style={{
-                                        // Slight brick offset logic handled by flex wrap gap, or we could strict grid it.
-                                        // Flex wrap with gap-1 creates a decent 'piled' look.
-                                    }}
-                                >
-                                    {block.content}
-                                </m.div>
-                            ))}
-                        </AnimatePresence>
+                        <m.div
+                            initial={{ scaleY: 0, opacity: 0 }}
+                            animate={{ scaleY: [0, 1, 1], opacity: [0, 0.8, 0] }}
+                            transition={{ duration: 1.2, delay: 0.8, ease: "easeInOut" }}
+                            className="absolute left-1/2 top-10 bottom-10 w-[2px] bg-gradient-to-b from-transparent via-rose-pine-love to-transparent origin-top z-10"
+                        />
+
+                        {wallBlocks.map((block) => (
+                            <m.div
+                                key={block.id}
+                                initial={{ x: block.x, y: block.y, opacity: 1, rotate: 0, scale: 1 }}
+                                animate={{
+                                    x: block.x + block.side * (140 + Math.abs(block.col - WALL_COLS / 2) * 10),
+                                    y: block.y + 220 + block.row * 16,
+                                    rotate: block.side * (8 + (block.row % 3) * 2),
+                                    opacity: 0,
+                                    scale: 0.92,
+                                }}
+                                transition={{
+                                    duration: 0.75,
+                                    delay: block.delay,
+                                    ease: [0.2, 0.7, 0.3, 1],
+                                }}
+                                className={`absolute left-1/2 top-1/2 border rounded-sm shadow-[2px_2px_4px_rgba(0,0,0,0.45)] ${
+                                    block.row % 2 === 0
+                                        ? "bg-rose-pine-overlay border-rose-pine-hl-low/45"
+                                        : "bg-rose-pine-muted/90 border-rose-pine-subtle/50"
+                                }`}
+                                style={{
+                                    width: BLOCK_W,
+                                    height: BLOCK_H,
+                                    marginLeft: -(BLOCK_W / 2),
+                                    marginTop: -(BLOCK_H / 2),
+                                }}
+                            />
+                        ))}
                     </div>
                 </div>
 
                 <div className="relative z-10 max-w-6xl w-full flex flex-col items-center text-center gap-10">
-
-                    {/* Hero Container (Preserved) */}
                     <m.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.8, delay: 2.5, ease: "circOut" }} // Delay until wall breaks
-                        className="relative flex flex-col items-center mb-10 group"
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ duration: 0.7, delay: 1.8, ease: "circOut" }}
+                        className="relative flex flex-col items-center mb-10"
                     >
-                        {/* Main Title */}
                         <div className="relative z-10">
                             <h1 className="text-8xl md:text-[10rem] font-black tracking-tighter leading-none bg-clip-text text-transparent bg-gradient-to-b from-rose-pine-iris via-rose-pine-iris to-rose-pine-love drop-shadow-2xl select-none mb-4">
                                 5IVE
@@ -151,15 +103,17 @@ export default function Hero() {
                         </div>
 
                         <p className="relative z-10 text-3xl md:text-5xl font-bold text-rose-pine-subtle tracking-tight max-w-4xl mx-auto drop-shadow-md">
-                            Tear down the wall. <span className="text-rose-pine-iris">Build the Moat.</span>
+                            Tear down the wall. <span className="text-rose-pine-iris">Build the moat.</span>
+                        </p>
+                        <p className="relative z-10 mt-4 text-base md:text-lg text-rose-pine-muted max-w-3xl mx-auto">
+                            When barriers fall, ecosystems open. Five brings Solana mainnet to more builders and agentic workflows with fast, composable contracts.
                         </p>
                     </m.div>
 
-                    {/* CTAs */}
                     <m.div
-                        initial={{ opacity: 0, y: 30 }}
+                        initial={{ opacity: 0, y: 24 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 2.8, duration: 0.6 }} // Reveal after title
+                        transition={{ delay: 2.0, duration: 0.55 }}
                         className="flex flex-col sm:flex-row items-center gap-5 mt-6"
                     >
                         <Link href="/ide">
@@ -186,8 +140,8 @@ export default function Hero() {
                             </m.button>
                         </Link>
                     </m.div>
-                </div >
-            </section >
+                </div>
+            </section>
         </LazyMotion>
     );
 }

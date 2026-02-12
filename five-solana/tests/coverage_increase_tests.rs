@@ -34,7 +34,7 @@ mod coverage_increase_tests {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
             vm_state.initialize(admin_key);
             // Disable deploy fee to avoid Rent syscall in tests
-            vm_state.deploy_fee_bps = 0;
+            vm_state.deploy_fee_lamports = 0;
         }
         (vm_lamports, vm_data)
     }

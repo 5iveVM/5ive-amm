@@ -6,7 +6,7 @@ pub mod verify;
 // Re-export functions to maintain compatibility with lib.rs usage
 pub use deploy::{deploy, initialize, init_large_program, append_bytecode, finalize_script_upload};
 pub use execute::execute;
-pub use fees::{set_fees, STANDARD_TX_FEE};
+pub use fees::set_fees;
 pub use verify::verify_bytecode_content;
 
 use pinocchio::{
@@ -66,7 +66,7 @@ pub enum FIVEInstruction<'a> {
     Initialize { bump: u8 },
     InitLargeProgram { expected_size: u32, chunk_data: Option<&'a [u8]> },
     AppendBytecode { data: &'a [u8] },
-    SetFees { deploy_fee_bps: u32, execute_fee_bps: u32 },
+    SetFees { deploy_fee_lamports: u32, execute_fee_lamports: u32 },
     Deploy { bytecode: &'a [u8], permissions: u8 },
     Execute { params: &'a [u8] },
     FinalizeScript,
@@ -106,9 +106,9 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 if data.len() < 9 {
                     return Err(ProgramError::InvalidInstructionData);
                 }
-                let deploy_fee_bps = u32::from_le_bytes(data[1..5].try_into().unwrap());
-                let execute_fee_bps = u32::from_le_bytes(data[5..9].try_into().unwrap());
-                Ok(FIVEInstruction::SetFees { deploy_fee_bps, execute_fee_bps })
+                let deploy_fee_lamports = u32::from_le_bytes(data[1..5].try_into().unwrap());
+                let execute_fee_lamports = u32::from_le_bytes(data[5..9].try_into().unwrap());
+                Ok(FIVEInstruction::SetFees { deploy_fee_lamports, execute_fee_lamports })
             }
             DEPLOY_INSTRUCTION => {
                 if data.len() < crate::instructions::deploy::MIN_DEPLOY_LEN {

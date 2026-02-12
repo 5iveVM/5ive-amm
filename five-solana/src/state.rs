@@ -10,8 +10,8 @@ use pinocchio::pubkey::Pubkey;
 pub struct FIVEVMState {
     pub authority: Pubkey,
     pub script_count: u64,
-    pub deploy_fee_bps: u32,  // BPS of rent for deployment
-    pub execute_fee_bps: u32, // BPS of standard tx fee for execution
+    pub deploy_fee_lamports: u32,  // Flat deploy fee in lamports
+    pub execute_fee_lamports: u32, // Flat execute fee in lamports
     pub is_initialized: u8,   // Using u8 instead of bool for bytemuck compatibility
     pub _padding: [u8; 7],    // Align to 8 bytes
 }
@@ -23,8 +23,8 @@ impl FIVEVMState {
         Self {
             authority: Pubkey::default(),
             script_count: 0,
-            deploy_fee_bps: 0,
-            execute_fee_bps: 0,
+            deploy_fee_lamports: 0,
+            execute_fee_lamports: 0,
             is_initialized: 0,
             _padding: [0; 7],
         }
@@ -34,8 +34,8 @@ impl FIVEVMState {
         self.authority = authority;
         self.is_initialized = 1;
         self.script_count = 0;
-        self.deploy_fee_bps = 10000;
-        self.execute_fee_bps = 10000;
+        self.deploy_fee_lamports = 10_000;
+        self.execute_fee_lamports = 80_000;
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -472,8 +472,8 @@ mod tests {
 
         assert!(vm_state.is_initialized());
         assert_eq!(vm_state.authority, authority);
-        assert_eq!(vm_state.deploy_fee_bps, 10000);
-        assert_eq!(vm_state.execute_fee_bps, 10000);
+        assert_eq!(vm_state.deploy_fee_lamports, 10_000);
+        assert_eq!(vm_state.execute_fee_lamports, 80_000);
     }
 
     #[test]

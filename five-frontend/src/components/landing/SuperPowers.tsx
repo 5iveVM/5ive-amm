@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Share2, Box, Database, Code, CheckCircle2 } from "lucide-react";
+import { Box, Database, Code, CheckCircle2 } from "lucide-react";
 
 export default function SuperPowers() {
     return (
@@ -27,27 +27,27 @@ export default function SuperPowers() {
                                     <Box size={24} />
                                 </div>
                                 <h2 className="text-3xl md:text-5xl font-black text-rose-pine-text tracking-tight">
-                                    Follow the Rules. <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-pine-love to-rose-pine-iris">Or Break Them.</span>
+                                    Build the Moat. <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-pine-love to-rose-pine-iris">Templates + App Store.</span>
                                 </h2>
                             </div>
 
                             <p className="text-xl text-rose-pine-subtle leading-relaxed mb-8 text-contrast">
-                                Use the Standard Model for compatibility. Or break the rules with Unified State.
-                                <span className="block mt-2 text-rose-pine-text font-medium">5IVE gives you the best of both worlds.</span>
+                                The moat is distribution and composability: audited templates (SPL-style primitives and beyond) plus application packaging in the same execution environment.
+                                <span className="block mt-2 text-rose-pine-text font-medium">Roadmap target: a 10MB account as both runtime host and app-store surface.</span>
                             </p>
 
                             <ul className="space-y-4 mb-10 text-contrast">
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
                                     <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
-                                    <span><b>Follow Rules</b>: Full Solana Compatibility</span>
+                                    <span><b>Template moat</b>: reusable DeFi primitives and higher-level app patterns</span>
                                 </li>
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
                                     <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
-                                    <span><b>Break Rules</b>: Combine Code & State</span>
+                                    <span><b>App-store direction</b>: package, discover, and compose apps in one ecosystem</span>
                                 </li>
                                 <li className="flex items-start gap-3 text-rose-pine-subtle">
                                     <CheckCircle2 className="mt-1 text-rose-pine-foam shrink-0" size={20} />
-                                    <span>Single atomic unit for massive complexity reduction</span>
+                                    <span>Powered by external bytecode calls and explicit CPI interfaces where needed</span>
                                 </li>
                             </ul>
                         </motion.div>
@@ -68,10 +68,10 @@ export default function SuperPowers() {
                             {/* Header */}
                             <div className="flex border-b border-rose-pine-hl-low/10">
                                 <div className="flex-1 p-4 bg-rose-pine-base text-center text-xs font-mono uppercase tracking-widest text-rose-pine-subtle border-r border-rose-pine-hl-low/10 opacity-70">
-                                    Follow Rules
+                                    Account Pattern
                                 </div>
                                 <div className="flex-1 p-4 bg-rose-pine-surface text-center text-xs font-bold font-mono uppercase tracking-widest text-rose-pine-love">
-                                    Break Rules
+                                    Global Pattern
                                 </div>
                             </div>
 
@@ -127,8 +127,8 @@ export default function SuperPowers() {
                                         </div>
                                     </div>
 
-                                    <span className="mt-8 text-xs font-bold text-rose-pine-text uppercase tracking-widest">
-                                        Rules Broken
+                                        <span className="mt-8 text-xs font-bold text-rose-pine-text uppercase tracking-widest">
+                                        Unified Execution
                                     </span>
                                 </div>
 

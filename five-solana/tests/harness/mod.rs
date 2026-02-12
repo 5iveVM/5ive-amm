@@ -128,17 +128,17 @@ impl RuntimeHarness {
         let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)
             .expect("vm_state account must be allocated with FIVEVMState::LEN bytes");
         vm_state.initialize(authority);
-        vm_state.deploy_fee_bps = 0;
-        vm_state.execute_fee_bps = 0;
+        vm_state.deploy_fee_lamports = 0;
+        vm_state.execute_fee_lamports = 0;
     }
 
-    pub fn set_vm_fees(&mut self, vm_state_name: &str, deploy_fee_bps: u32, execute_fee_bps: u32) {
+    pub fn set_vm_fees(&mut self, vm_state_name: &str, deploy_fee_lamports: u32, execute_fee_lamports: u32) {
         let vm_idx = self.idx(vm_state_name);
         let vm_state_data = &mut self.accounts[vm_idx].data;
         let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)
             .expect("vm_state account must be allocated with FIVEVMState::LEN bytes");
-        vm_state.deploy_fee_bps = deploy_fee_bps;
-        vm_state.execute_fee_bps = execute_fee_bps;
+        vm_state.deploy_fee_lamports = deploy_fee_lamports;
+        vm_state.execute_fee_lamports = execute_fee_lamports;
     }
 
     pub fn deploy_script(

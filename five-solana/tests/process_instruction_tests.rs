@@ -4,7 +4,7 @@
 mod tests {
     use five::instructions::{
         execute, set_fees, FIVEInstruction,
-        DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION, STANDARD_TX_FEE,
+        DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION,
     };
     use five::state::{FIVEVMState, ScriptAccountHeader};
     use five_protocol::bytecode;
@@ -196,15 +196,15 @@ mod tests {
             &program_id,
         );
 
-        let deploy_fee_bps = 250;
-        let execute_fee_bps = 150;
+        let deploy_fee_lamports = 250;
+        let execute_fee_lamports = 150;
         let accounts = [vm_account, authority_account];
-        set_fees(&program_id, &accounts, deploy_fee_bps, execute_fee_bps).unwrap();
+        set_fees(&program_id, &accounts, deploy_fee_lamports, execute_fee_lamports).unwrap();
 
         let updated_data = accounts[0].try_borrow_data().unwrap();
         let updated = FIVEVMState::from_account_data(&updated_data).unwrap();
-        assert_eq!(updated.deploy_fee_bps, deploy_fee_bps);
-        assert_eq!(updated.execute_fee_bps, execute_fee_bps);
+        assert_eq!(updated.deploy_fee_lamports, deploy_fee_lamports);
+        assert_eq!(updated.execute_fee_lamports, execute_fee_lamports);
     }
 
     #[test]
@@ -220,7 +220,7 @@ mod tests {
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
             vm_state.initialize(admin_key);
-            vm_state.execute_fee_bps = 200;
+            vm_state.execute_fee_lamports = 200;
         }
 
         let test_bytecode = bytecode!(emit_header(0, 0), emit_halt());
@@ -274,7 +274,7 @@ mod tests {
             &program_id,
         );
 
-        let fee = (STANDARD_TX_FEE as u128 * 200u128 / 10_000u128) as u64;
+        let fee = 200u64;
         execute(
             &program_id,
             &[script_account, vm_account, payer_account, admin_account],
@@ -299,7 +299,7 @@ mod tests {
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
             vm_state.initialize(admin_key);
-            vm_state.execute_fee_bps = 100;
+            vm_state.execute_fee_lamports = 100;
         }
 
         let test_bytecode = bytecode!(emit_header(0, 0), emit_halt());
@@ -362,8 +362,8 @@ mod tests {
         }
 
         let vm_state = FIVEVMState::from_account_data(&vm_data).unwrap();
-        assert_eq!(vm_state.deploy_fee_bps, 10000);
-        assert_eq!(vm_state.execute_fee_bps, 10000);
+        assert_eq!(vm_state.deploy_fee_lamports, 10_000);
+        assert_eq!(vm_state.execute_fee_lamports, 80_000);
         assert!(vm_state.is_initialized());
     }
 
@@ -380,7 +380,7 @@ mod tests {
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
             vm_state.initialize(admin_key);
-            // Fee will be calculated as (5000 * 10000) / 10000 = 5000
+            vm_state.execute_fee_lamports = 5_000;
         }
 
         let test_bytecode = bytecode!(emit_header(0, 0), emit_halt());
@@ -434,7 +434,7 @@ mod tests {
             &program_id,
         );
 
-        let expected_fee = (STANDARD_TX_FEE as u128 * 10000u128 / 10_000u128) as u64; // 5000 lamports
+        let expected_fee = 5_000u64;
         execute(
             &program_id,
             &[script_account, vm_account, payer_account, admin_account],

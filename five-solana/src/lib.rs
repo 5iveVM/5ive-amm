@@ -107,15 +107,15 @@ fn process_administrative_instruction(
             instructions::append_bytecode(program_id, accounts, data)
         }
         FIVEInstruction::SetFees {
-            deploy_fee_bps,
-            execute_fee_bps,
+            deploy_fee_lamports,
+            execute_fee_lamports,
         } => {
             debug_log!(
-                "Processing SetFees instruction: deploy={} bps, execute={} bps",
-                deploy_fee_bps,
-                execute_fee_bps
+                "Processing SetFees instruction: deploy={} lamports, execute={} lamports",
+                deploy_fee_lamports,
+                execute_fee_lamports
             );
-            instructions::set_fees(program_id, accounts, deploy_fee_bps, execute_fee_bps)
+            instructions::set_fees(program_id, accounts, deploy_fee_lamports, execute_fee_lamports)
         }
         FIVEInstruction::Deploy { bytecode, permissions } => {
             debug_log!(
