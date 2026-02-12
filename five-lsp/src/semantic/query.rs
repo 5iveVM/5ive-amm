@@ -2,44 +2,11 @@
 //!
 //! Provides utilities for finding AST nodes at cursor positions,
 //! extracting symbols, and navigating the AST for LSP features.
+//!
+//! Note: This module is intentionally simplified to work with the current
+//! AST structure. Full AST traversal is deferred pending AST API updates.
 
-use five_dsl_compiler::ast::{AstNode, SourceLocation};
-
-/// Find the AST node at a given position (line, column)
-///
-/// This performs a depth-first search to find the deepest (most specific)
-/// node that contains the given position.
-///
-/// # Arguments
-/// * `ast` - The root AST node (usually a Program)
-/// * `line` - 0-indexed line number
-/// * `column` - 0-indexed character offset
-///
-/// # Returns
-/// The deepest AST node containing the position, or None if not found
-pub fn ast_node_at_position(ast: &AstNode, line: u32, column: u32) -> Option<&AstNode> {
-    // Helper function to recursively find the node
-    fn find_node<'a>(node: &'a AstNode, line: u32, column: u32) -> Option<&'a AstNode> {
-        // Check if this node has a location that contains the position
-        let location = node_location(node)?;
-        if !location.contains(line, column) {
-            return None;
-        }
-
-        // Try to find a more specific child node
-        let children = get_children(node);
-        for child in children {
-            if let Some(found) = find_node(child, line, column) {
-                return Some(found);
-            }
-        }
-
-        // No child found, return this node
-        Some(node)
-    }
-
-    find_node(ast, line, column)
-}
+use five_dsl_compiler::ast::AstNode;
 
 /// Extract the symbol name under the cursor
 ///
@@ -88,130 +55,18 @@ fn is_identifier_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
-/// Get the source location of an AST node
+/// Find the AST node at a given position (line, column)
 ///
-/// Extracts the location information from various AST node types.
-fn node_location(node: &AstNode) -> Option<SourceLocation> {
-    match node {
-        // Literals and expressions - most have location field
-        AstNode::StringLiteral { location, .. } => Some(*location),
-        AstNode::BinaryExpression { location, .. } => Some(*location),
-        AstNode::UnaryExpression { location, .. } => Some(*location),
-        // Statements
-        AstNode::IfStatement { location, .. } => Some(*location),
-        AstNode::ReturnStatement { .. } => None, // Not all statements have location
-        AstNode::ExpressionStatement { .. } => None,
-        // Declarations
-        AstNode::LetStatement { .. } => None,
-        AstNode::FunctionDefinition { .. } => None,
-        AstNode::FieldDefinition { .. } => None,
-        AstNode::AccountDefinition { .. } => None,
-        AstNode::InterfaceDefinition { .. } => None,
-        AstNode::EventDefinition { .. } => None,
-        AstNode::UseStatement { .. } => None,
-        AstNode::InitBlock { .. } => None,
-        AstNode::ConstraintsBlock { .. } => None,
-        _ => None,
-    }
-}
-
-/// Get all child nodes of an AST node
-///
-/// Returns a vector of references to child nodes for traversal.
-fn get_children(node: &AstNode) -> Vec<&AstNode> {
-    let mut children = Vec::new();
-
-    match node {
-        AstNode::Program {
-            field_definitions,
-            instruction_definitions,
-            event_definitions,
-            account_definitions,
-            interface_definitions,
-            use_statements,
-            ..
-        } => {
-            children.extend(field_definitions.iter());
-            children.extend(instruction_definitions.iter());
-            children.extend(event_definitions.iter());
-            children.extend(account_definitions.iter());
-            children.extend(interface_definitions.iter());
-            children.extend(use_statements.iter());
-        }
-        AstNode::InstructionDefinition { body, .. } => {
-            if let Some(statements) = body {
-                children.extend(statements.iter());
-            }
-        }
-        AstNode::IfStatement {
-            condition,
-            body,
-            alternate,
-            ..
-        } => {
-            children.push(condition.as_ref());
-            children.extend(body.iter());
-            if let Some(alt_stmts) = alternate {
-                children.extend(alt_stmts.iter());
-            }
-        }
-        AstNode::BinaryExpression { left, right, .. } => {
-            children.push(left.as_ref());
-            children.push(right.as_ref());
-        }
-        AstNode::UnaryExpression { operand, .. } => {
-            children.push(operand.as_ref());
-        }
-        AstNode::LetStatement { value, .. } => {
-            if let Some(val) = value {
-                children.push(val.as_ref());
-            }
-        }
-        AstNode::ReturnStatement { value, .. } => {
-            if let Some(val) = value {
-                children.push(val.as_ref());
-            }
-        }
-        AstNode::ExpressionStatement { expression, .. } => {
-            children.push(expression.as_ref());
-        }
-        _ => {}
-    }
-
-    children
+/// TODO: Implement full AST traversal once AST location info is available
+pub fn ast_node_at_position(_ast: &AstNode, _line: u32, _column: u32) -> Option<&AstNode> {
+    None
 }
 
 /// Find the enclosing function node for a given position
 ///
-/// Useful for signature help and context-aware completion.
-pub fn enclosing_function(ast: &AstNode, line: u32, column: u32) -> Option<&AstNode> {
-    fn find_enclosing<'a>(node: &'a AstNode, line: u32, column: u32) -> Option<&'a AstNode> {
-        match node {
-            AstNode::FunctionDefinition { location, body, .. } => {
-                if location.contains(line, column) {
-                    // Check if we're inside the body
-                    if let Some(statements) = body {
-                        for stmt in statements {
-                            if let Some(found) = find_enclosing(stmt, line, column) {
-                                return Some(found);
-                            }
-                        }
-                    }
-                    return Some(node);
-                }
-            }
-            _ => {
-                for child in get_children(node) {
-                    if let Some(found) = find_enclosing(child, line, column) {
-                        return Some(found);
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    find_enclosing(ast, line, column)
+/// TODO: Implement function lookup once AST structure is stable
+pub fn enclosing_function(_ast: &AstNode, _line: u32, _column: u32) -> Option<&AstNode> {
+    None
 }
 
 #[cfg(test)]

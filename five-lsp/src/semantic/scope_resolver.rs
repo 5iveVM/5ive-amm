@@ -117,14 +117,15 @@ impl ScopeResolver {
         let mut resolver = Self::new();
 
         // Add module-level symbols from module_scope
-        if let Some(current_table) = module_scope.current_module_table() {
+        let current_module_name = module_scope.current_module();
+        if let Some(current_table) = module_scope.get_module_table(current_module_name) {
             for (name, symbol) in current_table.iter() {
                 resolver.add_symbol(
                     name.clone(),
                     SymbolInfo {
                         name: name.clone(),
-                        type_name: Some(symbol.type_name.clone()),
-                        is_mutable: false, // TODO: Extract mutability from symbol metadata
+                        type_name: Some(format!("{:?}", symbol.type_info)), // Simplified: just format the type
+                        is_mutable: symbol.is_mutable,
                         visibility: symbol.visibility,
                     },
                 );

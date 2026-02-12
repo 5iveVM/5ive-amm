@@ -101,21 +101,16 @@ fn extract_matching_symbols(ast: &AstNode, query: &str, uri: &Url) -> Vec<Symbol
 
                 // Also search account fields
                 for field in fields {
-                    if let AstNode::FieldDefinition {
-                        name: field_name, ..
-                    } = field
-                    {
-                        if field_name.to_lowercase().contains(&query_lower) {
-                            let location = Location {
-                                uri: uri.clone(),
-                                range: make_location_range(),
-                            };
-                            symbols.push(make_symbol_information(
-                                field_name.clone(),
-                                SymbolKind::FIELD,
-                                location,
-                            ));
-                        }
+                    if field.name.to_lowercase().contains(&query_lower) {
+                        let location = Location {
+                            uri: uri.clone(),
+                            range: make_location_range(),
+                        };
+                        symbols.push(make_symbol_information(
+                            field.name.clone(),
+                            SymbolKind::FIELD,
+                            location,
+                        ));
                     }
                 }
             }

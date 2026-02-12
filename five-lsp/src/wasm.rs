@@ -256,7 +256,7 @@ impl FiveLspWasm {
     /// Returns an array of semantic tokens for AST-based syntax highlighting.
     /// Provides more accurate highlighting than regex-based approaches.
     pub fn get_semantic_tokens(
-        &self,
+        &mut self,
         uri: &str,
         source: &str,
     ) -> Result<String, JsValue> {
@@ -265,7 +265,7 @@ impl FiveLspWasm {
             .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Get semantic tokens
-        let tokens = semantic::get_semantic_tokens(&self.bridge, source, &url);
+        let tokens = semantic::get_semantic_tokens(&mut self.bridge, source, &url);
 
         // Convert to JSON
         serde_json::to_string(&tokens)

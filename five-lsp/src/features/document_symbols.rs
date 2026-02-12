@@ -85,30 +85,23 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
 
                 // Add fields as nested symbols
                 for field in fields {
-                    if let AstNode::FieldDefinition {
-                        name: field_name,
-                        is_mutable,
-                        ..
-                    } = field
-                    {
-                        let field_location = make_location_range();
-                        let detail = if *is_mutable {
-                            Some("mut field".to_string())
-                        } else {
-                            Some("field".to_string())
-                        };
+                    let field_location = make_location_range();
+                    let detail = if field.is_mutable {
+                        Some("mut field".to_string())
+                    } else {
+                        Some("field".to_string())
+                    };
 
-                        children.push(DocumentSymbol {
-                            name: field_name.clone(),
-                            detail,
-                            kind: SymbolKind::FIELD,
-                            deprecated: None,
-                            range: field_location.clone(),
-                            selection_range: field_location,
-                            children: None,
-                            tags: None,
-                        });
-                    }
+                    children.push(DocumentSymbol {
+                        name: field.name.clone(),
+                        detail,
+                        kind: SymbolKind::FIELD,
+                        deprecated: None,
+                        range: field_location.clone(),
+                        selection_range: field_location,
+                        children: None,
+                        tags: None,
+                    });
                 }
 
                 symbols.push(DocumentSymbol {
