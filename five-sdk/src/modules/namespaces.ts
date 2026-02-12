@@ -119,6 +119,7 @@ interface NamespaceOnChainOptions {
   signerKeypair: any;
   fiveVMProgramId?: string;
   debug?: boolean;
+  treasuryAccount?: string;
 }
 
 function nowUnix(): number {
@@ -127,7 +128,7 @@ function nowUnix(): number {
 
 export async function registerNamespaceTldOnChain(
   namespaceValue: string,
-  options: NamespaceOnChainOptions,
+  options: NamespaceOnChainOptions & { treasuryAccount: string },
 ): Promise<{ transactionId?: string; tldAddress: string; owner: string }> {
   const { FIVE_VM_PROGRAM_ID } = await import("../types.js");
   const { executeOnSolana } = await import("./execute.js");
@@ -147,8 +148,16 @@ export async function registerNamespaceTldOnChain(
     options.connection,
     options.signerKeypair,
     "register_tld",
-    [addresses.config, addresses.tld, owner, parsed.symbol, parsed.domain, now],
-    [addresses.config, addresses.tld, owner],
+    [
+      addresses.config,
+      addresses.tld,
+      owner,
+      options.treasuryAccount,
+      parsed.symbol,
+      parsed.domain,
+      now,
+    ],
+    [addresses.config, addresses.tld, owner, options.treasuryAccount],
     {
       debug: options.debug,
       fiveVMProgramId: vmProgramId,

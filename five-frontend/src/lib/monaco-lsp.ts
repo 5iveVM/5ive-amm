@@ -28,6 +28,9 @@ import { registerRenameProvider } from './monaco-rename';
 let globalDisposables: monaco.IDisposable[] = [];
 let globalLspClient: FiveLspClient | null = null;
 
+// URI cache for model consistency
+const modelUriCache = new Map<string, string>();
+
 /**
  * Initialize and register all Five LSP providers with Monaco Editor
  *

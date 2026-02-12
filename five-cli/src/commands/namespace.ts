@@ -16,7 +16,7 @@ type NamespaceLock = {
   packages?: any[];
   namespaces?: Array<{ namespace: string; address: string; updated_at?: string }>;
   namespace_tlds?: Array<{ symbol: string; domain: string; owner: string; registered_at?: string }>;
-  namespace_manager?: { script_account: string; updated_at?: string };
+  namespace_manager?: { script_account: string; treasury_account?: string; updated_at?: string };
 };
 
 const SYMBOLS = new Set(["!", "@", "#", "$", "%"]);
@@ -93,6 +93,19 @@ function resolveManagerScriptAccount(
   );
 }
 
+function resolveTreasuryAccount(
+  options: any,
+  projectContext: Awaited<ReturnType<typeof loadProjectConfig>>,
+  lock: NamespaceLock,
+): string | undefined {
+  return (
+    options.treasury ||
+    projectContext?.config?.namespaceTreasury ||
+    process.env.FIVE_NAMESPACE_TREASURY ||
+    lock.namespace_manager?.treasury_account
+  );
+}
+
 export const namespaceCommand: CommandDefinition = {
   name: "namespace",
   description: "Manage 5NS namespace registrations and bindings",
@@ -124,6 +137,11 @@ export const namespaceCommand: CommandDefinition = {
       required: false,
     },
     {
+      flags: "--treasury <pubkey>",
+      description: "Treasury account receiving namespace registration fees",
+      required: false,
+    },
+    {
       flags: "--local",
       description: "Use lockfile-only mode (skip on-chain manager calls)",
       defaultValue: false,
@@ -151,6 +169,7 @@ export const namespaceCommand: CommandDefinition = {
     lock.namespace_tlds ||= [];
     const useLocalOnly = Boolean(options.local);
     const managerScriptAccount = resolveManagerScriptAccount(options, projectContext, lock);
+    const treasuryAccount = resolveTreasuryAccount(options, projectContext, lock);
 
     const config = await ConfigManager.getInstance().applyOverrides({
       target: projectContext?.config.cluster as any,
@@ -179,7 +198,8 @@ export const namespaceCommand: CommandDefinition = {
       return connection;
     };
 
-    const owner = options.owner || (await ensureSigner()).publicKey.toBase58();
+    const signerOwner = (await ensureSigner()).publicKey.toBase58();
+    const owner = useLocalOnly ? (options.owner || signerOwner) : signerOwner;
 
     if (action === "register") {
       const parsed = canonicalizeNamespace(nsInput);
@@ -187,7 +207,7 @@ export const namespaceCommand: CommandDefinition = {
         throw new Error("register expects top-level namespace like @domain");
       }
       if (useLocalOnly || !managerScriptAccount) {
-        const localOwner = options.owner || owner;
+        const localOwner = options.owner || signerOwner;
         const existing = lock.namespace_tlds.find(
           (entry) => entry.symbol === parsed.symbol && entry.domain === parsed.domain,
         );
@@ -211,10 +231,17 @@ export const namespaceCommand: CommandDefinition = {
         return;
       }
 
+      if (!treasuryAccount) {
+        throw new Error(
+          "treasury account is required for on-chain register (set --treasury, [deploy].namespace_treasury, or FIVE_NAMESPACE_TREASURY)",
+        );
+      }
+
       const onChain = await FiveSDK.registerNamespaceTldOnChain(parsed.canonical, {
         managerScriptAccount,
         connection: ensureConnection(),
         signerKeypair: await ensureSigner(),
+        treasuryAccount,
         fiveVMProgramId: vmProgramId,
         debug: context.options.debug,
       });
@@ -235,6 +262,7 @@ export const namespaceCommand: CommandDefinition = {
       }
       lock.namespace_manager = {
         script_account: managerScriptAccount,
+        treasury_account: treasuryAccount,
         updated_at: new Date().toISOString(),
       };
       await writeLockfile(rootDir, lock);
@@ -274,6 +302,7 @@ export const namespaceCommand: CommandDefinition = {
         });
         lock.namespace_manager = {
           script_account: managerScriptAccount,
+          treasury_account: lock.namespace_manager?.treasury_account || treasuryAccount,
           updated_at: new Date().toISOString(),
         };
         console.log(uiSuccess(`Bound ${parsed.canonical} on-chain`));
@@ -327,6 +356,7 @@ export const namespaceCommand: CommandDefinition = {
             else lock.namespaces.push(value);
             lock.namespace_manager = {
               script_account: managerScriptAccount,
+              treasury_account: lock.namespace_manager?.treasury_account || treasuryAccount,
               updated_at: new Date().toISOString(),
             };
             await writeLockfile(rootDir, lock);

@@ -69,21 +69,40 @@ pub set_symbol_price(
     if (symbol == "%") { cfg.percent_price_lamports = lamports; }
 }
 
+pub get_symbol_price(cfg: NamespaceConfig, symbol: string) -> u64 {
+    if (symbol == "@") { return cfg.at_price_lamports; }
+    if (symbol == "!") { return cfg.bang_price_lamports; }
+    if (symbol == "#") { return cfg.hash_price_lamports; }
+    if (symbol == "$") { return cfg.dollar_price_lamports; }
+    if (symbol == "%") { return cfg.percent_price_lamports; }
+    return 0;
+}
+
 pub register_tld(
-    cfg: NamespaceConfig,
+    cfg: NamespaceConfig @mut,
     tld: TldRecord @mut @init(payer=owner, seeds=["5ns_tld", symbol, domain]),
     owner: account @signer,
+    treasury_account: account @mut,
     symbol: string,
     domain: string,
     now: u64
 ) {
+    let price: u64 = get_symbol_price(cfg, symbol);
+
+    require(price > 0);
+    require(treasury_account.key == cfg.treasury);
+    require(owner.lamports >= price);
+
+    owner.lamports = owner.lamports - price;
+    treasury_account.lamports = treasury_account.lamports + price;
+
     require(tld.owner == 0 || tld.owner == owner.key);
-    // Payment transfer to treasury is expected to be enforced by host integration.
     tld.symbol = symbol;
     tld.domain = domain;
     tld.owner = owner.key;
     tld.registered_at = now;
     tld.updated_at = now;
+    cfg.version_nonce = cfg.version_nonce + 1;
 }
 
 pub bind_subprogram(

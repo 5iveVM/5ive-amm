@@ -15,6 +15,12 @@ Intended usage:
 4. Bind/update subprograms with `bind_subprogram` and `update_subprogram`.
 5. Resolve active mapping through `resolve`.
 
+Fee enforcement:
+
+- `register_tld` now enforces symbol-priced lamport payment on-chain.
+- It debits `owner.lamports` and credits `treasury_account.lamports`.
+- `treasury_account.key` must match configured `cfg.treasury`.
+
 PDA-backed state accounts:
 
 - Config: seeds `["5ns_config"]`
