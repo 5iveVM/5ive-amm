@@ -321,12 +321,23 @@ impl FiveLspWasm {
     /// Prepare a rename operation
     ///
     /// Validates that a symbol at the given position can be renamed and returns its name.
+    ///
+    /// # Arguments
+    /// * `uri` - File URI (for multi-file context)
+    /// * `source` - The source code
+    /// * `line` - 0-indexed line number
+    /// * `character` - 0-indexed character position
     pub fn prepare_rename(
         &self,
+        uri: &str,
         source: &str,
         line: u32,
         character: u32,
     ) -> Result<Option<String>, JsValue> {
+        // Parse URI (validate but currently not used for single-file analysis)
+        let _url = Url::parse(uri)
+            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+
         match rename::prepare_rename(source, line as usize, character as usize) {
             Some(name) => Ok(Some(name)),
             None => Ok(None),

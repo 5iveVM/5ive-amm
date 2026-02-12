@@ -1,7 +1,99 @@
-use crate::ast::{AstNode, ImportItem, ModuleSpecifier};
+use crate::ast::{AstNode, ImportItem, ModuleSpecifier, NamespaceSpecifier};
 use crate::parser::DslParser;
 use crate::tokenizer::{Token, TokenKind};
 use five_vm_mito::error::VMError;
+
+const NAMESPACE_SYMBOLS: [char; 5] = ['!', '@', '#', '$', '%'];
+
+fn is_valid_namespace_segment(segment: &str) -> bool {
+    !segment.is_empty()
+        && segment
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
+}
+
+fn parse_scoped_namespace_literal(input: &str) -> Option<NamespaceSpecifier> {
+    let mut chars = input.chars();
+    let symbol = chars.next()?;
+    if !NAMESPACE_SYMBOLS.contains(&symbol) {
+        return None;
+    }
+    let rest: String = chars.collect();
+    let (domain, subprogram) = rest.split_once('/')?;
+    if !is_valid_namespace_segment(domain) || !is_valid_namespace_segment(subprogram) {
+        return None;
+    }
+    Some(NamespaceSpecifier::new(
+        symbol,
+        domain.to_ascii_lowercase(),
+        subprogram.to_ascii_lowercase(),
+    ))
+}
+
+fn parse_namespace_symbol(token: &Token) -> Option<char> {
+    match token {
+        Token::At => Some('@'),
+        Token::Bang => Some('!'),
+        Token::Hash => Some('#'),
+        Token::Dollar => Some('$'),
+        Token::Percent => Some('%'),
+        _ => None,
+    }
+}
+
+fn parse_namespace_segment(parser: &mut DslParser) -> Result<String, VMError> {
+    let mut segment = String::new();
+    let mut saw_part = false;
+
+    loop {
+        match &parser.current_token {
+            Token::Identifier(part) => {
+                segment.push_str(part);
+                saw_part = true;
+                parser.advance();
+            }
+            Token::NumberLiteral(part) => {
+                segment.push_str(&part.to_string());
+                saw_part = true;
+                parser.advance();
+            }
+            Token::Minus if saw_part => {
+                segment.push('-');
+                parser.advance();
+            }
+            _ => break,
+        }
+    }
+
+    if !saw_part || !is_valid_namespace_segment(&segment) {
+        return Err(parser.parse_error(
+            "namespace segment (lowercase alnum + '-', one level path)",
+        ));
+    }
+
+    Ok(segment.to_ascii_lowercase())
+}
+
+fn parse_scoped_namespace(parser: &mut DslParser) -> Result<ModuleSpecifier, VMError> {
+    let symbol = parse_namespace_symbol(&parser.current_token)
+        .ok_or_else(|| parser.parse_error("namespace top-level symbol (!, @, #, $, %)"))?;
+    parser.advance();
+
+    let domain = parse_namespace_segment(parser)?;
+
+    if !matches!(parser.current_token, Token::Divide | Token::Slash) {
+        return Err(parser.parse_error("'/' between namespace domain and subprogram"));
+    }
+    parser.advance();
+
+    let subprogram = parse_namespace_segment(parser)?;
+
+    Ok(ModuleSpecifier::Namespace(NamespaceSpecifier::new(
+        symbol,
+        domain,
+        subprogram,
+    )))
+}
 
 /// Parse use statement: use account_address; import account_address; or use account_address::function_name;
 pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VMError> {
@@ -17,7 +109,14 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
             // External: use "0x123" or use "seeds";
             let addr = addr.clone();
             parser.advance();
-            ModuleSpecifier::External(addr)
+            if let Some(ns) = parse_scoped_namespace_literal(&addr) {
+                ModuleSpecifier::Namespace(ns)
+            } else {
+                ModuleSpecifier::External(addr)
+            }
+        }
+        Token::At | Token::Bang | Token::Hash | Token::Dollar | Token::Percent => {
+            parse_scoped_namespace(parser)?
         }
         Token::Identifier(name) => {
             // Local or Nested
@@ -43,7 +142,11 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
                 ModuleSpecifier::Nested(path)
             }
         }
-        _ => return Err(parser.parse_error("module identifier or address string")),
+        _ => {
+            return Err(
+                parser.parse_error("module identifier, quoted address, or scoped namespace target"),
+            )
+        }
     };
 
     // Parse optional member imports: ::function_name or ::{method foo, interface Bar, baz}

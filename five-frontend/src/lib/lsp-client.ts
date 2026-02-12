@@ -17,16 +17,22 @@
 // WASM module is loaded dynamically from /wasm/five_lsp.js
 // This import statement is not needed as we load it dynamically at runtime
 
-export interface Diagnostic {
-  range: {
-    start: { line: number; character: number };
-    end: { line: number; character: number };
-  };
-  severity?: number;  // 1 = error, 2 = warning, 3 = info, 4 = hint
-  code?: string;
-  source?: string;
-  message: string;
-}
+import type {
+  LspDiagnostic,
+  LspHover,
+  LspCompletionList,
+  LspLocation,
+  LspWorkspaceEdit,
+  LspCodeAction,
+  LspSemanticToken,
+  LspDocumentSymbol,
+  LspSymbolInformation,
+  LspSignatureHelp,
+  LspInlayHint,
+} from '../types/lsp';
+
+// Re-export for backward compatibility
+export type { LspDiagnostic as Diagnostic };
 
 /**
  * Five LSP Client for browser environments
@@ -155,7 +161,7 @@ export class FiveLspClient {
    * });
    * ```
    */
-  getDiagnostics(uri: string, source: string): Diagnostic[] {
+  getDiagnostics(uri: string, source: string): LspDiagnostic[] {
     this.ensureInitialized();
 
     try {
@@ -169,7 +175,7 @@ export class FiveLspClient {
         return [];
       }
 
-      return diagnostics as Diagnostic[];
+      return diagnostics as LspDiagnostic[];
     } catch (error) {
       console.error('[FiveLspClient] Error getting diagnostics:', error);
       throw new Error(`Failed to get diagnostics: ${error}`);

@@ -22,12 +22,14 @@ import { FiveLspClient } from './lsp-client';
  *
  * Displays code suggestions (keywords, variables, types) when the user
  * types or triggers autocompletion (Ctrl+Space).
+ *
+ * @returns Disposable to clean up the provider
  */
 export function registerCompletionProvider(
     monacoInstance: typeof monaco,
     lspClient: FiveLspClient
-): void {
-    monacoInstance.languages.registerCompletionItemProvider('five', {
+): monaco.IDisposable {
+    return monacoInstance.languages.registerCompletionItemProvider('five', {
         triggerCharacters: [],
 
         provideCompletionItems: async (model, position, context, token) => {

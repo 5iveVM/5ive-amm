@@ -73,12 +73,16 @@ impl LanguageServer for FiveLanguageServer {
 
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
+                // === IMPLEMENTED CAPABILITIES ===
+                // All capabilities advertised below have corresponding feature module implementations
+                // See: five-lsp/src/features/ and five-lsp/docs/LSP_CONTRACT.md
+
                 // Phase 1: Diagnostics (document synchronization)
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
 
-                // Phase 2 capabilities (goto-definition and find-references enabled)
+                // Phase 2: Core navigation features
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 completion_provider: Some(CompletionOptions {
                     trigger_characters: Some(vec![".".to_string(), ":".to_string()]),
@@ -87,7 +91,7 @@ impl LanguageServer for FiveLanguageServer {
                 definition_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
 
-                // Phase 3 capabilities (rename enabled)
+                // Phase 3: Advanced semantic features
                 semantic_tokens_provider: Some(
                     SemanticTokensServerCapabilities::SemanticTokensOptions(
                         SemanticTokensOptions {
@@ -96,7 +100,7 @@ impl LanguageServer for FiveLanguageServer {
                                 token_modifiers: features::semantic::SEMANTIC_TOKEN_MODIFIERS.to_vec(),
                             },
                             full: Some(SemanticTokensFullOptions::Bool(true)),
-                            range: None,
+                            range: None, // Delta mode not yet implemented
                             ..Default::default()
                         }
                     )
@@ -105,7 +109,7 @@ impl LanguageServer for FiveLanguageServer {
                 rename_provider: Some(OneOf::Left(true)),
                 document_symbol_provider: Some(OneOf::Left(true)),
 
-                // Phase 4 capabilities (now enabled)
+                // Phase 4: IDE-complete features
                 signature_help_provider: Some(SignatureHelpOptions {
                     trigger_characters: Some(vec!["(".to_string(), ",".to_string()]),
                     retrigger_characters: None,
@@ -119,6 +123,19 @@ impl LanguageServer for FiveLanguageServer {
                     }
                 ))),
                 document_formatting_provider: Some(OneOf::Left(true)),
+
+                // === NOT YET IMPLEMENTED ===
+                // The following capabilities are intentionally disabled until implementation:
+                // - document_range_formatting_provider (Phase 2 target)
+                // - declaration_provider
+                // - type_definition_provider
+                // - implementation_provider
+                // - call_hierarchy_provider
+                // - type_hierarchy_provider
+                // - linked_editing_range_provider
+                // - folding_range_provider
+                // - selection_range_provider
+                // - document_highlight_provider
 
                 ..Default::default()
             },

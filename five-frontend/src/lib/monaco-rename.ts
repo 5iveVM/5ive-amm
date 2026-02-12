@@ -11,12 +11,14 @@ import { FiveLspClient } from './lsp-client';
  * Register the rename provider with Monaco Editor
  *
  * Enables safe renaming of symbols across all their occurrences in the file.
+ *
+ * @returns Disposable to clean up the provider
  */
 export function registerRenameProvider(
     monacoInstance: typeof monaco,
     lspClient: FiveLspClient
-): void {
-    monacoInstance.languages.registerRenameProvider('five', {
+): monaco.IDisposable {
+    return monacoInstance.languages.registerRenameProvider('five', {
         provideRenameEdits: async (model, position, newName, token) => {
             try {
                 const renameJson = await lspClient.rename(

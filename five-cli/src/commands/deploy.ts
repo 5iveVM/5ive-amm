@@ -115,6 +115,11 @@ export const deployCommand: CommandDefinition = {
       flags: '--project <path>',
       description: 'Project directory or five.toml path',
       required: false
+    },
+    {
+      flags: '--namespace <scoped>',
+      description: 'Bind deployed script to scoped namespace (e.g. @5ive-tech/program)',
+      required: false
     }
   ],
 
@@ -336,6 +341,13 @@ export const deployCommand: CommandDefinition = {
         }
         result = await simulateDeployment(deploymentOptions, options, context);
       } else {
+        if (options.namespace && projectContext) {
+          await validateNamespaceOwnership(
+            projectContext.rootDir,
+            options.namespace,
+            config.keypairPath,
+          );
+        }
         if (context.options.verbose) {
           logger.info('Deploying to network...');
         }
@@ -370,6 +382,19 @@ export const deployCommand: CommandDefinition = {
         } catch (e) {
           if (context.options.debug) {
             logger.debug(`lockfile export cache update failed: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+        if (options.namespace) {
+          try {
+            await updateLockfileNamespace(
+              projectContext.rootDir,
+              options.namespace,
+              result.programId,
+            );
+          } catch (e) {
+            if (context.options.debug) {
+              logger.debug(`lockfile namespace cache update failed: ${e instanceof Error ? e.message : String(e)}`);
+            }
           }
         }
       }
@@ -410,10 +435,68 @@ async function setupDeploymentOptions(
     fiveVMProgramId: options.programId, // Pass the programId
     vmStateAccount: options.vmStateAccount,
     exportMetadata: buildExportMetadataFromAbi(abi),
+    namespace: options.namespace,
   };
 
 
   return deploymentOptions;
+}
+
+function canonicalizeNamespace(namespace: string): {
+  symbol: string;
+  domain: string;
+  subprogram: string;
+  canonical: string;
+} {
+  const trimmed = namespace.trim();
+  const symbol = trimmed[0];
+  const allowed = new Set(['!', '@', '#', '$', '%']);
+  if (!allowed.has(symbol)) {
+    throw new Error('namespace symbol must be one of ! @ # $ %');
+  }
+  const parts = trimmed.slice(1).split('/');
+  if (parts.length !== 2) {
+    throw new Error('namespace must be in format @domain/subprogram');
+  }
+  const normalize = (s: string) => s.toLowerCase();
+  const domain = normalize(parts[0]);
+  const subprogram = normalize(parts[1]);
+  const valid = (s: string) => /^[a-z0-9-]+$/.test(s) && s.length > 0;
+  if (!valid(domain) || !valid(subprogram)) {
+    throw new Error('namespace domain/subprogram must be lowercase alphanumeric + hyphen');
+  }
+  return { symbol, domain, subprogram, canonical: `${symbol}${domain}/${subprogram}` };
+}
+
+async function validateNamespaceOwnership(
+  rootDir: string,
+  namespace: string,
+  keypairPath: string,
+): Promise<void> {
+  const parsed = canonicalizeNamespace(namespace);
+  const lockPath = join(rootDir, 'five.lock');
+  let lockDoc: any = {};
+  try {
+    const content = await readFile(lockPath, 'utf8');
+    lockDoc = parseToml(content);
+  } catch {
+    throw new Error(`namespace ownership check failed: missing ${lockPath}`);
+  }
+
+  const tlds = Array.isArray(lockDoc.namespace_tlds) ? lockDoc.namespace_tlds : [];
+  const tld = tlds.find((entry: any) => entry?.symbol === parsed.symbol && entry?.domain === parsed.domain);
+  if (!tld) {
+    throw new Error(`namespace ${parsed.symbol}${parsed.domain} is not registered in local lockfile`);
+  }
+
+  const expanded = keypairPath.startsWith('~/')
+    ? keypairPath.replace('~', process.env.HOME || '')
+    : keypairPath;
+  const secret = JSON.parse(await readFile(expanded, 'utf8'));
+  const owner = Keypair.fromSecretKey(Uint8Array.from(secret)).publicKey.toBase58();
+  if (tld.owner !== owner) {
+    throw new Error(`namespace ownership mismatch: owner is ${tld.owner}, deployer is ${owner}`);
+  }
 }
 
 export function buildExportMetadataFromAbi(abi: any): {
@@ -493,6 +576,40 @@ export async function updateLockfileExports(
     };
   } else {
     lockDoc.packages.push(entry);
+  }
+
+  await writeFile(lockPath, stringifyToml(lockDoc), 'utf8');
+}
+
+export async function updateLockfileNamespace(
+  rootDir: string,
+  namespace: string,
+  address: string,
+): Promise<void> {
+  const lockPath = join(rootDir, 'five.lock');
+  let lockDoc: any = { version: 1, packages: [], namespaces: [] };
+
+  try {
+    const content = await readFile(lockPath, 'utf8');
+    lockDoc = parseToml(content);
+  } catch {
+    // No lockfile yet; create one.
+  }
+
+  if (!Array.isArray(lockDoc.namespaces)) {
+    lockDoc.namespaces = [];
+  }
+
+  const idx = lockDoc.namespaces.findIndex((item: any) => item && item.namespace === namespace);
+  const value = {
+    namespace,
+    address,
+    updated_at: new Date().toISOString(),
+  };
+  if (idx >= 0) {
+    lockDoc.namespaces[idx] = value;
+  } else {
+    lockDoc.namespaces.push(value);
   }
 
   await writeFile(lockPath, stringifyToml(lockDoc), 'utf8');

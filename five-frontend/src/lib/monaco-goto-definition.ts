@@ -24,12 +24,14 @@ import { FiveLspClient } from './lsp-client';
  * - Ctrl+Clicks on a symbol
  * - Uses "Go to Definition" keyboard shortcut
  * - Uses "Go to Definition" command palette
+ *
+ * @returns Disposable to clean up the provider
  */
 export function registerDefinitionProvider(
     monacoInstance: typeof monaco,
     lspClient: FiveLspClient
-): void {
-    monacoInstance.languages.registerDefinitionProvider('five', {
+): monaco.IDisposable {
+    return monacoInstance.languages.registerDefinitionProvider('five', {
         provideDefinition: async (model, position, token) => {
             try {
                 // Get definition location from LSP

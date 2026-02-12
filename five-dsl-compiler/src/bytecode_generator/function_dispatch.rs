@@ -415,10 +415,13 @@ impl FunctionDispatcher {
                 } = import_stmt
                 {
                     // Extract account address or module path
-                    let (account_address, is_external_import) = match module_specifier {
-                        crate::ast::ModuleSpecifier::External(addr) => (addr.clone(), true),
-                        crate::ast::ModuleSpecifier::Local(name) => (name.clone(), false),
-                        crate::ast::ModuleSpecifier::Nested(path) => (path.join("::"), false),
+                    let (account_address, is_external_import, namespace_seed) = match module_specifier {
+                        crate::ast::ModuleSpecifier::External(addr) => (addr.clone(), true, None),
+                        crate::ast::ModuleSpecifier::Namespace(ns) => {
+                            (ns.import_key().to_string(), true, Some(ns.pda_seed_bytes()))
+                        }
+                        crate::ast::ModuleSpecifier::Local(name) => (name.clone(), false, None),
+                        crate::ast::ModuleSpecifier::Nested(path) => (path.join("::"), false, None),
                     };
 
                     // Store import information for both functions and fields
@@ -448,8 +451,15 @@ impl FunctionDispatcher {
                                 }
                                 if is_external_import {
                                     for verify_name in verify_names {
-                                        self.import_table
-                                            .add_import_by_address(&account_address, verify_name);
+                                        if let Some(seed_bytes) = &namespace_seed {
+                                            self.import_table.add_import_by_seeds(
+                                                vec![seed_bytes.clone()],
+                                                verify_name,
+                                            );
+                                        } else {
+                                            self.import_table
+                                                .add_import_by_address(&account_address, verify_name);
+                                        }
                                     }
                                 }
                                 continue;
@@ -480,8 +490,15 @@ impl FunctionDispatcher {
                             // Only external imports are eligible for on-chain import verification metadata.
                             if is_external_import {
                                 for verify_name in verify_names {
-                                    self.import_table
-                                        .add_import_by_address(&account_address, verify_name);
+                                    if let Some(seed_bytes) = &namespace_seed {
+                                        self.import_table.add_import_by_seeds(
+                                            vec![seed_bytes.clone()],
+                                            verify_name,
+                                        );
+                                    } else {
+                                        self.import_table
+                                            .add_import_by_address(&account_address, verify_name);
+                                    }
                                 }
                             }
 
@@ -502,8 +519,15 @@ impl FunctionDispatcher {
 
                         // Only external imports are eligible for on-chain import verification metadata.
                         if is_external_import {
-                            self.import_table
-                                .add_import_by_address(&account_address, "import_all".to_string());
+                            if let Some(seed_bytes) = &namespace_seed {
+                                self.import_table.add_import_by_seeds(
+                                    vec![seed_bytes.clone()],
+                                    "import_all".to_string(),
+                                );
+                            } else {
+                                self.import_table
+                                    .add_import_by_address(&account_address, "import_all".to_string());
+                            }
                         }
 
                         println!(
@@ -738,13 +762,17 @@ impl FunctionDispatcher {
                 else {
                     continue;
                 };
-                let crate::ast::ModuleSpecifier::External(address) = module_specifier else {
-                    continue;
+                let (address, _namespace_seed) = match module_specifier {
+                    crate::ast::ModuleSpecifier::External(address) => (address.clone(), None),
+                    crate::ast::ModuleSpecifier::Namespace(ns) => {
+                        (ns.import_key().to_string(), Some(ns.pda_seed_bytes()))
+                    }
+                    _ => continue,
                 };
 
                 let exports = lockfile
                     .as_ref()
-                    .and_then(|l| l.get_exports(address));
+                    .and_then(|l| l.get_exports(&address));
                 let mut selectors = HashMap::new();
                 let mut allow_any_function = imported_items.is_none();
                 if let Some(items) = imported_items {
@@ -769,7 +797,7 @@ impl FunctionDispatcher {
                 }
 
                 let mut keys = Vec::new();
-                if Self::is_valid_identifier(address) {
+                if Self::is_valid_identifier(&address) {
                     keys.push(address.clone());
                 }
                 keys.push(format!("ext{}", external_import_index));

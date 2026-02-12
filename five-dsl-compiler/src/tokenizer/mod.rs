@@ -72,13 +72,13 @@ impl<'a> DslTokenizer<'a> {
                     // If nothing valid follows '@', treat it as a bare At token
                     if !matches!(
                         self.current_char,
-                        Some('a'..='z') | Some('A'..='Z') | Some('_')
+                        Some('a'..='z') | Some('A'..='Z') | Some('_') | Some('0'..='9')
                     ) {
                         tokens.push(Token::At);
                         continue;
                     }
 
-                    let attribute = self.read_identifier().map_err(VMError::from)?;
+                    let attribute = self.read_identifier_allow_leading_digit().map_err(VMError::from)?;
 
                     match attribute.as_str() {
                         "signer" => tokens.push(Token::AtSigner),
@@ -152,6 +152,10 @@ impl<'a> DslTokenizer<'a> {
                 }
                 '#' => {
                     tokens.push(Token::Hash);
+                    self.advance();
+                }
+                '$' => {
+                    tokens.push(Token::Dollar);
                     self.advance();
                 }
                 '?' => {
@@ -495,6 +499,29 @@ impl<'a> DslTokenizer<'a> {
 
     /// Read identifier
     fn read_identifier(&mut self) -> Result<String, TokenizeError> {
+        let mut identifier = String::new();
+
+        while let Some(ch) = self.current_char {
+            if ch.is_alphanumeric() || ch == '_' {
+                identifier.push(ch);
+                self.advance();
+            } else {
+                break;
+            }
+        }
+
+        if identifier.is_empty() {
+            return Err(TokenizeError::InvalidSeedSyntax(
+                "Expected identifier".to_string(),
+            ));
+        }
+
+        Ok(identifier)
+    }
+
+    /// Read identifier-like segment where the first character may be a digit.
+    /// Used for namespace parsing after `@` (e.g. `@5ive-tech`).
+    fn read_identifier_allow_leading_digit(&mut self) -> Result<String, TokenizeError> {
         let mut identifier = String::new();
 
         while let Some(ch) = self.current_char {

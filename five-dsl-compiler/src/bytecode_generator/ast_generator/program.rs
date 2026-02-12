@@ -44,8 +44,10 @@ impl ASTGenerator {
                 continue;
             };
 
-            let crate::ast::ModuleSpecifier::External(address) = module_specifier else {
-                continue;
+            let address = match module_specifier {
+                crate::ast::ModuleSpecifier::External(address) => address.clone(),
+                crate::ast::ModuleSpecifier::Namespace(ns) => ns.import_key().to_string(),
+                _ => continue,
             };
 
             let mut function_selectors = HashMap::new();
@@ -76,7 +78,7 @@ impl ASTGenerator {
             // Preferred key: full external string if it can be used as an identifier.
             // Fallback key: deterministic synthetic alias.
             let mut keys = Vec::new();
-            if is_valid_identifier(address) {
+            if is_valid_identifier(&address) {
                 keys.push(address.clone());
             }
             keys.push(format!("ext{}", external_import_index));

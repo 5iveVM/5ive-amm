@@ -68,7 +68,7 @@ pub use bytecode_parser::{BytecodeMetadata, BytecodeParseError, BytecodeParser, 
 pub use compiler::{CompilationConfig, CompilationMode, DslCompiler};
 pub use config::{
     BuildConfig, DeployConfig, DependencyConfig, OptimizationConfig, ProjectConfig, ProjectInfo,
-    LinkType, LockFile, PackageManifest, WorkspaceConfig,
+    LinkType, LockFile, NamespaceBinding, PackageManifest, WorkspaceConfig,
 };
 pub use five_file::FiveFile;
 pub use import_discovery::{
@@ -77,8 +77,8 @@ pub use import_discovery::{
 pub use interface_registry::InterfaceRegistry;
 pub use metrics::{export_metrics, CompilerMetrics, ExportFormat, MetricsCollector};
 pub use module_resolver::{
-    detect_import_target, is_valid_solana_pubkey, ImportTarget, ModuleDescriptor, ModuleDiscoverer,
-    ModuleGraph,
+    detect_import_target, is_valid_solana_pubkey, parse_scoped_namespace, ImportTarget,
+    ModuleDescriptor, ModuleDiscoverer, ModuleGraph,
 };
 pub use parser::DslParser;
 pub use security_rules::{

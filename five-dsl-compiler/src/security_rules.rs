@@ -422,6 +422,7 @@ pub fn validate_import_security(imports: &[AstNode]) -> Result<(), VMError> {
             // Extract account address or module path for reporting
             let account_address = match module_specifier {
                 crate::ast::ModuleSpecifier::External(addr) => addr.clone(),
+                crate::ast::ModuleSpecifier::Namespace(ns) => ns.import_key().to_string(),
                 crate::ast::ModuleSpecifier::Local(name) => name.clone(),
                 crate::ast::ModuleSpecifier::Nested(path) => path.join("::"),
             };

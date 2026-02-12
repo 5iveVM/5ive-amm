@@ -3225,3 +3225,39 @@ fn test_external_imported_items_unqualified_ambiguous_call_fails() {
         "ambiguous unqualified external function call must fail compilation"
     );
 }
+
+#[test]
+fn test_scoped_namespace_import_compiles_and_emits_call_external() {
+    let source = r#"
+        use @5ive-tech/program::{transfer};
+
+        pub execute(
+            source_account: Account,
+            destination_account: Account,
+            owner: Account,
+            token_program: Account
+        ) {
+            transfer(source_account, destination_account, owner, 1);
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("scoped namespace import should compile");
+    let disassembly = five_dsl_compiler::bytecode_generator::disassembler::disassemble(&bytecode);
+    assert!(
+        disassembly.iter().any(|line| line.contains("CALL_EXTERNAL")),
+        "scoped namespace imported call should emit CALL_EXTERNAL; disassembly:\n{}",
+        disassembly.join("\n")
+    );
+}
+
+#[test]
+fn test_scoped_namespace_import_invalid_path_fails() {
+    let source = r#"
+        use @5ive-tech/program/v2::{transfer};
+
+        pub execute() {}
+    "#;
+
+    let result = DslCompiler::compile_dsl(source);
+    assert!(result.is_err(), "namespace depth > 1 must fail");
+}

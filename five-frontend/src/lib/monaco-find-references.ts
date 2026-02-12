@@ -24,12 +24,14 @@ import { FiveLspClient } from './lsp-client';
  * - Uses "Find All References" command
  * - Uses "Shift+F12" keyboard shortcut (Ctrl+Shift+F12 on some systems)
  * - Uses "Find References" command palette
+ *
+ * @returns Disposable to clean up the provider
  */
 export function registerReferencesProvider(
     monacoInstance: typeof monaco,
     lspClient: FiveLspClient
-): void {
-    monacoInstance.languages.registerReferenceProvider('five', {
+): monaco.IDisposable {
+    return monacoInstance.languages.registerReferenceProvider('five', {
         provideReferences: async (model, position, context, token) => {
             try {
                 // Get all references from LSP

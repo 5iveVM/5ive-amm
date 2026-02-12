@@ -7,6 +7,7 @@ pub mod bridge;
 pub mod document;
 pub mod error;
 pub mod features;
+pub mod semantic;
 pub mod workspace;
 
 #[cfg(feature = "native")]

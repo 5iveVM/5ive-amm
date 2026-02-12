@@ -299,6 +299,7 @@ export interface DeploymentOptions {
       methodMap?: Record<string, string>;
     }>;
   };
+  namespace?: string;
 }
 
 export interface FeeInformation {

@@ -11,12 +11,14 @@ import { FiveLspClient } from './lsp-client';
  * Register the code actions provider with Monaco Editor
  *
  * Provides quick fixes and code actions for Five DSL files.
+ *
+ * @returns Disposable to clean up the provider
  */
 export function registerCodeActionsProvider(
     monacoInstance: typeof monaco,
     lspClient: FiveLspClient
-): void {
-    monacoInstance.languages.registerCodeActionProvider('five', {
+): monaco.IDisposable {
+    return monacoInstance.languages.registerCodeActionProvider('five', {
         provideCodeActions: async (model, range, context, token) => {
             try {
                 const actions: monaco.languages.CodeAction[] = [];
@@ -68,10 +70,10 @@ export function registerCodeActionsProvider(
                     for (const action of codeActionList) {
                         actions.push({
                             title: action.title || 'Code Action',
-                            kind: action.kind || monaco.languages.CodeActionKind.QuickFix,
+                            kind: action.kind || monacoInstance.languages.CodeActionKind.QuickFix,
                             diagnostics: [diagnostic],
                             isPreferred: action.isPreferred || false,
-                            edit: action.edit ? convertWorkspaceEdit(action.edit) : undefined,
+                            edit: action.edit ? convertWorkspaceEdit(action.edit, monacoInstance) : undefined,
                         } as monaco.languages.CodeAction);
                     }
                 }
@@ -90,13 +92,16 @@ export function registerCodeActionsProvider(
 /**
  * Convert LSP WorkspaceEdit to Monaco format
  */
-function convertWorkspaceEdit(edit: any): monaco.languages.WorkspaceEdit {
+function convertWorkspaceEdit(
+    edit: any,
+    monacoInstance: typeof monaco
+): monaco.languages.WorkspaceEdit {
     const changes: { [key: string]: monaco.languages.TextEdit[] } = {};
 
     if (edit.changes) {
         for (const [uri, textEdits] of Object.entries(edit.changes)) {
             changes[uri] = (textEdits as any[]).map((te) => ({
-                range: new monaco.Range(
+                range: new monacoInstance.Range(
                     te.range.start.line + 1,
                     te.range.start.character + 1,
                     te.range.end.line + 1,
@@ -107,5 +112,10 @@ function convertWorkspaceEdit(edit: any): monaco.languages.WorkspaceEdit {
         }
     }
 
-    return { edits: Object.entries(changes).map(([resource, edits]) => ({ resource: monaco.Uri.parse(resource), edits })) };
+    return {
+        edits: Object.entries(changes).map(([resource, edits]) => ({
+            resource: monacoInstance.Uri.parse(resource),
+            edits,
+        })),
+    };
 }

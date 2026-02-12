@@ -23,6 +23,7 @@ export * from './testing/index.js';
 // ==================== FiveProgram High-Level API ====================
 
 export * from './program/index.js';
+export * from './modules/namespaces.js';
 
 // ==================== Constants ====================
 

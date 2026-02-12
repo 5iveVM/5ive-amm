@@ -21,12 +21,14 @@ import { FiveLspClient } from './lsp-client';
  * Register the hover provider with Monaco Editor
  *
  * Displays type information when hovering over symbols in Five DSL files.
+ *
+ * @returns Disposable to clean up the provider
  */
 export function registerHoverProvider(
     monacoInstance: typeof monaco,
     lspClient: FiveLspClient
-): void {
-    monacoInstance.languages.registerHoverProvider('five', {
+): monaco.IDisposable {
+    return monacoInstance.languages.registerHoverProvider('five', {
         provideHover: async (model, position, token) => {
             try {
                 // Get hover information from LSP

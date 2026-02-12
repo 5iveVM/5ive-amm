@@ -35,6 +35,7 @@ import * as Fees from "./modules/fees.js";
 import * as VMState from "./modules/vm-state.js";
 import * as Accounts from "./modules/accounts.js";
 import * as StateDiff from "./modules/state-diff.js";
+import * as Namespaces from "./modules/namespaces.js";
 
 /**
  * Main Five SDK class - entry point for all Five VM interactions
@@ -93,6 +94,20 @@ export class FiveSDK {
 
   static localnet(options: { debug?: boolean; fiveVMProgramId?: string } = {}): FiveSDK {
     return new FiveSDK({ ...options, network: "localnet" });
+  }
+
+  // ==================== Namespaces ====================
+
+  static canonicalizeNamespace(value: string) {
+    return Namespaces.canonicalizeScopedNamespace(value);
+  }
+
+  static namespaceSeedBytes(value: string): Uint8Array {
+    return Namespaces.namespaceSeedBytes(value);
+  }
+
+  static resolveNamespaceFromLockfile(value: string, lockfile: any): string | undefined {
+    return Namespaces.resolveNamespaceFromLockfile(value, lockfile);
   }
 
   // ==================== Script Compilation ====================

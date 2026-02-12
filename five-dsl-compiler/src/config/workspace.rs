@@ -164,6 +164,15 @@ pub struct LockEntry {
     pub exports: Option<ExportMetadata>,
 }
 
+/// Namespace resolution entry for scoped imports (e.g. "@5ive-tech/program").
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct NamespaceBinding {
+    pub namespace: String,
+    pub address: String,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+}
+
 /// Thin export metadata cache used by `use "<account>"::{...}` resolution.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ExportMetadata {
@@ -186,6 +195,8 @@ pub struct InterfaceExport {
 pub struct LockFile {
     pub version: u32,
     pub packages: Vec<LockEntry>,
+    #[serde(default)]
+    pub namespaces: Vec<NamespaceBinding>,
 }
 
 impl LockFile {
@@ -193,6 +204,7 @@ impl LockFile {
         Self {
             version: 1,
             packages: Vec::new(),
+            namespaces: Vec::new(),
         }
     }
 
@@ -232,10 +244,42 @@ impl LockFile {
 
     /// Get cached exports by package name OR deployed address.
     pub fn get_exports(&self, name_or_address: &str) -> Option<&ExportMetadata> {
+        let resolved = self
+            .namespaces
+            .iter()
+            .find(|n| n.namespace == name_or_address)
+            .map(|n| n.address.as_str())
+            .unwrap_or(name_or_address);
         self.packages
             .iter()
-            .find(|p| p.name == name_or_address || p.address == name_or_address)
+            .find(|p| p.name == resolved || p.address == resolved)
             .and_then(|p| p.exports.as_ref())
+    }
+
+    /// Resolve namespace to address.
+    pub fn get_namespace_address(&self, namespace: &str) -> Option<&str> {
+        self.namespaces
+            .iter()
+            .find(|n| n.namespace == namespace)
+            .map(|n| n.address.as_str())
+    }
+
+    /// Upsert namespace binding.
+    pub fn update_namespace(&mut self, namespace: String, address: String) {
+        let updated_at = None;
+        if let Some(idx) = self.namespaces.iter().position(|n| n.namespace == namespace) {
+            self.namespaces[idx] = NamespaceBinding {
+                namespace,
+                address,
+                updated_at,
+            };
+        } else {
+            self.namespaces.push(NamespaceBinding {
+                namespace,
+                address,
+                updated_at,
+            });
+        }
     }
 }
 

@@ -32,10 +32,48 @@ pub enum ImportTarget {
     RegistryName {
         name: String,
     },
+    /// Structured scoped namespace target: `@domain/subprogram`.
+    ScopedNamespace {
+        symbol: char,
+        domain: String,
+        subprogram: String,
+        canonical: String,
+    },
     /// Direct Solana address: `use "HMxPuYGdU7..."::{...};`
     SolanaPubkey {
         address: String,
     },
+}
+
+const NAMESPACE_SYMBOLS: [char; 5] = ['!', '@', '#', '$', '%'];
+
+pub fn parse_scoped_namespace(input: &str) -> Option<(char, String, String, String)> {
+    let mut chars = input.chars();
+    let symbol = chars.next()?;
+    if !NAMESPACE_SYMBOLS.contains(&symbol) {
+        return None;
+    }
+    let rest: String = chars.collect();
+    let (domain_raw, sub_raw) = rest.split_once('/')?;
+    if sub_raw.contains('/') {
+        return None;
+    }
+
+    let domain = domain_raw.to_ascii_lowercase();
+    let subprogram = sub_raw.to_ascii_lowercase();
+
+    let valid_segment = |seg: &str| {
+        !seg.is_empty()
+            && seg
+                .chars()
+                .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+    };
+    if !valid_segment(&domain) || !valid_segment(&subprogram) {
+        return None;
+    }
+
+    let canonical = format!("{}{}/{}", symbol, domain, subprogram);
+    Some((symbol, domain, subprogram, canonical))
 }
 
 /// Graph of module dependencies.
@@ -376,9 +414,27 @@ pub fn detect_import_target(input: &str) -> ImportTarget {
             };
         }
 
+        if let Some((symbol, domain, subprogram, canonical)) = parse_scoped_namespace(inner) {
+            return ImportTarget::ScopedNamespace {
+                symbol,
+                domain,
+                subprogram,
+                canonical,
+            };
+        }
+
         // Otherwise treat as registry name
         return ImportTarget::RegistryName {
             name: inner.to_string(),
+        };
+    }
+
+    if let Some((symbol, domain, subprogram, canonical)) = parse_scoped_namespace(input) {
+        return ImportTarget::ScopedNamespace {
+            symbol,
+            domain,
+            subprogram,
+            canonical,
         };
     }
 
@@ -443,6 +499,14 @@ mod tests {
         // Solana address
         let target = detect_import_target("\"HMxPuYGdU7qT3MZqPHM8bCp7g5P2uGkk3qHvB7LhPp4\"");
         assert!(matches!(target, ImportTarget::SolanaPubkey { .. }));
+
+        // Scoped namespace (bare)
+        let target = detect_import_target("@5ive-tech/program");
+        assert!(matches!(target, ImportTarget::ScopedNamespace { .. }));
+
+        // Scoped namespace (quoted)
+        let target = detect_import_target("\"@5ive-tech/program\"");
+        assert!(matches!(target, ImportTarget::ScopedNamespace { .. }));
     }
 
     #[test]

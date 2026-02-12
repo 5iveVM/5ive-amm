@@ -687,7 +687,7 @@ field = "String"
 [enums]
 BlockKind = ["Regular", "Init", "Constraints"]
 Visibility = ["Public", "Internal", "Private"]
-ModuleSpecifier_variants = ["Local(String)", "Nested(Vec<String>)", "External(String)"]
+ModuleSpecifier_variants = ["Local(String)", "Nested(Vec<String>)", "External(String)", "Namespace(NamespaceSpecifier)"]
 AssertionType = ["Equal", "True", "False", "Fails", "ApproxEq"]
 
 # ==============================================================================

@@ -24,12 +24,17 @@ import { registerCodeActionsProvider } from './monaco-code-actions';
 import { registerDocumentSymbolsProvider } from './monaco-document-symbols';
 import { registerRenameProvider } from './monaco-rename';
 
+// Global disposables tracker
+let globalDisposables: monaco.IDisposable[] = [];
+let globalLspClient: FiveLspClient | null = null;
+
 /**
  * Initialize and register all Five LSP providers with Monaco Editor
  *
  * This sets up:
  * - Diagnostic provider (error squiggles)
- * - Future: Hover provider, completion, etc.
+ * - Hover, completion, definition, references providers
+ * - Code actions, document symbols, rename providers
  *
  * @param monacoInstance - The monaco module instance
  * @returns Promise that resolves when setup is complete
@@ -37,7 +42,7 @@ import { registerRenameProvider } from './monaco-rename';
  * @example
  * ```typescript
  * import * as monaco from 'monaco-editor';
- * import { setupFiveLsp } from './lib/monaco-lsp';
+ * import { setupFiveLsp, teardownFiveLsp } from './lib/monaco-lsp';
  *
  * async function initializeEditor() {
  *   const editor = monaco.editor.create(document.getElementById('editor'), {
@@ -47,6 +52,11 @@ import { registerRenameProvider } from './monaco-rename';
  *
  *   await setupFiveLsp(monaco);
  * }
+ *
+ * // Cleanup on unmount
+ * function cleanup() {
+ *   teardownFiveLsp();
+ * }
  * ```
  */
 export async function setupFiveLsp(
@@ -54,8 +64,15 @@ export async function setupFiveLsp(
 ): Promise<void> {
   console.log('[Monaco LSP Setup] Initializing...');
 
+  // Clean up any existing setup
+  if (globalDisposables.length > 0) {
+    console.warn('[Monaco LSP Setup] Cleaning up existing providers before re-initialization');
+    teardownFiveLsp();
+  }
+
   // Create LSP client
   const lspClient = new FiveLspClient();
+  globalLspClient = lspClient;
 
   try {
     // Initialize WASM module
@@ -63,35 +80,102 @@ export async function setupFiveLsp(
     console.log('[Monaco LSP Setup] LSP client initialized');
   } catch (error) {
     console.error('[Monaco LSP Setup] Failed to initialize LSP:', error);
+    globalLspClient = null;
     return;
   }
 
-  // Register Phase 2 providers
-  registerDiagnosticsProvider(monacoInstance, lspClient);
-  registerHoverProvider(monacoInstance, lspClient);
-  registerCompletionProvider(monacoInstance, lspClient);
-  registerDefinitionProvider(monacoInstance, lspClient);
-  registerReferencesProvider(monacoInstance, lspClient);
+  // Register Phase 2 providers (collect disposables)
+  const diagnosticsDisposable = registerDiagnosticsProvider(monacoInstance, lspClient);
+  if (diagnosticsDisposable) globalDisposables.push(diagnosticsDisposable);
+
+  const hoverDisposable = registerHoverProvider(monacoInstance, lspClient);
+  if (hoverDisposable) globalDisposables.push(hoverDisposable);
+
+  const completionDisposable = registerCompletionProvider(monacoInstance, lspClient);
+  if (completionDisposable) globalDisposables.push(completionDisposable);
+
+  const definitionDisposable = registerDefinitionProvider(monacoInstance, lspClient);
+  if (definitionDisposable) globalDisposables.push(definitionDisposable);
+
+  const referencesDisposable = registerReferencesProvider(monacoInstance, lspClient);
+  if (referencesDisposable) globalDisposables.push(referencesDisposable);
 
   // Register Phase 3 providers
   // Note: Semantic tokens disabled - Monaco version may not support this API
-  // registerSemanticTokensProvider(monacoInstance, lspClient);
-  registerCodeActionsProvider(monacoInstance, lspClient);
-  registerDocumentSymbolsProvider(monacoInstance, lspClient);
-  registerRenameProvider(monacoInstance, lspClient);
+  // const semanticDisposable = registerSemanticTokensProvider(monacoInstance, lspClient);
+  // if (semanticDisposable) globalDisposables.push(semanticDisposable);
 
-  console.log('[Monaco LSP Setup] Complete - All providers registered (Phase 2: 5, Phase 3: 3)');
+  const codeActionsDisposable = registerCodeActionsProvider(monacoInstance, lspClient);
+  if (codeActionsDisposable) globalDisposables.push(codeActionsDisposable);
+
+  const docSymbolsDisposable = registerDocumentSymbolsProvider(monacoInstance, lspClient);
+  if (docSymbolsDisposable) globalDisposables.push(docSymbolsDisposable);
+
+  const renameDisposable = registerRenameProvider(monacoInstance, lspClient);
+  if (renameDisposable) globalDisposables.push(renameDisposable);
+
+  console.log(
+    `[Monaco LSP Setup] Complete - ${globalDisposables.length} providers registered (Phase 2: 5, Phase 3: 3)`
+  );
+}
+
+/**
+ * Teardown Five LSP integration and clean up resources
+ *
+ * Disposes all registered providers and clears caches.
+ * Call this when unmounting the editor or reinitializing LSP.
+ *
+ * @example
+ * ```typescript
+ * import { teardownFiveLsp } from './lib/monaco-lsp';
+ *
+ * // On component unmount
+ * useEffect(() => {
+ *   return () => {
+ *     teardownFiveLsp();
+ *   };
+ * }, []);
+ * ```
+ */
+export function teardownFiveLsp(): void {
+  console.log(`[Monaco LSP Setup] Tearing down ${globalDisposables.length} providers...`);
+
+  // Dispose all registered providers
+  for (const disposable of globalDisposables) {
+    try {
+      disposable.dispose();
+    } catch (error) {
+      console.error('[Monaco LSP Setup] Error disposing provider:', error);
+    }
+  }
+  globalDisposables = [];
+
+  // Clear LSP caches
+  if (globalLspClient && globalLspClient.isInitialized()) {
+    try {
+      globalLspClient.clearCaches();
+    } catch (error) {
+      console.error('[Monaco LSP Setup] Error clearing LSP caches:', error);
+    }
+  }
+  globalLspClient = null;
+
+  console.log('[Monaco LSP Setup] Teardown complete');
 }
 
 /**
  * Register the diagnostics provider
  *
  * Provides real-time error squiggles as the user edits Five DSL files.
+ *
+ * @returns Disposable to clean up the provider
  */
 function registerDiagnosticsProvider(
   monaco: typeof import('monaco-editor'),
   lspClient: FiveLspClient
-): void {
+): monaco.IDisposable | null {
+  const modelListeners: monaco.IDisposable[] = [];
+
   // Set up a debounced diagnostics update
   const updateDiagnostics = debounce(
     (model: monaco.editor.ITextModel) => {
@@ -126,7 +210,7 @@ function registerDiagnosticsProvider(
   );
 
   // Listen for content changes on all Five files
-  monaco.editor.onDidCreateModel((model) => {
+  const onCreateModelDisposable = monaco.editor.onDidCreateModel((model) => {
     if (model.getLanguageId() !== 'five') {
       return;
     }
@@ -141,10 +225,16 @@ function registerDiagnosticsProvider(
       updateDiagnostics(model);
     });
 
+    modelListeners.push(listener);
+
     // Clean up listener when model is disposed
     model.onWillDispose(() => {
       listener.dispose();
       monaco.editor.setModelMarkers(model, 'five-lsp', []);
+      const index = modelListeners.indexOf(listener);
+      if (index > -1) {
+        modelListeners.splice(index, 1);
+      }
     });
   });
 
@@ -154,6 +244,17 @@ function registerDiagnosticsProvider(
       updateDiagnostics(model);
     }
   }
+
+  // Return composite disposable
+  return {
+    dispose: () => {
+      onCreateModelDisposable.dispose();
+      for (const listener of modelListeners) {
+        listener.dispose();
+      }
+      modelListeners.length = 0;
+    },
+  };
 }
 
 /**

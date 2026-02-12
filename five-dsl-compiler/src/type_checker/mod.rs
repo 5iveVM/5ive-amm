@@ -48,7 +48,9 @@ impl types::TypeCheckerContext {
                 self.imported_external_interfaces.clear();
                 for import_stmt in import_statements {
                     if let AstNode::ImportStatement {
-                        module_specifier: crate::ast::ModuleSpecifier::External(_),
+                        module_specifier:
+                            crate::ast::ModuleSpecifier::External(_)
+                            | crate::ast::ModuleSpecifier::Namespace(_),
                         imported_items: Some(items),
                     } = import_stmt
                     {

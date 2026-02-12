@@ -18,6 +18,7 @@ import { helpCommand } from './help.js';
 import { templateCommand } from './template.js';
 import { donateCommand } from './donate.js';
 import { buildCommand } from './build.js';
+import { namespaceCommand } from './namespace.js';
 
 /**
  * Registry of all available commands
@@ -30,6 +31,7 @@ export const commands: CommandDefinition[] = [
   buildCommand,
   executeCommand,
   deployCommand,
+  namespaceCommand,
   deployAndExecuteCommand,
   localCommand,
   configCommand,
@@ -71,7 +73,7 @@ export function getAllCommandNames(): string[] {
 export function getCommandsByCategory(): Record<string, CommandDefinition[]> {
   return {
     'Development': [compileCommand, buildCommand, executeCommand, localCommand, testCommand, templateCommand, initCommand],
-    'Deployment': [deployCommand, deployAndExecuteCommand],
+    'Deployment': [deployCommand, namespaceCommand, deployAndExecuteCommand],
     'Support': [donateCommand],
     'Configuration': [configCommand],
     'Utility': [versionCommand, helpCommand],
@@ -142,6 +144,7 @@ export {
   buildCommand,
   executeCommand,
   deployCommand,
+  namespaceCommand,
   deployAndExecuteCommand,
   localCommand,
   configCommand,

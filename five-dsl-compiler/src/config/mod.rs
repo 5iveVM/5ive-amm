@@ -8,7 +8,7 @@ pub use project_config::{
 };
 
 pub use workspace::{
-    LinkType, LockEntry, LockFile, OutputType, PackageBuildConfig, PackageConfig,
+    LinkType, LockEntry, LockFile, NamespaceBinding, OutputType, PackageBuildConfig, PackageConfig,
     PackageDependency, PackageDeployConfig, PackageManifest, VersionSpec, WorkspaceConfig,
     WorkspaceDependency, WorkspacePackageDefaults,
 };

@@ -97,9 +97,9 @@ impl CompilerBridge {
 
     /// Get LSP diagnostics for a document
     ///
-    /// Runs compilation phases (tokenize, parse, type check) and collects all errors.
-    /// This includes parse errors and type errors. Returns all errors found, even if
-    /// some phases fail.
+    /// Runs compilation phases (tokenize, parse, type check) and collects ALL errors.
+    /// This includes parse errors and type errors. Returns all errors found, continuing
+    /// through phases even if earlier phases fail (best-effort analysis).
     pub fn get_diagnostics(
         &mut self,
         uri: &Url,
@@ -124,6 +124,8 @@ impl CompilerBridge {
                     char_pos.saturating_add(1),
                     lsp_types::DiagnosticSeverity::ERROR,
                 ));
+
+                // Cannot continue without valid tokens
                 return Ok(diagnostics);
             }
         };
@@ -145,34 +147,62 @@ impl CompilerBridge {
                     char_pos.saturating_add(1),
                     lsp_types::DiagnosticSeverity::ERROR,
                 ));
+
+                // Cannot continue without valid AST
                 return Ok(diagnostics);
             }
         };
 
-        // Cache AST
+        // Cache AST even if type checking will fail
         let hash = Self::hash_source(source);
         self.ast_cache.insert(uri.clone(), (hash, ast.clone()));
 
         // Phase 3: Type check
-        // Try type checking - if it fails, we still return any partial results
-        // Note: Type errors don't have position info in their messages yet, so we skip reporting them
-        // The parser will catch most actual syntax errors anyway
+        // Type check and collect all type errors with stable ranges
         let mut type_checker = DslTypeChecker::new();
         match type_checker.check_types(&ast) {
             Ok(()) => {
                 // Type checking succeeded - no type errors
             }
-            Err(_e) => {
-                // Type checking failed - skip reporting for now since error messages don't have positions
-                // TODO: Extract position information from AST when type errors occur
+            Err(e) => {
+                // Type checking failed - add diagnostic with position if available
+                let error_msg = e.to_string();
+                let (line, char_pos) = Self::extract_position_from_error(&error_msg, source);
+
+                // Only add if we could extract a meaningful position
+                if line > 0 || char_pos > 0 {
+                    diagnostics.push(self.create_diagnostic(
+                        "Type error",
+                        &error_msg,
+                        line,
+                        char_pos,
+                        char_pos.saturating_add(error_msg.split_whitespace().next().map_or(1, |s| s.len() as u32)),
+                        lsp_types::DiagnosticSeverity::ERROR,
+                    ));
+                } else {
+                    // Generic type error without position
+                    diagnostics.push(self.create_diagnostic(
+                        "Type error",
+                        &error_msg,
+                        0,
+                        0,
+                        1,
+                        lsp_types::DiagnosticSeverity::ERROR,
+                    ));
+                }
             }
         }
 
         // ALWAYS cache the symbol table, even if type checking failed
         // This enables hover and completion to work even when code has type errors
-        let hash = Self::hash_source(source);
         let symbol_table = type_checker.get_symbol_table().clone();
         self.symbol_cache.insert(uri.clone(), (hash, symbol_table));
+
+        // Sort diagnostics by position for stable ordering
+        diagnostics.sort_by(|a, b| {
+            a.range.start.line.cmp(&b.range.start.line)
+                .then(a.range.start.character.cmp(&b.range.start.character))
+        });
 
         Ok(diagnostics)
     }

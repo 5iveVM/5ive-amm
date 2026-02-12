@@ -202,6 +202,7 @@ define_token_types! {
     Semicolon,    // ;
     Dot,          // .
     Hash,         // # (for attributes)
+    Dollar,       // $
 
     // Literals and identifiers
     Identifier(String),

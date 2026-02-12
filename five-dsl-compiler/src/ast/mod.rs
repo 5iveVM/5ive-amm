@@ -342,6 +342,36 @@ pub enum ModuleSpecifier {
     Local(String),              // use lib; or import lib;
     Nested(Vec<String>),        // use utils::helpers;
     External(String),           // use "0x123"::{fn1, fn2}; (contract address or PDA seeds)
+    Namespace(NamespaceSpecifier), // use @org/program::{fn};
+}
+
+/// Structured namespace import target.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NamespaceSpecifier {
+    pub symbol: char,
+    pub domain: String,
+    pub subprogram: String,
+    pub canonical: String, // e.g. "@5ive-tech/program"
+}
+
+impl NamespaceSpecifier {
+    pub fn new(symbol: char, domain: String, subprogram: String) -> Self {
+        let canonical = format!("{}{}", symbol, domain);
+        Self {
+            symbol,
+            domain,
+            subprogram: subprogram.clone(),
+            canonical: format!("{}/{}", canonical, subprogram),
+        }
+    }
+
+    pub fn import_key(&self) -> &str {
+        &self.canonical
+    }
+
+    pub fn pda_seed_bytes(&self) -> Vec<u8> {
+        format!("5NS/{}", self.canonical).into_bytes()
+    }
 }
 
 /// Import member for use/import statements.
