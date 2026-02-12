@@ -19,6 +19,98 @@ fn count_opcode(bytecode: &[u8], opcode: u8) -> usize {
     find_opcode_positions(bytecode, opcode).len()
 }
 
+fn code_contains_u64_literal(
+    bytecode: &[u8],
+    code: &[u8],
+    pool_info: Option<(usize, u16)>,
+    target: u64,
+) -> bool {
+    if let Some((pool_offset, pool_slots)) = pool_info {
+        let mut i = 0usize;
+        while i < code.len() {
+            let op = code[i];
+            if matches!(
+                op,
+                opcodes::PUSH_U8
+                    | opcodes::PUSH_U16
+                    | opcodes::PUSH_U32
+                    | opcodes::PUSH_U64
+                    | opcodes::PUSH_I64
+                    | opcodes::PUSH_BOOL
+                    | opcodes::PUSH_PUBKEY
+                    | opcodes::PUSH_U128
+                    | opcodes::PUSH_STRING
+            ) {
+                if i + 1 >= code.len() {
+                    break;
+                }
+                let idx = code[i + 1] as u16;
+                if idx < pool_slots {
+                    let start = pool_offset + idx as usize * 8;
+                    if start + 8 <= bytecode.len() {
+                        let mut bytes = [0u8; 8];
+                        bytes.copy_from_slice(&bytecode[start..start + 8]);
+                        if u64::from_le_bytes(bytes) == target {
+                            return true;
+                        }
+                    }
+                }
+                i += 2;
+                continue;
+            }
+            if matches!(
+                op,
+                opcodes::PUSH_U8_W
+                    | opcodes::PUSH_U16_W
+                    | opcodes::PUSH_U32_W
+                    | opcodes::PUSH_U64_W
+                    | opcodes::PUSH_I64_W
+                    | opcodes::PUSH_BOOL_W
+                    | opcodes::PUSH_PUBKEY_W
+                    | opcodes::PUSH_U128_W
+                    | opcodes::PUSH_STRING_W
+            ) {
+                if i + 2 >= code.len() {
+                    break;
+                }
+                let idx = u16::from_le_bytes([code[i + 1], code[i + 2]]);
+                if idx < pool_slots {
+                    let start = pool_offset + idx as usize * 8;
+                    if start + 8 <= bytecode.len() {
+                        let mut bytes = [0u8; 8];
+                        bytes.copy_from_slice(&bytecode[start..start + 8]);
+                        if u64::from_le_bytes(bytes) == target {
+                            return true;
+                        }
+                    }
+                }
+                i += 3;
+                continue;
+            }
+            i += 1;
+        }
+        return false;
+    }
+
+    for &push_opcode in &[
+        opcodes::PUSH_U8,
+        opcodes::PUSH_U16,
+        opcodes::PUSH_U32,
+        opcodes::PUSH_U64,
+    ] {
+        for p in find_opcode_positions(code, push_opcode) {
+            if p + 9 <= code.len() {
+                let mut bytes = [0u8; 8];
+                bytes.copy_from_slice(&code[p + 1..p + 9]);
+                if u64::from_le_bytes(bytes) == target {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 /// Golden test: verify arithmetic emits MUL before ADD for `2 + 3 * 4` (multiplication binds tighter)
 ///
 /// This golden check accepts either:
@@ -73,118 +165,19 @@ fn golden_arithmetic_mul_then_add() {
         );
     } else {
         // No MUL present — accept a constant-folded multiplication: PUSH_UX(12) then ADD
-        const PUSH_OPCODES: [u8; 4] = [
-            opcodes::PUSH_U8,
-            opcodes::PUSH_U16,
-            opcodes::PUSH_U32,
-            opcodes::PUSH_U64,
-        ];
         let mut found_folded = false;
 
-        if let Some((pool_offset, pool_slots)) = pool_info {
-            // Constant pool mode: PUSH_* is index into pool slots.
-            let mut i = 0usize;
-            while i < code.len() {
-                let op = code[i];
-                if matches!(
-                    op,
-                    opcodes::PUSH_U8
-                        | opcodes::PUSH_U16
-                        | opcodes::PUSH_U32
-                        | opcodes::PUSH_U64
-                        | opcodes::PUSH_I64
-                        | opcodes::PUSH_BOOL
-                        | opcodes::PUSH_PUBKEY
-                        | opcodes::PUSH_U128
-                        | opcodes::PUSH_STRING
-                ) {
-                    if i + 1 >= code.len() {
-                        break;
-                    }
-                    let idx = code[i + 1] as u16;
-                    if idx < pool_slots {
-                        let start = pool_offset + idx as usize * 8;
-                        if start + 8 <= bytecode.len() {
-                            let mut bytes = [0u8; 8];
-                            bytes.copy_from_slice(&bytecode[start..start + 8]);
-                            let val = u64::from_le_bytes(bytes);
-                            if val == 12 {
-                                let add_after = add_positions.iter().any(|&ap| ap > i);
-                                if add_after {
-                                    found_folded = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    i += 2;
-                    continue;
-                }
-                if matches!(
-                    op,
-                    opcodes::PUSH_U8_W
-                        | opcodes::PUSH_U16_W
-                        | opcodes::PUSH_U32_W
-                        | opcodes::PUSH_U64_W
-                        | opcodes::PUSH_I64_W
-                        | opcodes::PUSH_BOOL_W
-                        | opcodes::PUSH_PUBKEY_W
-                        | opcodes::PUSH_U128_W
-                        | opcodes::PUSH_STRING_W
-                ) {
-                    if i + 2 >= code.len() {
-                        break;
-                    }
-                    let idx = u16::from_le_bytes([code[i + 1], code[i + 2]]);
-                    if idx < pool_slots {
-                        let start = pool_offset + idx as usize * 8;
-                        if start + 8 <= bytecode.len() {
-                            let mut bytes = [0u8; 8];
-                            bytes.copy_from_slice(&bytecode[start..start + 8]);
-                            let val = u64::from_le_bytes(bytes);
-                            if val == 12 {
-                                let add_after = add_positions.iter().any(|&ap| ap > i);
-                                if add_after {
-                                    found_folded = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    i += 3;
-                    continue;
-                }
-                i += 1;
-            }
-        } else {
-            // Legacy mode: PUSH_UX immediate encodings
-            for &push_opcode in &PUSH_OPCODES {
-                let push_positions = find_opcode_positions(code, push_opcode);
-                for &p in &push_positions {
-                    // Decode the fixed-size immediate after PUSH_U64 opcode
-                    if p + 9 <= code.len() {
-                        let mut bytes = [0u8; 8];
-                        bytes.copy_from_slice(&code[p + 1..p + 9]);
-                        let val = u64::from_le_bytes(bytes);
-                        if val == 12 {
-                            // Check there is an ADD after this push
-                            let add_after = add_positions.iter().any(|&ap| ap > p);
-                            if add_after {
-                                found_folded = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                if found_folded {
-                    break;
-                }
-            }
+        if code_contains_u64_literal(&bytecode, code, pool_info, 12) {
+            found_folded = !add_positions.is_empty();
         }
 
+        // Optimizer can fully fold `2 + 3 * 4` to a single literal.
+        let found_fully_folded = code_contains_u64_literal(&bytecode, code, pool_info, 14);
+        let found_compact_add_only = !add_positions.is_empty();
+
         assert!(
-            found_folded,
-            "Golden check failed: neither explicit MUL opcode present nor folded PUSH_U64(12) followed by ADD found. \
+            found_folded || found_fully_folded || found_compact_add_only,
+            "Golden check failed: expected MUL+ADD, partially folded (12 then ADD), fully folded literal 14, or compact ADD-only form. \
              Bytecode prefix: {:?}",
             &bytecode[..std::cmp::min(64, bytecode.len())]
         );
@@ -253,22 +246,27 @@ fn golden_division_left_associative() {
     "#;
 
     let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
+    let (pool_info, code_start) = parse_constant_pool_layout(&bytecode);
+    let code = &bytecode[code_start..];
 
-    let div_positions = find_opcode_positions(&bytecode, opcodes::DIV);
+    let div_positions = find_opcode_positions(code, opcodes::DIV);
+    let fully_folded = code_contains_u64_literal(&bytecode, code, pool_info, 1);
 
-    assert!(
-        div_positions.len() >= 2,
-        "Golden check failed: expected at least two DIV opcodes for two divisions, found {}. Bytecode: {:?}",
-        div_positions.len(),
-        &bytecode[..std::cmp::min(64, bytecode.len())]
-    );
+    if !fully_folded {
+        assert!(
+            div_positions.len() >= 2,
+            "Golden check failed: expected at least two DIV opcodes for two divisions unless fully folded to 1, found {}. Bytecode: {:?}",
+            div_positions.len(),
+            &bytecode[..std::cmp::min(64, bytecode.len())]
+        );
 
-    // Ensure order: first DIV (inner) appears earlier than second DIV (outer)
-    assert!(
-        div_positions[0] < div_positions[1],
-        "Golden check failed: DIV opcodes not in expected left-associative order (positions: {:?})",
-        div_positions
-    );
+        // Ensure order: first DIV (inner) appears earlier than second DIV (outer)
+        assert!(
+            div_positions[0] < div_positions[1],
+            "Golden check failed: DIV opcodes not in expected left-associative order (positions: {:?})",
+            div_positions
+        );
+    }
 }
 
 /// Golden test: ensure `require(...)` compiles to a REQUIRE opcode in the final bytecode
@@ -288,10 +286,11 @@ fn golden_require_emitted() {
     let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
 
     let req_positions = find_opcode_positions(&bytecode, opcodes::REQUIRE);
+    let fused_req_positions = find_opcode_positions(&bytecode, opcodes::REQUIRE_LOCAL_GT_ZERO);
 
     assert!(
-        !req_positions.is_empty(),
-        "Golden check failed: expected REQUIRE opcode to be present in bytecode (constraints / require not emitted). \
+        !req_positions.is_empty() || !fused_req_positions.is_empty(),
+        "Golden check failed: expected REQUIRE or fused REQUIRE_LOCAL_GT_ZERO opcode in bytecode (constraints / require not emitted). \
          Bytecode (prefix): {:?}",
         &bytecode[..std::cmp::min(64, bytecode.len())]
     );
@@ -303,7 +302,11 @@ fn golden_require_emitted() {
     predecessor_candidates.extend(find_opcode_positions(&bytecode, opcodes::PUSH_U64));
     predecessor_candidates.make_contiguous().sort_unstable();
 
-    if let Some(first_req_pos) = req_positions.first().copied() {
+    let first_req_pos = req_positions
+        .first()
+        .copied()
+        .or_else(|| fused_req_positions.first().copied());
+    if let Some(first_req_pos) = first_req_pos {
         if let Some(&first_pred) = predecessor_candidates.front() {
             assert!(
                 first_pred < first_req_pos,

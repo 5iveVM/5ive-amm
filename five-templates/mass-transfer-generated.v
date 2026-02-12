@@ -1,5 +1,5 @@
 
-        use "1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh"::{transfer};
+        use "11111112cMQwSC9qirWGjZM6gLGwW69X22mqwLLGP"::{transfer};
 
         pub fn mass_transfer(
             s1: account @mut,

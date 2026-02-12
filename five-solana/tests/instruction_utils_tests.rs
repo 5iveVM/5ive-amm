@@ -67,20 +67,23 @@ mod instruction_utils_tests {
         let recipient = create_account_info(&recipient_key, false, true, &mut recipient_lamports, &mut data, &program_id);
 
         // Success transfer
-        assert_eq!(transfer_fee(&payer, &recipient, 100, None), Ok(()));
+        assert_eq!(transfer_fee(&program_id, &payer, &recipient, 100, None), Ok(()));
         assert_eq!(payer.lamports(), 900);
         assert_eq!(recipient.lamports(), 200);
 
         // Fail: insufficient funds
-        assert_eq!(transfer_fee(&payer, &recipient, 2000, None), Err(ProgramError::InsufficientFunds));
+        assert_eq!(
+            transfer_fee(&program_id, &payer, &recipient, 2000, None),
+            Err(ProgramError::InsufficientFunds)
+        );
 
         // Zero amount (no-op)
-        assert_eq!(transfer_fee(&payer, &recipient, 0, None), Ok(()));
+        assert_eq!(transfer_fee(&program_id, &payer, &recipient, 0, None), Ok(()));
         assert_eq!(payer.lamports(), 900);
         assert_eq!(recipient.lamports(), 200);
 
         // Payer == Recipient (no-op)
-        assert_eq!(transfer_fee(&payer, &payer, 100, None), Ok(()));
+        assert_eq!(transfer_fee(&program_id, &payer, &payer, 100, None), Ok(()));
         assert_eq!(payer.lamports(), 900);
     }
 
@@ -104,8 +107,12 @@ mod instruction_utils_tests {
 
         let payer = create_account_info(&payer_key, true, true, &mut payer_lamports, &mut data, &Pubkey::from(system_program_id));
         let recipient = create_account_info(&recipient_key, false, true, &mut recipient_lamports, &mut data, &Pubkey::default());
+        let program_id = Pubkey::from([9u8; 32]);
 
         // This should hit the check `let system_program = system_program.ok_or(...)`
-        assert_eq!(transfer_fee(&payer, &recipient, 100, None), Err(ProgramError::MissingRequiredSignature));
+        assert_eq!(
+            transfer_fee(&program_id, &payer, &recipient, 100, None),
+            Err(ProgramError::MissingRequiredSignature)
+        );
     }
 }

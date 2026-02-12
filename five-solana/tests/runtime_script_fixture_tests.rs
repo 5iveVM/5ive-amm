@@ -36,8 +36,12 @@ fn fixture_runner_handles_success_and_failure_cases() {
     let success = rt.run_fixture(&success_fixture, "script", "vm_state", "owner");
     assert!(success.success);
 
+    rt.add_account(
+        "script_fail",
+        RuntimeHarness::create_script_account_seed(program_id, 256),
+    );
     let fail_deploy = rt.deploy_script(
-        "script",
+        "script_fail",
         "vm_state",
         "owner",
         &script_with_header(1, 1, &[PUSH_BOOL, 0, REQUIRE, HALT]),
@@ -45,7 +49,12 @@ fn fixture_runner_handles_success_and_failure_cases() {
         None,
     );
     assert!(fail_deploy.success, "fixture deploy should succeed");
-    let failure = rt.execute_script("script", "vm_state", &["owner"], &canonical_execute_payload(0, &[]));
+    let failure = rt.execute_script(
+        "script_fail",
+        "vm_state",
+        &["owner"],
+        &canonical_execute_payload(0, &[]),
+    );
     assert!(!failure.success);
 }
 

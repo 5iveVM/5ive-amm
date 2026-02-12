@@ -157,7 +157,7 @@ fn test_checked_arithmetic_in_nested_calls() {
         script.push(1); // param_count
         let call_f2_ptr = script.len();
         script.extend_from_slice(&[0, 0]);
-        script.push(RETURN);
+        script.push(RETURN_VALUE);
 
         // Function 2
         let func2_ip = script.len();
@@ -165,7 +165,7 @@ fn test_checked_arithmetic_in_nested_calls() {
         script.push(1); // Load first parameter (index 1)
         push_u64_instr(&mut script, 2);
         script.push(MUL_CHECKED);
-        script.push(RETURN);
+        script.push(RETURN_VALUE);
 
         script[call_f1_ptr] = (func1_ip & 0xFF) as u8;
         script[call_f1_ptr + 1] = ((func1_ip >> 8) & 0xFF) as u8;
@@ -175,7 +175,7 @@ fn test_checked_arithmetic_in_nested_calls() {
         script
     };
 
-    match execute_test(&bytecode, &[0, 0, 0, 0], &[]) {
+    match execute_test(&bytecode, &[], &[]) {
         Ok(Some(Value::U64(result))) => {
             // f2 returns 160, f1 returns 160, f0 returns 160 + 50 = 210
             assert_eq!(result, 210);

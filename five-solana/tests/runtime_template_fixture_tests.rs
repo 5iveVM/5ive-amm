@@ -10,9 +10,12 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 struct RuntimeFixture {
     name: String,
+    #[serde(default = "default_program_seed")]
     program_seed: u8,
     bytecode_path: String,
     permissions: u8,
+    #[serde(default)]
+    skip_deploy: bool,
     authority: AuthorityFixture,
     vm_state_name: String,
     script_name: String,
@@ -20,6 +23,8 @@ struct RuntimeFixture {
     vm_fees: Option<FeeFixture>,
     #[serde(default)]
     extra_accounts: Vec<AccountFixture>,
+    #[serde(default)]
+    external_programs: Vec<ExternalProgramFixture>,
     steps: Vec<StepFixture>,
     #[serde(default)]
     final_assertions: Vec<AssertionFixture>,
@@ -28,6 +33,7 @@ struct RuntimeFixture {
 #[derive(Debug, Deserialize)]
 struct AuthorityFixture {
     name: String,
+    #[serde(default = "default_authority_key_seed")]
     key_seed: u8,
     #[serde(default = "default_authority_lamports")]
     lamports: u64,
@@ -44,7 +50,10 @@ struct FeeFixture {
 #[derive(Debug, Deserialize)]
 struct AccountFixture {
     name: String,
-    key_seed: u8,
+    #[serde(default)]
+    key_seed: Option<u8>,
+    #[serde(default)]
+    pubkey: Option<String>,
     owner: AccountOwner,
     #[serde(default)]
     lamports: u64,
@@ -65,6 +74,13 @@ enum AccountOwner {
     System,
     Authority,
     SelfAccount,
+    SplTokenProgram,
+    AnchorTokenProgram,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExternalProgramFixture {
+    kind: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,6 +142,14 @@ fn default_authority_lamports() -> u64 {
     200_000
 }
 
+fn default_program_seed() -> u8 {
+    42
+}
+
+fn default_authority_key_seed() -> u8 {
+    99
+}
+
 #[test]
 fn template_runtime_fixtures_execute_without_localnet() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -136,7 +160,9 @@ fn template_runtime_fixtures_execute_without_localnet() {
     );
 
     let filter = std::env::var("FIVE_TEMPLATE_FILTER").ok();
+    let mut matched = 0usize;
     let mut ran = 0usize;
+    let mut skipped = 0usize;
 
     for fixture_file in fixture_files {
         let fixture_path_str = fixture_file.to_string_lossy();
@@ -146,12 +172,23 @@ fn template_runtime_fixtures_execute_without_localnet() {
             }
         }
 
+        matched += 1;
         let fixture = load_fixture(&fixture_file);
+        if fixture.skip_deploy || !fixture.external_programs.is_empty() {
+            skipped += 1;
+            continue;
+        }
         run_fixture(&repo_root, &fixture_file, &fixture);
         ran += 1;
     }
 
-    assert!(ran > 0, "no fixtures matched filter");
+    assert!(matched > 0, "no fixtures matched filter");
+    assert!(
+        ran > 0,
+        "all matched fixtures were skipped (skip_deploy/external_programs): matched={}, skipped={}",
+        matched,
+        skipped
+    );
 }
 
 fn run_fixture(repo_root: &Path, fixture_path: &Path, fixture: &RuntimeFixture) {
@@ -216,13 +253,22 @@ fn run_fixture(repo_root: &Path, fixture_path: &Path, fixture: &RuntimeFixture) 
         },
     );
 
-    for account in &fixture.extra_accounts {
-        let key = unique_pubkey(account.key_seed);
+    for (idx, account) in fixture.extra_accounts.iter().enumerate() {
+        let key = match &account.pubkey {
+            Some(value) => decode_pubkey(value),
+            None => unique_pubkey(
+                account
+                    .key_seed
+                    .unwrap_or_else(|| fixture.program_seed.wrapping_add(10).wrapping_add(idx as u8)),
+            ),
+        };
         let owner = match account.owner {
             AccountOwner::Program => program_id,
             AccountOwner::System => [0u8; 32],
             AccountOwner::Authority => rt.fetch_account(&fixture.authority.name).key,
             AccountOwner::SelfAccount => key,
+            AccountOwner::SplTokenProgram => [0u8; 32],
+            AccountOwner::AnchorTokenProgram => [0u8; 32],
         };
         rt.add_account(
             &account.name,
@@ -400,6 +446,21 @@ fn resolve_account_ref_index(step: &StepFixture, account: &str) -> u8 {
     // MitoVM account index 0 is the vm_state account.
     // Step extras are appended after vm_state at index 1+.
     (pos as u8) + 1
+}
+
+fn decode_pubkey(encoded: &str) -> [u8; 32] {
+    let bytes = bs58::decode(encoded)
+        .into_vec()
+        .unwrap_or_else(|_| panic!("invalid fixture pubkey: {}", encoded));
+    assert_eq!(
+        bytes.len(),
+        32,
+        "fixture pubkey must decode to 32 bytes: {}",
+        encoded
+    );
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&bytes);
+    out
 }
 
 fn load_fixture(path: &Path) -> RuntimeFixture {

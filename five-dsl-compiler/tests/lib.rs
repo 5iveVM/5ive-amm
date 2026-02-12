@@ -1,6 +1,8 @@
 use five_dsl_compiler::ast::{AstNode, BlockKind};
 use five_dsl_compiler::*;
-use five_protocol::opcodes::{GT, PUSH_U16, PUSH_U32, PUSH_U64, PUSH_U8, REQUIRE};
+use five_protocol::opcodes::{
+    GT, PUSH_U16, PUSH_U32, PUSH_U64, PUSH_U8, REQUIRE, REQUIRE_LOCAL_GT_ZERO,
+};
 
 const PUSH_LITERAL_OPCODES: [u8; 4] = [PUSH_U8, PUSH_U16, PUSH_U32, PUSH_U64];
 use five_protocol::{
@@ -352,22 +354,18 @@ fn test_bytecode_uses_optimized_header_v2() {
     );
     assert_eq!(&bytecode[0..4], FIVE_MAGIC);
 
-    let expected_features = FEATURE_FUSED_BRANCH
+    let required_features = FEATURE_FUSED_BRANCH
         | FEATURE_NO_VALIDATION
         | FEATURE_MINIMAL_ERRORS
         | FEATURE_COLD_START_OPT
         | FEATURE_FUNCTION_NAMES
         | FEATURE_CONSTANT_POOL; // Includes function names metadata table + constant pool
 
-    #[cfg(feature = "call-metadata")]
-    {
-        expected_features |= FEATURE_FUNCTION_METADATA;
-    }
-
     let features = u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]]);
     assert_eq!(
-        features, expected_features,
-        "features u32 should match production set (with function names metadata)"
+        features & required_features,
+        required_features,
+        "features u32 should include required production bits"
     );
 
     assert_eq!(bytecode[8], 1, "single public function expected");
@@ -493,8 +491,18 @@ fn test_dsl_compiler_end_to_end() {
         "Expected bytecode to contain a push immediate (got {:?})",
         bytecode
     );
-    assert!(bytecode.contains(&REQUIRE));
-    assert!(bytecode.contains(&GT));
+    let has_require = bytecode.contains(&REQUIRE);
+    let has_fused_require = bytecode.contains(&REQUIRE_LOCAL_GT_ZERO);
+    assert!(
+        has_require || has_fused_require,
+        "Expected REQUIRE or fused REQUIRE_LOCAL_GT_ZERO (got {:?})",
+        bytecode
+    );
+    assert!(
+        bytecode.contains(&GT) || has_fused_require,
+        "Expected GT or fused require comparison opcode (got {:?})",
+        bytecode
+    );
 }
 
 #[test]

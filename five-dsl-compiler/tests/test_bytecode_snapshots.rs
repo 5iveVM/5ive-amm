@@ -4,6 +4,11 @@ use five_dsl_compiler::bytecode_generator::DslBytecodeGenerator;
 use five_dsl_compiler::*;
 use five_protocol::opcodes;
 
+fn bytecode_contains_u64_literal(bytecode: &[u8], value: u64) -> bool {
+    let needle = value.to_le_bytes();
+    bytecode.windows(needle.len()).any(|window| window == needle)
+}
+
 // ============================================================================
 // Test Group 1: Header Validation
 // ============================================================================
@@ -117,8 +122,8 @@ fn test_simple_return_bytecode() {
     // Should contain PUSH opcode for literal 42 (semantic check)
     let inspector = BytecodeInspector::new(&bytecode);
     assert!(
-        inspector.contains_push_u64(42),
-        "Bytecode should contain PUSH 42 instruction"
+        inspector.contains_push_u64(42) || bytecode_contains_u64_literal(&bytecode, 42),
+        "Bytecode should contain literal 42 (push or constant-pool encoded)"
     );
 }
 
@@ -144,8 +149,8 @@ fn test_variable_assignment_bytecode() {
     // Should contain PUSH 100 and STORE_LOCAL/LOAD_LOCAL operations (semantic check)
     let inspector = BytecodeInspector::new(&bytecode);
     assert!(
-        inspector.contains_push_u64(100),
-        "Bytecode should contain PUSH 100"
+        inspector.contains_push_u64(100) || bytecode_contains_u64_literal(&bytecode, 100),
+        "Bytecode should contain literal 100 (push or constant-pool encoded)"
     );
 }
 

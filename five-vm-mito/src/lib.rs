@@ -38,7 +38,7 @@
 //!
 //! ```rust
 //! use five_vm_mito::{MitoVM, Pubkey};
-//! use five_vm_mito::opcodes::{PUSH_U8, MUL, RETURN_VALUE};
+//! use five_vm_mito::opcodes::{LOAD_PARAM, PUSH_U8, MUL, RETURN_VALUE};
 //!
 //! // Bytecode with function header and simple function
 //! // FIVE header: magic(4) + features(4) + public_count(1) + total_count(1) = 10 bytes
@@ -47,7 +47,8 @@
 //!     0x00, 0x00, 0x00, 0x00, // features flags (4 bytes)
 //!     0x01,                   // public function count: 1
 //!     0x01,                   // total function count: 1
-//!     // Main function: multiply by 2
+//!     // Main function: multiply param #1 by 2
+//!     LOAD_PARAM, 1,          // LOAD_PARAM 1
 //!     PUSH_U8, 2,             // PUSH_U8 2
 //!     MUL,                    // MUL
 //!     RETURN_VALUE            // RETURN_VALUE

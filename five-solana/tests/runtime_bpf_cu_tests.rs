@@ -1813,8 +1813,10 @@ async fn minimal_execute_floor_bpf_compute_units() {
         "BPF_CU minimal_execute_floor={}",
         execute_result.units_consumed
     );
+    // Security hardening added additional ownership/writability checks in execute fee flow.
+    // Keep a tight but realistic budget for minimal execution.
     assert!(
-        execute_result.units_consumed <= 1_200,
+        execute_result.units_consumed <= 1_800,
         "minimal floor regressed to {}",
         execute_result.units_consumed
     );

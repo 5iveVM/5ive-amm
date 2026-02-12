@@ -260,7 +260,7 @@ mod tests {
         let payer_account = create_account(
             &payer_key,
             true,
-            false,
+            true,
             &mut payer_lamports,
             &mut payer_data,
             &program_id,
@@ -337,7 +337,7 @@ mod tests {
         let payer_account = create_account(
             &payer_key,
             true,
-            false,
+            true,
             &mut payer_lamports,
             &mut payer_data,
             &program_id,
@@ -420,7 +420,7 @@ mod tests {
         let payer_account = create_account(
             &payer_key,
             true,
-            false,
+            true,
             &mut payer_lamports,
             &mut payer_data,
             &program_id,

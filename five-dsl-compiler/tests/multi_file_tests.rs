@@ -175,7 +175,11 @@ fn test_compile_modules_explicit_mode() -> Result<(), Box<dyn std::error::Error>
 #[test]
 fn test_call_external_generation_via_auto_discovery() -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
-    files.insert("main.v".to_string(), "script main { use \"some_external_address\"; pub fn main_func() { } }".to_string());
+    files.insert(
+        "main.v".to_string(),
+        "script main { use \"11111111111111111111111111111111\"; pub fn main_func() { } }"
+            .to_string(),
+    );
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
     let config = CompilationConfig::new(CompilationMode::Testing);
