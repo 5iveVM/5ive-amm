@@ -53,7 +53,6 @@ export async function loadProjectConfig(
     rpcUrl: deploy.rpc_url,
     programId: deploy.program_id,
     namespaceManager: deploy.namespace_manager ?? deploy.namespace_manager_script,
-    namespaceTreasury: deploy.namespace_treasury ?? deploy.treasury,
     keypairPath: deploy.keypair_path,
     multiFileMode: build.multi_file_mode ?? false,
     optimizations: {

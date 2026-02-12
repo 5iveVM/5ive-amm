@@ -119,7 +119,6 @@ interface NamespaceOnChainOptions {
   signerKeypair: any;
   fiveVMProgramId?: string;
   debug?: boolean;
-  treasuryAccount?: string;
 }
 
 function nowUnix(): number {
@@ -128,10 +127,11 @@ function nowUnix(): number {
 
 export async function registerNamespaceTldOnChain(
   namespaceValue: string,
-  options: NamespaceOnChainOptions & { treasuryAccount: string },
-): Promise<{ transactionId?: string; tldAddress: string; owner: string }> {
+  options: NamespaceOnChainOptions,
+): Promise<{ transactionId?: string; tldAddress: string; owner: string; treasuryAccount: string }> {
   const { FIVE_VM_PROGRAM_ID } = await import("../types.js");
   const { executeOnSolana } = await import("./execute.js");
+  const { getVMState } = await import("./vm-state.js");
 
   const parsed = canonicalizeScopedNamespace(namespaceValue);
   if (parsed.subprogram) {
@@ -142,6 +142,11 @@ export async function registerNamespaceTldOnChain(
   const addresses = await deriveNamespaceAccounts(parsed.canonical, vmProgramId);
   const owner = options.signerKeypair.publicKey.toBase58();
   const now = nowUnix();
+  const vmState = await getVMState(options.connection, vmProgramId);
+  const treasuryAccount = vmState.authority;
+  if (!treasuryAccount) {
+    throw new Error("VM state authority (treasury) is unavailable");
+  }
 
   const result = await executeOnSolana(
     options.managerScriptAccount,
@@ -152,12 +157,12 @@ export async function registerNamespaceTldOnChain(
       addresses.config,
       addresses.tld,
       owner,
-      options.treasuryAccount,
+      treasuryAccount,
       parsed.symbol,
       parsed.domain,
       now,
     ],
-    [addresses.config, addresses.tld, owner, options.treasuryAccount],
+    [addresses.config, addresses.tld, owner, treasuryAccount],
     {
       debug: options.debug,
       fiveVMProgramId: vmProgramId,
@@ -173,6 +178,7 @@ export async function registerNamespaceTldOnChain(
     transactionId: result.transactionId,
     tldAddress: addresses.tld,
     owner,
+    treasuryAccount,
   };
 }
 

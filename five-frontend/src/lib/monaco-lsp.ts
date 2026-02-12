@@ -326,6 +326,137 @@ function debounce<T extends (...args: any[]) => void>(
 }
 
 /**
+ * Generate a stable URI for a file path
+ *
+ * Ensures consistent URIs across editor sessions for the same file.
+ * URIs are in the format: file:///workspace/<relative-path>
+ *
+ * @param filePath - The relative file path (e.g., "src/main.v")
+ * @returns Stable file URI
+ *
+ * @example
+ * ```typescript
+ * const uri = generateStableUri('src/main.v');
+ * // Returns: "file:///workspace/src/main.v"
+ * ```
+ */
+export function generateStableUri(filePath: string): string {
+  // Check cache first
+  if (modelUriCache.has(filePath)) {
+    return modelUriCache.get(filePath)!;
+  }
+
+  // Normalize path (remove leading/trailing slashes, ensure forward slashes)
+  const normalized = filePath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+
+  // Generate stable URI
+  const uri = `file:///workspace/${normalized}`;
+
+  // Cache it
+  modelUriCache.set(filePath, uri);
+
+  return uri;
+}
+
+/**
+ * Get or create a Monaco model with a stable URI
+ *
+ * Ensures that the same file path always maps to the same Monaco model.
+ * Reuses existing models if URI matches.
+ *
+ * @param monaco - The monaco module instance
+ * @param filePath - The relative file path
+ * @param content - The file content
+ * @param language - The language ID (default: 'five')
+ * @returns The Monaco ITextModel
+ *
+ * @example
+ * ```typescript
+ * const model = getOrCreateModel(monaco, 'src/main.v', sourceCode);
+ * ```
+ */
+export function getOrCreateModel(
+  monaco: typeof import('monaco-editor'),
+  filePath: string,
+  content: string,
+  language: string = 'five'
+): monaco.editor.ITextModel {
+  const uri = generateStableUri(filePath);
+  const uriObj = monaco.Uri.parse(uri);
+
+  // Check if model already exists
+  let model = monaco.editor.getModel(uriObj);
+
+  if (model) {
+    // Model exists - update content if different
+    if (model.getValue() !== content) {
+      model.setValue(content);
+    }
+  } else {
+    // Create new model
+    model = monaco.editor.createModel(content, language, uriObj);
+    console.log(`[Monaco LSP] Created model: ${uri}`);
+  }
+
+  return model;
+}
+
+/**
+ * Handle model rename - dispose old model and create new one with updated URI
+ *
+ * @param monaco - The monaco module instance
+ * @param oldPath - The old file path
+ * @param newPath - The new file path
+ * @returns The new model, or null if old model didn't exist
+ *
+ * @example
+ * ```typescript
+ * const newModel = renameModel(monaco, 'src/old.v', 'src/new.v');
+ * ```
+ */
+export function renameModel(
+  monaco: typeof import('monaco-editor'),
+  oldPath: string,
+  newPath: string
+): monaco.editor.ITextModel | null {
+  const oldUri = generateStableUri(oldPath);
+  const oldUriObj = monaco.Uri.parse(oldUri);
+
+  const oldModel = monaco.editor.getModel(oldUriObj);
+  if (!oldModel) {
+    return null;
+  }
+
+  // Get content before disposing
+  const content = oldModel.getValue();
+  const language = oldModel.getLanguageId();
+
+  // Dispose old model
+  oldModel.dispose();
+  modelUriCache.delete(oldPath);
+
+  // Create new model with new URI
+  const newUri = generateStableUri(newPath);
+  const newUriObj = monaco.Uri.parse(newUri);
+  const newModel = monaco.editor.createModel(content, language, newUriObj);
+
+  console.log(`[Monaco LSP] Renamed model: ${oldUri} -> ${newUri}`);
+
+  return newModel;
+}
+
+/**
+ * Get global LSP client
+ *
+ * Useful for accessing the LSP client from other modules.
+ *
+ * @returns The current LSP client, or null if not initialized
+ */
+export function getLspClient(): FiveLspClient | null {
+  return globalLspClient;
+}
+
+/**
  * Export the LSP client for use in other modules
  *
  * This allows other parts of the application to access the LSP client

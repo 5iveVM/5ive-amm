@@ -120,7 +120,6 @@ export class FiveSDK {
       managerScriptAccount: string;
       connection: any;
       signerKeypair: any;
-      treasuryAccount: string;
       fiveVMProgramId?: string;
       debug?: boolean;
     },

@@ -20,6 +20,7 @@ Fee enforcement:
 - `register_tld` now enforces symbol-priced lamport payment on-chain.
 - It debits `owner.lamports` and credits `treasury_account.lamports`.
 - `treasury_account.key` must match configured `cfg.treasury`.
+- `cfg.treasury` should be set to the VM state authority account (same destination used for VM fee flow).
 
 PDA-backed state accounts:
 
