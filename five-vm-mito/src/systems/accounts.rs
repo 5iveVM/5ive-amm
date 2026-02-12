@@ -24,6 +24,8 @@ pub struct AccountManager<'a> {
 }
 
 impl<'a> AccountManager<'a> {
+    const SCRIPT_HEADER_MAGIC: [u8; 4] = [b'5', b'I', b'V', b'E'];
+
     #[inline(always)]
     pub fn new(accounts: &'a [AccountInfo], program_id: Pubkey) -> Self {
         Self {
@@ -79,17 +81,31 @@ impl<'a> AccountManager<'a> {
     pub fn check_authorization(&self, account_idx: u8) -> CompactResult<()> {
         let account = self.get(account_idx)?;
 
+        // Protect VM state account (execution index 0) from script-level writes.
+        if account_idx == 0 {
+            return Err(VMErrorCode::ScriptNotAuthorized);
+        }
+
         if account.data_len() == 0 {
             return Ok(());
         }
 
         let required_authority = *account.owner();
-        if self.program_id == required_authority {
-            Ok(())
-        } else {
+        if self.program_id != required_authority {
             debug_log!("Auth failed: owner mismatch");
             return Err(VMErrorCode::ScriptNotAuthorized);
         }
+
+        // Disallow direct mutation of deployed script accounts from bytecode opcodes.
+        // This prevents a script from rewriting other script accounts via SAVE/SET_LAMPORTS.
+        if account.data_len() >= 4 {
+            let data = unsafe { account.borrow_data_unchecked() };
+            if data[..4] == Self::SCRIPT_HEADER_MAGIC {
+                return Err(VMErrorCode::ScriptNotAuthorized);
+            }
+        }
+
+        Ok(())
     }
 
     // --- Account creation ---

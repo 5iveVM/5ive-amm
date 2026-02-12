@@ -9,6 +9,7 @@ use crate::{
         validate_vm_and_script_accounts, verify_program_owned, validate_permissions,
         verify_admin_signer,
     },
+    error::program_already_initialized_error,
     state::{FIVEVMState, ScriptAccountHeader},
 };
 
@@ -87,10 +88,13 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
 
     require_signer(authority)?;
 
-    // Initialize VM state
+    // Initialize VM state exactly once.
     // SAFETY: Account verified owned by program (either by check or creation), mutable borrow is safe.
     let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
+    if vm_state.is_initialized() {
+        return Err(program_already_initialized_error());
+    }
     vm_state.initialize(*authority.key());
 
     Ok(())
@@ -160,6 +164,15 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
 
     if script_account.data_len() < required_size {
         return Err(ProgramError::Custom(7005));
+    }
+
+    // Prevent overwriting an existing deployed script account.
+    // Upgrades must use explicit upload/append/finalize flow with owner checks.
+    {
+        let script_data = unsafe { script_account.borrow_data_unchecked() };
+        if ScriptAccountHeader::is_valid(script_data) {
+            return Err(ProgramError::Custom(7007));
+        }
     }
 
     // SAFETY: `vm_state_account` verified.
@@ -417,4 +430,126 @@ pub fn finalize_script_upload(
     final_header.copy_into_account(script_data)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pinocchio::account_info::AccountInfo;
+
+    fn create_account_info<'a>(
+        key: &'a Pubkey,
+        is_signer: bool,
+        is_writable: bool,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo {
+        AccountInfo::new(key, is_signer, is_writable, lamports, data, owner, false, 0)
+    }
+
+    fn minimal_valid_bytecode() -> [u8; 11] {
+        let mut b = [0u8; 11];
+        b[0..4].copy_from_slice(&five_protocol::FIVE_MAGIC);
+        b[8] = 1; // public function count
+        b[9] = 1; // total function count
+        b[10] = five_protocol::opcodes::HALT;
+        b
+    }
+
+    #[test]
+    fn initialize_is_one_time_only() {
+        let program_id = Pubkey::from([7u8; 32]);
+        let vm_key = Pubkey::from([8u8; 32]);
+        let authority_key = Pubkey::from([9u8; 32]);
+        let system_owner = Pubkey::default();
+
+        let mut vm_lamports = 1_000_000;
+        let mut authority_lamports = 1_000_000;
+        let mut vm_data = [0u8; FIVEVMState::LEN];
+        let mut authority_data = [];
+
+        let vm_account = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let authority = create_account_info(
+            &authority_key,
+            true,
+            false,
+            &mut authority_lamports,
+            &mut authority_data,
+            &system_owner,
+        );
+        let accounts = [vm_account, authority];
+
+        assert!(initialize(&program_id, &accounts, 0).is_ok());
+        assert_eq!(
+            initialize(&program_id, &accounts, 0),
+            Err(program_already_initialized_error())
+        );
+    }
+
+    #[test]
+    fn deploy_rejects_overwrite_of_existing_script() {
+        let program_id = Pubkey::from([11u8; 32]);
+        let script_key = Pubkey::from([12u8; 32]);
+        let vm_key = Pubkey::from([13u8; 32]);
+        let owner_key = Pubkey::from([14u8; 32]);
+        let system_owner = Pubkey::default();
+
+        let bytecode = minimal_valid_bytecode();
+        let mut script_data = vec![0u8; ScriptAccountHeader::LEN + bytecode.len()];
+        let existing_header = ScriptAccountHeader::create_from_bytecode(&bytecode, owner_key, 1, 0);
+        existing_header.copy_into_account(&mut script_data).unwrap();
+        script_data[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + bytecode.len()]
+            .copy_from_slice(&bytecode);
+
+        let mut vm_data = [0u8; FIVEVMState::LEN];
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            vm_state.initialize(owner_key);
+            vm_state.deploy_fee_lamports = 0;
+        }
+
+        let mut script_lamports = 1_000_000;
+        let mut vm_lamports = 1_000_000;
+        let mut owner_lamports = 1_000_000;
+        let mut owner_data = [];
+
+        let script_account = create_account_info(
+            &script_key,
+            false,
+            true,
+            &mut script_lamports,
+            script_data.as_mut_slice(),
+            &program_id,
+        );
+        let vm_account = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let owner = create_account_info(
+            &owner_key,
+            true,
+            false,
+            &mut owner_lamports,
+            &mut owner_data,
+            &system_owner,
+        );
+
+        let accounts = [script_account, vm_account, owner];
+        assert_eq!(
+            deploy(&program_id, &accounts, &bytecode, 0),
+            Err(ProgramError::Custom(7007))
+        );
+    }
 }
