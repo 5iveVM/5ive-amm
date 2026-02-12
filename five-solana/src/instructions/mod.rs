@@ -67,7 +67,7 @@ pub enum FIVEInstruction<'a> {
     InitLargeProgram { expected_size: u32, chunk_data: Option<&'a [u8]> },
     AppendBytecode { data: &'a [u8] },
     SetFees { deploy_fee_lamports: u32, execute_fee_lamports: u32 },
-    Deploy { bytecode: &'a [u8], permissions: u8 },
+    Deploy { bytecode: &'a [u8], metadata: &'a [u8], permissions: u8 },
     Execute { params: &'a [u8] },
     FinalizeScript,
 }
@@ -116,12 +116,16 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 }
                 let len = u32::from_le_bytes(data[1..5].try_into().unwrap()) as usize;
                 let permissions = data[5];
-                let total_len = crate::instructions::deploy::MIN_DEPLOY_LEN + len;
+                let metadata_len = u32::from_le_bytes(data[6..10].try_into().unwrap()) as usize;
+                let total_len = crate::instructions::deploy::MIN_DEPLOY_LEN + metadata_len + len;
                 if data.len() < total_len {
                     return Err(ProgramError::InvalidInstructionData);
                 }
+                let metadata_start = crate::instructions::deploy::MIN_DEPLOY_LEN;
+                let metadata_end = metadata_start + metadata_len;
                 Ok(FIVEInstruction::Deploy {
-                    bytecode: &data[6..total_len],
+                    metadata: &data[metadata_start..metadata_end],
+                    bytecode: &data[metadata_end..total_len],
                     permissions,
                 })
             }

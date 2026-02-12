@@ -55,13 +55,15 @@ mod public_function_invocation_tests {
         let mut deploy_data = vec![DEPLOY_INSTRUCTION];
         deploy_data.extend_from_slice(&(external_bytecode.len() as u32).to_le_bytes());
         deploy_data.push(permissions);
+        deploy_data.extend_from_slice(&0u32.to_le_bytes());
         deploy_data.extend_from_slice(&external_bytecode);
 
         // Verify the deploy instruction format is correct
         let deploy_ix = FIVEInstruction::try_from(deploy_data.as_slice()).unwrap();
         match deploy_ix {
-            FIVEInstruction::Deploy { bytecode: bc, permissions: perms } => {
+            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms } => {
                 assert_eq!(bc, &external_bytecode[..]);
+                assert!(metadata.is_empty());
                 assert_eq!(perms, permissions);
             }
             _ => panic!("Expected Deploy instruction"),

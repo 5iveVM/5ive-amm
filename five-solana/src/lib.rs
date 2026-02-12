@@ -117,13 +117,17 @@ fn process_administrative_instruction(
             );
             instructions::set_fees(program_id, accounts, deploy_fee_lamports, execute_fee_lamports)
         }
-        FIVEInstruction::Deploy { bytecode, permissions } => {
+        FIVEInstruction::Deploy {
+            bytecode,
+            metadata,
+            permissions,
+        } => {
             debug_log!(
                 "Processing Deploy instruction with {} bytes of bytecode, permissions: 0x{}",
                 bytecode.len(),
                 permissions
             );
-            instructions::deploy(program_id, accounts, bytecode, permissions)
+            instructions::deploy(program_id, accounts, bytecode, metadata, permissions)
         }
         FIVEInstruction::Execute { .. } => {
             // Already handled in hot path

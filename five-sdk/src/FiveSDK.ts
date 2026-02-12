@@ -559,8 +559,10 @@ export class FiveSDK {
       if (data.length >= scriptHeaderSize && data[0] === 0x35 && data[1] === 0x49 && data[2] === 0x56 && data[3] === 0x45) {
          const readU32LE = (buffer: Uint8Array, offset: number) => buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24);
          const bytecodeLen = readU32LE(data, 48);
-         if (bytecodeLen > 0 && (scriptHeaderSize + bytecodeLen) <= data.length) {
-             bytecode = data.slice(scriptHeaderSize, scriptHeaderSize + bytecodeLen);
+         const metadataLen = readU32LE(data, 52);
+         const bytecodeStart = scriptHeaderSize + metadataLen;
+         if (bytecodeLen > 0 && (bytecodeStart + bytecodeLen) <= data.length) {
+             bytecode = data.slice(bytecodeStart, bytecodeStart + bytecodeLen);
          }
       }
       return await this.getFunctionNames(bytecode);

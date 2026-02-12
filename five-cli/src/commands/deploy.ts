@@ -1,9 +1,10 @@
 // Deploy command.
 
-import { readFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { extname, isAbsolute, join } from 'path';
 import ora from 'ora';
 import { Connection, Keypair } from '@solana/web3.js';
+import { parse as parseToml, stringify as stringifyToml } from '@iarna/toml';
 
 import {
   CommandDefinition,
@@ -16,7 +17,7 @@ import { FiveSDK } from 'five-sdk';
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ConfigOverrides } from '../config/types.js';
 import { FiveFileManager } from '../utils/FiveFileManager.js';
-import { loadBuildManifest, loadProjectConfig } from '../project/ProjectLoader.js';
+import { computeHash, loadBuildManifest, loadProjectConfig } from '../project/ProjectLoader.js';
 import {
   section,
   keyValue,
@@ -286,7 +287,13 @@ export const deployCommand: CommandDefinition = {
       if (context.options.verbose) {
         logger.info('Preparing deployment options...');
       }
-      const deploymentOptions = await setupDeploymentOptions(loadedFile.bytecode, options, config, logger);
+      const deploymentOptions = await setupDeploymentOptions(
+        loadedFile.bytecode,
+        loadedFile.abi,
+        options,
+        config,
+        logger,
+      );
       if (context.options.debug) {
         logger.debug(`deployment options: ${JSON.stringify(deploymentOptions, null, 2)}`);
       }
@@ -350,6 +357,23 @@ export const deployCommand: CommandDefinition = {
       if (context.options.verbose) {
         logger.info('Deployment completed');
       }
+
+      if (result.success && result.programId && projectContext) {
+        try {
+          await updateLockfileExports(
+            projectContext.rootDir,
+            projectContext.config.name,
+            result.programId,
+            loadedFile.bytecode,
+            deploymentOptions.exportMetadata,
+          );
+        } catch (e) {
+          if (context.options.debug) {
+            logger.debug(`lockfile export cache update failed: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+      }
+
       displayDeploymentResult(result, options, logger);
 
       if (!result.success) {
@@ -373,6 +397,7 @@ export const deployCommand: CommandDefinition = {
  */
 async function setupDeploymentOptions(
   bytecode: Uint8Array,
+  abi: any,
   options: any,
   config: any,
   logger: any
@@ -384,10 +409,93 @@ async function setupDeploymentOptions(
     computeBudget: parseInt(options.computeBudget),
     fiveVMProgramId: options.programId, // Pass the programId
     vmStateAccount: options.vmStateAccount,
+    exportMetadata: buildExportMetadataFromAbi(abi),
   };
 
 
   return deploymentOptions;
+}
+
+export function buildExportMetadataFromAbi(abi: any): {
+  methods: string[];
+  interfaces: Array<{ name: string; methodMap: Record<string, string> }>;
+} {
+  const methods: string[] = [];
+  const interfaces: Array<{ name: string; methodMap: Record<string, string> }> = [];
+
+  if (!abi) {
+    return { methods, interfaces };
+  }
+
+  if (Array.isArray(abi.functions)) {
+    for (const fn of abi.functions) {
+      if (!fn || typeof fn.name !== 'string') continue;
+      const isPublic = fn.is_public === true || fn.visibility === 'public';
+      if (isPublic) methods.push(fn.name);
+    }
+  } else if (abi.functions && typeof abi.functions === 'object') {
+    for (const name of Object.keys(abi.functions)) {
+      methods.push(name);
+    }
+  }
+
+  return { methods, interfaces };
+}
+
+export async function updateLockfileExports(
+  rootDir: string,
+  packageName: string,
+  address: string,
+  bytecode: Uint8Array,
+  exportMetadata?: {
+    methods?: string[];
+    interfaces?: Array<{ name: string; methodMap?: Record<string, string> }>;
+  },
+): Promise<void> {
+  const lockPath = join(rootDir, 'five.lock');
+  let lockDoc: any = { version: 1, packages: [] };
+
+  try {
+    const content = await readFile(lockPath, 'utf8');
+    lockDoc = parseToml(content);
+  } catch {
+    // No lockfile yet; create one.
+  }
+
+  if (!Array.isArray(lockDoc.packages)) {
+    lockDoc.packages = [];
+  }
+
+  const exportsPayload = {
+    methods: exportMetadata?.methods || [],
+    interfaces: (exportMetadata?.interfaces || []).map((iface) => ({
+      name: iface.name,
+      method_map: iface.methodMap || {},
+    })),
+  };
+
+  const entry = {
+    name: packageName,
+    version: '0.0.0',
+    address,
+    bytecode_hash: computeHash(bytecode),
+    deployed_at: new Date().toISOString(),
+    exports: exportsPayload,
+  };
+
+  const existingIndex = lockDoc.packages.findIndex(
+    (p: any) => p && (p.name === packageName || p.address === address),
+  );
+  if (existingIndex >= 0) {
+    lockDoc.packages[existingIndex] = {
+      ...lockDoc.packages[existingIndex],
+      ...entry,
+    };
+  } else {
+    lockDoc.packages.push(entry);
+  }
+
+  await writeFile(lockPath, stringifyToml(lockDoc), 'utf8');
 }
 
 /**
@@ -500,6 +608,7 @@ async function executeDeployment(
           network: deploymentOptions.network,
           computeBudget: deploymentOptions.computeBudget,
           fiveVMProgramId: deploymentOptions.fiveVMProgramId, // Pass programId
+          exportMetadata: deploymentOptions.exportMetadata,
           maxRetries: 3
         }
       );

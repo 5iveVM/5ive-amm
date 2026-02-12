@@ -7,6 +7,7 @@ use super::import_table::ImportTable;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::ast::ImportItem;
 use crate::bytecode_generator::types; // Import the module directly
+use crate::config::workspace::{ExportMetadata, LockFile};
 
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
@@ -66,6 +67,74 @@ impl FunctionDispatcher {
             return false;
         }
         chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+    }
+
+    fn load_lockfile() -> Option<LockFile> {
+        let cwd = std::env::current_dir().ok()?;
+        let path = cwd.join("five.lock");
+        LockFile::load(&path).ok()
+    }
+
+    fn resolve_import_item(
+        item: &ImportItem,
+        exports: Option<&ExportMetadata>,
+    ) -> Result<(bool, String, HashMap<String, u16>, Vec<String>), VMError> {
+        let classify_unqualified = |name: &str,
+                                    exports: Option<&ExportMetadata>|
+         -> Result<(bool, String, HashMap<String, u16>, Vec<String>), VMError> {
+            if let Some(exports) = exports {
+                let method_exists = exports.methods.iter().any(|m| m == name);
+                let iface = exports.interfaces.iter().find(|i| i.name == name);
+
+                if method_exists && iface.is_some() {
+                    return Err(VMError::InvalidScript);
+                }
+                if !method_exists && iface.is_none() {
+                    return Err(VMError::InvalidScript);
+                }
+                if let Some(iface) = iface {
+                    let mut selectors = HashMap::new();
+                    let mut import_names = Vec::new();
+                    for (method, callee) in &iface.method_map {
+                        selectors.insert(method.clone(), Self::external_selector(callee));
+                        import_names.push(callee.clone());
+                    }
+                    return Ok((true, name.to_string(), selectors, import_names));
+                }
+            }
+
+            Ok((false, name.to_string(), HashMap::new(), vec![name.to_string()]))
+        };
+
+        match item {
+            ImportItem::Method(name) => {
+                if let Some(exports) = exports {
+                    if !exports.methods.iter().any(|m| m == name) {
+                        return Err(VMError::InvalidScript);
+                    }
+                }
+                Ok((false, name.clone(), HashMap::new(), vec![name.clone()]))
+            }
+            ImportItem::Interface(name) => {
+                if let Some(exports) = exports {
+                    let iface = exports
+                        .interfaces
+                        .iter()
+                        .find(|i| i.name == *name)
+                        .ok_or(VMError::InvalidScript)?;
+                    let mut selectors = HashMap::new();
+                    let mut import_names = Vec::new();
+                    for (method, callee) in &iface.method_map {
+                        selectors.insert(method.clone(), Self::external_selector(callee));
+                        import_names.push(callee.clone());
+                    }
+                    Ok((true, name.clone(), selectors, import_names))
+                } else {
+                    Ok((true, name.clone(), HashMap::new(), vec![name.clone()]))
+                }
+            }
+            ImportItem::Unqualified(name) => classify_unqualified(name, exports),
+        }
     }
 
     /// Create a new function dispatcher
@@ -336,6 +405,8 @@ impl FunctionDispatcher {
                 public_count, public_count.saturating_sub(1), private_count, public_count, total_count.saturating_sub(1)
             );
 
+            let lockfile = Self::load_lockfile();
+
             // Process import statements
             for import_stmt in import_statements {
                 if let AstNode::ImportStatement {
@@ -354,23 +425,32 @@ impl FunctionDispatcher {
                     // ARCHITECTURE: Five DSL supports importing both functions and fields
                     // Fields use LOAD_EXTERNAL_FIELD opcode for zero-copy access (read-only)
                     // Functions use CALL_EXTERNAL opcode for external function calls
+                    let exports = if is_external_import {
+                        lockfile
+                            .as_ref()
+                            .and_then(|l| l.get_exports(&account_address))
+                    } else {
+                        None
+                    };
+
                     if let Some(items) = imported_items {
                         // Specific imports: use account::{function_name, field_name}
                         // Store all items as both functions and fields - usage context determines which is used
                         for item in items {
-                            let item_name = item.name().to_string();
+                            let (is_interface, item_name, _selectors, verify_names) =
+                                Self::resolve_import_item(item, exports)?;
 
-                            // Explicit interface imports are external execution namespaces and
-                            // should not be tracked as fields.
-                            if item.is_interface() {
+                            if is_interface {
                                 if self.imported_functions.contains_key(&item_name)
                                     || self.imported_fields.contains_key(&item_name)
                                 {
                                     return Err(VMError::InvalidScript);
                                 }
                                 if is_external_import {
-                                    self.import_table
-                                        .add_import_by_address(&account_address, item_name.clone());
+                                    for verify_name in verify_names {
+                                        self.import_table
+                                            .add_import_by_address(&account_address, verify_name);
+                                    }
                                 }
                                 continue;
                             }
@@ -399,8 +479,10 @@ impl FunctionDispatcher {
 
                             // Only external imports are eligible for on-chain import verification metadata.
                             if is_external_import {
-                                self.import_table
-                                    .add_import_by_address(&account_address, item_name.clone());
+                                for verify_name in verify_names {
+                                    self.import_table
+                                        .add_import_by_address(&account_address, verify_name);
+                                }
                             }
 
                             println!("DSL Compiler INFO: Imported '{}' from account {} as function/field", item_name, account_address);
@@ -646,6 +728,7 @@ impl FunctionDispatcher {
         {
             // Register external imports for AST function-call emission.
             ast_generator.external_imports.clear();
+            let lockfile = Self::load_lockfile();
             let mut external_import_index: u8 = 0;
             for import_stmt in import_statements {
                 let AstNode::ImportStatement {
@@ -659,24 +742,25 @@ impl FunctionDispatcher {
                     continue;
                 };
 
+                let exports = lockfile
+                    .as_ref()
+                    .and_then(|l| l.get_exports(address));
                 let mut selectors = HashMap::new();
                 let mut allow_any_function = imported_items.is_none();
                 if let Some(items) = imported_items {
                     for item in items {
-                        match item {
-                            ImportItem::Interface(interface_name) => {
-                                // Imported interface symbols execute externally and allow
-                                // method-based selector derivation at call site.
-                                ast_generator.register_external_import(
-                                    interface_name.clone(),
-                                    external_import_index,
-                                    true,
-                                    HashMap::new(),
-                                );
-                            }
-                            ImportItem::Method(fn_name) | ImportItem::Unqualified(fn_name) => {
-                                selectors.insert(fn_name.clone(), Self::external_selector(fn_name));
-                            }
+                        let (is_interface, item_name, interface_selectors, _) =
+                            Self::resolve_import_item(item, exports)?;
+                        if is_interface {
+                            let allow_any = interface_selectors.is_empty();
+                            ast_generator.register_external_import(
+                                item_name,
+                                external_import_index,
+                                allow_any,
+                                interface_selectors,
+                            );
+                        } else {
+                            selectors.insert(item_name.clone(), Self::external_selector(&item_name));
                         }
                     }
                     if selectors.is_empty() {
@@ -1193,6 +1277,7 @@ impl super::DslBytecodeGenerator {
 mod tests {
     use super::*;
     use crate::ast::{AstNode, BlockKind, InstructionParameter, TypeNode};
+    use crate::config::workspace::{ExportMetadata, InterfaceExport};
 
     #[test]
     fn test_function_dispatcher_creation() {
@@ -1396,6 +1481,72 @@ mod tests {
         // Verify serialization includes all 3 imports
         let serialized = table.serialize().expect("serialize");
         assert_eq!(serialized[0], 3); // import_count = 3
+    }
+
+    #[test]
+    fn test_unqualified_import_classifies_to_interface_when_exported() {
+        let exports = ExportMetadata {
+            methods: vec!["transfer".to_string()],
+            interfaces: vec![InterfaceExport {
+                name: "TokenOps".to_string(),
+                method_map: std::collections::HashMap::from([(
+                    "transfer".to_string(),
+                    "transfer_checked".to_string(),
+                )]),
+            }],
+        };
+
+        let item = ImportItem::Unqualified("TokenOps".to_string());
+        let (is_interface, name, selectors, verify_names) =
+            FunctionDispatcher::resolve_import_item(&item, Some(&exports)).unwrap();
+
+        assert!(is_interface);
+        assert_eq!(name, "TokenOps");
+        assert_eq!(selectors.get("transfer"), Some(&FunctionDispatcher::external_selector("transfer_checked")));
+        assert_eq!(verify_names, vec!["transfer_checked".to_string()]);
+    }
+
+    #[test]
+    fn test_unqualified_import_rejects_ambiguous_symbol() {
+        let exports = ExportMetadata {
+            methods: vec!["TokenOps".to_string()],
+            interfaces: vec![InterfaceExport {
+                name: "TokenOps".to_string(),
+                method_map: std::collections::HashMap::new(),
+            }],
+        };
+        let item = ImportItem::Unqualified("TokenOps".to_string());
+        assert!(FunctionDispatcher::resolve_import_item(&item, Some(&exports)).is_err());
+    }
+
+    #[test]
+    fn test_unqualified_import_rejects_missing_symbol_when_exports_known() {
+        let exports = ExportMetadata {
+            methods: vec!["transfer".to_string()],
+            interfaces: vec![InterfaceExport {
+                name: "TokenOps".to_string(),
+                method_map: std::collections::HashMap::new(),
+            }],
+        };
+        let item = ImportItem::Unqualified("missing".to_string());
+        assert!(FunctionDispatcher::resolve_import_item(&item, Some(&exports)).is_err());
+    }
+
+    #[test]
+    fn test_explicit_method_or_interface_rejects_type_mismatch_against_exports() {
+        let exports = ExportMetadata {
+            methods: vec!["transfer".to_string()],
+            interfaces: vec![InterfaceExport {
+                name: "TokenOps".to_string(),
+                method_map: std::collections::HashMap::new(),
+            }],
+        };
+
+        let method_item = ImportItem::Method("TokenOps".to_string());
+        assert!(FunctionDispatcher::resolve_import_item(&method_item, Some(&exports)).is_err());
+
+        let interface_item = ImportItem::Interface("transfer".to_string());
+        assert!(FunctionDispatcher::resolve_import_item(&interface_item, Some(&exports)).is_err());
     }
 
     /// Test import_table with PDA seeds

@@ -157,7 +157,7 @@ impl RuntimeHarness {
 
         let program_id = self.program_id;
         let result = self.with_account_infos(&account_names, |accounts| {
-            deploy(&program_id, accounts, bytecode, permissions)
+            deploy(&program_id, accounts, bytecode, &[], permissions)
         });
 
         match result {

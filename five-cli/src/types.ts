@@ -238,6 +238,10 @@ export interface DeploymentOptions {
   extraLamports?: number;
   fiveVMProgramId?: string;
   vmStateAccount?: string;
+  exportMetadata?: {
+    methods?: string[];
+    interfaces?: Array<{ name: string; methodMap?: Record<string, string> }>;
+  };
 }
 
 export interface DeploymentResult {

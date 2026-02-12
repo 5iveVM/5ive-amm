@@ -77,6 +77,34 @@ describe('Five SDK Integration Tests', () => {
       const raw = Buffer.from(result.instruction.data, 'base64');
       expect(raw[0]).toBe(8);
     });
+
+    it('encodes export metadata bytes into deploy instruction payload', async () => {
+      const bytecode = new Uint8Array([0x35, 0x49, 0x56, 0x45, 1, 2, 3, 4, 5, 6]);
+      const deployer = TestConstants.TEST_USER_PUBKEY;
+
+      const result = await FiveSDK.generateDeployInstruction(bytecode, deployer, {
+        exportMetadata: {
+          methods: ['transfer'],
+          interfaces: [{ name: 'TokenOps', methodMap: { transfer: 'transfer_checked' } }],
+        } as any,
+      });
+
+      const raw = Buffer.from(result.instruction.data, 'base64');
+      expect(raw[0]).toBe(8);
+      const bytecodeLen = raw.readUInt32LE(1);
+      expect(bytecodeLen).toBe(bytecode.length);
+      const permissions = raw[5];
+      expect(permissions).toBe(0);
+      const metadataLen = raw.readUInt32LE(6);
+      expect(metadataLen).toBeGreaterThan(0);
+      // metadata starts with "5EXP"
+      expect(raw[10]).toBe(0x35);
+      expect(raw[11]).toBe(0x45);
+      expect(raw[12]).toBe(0x58);
+      expect(raw[13]).toBe(0x50);
+      const bytecodeStart = 10 + metadataLen;
+      expect(raw.slice(bytecodeStart, bytecodeStart + bytecode.length)).toEqual(Buffer.from(bytecode));
+    });
   });
 
   describe('Execution Instruction Generation', () => {

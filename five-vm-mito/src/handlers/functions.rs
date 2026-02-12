@@ -753,13 +753,35 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
                 core::slice::from_raw_parts(data_slice.as_ptr(), data_slice.len())
             };
 
-            // Skip 64-byte ScriptAccountHeader to get actual bytecode
+            // Decode ScriptAccountHeader and skip metadata region before bytecode.
             const SCRIPT_ACCOUNT_HEADER_LEN: usize = 64;
+            const BYTECODE_LEN_OFFSET: usize = 48;
+            const METADATA_LEN_OFFSET: usize = 52;
             if external_bytecode_raw.len() < SCRIPT_ACCOUNT_HEADER_LEN {
                 debug_log!("MitoVM: CALL_EXTERNAL account too small for header");
                 return Err(VMErrorCode::AccountDataEmpty);
             }
-            let external_bytecode = &external_bytecode_raw[SCRIPT_ACCOUNT_HEADER_LEN..];
+            let bytecode_len = u32::from_le_bytes(
+                external_bytecode_raw[BYTECODE_LEN_OFFSET..BYTECODE_LEN_OFFSET + 4]
+                    .try_into()
+                    .map_err(|_| VMErrorCode::InvalidInstruction)?,
+            ) as usize;
+            let metadata_len = u32::from_le_bytes(
+                external_bytecode_raw[METADATA_LEN_OFFSET..METADATA_LEN_OFFSET + 4]
+                    .try_into()
+                    .map_err(|_| VMErrorCode::InvalidInstruction)?,
+            ) as usize;
+            let bytecode_start = SCRIPT_ACCOUNT_HEADER_LEN
+                .checked_add(metadata_len)
+                .ok_or(VMErrorCode::InvalidInstruction)?;
+            let bytecode_end = bytecode_start
+                .checked_add(bytecode_len)
+                .ok_or(VMErrorCode::InvalidInstruction)?;
+            if bytecode_end > external_bytecode_raw.len() {
+                debug_log!("MitoVM: CALL_EXTERNAL external script header length bounds invalid");
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+            let external_bytecode = &external_bytecode_raw[bytecode_start..bytecode_end];
             let code_fingerprint = external_code_fingerprint(external_bytecode);
 
             // NEW: Import verification for Five bytecode accounts.

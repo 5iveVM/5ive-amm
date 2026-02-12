@@ -10,6 +10,16 @@ import { validator, Validators } from "../validation/index.js";
 import { calculateDeployFee } from "./fees.js";
 import { pollForConfirmation } from "../utils/transaction.js";
 
+interface ExportMetadataInterfaceInput {
+  name: string;
+  methodMap?: Record<string, string>;
+}
+
+interface ExportMetadataInput {
+  methods?: string[];
+  interfaces?: ExportMetadataInterfaceInput[];
+}
+
 export async function generateDeployInstruction(
   bytecode: FiveBytecode,
   deployer: string,
@@ -25,6 +35,9 @@ export async function generateDeployInstruction(
       "options.scriptAccount",
     );
   }
+  const exportMetadata = encodeExportMetadata(
+    options.exportMetadata as ExportMetadataInput | undefined,
+  );
 
   if (options.debug) {
     console.log(
@@ -50,7 +63,7 @@ export async function generateDeployInstruction(
   }
 
   const SCRIPT_HEADER_SIZE = 64; // ScriptAccountHeader size from Rust program
-  const totalAccountSize = SCRIPT_HEADER_SIZE + bytecode.length;
+  const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
   const rentLamports = await RentCalculator.calculateRentExemption(totalAccountSize);
 
   const deployAccounts = [
@@ -72,7 +85,11 @@ export async function generateDeployInstruction(
     });
   }
 
-  const instructionData = encodeDeployInstruction(bytecode, options.permissions || 0);
+  const instructionData = encodeDeployInstruction(
+    bytecode,
+    options.permissions || 0,
+    exportMetadata,
+  );
 
   const result: SerializedDeployment = {
     programId: FIVE_VM_PROGRAM_ID,
@@ -104,6 +121,7 @@ export async function generateDeployInstruction(
       accountSize: totalAccountSize,
       rentCost: rentLamports,
       deployDataSize: instructionData.length,
+      exportMetadataSize: exportMetadata.length,
       adminAccount: options.adminAccount,
     });
   }
@@ -143,6 +161,7 @@ export async function createDeploymentTransaction(
     debug?: boolean;
     fiveVMProgramId?: string;
     computeBudget?: number;
+    exportMetadata?: ExportMetadataInput;
   } = {},
 ): Promise<{
   transaction: any;
@@ -169,7 +188,8 @@ export async function createDeploymentTransaction(
 
   // Calculate account size and rent
   const SCRIPT_HEADER_SIZE = 64; // ScriptHeader::LEN
-  const totalAccountSize = SCRIPT_HEADER_SIZE + bytecode.length;
+  const exportMetadata = encodeExportMetadata(options.exportMetadata);
+  const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
   const rentLamports = await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 
   // Generate VM state keypair
@@ -230,7 +250,7 @@ export async function createDeploymentTransaction(
   );
 
   // 4. Deploy Instruction
-  const deployData = encodeDeployInstruction(bytecode);
+  const deployData = encodeDeployInstruction(bytecode, 0, exportMetadata);
   tx.add(
     new TransactionInstruction({
       keys: [
@@ -271,6 +291,7 @@ export async function deployToSolana(
     maxRetries?: number;
     fiveVMProgramId?: string;
     vmStateAccount?: string;
+    exportMetadata?: ExportMetadataInput;
   } = {},
 ): Promise<{
   success: boolean;
@@ -313,7 +334,8 @@ export async function deployToSolana(
 
     // Calculate account size and rent
     const SCRIPT_HEADER_SIZE = 64; // ScriptHeader::LEN (five-protocol)
-    const totalAccountSize = SCRIPT_HEADER_SIZE + bytecode.length;
+    const exportMetadata = encodeExportMetadata(options.exportMetadata);
+    const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
     const rentLamports =
       await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 
@@ -338,6 +360,7 @@ export async function deployToSolana(
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
       console.log(`[FiveSDK] VM State Account: ${vmStatePubkey.toString()}`);
       console.log(`[FiveSDK] Account size: ${totalAccountSize} bytes`);
+      console.log(`[FiveSDK] Export metadata size: ${exportMetadata.length} bytes`);
       console.log(`[FiveSDK] Rent cost: ${((rentLamports + vmStateRent) / 1e9)} SOL`);
     }
 
@@ -397,7 +420,7 @@ export async function deployToSolana(
     });
     tx.add(createAccountIx);
 
-    const deployData = encodeDeployInstruction(bytecode);
+    const deployData = encodeDeployInstruction(bytecode, 0, exportMetadata);
 
     const instructionDataBuffer = Buffer.from(deployData);
 
@@ -1446,29 +1469,79 @@ export async function deployLargeProgramOptimizedToSolana(
 
 function encodeDeployInstruction(
   bytecode: FiveBytecode,
-  permissions: number = 0
+  permissions: number = 0,
+  metadata: Uint8Array = new Uint8Array(),
 ): Uint8Array {
   const lengthBuffer = Buffer.allocUnsafe(4);
   lengthBuffer.writeUInt32LE(bytecode.length, 0);
+  const metadataLenBuffer = Buffer.allocUnsafe(4);
+  metadataLenBuffer.writeUInt32LE(metadata.length, 0);
 
-  const result = new Uint8Array(1 + 4 + 1 + bytecode.length);
+  const result = new Uint8Array(1 + 4 + 1 + 4 + metadata.length + bytecode.length);
   result[0] = 8; // Deploy discriminator (matches on-chain FIVE program)
   result.set(new Uint8Array(lengthBuffer), 1); // u32 LE length at bytes 1-4
   result[5] = permissions; // permissions byte at byte 5
-  result.set(bytecode, 6); // bytecode starts at byte 6
+  result.set(new Uint8Array(metadataLenBuffer), 6); // metadata length at bytes 6-9
+  result.set(metadata, 10);
+  result.set(bytecode, 10 + metadata.length);
 
   console.log(`[FiveSDK] Deploy instruction encoded:`, {
     discriminator: result[0],
     lengthBytes: Array.from(new Uint8Array(lengthBuffer)),
     permissions: result[5],
+    metadataLength: metadata.length,
     bytecodeLength: bytecode.length,
     totalInstructionLength: result.length,
-    expectedFormat: `[8, ${bytecode.length}_as_u32le, 0x${permissions.toString(16).padStart(2, '0')}, bytecode_bytes]`,
+    expectedFormat: `[8, ${bytecode.length}_as_u32le, 0x${permissions.toString(16).padStart(2, '0')}, ${metadata.length}_as_u32le, metadata_bytes, bytecode_bytes]`,
     instructionHex:
       Buffer.from(result).toString("hex").substring(0, 20) + "...",
   });
 
   return result;
+}
+
+function encodeExportMetadata(input?: ExportMetadataInput): Uint8Array {
+  if (!input) {
+    return new Uint8Array();
+  }
+
+  const methods = (input.methods || []).filter(
+    (m) => typeof m === "string" && m.length > 0,
+  );
+  const interfaces = (input.interfaces || []).filter(
+    (i) => i && typeof i.name === "string" && i.name.length > 0,
+  );
+
+  const out: number[] = [];
+  out.push(0x35, 0x45, 0x58, 0x50); // "5EXP"
+  out.push(1); // bundle version
+
+  out.push(Math.min(methods.length, 255));
+  for (const method of methods.slice(0, 255)) {
+    const bytes = Buffer.from(method, "utf8");
+    out.push(Math.min(bytes.length, 255));
+    for (const b of bytes.slice(0, 255)) out.push(b);
+  }
+
+  out.push(Math.min(interfaces.length, 255));
+  for (const iface of interfaces.slice(0, 255)) {
+    const nameBytes = Buffer.from(iface.name, "utf8");
+    out.push(Math.min(nameBytes.length, 255));
+    for (const b of nameBytes.slice(0, 255)) out.push(b);
+
+    const pairs = Object.entries(iface.methodMap || {});
+    out.push(Math.min(pairs.length, 255));
+    for (const [method, callee] of pairs.slice(0, 255)) {
+      const methodBytes = Buffer.from(method, "utf8");
+      const calleeBytes = Buffer.from(callee, "utf8");
+      out.push(Math.min(methodBytes.length, 255));
+      for (const b of methodBytes.slice(0, 255)) out.push(b);
+      out.push(Math.min(calleeBytes.length, 255));
+      for (const b of calleeBytes.slice(0, 255)) out.push(b);
+    }
+  }
+
+  return Uint8Array.from(out);
 }
 
 function chunkBytecode(

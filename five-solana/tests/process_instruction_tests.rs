@@ -61,12 +61,14 @@ mod tests {
         let mut deploy_data = vec![DEPLOY_INSTRUCTION];
         deploy_data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
         deploy_data.push(permissions);
+        deploy_data.extend_from_slice(&0u32.to_le_bytes());
         deploy_data.extend_from_slice(&bytecode);
 
         let deploy_ix = FIVEInstruction::try_from(deploy_data.as_slice()).unwrap();
         match deploy_ix {
-            FIVEInstruction::Deploy { bytecode: bc, permissions: perms } => {
+            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms } => {
                 assert_eq!(bc, &bytecode[..]);
+                assert!(metadata.is_empty());
                 assert_eq!(perms, permissions);
             }
             _ => panic!("Expected Deploy instruction"),
@@ -137,13 +139,15 @@ mod tests {
         let mut deploy_data = vec![DEPLOY_INSTRUCTION];
         deploy_data.extend_from_slice(&(large_bytecode.len() as u32).to_le_bytes());
         deploy_data.push(permissions);
+        deploy_data.extend_from_slice(&0u32.to_le_bytes());
         deploy_data.extend_from_slice(&large_bytecode);
 
         let deploy_ix = FIVEInstruction::try_from(deploy_data.as_slice()).unwrap();
         match deploy_ix {
-            FIVEInstruction::Deploy { bytecode, permissions: perms } => {
+            FIVEInstruction::Deploy { bytecode, metadata, permissions: perms } => {
                 assert_eq!(bytecode.len(), 4);
                 assert_eq!(bytecode, &[0x35, 0x49, 0x56, 0x45]);
+                assert!(metadata.is_empty());
                 assert_eq!(perms, permissions);
             }
             _ => panic!("Expected Deploy instruction"),

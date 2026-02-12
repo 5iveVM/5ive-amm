@@ -521,6 +521,279 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn external_interface_mapping_non_cpi_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let bpf_dir = repo_root.join("target/deploy");
+    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
+
+    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
+        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
+        .pubkey();
+
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
+    let owner_signer = Keypair::new();
+    let owner_pubkey = owner_signer.pubkey();
+    accounts.insert(
+        "owner".to_string(),
+        RuntimeAccount {
+            pubkey: owner_pubkey,
+            signer: Some(owner_signer),
+            owner: system_program::id(),
+            lamports: 30_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
+            .expect("invalid vm state account layout");
+        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.deploy_fee_lamports = 0;
+        vm_state.execute_fee_lamports = 0;
+    }
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
+            data: vm_state_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let callee_source = r#"
+        pub fn transfer_checked(
+            source_account: account @mut,
+            destination_account: account @mut,
+            owner: account @mut,
+            amount: u64
+        ) {
+            // No-op body; success proves selector mapping resolved correctly.
+        }
+    "#;
+    let callee_bytecode =
+        DslCompiler::compile_dsl(callee_source).expect("callee script should compile");
+
+    let callee_export_metadata = encode_export_metadata_for_test(
+        &["transfer_checked"],
+        &[("TokenOps", &[("transfer", "transfer_checked")])],
+    );
+
+    let callee_script_pubkey = Pubkey::new_unique();
+    accounts.insert(
+        "callee_script".to_string(),
+        RuntimeAccount {
+            pubkey: callee_script_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(
+                ScriptAccountHeader::LEN + callee_export_metadata.len() + callee_bytecode.len(),
+            ),
+            data: vec![
+                0u8;
+                ScriptAccountHeader::LEN + callee_export_metadata.len() + callee_bytecode.len()
+            ],
+            is_signer: false,
+            is_writable: false,
+            executable: false,
+        },
+    );
+
+    let callee_import_address = bs58::encode(callee_script_pubkey.to_bytes()).into_string();
+    let _lock_guard = scoped_lockfile_guard(
+        &repo_root,
+        lockfile_with_exports(
+            &callee_import_address,
+            &[("transfer_checked", "transfer_checked")],
+            &[("TokenOps", &[("transfer", "transfer_checked")])],
+        ),
+    );
+
+    let caller_source = format!(
+        r#"
+        use "{callee_import_address}"::{{interface TokenOps}};
+
+        pub fn call_interface(
+            source_account: account @mut,
+            destination_account: account @mut,
+            owner: account @mut,
+            TokenOps: account
+        ) {{
+            TokenOps.transfer(source_account, destination_account, owner, 50);
+        }}
+    "#
+    );
+    let caller_bytecode =
+        DslCompiler::compile_dsl(&caller_source).expect("caller script should compile via lockfile mapping");
+    print_external_call_opcode_mix("external_interface_mapping_non_cpi", &caller_bytecode);
+    assert!(
+        caller_bytecode.iter().any(|op| *op == CALL_EXTERNAL),
+        "caller bytecode should emit CALL_EXTERNAL for imported interface call"
+    );
+
+    accounts.insert(
+        "caller_script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    // Placeholder writable accounts used as arguments.
+    for (name, lamports) in [("source_account", 1_000_000u64), ("destination_account", 1_000_000u64)] {
+        accounts.insert(
+            name.to_string(),
+            RuntimeAccount {
+                pubkey: Pubkey::new_unique(),
+                signer: None,
+                owner: program_id,
+                lamports,
+                data: vec![0u8; 64],
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
+
+    let mut program_test = ProgramTest::new("five", program_id, None);
+    program_test.prefer_bpf(true);
+    for account in accounts.values() {
+        if account.pubkey == program_id || account.pubkey == system_program::id() {
+            continue;
+        }
+        program_test.add_account(
+            account.pubkey,
+            Account {
+                lamports: account.lamports,
+                data: account.data.clone(),
+                owner: account.owner,
+                executable: account.executable,
+                rent_epoch: 0,
+            },
+        );
+    }
+    let mut ctx = program_test.start_with_context().await;
+
+    let deploy_callee_ix = build_deploy_instruction_with_metadata(
+        program_id,
+        &accounts,
+        "callee_script",
+        "vm_state",
+        "owner",
+        &callee_bytecode,
+        &callee_export_metadata,
+        0,
+    );
+    let deploy_callee = simulate_and_process(
+        &mut ctx,
+        vec![deploy_callee_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_callee.success, "callee deploy failed: {:?}", deploy_callee.error);
+
+    let deploy_caller_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        "owner",
+        &caller_bytecode,
+        0,
+    );
+    let deploy_caller = simulate_and_process(
+        &mut ctx,
+        vec![deploy_caller_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+
+    let step = StepFixture {
+        name: "external_interface_mapping_non_cpi".to_string(),
+        function_index: 0,
+        extras: vec![
+            "source_account".to_string(),
+            "destination_account".to_string(),
+            "owner".to_string(),
+            "callee_script".to_string(),
+        ],
+        params: vec![
+            ParamFixture::AccountRef {
+                account: "source_account".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "destination_account".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "owner".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "callee_script".to_string(),
+            },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+    let execute_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        &step,
+        build_payload(&accounts, &step),
+    );
+    let execute = simulate_and_process(
+        &mut ctx,
+        vec![execute_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        execute.success,
+        "mapped external interface execution failed: {:?}",
+        execute.error
+    );
+    assert!(
+        execute.units_consumed < 300_000,
+        "execution consumed too many CU for mapped external interface path: {}",
+        execute.units_consumed
+    );
+
+    println!(
+        "BPF_CU external_interface_mapping_non_cpi deploy_callee={} deploy_caller={} execute={} total={} caller_bytecode_size={} callee_bytecode_size={} callee_metadata_size={}",
+        deploy_callee.units_consumed,
+        deploy_caller.units_consumed,
+        execute.units_consumed,
+        deploy_callee
+            .units_consumed
+            .saturating_add(deploy_caller.units_consumed)
+            .saturating_add(execute.units_consumed),
+        caller_bytecode.len(),
+        callee_bytecode.len(),
+        callee_export_metadata.len()
+    );
+    print_external_cache_metrics("external_interface_mapping_non_cpi");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn external_token_transfer_burst_non_cpi_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let bpf_dir = repo_root.join("target/deploy");
@@ -2684,10 +2957,34 @@ fn build_deploy_instruction(
     bytecode: &[u8],
     permissions: u8,
 ) -> Instruction {
-    let mut data = Vec::with_capacity(6 + bytecode.len());
+    build_deploy_instruction_with_metadata(
+        program_id,
+        accounts,
+        script_name,
+        vm_state_name,
+        owner_name,
+        bytecode,
+        &[],
+        permissions,
+    )
+}
+
+fn build_deploy_instruction_with_metadata(
+    program_id: Pubkey,
+    accounts: &BTreeMap<String, RuntimeAccount>,
+    script_name: &str,
+    vm_state_name: &str,
+    owner_name: &str,
+    bytecode: &[u8],
+    metadata: &[u8],
+    permissions: u8,
+) -> Instruction {
+    let mut data = Vec::with_capacity(10 + metadata.len() + bytecode.len());
     data.push(DEPLOY_INSTRUCTION);
     data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
     data.push(permissions);
+    data.extend_from_slice(&(metadata.len() as u32).to_le_bytes());
+    data.extend_from_slice(metadata);
     data.extend_from_slice(bytecode);
 
     Instruction {
@@ -2699,6 +2996,95 @@ fn build_deploy_instruction(
         ],
         data,
     }
+}
+
+fn encode_export_metadata_for_test(
+    methods: &[&str],
+    interfaces: &[(&str, &[(&str, &str)])],
+) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(b"5EXP");
+    out.push(1); // version
+    out.push(methods.len().min(255) as u8);
+    for method in methods.iter().take(255) {
+        let bytes = method.as_bytes();
+        out.push(bytes.len().min(255) as u8);
+        out.extend_from_slice(&bytes[..bytes.len().min(255)]);
+    }
+    out.push(interfaces.len().min(255) as u8);
+    for (iface_name, method_map) in interfaces.iter().take(255) {
+        let iface_bytes = iface_name.as_bytes();
+        out.push(iface_bytes.len().min(255) as u8);
+        out.extend_from_slice(&iface_bytes[..iface_bytes.len().min(255)]);
+        out.push(method_map.len().min(255) as u8);
+        for (method, callee) in method_map.iter().take(255) {
+            let method_bytes = method.as_bytes();
+            out.push(method_bytes.len().min(255) as u8);
+            out.extend_from_slice(&method_bytes[..method_bytes.len().min(255)]);
+            let callee_bytes = callee.as_bytes();
+            out.push(callee_bytes.len().min(255) as u8);
+            out.extend_from_slice(&callee_bytes[..callee_bytes.len().min(255)]);
+        }
+    }
+    out
+}
+
+fn lockfile_with_exports(
+    address: &str,
+    methods: &[(&str, &str)],
+    interfaces: &[(&str, &[(&str, &str)])],
+) -> String {
+    let mut out = String::from(
+        "version = 1\n\n[[packages]]\nname = \"e2e-interface-lib\"\nversion = \"0.0.0\"\n",
+    );
+    out.push_str(&format!(
+        "address = \"{}\"\nbytecode_hash = \"deadbeef\"\ndeployed_at = \"2026-01-01T00:00:00Z\"\n\n[packages.exports]\n",
+        address
+    ));
+    let method_list = methods
+        .iter()
+        .map(|(name, _)| format!("\"{}\"", name))
+        .collect::<Vec<_>>()
+        .join(", ");
+    out.push_str(&format!("methods = [{}]\n", method_list));
+    for (iface_name, method_map) in interfaces {
+        out.push_str("\n[[packages.exports.interfaces]]\n");
+        out.push_str(&format!("name = \"{}\"\n", iface_name));
+        let mapping = method_map
+            .iter()
+            .map(|(method, callee)| format!("\"{}\" = \"{}\"", method, callee))
+            .collect::<Vec<_>>()
+            .join(", ");
+        out.push_str(&format!("method_map = {{ {} }}\n", mapping));
+    }
+    out
+}
+
+struct LockfileGuard {
+    path: PathBuf,
+    previous: Option<Vec<u8>>,
+}
+
+impl Drop for LockfileGuard {
+    fn drop(&mut self) {
+        match &self.previous {
+            Some(bytes) => {
+                let _ = fs::write(&self.path, bytes);
+            }
+            None => {
+                let _ = fs::remove_file(&self.path);
+            }
+        }
+    }
+}
+
+fn scoped_lockfile_guard(repo_root: &Path, content: String) -> LockfileGuard {
+    let path = std::env::current_dir()
+        .unwrap_or_else(|_| repo_root.to_path_buf())
+        .join("five.lock");
+    let previous = fs::read(&path).ok();
+    fs::write(&path, content.as_bytes()).expect("failed to write temporary five.lock for e2e test");
+    LockfileGuard { path, previous }
 }
 
 fn build_execute_instruction(

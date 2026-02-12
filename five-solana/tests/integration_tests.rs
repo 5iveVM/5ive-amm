@@ -21,16 +21,18 @@ mod tests {
         // Test Deploy instruction (v4: now includes permissions byte)
         let bytecode = vec![0x35u8, 0x49, 0x56, 0x45, 0x00]; // 5IVE + HALT
         let permissions = 0x04u8; // PERMISSION_PDA_SPECIAL_CHARS
-        let mut deploy_data = vec![0u8; 1 + 4 + 1 + bytecode.len()];
+        let mut deploy_data = vec![0u8; 1 + 4 + 1 + 4 + bytecode.len()];
         deploy_data[0] = DEPLOY_INSTRUCTION;
         deploy_data[1..5].copy_from_slice(&(bytecode.len() as u32).to_le_bytes());
         deploy_data[5] = permissions;
-        deploy_data[6..6 + bytecode.len()].copy_from_slice(&bytecode);
+        deploy_data[6..10].copy_from_slice(&0u32.to_le_bytes());
+        deploy_data[10..10 + bytecode.len()].copy_from_slice(&bytecode);
 
         let deploy_ix = FIVEInstruction::try_from(&deploy_data[..]).unwrap();
         match deploy_ix {
-            FIVEInstruction::Deploy { bytecode: bc, permissions: perms } => {
+            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms } => {
                 assert_eq!(bc, &bytecode[..]);
+                assert!(metadata.is_empty());
                 assert_eq!(perms, permissions);
             }
             _ => panic!("Expected Deploy instruction"),

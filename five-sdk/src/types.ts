@@ -292,6 +292,13 @@ export interface DeploymentOptions {
   adminAccount?: string; // Admin account for fee collection
   estimateFees?: boolean; // Fee estimation (true by default when connection provided, false to disable)
   fiveVMProgramId?: string; // Custom Five VM Program ID
+  exportMetadata?: {
+    methods?: string[];
+    interfaces?: Array<{
+      name: string;
+      methodMap?: Record<string, string>;
+    }>;
+  };
 }
 
 export interface FeeInformation {

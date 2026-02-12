@@ -19,8 +19,9 @@ use super::{
     require_min_accounts, require_signer, safe_realloc,
 };
 
-/// Minimum deployment instruction length: discriminator + u32 length + permissions byte
-pub const MIN_DEPLOY_LEN: usize = 6;
+/// Minimum deployment instruction length:
+/// discriminator + u32 bytecode length + permissions byte + u32 metadata length.
+pub const MIN_DEPLOY_LEN: usize = 10;
 
 /// Initialize the VM state account
 pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> ProgramResult {
@@ -110,7 +111,13 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
 /// **Admin Requirement**: Only the admin key can deploy bytecode with any special permissions.
 /// If permissions != 0, the admin must sign the transaction.
 #[allow(unused_variables)]
-pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], permissions: u8) -> ProgramResult {
+pub fn deploy(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    bytecode: &[u8],
+    metadata: &[u8],
+    permissions: u8,
+) -> ProgramResult {
 
     // Validate permissions bitmask
     validate_permissions(permissions)?;
@@ -156,8 +163,8 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     #[cfg(not(feature = "debug-logs"))]
     let _ = program_id; // Suppress unused variable warning
 
-    // Calculate required account size: header + bytecode + metadata
-    let required_size = ScriptAccountHeader::LEN + bytecode.len();
+    // Calculate required account size: header + metadata + bytecode
+    let required_size = ScriptAccountHeader::LEN + metadata.len() + bytecode.len();
 
     if script_account.data_len() < required_size {
         return Err(ProgramError::Custom(7005));
@@ -184,16 +191,20 @@ pub fn deploy(program_id: &Pubkey, accounts: &[AccountInfo], bytecode: &[u8], pe
     // SAFETY: `script_account` is owned by this program and exclusively borrowed.
     let script_data = unsafe { script_account.borrow_mut_data_unchecked() };
 
-    // Create header with cached metadata
-    let header = ScriptAccountHeader::create_from_bytecode(
+    // Create header with cached metadata length.
+    let mut header = ScriptAccountHeader::create_from_bytecode(
         bytecode,
         *owner.key(),
         script_id,
         permissions, // Use the permissions from the instruction
     );
+    header.set_metadata_len(metadata.len());
 
     header.copy_into_account(script_data)?;
-    script_data[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + bytecode.len()]
+    let metadata_start = ScriptAccountHeader::LEN;
+    let metadata_end = metadata_start + metadata.len();
+    script_data[metadata_start..metadata_end].copy_from_slice(metadata);
+    script_data[metadata_end..metadata_end + bytecode.len()]
         .copy_from_slice(bytecode);
 
     Ok(())
@@ -559,7 +570,7 @@ mod tests {
 
         let accounts = [script_account, vm_account, owner];
         assert_eq!(
-            deploy(&program_id, &accounts, &bytecode, 0),
+            deploy(&program_id, &accounts, &bytecode, &[], 0),
             Err(ProgramError::Custom(7007))
         );
     }
@@ -631,7 +642,7 @@ mod tests {
 
         let accounts = [script_account, vm_account, owner, admin];
         assert_eq!(
-            deploy(&program_id, &accounts, &bytecode, 0),
+            deploy(&program_id, &accounts, &bytecode, &[], 0),
             Err(ProgramError::Custom(7007))
         );
         assert_eq!(accounts[2].lamports(), owner_before);

@@ -160,6 +160,25 @@ pub struct LockEntry {
     pub address: String,
     pub bytecode_hash: String,
     pub deployed_at: Option<String>,
+    #[serde(default)]
+    pub exports: Option<ExportMetadata>,
+}
+
+/// Thin export metadata cache used by `use "<account>"::{...}` resolution.
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct ExportMetadata {
+    #[serde(default)]
+    pub methods: Vec<String>,
+    #[serde(default)]
+    pub interfaces: Vec<InterfaceExport>,
+}
+
+/// Exported interface metadata (method -> callee public function mapping).
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct InterfaceExport {
+    pub name: String,
+    #[serde(default)]
+    pub method_map: HashMap<String, String>,
 }
 
 /// Lock file structure (five.lock).
@@ -209,6 +228,14 @@ impl LockFile {
         } else {
             self.packages.push(entry);
         }
+    }
+
+    /// Get cached exports by package name OR deployed address.
+    pub fn get_exports(&self, name_or_address: &str) -> Option<&ExportMetadata> {
+        self.packages
+            .iter()
+            .find(|p| p.name == name_or_address || p.address == name_or_address)
+            .and_then(|p| p.exports.as_ref())
     }
 }
 
@@ -266,6 +293,7 @@ utils = "1.0.0"
             address: "11111111111111111111111111111111".to_string(),
             bytecode_hash: "abc123".to_string(),
             deployed_at: None,
+            exports: None,
         });
         
         assert_eq!(lock.get_address("math-lib"), Some("11111111111111111111111111111111"));

@@ -108,3 +108,24 @@ fn docs_imported_interface_snippet_compiles_to_call_external() {
         "imported interface method call should not emit INVOKE"
     );
 }
+
+#[test]
+fn docs_imported_interface_requires_explicit_target_account_param() {
+    let source = r#"
+        use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{interface TokenOps};
+
+        pub route_call(
+            from: account @mut,
+            to: account @mut,
+            authority: account @signer
+        ) {
+            TokenOps.transfer(from, to, authority, 100);
+        }
+    "#;
+
+    let result = DslCompiler::compile_dsl(source);
+    assert!(
+        result.is_err(),
+        "imported interface calls must fail compile when matching target account param is missing"
+    );
+}
