@@ -9,6 +9,7 @@ import { PDAUtils, RentCalculator } from "../crypto/index.js";
 import { validator, Validators } from "../validation/index.js";
 import { calculateDeployFee } from "./fees.js";
 import { pollForConfirmation } from "../utils/transaction.js";
+import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 
 interface ExportMetadataInterfaceInput {
   name: string;
@@ -25,6 +26,7 @@ export async function generateDeployInstruction(
   deployer: string,
   options: DeploymentOptions & { debug?: boolean } = {},
   connection?: any,
+  fiveVMProgramId?: string,
 ): Promise<SerializedDeployment> {
   Validators.bytecode(bytecode);
   validator.validateBase58Address(deployer, "deployer");
@@ -35,6 +37,12 @@ export async function generateDeployInstruction(
       "options.scriptAccount",
     );
   }
+
+  // Resolve program ID with consistent precedence
+  const programId = ProgramIdResolver.resolve(
+    fiveVMProgramId || options.fiveVMProgramId,
+  );
+
   const exportMetadata = encodeExportMetadata(
     options.exportMetadata as ExportMetadataInput | undefined,
   );
@@ -43,16 +51,17 @@ export async function generateDeployInstruction(
     console.log(
       `[FiveSDK] Generating deployment transaction (${bytecode.length} bytes)...`,
     );
+    console.log(`[FiveSDK] Using program ID: ${programId}`);
   }
 
   const scriptResult = await PDAUtils.deriveScriptAccount(
     bytecode,
-    FIVE_VM_PROGRAM_ID,
+    programId,
   );
   const scriptAccount = scriptResult.address;
   const scriptSeed = scriptResult.seed;
 
-  const vmStatePDAResult = await PDAUtils.deriveVMStatePDA(FIVE_VM_PROGRAM_ID);
+  const vmStatePDAResult = await PDAUtils.deriveVMStatePDA(programId);
   const vmStatePDA = vmStatePDAResult.address;
 
   if (options.debug) {
@@ -92,9 +101,9 @@ export async function generateDeployInstruction(
   );
 
   const result: SerializedDeployment = {
-    programId: FIVE_VM_PROGRAM_ID,
+    programId: programId,
     instruction: {
-      programId: FIVE_VM_PROGRAM_ID,
+      programId: programId,
       accounts: deployAccounts,
       data: Buffer.from(instructionData).toString("base64"),
     },
@@ -108,7 +117,7 @@ export async function generateDeployInstruction(
         seed: scriptSeed,
         space: totalAccountSize,
         rent: rentLamports,
-        owner: FIVE_VM_PROGRAM_ID,
+        owner: programId,
       },
     },
     adminAccount: options.adminAccount,
@@ -133,7 +142,7 @@ export async function generateDeployInstruction(
       const deployFee = await calculateDeployFee(
         bytecode.length,
         connection,
-        options.fiveVMProgramId || FIVE_VM_PROGRAM_ID,
+        programId,
       );
       result.feeInformation = deployFee;
 
@@ -179,7 +188,7 @@ export async function createDeploymentTransaction(
     ComputeBudgetProgram,
   } = await import("@solana/web3.js");
 
-  const programIdStr = options.fiveVMProgramId || FIVE_VM_PROGRAM_ID;
+  const programIdStr = ProgramIdResolver.resolve(options.fiveVMProgramId);
   const programId = new PublicKey(programIdStr);
 
   // Generate script keypair
@@ -307,8 +316,8 @@ export async function deployToSolana(
   );
   console.log(`[FiveSDK] options:`, options);
 
-  // Use the provided program ID or fall back to the constant
-  const programId = options.fiveVMProgramId || FIVE_VM_PROGRAM_ID;
+  // Resolve program ID with consistent precedence
+  const programId = ProgramIdResolver.resolve(options.fiveVMProgramId);
 
   try {
     if (options.debug) {
@@ -608,7 +617,8 @@ export async function deployLargeProgramToSolana(
     const rentLamports =
       await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 
-    const programId = options.fiveVMProgramId ? new PublicKey(options.fiveVMProgramId) : new PublicKey(FIVE_VM_PROGRAM_ID);
+    const programIdStr = ProgramIdResolver.resolve(options.fiveVMProgramId);
+    const programId = new PublicKey(programIdStr);
 
     // Handle VM state account (reuse or create)
     let vmStatePubkey: any;
@@ -1026,9 +1036,8 @@ export async function deployLargeProgramOptimizedToSolana(
     const rentLamports =
       await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 
-    const programId = new PublicKey(
-      options.fiveVMProgramId || FIVE_VM_PROGRAM_ID,
-    );
+    const programIdStr = ProgramIdResolver.resolve(options.fiveVMProgramId);
+    const programId = new PublicKey(programIdStr);
 
     // Generate VM state account for this deployment
     const vmStateKeypair = Keypair.generate();

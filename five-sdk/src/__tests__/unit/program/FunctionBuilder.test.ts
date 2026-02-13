@@ -4,9 +4,17 @@
 
 import { FunctionBuilder } from '../../../program/FunctionBuilder.js';
 import { FiveProgram } from '../../../program/FiveProgram.js';
+import { ProgramIdResolver } from '../../../config/ProgramIdResolver.js';
 import type { ScriptABI, FunctionDefinition } from '../../../metadata/index.js';
 
 describe('FunctionBuilder', () => {
+  beforeEach(() => {
+    ProgramIdResolver.setDefault('TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP');
+  });
+
+  afterEach(() => {
+    ProgramIdResolver.clearDefault();
+  });
   const mockABI: ScriptABI = {
     name: 'TestProgram',
     functions: [

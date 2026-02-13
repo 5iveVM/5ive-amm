@@ -31,6 +31,7 @@ import { FunctionBuilder } from './FunctionBuilder.js';
 import { TypeGenerator } from './TypeGenerator.js';
 import { ProgramAccount } from './ProgramAccount.js';
 import { PublicKey } from '@solana/web3.js';
+import { ProgramIdResolver } from '../config/ProgramIdResolver.js';
 
 export interface FiveProgramOptions {
   /** Enable debug logging */
@@ -71,9 +72,9 @@ export class FiveProgram {
     this.scriptAccount = scriptAccount;
     this.abi = abi;
     this.options = {
-      fiveVMProgramId: '7wVkyXsUiRcZtAHGZcXbTPCXnE7DBP6juN35H6FEUUZo',
       debug: false,
       ...options,
+      // fiveVMProgramId will be resolved at call time via ProgramIdResolver
     };
 
     // Build cache for quick function lookup
@@ -277,10 +278,10 @@ export class FiveProgram {
   }
 
   /**
-   * Get Five VM Program ID
+   * Get Five VM Program ID with consistent resolver precedence
    */
   getFiveVMProgramId(): string {
-    return this.options.fiveVMProgramId || '7wVkyXsUiRcZtAHGZcXbTPCXnE7DBP6juN35H6FEUUZo';
+    return ProgramIdResolver.resolve(this.options.fiveVMProgramId);
   }
 
   /**

@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest, afterEach } from '@jest/globals';
 import { FiveSDK } from '../../FiveSDK.js';
+import { ProgramIdResolver } from '../../config/ProgramIdResolver.js';
 import { FIVE_VM_PROGRAM_ID } from '../../types.js';
 import { TestUtils, TestConstants } from '../setup.js';
 
@@ -22,6 +23,13 @@ describe('Five SDK Integration Tests', () => {
     // Keep tests deterministic and avoid real WASM/compiler initialization.
     (FiveSDK as any).compiler = mockCompiler;
     (FiveSDK as any).parameterEncoder = {};
+
+    // Set default program ID to the canonical Five VM program ID for tests
+    ProgramIdResolver.setDefault(FIVE_VM_PROGRAM_ID);
+  });
+
+  afterEach(() => {
+    ProgramIdResolver.clearDefault();
   });
 
   describe('Script Compilation Workflow', () => {

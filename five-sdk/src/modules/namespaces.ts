@@ -129,7 +129,7 @@ export async function registerNamespaceTldOnChain(
   namespaceValue: string,
   options: NamespaceOnChainOptions,
 ): Promise<{ transactionId?: string; tldAddress: string; owner: string; treasuryAccount: string }> {
-  const { FIVE_VM_PROGRAM_ID } = await import("../types.js");
+  const { ProgramIdResolver } = await import("../config/ProgramIdResolver.js");
   const { executeOnSolana } = await import("./execute.js");
   const { getVMState } = await import("./vm-state.js");
 
@@ -138,7 +138,7 @@ export async function registerNamespaceTldOnChain(
     throw new Error("register expects top-level namespace like @domain");
   }
 
-  const vmProgramId = options.fiveVMProgramId || FIVE_VM_PROGRAM_ID;
+  const vmProgramId = ProgramIdResolver.resolve(options.fiveVMProgramId);
   const addresses = await deriveNamespaceAccounts(parsed.canonical, vmProgramId);
   const owner = options.signerKeypair.publicKey.toBase58();
   const now = nowUnix();
@@ -187,7 +187,7 @@ export async function bindNamespaceOnChain(
   scriptAccount: string,
   options: NamespaceOnChainOptions,
 ): Promise<{ transactionId?: string; bindingAddress: string; owner: string }> {
-  const { FIVE_VM_PROGRAM_ID } = await import("../types.js");
+  const { ProgramIdResolver } = await import("../config/ProgramIdResolver.js");
   const { executeOnSolana } = await import("./execute.js");
 
   const parsed = canonicalizeScopedNamespace(namespaceValue);
@@ -195,7 +195,7 @@ export async function bindNamespaceOnChain(
     throw new Error("bind expects namespace with subprogram like @domain/subprogram");
   }
 
-  const vmProgramId = options.fiveVMProgramId || FIVE_VM_PROGRAM_ID;
+  const vmProgramId = ProgramIdResolver.resolve(options.fiveVMProgramId);
   const addresses = await deriveNamespaceAccounts(parsed.canonical, vmProgramId);
   const owner = options.signerKeypair.publicKey.toBase58();
   const now = nowUnix();
@@ -238,7 +238,7 @@ export async function resolveNamespaceOnChain(
   namespaceValue: string,
   options: NamespaceOnChainOptions,
 ): Promise<{ transactionId?: string; resolvedScript?: string; bindingAddress: string }> {
-  const { FIVE_VM_PROGRAM_ID } = await import("../types.js");
+  const { ProgramIdResolver } = await import("../config/ProgramIdResolver.js");
   const { executeOnSolana } = await import("./execute.js");
 
   const parsed = canonicalizeScopedNamespace(namespaceValue);
@@ -246,7 +246,7 @@ export async function resolveNamespaceOnChain(
     throw new Error("resolve expects namespace with subprogram like @domain/subprogram");
   }
 
-  const vmProgramId = options.fiveVMProgramId || FIVE_VM_PROGRAM_ID;
+  const vmProgramId = ProgramIdResolver.resolve(options.fiveVMProgramId);
   const addresses = await deriveNamespaceAccounts(parsed.canonical, vmProgramId);
 
   const result = await executeOnSolana(

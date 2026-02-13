@@ -25,6 +25,10 @@ export * from './testing/index.js';
 export * from './program/index.js';
 export * from './modules/namespaces.js';
 
+// ==================== Program ID Resolution ====================
+
+export { ProgramIdResolver, FIVE_BAKED_PROGRAM_ID } from './config/ProgramIdResolver.js';
+
 // ==================== Constants ====================
 
 export { FIVE_VM_PROGRAM_ID } from './types.js';

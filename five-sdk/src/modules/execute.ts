@@ -15,6 +15,7 @@ import { validator, Validators } from "../validation/index.js";
 import { calculateExecuteFee } from "./fees.js";
 import { loadWasmVM } from "../wasm/instance.js";
 import { BytecodeCompiler } from "../compiler/BytecodeCompiler.js";
+import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 
 // Helper function to initialize ParameterEncoder if needed (though BytecodeEncoder is preferred)
 // Assume BytecodeEncoder handles it or call it if needed.
@@ -351,7 +352,10 @@ export async function generateExecuteInstruction(
     );
   }
 
-  const vmStatePDA = await PDAUtils.deriveVMStatePDA(FIVE_VM_PROGRAM_ID);
+  // Resolve program ID with consistent precedence
+  const programId = ProgramIdResolver.resolve(options.fiveVMProgramId);
+
+  const vmStatePDA = await PDAUtils.deriveVMStatePDA(programId);
   const vmState = options.vmStateAccount || vmStatePDA.address;
 
   let adminAccount = options.adminAccount;
@@ -359,7 +363,7 @@ export async function generateExecuteInstruction(
     try {
       let vmStateAddress = options.vmStateAccount;
       if (!vmStateAddress) {
-        const pda = await PDAUtils.deriveVMStatePDA(options.fiveVMProgramId || FIVE_VM_PROGRAM_ID);
+        const pda = await PDAUtils.deriveVMStatePDA(programId);
         vmStateAddress = pda.address;
       }
 
@@ -473,7 +477,7 @@ export async function generateExecuteInstruction(
 
   const result: SerializedExecution = {
     instruction: {
-      programId: options.fiveVMProgramId || FIVE_VM_PROGRAM_ID,
+      programId: programId,
       accounts: instructionAccounts,
       data: Buffer.from(instructionData).toString("base64"),
     },
@@ -496,7 +500,7 @@ export async function generateExecuteInstruction(
     try {
       const executeFee = await calculateExecuteFee(
         connection,
-        options.fiveVMProgramId || FIVE_VM_PROGRAM_ID,
+        programId,
       );
       result.feeInformation = executeFee;
     } catch (error) {

@@ -3,9 +3,18 @@
  */
 
 import { FiveProgram } from '../../../program/FiveProgram.js';
+import { ProgramIdResolver } from '../../../config/ProgramIdResolver.js';
 import type { ScriptABI, FunctionDefinition } from '../../../metadata/index.js';
 
 describe('FiveProgram', () => {
+  // Set a valid default program ID for tests
+  beforeEach(() => {
+    ProgramIdResolver.setDefault('TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP');
+  });
+
+  afterEach(() => {
+    ProgramIdResolver.clearDefault();
+  });
   // Mock ABI for testing
   const mockABI: ScriptABI = {
     name: 'TestProgram',
@@ -72,15 +81,16 @@ describe('FiveProgram', () => {
     });
 
     it('should use provided options', () => {
-      const options = { debug: true, fiveVMProgramId: 'custom-program-id' };
+      const validProgramId = 'ATokenGPvbdGVqstVQmcLsNZAqeEbtQvvHta7h1Vvta';
+      const options = { debug: true, fiveVMProgramId: validProgramId };
       const program = FiveProgram.fromABI(SCRIPT_ACCOUNT, mockABI, options);
       expect(program.getOptions().debug).toBe(true);
-      expect(program.getFiveVMProgramId()).toBe('custom-program-id');
+      expect(program.getFiveVMProgramId()).toBe(validProgramId);
     });
 
     it('should use default Five VM program ID if not provided', () => {
       const program = FiveProgram.fromABI(SCRIPT_ACCOUNT, mockABI);
-      expect(program.getFiveVMProgramId()).toBe('7wVkyXsUiRcZtAHGZcXbTPCXnE7DBP6juN35H6FEUUZo');
+      expect(program.getFiveVMProgramId()).toBe('TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP');
     });
   });
 

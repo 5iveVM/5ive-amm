@@ -14,10 +14,12 @@ export class PDAUtils {
 
   /**
    * Derive script account using seed-based derivation compatible with SystemProgram.createAccountWithSeed
+   * @param bytecode - The bytecode to derive address for
+   * @param programId - The Five VM program ID (required - no default to enforce explicit configuration)
    */
   static async deriveScriptAccount(
     bytecode: Uint8Array,
-    programId: string = '2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN' // Five VM Program ID
+    programId: string
   ): Promise<{
     address: string;
     bump: number;
@@ -98,10 +100,12 @@ export class PDAUtils {
 
   /**
    * Derive metadata account PDA for script
+   * @param scriptAccount - The script account address
+   * @param programId - The Five VM program ID (required - no default to enforce explicit configuration)
    */
   static async deriveMetadataAccount(
     scriptAccount: string,
-    programId: string = '11111111111111111111111111111112' // System Program (valid default)
+    programId: string
   ): Promise<{
     address: string;
     bump: number;
@@ -121,11 +125,14 @@ export class PDAUtils {
 
   /**
    * Derive user state account PDA
+   * @param userPublicKey - The user's public key
+   * @param scriptAccount - The script account address
+   * @param programId - The Five VM program ID (required - no default to enforce explicit configuration)
    */
   static async deriveUserStateAccount(
     userPublicKey: string,
     scriptAccount: string,
-    programId: string = '11111111111111111111111111111112' // System Program (valid default)
+    programId: string
   ): Promise<{
     address: string;
     bump: number;
@@ -150,11 +157,11 @@ export class PDAUtils {
   }
 
   /**
-   * Derive VM state PDA - temporarily use known correct address
-   * TODO: Fix PDA derivation algorithm to match Solana exactly
+   * Derive VM state PDA for the given program ID
+   * @param programId - The Five VM program ID (required - no default to enforce explicit configuration)
    */
   static async deriveVMStatePDA(
-    programId: string = '2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN' // Default to current localnet program id
+    programId: string
   ): Promise<{
     address: string;
     bump: number;

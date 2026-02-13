@@ -9,7 +9,7 @@ export declare class PDAUtils {
     /**
      * Derive script account using seed-based derivation compatible with SystemProgram.createAccountWithSeed
      */
-    static deriveScriptAccount(bytecode: Uint8Array, programId?: string): Promise<{
+    static deriveScriptAccount(bytecode: Uint8Array, programId: string): Promise<{
         address: string;
         bump: number;
         seed: string;
@@ -28,22 +28,21 @@ export declare class PDAUtils {
     /**
      * Derive metadata account PDA for script
      */
-    static deriveMetadataAccount(scriptAccount: string, programId?: string): Promise<{
+    static deriveMetadataAccount(scriptAccount: string, programId: string): Promise<{
         address: string;
         bump: number;
     }>;
     /**
      * Derive user state account PDA
      */
-    static deriveUserStateAccount(userPublicKey: string, scriptAccount: string, programId?: string): Promise<{
+    static deriveUserStateAccount(userPublicKey: string, scriptAccount: string, programId: string): Promise<{
         address: string;
         bump: number;
     }>;
     /**
-     * Derive VM state PDA - temporarily use known correct address
-     * TODO: Fix PDA derivation algorithm to match Solana exactly
+     * Derive VM state PDA for the given program ID
      */
-    static deriveVMStatePDA(programId?: string): Promise<{
+    static deriveVMStatePDA(programId: string): Promise<{
         address: string;
         bump: number;
     }>;

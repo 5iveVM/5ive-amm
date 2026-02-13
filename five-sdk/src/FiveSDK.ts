@@ -28,6 +28,7 @@ import {
 } from "./metadata/index.js";
 import { normalizeAbiFunctions, resolveFunctionIndex } from "./utils/abi.js";
 import { validator, Validators } from "./validation/index.js";
+import { ProgramIdResolver } from "./config/ProgramIdResolver.js";
 
 import * as Deploy from "./modules/deploy.js";
 import * as Execute from "./modules/execute.js";
@@ -45,19 +46,27 @@ export class FiveSDK {
   private static parameterEncoder: ParameterEncoder | null = null;
   private static metadataCache: MetadataCache = new MetadataCache();
 
-  private fiveVMProgramId: string;
+  private fiveVMProgramId?: string;
   private debug: boolean;
   private network?: string;
 
   constructor(config: FiveSDKConfig = {}) {
-    this.fiveVMProgramId = config.fiveVMProgramId || FIVE_VM_PROGRAM_ID;
+    // Store the config but resolve at call time
+    this.fiveVMProgramId = config.fiveVMProgramId;
     this.debug = config.debug || false;
     this.network = (config as any).network;
 
     if (this.debug) {
-      console.log(
-        `[FiveSDK] Initialized with Five VM Program: ${this.fiveVMProgramId}`,
-      );
+      const resolved = ProgramIdResolver.resolveOptional(this.fiveVMProgramId);
+      if (resolved) {
+        console.log(
+          `[FiveSDK] Initialized with Five VM Program: ${resolved}`,
+        );
+      } else {
+        console.log(
+          `[FiveSDK] Initialized (program ID will be resolved at call time)`,
+        );
+      }
     }
   }
 
@@ -94,6 +103,25 @@ export class FiveSDK {
 
   static localnet(options: { debug?: boolean; fiveVMProgramId?: string } = {}): FiveSDK {
     return new FiveSDK({ ...options, network: "localnet" });
+  }
+
+  // ==================== Program ID Defaults ====================
+
+  /**
+   * Set the default program ID for all SDK instances and operations
+   * Useful when deploying to a known program ID across your application
+   * @param programId - Solana public key (base58 encoded)
+   */
+  static setDefaultProgramId(programId: string): void {
+    ProgramIdResolver.setDefault(programId);
+  }
+
+  /**
+   * Get the currently set default program ID
+   * @returns The default program ID, or undefined if not set
+   */
+  static getDefaultProgramId(): string | undefined {
+    return ProgramIdResolver.getDefault();
   }
 
   // ==================== Namespaces ====================

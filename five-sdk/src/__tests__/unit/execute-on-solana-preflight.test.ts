@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { beforeAll, beforeEach, describe, expect, it, jest, afterEach } from "@jest/globals";
 
 const mockEncodeExecute = jest.fn(async () => new Uint8Array([0xaa]));
 const mockDeriveVMStatePDA = jest.fn(async () => ({
@@ -69,10 +69,13 @@ jest.unstable_mockModule("@solana/web3.js", () => ({
 }));
 
 let ExecuteModule: any;
+let ProgramIdResolver: any;
 
 describe("executeOnSolana preflight behavior", () => {
   beforeAll(async () => {
     ExecuteModule = await import("../../modules/execute.js");
+    const resolver = await import("../../config/ProgramIdResolver.js");
+    ProgramIdResolver = resolver.ProgramIdResolver;
   });
 
   beforeEach(() => {
@@ -80,6 +83,11 @@ describe("executeOnSolana preflight behavior", () => {
     mockDeriveVMStatePDA.mockClear();
     mockSetComputeUnitLimit.mockClear();
     mockSetComputeUnitPrice.mockClear();
+    ProgramIdResolver.setDefault('TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP');
+  });
+
+  afterEach(() => {
+    ProgramIdResolver.clearDefault();
   });
 
   it("uses preflight by default", async () => {

@@ -4,10 +4,19 @@
  * Tests the full workflow from FiveProgram to FiveSDK.generateExecuteInstruction()
  */
 
+import { beforeEach, afterEach, describe } from '@jest/globals';
 import { FiveProgram } from '../../program/FiveProgram.js';
+import { ProgramIdResolver } from '../../config/ProgramIdResolver.js';
 import type { ScriptABI } from '../../metadata/index.js';
 
 describe('FiveProgram Integration', () => {
+  beforeEach(() => {
+    ProgramIdResolver.setDefault('TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP');
+  });
+
+  afterEach(() => {
+    ProgramIdResolver.clearDefault();
+  });
   // Real counter ABI from compiled contract
   const counterABI: ScriptABI = {
     name: 'Module',

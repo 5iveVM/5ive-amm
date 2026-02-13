@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { beforeAll, beforeEach, describe, expect, it, jest, afterEach } from '@jest/globals';
 
 const mockEncodeExecute = jest.fn(async () => new Uint8Array([0xaa, 0xbb]));
 const mockDeriveVMStatePDA = jest.fn(async () => ({
@@ -26,15 +26,23 @@ jest.unstable_mockModule('../../crypto/index.js', () => ({
 }));
 
 let ExecuteModule: any;
+let ProgramIdResolver: any;
 
 describe('execute wire format', () => {
   beforeAll(async () => {
     ExecuteModule = await import('../../modules/execute.js');
+    const resolver = await import('../../config/ProgramIdResolver.js');
+    ProgramIdResolver = resolver.ProgramIdResolver;
   });
 
   beforeEach(() => {
     mockEncodeExecute.mockClear();
     mockDeriveVMStatePDA.mockClear();
+    ProgramIdResolver.setDefault('TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP');
+  });
+
+  afterEach(() => {
+    ProgramIdResolver.clearDefault();
   });
 
   it('encodes execute instruction envelope as discriminator + u32/u32 LE + payload', async () => {

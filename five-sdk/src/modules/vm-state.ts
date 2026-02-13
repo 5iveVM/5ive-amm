@@ -1,5 +1,5 @@
 import { PDAUtils, Base58Utils } from "../crypto/index.js";
-import { FIVE_VM_PROGRAM_ID } from "../types.js";
+import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 
 export async function getVMState(connection: any, fiveVMProgramId?: string): Promise<{
   authority: string;
@@ -8,7 +8,7 @@ export async function getVMState(connection: any, fiveVMProgramId?: string): Pro
   executeFeeBps: number;
   isInitialized: boolean;
 }> {
-  const programId = fiveVMProgramId || FIVE_VM_PROGRAM_ID;
+  const programId = ProgramIdResolver.resolve(fiveVMProgramId);
   const vmStatePDA = await PDAUtils.deriveVMStatePDA(programId);
 
   let accountData: Uint8Array;

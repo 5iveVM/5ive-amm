@@ -2,7 +2,7 @@ import { ScriptMetadata } from "../metadata/index.js";
 import { executeOnSolana } from "./execute.js";
 import { fetchMultipleAccountsAndDeserialize } from "./accounts.js";
 import { PDAUtils } from "../crypto/index.js";
-import { FIVE_VM_PROGRAM_ID } from "../types.js";
+import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 
 export async function executeWithStateDiff(
   scriptAccount: string,
@@ -17,6 +17,7 @@ export async function executeWithStateDiff(
     trackGlobalFields?: boolean;
     additionalAccounts?: string[];
     includeVMState?: boolean;
+    fiveVMProgramId?: string;
   } = {},
 ): Promise<{
   success: boolean;
@@ -59,7 +60,8 @@ export async function executeWithStateDiff(
     const accountsToTrack = [scriptAccount];
 
     if (options.includeVMState) {
-      const vmStatePDAResult = await PDAUtils.deriveVMStatePDA(FIVE_VM_PROGRAM_ID);
+      const programId = ProgramIdResolver.resolve(options.fiveVMProgramId);
+      const vmStatePDAResult = await PDAUtils.deriveVMStatePDA(programId);
       const vmStatePDA = vmStatePDAResult.address;
       accountsToTrack.push(vmStatePDA);
       if (options.debug) {
