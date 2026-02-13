@@ -107,7 +107,7 @@ jest.mock('../../utils/FiveFileManager.js', () => ({
   }
 }));
 
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK } from '@5ive-tech/sdk';
 import { loadProjectConfig } from '../../project/ProjectLoader.js';
 import { compileCommand } from '../compile.js';
 import { deployCommand } from '../deploy.js';

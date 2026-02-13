@@ -10,7 +10,7 @@ import {
   VMExecutionOptions,
   CLIOptions
 } from '../types.js';
-import { FiveSDK, FiveTestRunner, TestDiscovery } from 'five-sdk';
+import { FiveSDK, FiveTestRunner, TestDiscovery } from '@5ive-tech/sdk';
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ConfigOverrides } from '../config/types.js';
 import { Connection, Keypair } from '@solana/web3.js';

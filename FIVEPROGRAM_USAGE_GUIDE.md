@@ -18,7 +18,7 @@ Resolution precedence:
 4. Release-baked default
 
 ```ts
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK } from '@5ive-tech/sdk';
 
 FiveSDK.setDefaultProgramId('YourFiveVMProgramIdBase58');
 ```
@@ -29,7 +29,7 @@ FiveSDK.setDefaultProgramId('YourFiveVMProgramIdBase58');
 
 ```ts
 import fs from 'fs';
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK } from '@5ive-tech/sdk';
 
 const fiveFileText = fs.readFileSync('build/my-program.five', 'utf-8');
 const { abi } = await FiveSDK.loadFiveFile(fiveFileText);
@@ -38,7 +38,7 @@ const { abi } = await FiveSDK.loadFiveFile(fiveFileText);
 ### Compile directly with SDK (optional)
 
 ```ts
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK } from '@5ive-tech/sdk';
 import fs from 'fs';
 
 const source = `
@@ -82,7 +82,7 @@ const abi = JSON.parse(fs.readFileSync('my-program.abi.json', 'utf-8'));
 ## Create Program Client
 
 ```ts
-import { FiveProgram } from 'five-sdk';
+import { FiveProgram } from '@5ive-tech/sdk';
 
 const program = FiveProgram.fromABI('ScriptAccountBase58', abi, {
   fiveVMProgramId: 'YourFiveVMProgramIdBase58',

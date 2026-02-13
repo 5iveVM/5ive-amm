@@ -1,32 +1,25 @@
-# Five SDK
+# 5IVE SDK
 
 Client-agnostic TypeScript SDK for interacting with 5ive DSL programs on Solana.
-
-This README is for external developers using:
-- `five-cli`
-- `five-sdk`
-- [5ive.tech](https://5ive.tech)
 
 ## Install
 
 ```bash
-npm install five-sdk @solana/web3.js
+npm install @5ive-tech/sdk @solana/web3.js
 ```
-
-Note: Some older examples may use `@five-vm/sdk`. Use the package name your registry currently publishes for your release channel.
 
 ## Quick Start
 
-### 1. Compile with `five-cli` to `.five` artifact
+### 1) Compile to `.five`
 
 ```bash
-five compile src/main.v -o build/my-program.five
+5ive compile src/main.v -o build/my-program.five
 ```
 
-### 1b. Compile directly with `five-sdk` (optional)
+### 1b) Compile directly with SDK (optional)
 
 ```ts
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK } from '@5ive-tech/sdk';
 import fs from 'fs';
 
 const source = `
@@ -63,17 +56,17 @@ const multi = await FiveSDK.compileModules(
 );
 ```
 
-### 2. Load ABI from `.five`
+### 2) Load ABI from `.five`
 
 ```ts
 import fs from 'fs';
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK } from '@5ive-tech/sdk';
 
 const fiveFileText = fs.readFileSync('build/my-program.five', 'utf-8');
 const { abi } = await FiveSDK.loadFiveFile(fiveFileText);
 ```
 
-### 3. Configure program ID resolution
+### 3) Configure program ID resolution
 
 On-chain instruction generation requires a resolvable Five VM program ID.
 Resolution precedence:
@@ -83,15 +76,15 @@ Resolution precedence:
 4. Release-baked default
 
 ```ts
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK } from '@5ive-tech/sdk';
 
 FiveSDK.setDefaultProgramId('YourFiveVMProgramIdBase58');
 ```
 
-### 4. Create `FiveProgram`
+### 4) Create `FiveProgram`
 
 ```ts
-import { FiveProgram } from 'five-sdk';
+import { FiveProgram } from '@5ive-tech/sdk';
 
 const program = FiveProgram.fromABI('ScriptAccountBase58', abi, {
   fiveVMProgramId: 'YourFiveVMProgramIdBase58',
@@ -180,11 +173,11 @@ Recommended send pattern:
 3. assert `meta.err` is null
 4. record CU from `meta.computeUnitsConsumed`
 
-## Advanced SDK APIs (Optional)
+## Advanced APIs (Optional)
 
 Most builders should use `FiveProgram` first. Use these lower-level APIs when you need finer control.
 
-### 1) Local VM testing without RPC
+### Local VM testing without RPC
 
 ```ts
 const run = await FiveSDK.compileAndExecuteLocally(
@@ -195,7 +188,7 @@ const run = await FiveSDK.compileAndExecuteLocally(
 );
 ```
 
-### 2) Instruction-only generation (bring your own sender)
+### Instruction-only generation
 
 ```ts
 const deploy = await FiveSDK.generateDeployInstruction(bytecode, deployerPubkeyBase58, {
@@ -212,7 +205,7 @@ const exec = await FiveSDK.generateExecuteInstruction(
 );
 ```
 
-### 3) On-chain convenience helpers
+### On-chain convenience helpers
 
 ```ts
 const deployResult = await FiveSDK.deployToSolana(bytecode, connection, payerKeypair, {
@@ -230,7 +223,7 @@ const execResult = await FiveSDK.executeOnSolana(
 );
 ```
 
-### 4) Metadata, decoding, and diagnostics
+### Metadata and decoding helpers
 
 ```ts
 const meta = await FiveSDK.getScriptMetadataWithConnection(scriptAccountBase58, connection);
@@ -240,28 +233,20 @@ const account = await FiveSDK.fetchAccountAndDeserialize(scriptAccountBase58, co
 });
 ```
 
-### 5) Namespace helpers (5NS)
+### Namespace helpers (5NS)
 
 ```ts
 const ns = FiveSDK.canonicalizeNamespace('@acme/payments');
 const derived = await FiveSDK.deriveNamespaceAccounts(ns.canonical, 'YourFiveVMProgramIdBase58');
 ```
 
-### 6) Test utilities
+### Test utilities
 
 ```ts
-import { FiveTestRunner } from 'five-sdk';
+import { FiveTestRunner } from '@5ive-tech/sdk';
 
 const runner = new FiveTestRunner({ verbose: true, maxComputeUnits: 1_000_000 });
 ```
-
-## Frontend Usage (`5ive.tech`)
-
-For frontend integration patterns and UI workflows, use [5ive.tech](https://5ive.tech).
-Typical flow:
-1. compile/deploy with `five-cli`
-2. use `five-sdk` in your app/backend to generate instructions
-3. submit signed transactions from wallet-enabled frontend
 
 ## Troubleshooting
 
@@ -273,7 +258,3 @@ Use exact ABI function names (including namespace prefixes).
 
 ### `Missing required account` / `Missing required argument`
 Provide all required fields in `.accounts(...)` and `.args(...)`.
-
-## Next Doc
-
-For API-level usage details, see `FIVEPROGRAM_USAGE_GUIDE.md`.

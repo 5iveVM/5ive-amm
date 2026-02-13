@@ -1,6 +1,6 @@
 {
-  "name": "five-sdk",
-  "version": "1.1.2",
+  "name": "@5ive-tech/sdk",
+  "version": "1.1.4",
   "description": "Client-agnostic TypeScript SDK for Five VM scripts on Solana",
   "type": "module",
   "main": "dist/index.js",
@@ -52,5 +52,8 @@
   "dependencies": {
     "@noble/ed25519": "^3.0.0",
     "borsh": "^0.7.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -10,7 +10,7 @@ import {
   VMExecutionOptions,
   CLIOptions
 } from '../types.js';
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK } from '@5ive-tech/sdk';
 import { section, success as uiSuccess, error as uiError } from '../utils/cli-ui.js';
 
 // Parent for local subcommands.

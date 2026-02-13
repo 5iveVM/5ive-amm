@@ -1,12 +1,12 @@
 {
-  "name": "@five-vm/cli",
-  "version": "1.0.4",
+  "name": "@5ive-tech/cli",
+  "version": "1.0.7",
   "description": "High-performance CLI for Five VM development with WebAssembly integration",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "five": "./dist/index.js",
-    "five-cli": "./dist/index.js"
+    "5ive": "dist/index.js",
+    "five": "dist/index.js"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -72,14 +72,14 @@
     "bs58": "^5.0.0",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
-    "five-sdk": "file:../five-sdk",
     "fs-extra": "^11.2.0",
     "glob": "^13.0.0",
     "inquirer": "^9.2.15",
     "minipass": "^7.1.2",
     "ora": "^8.0.1",
     "semver": "^7.6.0",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "@5ive-tech/sdk": "^1.1.4"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",

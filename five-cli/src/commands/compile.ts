@@ -6,7 +6,7 @@ import { glob } from 'glob';
 import ora from 'ora';
 
 import { CommandDefinition, CommandContext, CLIOptions, ProjectConfig } from '../types.js';
-import { CompilationOptions, FiveSDK, TypeGenerator } from 'five-sdk';
+import { CompilationOptions, FiveSDK, TypeGenerator } from '@5ive-tech/sdk';
 import { computeHash, loadProjectConfig, writeBuildManifest } from '../project/ProjectLoader.js';
 import { success as uiSuccess, error as uiError, section } from '../utils/cli-ui.js';
 

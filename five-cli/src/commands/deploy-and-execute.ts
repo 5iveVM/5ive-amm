@@ -9,7 +9,7 @@ import {
   CommandContext,
   CLIOptions
 } from '../types.js';
-import { FiveSDK, ProgramIdResolver } from 'five-sdk';
+import { FiveSDK, ProgramIdResolver } from '@5ive-tech/sdk';
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ConfigOverrides } from '../config/types.js';
 import { FiveFileManager } from '../utils/FiveFileManager.js';

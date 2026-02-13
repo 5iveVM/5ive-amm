@@ -2,7 +2,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { AccountTestFixture, FixtureTemplates } from 'five-sdk';
+import { AccountTestFixture, FixtureTemplates } from '@5ive-tech/sdk';
 
 function detectAccountPattern(scriptContent: string): string | null {
   // Look for account definitions in the script
