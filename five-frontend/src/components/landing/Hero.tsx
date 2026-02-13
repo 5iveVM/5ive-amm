@@ -23,8 +23,8 @@ export default function Hero() {
                         transition={{ duration: 0.5, delay: 0.2, ease: "circOut" }}
                         className="relative flex flex-col items-center mb-10"
                     >
-                        <div className="relative z-10">
-                            <h1 className="text-8xl md:text-[10rem] font-black tracking-tighter leading-none bg-clip-text text-transparent bg-gradient-to-b from-rose-pine-iris via-rose-pine-iris to-rose-pine-love drop-shadow-2xl select-none mb-4">
+                        <div className="relative z-10 drop-shadow-2xl">
+                            <h1 className="text-8xl md:text-[10rem] font-black tracking-tighter leading-none bg-clip-text text-transparent bg-gradient-to-b from-rose-pine-iris via-rose-pine-iris to-rose-pine-love select-none mb-4 px-4 pb-2">
                                 5IVE
                             </h1>
                         </div>

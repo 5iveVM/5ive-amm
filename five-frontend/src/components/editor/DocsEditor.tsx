@@ -21,8 +21,11 @@ export default function DocsEditor({ code, filename = "example.five", height = "
     const [status, setStatus] = useState("Ready");
     const [statusKind, setStatusKind] = useState<"idle" | "running" | "success" | "error">("idle");
 
+    // State for execution results
+    const [executionResult, setExecutionResult] = useState<any>(null);
+
     // New Hook Integration
-    const { isReady, compile } = useFiveWasm();
+    const { isReady, compile, execute } = useFiveWasm();
 
     const monaco = useMonaco();
     const { theme } = useThemeStore();
@@ -50,6 +53,7 @@ export default function DocsEditor({ code, filename = "example.five", height = "
         setIsRunning(true);
         setStatusKind("running");
         setStatus("Compiling...");
+        setExecutionResult(null);
 
         try {
             // 1. Compile
@@ -58,21 +62,44 @@ export default function DocsEditor({ code, filename = "example.five", height = "
             if (!compileResult.success) {
                 setStatusKind("error");
                 setStatus("Compilation failed");
+                setExecutionResult({
+                    success: false,
+                    error: compileResult.error || "Unknown compilation error",
+                    logs: compileResult.logs || []
+                });
                 setIsRunning(false);
                 return;
             }
 
             if (compileResult.bytecode) {
-                setStatusKind("success");
-                setStatus(`Compiled • ${compileResult.bytecode.length} bytes`);
+                setStatus("Running...");
+
+                // 2. Execute
+                // Default execution: run function at index 0 (usually the first pub fn) with no args
+                const execResult = await execute(compileResult.bytecode);
+
+                setExecutionResult(execResult);
+
+                if (execResult.success) {
+                    setStatusKind("success");
+                    setStatus(`Success • ${execResult.computeUnits} CU`);
+                } else {
+                    setStatusKind("error");
+                    setStatus("Runtime Error");
+                }
             } else {
                 setStatusKind("success");
                 setStatus("Compilation successful");
             }
 
-        } catch {
+        } catch (e: any) {
             setStatusKind("error");
-            setStatus("Compilation failed");
+            setStatus("System Error");
+            setExecutionResult({
+                success: false,
+                error: e.toString(),
+                logs: []
+            });
         } finally {
             setIsRunning(false);
         }
@@ -80,7 +107,7 @@ export default function DocsEditor({ code, filename = "example.five", height = "
 
     return (
         <GlassCard className={cn(
-            "relative overflow-hidden flex flex-col",
+            "relative overflow-hidden flex flex-col transition-all duration-300",
             theme === "dark"
                 ? "border-rose-pine-hl-low/50 bg-black/40"
                 : "border-rose-pine-hl-med/40 bg-white/95 shadow-sm"
@@ -109,11 +136,6 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                                     statusKind === "running" ? "text-rose-pine-gold" :
                                         "text-rose-pine-muted"
                         )}
-                        title={
-                            statusKind === "success" && status.startsWith("Compiled •")
-                                ? `Compilation successful - Bytecode generated (${status.replace("Compiled • ", "")})`
-                                : status
-                        }
                         aria-live="polite"
                     >
                         {status}
@@ -122,30 +144,30 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                         onClick={handleRun}
                         disabled={!isReady || isRunning}
                         className={cn(
-                            "shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
+                            "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
                             !isReady
                                 ? "opacity-50 cursor-not-allowed bg-white/5 text-rose-pine-muted"
                                 : isRunning
                                     ? "bg-rose-pine-surface text-rose-pine-subtle cursor-wait"
-                                    : "bg-rose-pine-love/10 text-rose-pine-love hover:bg-rose-pine-love/20 hover:scale-105 active:scale-95"
+                                    : "bg-rose-pine-love text-rose-pine-base hover:bg-rose-pine-love/90 hover:scale-105 active:scale-95 shadow-lg shadow-rose-pine-love/20"
                         )}
                     >
-                        {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Hammer size={10} fill="currentColor" />}
-                        {isRunning ? "Building..." : "Build"}
+                        {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Play size={10} fill="currentColor" />}
+                        {isRunning ? "Running..." : "Run"}
                     </button>
                 </div>
             </div>
 
-            <div style={{ height }} className="relative shrink-0">
+            <div style={{ height }} className="relative shrink-0 group">
                 <MonacoEditor
                     height="100%"
                     defaultLanguage="five"
-                    value={code}
+                    defaultValue={code}
                     theme={theme === 'dark' ? "rose-pine-dark" : "rose-pine-light"}
                     onMount={handleEditorDidMount}
                     options={{
-                        readOnly: true,
-                        domReadOnly: true,
+                        readOnly: false,
+                        domReadOnly: false,
                         minimap: { enabled: false },
                         scrollBeyondLastLine: false,
                         automaticLayout: true,
@@ -153,8 +175,8 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                         lineNumbers: "on",
                         glyphMargin: false,
                         folding: false,
-                        renderLineHighlight: "none",
-                        contextmenu: false,
+                        renderLineHighlight: "all",
+                        contextmenu: true,
                         fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                         fontSize: 13,
                         scrollbar: {
@@ -174,6 +196,40 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                     </div>
                 )}
             </div>
+
+            {/* Execution Console Output */}
+            {executionResult && (
+                <div className={cn(
+                    "border-t p-3 text-xs font-mono max-h-40 overflow-y-auto",
+                    theme === "dark" ? "border-white/5 bg-black/20" : "border-rose-pine-hl-low/40 bg-rose-pine-surface/50"
+                )}>
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className={cn(
+                            "w-2 h-2 rounded-full",
+                            executionResult.success ? "bg-rose-pine-foam" : "bg-rose-pine-love"
+                        )} />
+                        <span className="font-bold opacity-70">Console Output</span>
+                    </div>
+
+                    {executionResult.logs && executionResult.logs.length > 0 ? (
+                        <div className="space-y-1 text-rose-pine-subtle">
+                            {executionResult.logs.map((log: string, i: number) => (
+                                <div key={i}>{log}</div>
+                            ))}
+                        </div>
+                    ) : executionResult.error ? (
+                        <div className="text-rose-pine-love break-all whitespace-pre-wrap">
+                            Error: {executionResult.error}
+                        </div>
+                    ) : (
+                        <div className="text-rose-pine-muted italic">
+                            Program executed successfully with no output.
+                        </div>
+                    )}
+                </div>
+            )}
         </GlassCard>
     );
 }
+// Import Play icon for Run button
+import { Play } from "lucide-react";
