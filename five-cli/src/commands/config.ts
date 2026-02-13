@@ -17,7 +17,18 @@ export const configCommand: CommandDefinition = {
   description: 'Manage Five CLI configuration',
   aliases: ['cfg'],
 
-  options: [],
+  options: [
+    {
+      flags: '--program-id <id>',
+      description: 'Set Five VM program ID for current or specified target',
+      required: false
+    },
+    {
+      flags: '--target <target>',
+      description: 'Target network (devnet, testnet, mainnet, local, wasm)',
+      required: false
+    }
+  ],
 
   arguments: [
     {
@@ -56,6 +67,18 @@ export const configCommand: CommandDefinition = {
     {
       command: 'five config set --rpc-url https://api.custom.solana.com',
       description: 'Set custom RPC URL for current target'
+    },
+    {
+      command: 'five config set --program-id HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg',
+      description: 'Set Five VM program ID for current target'
+    },
+    {
+      command: 'five config set --program-id <ID> --target devnet',
+      description: 'Set Five VM program ID for specific target'
+    },
+    {
+      command: 'five config get programIds',
+      description: 'Show all configured program IDs'
     },
     {
       command: 'five config reset',
@@ -200,7 +223,7 @@ async function handleGet(
       const value = getConfigValue(config, key);
       if (value === undefined) {
         console.log(uiWarning(`Configuration key '${key}' not found`));
-        console.log('Available keys: target, networks, keypair, showConfig');
+        console.log('Available keys: target, networks, keypair, showConfig, programIds');
         return;
       }
       console.log(`${uiColors.info(key)}: ${formatValue(value)}`);
@@ -273,9 +296,23 @@ async function handleSet(
       hasChanges = true;
     }
 
+    if (options.programId) {
+      const config = await configManager.get();
+      const targetForProgramId = options.target || config.target;
+
+      // Validate target
+      if (!['wasm', 'local', 'devnet', 'testnet', 'mainnet'].includes(targetForProgramId)) {
+        throw new Error(`Invalid target: ${targetForProgramId}. Must be one of: wasm, local, devnet, testnet, mainnet`);
+      }
+
+      await configManager.setProgramId(options.programId, targetForProgramId as ConfigTarget);
+      changes.push(`${uiColors.info('Program ID')} (${targetForProgramId}): ${options.programId}`);
+      hasChanges = true;
+    }
+
     if (!hasChanges) {
       logger.error('No configuration changes specified');
-      logger.info('Available options: --target, --keypair, --rpc-url, --show-config');
+      logger.info('Available options: --target, --keypair, --rpc-url, --show-config, --program-id');
       process.exit(1);
     }
 
@@ -368,6 +405,17 @@ function formatConfig(config: FiveConfig): string {
     lines.push(`${uiColors.info('Keypair:')} ${uiColors.muted('(not set)')}`);
   }
 
+  // Program IDs
+  if (config.programIds && Object.keys(config.programIds).length > 0) {
+    lines.push(`${uiColors.info('Program IDs:')}`);
+    for (const [target, programId] of Object.entries(config.programIds)) {
+      const isCurrentTarget = target === config.target;
+      const indicator = isCurrentTarget ? '●' : '○';
+      lines.push(`  ${indicator} ${target}: ${programId}`);
+    }
+  } else {
+    lines.push(`${uiColors.info('Program IDs:')} ${uiColors.muted('(none configured)')}`);
+  }
 
   // Show config preference
   lines.push(`${uiColors.info('Show Config:')} ${config.showConfig}`);
