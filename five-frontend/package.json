@@ -10,6 +10,7 @@
     "test": "jest",
     "deploy": "npm run build && wrangler pages deploy out --project-name 5ive",
     "sync:deps": "bash ../scripts/sync-wasm-assets.sh && npm --prefix ../five-sdk run build",
+    "sync:deps:rebuild": "bash ../scripts/sync-wasm-assets.sh --rebuild && npm --prefix ../five-sdk run build",
     "verify:deps": "bash ../scripts/verify-wasm-sync.sh",
     "rebuild:lsp": "bash scripts/rebuild-lsp.sh",
     "rebuild:lsp:dev": "bash scripts/rebuild-lsp.sh --dev",

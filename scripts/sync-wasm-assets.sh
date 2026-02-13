@@ -11,9 +11,59 @@ SDK_VM_DIR="$ROOT_DIR/five-sdk/src/assets/vm"
 SDK_WASM_DIR="$ROOT_DIR/five-sdk/src/assets/wasm"
 CLI_VM_DIR="$ROOT_DIR/five-cli/src/assets/vm"
 
-echo "==> Building five-wasm node and bundler outputs"
-npm --prefix "$WASM_DIR" run build:nodejs
-npm --prefix "$WASM_DIR" run build:bundler
+NODE_FILES=(
+  "five_vm_wasm.js"
+  "five_vm_wasm_bg.wasm"
+  "five_vm_wasm.d.ts"
+  "five_vm_wasm_bg.wasm.d.ts"
+)
+
+BUNDLER_FILES=(
+  "five_vm_wasm.js"
+  "five_vm_wasm_bg.js"
+  "five_vm_wasm_bg.wasm"
+  "five_vm_wasm.d.ts"
+  "five_vm_wasm_bg.wasm.d.ts"
+  "package.json"
+)
+
+has_all_files() {
+  local dir="$1"
+  shift
+  local file
+  for file in "$@"; do
+    if [ ! -f "$dir/$file" ]; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+should_rebuild=false
+if [ "${FIVE_WASM_REBUILD:-0}" = "1" ]; then
+  should_rebuild=true
+fi
+if [ "${1:-}" = "--rebuild" ]; then
+  should_rebuild=true
+fi
+
+if [ "$should_rebuild" = false ]; then
+  if ! has_all_files "$WASM_NODE_DIR" "${NODE_FILES[@]}"; then
+    echo "==> Missing node wasm artifacts; rebuilding"
+    should_rebuild=true
+  elif ! has_all_files "$WASM_BUNDLER_DIR" "${BUNDLER_FILES[@]}"; then
+    echo "==> Missing bundler wasm artifacts; rebuilding"
+    should_rebuild=true
+  fi
+fi
+
+if [ "$should_rebuild" = true ]; then
+  echo "==> Building five-wasm node and bundler outputs"
+  npm --prefix "$WASM_DIR" run build:nodejs
+  npm --prefix "$WASM_DIR" run build:bundler
+else
+  echo "==> Using existing five-wasm artifacts from pkg-node/pkg-bundler"
+fi
 
 copy_node_assets() {
   local dest="$1"

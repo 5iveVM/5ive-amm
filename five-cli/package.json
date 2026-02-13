@@ -16,6 +16,7 @@
     "build:wasm": "npm run sync:wasm",
     "build:vm-wasm": "npm run sync:wasm",
     "sync:wasm": "bash ../scripts/sync-wasm-assets.sh",
+    "sync:wasm:rebuild": "bash ../scripts/sync-wasm-assets.sh --rebuild",
     "verify:wasm": "bash ../scripts/verify-wasm-sync.sh",
     "build:js": "node ./node_modules/typescript/bin/tsc && npm run copy:wasm-assets",
     "build:js:dev": "node ./node_modules/typescript/bin/tsc --watch",
@@ -33,7 +34,7 @@
     "format": "prettier --write src/**/*.ts",
     "dev": "npm run build:js:dev",
     "prepublishOnly": "npm run build",
-    "postinstall": "npm run sync:wasm || true"
+    "postinstall": "npm run verify:wasm || npm run sync:wasm"
   },
   "files": [
     "dist/",

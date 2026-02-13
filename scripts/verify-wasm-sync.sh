@@ -55,4 +55,19 @@ if [ ! -f "$ROOT_DIR/five-wasm/pkg-bundler/package.json" ]; then
   exit 1
 fi
 
+BUNDLER_FILES=(
+  "five_vm_wasm.js"
+  "five_vm_wasm_bg.js"
+  "five_vm_wasm_bg.wasm"
+  "five_vm_wasm.d.ts"
+  "five_vm_wasm_bg.wasm.d.ts"
+)
+
+for file in "${BUNDLER_FILES[@]}"; do
+  if [ ! -f "$ROOT_DIR/five-wasm/pkg-bundler/$file" ]; then
+    echo "MISSING: five-wasm/pkg-bundler/$file"
+    exit 1
+  fi
+done
+
 echo "WASM sync verified: CLI, SDK vm/wasm assets match five-wasm/pkg-node."

@@ -31,6 +31,7 @@
   "scripts": {
     "build": "npm run sync:wasm && node ./node_modules/typescript/bin/tsc && npm run copy-assets",
     "sync:wasm": "bash ../scripts/sync-wasm-assets.sh",
+    "sync:wasm:rebuild": "bash ../scripts/sync-wasm-assets.sh --rebuild",
     "verify:wasm": "bash ../scripts/verify-wasm-sync.sh",
     "copy-assets": "mkdir -p dist/assets/vm && COPYFILE_DISABLE=1 cp src/assets/vm/* dist/assets/vm/",
     "test": "node examples/basic-usage.js",
