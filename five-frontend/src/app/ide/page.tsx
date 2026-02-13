@@ -163,14 +163,23 @@ export default function IdePage() {
     };
     loadWasm();
 
-    // Hydration Fix: Sync code from active file if mismatch occurs on load
+    // Hydration Fix: Ensure activeFile is valid after persistence restore
     const state = useIdeStore.getState();
-    if (state.activeFile && state.files[state.activeFile]) {
-      const fileContent = state.files[state.activeFile];
-      // If code is default "New Project" but file content is different (e.g. from persistence), sync it.
-      if (state.code.includes('print("Hello 5IVE!")') && !fileContent.includes('print("Hello 5IVE!")')) {
-        console.log("Hydrating code from file content...");
-        setCode(fileContent);
+    const activeFileValid = state.activeFile && state.files[state.activeFile];
+
+    if (activeFileValid) {
+      // Active file exists — just sync the editor code from it
+      if (state.code !== state.files[state.activeFile!]) {
+        console.log("Hydrating code from active file...");
+        setCode(state.files[state.activeFile!]);
+      }
+    } else {
+      // Active file is null or points to a missing file — recover
+      const vFiles = Object.keys(state.files).filter(f => f.endsWith('.v'));
+      const fallback = vFiles.find(f => f === 'src/main.v') || vFiles[0] || null;
+      if (fallback) {
+        console.log(`Recovering activeFile to: ${fallback}`);
+        useIdeStore.getState().openFile(fallback);
       }
     }
   }, [appendLog, setCode]);
@@ -338,6 +347,20 @@ export default function IdePage() {
       // Fallback to legacy loose mode if no config or no entry point resolved
       if (!entryPointFile) {
         entryPointFile = state.activeFile;
+
+        // Auto-recover: if activeFile is null, find the first .v file in VFS
+        if (!entryPointFile) {
+          const vFiles = Object.keys(currentFiles).filter(name =>
+            name.endsWith('.v') && name !== 'five.toml' && name !== 'Five.toml'
+          );
+          if (vFiles.length > 0) {
+            // Prefer src/main.v, then any .v file
+            entryPointFile = vFiles.find(f => f === 'src/main.v') || vFiles[0];
+            // Sync the store so future compiles work too
+            useIdeStore.getState().openFile(entryPointFile);
+            appendLog(`Auto-selected entry point: ${entryPointFile}`, 'info');
+          }
+        }
 
         if (entryPointFile) {
           moduleFiles = Object.entries(currentFiles).filter(([name]) =>
