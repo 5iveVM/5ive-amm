@@ -18,7 +18,6 @@ import { loadFiveWasm } from "@/lib/five-wasm-loader";
 import { buildExecuteInstruction } from "@/lib/five-program-client";
 import { NETWORKS } from "@/lib/network-config";
 
-const MAINNET_RPC = "https://api.devnet.solana.com";
 const RENT_PER_BYTE_LAM = 6960;
 const ACCOUNT_OVERHEAD_BYTES = 128;
 const VM_STATE_MIN_LEN = 56;
@@ -184,20 +183,31 @@ export default function IdePage() {
     }
   }, [appendLog, setCode]);
 
-  // Fetch SOL Price
+  // Fetch SOL Price with retry and periodic refresh
   useEffect(() => {
-    const fetchPrice = async () => {
-      try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
-        const data = await response.json();
-        if (data.solana?.usd) {
-          setSolPrice(data.solana.usd);
+    const fetchPrice = async (retries = 2) => {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          if (data.solana?.usd) {
+            setSolPrice(data.solana.usd);
+            return;
+          }
+        } catch (e) {
+          if (attempt < retries) {
+            await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+          } else {
+            console.warn("Failed to fetch SOL price after retries, using default", e);
+          }
         }
-      } catch (e) {
-        console.warn("Failed to fetch SOL price, using default", e);
       }
     };
     fetchPrice();
+    // Refresh price every 60 seconds
+    const interval = setInterval(() => fetchPrice(0), 60_000);
+    return () => clearInterval(interval);
   }, [setSolPrice]);
 
   // Calculate Rent automatically when bytecode changes
@@ -213,20 +223,13 @@ export default function IdePage() {
 
       const space = 64 + bytecode.length; // 64 byte header + bytecode
       let rent = 0;
-      let deployFeeBps = 0;
+      let deployFeeLamports = 10_000; // Default: 10,000 lamports (on-chain default)
 
       try {
-        // Try Devnet first (same rent as mainnet)
-        const estimationConnection = new Connection(MAINNET_RPC);
-        rent = await estimationConnection.getMinimumBalanceForRentExemption(space);
+        rent = await connection.getMinimumBalanceForRentExemption(space);
       } catch (e) {
-        // Fallback to local connection
-        try {
-          rent = await connection.getMinimumBalanceForRentExemption(space);
-        } catch (localErr) {
-          // Final fallback
-          rent = (ACCOUNT_OVERHEAD_BYTES + space) * RENT_PER_BYTE_LAM;
-        }
+        // Fallback to math estimation if RPC is unavailable
+        rent = (ACCOUNT_OVERHEAD_BYTES + space) * RENT_PER_BYTE_LAM;
       }
 
       try {
@@ -237,21 +240,22 @@ export default function IdePage() {
         const vmInfo = await connection.getAccountInfo(vmStatePda);
         if (vmInfo?.data && vmInfo.data.length >= VM_STATE_MIN_LEN) {
           const view = new DataView(vmInfo.data.buffer, vmInfo.data.byteOffset, vmInfo.data.byteLength);
-          deployFeeBps = view.getUint32(VM_STATE_DEPLOY_FEE_OFFSET, true);
+          deployFeeLamports = view.getUint32(VM_STATE_DEPLOY_FEE_OFFSET, true);
           const executeFeeBps = view.getUint32(VM_STATE_EXECUTE_FEE_OFFSET, true);
-          setFeeConfig(deployFeeBps, executeFeeBps, null);
+          setFeeConfig(deployFeeLamports, executeFeeBps, null);
         } else {
-          setFeeConfig(null, null, null);
+          // No on-chain state found, use default fee
+          setFeeConfig(deployFeeLamports, null, null);
         }
       } catch (feeErr) {
-        console.warn("Failed to fetch fee config, defaulting to 0 bps", feeErr);
-        setFeeConfig(null, null, null);
+        console.warn("Failed to fetch fee config, using default deploy fee", feeErr);
+        setFeeConfig(deployFeeLamports, null, null);
       }
 
-      const deployFee = Math.floor((rent * deployFeeBps) / 10000);
-      const total = rent + deployFee;
+      // Deploy fee is a flat lamport amount, not BPS
+      const total = rent + deployFeeLamports;
       setEstimatedRent(rent);
-      setEstimatedDeployFee(deployFee);
+      setEstimatedDeployFee(deployFeeLamports);
       setEstimatedCost(total);
     };
     calculateRent();
@@ -813,7 +817,23 @@ export default function IdePage() {
         if (error) {
           appendLog(`Runtime Error: ${error}`, 'error');
         } else {
-          appendLog(`Execution successful! Used ${cu} CU.`, 'success');
+          // Display the return value if the function returned one
+          let resultMsg = `Execution successful! Used ${cu} CU.`;
+          try {
+            if (result.has_result_value) {
+              const returnValue = result.get_result_value;
+              if (returnValue !== null && returnValue !== undefined) {
+                resultMsg += `\nReturn value: ${returnValue}`;
+              }
+            } else if (stack && stack.length > 0) {
+              // No explicit return, but there are values on the stack
+              const topValue = stack[stack.length - 1];
+              resultMsg += `\nStack result: ${topValue}`;
+            }
+          } catch (e) {
+            // get_result_value may not be available in all WASM builds
+          }
+          appendLog(resultMsg, 'success');
         }
       }
 

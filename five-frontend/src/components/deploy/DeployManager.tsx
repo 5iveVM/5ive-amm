@@ -25,7 +25,7 @@ export default function DeployManager() {
         estimatedCost,
         estimatedRent,
         estimatedDeployFee,
-        deployFeeBps,
+        deployFeeLamports,
         solPrice,
         selectedNetwork,
         setSelectedNetwork
@@ -185,7 +185,7 @@ export default function DeployManager() {
                             <div className="flex items-center justify-between border-t border-white/5 pt-2 text-[10px] text-rose-pine-muted font-mono">
                                 <span>
                                     rent {(estimatedRent / LAMPORTS_PER_SOL).toFixed(5)} ◎ + fee {(estimatedDeployFee / LAMPORTS_PER_SOL).toFixed(5)} ◎
-                                    {deployFeeBps !== null ? ` (${deployFeeBps} bps)` : ""}
+                                    {deployFeeLamports !== null ? ` (${deployFeeLamports.toLocaleString()} lamports)` : ""}
                                 </span>
                             </div>
                         )}

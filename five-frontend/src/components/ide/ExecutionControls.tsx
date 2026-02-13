@@ -44,7 +44,7 @@ export default function ExecutionControls({
         bytecode,
         estimatedRent,
         estimatedDeployFee,
-        deployFeeBps,
+        deployFeeLamports,
     } = useIdeStore();
 
     // Local state to track copied status for keypair generation
@@ -181,7 +181,7 @@ export default function ExecutionControls({
                             {estimatedRent !== null && estimatedDeployFee !== null && (
                                 <div className="text-[10px] text-emerald-500/50 font-mono mt-1">
                                     rent ◎ {(estimatedRent / LAMPORTS_PER_SOL).toFixed(5)} + fee ◎ {(estimatedDeployFee / LAMPORTS_PER_SOL).toFixed(5)}
-                                    {deployFeeBps !== null ? ` (${deployFeeBps} bps)` : ""}
+                                    {deployFeeLamports !== null ? ` (${deployFeeLamports.toLocaleString()} lamports)` : ""}
                                 </div>
                             )}
                         </div>

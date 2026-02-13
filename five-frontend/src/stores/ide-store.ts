@@ -104,14 +104,14 @@ interface IdeState {
     estimatedCost: number | null;
     estimatedRent: number | null;
     estimatedDeployFee: number | null;
-    deployFeeBps: number | null;
+    deployFeeLamports: number | null;
     executeFeeBps: number | null;
     adminAccount: string | null; // Admin account for fee collection
     solPrice: number;
     setEstimatedCost: (cost: number | null) => void;
     setEstimatedRent: (rent: number | null) => void;
     setEstimatedDeployFee: (fee: number | null) => void;
-    setFeeConfig: (deployFeeBps: number | null, executeFeeBps: number | null, adminAccount: string | null) => void;
+    setFeeConfig: (deployFeeLamports: number | null, executeFeeBps: number | null, adminAccount: string | null) => void;
     setSolPrice: (price: number) => void;
 
     // Actions
@@ -252,14 +252,14 @@ export const useIdeStore = create<IdeState>()(
             estimatedCost: null,
             estimatedRent: null,
             estimatedDeployFee: null,
-            deployFeeBps: null,
+            deployFeeLamports: null,
             executeFeeBps: null,
             adminAccount: null,
             solPrice: 150,
             setEstimatedCost: (cost) => set({ estimatedCost: cost }),
             setEstimatedRent: (rent) => set({ estimatedRent: rent }),
             setEstimatedDeployFee: (fee) => set({ estimatedDeployFee: fee }),
-            setFeeConfig: (deployFeeBps, executeFeeBps, adminAccount) => set({ deployFeeBps, executeFeeBps, adminAccount }),
+            setFeeConfig: (deployFeeLamports, executeFeeBps, adminAccount) => set({ deployFeeLamports, executeFeeBps, adminAccount }),
             setSolPrice: (price) => set({ solPrice: price }),
 
             // Action Implementations
