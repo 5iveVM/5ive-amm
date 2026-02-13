@@ -583,10 +583,28 @@ export default function IdePage() {
     try {
       // 1. Encode parameters using WASM helper
       let encodedParams = new Uint8Array([]);
+      let paramCount = 0;
 
       if (paramEncoderRef.current) {
         try {
-          encodedParams = paramEncoderRef.current.encode_execute(selectedFunctionIndex, executionParams);
+          // Wrap raw params with ABI type metadata so the encoder uses correct types
+          const abi = useIdeStore.getState().abi;
+          let typedParams = executionParams;
+          if (abi?.functions) {
+            const functionList = Array.isArray(abi.functions) ? abi.functions : Object.values(abi.functions);
+            const selectedFunc = functionList.find((f: any) => f.index === selectedFunctionIndex);
+            if (selectedFunc?.parameters) {
+              const dataParams = (selectedFunc.parameters as any[]).filter((p: any) => !p.is_account);
+              typedParams = dataParams.map((p: any, idx: number) => {
+                const rawVal = executionParams[idx];
+                if (rawVal === undefined || rawVal === "") return rawVal;
+                const paramType = (p.type || p.param_type || "").toLowerCase();
+                return { value: rawVal, type: paramType };
+              }).filter((v: any) => v !== undefined && v !== "");
+            }
+          }
+          paramCount = typedParams.length;
+          encodedParams = paramEncoderRef.current.encode_execute(selectedFunctionIndex, typedParams);
         } catch (e) {
           appendLog(`Parameter encoding failed: ${e}`, 'error');
           throw e; // Rethrow to stop execution
@@ -748,14 +766,17 @@ export default function IdePage() {
 
         appendLog(`Executing locally... Function #${selectedFunctionIndex}`, 'info');
 
-        // 2. Construct Execution Payload: [Discriminator(9)] + [Index(u32)] + [EncodedParams]
+        // 2. Construct Execution Payload: [Discriminator(9)] + [Index(u32)] + [ParamCount(u32)] + [EncodedParams]
+        // The VM's parse_parameters() expects: [fn_index(u32)] + [param_count(u32)] + [type_id + value]...
         const discriminator = new Uint8Array([9]); // Execute discriminator
         const indexBytes = encodeU32(selectedFunctionIndex);
+        const paramCountBytes = encodeU32(paramCount);
 
-        const payload = new Uint8Array(discriminator.length + indexBytes.length + encodedParams.length);
+        const payload = new Uint8Array(discriminator.length + indexBytes.length + paramCountBytes.length + encodedParams.length);
         payload.set(discriminator, 0);
         payload.set(indexBytes, discriminator.length);
-        payload.set(encodedParams, discriminator.length + indexBytes.length);
+        payload.set(paramCountBytes, discriminator.length + indexBytes.length);
+        payload.set(encodedParams, discriminator.length + indexBytes.length + paramCountBytes.length);
 
         // Artificial Delay for UX (so user sees the spinner)
         await new Promise(resolve => setTimeout(resolve, 500));
