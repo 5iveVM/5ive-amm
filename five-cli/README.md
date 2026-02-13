@@ -31,6 +31,183 @@ The on-chain Five VM program can charge native SOL fees for deploy and execute.
 If fees are enabled, make sure the payer signer has enough lamports and the admin
 account is included in the transaction so the program can credit the fee.
 
+## Program ID Management
+
+The Five VM requires a program ID for on-chain deployments and execution. Five CLI provides multiple ways to specify and store program IDs, with flexible override options.
+
+### Quick Setup
+
+```bash
+# Store program ID in config for current target
+five config set --program-id HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg
+
+# View all stored program IDs
+five config get programIds
+
+# Deploy using stored program ID
+five deploy script.bin
+```
+
+### Resolution Order
+
+Program IDs are resolved in the following priority order:
+
+1. **CLI flag** (highest priority): `--program-id <pubkey>`
+2. **Project config**: `five.toml` [deploy] section
+3. **CLI config**: Stored via `five config set --program-id`
+4. **Environment variable**: `FIVE_PROGRAM_ID`
+5. **SDK default**: Set programmatically or via npm package
+6. **Error**: Clear guidance with setup instructions (lowest priority)
+
+### Configuration Methods
+
+#### 1. Store Globally in CLI Config
+
+Store program IDs per-target network:
+
+```bash
+# Set for current target (devnet by default)
+five config set --program-id HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg
+
+# Set for specific target
+five config set --program-id HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg --target devnet
+five config set --program-id <testnet-id> --target testnet
+five config set --program-id <mainnet-id> --target mainnet
+
+# View all stored IDs
+five config get programIds
+
+# View specific target
+five config get programIds.devnet
+
+# Clear program ID for target
+five config clear --program-id --target devnet
+```
+
+Stored at: `~/.config/five/config.json`
+
+#### 2. Per-Project Configuration
+
+Add program ID to your `five.toml`:
+
+```toml
+[deploy]
+program_id = "HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+cluster = "devnet"
+```
+
+#### 3. Command-Line Override
+
+Pass program ID directly to any on-chain command:
+
+```bash
+five deploy script.bin --program-id <program-id>
+five execute <script-account> -f 0 --program-id <program-id>
+five namespace bind <name> --program-id <program-id>
+```
+
+#### 4. Environment Variable
+
+Set globally for your session:
+
+```bash
+export FIVE_PROGRAM_ID=HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg
+five deploy script.bin              # Uses env var
+five execute <script-account> -f 0  # Uses env var
+```
+
+### Complete Workflow Example
+
+```bash
+# 1. Initialize CLI (if first time)
+five config init
+
+# 2. Set program IDs for each network
+five config set --program-id ABC... --target devnet
+five config set --program-id DEF... --target testnet
+five config set --program-id GHI... --target mainnet
+
+# 3. View current config
+five config get
+
+# 4. Compile your script
+five compile script.v
+
+# 5. Deploy to devnet (uses stored devnet program ID)
+five deploy script.bin --target devnet
+
+# 6. Switch target and deploy to testnet
+five deploy script.bin --target testnet
+# (uses stored testnet program ID)
+
+# 7. Execute on devnet (uses program ID from step 5)
+five execute <script-account> -f 0
+```
+
+### Troubleshooting
+
+#### Error: "Program ID required for deployment"
+
+This means no program ID was found in the resolution chain. Fix with:
+
+```bash
+# Option 1: Set in config (recommended)
+five config set --program-id <PROGRAM_ID>
+
+# Option 2: Pass directly
+five deploy script.bin --program-id <PROGRAM_ID>
+
+# Option 3: Use environment variable
+export FIVE_PROGRAM_ID=<PROGRAM_ID>
+
+# Option 4: Add to five.toml
+[deploy]
+program_id = "<PROGRAM_ID>"
+```
+
+#### How to Find Your Program ID
+
+If you've already deployed Five VM to Solana:
+
+```bash
+# Check program account address from deployment
+solana address -k five-keypair.json
+
+# Or view from your transaction
+solana confirm <transaction-signature> -v
+```
+
+#### Multi-Network Workflows
+
+Different networks require different program IDs:
+
+```bash
+# Devnet
+five config set --program-id <devnet-id> --target devnet
+five deploy script.bin --target devnet
+
+# Testnet
+five config set --program-id <testnet-id> --target testnet
+five deploy script.bin --target testnet
+
+# Mainnet (use with caution)
+five config set --program-id <mainnet-id> --target mainnet
+five deploy script.bin --target mainnet
+```
+
+#### View Current Configuration
+
+```bash
+# View all config
+five config get
+
+# View only program IDs
+five config get programIds
+
+# View specific target
+five config get programIds.devnet
+```
+
 ## Multi-File Compilation (Module System)
 
 ### Automatic Module Discovery
