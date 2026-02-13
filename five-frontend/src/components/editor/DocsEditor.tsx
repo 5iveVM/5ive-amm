@@ -13,9 +13,17 @@ interface DocsEditorProps {
     code: string;
     filename?: string;
     height?: string;
+    language?: string;
+    showRunControls?: boolean;
 }
 
-export default function DocsEditor({ code, filename = "example.five", height = "300px" }: DocsEditorProps) {
+export default function DocsEditor({
+    code,
+    filename = "example.five",
+    height = "300px",
+    language = "five",
+    showRunControls = true
+}: DocsEditorProps) {
     const [mounted, setMounted] = useState(false);
     const [isRunning, setIsRunning] = useState(false);
     const [status, setStatus] = useState("Ready");
@@ -108,41 +116,43 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                     <span className="truncate text-xs text-rose-pine-muted font-mono">{filename}</span>
                 </div>
 
-                <div className="flex min-w-0 items-center gap-2">
-                    <span
-                        className={cn(
-                            "hidden md:inline truncate text-[11px] font-medium",
-                            statusKind === "error" ? "text-rose-pine-love" :
-                                statusKind === "success" ? "text-rose-pine-foam" :
-                                    statusKind === "running" ? "text-rose-pine-gold" :
-                                        "text-rose-pine-muted"
-                        )}
-                        aria-live="polite"
-                    >
-                        {status}
-                    </span>
-                    <button
-                        onClick={handleBuild}
-                        disabled={!isReady || isRunning}
-                        className={cn(
-                            "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
-                            !isReady
-                                ? "opacity-50 cursor-not-allowed bg-white/5 text-rose-pine-muted"
-                                : isRunning
-                                    ? "bg-rose-pine-surface text-rose-pine-subtle cursor-wait"
-                                    : "bg-rose-pine-love text-rose-pine-base hover:bg-rose-pine-love/90 hover:scale-105 active:scale-95 shadow-lg shadow-rose-pine-love/20"
-                        )}
-                    >
-                        {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Hammer size={10} fill="currentColor" />}
-                        {isRunning ? "Building..." : "Build"}
-                    </button>
-                </div>
+                {showRunControls && (
+                    <div className="flex min-w-0 items-center gap-2">
+                        <span
+                            className={cn(
+                                "hidden md:inline truncate text-[11px] font-medium",
+                                statusKind === "error" ? "text-rose-pine-love" :
+                                    statusKind === "success" ? "text-rose-pine-foam" :
+                                        statusKind === "running" ? "text-rose-pine-gold" :
+                                            "text-rose-pine-muted"
+                            )}
+                            aria-live="polite"
+                        >
+                            {status}
+                        </span>
+                        <button
+                            onClick={handleBuild}
+                            disabled={!isReady || isRunning}
+                            className={cn(
+                                "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
+                                !isReady
+                                    ? "opacity-50 cursor-not-allowed bg-white/5 text-rose-pine-muted"
+                                    : isRunning
+                                        ? "bg-rose-pine-surface text-rose-pine-subtle cursor-wait"
+                                        : "bg-rose-pine-love text-rose-pine-base hover:bg-rose-pine-love/90 hover:scale-105 active:scale-95 shadow-lg shadow-rose-pine-love/20"
+                            )}
+                        >
+                            {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Hammer size={10} fill="currentColor" />}
+                            {isRunning ? "Building..." : "Build"}
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div style={{ height }} className="relative shrink-0 group">
                 <MonacoEditor
                     height="100%"
-                    defaultLanguage="five"
+                    defaultLanguage={language}
                     value={editorCode}
                     onChange={(val) => setEditorCode(val || "")}
                     theme={theme === 'dark' ? "rose-pine-dark" : "rose-pine-light"}

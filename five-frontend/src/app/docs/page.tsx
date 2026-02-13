@@ -2,9 +2,11 @@
 
 import { GlassCard } from "@/components/ui/glass-card";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { ArrowRight, Book, Code, Cpu, GitBranch, Link2, Shield, Terminal } from "lucide-react";
+import { ArrowRight, Book, Code, Cpu, GitBranch, Link2, Shield, Terminal, Wrench } from "lucide-react";
 import DocsEditor from "@/components/editor/DocsEditor";
+import { CodeBlock } from "@/components/ui/code-block";
 import { useState } from "react";
+import Link from "next/link";
 
 const DATA_TYPES = [
     {
@@ -116,6 +118,55 @@ pub increment(counter: Counter @mut, authority: account @signer) {
     counter.value = counter.value + 1;
 }`;
 
+const SDK_INSTALL_SNIPPET = `npm install @5ive-tech/sdk @solana/web3.js`;
+
+const SDK_INTERACTION_SNIPPET = `import { readFile } from "node:fs/promises";
+import { Connection, PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransaction } from "@solana/web3.js";
+import { FiveSDK, FiveProgram } from "@5ive-tech/sdk";
+
+const connection = new Connection(process.env.RPC_URL!, "confirmed");
+const fiveFileText = await readFile("./build/counter.five", "utf8");
+const { abi } = await FiveSDK.loadFiveFile(fiveFileText);
+
+const program = FiveProgram.fromABI(process.env.SCRIPT_ACCOUNT!, abi, {
+  fiveVMProgramId: process.env.FIVE_VM_PROGRAM_ID!,
+  vmStateAccount: process.env.FIVE_VM_STATE!,
+  feeReceiverAccount: process.env.FIVE_FEE_RECEIVER!,
+});
+
+const serializedIx = await program
+  .function("transfer")
+  .accounts({
+    from: fromTokenAccount,
+    to: toTokenAccount,
+    authority: wallet.publicKey,
+  })
+  .args({ amount: 100 })
+  .instruction();
+
+const ix = new TransactionInstruction({
+  programId: new PublicKey(serializedIx.programId),
+  keys: serializedIx.keys.map((key) => ({
+    pubkey: new PublicKey(key.pubkey),
+    isSigner: key.isSigner,
+    isWritable: key.isWritable,
+  })),
+  data: Buffer.from(serializedIx.data, "base64"),
+});
+
+const tx = new Transaction().add(ix);
+await sendAndConfirmTransaction(connection, tx, [wallet], { skipPreflight: false });`;
+
+const CLI_INSTALL_SNIPPET = `npm install -g @5ive-tech/cli`;
+
+const CLI_WORKFLOW_SNIPPET = `5ive init my-app
+cd my-app
+5ive build
+5ive test
+5ive deploy ./build/my-app.five --target devnet`;
+
+
+
 // Verified syntax: external function import from a 5IVE bytecode account.
 const EXTERNAL_IMPORT_SNIPPET = `use "11111111111111111111111111111111"::{transfer};
 
@@ -141,6 +192,41 @@ const INTERFACE_CPI_SNIPPET = `interface SPLToken @program("TokenkegQfeZyiNwAJbN
 
 pub cpi_transfer(from: account @mut, to: account @mut, authority: account @signer) {
     SPLToken.transfer(from, to, authority, 50);
+}`;
+
+const ANCHOR_INTERFACE_SNIPPET = `@anchor
+interface AnchorToken @program("EXYTTMwHkRziMdQ1guGGrThxzX6dJDvhJBzz57JGKmsw") {
+    mint_to(
+        mint: Account,
+        to: Account,
+        authority: Account,
+        amount: u64
+    );
+}
+
+pub mint_tokens(
+    mint: account @mut,
+    to: account @mut,
+    authority: account @signer
+) {
+    AnchorToken.mint_to(mint, to, authority, 1000);
+}`;
+
+const SERIALIZER_INTERFACE_SNIPPET = `interface AnchorTokenComparison @program("EXYTTMwHkRziMdQ1guGGrThxzX6dJDvhJBzz57JGKmsw") @serializer(borsh) {
+    mint_to @discriminator([0xF1, 0x22, 0x30, 0xBA, 0x25, 0xB3, 0x7B, 0xC0]) (
+        mint: Account,
+        destination: Account,
+        authority: Account,
+        amount: u64
+    );
+}
+
+pub mint_manual(
+    mint: account @mut,
+    dest: account @mut,
+    auth: account @signer
+) {
+    AnchorTokenComparison.mint_to(mint, dest, auth, 1000);
 }`;
 
 const SECURITY_SNIPPET = `account Vault {
@@ -211,7 +297,7 @@ function PathDecisionSection() {
             <GlassCard className="p-5 border-l-4 border-l-rose-pine-iris">
                 <h4 className="font-semibold text-rose-pine-text">External bytecode call (non-CPI)</h4>
                 <p className="text-sm text-rose-pine-subtle mt-2">
-                    Use address imports and call imported public functions directly through 5IVE's external composition path (non-CPI).
+                    Use address imports and call imported public functions directly through 5IVE&apos;s external composition path (non-CPI).
                 </p>
             </GlassCard>
             <GlassCard className="p-5 border-l-4 border-l-rose-pine-foam">
@@ -230,16 +316,16 @@ export default function DocsPage() {
         <div className="min-h-screen bg-rose-pine-base text-rose-pine-text font-sans selection:bg-rose-pine-love/30 flex flex-col">
             <header className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center justify-between px-6 py-3 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] w-[90%] max-w-5xl">
                 <div className="flex items-center gap-4">
-                    <a href="/" className="font-black text-xl tracking-tighter bg-gradient-to-b from-white via-[#c4a7e7] to-[#eb6f92] bg-clip-text text-transparent">
+                    <Link href="/" className="font-black text-xl tracking-tighter bg-gradient-to-b from-white via-[#c4a7e7] to-[#eb6f92] bg-clip-text text-transparent">
                         5IVE
-                    </a>
+                    </Link>
                     <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-rose-pine-surface border border-rose-pine-hl-low text-[10px] font-bold uppercase tracking-wider text-rose-pine-subtle">
                         DOCS
                     </span>
                 </div>
 
                 <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-rose-pine-muted">
-                    <a href="/" className="hover:text-rose-pine-text transition-colors">Home</a>
+                    <Link href="/" className="hover:text-rose-pine-text transition-colors">Home</Link>
                     <a href="#quick-start" className="hover:text-rose-pine-text transition-colors">Quick Start</a>
                     <a href="/ide" className="hover:text-rose-pine-text transition-colors">IDE</a>
                 </nav>
@@ -259,15 +345,15 @@ export default function DocsPage() {
                 <aside className="hidden lg:block sticky top-24 h-[calc(100vh-8rem)] overflow-y-auto">
                     <nav className="space-y-6">
                         <div className="space-y-2">
-                            <h4 className="text-xs uppercase tracking-widest text-rose-pine-muted font-bold">Getting Started</h4>
+                            <h4 className="text-xs uppercase tracking-widest text-rose-pine-muted font-bold">Overview</h4>
                             <div className="flex flex-col space-y-1">
-                                <a href="#introduction" className="flex items-center gap-2 text-sm text-rose-pine-text/80 hover:text-rose-pine-text py-1"><Book className="w-3 h-3" /> What 5IVE Is</a>
+                                <a href="#dsl" className="flex items-center gap-2 text-sm text-rose-pine-text/80 hover:text-rose-pine-text py-1"><Book className="w-3 h-3" /> Introduction</a>
                                 <a href="#quick-start" className="flex items-center gap-2 text-sm text-rose-pine-text/80 hover:text-rose-pine-text py-1"><Terminal className="w-3 h-3" /> Quick Start</a>
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <h4 className="text-xs uppercase tracking-widest text-rose-pine-muted font-bold">Language</h4>
+                            <h4 className="text-xs uppercase tracking-widest text-rose-pine-muted font-bold">DSL Guide</h4>
                             <div className="flex flex-col space-y-1">
                                 <a href="#language-essentials" className="flex items-center gap-2 text-sm text-rose-pine-text/80 hover:text-rose-pine-text py-1"><Code className="w-3 h-3" /> Essentials</a>
                                 <a href="#imports-external" className="flex items-center gap-2 text-sm text-rose-pine-text/80 hover:text-rose-pine-text py-1"><Link2 className="w-3 h-3" /> Imports + External Calls</a>
@@ -282,11 +368,19 @@ export default function DocsPage() {
                                 <a href="#execution-model" className="flex items-center gap-2 text-sm text-rose-pine-text/80 hover:text-rose-pine-text py-1"><Cpu className="w-3 h-3" /> Execution + Cost</a>
                             </div>
                         </div>
+
+                        <div className="space-y-2">
+                            <h4 className="text-xs uppercase tracking-widest text-rose-pine-muted font-bold">Toolchain</h4>
+                            <div className="flex flex-col space-y-1">
+                                <a href="#sdk" className="flex items-center gap-2 text-sm text-rose-pine-text/80 hover:text-rose-pine-text py-1"><Code className="w-3 h-3" /> 5ive SDK</a>
+                                <a href="#cli" className="flex items-center gap-2 text-sm text-rose-pine-text/80 hover:text-rose-pine-text py-1"><Terminal className="w-3 h-3" /> 5ive CLI</a>
+                            </div>
+                        </div>
                     </nav>
                 </aside>
 
                 <div className="space-y-16">
-                    <section id="introduction" className="space-y-6">
+                    <section id="dsl" className="space-y-6">
                         <div className="space-y-2">
                             <h1 className="text-4xl font-black tracking-tighter text-rose-pine-text">5IVE DSL</h1>
                             <p className="text-xl text-rose-pine-muted font-light">Tear down the mainnet wall. Build the moat.</p>
@@ -302,6 +396,8 @@ export default function DocsPage() {
                             <PathDecisionSection />
                         </GlassCard>
                     </section>
+
+
 
                     <section id="quick-start" className="space-y-6">
                         <div className="flex items-center gap-3">
@@ -355,7 +451,7 @@ export default function DocsPage() {
 
                         <GlassCard className="p-6 space-y-4">
                             <p className="text-sm text-rose-pine-subtle">
-                                Use <code className="text-rose-pine-iris">use</code> with a deployed 5IVE bytecode account address. Imported functions can be called unqualified through 5IVE's non-CPI external-call path.
+                                Use <code className="text-rose-pine-iris">use</code> with a deployed 5IVE bytecode account address. Imported functions can be called unqualified through 5IVE&apos;s non-CPI external-call path.
                                 For non-5IVE programs like SPL Token, use the interface/CPI path below.
                             </p>
                             <DocsEditor filename="external_import_non_cpi.v" code={EXTERNAL_IMPORT_SNIPPET} height="280px" />
@@ -383,10 +479,29 @@ export default function DocsPage() {
                         </div>
 
                         <GlassCard className="p-6 space-y-4">
+                            <h4 className="font-semibold text-rose-pine-text">Standard Interface</h4>
                             <p className="text-sm text-rose-pine-subtle">
                                 Interfaces declare non-5IVE program methods and discriminators. Use this path when true Solana CPI is required.
                             </p>
                             <DocsEditor filename="interface_cpi.v" code={INTERFACE_CPI_SNIPPET} height="320px" />
+                        </GlassCard>
+
+                        <GlassCard className="p-6 space-y-4 border-l-4 border-l-rose-pine-love">
+                            <h4 className="font-semibold text-rose-pine-love">Anchor Interface</h4>
+                            <p className="text-sm text-rose-pine-subtle">
+                                Use <code className="text-rose-pine-iris">@anchor</code> to automatically handle 8-byte discriminators and
+                                <code className="text-rose-pine-iris">Account</code> type mappings for Anchor programs.
+                            </p>
+                            <DocsEditor filename="anchor_interface.v" code={ANCHOR_INTERFACE_SNIPPET} height="320px" />
+                        </GlassCard>
+
+                        <GlassCard className="p-6 space-y-4 border-l-4 border-l-rose-pine-gold">
+                            <h4 className="font-semibold text-rose-pine-gold">Custom Serializers</h4>
+                            <p className="text-sm text-rose-pine-subtle">
+                                Use <code className="text-rose-pine-iris">@serializer(borsh)</code> or <code className="text-rose-pine-iris">@serializer(bincode)</code>
+                                to control parameter encoding. You can also specify explicit discriminator bytes.
+                            </p>
+                            <DocsEditor filename="serializer_interface.v" code={SERIALIZER_INTERFACE_SNIPPET} height="320px" />
                         </GlassCard>
                     </section>
 
@@ -434,6 +549,60 @@ export default function DocsPage() {
                             <a href="/ide" className="inline-flex items-center gap-2 text-rose-pine-foam font-semibold hover:gap-3 transition-all">
                                 Try snippets in the IDE <ArrowRight size={16} />
                             </a>
+                        </GlassCard>
+                    </section>
+
+                    <section id="sdk" className="space-y-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-rose-pine-iris/10 text-rose-pine-iris"><Code className="w-6 h-6" /></div>
+                            <h2 className="text-2xl font-bold text-rose-pine-text">5ive SDK</h2>
+                        </div>
+                        <GlassCard className="p-6 space-y-4">
+                            <p className="text-sm text-rose-pine-subtle">
+                                Use the SDK to load <code className="text-rose-pine-iris">.five</code> artifacts, build typed instruction payloads, and send transactions with explicit account wiring.
+                            </p>
+                            <div className="space-y-2">
+                                <h3 className="text-sm font-semibold text-rose-pine-foam uppercase tracking-wider">Install</h3>
+                                <CodeBlock
+                                    code={SDK_INSTALL_SNIPPET}
+                                    language="shell"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-sm font-semibold text-rose-pine-foam uppercase tracking-wider">Interaction Flow</h3>
+                                <CodeBlock
+                                    filename="sdk_interaction.ts"
+                                    code={SDK_INTERACTION_SNIPPET}
+                                    language="typescript"
+                                />
+                            </div>
+                        </GlassCard>
+                    </section>
+
+                    <section id="cli" className="space-y-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-rose-pine-foam/10 text-rose-pine-foam"><Terminal className="w-6 h-6" /></div>
+                            <h2 className="text-2xl font-bold text-rose-pine-text">5ive CLI</h2>
+                        </div>
+                        <GlassCard className="p-6 space-y-4">
+                            <p className="text-sm text-rose-pine-subtle">
+                                Use the CLI for project scaffolding, build/test loops, and deployment. Keep the command surface focused on stable workflows.
+                            </p>
+                            <div className="space-y-2">
+                                <h3 className="text-sm font-semibold text-rose-pine-foam uppercase tracking-wider">Install</h3>
+                                <CodeBlock
+                                    code={CLI_INSTALL_SNIPPET}
+                                    language="shell"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-sm font-semibold text-rose-pine-foam uppercase tracking-wider">Core Workflow</h3>
+                                <CodeBlock
+                                    filename="cli_workflow.sh"
+                                    code={CLI_WORKFLOW_SNIPPET}
+                                    language="shell"
+                                />
+                            </div>
                         </GlassCard>
                     </section>
                 </div>
