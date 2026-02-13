@@ -131,26 +131,26 @@ export const deployCommand: CommandDefinition = {
   arguments: [
     {
       name: 'bytecode',
-      description: 'Five VM bytecode file (.bin)',
+      description: 'Five VM artifact file (.five or .bin)',
       required: true
     }
   ],
 
   examples: [
     {
-      command: 'five deploy program.bin',
+      command: 'five deploy program.five',
       description: 'Deploy to configured target (uses config defaults)'
     },
     {
-      command: 'five deploy program.bin --target mainnet',
+      command: 'five deploy program.five --target mainnet',
       description: 'Deploy to mainnet (overrides config)'
     },
     {
-      command: 'five deploy program.bin --keypair deployer.json --target devnet',
+      command: 'five deploy program.five --keypair deployer.json --target devnet',
       description: 'Deploy to devnet with specific keypair'
     },
     {
-      command: 'five deploy program.bin --dry-run --format json',
+      command: 'five deploy program.five --dry-run --format json',
       description: 'Simulate deployment with JSON output'
     },
     {

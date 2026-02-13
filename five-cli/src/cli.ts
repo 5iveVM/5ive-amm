@@ -61,7 +61,7 @@ ${section('Quick Start')}
 ${commandExample('five init my-project', 'Create a new Five project')}
 ${commandExample('five compile script.v', 'Compile Five source to bytecode')}
 ${commandExample('five execute script.v --local', 'Local WASM execution')}
-${commandExample('five deploy build/script.bin --target mainnet', 'Deploy to Solana mainnet')}
+${commandExample('five deploy build/script.five --target mainnet', 'Deploy to Solana mainnet')}
 ${commandExample('five help <command>', 'Get help for specific command')}
 `;
       });
@@ -221,20 +221,31 @@ ${commandExample('five help <command>', 'Get help for specific command')}
    */
   async run(argv: string[]): Promise<void> {
     try {
-      // Handle special cases for help and version
-      if (argv.includes('--help') || argv.includes('-h')) {
-        this.program.help();
-        return;
-      }
-
       // Show welcome message if no command provided
       if (argv.length <= 2) {
         this.program.outputHelp();
         return;
       }
 
-      // Check if command exists
+      // Route `five <command> --help` to command-specific help
       const commandName = argv[2];
+      const isCommandHelpRequest =
+        Boolean(commandName) &&
+        !commandName.startsWith('-') &&
+        (argv[3] === '--help' || argv[3] === '-h');
+
+      if (isCommandHelpRequest && getCommand(commandName)) {
+        await this.program.parseAsync([argv[0], argv[1], 'help', commandName]);
+        return;
+      }
+
+      // Top-level help (e.g. `five --help`)
+      if (commandName === '--help' || commandName === '-h') {
+        this.program.help();
+        return;
+      }
+
+      // Check if command exists
       if (commandName && !commandName.startsWith('-')) {
         const command = getCommand(commandName);
         if (!command) {

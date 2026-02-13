@@ -18,7 +18,7 @@ export const compileCommand: CommandDefinition = {
   options: [
     {
       flags: '-o, --output <file>',
-      description: 'Output file path (default: <input>.bin)',
+      description: 'Output file path (default: <input>.five)',
       required: false
     },
     {

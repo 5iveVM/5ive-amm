@@ -1,412 +1,228 @@
 # FiveProgram Usage Guide
 
-## Overview
+Detailed guide for developers building 5ive DSL contracts and interacting with deployed script accounts via `five-sdk`.
 
-FiveProgram provides a simple, type-safe interface for interacting with Five VM scripts on Solana. It handles all the complexity of parameter encoding, account configuration, and instruction building.
+## Preconditions
 
-## Basic Setup
+1. You have a compiled `.five` artifact from `five-cli`.
+2. You have a deployed script account address.
+3. You have a resolvable Five VM program ID.
 
-### 1. Load Your Script's ABI
+## Program ID Requirement
 
-```typescript
-import { FiveProgram } from '@five-vm/sdk';
+On-chain operations require a resolved Five VM program ID.
+Resolution precedence:
+1. Explicit `fiveVMProgramId`
+2. `FiveSDK.setDefaultProgramId(...)`
+3. `FIVE_PROGRAM_ID` env var
+4. Release-baked default
+
+```ts
+import { FiveSDK } from 'five-sdk';
+
+FiveSDK.setDefaultProgramId('YourFiveVMProgramIdBase58');
+```
+
+## ABI Sources
+
+### Preferred: `.five` artifact
+
+```ts
 import fs from 'fs';
+import { FiveSDK } from 'five-sdk';
 
-// Load the compiled ABI
-const abi = JSON.parse(fs.readFileSync('counter.abi.json', 'utf-8'));
+const fiveFileText = fs.readFileSync('build/my-program.five', 'utf-8');
+const { abi } = await FiveSDK.loadFiveFile(fiveFileText);
 ```
 
-### 2. Create a FiveProgram Instance
+### Optional: ABI JSON
 
-```typescript
-// Minimal configuration
-const program = FiveProgram.fromABI(scriptAccountAddress, abi);
+```ts
+import fs from 'fs';
+const abi = JSON.parse(fs.readFileSync('my-program.abi.json', 'utf-8'));
+```
 
-// Full configuration (recommended)
-const program = FiveProgram.fromABI(scriptAccountAddress, abi, {
-  // Five VM Program ID (required for on-chain execution)
-  fiveVMProgramId: 'HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k',
+## Create Program Client
 
-  // VM State account (optional - will be derived if not provided)
-  vmStateAccount: '1p5JMJ475unWyiCJuR96V4LewG1qbsS4J1Gzw6u6zGt',
+```ts
+import { FiveProgram } from 'five-sdk';
 
-  // Fee receiver/admin account (receives transaction fees)
-  feeReceiverAccount: payerAddress.toBase58(),
-
-  // Enable debug logging (optional)
-  debug: false
+const program = FiveProgram.fromABI('ScriptAccountBase58', abi, {
+  fiveVMProgramId: 'YourFiveVMProgramIdBase58',
+  vmStateAccount: 'VmStatePdaBase58',
+  feeReceiverAccount: 'FeeReceiverBase58',
+  debug: false,
 });
 ```
 
-## Account Configuration
+## Core Interaction Flow
 
-### Three Required Accounts
-
-1. **Five VM Program ID** - The deployed Five VM Solana program
-   - Mainnet: `7wVkyXsUiRcZtAHGZcXbTPCXnE7DBP6juN35H6FEUUZo`
-   - Devnet: Varies by deployment
-   - Can be overridden via options
-
-2. **VM State Account** - The Five VM state PDA
-   - Stores global VM state and configuration
-   - Can be derived automatically from program ID
-   - Can be overridden if using custom derivation
-
-3. **Fee Receiver Account** - Admin account for transaction fees
-   - Receives fees from executed transactions
-   - Usually the payer address
-   - Required for proper fee collection
-
-### Setting Accounts
-
-#### At Initialization
-
-```typescript
-const program = FiveProgram.fromABI(scriptAccount, abi, {
-  fiveVMProgramId: 'HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k',
-  vmStateAccount: 'VMStatePDAAddress...',
-  feeReceiverAccount: 'PayerAddress...'
-});
-```
-
-#### Dynamically After Creation
-
-```typescript
-// Update VM State
-program.setVMStateAccount('NewVMStatePDA...');
-
-// Update Fee Receiver
-program.setFeeReceiverAccount('NewPayerAddress...');
-
-// Query current values
-const vmState = program.getVMStateAccount();
-const feeReceiver = program.getFeeReceiverAccount();
-const programId = program.getFiveVMProgramId();
-```
-
-## Building Instructions
-
-### Basic Function Call
-
-```typescript
-const instructionData = await program
-  .function('increment')
-  .accounts({
-    counter: counterAccountAddress,
-    owner: ownerAddress
-  })
-  .instruction();
-```
-
-### Function with Data Parameters
-
-```typescript
-const instructionData = await program
+```ts
+const ixData = await program
   .function('add_amount')
   .accounts({
-    counter: counterAccountAddress,
-    owner: ownerAddress
+    counter: counterPubkey,
+    owner: ownerPubkey,
   })
   .args({
-    amount: 100  // Data parameter
+    amount: 100,
   })
   .instruction();
 ```
 
-### Convert to TransactionInstruction
+Then convert and send with your Solana client.
 
-```typescript
-import { TransactionInstruction, PublicKey } from '@solana/web3.js';
-
-const ix = new TransactionInstruction({
-  programId: new PublicKey(instructionData.programId),
-  keys: instructionData.keys.map((key) => ({
-    pubkey: new PublicKey(key.pubkey),
-    isSigner: key.isSigner,
-    isWritable: key.isWritable
-  })),
-  data: Buffer.from(instructionData.data, 'base64')
-});
-```
-
-### Send Transaction
-
-```typescript
-import { Connection, Transaction } from '@solana/web3.js';
-
-const connection = new Connection('http://localhost:8899');
-const tx = new Transaction().add(ix);
-
-const signature = await connection.sendTransaction(tx, [signer], {
-  skipPreflight: true,
-  maxRetries: 3
-});
-
-await connection.confirmTransaction(signature, 'confirmed');
-```
-
-## Complete Example
-
-```typescript
-import { FiveProgram } from '@five-vm/sdk';
+```ts
 import {
   Connection,
-  Keypair,
   PublicKey,
   Transaction,
-  TransactionInstruction
+  TransactionInstruction,
+  sendAndConfirmTransaction,
 } from '@solana/web3.js';
-import fs from 'fs';
 
-async function executeCounterIncrement() {
-  // 1. Load ABI
-  const abi = JSON.parse(
-    fs.readFileSync('counter.abi.json', 'utf-8')
-  );
+const connection = new Connection('http://127.0.0.1:8899', 'confirmed');
 
-  // 2. Setup connection and keypairs
-  const connection = new Connection('http://localhost:8899');
-  const payer = Keypair.fromSecretKey(/* secret key bytes */);
-
-  // 3. Create FiveProgram with all accounts configured
-  const program = FiveProgram.fromABI(
-    'GozdrELSNrs2emihAKxVQtcHzvAjz6CZNeDF4vTxfWFm', // Script account
-    abi,
-    {
-      fiveVMProgramId: 'HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k',
-      vmStateAccount: '1p5JMJ475unWyiCJuR96V4LewG1qbsS4J1Gzw6u6zGt',
-      feeReceiverAccount: payer.publicKey.toBase58()
-    }
-  );
-
-  // 4. Build instruction
-  const instructionData = await program
-    .function('increment')
-    .accounts({
-      counter: 'CounterAccountAddress...',
-      owner: payer.publicKey.toBase58()
-    })
-    .instruction();
-
-  // 5. Convert to Solana instruction
-  const ix = new TransactionInstruction({
-    programId: new PublicKey(instructionData.programId),
-    keys: instructionData.keys.map((key) => ({
-      pubkey: new PublicKey(key.pubkey),
-      isSigner: key.isSigner,
-      isWritable: key.isWritable
-    })),
-    data: Buffer.from(instructionData.data, 'base64')
-  });
-
-  // 6. Send transaction
-  const tx = new Transaction().add(ix);
-  const signature = await connection.sendTransaction(tx, [payer], {
-    skipPreflight: true
-  });
-
-  console.log('Transaction signature:', signature);
-  await connection.confirmTransaction(signature, 'confirmed');
-}
-
-executeCounterIncrement().catch(console.error);
-```
-
-## Best Practices
-
-### 1. Always Configure Fee Receiver
-```typescript
-// ✅ Good - Fee receiver configured
-const program = FiveProgram.fromABI(scriptAccount, abi, {
-  feeReceiverAccount: payer.publicKey.toBase58()
+const ix = new TransactionInstruction({
+  programId: new PublicKey(ixData.programId),
+  keys: ixData.keys.map((k) => ({
+    pubkey: new PublicKey(k.pubkey),
+    isSigner: k.isSigner,
+    isWritable: k.isWritable,
+  })),
+  data: Buffer.from(ixData.data, 'base64'),
 });
 
-// ❌ Bad - No fee receiver
-const program = FiveProgram.fromABI(scriptAccount, abi);
-```
-
-### 2. Use Configured Accounts at Initialization
-```typescript
-// ✅ Good - All accounts set at init
-const program = FiveProgram.fromABI(scriptAccount, abi, {
-  fiveVMProgramId: programId,
-  vmStateAccount: vmState,
-  feeReceiverAccount: payer.publicKey.toBase58()
+const tx = new Transaction().add(ix);
+const signature = await sendAndConfirmTransaction(connection, tx, [payer], {
+  skipPreflight: false,
+  commitment: 'confirmed',
 });
 
-// ⚠️ Less ideal - Dynamic updates
-const program = FiveProgram.fromABI(scriptAccount, abi);
-program.setVMStateAccount(vmState);
-program.setFeeReceiverAccount(payer.publicKey.toBase58());
-```
+const txDetails = await connection.getTransaction(signature, {
+  maxSupportedTransactionVersion: 0,
+  commitment: 'confirmed',
+});
 
-### 3. Handle Account Metadata
-```typescript
-// ✅ Good - Let FiveProgram infer from ABI
-const ix = await program
-  .function('initialize')
-  .accounts({
-    counter: counterAccount,
-    owner: ownerAddress
-    // SystemProgram auto-injected for @init
-  })
-  .instruction();
-
-// ❌ Avoid - Manual account metadata
-// FiveProgram handles this automatically
-```
-
-### 4. Error Handling
-```typescript
-try {
-  const ix = await program
-    .function('increment')
-    .accounts({ counter, owner })
-    .instruction();
-} catch (error) {
-  if (error instanceof Error) {
-    console.error('Failed to build instruction:', error.message);
-  }
+if (txDetails?.meta?.err) {
+  throw new Error(`Execution failed: ${JSON.stringify(txDetails.meta.err)}`);
 }
+
+console.log('computeUnits', txDetails?.meta?.computeUnitsConsumed);
 ```
+
+## Multi-file DSL Function Names
+
+Function names must match ABI exactly.
+In multi-file/module projects, names may be qualified (for example `module::function`).
+
+```ts
+console.log(program.getFunctions());
+```
+
+If ABI contains `math::add`, calling `.function('add')` will fail.
+
+## Account Wiring Behavior
+
+`FunctionBuilder` handles:
+- system account auto-injection when required by ABI constraints
+- PDA account resolution from ABI seed metadata
+- signer/writable flags from ABI account attributes
+
+You must still provide all required business accounts and args.
 
 ## Troubleshooting
 
-### "Function not found in ABI"
-```typescript
-// Check available functions
-console.log(program.getFunctions());
+### `No program ID resolved for Five VM`
+Provide explicit `fiveVMProgramId`, set SDK default, or set `FIVE_PROGRAM_ID`.
 
-// Verify function name matches exactly
-const ix = await program
-  .function('increment') // Must match ABI exactly
-  .accounts({ counter, owner })
-  .instruction();
-```
+### `Function '<name>' not found in ABI`
+Use exact ABI function name (including `module::` prefix when present).
 
-### "Missing required account"
-```typescript
-// Ensure all function parameters are provided
-const ix = await program
-  .function('transfer')
-  .accounts({
-    from: fromAccount,      // Required
-    to: toAccount,          // Required
-    // Don't forget any accounts!
-  })
-  .instruction();
-```
+### `Missing required account '<name>'`
+Add the missing account to `.accounts(...)`.
 
-### "Missing required argument"
-```typescript
-// Provide all data parameters
-const ix = await program
-  .function('add_amount')
-  .accounts({ counter, owner })
-  .args({
-    amount: 100  // Required data parameter
-  })
-  .instruction();
-```
+### `Missing required argument '<name>'`
+Add the missing argument to `.args(...)`.
 
-## API Reference
+## API Reference (Current Signatures)
 
 ### FiveProgram
 
-```typescript
+```ts
 class FiveProgram {
-  // Factory methods
-  static fromABI(scriptAccount: string, abi: ScriptABI, options?: FiveProgramOptions): FiveProgram
-  static load(fetcher: AccountFetcher, scriptAccount: string, options?: FiveProgramOptions): Promise<FiveProgram>
+  static fromABI(
+    scriptAccount: string,
+    abi: ScriptABI,
+    options?: FiveProgramOptions
+  ): FiveProgram;
 
-  // Function access
-  function(functionName: string): FunctionBuilder
-  getFunctions(): string[]
-  getFunction(name: string): FunctionDefinition | undefined
-  getAllFunctions(): FunctionDefinition[]
+  static load(
+    scriptAddress: string,
+    connection: any,
+    options?: FiveProgramOptions
+  ): Promise<FiveProgram>;
 
-  // Type generation
-  generateTypes(): string
+  function(functionName: string): FunctionBuilder;
+  account(structName: string): ProgramAccount;
 
-  // Account accessors
-  getScriptAccount(): string
-  getFiveVMProgramId(): string
-  getVMStateAccount(): string | undefined
-  getFeeReceiverAccount(): string | undefined
+  getFunctions(): string[];
+  getFunction(name: string): FunctionDefinition | undefined;
+  getAllFunctions(): FunctionDefinition[];
 
-  // Account setters (fluent)
-  setVMStateAccount(account: string): this
-  setFeeReceiverAccount(account: string): this
+  generateTypes(): string;
 
-  // Accessors
-  getABI(): ScriptABI
-  getOptions(): FiveProgramOptions
+  getScriptAccount(): string;
+  getFiveVMProgramId(): string;
+  getVMStateAccount(): string | undefined;
+  getFeeReceiverAccount(): string | undefined;
+
+  setVMStateAccount(account: string): this;
+  setFeeReceiverAccount(account: string): this;
+
+  findAddress(
+    seeds: (string | Uint8Array | Buffer)[],
+    programId?: string
+  ): Promise<[string, number]>;
+
+  getABI(): ScriptABI;
+  getOptions(): FiveProgramOptions;
 }
 ```
 
 ### FunctionBuilder
 
-```typescript
+```ts
 class FunctionBuilder {
-  // Fluent API
-  accounts(accounts: Record<string, string | PublicKey>): this
-  args(args: Record<string, any>): this
+  accounts(accounts: Record<string, string | { toBase58(): string }>): this;
+  args(args: Record<string, any>): this;
 
-  // Generate instruction
-  instruction(): Promise<SerializedInstruction>
+  instruction(): Promise<SerializedInstruction>;
+  transaction(options?: { computeUnits?: number }): Promise<any>;
+  rpc(options?: {
+    signers?: any[];
+    skipPreflight?: boolean;
+    computeUnits?: number;
+  }): Promise<string>;
 
-  // Accessors
-  getFunctionDef(): FunctionDefinition
-  getAccounts(): Record<string, string>
-  getArgs(): Record<string, any>
+  getFunctionDef(): FunctionDefinition;
+  getAccounts(): Record<string, string>;
+  getArgs(): Record<string, any>;
 }
 ```
 
 ### SerializedInstruction
 
-```typescript
+```ts
 interface SerializedInstruction {
-  programId: string
-  keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>
-  data: string // base64-encoded
+  programId: string;
+  keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
+  data: string; // base64
 }
 ```
 
-## Integration with Your Solana Client
+## Ecosystem
 
-FiveProgram returns serialized instruction data that works with **any** Solana client library:
-
-```typescript
-// With @solana/web3.js
-import { TransactionInstruction, PublicKey } from '@solana/web3.js';
-
-const ix = new TransactionInstruction({
-  programId: new PublicKey(instructionData.programId),
-  keys: instructionData.keys.map(k => ({
-    pubkey: new PublicKey(k.pubkey),
-    isSigner: k.isSigner,
-    isWritable: k.isWritable
-  })),
-  data: Buffer.from(instructionData.data, 'base64')
-});
-
-// With @project-serum/anchor
-const ixFromData = (ixData) => {
-  return new web3.TransactionInstruction({
-    programId: new web3.PublicKey(ixData.programId),
-    keys: ixData.keys.map(k => ({
-      pubkey: new web3.PublicKey(k.pubkey),
-      isSigner: k.isSigner,
-      isWritable: k.isWritable
-    })),
-    data: Buffer.from(ixData.data, 'base64')
-  });
-};
-
-// With custom RPC client
-const customSend = async (programId, keys, data) => {
-  // Your custom implementation
-};
-```
-
-This zero-dependency design means FiveProgram works everywhere, and you choose your own Solana client library!
+- CLI/tooling: `five-cli`
+- SDK/client interactions: `five-sdk`
+- Frontend/UI workflows: [5ive.tech](https://5ive.tech)

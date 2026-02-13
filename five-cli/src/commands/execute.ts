@@ -129,30 +129,30 @@ export const executeCommand: CommandDefinition = {
   arguments: [
     {
       name: 'bytecode',
-      description: 'Five VM bytecode file (.bin) or script account ID',
+      description: 'Five VM artifact file (.five/.bin) or script account ID',
       required: false
     }
   ],
 
   examples: [
     {
-      command: 'five execute program.bin',
+      command: 'five execute program.five',
       description: 'Execute using configured target (default)'
     },
     {
-      command: 'five execute program.bin --local',
+      command: 'five execute program.five --local',
       description: 'Force local execution (overrides config)'
     },
     {
-      command: 'five execute program.bin --target devnet',
+      command: 'five execute program.five --target devnet',
       description: 'Execute on devnet (overrides config)'
     },
     {
-      command: 'five execute program.bin -f 0 -p params.json',
+      command: 'five execute program.five -f 0 -p params.json',
       description: 'Execute function 0 with parameters'
     },
     {
-      command: 'five execute program.bin --validate --trace --format json',
+      command: 'five execute program.five --validate --trace --format json',
       description: 'Validate and execute with JSON trace output'
     },
     {
