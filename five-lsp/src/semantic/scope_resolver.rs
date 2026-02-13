@@ -4,7 +4,7 @@
 //! Reuses the compiler's ModuleScope for cross-module visibility.
 
 use five_dsl_compiler::ast::{AstNode, Visibility};
-use five_dsl_compiler::type_checker::module_scope::{ModuleScope, ModuleSymbol};
+use five_dsl_compiler::type_checker::module_scope::ModuleScope;
 use std::collections::HashMap;
 
 /// Scope chain entry representing a lexical scope level

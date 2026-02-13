@@ -12,12 +12,14 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "npm run build:wasm && npm run build:js",
-    "build:wasm": "npm run build:vm-wasm",
-    "build:vm-wasm": "cd ../five-wasm && wasm-pack build --target nodejs --release --out-dir ../five-cli/assets/vm",
-    "build:js": "tsc && npm run copy:wasm-assets",
-    "build:js:dev": "tsc --watch",
-    "copy:wasm-assets": "mkdir -p dist/assets/vm && cp -r assets/vm/* dist/assets/vm/ 2>/dev/null || true && cp assets/vm/five_vm_wasm.d.ts src/types/wasm.d.ts 2>/dev/null || true",
+    "build": "npm run sync:wasm && npm run build:js",
+    "build:wasm": "npm run sync:wasm",
+    "build:vm-wasm": "npm run sync:wasm",
+    "sync:wasm": "bash ../scripts/sync-wasm-assets.sh",
+    "verify:wasm": "bash ../scripts/verify-wasm-sync.sh",
+    "build:js": "node ./node_modules/typescript/bin/tsc && npm run copy:wasm-assets",
+    "build:js:dev": "node ./node_modules/typescript/bin/tsc --watch",
+    "copy:wasm-assets": "mkdir -p dist/assets/vm && COPYFILE_DISABLE=1 cp -r src/assets/vm/* dist/assets/vm/ && COPYFILE_DISABLE=1 cp src/assets/vm/five_vm_wasm.d.ts src/types/wasm.d.ts 2>/dev/null || true",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -31,12 +33,11 @@
     "format": "prettier --write src/**/*.ts",
     "dev": "npm run build:js:dev",
     "prepublishOnly": "npm run build",
-    "postinstall": "node scripts/postinstall.js || true"
+    "postinstall": "npm run sync:wasm || true"
   },
   "files": [
     "dist/",
     "assets/",
-    "scripts/postinstall.js",
     "README.md",
     "LICENSE"
   ],

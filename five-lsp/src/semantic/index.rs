@@ -4,7 +4,7 @@
 //! for all files in the workspace. Provides fast lookup for LSP queries.
 
 use five_dsl_compiler::ast::{AstNode, SourceLocation};
-use five_dsl_compiler::type_checker::module_scope::{ModuleScope, ModuleSymbol, ModuleSymbolTable};
+use five_dsl_compiler::type_checker::module_scope::ModuleSymbolTable;
 use lsp_types::{Location, SymbolInformation, SymbolKind, Url};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};

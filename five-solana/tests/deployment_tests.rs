@@ -90,6 +90,7 @@ mod deployment_tests {
             &program_id,
             &accounts,
             &test_bytecode,
+            &[], // Empty metadata
             0, // No permissions
         );
         assert!(result.is_ok());
@@ -161,6 +162,7 @@ mod deployment_tests {
             &program_id,
             &accounts,
             &test_bytecode,
+            &[], // Empty metadata
             0x01, // PERMISSION_PRE_BYTECODE
         );
         assert!(matches!(result, Err(ProgramError::NotEnoughAccountKeys)));
@@ -188,6 +190,7 @@ mod deployment_tests {
             &program_id,
             &accounts_with_admin,
             &test_bytecode,
+            &[], // Empty metadata
             0x01,
         );
         assert_eq!(result, Err(ProgramError::MissingRequiredSignature));
@@ -212,6 +215,7 @@ mod deployment_tests {
             &program_id,
             &accounts_valid,
             &test_bytecode,
+            &[], // Empty metadata
             0x01,
         );
         assert!(result.is_ok());
@@ -274,6 +278,7 @@ mod deployment_tests {
             &program_id,
             &accounts,
             &bad_bytecode,
+            &[], // Empty metadata
             0,
         );
         // Should fail due to size checks or magic bytes

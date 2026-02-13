@@ -1,6 +1,11 @@
 //! WASM API Contract Tests
 //!
 //! Validates that all WASM methods adhere to the contract defined in LSP_CONTRACT.md
+//!
+//! Note: These tests only run when compiling for wasm32 target.
+//! Run with: wasm-pack test --node
+
+#![cfg(target_arch = "wasm32")]
 
 use five_lsp::wasm::FiveLspWasm;
 use lsp_types::{Diagnostic, Hover, Location, WorkspaceEdit};

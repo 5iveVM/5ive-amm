@@ -18,6 +18,7 @@ pinocchio-pubkey = "0.2.4"
 five-vm-mito = { path = "../five-vm-mito", default-features = false }
 five-protocol = { path = "../five-protocol" }
 bytemuck = { version = "1.13", features = ["derive"] }
+blake3 = "=1.5.5"
 
 # Optional dependencies
 pinocchio-log = { version = "0.4.0", optional = true }

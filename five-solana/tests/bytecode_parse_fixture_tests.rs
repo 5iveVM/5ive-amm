@@ -37,10 +37,11 @@ fn verify_defi_bench_fixture_deploy_slice() {
     let bytecode = std::fs::read(&bytecode_path)
         .unwrap_or_else(|e| panic!("failed reading {}: {}", bytecode_path.display(), e));
 
-    let mut deploy_data = Vec::with_capacity(6 + bytecode.len());
+    let mut deploy_data = Vec::with_capacity(10 + bytecode.len());
     deploy_data.push(DEPLOY_INSTRUCTION);
     deploy_data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
-    deploy_data.push(0);
+    deploy_data.push(0); // permissions
+    deploy_data.extend_from_slice(&0u32.to_le_bytes()); // metadata_len
     deploy_data.extend_from_slice(&bytecode);
 
     let parsed = FIVEInstruction::try_from(deploy_data.as_slice()).expect("deploy decode");
@@ -87,10 +88,11 @@ fn verify_token_fixture_deploy_slice() {
     let bytecode = std::fs::read(&bytecode_path)
         .unwrap_or_else(|e| panic!("failed reading {}: {}", bytecode_path.display(), e));
 
-    let mut deploy_data = Vec::with_capacity(6 + bytecode.len());
+    let mut deploy_data = Vec::with_capacity(10 + bytecode.len());
     deploy_data.push(DEPLOY_INSTRUCTION);
     deploy_data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
-    deploy_data.push(0);
+    deploy_data.push(0); // permissions
+    deploy_data.extend_from_slice(&0u32.to_le_bytes()); // metadata_len
     deploy_data.extend_from_slice(&bytecode);
 
     let parsed = FIVEInstruction::try_from(deploy_data.as_slice()).expect("deploy decode");

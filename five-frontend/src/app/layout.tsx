@@ -48,12 +48,7 @@ export default function RootLayout({
           }}
         />
 
-        {/* Hidden Tribute - "Visible and Hidden" */}
-        <div className="fixed inset-0 pointer-events-none z-50 flex items-end justify-center opacity-[0.015] select-none overflow-hidden">
-          <span className="text-[15vw] font-black leading-none text-foreground whitespace-nowrap tracking-tighter mix-blend-overlay">
-            5REE DURK
-          </span>
-        </div>
+
 
         <ThemeProvider>
           <MarketDataProvider>

@@ -15,5 +15,5 @@ Short notes for the Five frontend.
 - State store: `src/stores/ide-store.ts`
 
 ## Prereqs
-- `five-vm-wasm` and `five-sdk` should be built and available as local deps.
-
+- Run `npm run sync:deps` before `dev/build` if dependencies changed.
+- `five-vm-wasm` and `five-sdk` are local deps and are synced by `sync:deps`.

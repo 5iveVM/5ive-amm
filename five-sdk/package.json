@@ -29,11 +29,13 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && npm run copy-assets",
-    "copy-assets": "mkdir -p dist/assets/vm && cp src/assets/wasm/* dist/assets/vm/",
+    "build": "npm run sync:wasm && node ./node_modules/typescript/bin/tsc && npm run copy-assets",
+    "sync:wasm": "bash ../scripts/sync-wasm-assets.sh",
+    "verify:wasm": "bash ../scripts/verify-wasm-sync.sh",
+    "copy-assets": "mkdir -p dist/assets/vm && COPYFILE_DISABLE=1 cp src/assets/vm/* dist/assets/vm/",
     "test": "node examples/basic-usage.js",
     "test:jest": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
-    "gen-types": "tsc && node dist/bin/gen-types.js",
+    "gen-types": "node ./node_modules/typescript/bin/tsc && node dist/bin/gen-types.js",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
