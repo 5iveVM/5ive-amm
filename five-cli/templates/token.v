@@ -19,7 +19,7 @@ account TokenAccount {
 }
 
 // Initialize mint state
-init_mint(
+pub init_mint(
     state: Mint @mut,
     authority: pubkey @signer,
     freeze_authority: pubkey,
@@ -32,7 +32,7 @@ init_mint(
 }
 
 // Initialize a token account
-init_account(
+pub init_account(
     state: TokenAccount @mut,
     owner: pubkey @signer,
     mint: pubkey
@@ -44,7 +44,7 @@ init_account(
 }
 
 // Create an Associated Token Account (ATA) for an owner and mint
-create_associated_token_account(
+pub create_associated_token_account(
     ata_account: TokenAccount @mut @init, // @init constraint creates the account
     owner: pubkey @signer,
     mint: pubkey
@@ -58,7 +58,7 @@ create_associated_token_account(
 }
 
 // Mint new tokens and deposit into a token account
-mint_to(
+pub mint_to(
     mint_state: Mint @mut,
     destination_account: TokenAccount @mut,
     mint_authority: account @signer,
@@ -73,7 +73,7 @@ mint_to(
 }
 
 // Transfer tokens from source to destination
-transfer(
+pub transfer(
     source_account: TokenAccount @mut,
     destination_account: TokenAccount @mut,
     owner: pubkey @signer,
@@ -90,7 +90,7 @@ transfer(
 }
 
 // Burn tokens from a token account
-burn(
+pub burn(
     mint_state: Mint @mut,
     source_account: TokenAccount @mut,
     owner: account @signer,
@@ -106,7 +106,7 @@ burn(
 }
 
 // Freeze a token account
-freeze_account(
+pub freeze_account(
     mint_state: Mint,
     account_to_freeze: TokenAccount @mut,
     freeze_authority: account @signer
@@ -117,7 +117,7 @@ freeze_account(
 }
 
 // Thaw a token account
-thaw_account(
+pub thaw_account(
     mint_state: Mint,
     account_to_thaw: TokenAccount @mut,
     freeze_authority: pubkey @signer
@@ -128,7 +128,7 @@ thaw_account(
 }
 
 // Close a token account and reclaim rent (owner must be signer)
-close_account(
+pub close_account(
     source_account: TokenAccount @mut,
     owner: pubkey @signer
 ) {
@@ -140,7 +140,7 @@ close_account(
 }
 
 // Change mint authority
-set_mint_authority(
+pub set_mint_authority(
     mint_state: Mint @mut,
     current_authority: pubkey @signer,
     new_authority: pubkey
@@ -150,7 +150,7 @@ set_mint_authority(
 }
 
 // Change freeze authority
-set_freeze_authority(
+pub set_freeze_authority(
     mint_state: Mint @mut,
     current_freeze_authority: pubkey @signer,
     new_freeze_authority: pubkey
@@ -160,9 +160,9 @@ set_freeze_authority(
 }
 
 // Read-only helpers
-get_supply(state: Mint) -> u64 { return state.supply; }
-get_balance(state: TokenAccount) -> u64 { return state.bal; }
-is_account_frozen(state: TokenAccount) -> bool { return state.is_frozen; }
+pub get_supply(state: Mint) -> u64 { return state.supply; }
+pub get_balance(state: TokenAccount) -> u64 { return state.bal; }
+pub is_account_frozen(state: TokenAccount) -> bool { return state.is_frozen; }
 
 // Note on Associated Token Accounts (ATAs):
 // In a full SPL-like implementation, TokenAccount addresses are often derived

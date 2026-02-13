@@ -31,6 +31,70 @@ Never rely on stale docs when behavior is high-stakes (deploy/execute/CPI encodi
 5. Execute and verify confirmed tx metadata (`meta.err == null`).
 6. Record signatures + compute units.
 
+## 3.1) Strict Authoring Mode (Required For New Contracts)
+
+Use this profile unless you have direct proof in your current compiler version that a broader syntax feature is stable.
+
+1. Prefer top-level accounts + top-level functions. Do not wrap programs in `script Name { ... }`.
+2. Use account/signer/mut attributes in this order style:
+   - `owner: pubkey @signer`
+   - `state: Mint @mut`
+   - `ata: TokenAccount @mut @init`
+3. Prefer plain function declarations like:
+   - `pub transfer(...) { ... }`
+   - `pub mint_to(...) { ... }`
+4. Any function intended to be called via `5ive execute` must be declared `pub`.
+5. Keep logic to `require`, `if/else`, arithmetic, assignments, and simple returns.
+6. Validate after every meaningful edit:
+   - `5ive compile src/main.v -o build/main.five`
+
+Avoid these patterns by default (high-risk for invalid output in agent-generated code):
+1. `instruction ...` function form
+2. Attribute-first parameters like `@signer owner: pubkey`
+3. Optional parameters/fields in signatures (`x?: T`) and nullish expressions (`??`)
+4. `enum`/`event` heavy first-pass contracts
+5. Event emission (`event` / `emit`) unless you have compile+runtime proof in your current toolchain
+6. Unverified literals/helpers like `pubkey(0)` unless confirmed in working examples
+7. Parser-only/experimental syntax from tokenizer docs without a compile-verified example
+
+Safe token-style baseline:
+```v
+account Mint {
+    authority: pubkey;
+    supply: u64;
+    decimals: u8;
+}
+
+account TokenAccount {
+    owner_key: pubkey;
+    mint: pubkey;
+    bal: u64;
+}
+
+pub init_mint(
+    state: Mint @mut,
+    authority: pubkey @signer,
+    decimals: u8
+) {
+    state.authority = authority;
+    state.supply = 0;
+    state.decimals = decimals;
+}
+
+pub transfer(
+    source: TokenAccount @mut,
+    destination: TokenAccount @mut,
+    owner: pubkey @signer,
+    amount: u64
+) {
+    require(source.owner_key == owner, "owner mismatch");
+    require(source.mint == destination.mint, "mint mismatch");
+    require(source.bal >= amount, "insufficient funds");
+    source.bal = source.bal - amount;
+    destination.bal = destination.bal + amount;
+}
+```
+
 ## 4) DSL Feature Inventory (Deep)
 
 This section enumerates language features discovered from parser/compiler code and repo examples.
