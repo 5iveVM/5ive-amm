@@ -111,6 +111,69 @@ five namespace bind @your-domain/program --script <SCRIPT_ACCOUNT_PUBKEY>
 five namespace resolve @your-domain/program
 ```
 
+## Advanced CLI Workflows (Optional)
+
+Most teams can stay on the quick-start path. Use these features when you need deeper control.
+
+### 1) Compile diagnostics and machine-readable metrics
+
+```bash
+five compile src/main.v \
+  --analyze \
+  --metrics-output build/compile-metrics.json \
+  --metrics-format json \
+  --error-format json
+```
+
+### 2) Project-aware execution from `five.toml` context
+
+```bash
+five execute --project . -f 0
+five execute --project . -f 0 --params params.json --target devnet
+```
+
+### 3) Deploy large artifacts with chunk/optimization controls
+
+```bash
+five deploy build/main.five --target devnet --optimized --progress
+five deploy build/main.five --target devnet --force-chunked --chunk-size 900
+five deploy build/main.five --target devnet --dry-run --format json
+```
+
+### 4) Deploy-and-execute for fast integration checks
+
+```bash
+five deploy-and-execute build/main.five --target devnet -f 0 -p "[100]"
+five deploy-and-execute src/main.v --target local --debug --cleanup
+```
+
+### 5) Advanced test modes
+
+```bash
+five test --sdk-runner --format json
+five test test-scripts/ --on-chain --target devnet --batch --analyze-costs
+five test --watch --parallel 4
+```
+
+### 6) Namespace manager and lockfile modes
+
+```bash
+# On-chain manager flow
+five namespace register @acme --manager <MANAGER_SCRIPT_ACCOUNT>
+five namespace bind @acme/payments --script <SCRIPT_ACCOUNT_PUBKEY> --manager <MANAGER_SCRIPT_ACCOUNT>
+
+# Local lockfile-only flow (no manager RPC)
+five namespace resolve @acme/payments --local
+```
+
+### 7) Config layering and explicit RPC overrides
+
+```bash
+five config set --rpc-url https://api.devnet.solana.com --target devnet
+five config set --show-config true
+five deploy build/main.five --target devnet --network https://your-rpc.example.com
+```
+
 ## Artifact and SDK Interop
 
 `five-cli` and `five-sdk` work best with `.five` artifacts:

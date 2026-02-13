@@ -23,6 +23,46 @@ Note: Some older examples may use `@five-vm/sdk`. Use the package name your regi
 five compile src/main.v -o build/my-program.five
 ```
 
+### 1b. Compile directly with `five-sdk` (optional)
+
+```ts
+import { FiveSDK } from 'five-sdk';
+import fs from 'fs';
+
+const source = `
+pub add(a: u64, b: u64) -> u64 {
+  return a + b;
+}
+`;
+
+const result = await FiveSDK.compile(source, {
+  optimize: true,
+  debug: false,
+});
+
+if (!result.success || !result.fiveFile) {
+  throw new Error(`Compilation failed: ${JSON.stringify(result.errors ?? [])}`);
+}
+
+fs.writeFileSync('build/my-program.five', JSON.stringify(result.fiveFile, null, 2));
+```
+
+Compile from file path:
+
+```ts
+const fileResult = await FiveSDK.compileFile('src/main.v', { optimize: true });
+```
+
+Compile multi-file/module source:
+
+```ts
+const multi = await FiveSDK.compileModules(
+  { filename: 'main.v', content: mainSource },
+  [{ name: 'math', source: mathModuleSource }],
+  { optimize: true }
+);
+```
+
 ### 2. Load ABI from `.five`
 
 ```ts
@@ -139,6 +179,81 @@ Recommended send pattern:
 2. fetch confirmed transaction
 3. assert `meta.err` is null
 4. record CU from `meta.computeUnitsConsumed`
+
+## Advanced SDK APIs (Optional)
+
+Most builders should use `FiveProgram` first. Use these lower-level APIs when you need finer control.
+
+### 1) Local VM testing without RPC
+
+```ts
+const run = await FiveSDK.compileAndExecuteLocally(
+  sourceCode,
+  'transfer',
+  [100],
+  { optimize: true, trace: true, computeUnitLimit: 1_000_000 }
+);
+```
+
+### 2) Instruction-only generation (bring your own sender)
+
+```ts
+const deploy = await FiveSDK.generateDeployInstruction(bytecode, deployerPubkeyBase58, {
+  debug: false,
+});
+
+const exec = await FiveSDK.generateExecuteInstruction(
+  scriptAccountBase58,
+  'transfer',
+  [100],
+  [ownerPubkeyBase58],
+  connection,
+  { computeUnitLimit: 1_000_000 }
+);
+```
+
+### 3) On-chain convenience helpers
+
+```ts
+const deployResult = await FiveSDK.deployToSolana(bytecode, connection, payerKeypair, {
+  fiveVMProgramId: 'YourFiveVMProgramIdBase58',
+});
+
+const execResult = await FiveSDK.executeOnSolana(
+  deployResult.scriptAccount,
+  connection,
+  payerKeypair,
+  'transfer',
+  [100],
+  [ownerPubkeyBase58],
+  { fiveVMProgramId: 'YourFiveVMProgramIdBase58' }
+);
+```
+
+### 4) Metadata, decoding, and diagnostics
+
+```ts
+const meta = await FiveSDK.getScriptMetadataWithConnection(scriptAccountBase58, connection);
+const names = await FiveSDK.getFunctionNamesFromScriptAccount(scriptAccountBase58, connection);
+const account = await FiveSDK.fetchAccountAndDeserialize(scriptAccountBase58, connection, {
+  parseMetadata: true,
+});
+```
+
+### 5) Namespace helpers (5NS)
+
+```ts
+const ns = FiveSDK.canonicalizeNamespace('@acme/payments');
+const derived = await FiveSDK.deriveNamespaceAccounts(ns.canonical, 'YourFiveVMProgramIdBase58');
+```
+
+### 6) Test utilities
+
+```ts
+import { FiveTestRunner } from 'five-sdk';
+
+const runner = new FiveTestRunner({ verbose: true, maxComputeUnits: 1_000_000 });
+```
 
 ## Frontend Usage (`5ive.tech`)
 

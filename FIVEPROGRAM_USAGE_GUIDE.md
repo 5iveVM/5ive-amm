@@ -35,6 +35,43 @@ const fiveFileText = fs.readFileSync('build/my-program.five', 'utf-8');
 const { abi } = await FiveSDK.loadFiveFile(fiveFileText);
 ```
 
+### Compile directly with SDK (optional)
+
+```ts
+import { FiveSDK } from 'five-sdk';
+import fs from 'fs';
+
+const source = `
+pub increment(x: u64) -> u64 {
+  return x + 1;
+}
+`;
+
+const compiled = await FiveSDK.compile(source, { optimize: true });
+
+if (!compiled.success || !compiled.fiveFile) {
+  throw new Error(`Compilation failed: ${JSON.stringify(compiled.errors ?? [])}`);
+}
+
+fs.writeFileSync('build/my-program.five', JSON.stringify(compiled.fiveFile, null, 2));
+```
+
+Compile from file path:
+
+```ts
+const fromFile = await FiveSDK.compileFile('src/main.v', { optimize: true });
+```
+
+Compile multi-file/module source:
+
+```ts
+const multi = await FiveSDK.compileModules(
+  { filename: 'main.v', content: mainSource },
+  [{ name: 'math', source: mathModuleSource }],
+  { optimize: true }
+);
+```
+
 ### Optional: ABI JSON
 
 ```ts
@@ -130,6 +167,76 @@ If ABI contains `math::add`, calling `.function('add')` will fail.
 - signer/writable flags from ABI account attributes
 
 You must still provide all required business accounts and args.
+
+## Advanced APIs (Optional)
+
+`FiveProgram` is the primary interface for most applications. The APIs below are useful for tooling, testing, and custom infrastructure.
+
+### Local-only execution (no validator/RPC)
+
+```ts
+const local = await FiveSDK.compileAndExecuteLocally(
+  sourceCode,
+  'increment',
+  [1],
+  { optimize: true, trace: true, computeUnitLimit: 1_000_000 }
+);
+```
+
+### Serialized instruction generation
+
+```ts
+const deployIx = await FiveSDK.generateDeployInstruction(bytecode, deployerPubkeyBase58);
+
+const execIx = await FiveSDK.generateExecuteInstruction(
+  scriptAccountBase58,
+  'increment',
+  [1],
+  [ownerPubkeyBase58],
+  connection,
+  { computeUnitLimit: 1_000_000 }
+);
+```
+
+### On-chain convenience methods
+
+```ts
+const deployed = await FiveSDK.deployToSolana(bytecode, connection, payerKeypair, {
+  fiveVMProgramId: 'YourFiveVMProgramIdBase58',
+});
+
+const executed = await FiveSDK.executeScriptAccount(
+  deployed.scriptAccount,
+  0,
+  [],
+  connection,
+  payerKeypair,
+  { fiveVMProgramId: 'YourFiveVMProgramIdBase58' }
+);
+```
+
+### Metadata and decoding helpers
+
+```ts
+const metadata = await FiveSDK.getScriptMetadataWithConnection(scriptAccountBase58, connection);
+const functionNames = await FiveSDK.getFunctionNamesFromScriptAccount(scriptAccountBase58, connection);
+const decoded = await FiveSDK.fetchAccountAndDeserialize(scriptAccountBase58, connection, {
+  parseMetadata: true,
+  validateEncoding: true,
+});
+```
+
+### Namespace helpers (5NS)
+
+```ts
+const parsed = FiveSDK.canonicalizeNamespace('@acme/payments');
+const lockfileMatch = FiveSDK.resolveNamespaceFromLockfile(parsed.canonical, lockfileJson);
+```
+
+For on-chain namespace manager flows:
+- `FiveSDK.registerNamespaceTldOnChain(...)`
+- `FiveSDK.bindNamespaceOnChain(...)`
+- `FiveSDK.resolveNamespaceOnChain(...)`
 
 ## Troubleshooting
 

@@ -107,6 +107,29 @@ five config set --target testnet
 five deploy build/main.five --target testnet
 ```
 
+## Advanced Program ID Usage
+
+### One-off override for smoke tests
+
+```bash
+five deploy-and-execute build/main.five --target devnet --program-id <FIVE_VM_PROGRAM_ID>
+```
+
+### Namespace PDA derivation against a custom VM program
+
+```bash
+five namespace resolve @acme/payments --program-id <FIVE_VM_PROGRAM_ID>
+```
+
+### Combine custom RPC + explicit program ID
+
+```bash
+five deploy build/main.five \
+  --target devnet \
+  --network https://your-rpc.example.com \
+  --program-id <FIVE_VM_PROGRAM_ID>
+```
+
 ## Troubleshooting
 
 ### `Program ID required for deployment` / `Program ID missing`
