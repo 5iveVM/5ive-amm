@@ -1,28 +1,20 @@
-// Basic vault example with signer-gated withdrawals.
+// Basic vault example.
 
 account Vault {
     balance: u64;
-    authorized_user: pubkey;
+    min_withdraw: u64;
 }
 
-pub initialize(vault: Vault @mut @init, authority: account @signer) {
+pub initialize(vault: Vault @mut, min_withdraw: u64) {
     vault.balance = 0;
-    vault.authorized_user = authority.key;
+    vault.min_withdraw = min_withdraw;
 }
 
-pub set_authorized_user(vault: Vault @mut, authority: account @signer, new_authority: pubkey) {
-    require(authority.key == vault.authorized_user);
-    vault.authorized_user = new_authority;
-}
-
-pub withdraw(vault: Vault @mut, authority: account @signer, amount: u64) {
-    require(authority.key == vault.authorized_user);
-    require(vault.balance >= amount);
+pub withdraw(vault: Vault @mut, amount: u64) {
     vault.balance = vault.balance - amount;
 }
 
 pub deposit(vault: Vault @mut, amount: u64) {
-    require(amount > 0);
     vault.balance = vault.balance + amount;
 }
 

@@ -28,6 +28,14 @@ pub fn get_completions(
     character: usize,
     uri: &lsp_types::Url,
 ) -> CompletionList {
+    // Check if we're in a constraint annotation context (after '@')
+    if let Some(constraint_suggestions) = try_get_constraint_suggestions(source, line, character) {
+        return CompletionList {
+            is_incomplete: false,
+            items: constraint_suggestions,
+        };
+    }
+
     // Extract the word being completed
     let word = extract_word_at_position(source, line, character);
 
@@ -82,6 +90,90 @@ fn extract_word_at_position(source: &str, line: usize, character: usize) -> Stri
 /// Check if a character can be part of a completion word
 fn is_completion_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
+}
+
+/// Try to get constraint annotation suggestions if cursor is after '@'
+///
+/// Returns Some(Vec) if in constraint context, None otherwise
+fn try_get_constraint_suggestions(source: &str, line: usize, character: usize) -> Option<Vec<CompletionItem>> {
+    let lines: Vec<&str> = source.lines().collect();
+
+    if line >= lines.len() {
+        return None;
+    }
+
+    let line_str = lines[line];
+    let chars: Vec<char> = line_str.chars().collect();
+
+    // Allow character == chars.len() (cursor at end of line)
+    if character > chars.len() || character == 0 || chars.is_empty() {
+        return None;
+    }
+
+    // Look backwards from cursor position to find '@'
+    // If character == chars.len(), start from the last character
+    let mut pos = if character == chars.len() { character - 1 } else { character - 1 };
+
+    // Skip alphanumeric characters (partial constraint name after @)
+    while pos > 0 && chars[pos].is_alphanumeric() {
+        pos -= 1;
+    }
+
+    // Check if we found '@'
+    if chars[pos] == '@' {
+        // Extract the partial constraint name after '@'
+        let start = pos + 1;
+        let end = character.min(chars.len());
+        let partial: String = chars[start..end].iter().collect();
+        return Some(get_constraint_suggestions(&partial));
+    }
+
+    None
+}
+
+/// Get constraint annotation suggestions
+///
+/// Returns completion items for Five DSL constraint annotations
+fn get_constraint_suggestions(prefix: &str) -> Vec<CompletionItem> {
+    let constraints = vec![
+        (
+            "@signer",
+            "Requires the account to be a signer of the transaction",
+            "Required for accounts that must authorize the transaction"
+        ),
+        (
+            "@mut",
+            "Marks the account as mutable/writable",
+            "Required for accounts that will be modified during execution"
+        ),
+        (
+            "@init",
+            "Initializes a new account",
+            "Creates and initializes a new account. Syntax: @init(payer=<account>, space=<bytes>)"
+        ),
+        (
+            "@writable",
+            "Alias for @mut - marks account as writable",
+            "Alternate syntax for @mut constraint"
+        ),
+    ];
+
+    constraints
+        .into_iter()
+        .filter(|(name, _, _)| {
+            // Filter by prefix, removing '@' for comparison
+            let constraint_name = name.strip_prefix('@').unwrap_or(name);
+            constraint_name.starts_with(prefix)
+        })
+        .map(|(name, detail, doc)| CompletionItem {
+            label: name.to_string(),
+            kind: Some(CompletionItemKind::KEYWORD),
+            detail: Some(detail.to_string()),
+            documentation: Some(lsp_types::Documentation::String(doc.to_string())),
+            insert_text: Some(name.to_string()),
+            ..Default::default()
+        })
+        .collect()
 }
 
 /// Get keyword suggestions
@@ -246,5 +338,57 @@ mod tests {
         let keywords = get_keyword_suggestions("");
         let labels: Vec<_> = keywords.iter().map(|k| k.label.clone()).collect();
         assert_eq!(labels.len(), labels.iter().collect::<std::collections::HashSet<_>>().len());
+    }
+
+    #[test]
+    fn test_constraint_suggestions_after_at_symbol() {
+        let source = "pub transfer(from: account @";
+        // Position 28 is at the end, right after '@'
+        let suggestions = try_get_constraint_suggestions(source, 0, 28);
+        assert!(suggestions.is_some());
+        let items = suggestions.unwrap();
+        assert!(items.iter().any(|i| i.label == "@signer"));
+        assert!(items.iter().any(|i| i.label == "@mut"));
+        assert!(items.iter().any(|i| i.label == "@init"));
+        assert!(items.iter().any(|i| i.label == "@writable"));
+    }
+
+    #[test]
+    fn test_constraint_suggestions_partial_match() {
+        let source = "pub transfer(from: account @si";
+        // Position 30 is at the end, after '@si'
+        let suggestions = try_get_constraint_suggestions(source, 0, 30);
+        assert!(suggestions.is_some());
+        let items = suggestions.unwrap();
+        assert!(items.iter().any(|i| i.label == "@signer"));
+        assert!(!items.iter().any(|i| i.label == "@mut")); // Should not match 'si'
+    }
+
+    #[test]
+    fn test_constraint_suggestions_has_documentation() {
+        let constraints = get_constraint_suggestions("");
+        assert!(!constraints.is_empty());
+        for constraint in &constraints {
+            assert!(constraint.detail.is_some(), "Constraint {} missing detail", constraint.label);
+            assert!(constraint.documentation.is_some(), "Constraint {} missing docs", constraint.label);
+        }
+    }
+
+    #[test]
+    fn test_no_constraint_suggestions_without_at() {
+        let source = "pub transfer(from: account mut";
+        // Position 31 is after 'mut' but no '@'
+        let suggestions = try_get_constraint_suggestions(source, 0, 31);
+        assert!(suggestions.is_none());
+    }
+
+    #[test]
+    fn test_constraint_suggestions_multiple_params() {
+        let source = "pub transfer(from: account @signer @mut, to: account @";
+        // Position 54 is at the end, after second '@' in 'to' parameter
+        let suggestions = try_get_constraint_suggestions(source, 0, 54);
+        assert!(suggestions.is_some());
+        let items = suggestions.unwrap();
+        assert_eq!(items.len(), 4); // All 4 constraints should be suggested
     }
 }

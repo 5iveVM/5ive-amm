@@ -13,6 +13,7 @@ use lsp_types::Url;
 use std::collections::HashMap;
 
 use crate::error::LspError;
+use crate::semantic::SemanticIndex;
 
 /// Symbol table entry: (type, is_mutable)
 type SymbolTableEntry = (TypeNode, bool);
@@ -32,6 +33,8 @@ pub struct CompilerBridge {
     /// Symbol table cache: (source_hash, symbol_table)
     /// Stores the compiler's symbol table for hover/completion features
     symbol_cache: HashMap<Url, (u64, HashMap<String, SymbolTableEntry>)>,
+    /// Semantic index for workspace-wide symbol tracking
+    semantic_index: SemanticIndex,
 }
 
 impl CompilerBridge {
@@ -39,7 +42,18 @@ impl CompilerBridge {
         Self {
             ast_cache: HashMap::new(),
             symbol_cache: HashMap::new(),
+            semantic_index: SemanticIndex::new(),
         }
+    }
+
+    /// Get a reference to the semantic index
+    pub fn semantic_index(&self) -> &SemanticIndex {
+        &self.semantic_index
+    }
+
+    /// Get a mutable reference to the semantic index
+    pub fn semantic_index_mut(&mut self) -> &mut SemanticIndex {
+        &mut self.semantic_index
     }
 
     /// Compute a simple hash of the source code
@@ -397,6 +411,50 @@ impl CompilerBridge {
         }
         vec![]
     }
+
+    /// Register a document in the workspace
+    ///
+    /// Parses the source and updates the semantic index.
+    /// Used for multi-file workspace analysis.
+    pub fn register_document(&mut self, uri: &Url, source: &str) -> Result<(), LspError> {
+        // Update semantic index (currently a no-op until AST parsing is integrated)
+        let uri_str = uri.as_str();
+        if let Err(e) = self.semantic_index.update_file(uri_str, source) {
+            tracing::warn!("Failed to update semantic index for {}: {}", uri_str, e);
+        }
+
+        Ok(())
+    }
+
+    /// Unregister a document from the workspace
+    ///
+    /// Removes the document from caches and the semantic index.
+    pub fn unregister_document(&mut self, uri: &Url) {
+        self.ast_cache.remove(uri);
+        self.symbol_cache.remove(uri);
+        // TODO: Add remove_file to SemanticIndex
+    }
+
+    /// Get workspace-wide symbols matching a query
+    ///
+    /// Delegates to the semantic index for cross-file symbol search.
+    pub fn workspace_symbols(&self, query: &str) -> Vec<lsp_types::SymbolInformation> {
+        self.semantic_index.workspace_symbols(query)
+    }
+
+    /// Find definition across workspace
+    ///
+    /// Uses the semantic index for cross-file definition lookup.
+    pub fn find_definition_workspace(&self, symbol_name: &str) -> Option<lsp_types::Location> {
+        self.semantic_index.find_definition(symbol_name)
+    }
+
+    /// Find references across workspace
+    ///
+    /// Uses the semantic index for cross-file reference lookup.
+    pub fn find_references_workspace(&self, symbol_name: &str) -> Vec<lsp_types::Location> {
+        self.semantic_index.find_references(symbol_name)
+    }
 }
 
 impl Default for CompilerBridge {
@@ -410,6 +468,7 @@ impl Clone for CompilerBridge {
         Self {
             ast_cache: self.ast_cache.clone(),
             symbol_cache: self.symbol_cache.clone(),
+            semantic_index: SemanticIndex::new(), // Start fresh for clones
         }
     }
 }

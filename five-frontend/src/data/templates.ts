@@ -97,107 +97,45 @@ pub reset(
 }
 `;
 
-export const TOKEN_TEMPLATE = `// Token Implementation
-// @test-params
+export const TOKEN_TEMPLATE = `// Token Example (adapted from five-templates/token.v)
 
 account Mint {
     authority: pubkey;
-    freeze_authority: pubkey;
     supply: u64;
     decimals: u8;
-    name: string<32>;
-    symbol: string<32>;
-    uri: string<32>;
 }
 
 account TokenAccount {
     owner: pubkey;
     mint: pubkey;
     balance: u64;
-    is_frozen: bool;
-    delegated_amount: u64;
-    delegate: pubkey;
-    initialized: bool;
 }
 
-pub init_mint(
-    mint_account: Mint @mut @init(payer=authority, space=256) @signer,
-    authority: account @mut @signer,
-    freeze_authority: pubkey,
-    decimals: u8,
-    name: string<32>,
-    symbol: string<32>,
-    uri: string<32>
-) -> pubkey {
-    require(decimals <= 20);
-    mint_account.authority = authority.key;
-    mint_account.freeze_authority = freeze_authority;
-    mint_account.supply = 0;
-    mint_account.decimals = decimals;
-    mint_account.name = name;
-    mint_account.symbol = symbol;
-    mint_account.uri = uri;
-    return mint_account.key;
+pub init_mint(mint: Mint @mut, authority: account @signer, decimals: u8) {
+    mint.authority = authority.key;
+    mint.supply = 0;
+    mint.decimals = decimals;
 }
 
-pub init_token_account(
-    token_account: TokenAccount @mut @init(payer=owner, space=192) @signer,
-    owner: account @signer,
-    mint: pubkey
-) -> pubkey {
+pub init_token_account(token_account: TokenAccount @mut, owner: account @signer, mint: account) {
     token_account.owner = owner.key;
-    token_account.mint = mint;
+    token_account.mint = mint.key;
     token_account.balance = 0;
-    token_account.is_frozen = false;
-    token_account.delegated_amount = 0;
-    token_account.delegate = 0;
-    token_account.initialized = true;
-    return token_account.key;
 }
 
-pub mint_to(
-    mint_state: Mint @mut,
-    destination_account: TokenAccount @mut,
-    mint_authority: account @signer,
-    amount: u64
-) {
-    require(mint_state.authority == mint_authority.key);
-    require(destination_account.mint == mint_state.key);
-    require(!destination_account.is_frozen);
-    require(amount > 0);
-    mint_state.supply = mint_state.supply + amount;
-    destination_account.balance = destination_account.balance + amount;
+pub mint_to(mint: Mint @mut, token_account: TokenAccount @mut, amount: u64) {
+    token_account.balance = token_account.balance + amount;
+    mint.supply = mint.supply + amount;
 }
 
-pub transfer(
-    source_account: TokenAccount @mut,
-    destination_account: TokenAccount @mut,
-    owner: account @signer,
-    amount: u64
-) {
-    require(source_account.owner == owner.key);
-    require(source_account.balance >= amount);
-    require(source_account.mint == destination_account.mint);
-    require(!source_account.is_frozen);
-    require(!destination_account.is_frozen);
-    require(amount > 0);
-    source_account.balance = source_account.balance - amount;
-    destination_account.balance = destination_account.balance + amount;
+pub transfer(from_account: TokenAccount @mut, to_account: TokenAccount @mut, amount: u64) {
+    from_account.balance = from_account.balance - amount;
+    to_account.balance = to_account.balance + amount;
 }
 
-pub burn(
-    mint_state: Mint @mut,
-    source_account: TokenAccount @mut,
-    owner: account @signer,
-    amount: u64
-) {
-    require(source_account.owner == owner.key);
-    require(source_account.balance >= amount);
-    require(source_account.mint == mint_state.key);
-    require(!source_account.is_frozen);
-    require(amount > 0);
-    mint_state.supply = mint_state.supply - amount;
-    source_account.balance = source_account.balance - amount;
+pub burn(mint: Mint @mut, token_account: TokenAccount @mut, amount: u64) {
+    token_account.balance = token_account.balance - amount;
+    mint.supply = mint.supply - amount;
 }
 `;
 

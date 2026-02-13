@@ -30,7 +30,7 @@ export function registerCompletionProvider(
     lspClient: FiveLspClient
 ): monaco.IDisposable {
     return monacoInstance.languages.registerCompletionItemProvider('five', {
-        triggerCharacters: [],
+        triggerCharacters: ['@'],  // Trigger completion when typing '@' for constraint annotations
 
         provideCompletionItems: async (model, position, context, token) => {
             try {

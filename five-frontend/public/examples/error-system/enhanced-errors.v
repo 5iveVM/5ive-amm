@@ -1,15 +1,14 @@
-// Test script to verify enhanced error messages
+// Valid script paired with syntax-error.v for error-system demos
+account Test {
+    balance: u64;
+}
 
-    account Test {
-        balance: u64;
-    }
-    
-    pub initialize(@init t: Test) {
-        t.balance = 100;
-        t.balance = t.balance + 1;
-    }
-    
-    pub transfer(t: Test @mut, amount: u64) -> u64 {
-        let temp_var = amount;
-        return t.balance - temp_var;
-    }
+pub initialize(t: Test @mut) {
+    t.balance = 100;
+    t.balance = t.balance + 1;
+}
+
+pub transfer(t: Test @mut, amount: u64) -> u64 {
+    t.balance = t.balance + amount;
+    return t.balance;
+}

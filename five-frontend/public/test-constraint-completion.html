@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Five LSP - Constraint Completion Test</title>
+    <style>
+        body {
+            font-family: 'Monaco', 'Menlo', monospace;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        h1 { color: #4ec9b0; }
+        h2 { color: #569cd6; }
+        .status { padding: 1rem; margin: 1rem 0; border-radius: 4px; }
+        .success { background: #1e3a1e; border-left: 4px solid #4ec9b0; }
+        .error { background: #3a1e1e; border-left: 4px solid #f48771; }
+        .test-section { margin: 2rem 0; padding: 1rem; background: #252526; border-radius: 4px; }
+        pre { background: #1e1e1e; padding: 1rem; border-radius: 4px; overflow-x: auto; }
+        code { color: #ce9178; }
+        .constraint { color: #4ec9b0; font-weight: bold; }
+        button { 
+            background: #0e639c; 
+            color: white; 
+            border: none; 
+            padding: 0.5rem 1rem; 
+            border-radius: 4px; 
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #1177bb; }
+        #output { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Five LSP - Constraint Completion Test</h1>
+    
+    <div class="status" id="status">
+        <strong>Status:</strong> Loading WASM module...
+    </div>
+
+    <div class="test-section">
+        <h2>What This Tests</h2>
+        <p>This page verifies that the Five LSP WASM module:</p>
+        <ul>
+            <li>✅ Loads successfully from <code>/wasm/five_lsp.js</code></li>
+            <li>✅ Exports the <code>FiveLspWasm</code> class</li>
+            <li>✅ Provides completion suggestions</li>
+            <li>✅ Detects <span class="constraint">@</span> trigger for constraint annotations</li>
+            <li>✅ Suggests all 4 constraints: <span class="constraint">@signer</span>, <span class="constraint">@mut</span>, <span class="constraint">@init</span>, <span class="constraint">@writable</span></li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Manual Tests</h2>
+        <button onclick="testBasicCompletion()">Test Basic Completion</button>
+        <button onclick="testConstraintCompletion()">Test Constraint Completion</button>
+        <button onclick="testPartialConstraint()">Test Partial Match (@si)</button>
+        <button onclick="testDiagnostics()">Test Diagnostics</button>
+        <pre id="output"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>Example Five DSL Code</h2>
+        <p>In the Monaco editor, typing <code>@</code> after <code>account</code> should show:</p>
+        <pre><code>pub transfer(from: account @
+                           ↑
+                    Type '@' here to see:
+                    • @signer
+                    • @mut
+                    • @init
+                    • @writable</code></pre>
+    </div>
+
+    <script type="module">
+        let lspModule = null;
+        let lsp = null;
+
+        async function initLSP() {
+            try {
+                // Load WASM module
+                lspModule = await import('/wasm/five_lsp.js');
+                
+                // Initialize WASM
+                await lspModule.default();
+                
+                // Create LSP instance
+                lsp = new lspModule.FiveLspWasm();
+                
+                updateStatus('✅ LSP WASM loaded successfully!', 'success');
+                console.log('[Test] LSP initialized:', lsp);
+                
+                // Auto-run basic test
+                testBasicCompletion();
+            } catch (error) {
+                updateStatus('❌ Failed to load LSP: ' + error.message, 'error');
+                console.error('[Test] Init error:', error);
+            }
+        }
+
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.className = 'status ' + type;
+            status.innerHTML = '<strong>Status:</strong> ' + message;
+        }
+
+        function log(message) {
+            const output = document.getElementById('output');
+            output.textContent += message + '\n';
+        }
+
+        window.testBasicCompletion = function() {
+            log('\n=== Test: Basic Completion ===');
+            try {
+                const source = 'pub transfer(from: account ';
+                const result = lsp.get_completions('file:///test.v', source, 0, 27);
+                const completions = JSON.parse(result);
+                
+                log('✓ Completion call succeeded');
+                log(`  Found ${completions.items.length} suggestions`);
+                log(`  Sample: ${completions.items.slice(0, 3).map(i => i.label).join(', ')}`);
+            } catch (error) {
+                log('✗ Error: ' + error.message);
+            }
+        };
+
+        window.testConstraintCompletion = function() {
+            log('\n=== Test: Constraint Completion (@) ===');
+            try {
+                const source = 'pub transfer(from: account @';
+                const result = lsp.get_completions('file:///test.v', source, 0, 28);
+                const completions = JSON.parse(result);
+                
+                const constraints = completions.items.filter(i => i.label.startsWith('@'));
+                
+                log('✓ Constraint completion succeeded');
+                log(`  Found ${constraints.length} constraint suggestions`);
+                log('  Constraints:');
+                constraints.forEach(c => {
+                    log(`    • ${c.label} - ${c.detail}`);
+                });
+                
+                // Verify all 4 constraints
+                const expected = ['@signer', '@mut', '@init', '@writable'];
+                const found = constraints.map(c => c.label);
+                const missing = expected.filter(e => !found.includes(e));
+                
+                if (missing.length === 0) {
+                    log('✓ All 4 constraints present!');
+                } else {
+                    log(`✗ Missing constraints: ${missing.join(', ')}`);
+                }
+            } catch (error) {
+                log('✗ Error: ' + error.message);
+            }
+        };
+
+        window.testPartialConstraint = function() {
+            log('\n=== Test: Partial Match (@si) ===');
+            try {
+                const source = 'pub transfer(from: account @si';
+                const result = lsp.get_completions('file:///test.v', source, 0, 30);
+                const completions = JSON.parse(result);
+                
+                const constraints = completions.items.filter(i => i.label.startsWith('@'));
+                
+                log('✓ Partial match succeeded');
+                log(`  Found ${constraints.length} matching constraints`);
+                constraints.forEach(c => {
+                    log(`    • ${c.label}`);
+                });
+                
+                if (constraints.some(c => c.label === '@signer')) {
+                    log('✓ @signer matched correctly');
+                }
+                if (!constraints.some(c => c.label === '@mut')) {
+                    log('✓ @mut correctly excluded (no "si" prefix)');
+                }
+            } catch (error) {
+                log('✗ Error: ' + error.message);
+            }
+        };
+
+        window.testDiagnostics = function() {
+            log('\n=== Test: Diagnostics ===');
+            try {
+                const source = 'let x = "unterminated string';
+                const result = lsp.get_diagnostics('file:///test.v', source);
+                const diagnostics = JSON.parse(result);
+                
+                log('✓ Diagnostics call succeeded');
+                log(`  Found ${diagnostics.length} diagnostic(s)`);
+                diagnostics.forEach(d => {
+                    log(`    • Line ${d.range.start.line}: ${d.message}`);
+                });
+            } catch (error) {
+                log('✗ Error: ' + error.message);
+            }
+        };
+
+        // Initialize on page load
+        initLSP();
+    </script>
+</body>
+</html>

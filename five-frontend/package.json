@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "deploy": "npm run build && wrangler pages deploy out --project-name 5ive"
+    "deploy": "npm run build && wrangler pages deploy out --project-name 5ive",
+    "rebuild:lsp": "bash scripts/rebuild-lsp.sh",
+    "rebuild:lsp:dev": "bash scripts/rebuild-lsp.sh --dev",
+    "prebuild": "bash scripts/rebuild-lsp.sh"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
