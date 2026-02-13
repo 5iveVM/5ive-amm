@@ -39,6 +39,10 @@ export default function DocsEditor({ code, filename = "example.five", height = "
 
     const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
         setMounted(true);
+        // Define themes immediately at mount time to prevent default "vs" light flash
+        defineMonacoThemes(monacoInstance);
+        registerFiveLanguage(monacoInstance);
+        monacoInstance.editor.setTheme(theme === 'dark' ? "rose-pine-dark" : "rose-pine-light");
     };
 
     const handleRun = async () => {
@@ -137,6 +141,7 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                     height="100%"
                     defaultLanguage="five"
                     value={code}
+                    theme={theme === 'dark' ? "rose-pine-dark" : "rose-pine-light"}
                     onMount={handleEditorDidMount}
                     options={{
                         readOnly: true,

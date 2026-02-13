@@ -58,6 +58,14 @@ const nextConfig: NextConfig = {
       },
     ];
 
+    // Disable Webpack's internal wasm-opt minimizer which rejects bulk memory
+    // operations (memory.copy). The WASM is already optimized by wasm-pack.
+    if (config.optimization?.minimizer) {
+      config.optimization.minimizer = config.optimization.minimizer.filter(
+        (plugin: any) => plugin?.constructor?.name !== 'WasmMinimizer'
+      );
+    }
+
     return config;
   },
   output: 'export',

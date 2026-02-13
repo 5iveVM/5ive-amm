@@ -255,7 +255,7 @@ export const useIdeStore = create<IdeState>()(
             deployFeeLamports: null,
             executeFeeBps: null,
             adminAccount: null,
-            solPrice: 150,
+            solPrice: 0,
             setEstimatedCost: (cost) => set({ estimatedCost: cost }),
             setEstimatedRent: (rent) => set({ estimatedRent: rent }),
             setEstimatedDeployFee: (fee) => set({ estimatedDeployFee: fee }),

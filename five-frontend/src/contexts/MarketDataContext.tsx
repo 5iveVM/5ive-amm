@@ -22,47 +22,46 @@ export function MarketDataProvider({ children }: { children: React.ReactNode }) 
     });
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Fetch SOL Price + Market Cap from CoinGecko
-                const response = await fetch(
-                    'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_market_cap=true'
-                );
+        const fetchData = async (retries = 2) => {
+            for (let attempt = 0; attempt <= retries; attempt++) {
+                try {
+                    const response = await fetch(
+                        'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_market_cap=true'
+                    );
 
-                if (response.ok) {
-                    const json = await response.json();
-                    if (json.solana?.usd) {
-                        setData({
-                            price: json.solana.usd,
-                            marketCap: json.solana.usd_market_cap,
-                            loading: false,
-                        });
-                        return;
+                    if (response.ok) {
+                        const json = await response.json();
+                        if (json.solana?.usd) {
+                            setData({
+                                price: json.solana.usd,
+                                marketCap: json.solana.usd_market_cap,
+                                loading: false,
+                            });
+                            return;
+                        }
+                    }
+
+                    // Non-OK response, retry after delay
+                    if (attempt < retries) {
+                        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                    }
+                } catch (e) {
+                    if (attempt < retries) {
+                        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                    } else {
+                        console.warn("Failed to fetch SOL price after retries", e);
                     }
                 }
-
-                // Fallback on error/empty response
-                console.warn("Using fallback market data.");
-                setData({
-                    price: 200,
-                    marketCap: 120000000000, // $120B Fallback
-                    loading: false,
-                });
-
-            } catch (e) {
-                // Slient fail, use fallback
-                setData({
-                    price: 200,
-                    marketCap: 120000000000,
-                    loading: false,
-                });
             }
+
+            // All retries exhausted — keep loading state, no fake fallback
+            setData(prev => ({ ...prev, loading: false }));
         };
 
         fetchData();
 
         // Refresh every 60s
-        const interval = setInterval(fetchData, 60000);
+        const interval = setInterval(() => fetchData(0), 60000);
         return () => clearInterval(interval);
     }, []);
 

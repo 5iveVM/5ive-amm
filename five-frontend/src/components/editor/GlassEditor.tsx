@@ -35,6 +35,12 @@ export default function GlassEditor() {
 
     const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
         setMounted(true);
+
+        // Define themes at mount time to prevent theme flash
+        defineMonacoThemes(monacoInstance);
+        registerFiveLanguage(monacoInstance);
+        monacoInstance.editor.setTheme(theme === 'dark' ? "rose-pine-dark" : "rose-pine-light");
+
         editor.onDidChangeCursorPosition((e: any) => {
             setCursorPosition({
                 lineNumber: e.position.lineNumber,

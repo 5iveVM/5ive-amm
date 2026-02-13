@@ -62,7 +62,7 @@ if command -v wasm-opt &> /dev/null; then
     for target in pkg pkg-node pkg-bundler; do
         if [ -f "$target/five_vm_wasm_bg.wasm" ]; then
             echo "  Optimizing $target..."
-            wasm-opt -Oz "$target/five_vm_wasm_bg.wasm" -o "$target/five_vm_wasm_bg.wasm"
+            wasm-opt -Oz --enable-bulk-memory "$target/five_vm_wasm_bg.wasm" -o "$target/five_vm_wasm_bg.wasm"
         fi
     done
     echo -e "${GREEN}✅ WASM optimization complete${NC}"
