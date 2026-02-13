@@ -24,6 +24,8 @@ npx @5ive-tech/cli --help
 cd my-program
 ```
 
+`5ive init` now generates `AGENTS.md` by default in new projects so agents and developers share a canonical build/test/deploy playbook.
+
 ### 2) Compile to a `.five` artifact (recommended)
 
 ```bash
