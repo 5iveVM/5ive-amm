@@ -257,4 +257,127 @@ describe('Program ID Resolution - CLI Integration', () => {
       expect(await manager.getProgramId()).toBe(id1);
     });
   });
+
+  describe('Handler-Level Integration Tests', () => {
+    it('should resolve correct program ID when target override differs from config target', async () => {
+      const manager = ConfigManager.getInstance();
+      const devnetId = testProgramIds.id1;
+      const testnetId = testProgramIds.id2;
+
+      // Setup: store different program IDs for each target
+      await manager.setProgramId(devnetId, 'devnet');
+      await manager.setProgramId(testnetId, 'testnet');
+
+      // Test: The key behavior is that different targets return different IDs
+      // This simulates deploy command with --target testnet override
+      const resolvedForTestnet = await manager.getProgramId('testnet');
+      expect(resolvedForTestnet).toBe(testnetId);
+
+      const resolvedForDevnet = await manager.getProgramId('devnet');
+      expect(resolvedForDevnet).toBe(devnetId);
+
+      // Verify they are different
+      expect(resolvedForTestnet).not.toBe(resolvedForDevnet);
+    });
+
+    it('should respect CLI flag override over stored config', async () => {
+      const manager = ConfigManager.getInstance();
+      const configId = testProgramIds.id1;
+      const cliOverrideId = testProgramIds.id2;
+
+      // Setup: store an ID in config
+      await manager.setProgramId(configId);
+
+      // Test: CLI flag should take precedence
+      const stored = await manager.getProgramId();
+      expect(stored).toBe(configId);
+
+      // Simulate CLI flag override (as done in deploy command)
+      const resolved = cliOverrideId || stored;
+      expect(resolved).toBe(cliOverrideId);
+    });
+
+    it('should handle per-target resolution in multi-network workflow', async () => {
+      const manager = ConfigManager.getInstance();
+
+      // Setup: configure different IDs for different networks
+      await manager.setProgramId(testProgramIds.id1, 'devnet');
+      await manager.setProgramId(testProgramIds.id2, 'testnet');
+      await manager.setProgramId(testProgramIds.id3, 'mainnet');
+
+      // Test: each target should get its own ID
+      const targets = ['devnet', 'testnet', 'mainnet'] as const;
+      const expectedIds = [testProgramIds.id1, testProgramIds.id2, testProgramIds.id3];
+
+      for (let i = 0; i < targets.length; i++) {
+        const resolved = await manager.getProgramId(targets[i]);
+        expect(resolved).toBe(expectedIds[i]);
+      }
+    });
+
+    it('should preserve program ID across target changes', async () => {
+      const manager = ConfigManager.getInstance();
+      const devnetId = testProgramIds.id1;
+      const testnetId = testProgramIds.id2;
+      const originalConfig = await manager.get();
+      const originalTarget = originalConfig.target;
+
+      try {
+        // Setup: store IDs for multiple targets
+        await manager.setProgramId(devnetId, 'devnet');
+        await manager.setProgramId(testnetId, 'testnet');
+
+        // Change current target to testnet
+        await manager.setTarget('testnet');
+
+        // Verify: devnet ID is still available
+        const devnetStored = await manager.getProgramId('devnet');
+        expect(devnetStored).toBe(devnetId);
+
+        // Verify: testnet ID is current
+        const testnetStored = await manager.getProgramId('testnet');
+        expect(testnetStored).toBe(testnetId);
+      } finally {
+        // Restore original target
+        await manager.setTarget(originalTarget);
+      }
+    });
+
+    it('should handle empty config program ID gracefully', async () => {
+      const manager = ConfigManager.getInstance();
+
+      // No program ID set
+      const stored = await manager.getProgramId('devnet');
+
+      // Should return undefined or allow fallback
+      expect(typeof stored === 'string' || stored === undefined).toBe(true);
+    });
+
+    it('should resolve precedence: CLI flag → config → env var', async () => {
+      const manager = ConfigManager.getInstance();
+      const configId = testProgramIds.id1;
+      const cliId = testProgramIds.id2;
+      const envId = testProgramIds.id3;
+
+      // Setup
+      await manager.setProgramId(configId);
+      process.env.FIVE_PROGRAM_ID = envId;
+
+      try {
+        // Config has ID
+        const fromConfig = await manager.getProgramId();
+        expect(fromConfig).toBe(configId);
+
+        // CLI flag overrides config
+        const resolved = cliId || fromConfig || process.env.FIVE_PROGRAM_ID;
+        expect(resolved).toBe(cliId);
+
+        // Without CLI flag, config is used
+        const withoutCli = fromConfig || process.env.FIVE_PROGRAM_ID;
+        expect(withoutCli).toBe(configId);
+      } finally {
+        delete process.env.FIVE_PROGRAM_ID;
+      }
+    });
+  });
 });

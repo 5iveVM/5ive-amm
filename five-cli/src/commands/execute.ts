@@ -187,13 +187,6 @@ export const executeCommand: CommandDefinition = {
         options.keypair = projectContext.config.keypairPath;
       }
 
-      // Resolve program ID with precedence: CLI flag → project config → config file → env var
-      if (!options.programId) {
-        const configManager = ConfigManager.getInstance();
-        const configuredProgramId = await configManager.getProgramId();
-        options.programId = projectContext?.config.programId || configuredProgramId || process.env.FIVE_PROGRAM_ID;
-      }
-
       let inputFile = args[0] || manifest?.artifact_path;
       if (inputFile && projectContext && !isAbsolute(inputFile)) {
         inputFile = join(projectContext.rootDir, inputFile);
@@ -222,6 +215,13 @@ export const executeCommand: CommandDefinition = {
       };
 
       const config = await configManager.applyOverrides(overrides);
+
+      // Resolve program ID AFTER target override is applied, using the correct target
+      // Precedence: CLI flag → project config → config file (per-target) → env var
+      if (!options.programId) {
+        const configuredProgramId = await configManager.getProgramId(config.target as any);
+        options.programId = projectContext?.config.programId || configuredProgramId || process.env.FIVE_PROGRAM_ID;
+      }
 
       // Show target context prefix
       const targetPrefix = ConfigManager.getTargetPrefix(config.target);

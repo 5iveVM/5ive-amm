@@ -88,7 +88,8 @@ jest.mock('../../config/ConfigManager.js', () => ({
         networks: { devnet: { rpcUrl: 'https://api.devnet.solana.com' } },
         keypairPath: '~/.config/solana/id.json',
         showConfig: false
-      })
+      }),
+      getProgramId: jest.fn().mockResolvedValue(undefined)
     }),
     getTargetPrefix: () => '[devnet]'
   }

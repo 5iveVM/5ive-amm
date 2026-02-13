@@ -134,7 +134,10 @@ export const deployAndExecuteCommand: CommandDefinition = {
       };
 
       const config = await configManager.applyOverrides(overrides);
-      const programIdOverride = options.programId || process.env.FIVE_PROGRAM_ID;
+
+      // Resolve program ID with precedence: CLI flag → config file (per-target) → env var
+      const configuredProgramId = await configManager.getProgramId(config.target as any);
+      const programIdOverride = options.programId || configuredProgramId || process.env.FIVE_PROGRAM_ID;
 
       // Show target context prefix
       const targetPrefix = ConfigManager.getTargetPrefix(config.target);

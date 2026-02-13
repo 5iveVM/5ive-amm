@@ -152,14 +152,19 @@ export const namespaceCommand: CommandDefinition = {
     const useLocalOnly = Boolean(options.local);
     const managerScriptAccount = resolveManagerScriptAccount(options, projectContext, lock);
 
-    const config = await ConfigManager.getInstance().applyOverrides({
+    const configManager = ConfigManager.getInstance();
+    const config = await configManager.applyOverrides({
       target: projectContext?.config.cluster as any,
       network: projectContext?.config.rpcUrl,
       keypair: projectContext?.config.keypairPath,
     });
+
+    // Resolve program ID with precedence: CLI flag → project config → config file (per-target) → env var
+    const configuredProgramId = await configManager.getProgramId(config.target as any);
     const vmProgramId =
       options.programId ||
       projectContext?.config.programId ||
+      configuredProgramId ||
       process.env.FIVE_PROGRAM_ID;
     let signer: Keypair | undefined;
     let connection: Connection | undefined;

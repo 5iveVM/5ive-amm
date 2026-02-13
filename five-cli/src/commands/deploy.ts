@@ -181,12 +181,6 @@ export const deployCommand: CommandDefinition = {
       if (!options.keypair && projectContext?.config.keypairPath) {
         options.keypair = projectContext.config.keypairPath;
       }
-      // Resolve program ID with precedence: CLI flag → project config → env var → config file
-      if (!options.programId) {
-        const configManager = ConfigManager.getInstance();
-        const configuredProgramId = await configManager.getProgramId();
-        options.programId = projectContext?.config.programId || configuredProgramId || process.env.FIVE_PROGRAM_ID;
-      }
 
       if (context.options.verbose) {
         logger.info('Applying configuration overrides...');
@@ -203,6 +197,13 @@ export const deployCommand: CommandDefinition = {
       }
 
       const config = await configManager.applyOverrides(overrides);
+
+      // Resolve program ID AFTER target override is applied, using the correct target
+      // Precedence: CLI flag → project config → config file (per-target) → env var
+      if (!options.programId) {
+        const configuredProgramId = await configManager.getProgramId(config.target as any);
+        options.programId = projectContext?.config.programId || configuredProgramId || process.env.FIVE_PROGRAM_ID;
+      }
       if (context.options.debug) {
         logger.debug(`config: ${JSON.stringify(config, null, 2)}`);
       }
