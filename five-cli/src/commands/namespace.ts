@@ -9,7 +9,7 @@ import { CommandContext, CommandDefinition } from "../types.js";
 import { ConfigManager } from "../config/ConfigManager.js";
 import { loadProjectConfig } from "../project/ProjectLoader.js";
 import { section, success as uiSuccess, error as uiError, keyValue } from "../utils/cli-ui.js";
-import { FiveSDK } from "five-sdk";
+import { FiveSDK, ProgramIdResolver } from "five-sdk";
 
 type NamespaceLock = {
   version?: number;

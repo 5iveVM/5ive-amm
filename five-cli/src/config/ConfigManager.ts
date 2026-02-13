@@ -249,6 +249,69 @@ export class ConfigManager {
     return `${color}[${target}]${reset}`;
   }
 
+  /**
+   * Set program ID for a target
+   * @param programId The Five VM program ID
+   * @param target The target to set it for (uses current target if not specified)
+   */
+  public async setProgramId(programId: string, target?: ConfigTarget): Promise<void> {
+    const config = await this.get();
+    const t = target || config.target;
+
+    if (!CONFIG_VALIDATORS.isValidTarget(t)) {
+      throw new ConfigError(`Invalid target: ${t}`);
+    }
+
+    const programIds = {
+      ...(config.programIds || {}),
+      [t]: programId
+    };
+
+    await this.set({ programIds });
+  }
+
+  /**
+   * Get program ID for a target
+   * @param target The target to get it for (uses current target if not specified)
+   */
+  public async getProgramId(target?: ConfigTarget): Promise<string | undefined> {
+    const config = await this.get();
+    const t = target || config.target;
+
+    if (!CONFIG_VALIDATORS.isValidTarget(t)) {
+      throw new ConfigError(`Invalid target: ${t}`);
+    }
+
+    return config.programIds?.[t];
+  }
+
+  /**
+   * Clear program ID for a target
+   * @param target The target to clear it for (uses current target if not specified)
+   */
+  public async clearProgramId(target?: ConfigTarget): Promise<void> {
+    const config = await this.get();
+    const t = target || config.target;
+
+    if (!CONFIG_VALIDATORS.isValidTarget(t)) {
+      throw new ConfigError(`Invalid target: ${t}`);
+    }
+
+    if (config.programIds?.[t]) {
+      const programIds = { ...config.programIds };
+      delete programIds[t];
+      await this.set({ programIds: Object.keys(programIds).length > 0 ? programIds : undefined });
+    }
+  }
+
+  /**
+   * Get all program IDs
+   */
+  public async getAllProgramIds(): Promise<Partial<Record<ConfigTarget, string>>> {
+    const config = await this.get();
+    return config.programIds || {};
+  }
+
   private getDefaultKeypairPath(): string {
     return join(homedir(), '.config', 'solana', 'id.json');
   }

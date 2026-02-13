@@ -10,6 +10,7 @@ export interface FiveConfig {
   networks: Record<ConfigTarget, NetworkEndpoint>;
   keypair?: string;
   showConfig: boolean;
+  programIds?: Partial<Record<ConfigTarget, string>>;
 
   wasm?: {
     loader?: 'auto' | 'node' | 'bundler';
@@ -103,6 +104,15 @@ export const CONFIG_VALIDATORS = {
     // Validate optional fields
     if (config.keypair !== undefined && typeof config.keypair !== 'string') {
       return false;
+    }
+
+    // Validate program IDs
+    if (config.programIds !== undefined) {
+      if (typeof config.programIds !== 'object' || config.programIds === null) return false;
+      for (const [target, programId] of Object.entries(config.programIds)) {
+        if (!this.isValidTarget(target)) return false;
+        if (typeof programId !== 'string' || programId.length === 0) return false;
+      }
     }
 
     // Optional wasm config

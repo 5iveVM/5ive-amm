@@ -13,7 +13,7 @@ import {
   DeploymentResult,
   CLIOptions
 } from '../types.js';
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK, ProgramIdResolver } from 'five-sdk';
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ConfigOverrides } from '../config/types.js';
 import { FiveFileManager } from '../utils/FiveFileManager.js';
@@ -181,8 +181,11 @@ export const deployCommand: CommandDefinition = {
       if (!options.keypair && projectContext?.config.keypairPath) {
         options.keypair = projectContext.config.keypairPath;
       }
+      // Resolve program ID with precedence: CLI flag → project config → env var → config file
       if (!options.programId) {
-        options.programId = projectContext?.config.programId || process.env.FIVE_PROGRAM_ID;
+        const configManager = ConfigManager.getInstance();
+        const configuredProgramId = await configManager.getProgramId();
+        options.programId = projectContext?.config.programId || configuredProgramId || process.env.FIVE_PROGRAM_ID;
       }
 
       if (context.options.verbose) {
@@ -306,6 +309,21 @@ export const deployCommand: CommandDefinition = {
       );
       if (context.options.debug) {
         logger.debug(`deployment options: ${JSON.stringify(deploymentOptions, null, 2)}`);
+      }
+
+      // Validate program ID for on-chain deployment
+      let resolvedProgramId: string | undefined;
+      if (config.target !== 'wasm') {
+        try {
+          resolvedProgramId = ProgramIdResolver.resolve(options.programId);
+        } catch (error) {
+          throw new Error(
+            `Program ID required for deployment to ${config.target}. ` +
+            `Provide via: --program-id <pubkey>, five.toml programId, ` +
+            `or: five config set --program-id <pubkey>`
+          );
+        }
+        options.programId = resolvedProgramId;
       }
 
       // Fetch current fees from VM state to determine if extra accounts are needed

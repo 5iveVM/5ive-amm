@@ -12,7 +12,7 @@ import {
   AccountInfo,
   CLIOptions
 } from '../types.js';
-import { FiveSDK } from 'five-sdk';
+import { FiveSDK, ProgramIdResolver } from 'five-sdk';
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ConfigOverrides } from '../config/types.js';
 import { FiveFileManager } from '../utils/FiveFileManager.js';
@@ -185,6 +185,13 @@ export const executeCommand: CommandDefinition = {
       }
       if (!options.keypair && projectContext?.config.keypairPath) {
         options.keypair = projectContext.config.keypairPath;
+      }
+
+      // Resolve program ID with precedence: CLI flag → project config → config file → env var
+      if (!options.programId) {
+        const configManager = ConfigManager.getInstance();
+        const configuredProgramId = await configManager.getProgramId();
+        options.programId = projectContext?.config.programId || configuredProgramId || process.env.FIVE_PROGRAM_ID;
       }
 
       let inputFile = args[0] || manifest?.artifact_path;
@@ -436,6 +443,21 @@ async function executeScriptAccount(scriptAccount: string, options: any, context
         } catch (e) {
           console.warn('Warning: Failed to parse --accounts-json, ignoring.');
         }
+      }
+
+      // Validate program ID for script account execution
+      let resolvedProgramId: string | undefined;
+      if (config.target !== 'wasm') {
+        try {
+          resolvedProgramId = ProgramIdResolver.resolve(options.programId);
+        } catch (error) {
+          throw new Error(
+            `Program ID required for script account execution on ${config.target}. ` +
+            `Provide via: --program-id <pubkey>, five.toml programId, ` +
+            `or: five config set --program-id <pubkey>`
+          );
+        }
+        options.programId = resolvedProgramId;
       }
 
       // Fetch current fees from VM state
