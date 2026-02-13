@@ -37,6 +37,7 @@
   },
   "files": [
     "dist/",
+    "templates/AGENTS.md",
     "assets/",
     "README.md",
     "LICENSE"
