@@ -15,5 +15,9 @@ pub min(a: u64, b: u64) -> u64 {
 pub sqrt_product(a: u64, b: u64) -> u64 {
     require(a > 0);
     require(b > 0);
-    return min(a, b);
+    let product = a * b;
+    let estimate = product;
+    let estimate = (estimate + product / estimate) / 2;
+    let estimate = (estimate + product / estimate) / 2;
+    return estimate;
 }
