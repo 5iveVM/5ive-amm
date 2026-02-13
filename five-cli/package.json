@@ -1,6 +1,6 @@
 {
   "name": "@5ive-tech/cli",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "High-performance CLI for Five VM development with WebAssembly integration",
   "type": "module",
   "main": "dist/index.js",
@@ -13,6 +13,7 @@
   },
   "scripts": {
     "build": "npm run sync:wasm && npm run build:js",
+    "build:release": "npm run sync:wasm:rebuild && npm run build:js",
     "build:wasm": "npm run sync:wasm",
     "build:vm-wasm": "npm run sync:wasm",
     "sync:wasm": "bash ../scripts/sync-wasm-assets.sh",
@@ -33,7 +34,7 @@
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
     "dev": "npm run build:js:dev",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build:release"
   },
   "files": [
     "dist/",

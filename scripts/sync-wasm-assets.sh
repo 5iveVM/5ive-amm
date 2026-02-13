@@ -39,6 +39,30 @@ has_all_files() {
   return 0
 }
 
+sources_newer_than_artifact() {
+  local artifact="$1"
+  shift
+
+  if [ ! -f "$artifact" ]; then
+    return 0
+  fi
+
+  local source_path
+  for source_path in "$@"; do
+    if [ -d "$source_path" ]; then
+      if find "$source_path" -type f -newer "$artifact" -print -quit | grep -q .; then
+        return 0
+      fi
+    elif [ -f "$source_path" ]; then
+      if [ "$source_path" -nt "$artifact" ]; then
+        return 0
+      fi
+    fi
+  done
+
+  return 1
+}
+
 should_rebuild=false
 if [ "${FIVE_WASM_REBUILD:-0}" = "1" ]; then
   should_rebuild=true
@@ -53,6 +77,13 @@ if [ "$should_rebuild" = false ]; then
     should_rebuild=true
   elif ! has_all_files "$WASM_BUNDLER_DIR" "${BUNDLER_FILES[@]}"; then
     echo "==> Missing bundler wasm artifacts; rebuilding"
+    should_rebuild=true
+  elif sources_newer_than_artifact "$WASM_NODE_DIR/five_vm_wasm_bg.wasm" \
+    "$WASM_DIR/src" \
+    "$WASM_DIR/Cargo.toml" \
+    "$ROOT_DIR/five-dsl-compiler/src" \
+    "$ROOT_DIR/five-dsl-compiler/Cargo.toml"; then
+    echo "==> Detected newer compiler/wasm sources; rebuilding"
     should_rebuild=true
   fi
 fi

@@ -333,7 +333,7 @@ impl TypeCheckerContext {
                 // Accept equality for primitives and named/custom types when compatible
                 Ok(TypeNode::Primitive("bool".to_string()))
             }
-            "lt" | "le" | "gt" | "ge" => {
+            "lt" | "le" | "lte" | "gt" | "ge" | "gte" => {
                 // Ordering comparisons: require numeric operands
                 if args.len() != 1 {
                     return Err(VMError::InvalidOperation);
