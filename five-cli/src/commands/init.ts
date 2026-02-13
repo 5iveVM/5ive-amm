@@ -326,35 +326,31 @@ network = "devnet"
 
 function getTemplateMainFile(template: string): string {
   const templates: Record<string, string> = {
-    basic: `// Basic 5IVE VM Program
-script BasicProgram {
-    // Program initialization
-    init() {
-        log("BasicProgram initialized");
-    }
-    
-    // Main program constraints
-    constraints {
-        // Add your business logic here
-        require(true, "Always passes");
-    }
+    basic: `// Basic 5ive DSL program (valid-first starter)
+
+account Counter {
+    value: u64;
+    authority: pubkey;
 }
 
-// Main entry point
-instruction main() {
-    log("Hello, 5IVE VM!");
-    42  // Return value
+pub init_counter(
+    counter: Counter @mut,
+    authority: account @signer
+) {
+    counter.value = 0;
+    counter.authority = authority.key;
 }
 
-// Example function with parameters
-instruction add(a: u64, b: u64) -> u64 {
-    a + b
+pub increment(
+    counter: Counter @mut,
+    authority: account @signer
+) {
+    require(counter.authority == authority.key);
+    counter.value = counter.value + 1;
 }
 
-#[test]
-instruction test_add() {
-    let result = add(2, 3);
-    assert_eq(result, 5, "Addition should work");
+pub get_value(counter: Counter) -> u64 {
+    return counter.value;
 }
 `,
 
