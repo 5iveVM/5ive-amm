@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 // Five CLI entrypoint.
 
-import chalk from 'chalk';
-import { createCLI } from './cli.js';
-
 export async function main() {
+  // Keep CLI output clean unless explicitly requested.
+  if (!process.env.FIVE_SHOW_DEPRECATIONS) {
+    process.noDeprecation = true;
+  }
+
   try {
+    const { createCLI } = await import('./cli.js');
     const cli = createCLI({
       verbose: process.argv.includes('--verbose') || process.argv.includes('-v'),
       debug: process.argv.includes('--debug')
@@ -13,6 +16,7 @@ export async function main() {
     
     await cli.run(process.argv);
   } catch (error) {
+    const chalk = (await import('chalk')).default;
     console.error(chalk.red('Fatal error:'), error);
     process.exit(1);
   }
@@ -23,6 +27,7 @@ const isMainModule = (
   import.meta.url === `file://${process.argv[1]}` ||
   process.argv[1].endsWith('dist/index.js') ||
   process.argv[1].endsWith('/five') ||
+  process.argv[1].endsWith('/5ive') ||
   process.argv[1].includes('five-cli')
 );
 

@@ -14,13 +14,13 @@ import { success as uiSuccess, warning as uiWarning, uiColors, section } from '.
 
 export const configCommand: CommandDefinition = {
   name: 'config',
-  description: 'Manage Five CLI configuration',
+  description: 'Manage 5IVE CLI configuration',
   aliases: ['cfg'],
 
   options: [
     {
       flags: '--program-id <id>',
-      description: 'Set Five VM program ID for current or specified target',
+      description: 'Set 5IVE VM program ID for current or specified target',
       required: false
     },
     {
@@ -45,43 +45,43 @@ export const configCommand: CommandDefinition = {
 
   examples: [
     {
-      command: 'five config init',
+      command: '5ive config init',
       description: 'Initialize configuration with interactive setup'
     },
     {
-      command: 'five config get',
+      command: '5ive config get',
       description: 'Show all configuration values'
     },
     {
-      command: 'five config get target',
+      command: '5ive config get target',
       description: 'Show current target network'
     },
     {
-      command: 'five config set --target devnet',
+      command: '5ive config set --target devnet',
       description: 'Set target network to devnet'
     },
     {
-      command: 'five config set --keypair ~/.solana/deployer.json',
+      command: '5ive config set --keypair ~/.solana/deployer.json',
       description: 'Set keypair file path'
     },
     {
-      command: 'five config set --rpc-url https://api.custom.solana.com',
+      command: '5ive config set --rpc-url https://api.custom.solana.com',
       description: 'Set custom RPC URL for current target'
     },
     {
-      command: 'five config set --program-id HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg',
-      description: 'Set Five VM program ID for current target'
+      command: '5ive config set --program-id HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg',
+      description: 'Set 5IVE VM program ID for current target'
     },
     {
-      command: 'five config set --program-id <ID> --target devnet',
-      description: 'Set Five VM program ID for specific target'
+      command: '5ive config set --program-id <ID> --target devnet',
+      description: 'Set 5IVE VM program ID for specific target'
     },
     {
-      command: 'five config get programIds',
+      command: '5ive config get programIds',
       description: 'Show all configured program IDs'
     },
     {
-      command: 'five config reset',
+      command: '5ive config reset',
       description: 'Reset configuration to defaults'
     }
   ],
@@ -143,7 +143,7 @@ async function handleInit(
     };
 
     // Interactive setup
-    console.log('Let\'s configure your Five CLI environment:\n');
+    console.log('Let\'s configure your 5IVE CLI environment:\n');
 
     // Target network selection
     const targetAnswer = await question(
@@ -385,7 +385,7 @@ async function handleReset(
  */
 function formatConfig(config: FiveConfig): string {
   const lines: string[] = [];
-  lines.push(chalk.bold('Five CLI Configuration:'));
+  lines.push(chalk.bold('5IVE CLI Configuration:'));
   lines.push('');
 
   // Current target
@@ -475,7 +475,7 @@ function formatValue(value: any): string {
 configCommand.options = [
   {
     flags: '--program-id <id>',
-    description: 'Set Five VM program ID for current or specified target',
+    description: 'Set 5IVE VM program ID for current or specified target',
     required: false
   },
   {

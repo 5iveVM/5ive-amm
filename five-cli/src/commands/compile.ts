@@ -12,7 +12,7 @@ import { success as uiSuccess, error as uiError, section } from '../utils/cli-ui
 
 export const compileCommand: CommandDefinition = {
   name: 'compile',
-  description: 'Compile Five source to bytecode',
+  description: 'Compile 5ive source to bytecode',
   aliases: ['c'],
 
   options: [
@@ -89,7 +89,7 @@ export const compileCommand: CommandDefinition = {
   arguments: [
     {
       name: 'input',
-      description: 'Input Five source file(s) or glob pattern (optional with five.toml)',
+      description: 'Input 5ive source file(s) or glob pattern (optional with five.toml)',
       required: false,
       variadic: true
     }
@@ -97,23 +97,23 @@ export const compileCommand: CommandDefinition = {
 
   examples: [
     {
-      command: 'five compile src/main.v',
-      description: 'Compile a single Five source file'
+      command: '5ive compile src/main.v',
+      description: 'Compile a single 5ive source file'
     },
     {
-      command: 'five compile src/**/*.v -o build/',
-      description: 'Compile all Five files in src directory'
+      command: '5ive compile src/**/*.v -o build/',
+      description: 'Compile all 5ive files in src directory'
     },
     {
-      command: 'five compile src/main.v -t solana -O 3 --abi main.abi.json',
+      command: '5ive compile src/main.v -t solana -O 3 --abi main.abi.json',
       description: 'Compile for Solana with maximum optimization and ABI generation'
     },
     {
-      command: 'five compile src/main.v --analyze --debug',
+      command: '5ive compile src/main.v --analyze --debug',
       description: 'Compile with debug info and bytecode analysis'
     },
     {
-      command: 'five compile src/**/*.v --watch',
+      command: '5ive compile src/**/*.v --watch',
       description: 'Watch for changes and auto-recompile'
     }
   ],
@@ -154,7 +154,7 @@ export const compileCommand: CommandDefinition = {
 
       if (inputFiles.length === 0) {
         throw new Error(
-          'No Five source files found. Provide input paths, or run from a project with five.toml (entry_point/source_dir), or pass --project <path>.'
+          'No 5ive source files found. Provide input paths, or run from a project with five.toml (entry_point/source_dir), or pass --project <path>.'
         );
       }
 
@@ -336,7 +336,7 @@ async function resolveInputFiles(
 }
 
 /**
- * Validate files without compilation using Five SDK
+ * Validate files without compilation using 5IVE SDK
  */
 async function validateFiles(
   inputFiles: string[],
@@ -349,7 +349,7 @@ async function validateFiles(
     try {
       const sourceCode = await readFile(inputFile, 'utf8');
 
-      // Use Five SDK to validate bytecode
+      // Use 5IVE SDK to validate bytecode
       const result = await FiveSDK.compile(sourceCode, { debug: false });
 
       if (result.success) {
@@ -505,7 +505,7 @@ async function compileFiles(
 }
 
 /**
- * Compile a single file using Five SDK
+ * Compile a single file using 5IVE SDK
  */
 async function compileSingleFile(
   inputFile: string,
@@ -546,7 +546,7 @@ async function compileSingleFile(
     flatNamespace: Boolean(options.flatNamespace)
   };
 
-  // Compile using Five SDK (includes .five format generation)
+  // Compile using 5IVE SDK (includes .five format generation)
   // Compile using FiveCompilerWasm directly for rich errors
   const { FiveCompilerWasm } = await import('../wasm/compiler.js');
   const wasmCompiler = new FiveCompilerWasm(logger);
@@ -1021,7 +1021,7 @@ function displayOpcodeAnalysis(opcodeUsage: any, opcodeAnalysis: any, logger: an
 
   if (opcodeAnalysis && opcodeAnalysis.summary) {
     console.log('\n' + section('Comprehensive Opcode Analysis'));
-    console.log(`  Available opcodes in Five VM: ${opcodeAnalysis.summary.total_opcodes_available}`);
+    console.log(`  Available opcodes in 5IVE VM: ${opcodeAnalysis.summary.total_opcodes_available}`);
     console.log(`  Opcodes used by this script: ${opcodeAnalysis.summary.opcodes_used}`);
     console.log(`  Opcodes unused: ${opcodeAnalysis.summary.opcodes_unused}`);
     console.log(`  Usage percentage: ${opcodeAnalysis.summary.usage_percentage.toFixed(1)}%`);

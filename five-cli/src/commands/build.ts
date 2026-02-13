@@ -5,7 +5,7 @@ import { compileCommand } from './compile.js';
 
 export const buildCommand: CommandDefinition = {
   name: 'build',
-  description: 'Build a Five project from five.toml',
+  description: 'Build a 5IVE project from five.toml',
   aliases: ['b'],
 
   options: [
@@ -36,15 +36,15 @@ export const buildCommand: CommandDefinition = {
 
   examples: [
     {
-      command: 'five build',
+      command: '5ive build',
       description: 'Build the project in the current directory (discovers five.toml)'
     },
     {
-      command: 'five build --project ../my-app',
+      command: '5ive build --project ../my-app',
       description: 'Build a project at the given path'
     },
     {
-      command: 'five build --target solana',
+      command: '5ive build --target solana',
       description: 'Override target from five.toml during build'
     }
   ],

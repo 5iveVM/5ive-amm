@@ -52,7 +52,7 @@ interface VersionInfo {
 }
 
 /**
- * Five version command implementation
+ * 5IVE version command implementation
  */
 export const versionCommand: CommandDefinition = {
   name: 'version',
@@ -82,15 +82,15 @@ export const versionCommand: CommandDefinition = {
 
   examples: [
     {
-      command: 'five version',
+      command: '5ive version',
       description: 'Show basic version information'
     },
     {
-      command: 'five version --detailed --format json',
+      command: '5ive version --detailed --format json',
       description: 'Show detailed version info in JSON format'
     },
     {
-      command: 'five version --check-updates',
+      command: '5ive version --check-updates',
       description: 'Check for CLI updates'
     }
   ],
@@ -133,7 +133,7 @@ async function gatherVersionInfo(context: CommandContext, detailed: boolean): Pr
     cli: {
       name: packageInfo.name || 'five-cli',
       version: packageInfo.version || '1.0.0',
-      description: packageInfo.description || 'Five VM CLI'
+      description: packageInfo.description || '5IVE VM CLI'
     },
     wasm: {},
     dependencies: {},
@@ -183,7 +183,7 @@ async function getPackageInfo(rootDir: string): Promise<any> {
     }
   }
 
-  return { name: 'five-cli', version: '1.0.0', description: 'Five VM CLI' };
+  return { name: 'five-cli', version: '1.0.0', description: '5IVE VM CLI' };
 }
 
 /**
@@ -402,7 +402,7 @@ function displayVersionTable(versionInfo: VersionInfo): void {
   }
   
   // Simple table formatting
-  console.log(chalk.bold('Five CLI Version Information:'));
+  console.log(chalk.bold('5IVE CLI Version Information:'));
   console.log();
   
   const maxKeyLength = Math.max(...rows.map(([key]) => key.length));

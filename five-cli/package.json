@@ -1,6 +1,6 @@
 {
   "name": "@5ive-tech/cli",
-  "version": "1.0.7",
+  "version": "1.0.11",
   "description": "High-performance CLI for Five VM development with WebAssembly integration",
   "type": "module",
   "main": "dist/index.js",
@@ -33,8 +33,7 @@
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
     "dev": "npm run build:js:dev",
-    "prepublishOnly": "npm run build",
-    "postinstall": "npm run verify:wasm || npm run sync:wasm"
+    "prepublishOnly": "npm run build"
   },
   "files": [
     "dist/",

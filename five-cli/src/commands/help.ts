@@ -18,7 +18,7 @@ import { ConfigManager } from '../config/ConfigManager.js';
 import { commands, getCommand, getCommandsByCategory } from './index.js';
 
 /**
- * Five help command implementation
+ * 5IVE help command implementation
  */
 export const helpCommand: CommandDefinition = {
   name: 'help',
@@ -48,15 +48,15 @@ export const helpCommand: CommandDefinition = {
 
   examples: [
     {
-      command: 'five help',
+      command: '5ive help',
       description: 'Show general help'
     },
     {
-      command: 'five help compile',
+      command: '5ive help compile',
       description: 'Show help for compile command'
     },
     {
-      command: 'five help --detailed',
+      command: '5ive help --detailed',
       description: 'Show detailed help with examples'
     }
   ],
@@ -105,7 +105,7 @@ async function showCommandHelp(commandName: string, options: any, context: Comma
   // Usage
   console.log(chalk.bold('Usage:'));
   const usage = buildUsageString(command);
-  console.log(`  ${uiColors.info('five')} ${uiColors.accent(command.name)} ${usage}`);
+  console.log(`  ${uiColors.info('5ive')} ${uiColors.accent(command.name)} ${usage}`);
   console.log();
   
   // Arguments
@@ -149,7 +149,7 @@ async function showGeneralHelp(options: any, context: CommandContext): Promise<v
   // Show simple header unless disabled
   if (!options.noBanner) {
     console.log(brandLine());
-    console.log(uiColors.muted('Five VM CLI - Ultra-fast bytecode VM for Solana'));
+    console.log(uiColors.muted('5IVE CLI - Ultra-fast bytecode VM for Solana'));
     console.log();
   }
   
@@ -178,11 +178,11 @@ async function showGeneralHelp(options: any, context: CommandContext): Promise<v
     console.log();
     
     const quickStartExamples = [
-      'five init my-project                    Create a new Five project',
-      'five compile script.v                   Compile Five source to bytecode', 
-      'five execute script.five --local        Test execution locally',
-      'five deploy script.five --target devnet Deploy to Solana devnet',
-      'five config get                         View current configuration'
+      '5ive init my-project                    Create a new 5IVE project',
+      '5ive compile script.v                   Compile 5ive source to bytecode',
+      '5ive execute script.five --local        Test execution locally',
+      '5ive deploy script.five --target devnet Deploy to Solana devnet',
+      '5ive config get                         View current configuration'
     ];
     
     for (const example of quickStartExamples) {
@@ -193,9 +193,8 @@ async function showGeneralHelp(options: any, context: CommandContext): Promise<v
   }
   
   console.log(section('Need More Help'));
-  console.log(keyValue('five help <command>', 'Command-specific help'));
-  console.log(keyValue('five --verbose', 'Detailed output'));
-  console.log(keyValue('docs', 'https://github.com/five-vm/five-cli#readme'));
+  console.log(keyValue('5ive help <command>', 'Command-specific help'));
+  console.log(keyValue('5ive --verbose', 'Detailed output'));
 }
 
 /**
@@ -209,7 +208,6 @@ async function showCurrentConfig(context: CommandContext): Promise<void> {
 
   const configInfo = [
     `${chalk.bold('Status:')} ${uiColors.success('Ready')}`,
-    `${chalk.bold('Version:')} ${uiColors.info('1.2.2')}`,
     `${chalk.bold('Network:')} ${getNetworkDisplay(target)}`,
     `${chalk.bold('Debug:')} ${context.options.debug ? uiColors.warn('ON') : uiColors.muted('OFF')}`
   ];

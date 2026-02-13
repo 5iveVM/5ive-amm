@@ -120,7 +120,7 @@ export const namespaceCommand: CommandDefinition = {
     },
     {
       flags: "--program-id <pubkey>",
-      description: "Override Five VM program ID for PDA derivation",
+      description: "Override 5IVE VM program ID for PDA derivation",
       required: false,
     },
     {
@@ -134,9 +134,9 @@ export const namespaceCommand: CommandDefinition = {
     { name: "namespace", description: "@domain or @domain/subprogram", required: true },
   ],
   examples: [
-    { command: "five namespace register @5ive-tech", description: "Register top-level namespace in local cache" },
-    { command: "five namespace bind @5ive-tech/program --script <pubkey>", description: "Bind namespace to script account" },
-    { command: "five namespace resolve @5ive-tech/program", description: "Resolve namespace from lockfile cache" },
+    { command: "5ive namespace register @5ive-tech", description: "Register top-level namespace in local cache" },
+    { command: "5ive namespace bind @5ive-tech/program --script <pubkey>", description: "Bind namespace to script account" },
+    { command: "5ive namespace resolve @5ive-tech/program", description: "Resolve namespace from lockfile cache" },
   ],
   handler: async (args: string[], options: any, context: CommandContext): Promise<void> => {
     const action = (args[0] || "").toLowerCase();

@@ -73,19 +73,19 @@ export const initCommand: CommandDefinition = {
 
   examples: [
     {
-      command: 'five init',
+      command: '5ive init',
       description: 'Initialize project in current directory'
     },
     {
-      command: 'five init my-project',
+      command: '5ive init my-project',
       description: 'Create new project in my-project directory'
     },
     {
-      command: 'five init my-defi --template defi --target solana',
+      command: '5ive init my-defi --template defi --target solana',
       description: 'Create DeFi project targeting Solana'
     },
     {
-      command: 'five init game --template game --no-git',
+      command: '5ive init game --template game --no-git',
       description: 'Create game project without git initialization'
     }
   ],
@@ -98,7 +98,7 @@ export const initCommand: CommandDefinition = {
       const projectDir = args[0] || process.cwd();
       const projectName = options.name || (args[0] ? args[0] : 'five-project');
       
-      logger.info(`Initializing Five VM project: ${projectName}`);
+      logger.info(`Initializing 5IVE VM project: ${projectName}`);
       
       // Check if directory exists and is empty
       await checkProjectDirectory(projectDir, logger);
@@ -149,7 +149,7 @@ async function checkProjectDirectory(projectDir: string, logger: any): Promise<v
     if (files.length > 0) {
       logger.warn(`Directory ${projectDir} is not empty`);
       
-      // Check for existing Five project
+      // Check for existing 5IVE project
       const hasConfig = files.includes('five.toml') || files.includes('package.json');
       if (hasConfig) {
         throw new Error('Directory already contains a project configuration');
@@ -204,7 +204,7 @@ async function generateProjectConfig(
   const config: ProjectConfig = {
     name: projectName,
     version: '0.1.0',
-    description: options.description || `A Five VM project`,
+    description: options.description || `A 5IVE VM project`,
     sourceDir: 'src',
     buildDir: 'build',
     target: options.target as CompilationTarget,
@@ -228,16 +228,16 @@ async function generatePackageJson(
   const packageJson = {
     name: projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
     version: '0.1.0',
-    description: options.description || 'A Five VM project',
+    description: options.description || 'A 5IVE VM project',
     author: options.author || '',
     license: options.license,
     scripts: {
-      build: 'five compile src/**/*.v',
-      test: 'five test',
-      deploy: 'five deploy',
-      'build:release': 'five compile src/**/*.v -O 3',
-      'build:debug': 'five compile src/**/*.v --debug',
-      'watch': 'five compile src/**/*.v --watch'
+      build: '5ive compile src/**/*.v',
+      test: '5ive test',
+      deploy: '5ive deploy',
+      'build:release': '5ive compile src/**/*.v -O 3',
+      'build:debug': '5ive compile src/**/*.v --debug',
+      'watch': '5ive compile src/**/*.v --watch'
     },
     devDependencies: {
       'five-cli': '^1.0.0'
@@ -288,7 +288,7 @@ async function initializeGitRepository(projectDir: string): Promise<void> {
 }
 
 function generateTomlConfig(config: ProjectConfig): string {
-  return `# Five VM Project Configuration
+  return `# 5IVE VM Project Configuration
 [project]
 name = "${config.name}"
 version = "${config.version}"
@@ -320,7 +320,7 @@ network = "devnet"
 
 function getTemplateMainFile(template: string): string {
   const templates: Record<string, string> = {
-    basic: `// Basic Five VM Program
+    basic: `// Basic 5IVE VM Program
 script BasicProgram {
     // Program initialization
     init() {
@@ -336,7 +336,7 @@ script BasicProgram {
 
 // Main entry point
 instruction main() {
-    log("Hello, Five VM!");
+    log("Hello, 5IVE VM!");
     42  // Return value
 }
 
@@ -352,7 +352,7 @@ instruction test_add() {
 }
 `,
 
-    defi: `// DeFi Protocol on Five VM
+    defi: `// DeFi Protocol on 5IVE VM
 script DefiProtocol {
     init() {
         log("DeFi Protocol initialized");
@@ -411,7 +411,7 @@ instruction add_liquidity(amount_a: u64, amount_b: u64) -> u64 {
 }
 `,
 
-    nft: `// NFT Collection on Five VM
+    nft: `// NFT Collection on 5IVE VM
 script NFTCollection {
     init() {
         log("NFT Collection initialized");
@@ -440,7 +440,7 @@ instruction mint_nft(to: pubkey, metadata_uri: string) -> pubkey {
     let nft_id = derive_pda("nft", [to, get_clock().slot]);
     
     let metadata = NFTMetadata {
-        name: "Five VM NFT",
+        name: "5IVE VM NFT",
         symbol: "FVM",
         uri: metadata_uri,
         creator: get_signer(),
@@ -474,7 +474,7 @@ event TransferEvent {
 }
 `,
 
-    game: `// Game Logic on Five VM
+    game: `// Game Logic on 5IVE VM
 script GameEngine {
     init() {
         log("Game Engine initialized");
@@ -555,7 +555,7 @@ event LevelUp {
 }
 `,
 
-    dao: `// DAO Governance on Five VM
+    dao: `// DAO Governance on 5IVE VM
 script DAOGovernance {
     init() {
         log("DAO Governance initialized");
@@ -779,16 +779,16 @@ pub test_proposal_threshold(token_balance: u64, threshold: u64) -> bool {
  * Generate README content
  */
 function generateReadme(template: string): string {
-  return `# Five VM Project
+  return `# 5IVE VM Project
 
-A ${template} project built with Five VM.
+A ${template} project built with 5IVE VM.
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- Five CLI: \`npm install -g five-cli\`
+- 5IVE CLI: \`npm install -g five-cli\`
 
 ### Building
 
@@ -807,7 +807,7 @@ npm run build:debug
 
 #### Discover and Run Tests
 
-Five CLI automatically discovers test functions from your \`.v\` files:
+5IVE CLI automatically discovers test functions from your \`.v\` files:
 
 \`\`\`bash
 # Run all tests
@@ -864,7 +864,7 @@ npm run deploy
 
 ## Project Structure
 
-- \`src/\` - Five VM source files (.v)
+- \`src/\` - 5IVE VM source files (.v)
 - \`tests/\` - Test files (.v files with test_* functions)
 - \`build/\` - Compiled bytecode
 - \`docs/\` - Documentation
@@ -872,7 +872,7 @@ npm run deploy
 
 ## Multi-File Projects
 
-If your project uses multiple modules with \`use\` or \`import\` statements, Five CLI automatically handles:
+If your project uses multiple modules with \`use\` or \`import\` statements, 5IVE CLI automatically handles:
 
 \`\`\`bash
 # Automatic discovery of imported modules
@@ -884,8 +884,8 @@ five build
 
 ## Learn More
 
-- [Five VM Documentation](https://five-vm.dev)
-- [Five VM GitHub](https://github.com/five-vm)
+- [5IVE VM Documentation](https://five-vm.dev)
+- [5IVE VM GitHub](https://github.com/five-vm)
 - [Multi-File Compilation Guide](./docs/multi-file.md)
 - [Examples](./examples)
 
@@ -925,7 +925,7 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Five VM
+# 5IVE VM
 .five/cache/
 *.debug.bin
 `;
@@ -947,5 +947,5 @@ function displaySuccessMessage(projectDir: string, projectName: string, options:
   console.log(`  ${uiColors.info('npm test')} - Run tests`);
   console.log(`  ${uiColors.info('npm run watch')} - Start development mode`);
   
-  console.log('\n' + uiColors.muted('Happy coding with Five VM.'));
+  console.log('\n' + uiColors.muted('Happy coding with 5IVE VM.'));
 }

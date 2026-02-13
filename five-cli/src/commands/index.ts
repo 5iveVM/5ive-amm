@@ -6,17 +6,11 @@ import { section, uiColors } from '../utils/cli-ui.js';
 import { compileCommand } from './compile.js';
 import { executeCommand } from './execute.js';
 import { initCommand } from './init.js';
-import { analyzeCommand } from './analyze.js';
-import { fmtCommand } from './fmt.js';
 import { deployCommand } from './deploy.js';
-import { deployAndExecuteCommand } from './deploy-and-execute.js';
 import { testCommand } from './test.js';
 import { versionCommand } from './version.js';
 import { configCommand } from './config.js';
-import { localCommand } from './local.js';
 import { helpCommand } from './help.js';
-import { templateCommand } from './template.js';
-import { donateCommand } from './donate.js';
 import { buildCommand } from './build.js';
 import { namespaceCommand } from './namespace.js';
 
@@ -25,20 +19,14 @@ import { namespaceCommand } from './namespace.js';
  */
 export const commands: CommandDefinition[] = [
   helpCommand, // Put help first for priority
-  templateCommand,
-  donateCommand,
+  initCommand,
+  configCommand,
   compileCommand,
   buildCommand,
   executeCommand,
   deployCommand,
   namespaceCommand,
-  deployAndExecuteCommand,
-  localCommand,
-  configCommand,
-  initCommand,
   testCommand,
-  analyzeCommand,
-  fmtCommand,
   versionCommand
 ];
 
@@ -72,9 +60,8 @@ export function getAllCommandNames(): string[] {
  */
 export function getCommandsByCategory(): Record<string, CommandDefinition[]> {
   return {
-    'Development': [compileCommand, buildCommand, executeCommand, localCommand, testCommand, templateCommand, initCommand],
-    'Deployment': [deployCommand, namespaceCommand, deployAndExecuteCommand],
-    'Support': [donateCommand],
+    'Development': [initCommand, compileCommand, buildCommand, executeCommand, testCommand],
+    'Deployment': [deployCommand, namespaceCommand],
     'Configuration': [configCommand],
     'Utility': [versionCommand, helpCommand],
   };
@@ -140,17 +127,13 @@ export function registerCommand(cmd: CommandDefinition): boolean {
 // Export individual commands for direct access
 export {
   helpCommand,
+  initCommand,
+  configCommand,
   compileCommand,
   buildCommand,
   executeCommand,
   deployCommand,
   namespaceCommand,
-  deployAndExecuteCommand,
-  localCommand,
-  configCommand,
-  initCommand,
-  analyzeCommand,
-  fmtCommand,
   testCommand,
   versionCommand
 };

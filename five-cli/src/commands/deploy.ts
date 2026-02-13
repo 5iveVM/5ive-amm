@@ -27,7 +27,7 @@ import {
 } from '../utils/cli-ui.js';
 
 /**
- * Five deploy command implementation
+ * 5IVE deploy command implementation
  */
 export const deployCommand: CommandDefinition = {
   name: 'deploy',
@@ -52,7 +52,7 @@ export const deployCommand: CommandDefinition = {
     },
     {
       flags: '--program-id <pubkey>',
-      description: 'Specify the Five VM program ID to be the owner of the new script account',
+      description: 'Specify the 5IVE VM program ID to be the owner of the new script account',
       required: false
     },
     {
@@ -131,30 +131,30 @@ export const deployCommand: CommandDefinition = {
   arguments: [
     {
       name: 'bytecode',
-      description: 'Five VM artifact file (.five or .bin)',
+      description: '5IVE VM artifact file (.five or .bin)',
       required: true
     }
   ],
 
   examples: [
     {
-      command: 'five deploy program.five',
+      command: '5ive deploy program.five',
       description: 'Deploy to configured target (uses config defaults)'
     },
     {
-      command: 'five deploy program.five --target mainnet',
+      command: '5ive deploy program.five --target mainnet',
       description: 'Deploy to mainnet (overrides config)'
     },
     {
-      command: 'five deploy program.five --keypair deployer.json --target devnet',
+      command: '5ive deploy program.five --keypair deployer.json --target devnet',
       description: 'Deploy to devnet with specific keypair'
     },
     {
-      command: 'five deploy program.five --dry-run --format json',
+      command: '5ive deploy program.five --dry-run --format json',
       description: 'Simulate deployment with JSON output'
     },
     {
-      command: 'five deploy large-program.bin --optimized --progress',
+      command: '5ive deploy large-program.bin --optimized --progress',
       description: 'Deploy large program with optimized instructions (50-70% fewer transactions)'
     }
   ],
@@ -211,7 +211,7 @@ export const deployCommand: CommandDefinition = {
       // Show target context prefix
       const targetPrefix = ConfigManager.getTargetPrefix(config.target);
       if (context.options.verbose) {
-        logger.info(`${targetPrefix} Deploying Five VM bytecode`);
+        logger.info(`${targetPrefix} Deploying 5IVE VM bytecode`);
       }
 
       // Show config details if enabled
@@ -261,7 +261,7 @@ export const deployCommand: CommandDefinition = {
         }
       }
 
-      // Validate bytecode using Five SDK
+      // Validate bytecode using 5IVE SDK
       if (context.options.verbose) {
         logger.info('Validating bytecode...');
       }
@@ -752,8 +752,8 @@ async function executeDeployment(
       logger.debug(`deployer: ${deployerKeypair.publicKey.toString()}`);
     }
 
-    // Deploy using Five SDK
-    const spinner = isTTY() ? ora('Deploying via Five SDK...').start() : null;
+    // Deploy using 5IVE SDK
+    const spinner = isTTY() ? ora('Deploying via 5IVE SDK...').start() : null;
 
     // Auto-detect large programs and use appropriate deployment method
     const bytecodeArray = new Uint8Array(deploymentOptions.bytecode);

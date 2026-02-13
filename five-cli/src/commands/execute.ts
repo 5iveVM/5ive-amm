@@ -20,11 +20,11 @@ import { loadBuildManifest, loadProjectConfig } from '../project/ProjectLoader.j
 import { section, success as uiSuccess, error as uiError, hint, keyValue } from '../utils/cli-ui.js';
 
 /**
- * Five execute command implementation
+ * 5IVE execute command implementation
  */
 export const executeCommand: CommandDefinition = {
   name: 'execute',
-  description: 'Execute Five VM bytecode',
+  description: 'Execute 5IVE VM bytecode',
   aliases: ['exec', 'run'],
 
   options: [
@@ -116,7 +116,7 @@ export const executeCommand: CommandDefinition = {
     },
     {
       flags: '--program-id <id>',
-      description: 'Override Five VM program ID (for custom deployments)',
+      description: 'Override 5IVE VM program ID (for custom deployments)',
       required: false
     },
     {
@@ -129,43 +129,43 @@ export const executeCommand: CommandDefinition = {
   arguments: [
     {
       name: 'bytecode',
-      description: 'Five VM artifact file (.five/.bin) or script account ID',
+      description: '5IVE VM artifact file (.five/.bin) or script account ID',
       required: false
     }
   ],
 
   examples: [
     {
-      command: 'five execute program.five',
+      command: '5ive execute program.five',
       description: 'Execute using configured target (default)'
     },
     {
-      command: 'five execute program.five --local',
+      command: '5ive execute program.five --local',
       description: 'Force local execution (overrides config)'
     },
     {
-      command: 'five execute program.five --target devnet',
+      command: '5ive execute program.five --target devnet',
       description: 'Execute on devnet (overrides config)'
     },
     {
-      command: 'five execute program.five -f 0 -p params.json',
+      command: '5ive execute program.five -f 0 -p params.json',
       description: 'Execute function 0 with parameters'
     },
     {
-      command: 'five execute program.five --validate --trace --format json',
+      command: '5ive execute program.five --validate --trace --format json',
       description: 'Validate and execute with JSON trace output'
     },
     {
-      command: 'five execute src/main.v -f 0 --local --params "[10, 5]"',
-      description: 'Compile and execute Five source locally with parameters'
+      command: '5ive execute src/main.v -f 0 --local --params "[10, 5]"',
+      description: 'Compile and execute 5ive source locally with parameters'
     },
     {
-      command: 'five execute --script-account 459SanqV8nQDDYW3gWq5JZZAPCMYs78Z5ZnrtH4eFffw -f 0',
+      command: '5ive execute --script-account 459SanqV8nQDDYW3gWq5JZZAPCMYs78Z5ZnrtH4eFffw -f 0',
       description: 'Execute deployed script by account ID on-chain'
     },
     {
-      command: 'five execute --script-account 459SanqV8nQDDYW3gWq5JZZAPCMYs78Z5ZnrtH4eFffw -f 0 --program-id 9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH',
-      description: 'Execute with custom Five VM program ID (for custom deployments)'
+      command: '5ive execute --script-account 459SanqV8nQDDYW3gWq5JZZAPCMYs78Z5ZnrtH4eFffw -f 0 --program-id 9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH',
+      description: 'Execute with custom 5IVE VM program ID (for custom deployments)'
     }
   ],
 
@@ -235,9 +235,9 @@ export const executeCommand: CommandDefinition = {
         if (scriptAccount) {
           logger.info(`${targetPrefix} Executing deployed script account on-chain`);
         } else if (executeLocally) {
-          logger.info(`${ConfigManager.getTargetPrefix('wasm')} Executing Five VM bytecode locally`);
+          logger.info(`${ConfigManager.getTargetPrefix('wasm')} Executing 5IVE VM bytecode locally`);
         } else {
-          logger.info(`${targetPrefix} Executing Five VM bytecode`);
+          logger.info(`${targetPrefix} Executing 5IVE VM bytecode`);
         }
       }
 
@@ -264,7 +264,7 @@ export const executeCommand: CommandDefinition = {
 };
 
 /**
- * Execute locally using Five SDK
+ * Execute locally using 5IVE SDK
  */
 async function executeLocallyWithSDK(inputFile: string, options: any, context: CommandContext, config: any): Promise<void> {
   const { logger } = context;
@@ -272,15 +272,15 @@ async function executeLocallyWithSDK(inputFile: string, options: any, context: C
   // Initialize for local execution
   if (context.options.verbose) {
     const spinner = ora('Preparing local execution...').start();
-    spinner.succeed('Five SDK ready for local execution');
+    spinner.succeed('5IVE SDK ready for local execution');
   }
 
   try {
     let result;
 
     if (extname(inputFile) === '.v') {
-      // Compile and execute Five source file
-      logger.info(`Compiling and executing Five source: ${inputFile}`);
+      // Compile and execute 5ive source file
+      logger.info(`Compiling and executing 5ive source: ${inputFile}`);
 
       const sourceCode = await readFile(inputFile, 'utf8');
 
@@ -393,7 +393,7 @@ async function executeLocallyWithSDK(inputFile: string, options: any, context: C
 }
 
 /**
- * Execute deployed script account on-chain using Five SDK
+ * Execute deployed script account on-chain using 5IVE SDK
  */
 async function executeScriptAccount(scriptAccount: string, options: any, context: CommandContext, config: any): Promise<void> {
   const { logger } = context;
@@ -524,14 +524,14 @@ async function executeScriptAccount(scriptAccount: string, options: any, context
 }
 
 /**
- * Execute on-chain using Five SDK
+ * Execute on-chain using 5IVE SDK
  */
 async function executeOnChain(inputFile: string, options: any, context: CommandContext, config: any): Promise<void> {
   const { logger } = context;
   const { Connection, Keypair } = await import('@solana/web3.js');
 
   const targetPrefix = ConfigManager.getTargetPrefix(config.target);
-  logger.info(`${targetPrefix} On-chain execution using Five SDK`);
+  logger.info(`${targetPrefix} On-chain execution using 5IVE SDK`);
 
   try {
     // Show configuration
@@ -593,8 +593,8 @@ async function executeOnChain(inputFile: string, options: any, context: CommandC
       }
     }
 
-    // Execute using Five SDK
-    const spinner = ora('Executing on-chain via Five SDK...').start();
+    // Execute using 5IVE SDK
+    const spinner = ora('Executing on-chain via 5IVE SDK...').start();
 
     const executeOptions: any = {
       debug: options.debug || context.options.debug || false,
@@ -753,7 +753,7 @@ function displayOnChainExecutionResult(result: any, options: any, logger: any): 
     if (result.logs && result.logs.length > 0) {
       console.log('\n' + section('Logs'));
       result.logs.forEach((log: string) => {
-        // Filter out system logs and show only Five VM logs
+        // Filter out system logs and show only 5IVE VM logs
         if (log.includes('Five') || log.includes('success') || log.includes('error')) {
           console.log(`  ${log}`);
         }

@@ -79,7 +79,7 @@ interface OnChainTestSummary {
 }
 
 /**
- * Five test command implementation
+ * 5IVE test command implementation
  */
 export const testCommand: CommandDefinition = {
   name: 'test',
@@ -195,27 +195,27 @@ export const testCommand: CommandDefinition = {
 
   examples: [
     {
-      command: 'five test',
+      command: '5ive test',
       description: 'Run all tests in ./tests directory'
     },
     {
-      command: 'five test --filter "token*" --verbose',
+      command: '5ive test --filter "token*" --verbose',
       description: 'Run token tests with verbose output'
     },
     {
-      command: 'five test ./my-tests --benchmark --format json',
+      command: '5ive test ./my-tests --benchmark --format json',
       description: 'Run benchmarks with JSON output'
     },
     {
-      command: 'five test --watch --parallel 4',
+      command: '5ive test --watch --parallel 4',
       description: 'Watch mode with 4 parallel workers'
     },
     {
-      command: 'five test test-scripts/ --on-chain --target devnet',
+      command: '5ive test test-scripts/ --on-chain --target devnet',
       description: 'Run on-chain tests on devnet'
     },
     {
-      command: 'five test test-scripts/ --on-chain --batch --analyze-costs',
+      command: '5ive test test-scripts/ --on-chain --batch --analyze-costs',
       description: 'Batch test all .bin files with cost analysis'
     }
   ],
@@ -264,12 +264,12 @@ export const testCommand: CommandDefinition = {
 
       // Legacy approach with SDK integration
       // Initialize SDK for testing
-      const spinner = ora('Initializing Five SDK for testing...').start();
+      const spinner = ora('Initializing 5IVE SDK for testing...').start();
 
       // No initialization needed for SDK - it's stateless
       const sdk = FiveSDK.create({ debug: options.verbose });
 
-      spinner.succeed('Five SDK initialized');
+      spinner.succeed('5IVE SDK initialized');
 
       // Discover test files
       const testSuites = await discoverTestSuites(testPath, options, logger);
@@ -496,7 +496,7 @@ async function runSingleTest(
       }
     }
 
-    // Execute with timeout using Five SDK
+    // Execute with timeout using 5IVE SDK
     const executionPromise = FiveSDK.executeLocally(
       bytecode,
       0, // Default to first function
@@ -757,7 +757,7 @@ async function runWithSdkRunner(
 ): Promise<void> {
   const { logger } = context;
 
-  logger.info('Using Five SDK test runner');
+  logger.info('Using 5IVE SDK test runner');
 
   // Create test runner with options
   const runner = new FiveTestRunner({

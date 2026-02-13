@@ -62,7 +62,7 @@ If you already have a deployed script account:
 
 ## Program ID Resolution
 
-For on-chain commands (`deploy`, `execute`, `deploy-and-execute`, `namespace`), program ID precedence is:
+For on-chain commands (`deploy`, `execute`, `namespace`), program ID precedence is:
 
 1. `--program-id` flag
 2. `five.toml` `[deploy].program_id`
@@ -82,12 +82,6 @@ If none are set, on-chain commands fail fast with a program ID setup error.
 ```
 
 `5ive build` / `--project` use `five.toml` and the generated manifest to resolve artifacts.
-
-### One-command deploy+execute (smoke tests)
-
-```bash
-5ive deploy-and-execute build/main.five --target devnet -f 0
-```
 
 ### Run tests
 
@@ -129,13 +123,6 @@ If none are set, on-chain commands fail fast with a program ID setup error.
 5ive deploy build/main.five --target devnet --optimized --progress
 5ive deploy build/main.five --target devnet --force-chunked --chunk-size 900
 5ive deploy build/main.five --target devnet --dry-run --format json
-```
-
-### Deploy-and-execute for fast integration checks
-
-```bash
-5ive deploy-and-execute build/main.five --target devnet -f 0 -p "[100]"
-5ive deploy-and-execute src/main.v --target local --debug --cleanup
 ```
 
 ### Advanced test modes

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Five CLI entry point.
+// 5IVE CLI entry point.
 
 import { Command } from 'commander';
 import chalk from 'chalk';
@@ -44,7 +44,7 @@ export class FiveCLI {
 
   private setupProgram(): void {
     this.program
-      .name('five')
+      .name('5ive')
       .description('')
       .version(this.getVersion(), '-V, --version', 'Display version information')
       .helpOption(false) // Disable default help to use our custom help
@@ -58,11 +58,11 @@ export class FiveCLI {
         return `
 ${section('Quick Start')}
 
-${commandExample('five init my-project', 'Create a new Five project')}
-${commandExample('five compile script.v', 'Compile Five source to bytecode')}
-${commandExample('five execute script.v --local', 'Local WASM execution')}
-${commandExample('five deploy build/script.five --target mainnet', 'Deploy to Solana mainnet')}
-${commandExample('five help <command>', 'Get help for specific command')}
+${commandExample('5ive init my-project', 'Create a new 5IVE project')}
+${commandExample('5ive compile script.v', 'Compile 5ive source to bytecode')}
+${commandExample('5ive execute script.v --local', 'Local WASM execution')}
+${commandExample('5ive deploy build/script.five --target mainnet', 'Deploy to Solana mainnet')}
+${commandExample('5ive help <command>', 'Get help for specific command')}
 `;
       });
 
@@ -227,7 +227,7 @@ ${commandExample('five help <command>', 'Get help for specific command')}
         return;
       }
 
-      // Route `five <command> --help` to command-specific help
+      // Route `5ive <command> --help` to command-specific help
       const commandName = argv[2];
       const isCommandHelpRequest =
         Boolean(commandName) &&
@@ -239,7 +239,7 @@ ${commandExample('five help <command>', 'Get help for specific command')}
         return;
       }
 
-      // Top-level help (e.g. `five --help`)
+      // Top-level help (e.g. `5ive --help`)
       if (commandName === '--help' || commandName === '-h') {
         this.program.help();
         return;
@@ -386,7 +386,7 @@ function levenshteinDistance(a: string, b: string): number {
 }
 
 /**
- * Create and configure a new Five CLI instance
+ * Create and configure a new 5IVE CLI instance
  */
 export function createCLI(config: Partial<CLIConfig> = {}): FiveCLI {
   const defaultConfig: CLIConfig = {
