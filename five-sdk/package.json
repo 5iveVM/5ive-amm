@@ -1,6 +1,6 @@
 {
   "name": "@5ive-tech/sdk",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Client-agnostic TypeScript SDK for Five VM scripts on Solana",
   "type": "module",
   "main": "dist/index.js",

@@ -31,13 +31,25 @@ Never rely on stale docs when behavior is high-stakes (deploy/execute/CPI encodi
 5. Execute and verify confirmed tx metadata (`meta.err == null`).
 6. Record signatures + compute units.
 
+### 3.1 Strict Authoring Rules
+
+These rules are non-negotiable and prevent the most common compilation failures:
+
+1. **All account fields must end with `;`** — missing semicolons cause parser failure.
+2. **Use `account @signer` for authorization** — not `pubkey @signer`. This preserves the `.key` accessor.
+3. **Use `.key` on `account`-typed parameters** to extract public keys for comparisons and assignments.
+4. **Use `-> ReturnType` for functions with return values** — e.g. `-> u64`, `-> pubkey`, `-> bool`.
+5. **`pubkey(0)` and `0` are valid** for zero-initializing pubkey fields (disabling authorities).
+6. **`string<N>` is production-safe** — use freely in accounts and function parameters.
+7. **All comparison operators work in `require()`** — `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`.
+
 ## 4) DSL Feature Inventory (Deep)
 
 This section enumerates language features discovered from parser/compiler code and repo examples.
 
 ### 4.1 Top-level declarations
 Observed and/or parsed:
-1. `account Name { ... }`
+1. `account Name { ... }` — **all fields must be terminated with `;`**
 2. Global fields/variables (including `mut`)
 3. `init { ... }` block
 4. `constraints { ... }` block
@@ -46,6 +58,21 @@ Observed and/or parsed:
 7. `interface Name ... { ... }` definitions
 8. `use` / `import` statements
 9. Legacy `script Name { ... }` wrapper (parser-supported)
+
+```v
+// ✅ CORRECT — semicolons required
+account Mint {
+    authority: pubkey;
+    supply: u64;
+    decimals: u8;
+}
+
+// ❌ WRONG — parser failure
+account Mint {
+    authority: pubkey
+    supply: u64
+}
+```
 
 ### 4.2 Function definition forms
 Parser accepts flexible forms:
@@ -77,11 +104,28 @@ Common attributes:
 
 Examples also show legacy bracket seed forms after `@init`.
 
+**Attribute stacking order for account parameters (empirically verified):**
+
+```
+Type @mut @init(payer=name, space=bytes) @signer
+```
+
+Example:
+```v
+pub init_mint(
+    mint_account: Mint @mut @init(payer=authority, space=256) @signer,
+    authority: account @mut @signer,
+    ...
+)
+```
+
+Order: (1) Type declaration → (2) `@mut` → (3) `@init(...)` → (4) `@signer`.
+
 ### 4.5 Types
 Supported/parsed type families:
 1. Primitive numeric/bool/pubkey/string types (`u8..u128`, `i8..i64`, `bool`, `pubkey`, `string`)
 2. `Account` type and account-typed params
-3. Sized strings: `string<32>`
+3. **Sized strings: `string<N>`** — production-safe, use in accounts and function parameters
 4. Arrays:
    - Rust style: `[T; N]`
    - TypeScript-style sized: `T[N]`
@@ -94,20 +138,29 @@ Supported/parsed type families:
    - nested generics (`Option<Option<u64>>` etc.)
 8. Namespaced/custom types: `module::Type`
 9. Optional account fields in structs/accounts: `field?: Type`
+10. **`pubkey(0)` and integer `0`** — valid for zero-initialization of pubkey fields (interchangeable)
 
 ### 4.6 Statements
 Observed and parser-supported:
 1. `let` declarations (with `mut` and optional type annotation)
+   - Type inference works: `let is_owner = source.owner == authority.key;` infers `bool`
+   - Use `let` without explicit annotation for boolean and scalar expressions
 2. Assignment:
    - direct: `x = y`
    - compound: `+=`, `-=`, `*=`, `/=`, `<<=`, `>>=`, `&=`, `|=`, `^=`
 3. Field assignment: `obj.field = value`
-4. Return statements (`return`, `return value`)
-5. Guard/assertion: `require(condition)`
+4. Return statements (`return`, `return value`) — see §4.13 for return type syntax
+5. Guard/assertion: `require(condition)` — **all operators verified:**
+   - Comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
+   - Boolean negation: `!expr`
+   - Logical: `&&`, `||`
+   - Example: `require(source.balance >= amount);`
+   - Example: `require(!account.is_frozen);`
 6. Conditionals:
    - `if (...) {}`
    - `else if (...) {}`
    - `else {}`
+   - Conditionals support nested `require()` statements and multiple assignments in both branches
 7. Pattern matching: `match expr { ... }`, with optional arm guards (`if ...`)
 8. Loops:
    - `while (...) { ... }`
@@ -204,24 +257,64 @@ From tokenizer/parser support:
 
 Repository tests also use comment-based param conventions (`// @test-params ...`) in many scripts.
 
-### 4.12 Blockchain-oriented built-ins seen in examples
-Observed in scripts/templates:
+### 4.12 Blockchain-oriented built-ins
+Core built-ins available in all contracts:
 1. `derive_pda(...)` (including bump-return and bump-specified variants)
 2. `get_clock()`
 3. `get_key(...)`
-4. account key access: `authority.key`
+4. **Account key access: `param.key`** — **core pattern for all `account`-typed parameters.** Use `.key` to extract pubkeys for comparisons and assignments.
 
-Treat built-ins as compiler/runtime coupled features; verify signatures in current examples before use.
+```v
+pub action(
+    state: MyAccount @mut,
+    caller: account @signer,
+    ...
+) {
+    require(state.authority == caller.key);   // ownership check
+    state.last_actor = caller.key;            // record who acted
+}
+```
+
+5. **Authority revocation pattern:** assign `0` to any pubkey field to permanently disable it.
+```v
+state.authority = 0;  // revokes authority — irreversible
+```
+
+### 4.13 Return types and values
+Functions can declare return types with `->` syntax:
+
+```v
+pub get_value(state: MyAccount) -> u64 {
+    return state.amount;
+}
+
+pub initialize(
+    state: MyAccount @mut @init(payer=creator, space=256) @signer,
+    creator: account @mut @signer,
+    ...
+) -> pubkey {
+    state.authority = creator.key;
+    return state.key;
+}
+```
+
+Confirmed return types: `u8`, `u16`, `u32`, `u64`, `u128`, `i8`..`i64`, `bool`, `pubkey`.
 
 ## 5) Feature Maturity Matrix (Agent Safety)
 
 ### 5.1 Generally production-oriented (widely used in templates)
-1. Accounts, `@mut`, `@signer`, `@init`
-2. `require`
-3. Basic control flow (`if`, `while`)
+1. Accounts, `@mut`, `@signer`, `@init` (with attribute stacking)
+2. `require` with all comparison operators (`==`, `!=`, `<`, `<=`, `>`, `>=`, `!`)
+3. Basic control flow (`if`, `else`, `while`) with nested logic
 4. Arithmetic/comparison/boolean expressions
 5. `.five` compile/deploy/execute path
 6. `interface` + explicit discriminator + explicit serializer CPI patterns
+7. Return type declarations (`-> Type`) with `return value;`
+8. `string<N>` fixed-size strings in accounts and parameters
+9. `account.key` extraction from `account`-typed parameters
+10. Authority disabling via `0` assignment to pubkey fields
+11. `let` with type inference for scalar/boolean expressions
+12. `pubkey(0)` zero-initialization
 
 ### 5.2 Available but validate per-version before critical use
 1. Match expressions with `Option`/`Result`
@@ -342,18 +435,205 @@ const program = FiveProgram.fromABI("<SCRIPT_ACCOUNT>", abi, {
 3. Surface signatures, CU metrics, and rich error states.
 4. Use LSP-backed editing where available to reduce DSL mistakes.
 
-## 10) Pattern Mapping for Complex Contracts
+## 10) Contract Pattern Recipes
 
-1. Vault:
-   - authority-gated custody, withdraw invariants
-2. Escrow:
-   - lifecycle transitions, dual-party authorization
-3. Token/mint authority:
-   - supply accounting, freeze/delegate controls
-4. AMM/orderbook:
-   - conservation math, deterministic settlement
-5. Lending/perps/stablecoin:
-   - collateral/liquidation thresholds, risk checks
+This section provides composable patterns for the most common contract archetypes. When building a novel contract, identify which patterns apply and combine them.
+
+### 10.1 Authority-Gated State (Vault, Treasury, Config)
+
+Core pattern: one or more pubkey fields control who can mutate state. Used in almost every contract.
+
+```v
+account Config {
+    authority: pubkey;
+    value: u64;
+    is_locked: bool;
+}
+
+pub update_value(
+    config: Config @mut,
+    authority: account @signer,
+    new_value: u64
+) {
+    require(config.authority == authority.key);
+    require(!config.is_locked);
+    config.value = new_value;
+}
+```
+
+**Key ingredients:** ownership check via `.key`, boolean guard with `!`, field mutation.
+
+### 10.2 Custody & Withdraw (Vault, Staking)
+
+Core pattern: deposit into an account, enforce balance invariants on withdraw.
+
+```v
+pub deposit(
+    vault: VaultAccount @mut,
+    depositor: account @signer,
+    amount: u64
+) {
+    require(amount > 0);
+    vault.balance = vault.balance + amount;
+}
+
+pub withdraw(
+    vault: VaultAccount @mut,
+    authority: account @signer,
+    amount: u64
+) {
+    require(vault.authority == authority.key);
+    require(vault.balance >= amount);
+    require(amount > 0);
+    vault.balance = vault.balance - amount;
+}
+```
+
+**Key ingredients:** `>= amount` balance guard, arithmetic on fields, `> 0` zero-amount prevention.
+
+### 10.3 Lifecycle State Machine (Escrow, Auction, Proposal)
+
+Core pattern: a status field controls which operations are valid. Transitions are guarded.
+
+```v
+account Escrow {
+    seller: pubkey;
+    buyer: pubkey;
+    amount: u64;
+    status: u8;    // 0=open, 1=funded, 2=released, 3=cancelled
+}
+
+pub fund_escrow(
+    escrow: Escrow @mut,
+    buyer: account @signer,
+    amount: u64
+) {
+    require(escrow.buyer == buyer.key);
+    require(escrow.status == 0);
+    require(amount == escrow.amount);
+    escrow.status = 1;
+}
+
+pub release_escrow(
+    escrow: Escrow @mut,
+    buyer: account @signer
+) {
+    require(escrow.buyer == buyer.key);
+    require(escrow.status == 1);
+    escrow.status = 2;
+}
+```
+
+**Key ingredients:** integer status field with `==` checks for state transitions, dual-party authorization.
+
+### 10.4 Supply Accounting (Token, Mint, Points)
+
+Core pattern: a central supply counter stays synchronized with distributed balances.
+
+```v
+pub mint_to(
+    supply_state: SupplyAccount @mut,
+    destination: BalanceAccount @mut,
+    authority: account @signer,
+    amount: u64
+) {
+    require(supply_state.authority == authority.key);
+    require(amount > 0);
+    supply_state.total_supply = supply_state.total_supply + amount;
+    destination.balance = destination.balance + amount;
+}
+
+pub burn(
+    supply_state: SupplyAccount @mut,
+    source: BalanceAccount @mut,
+    owner: account @signer,
+    amount: u64
+) {
+    require(source.owner == owner.key);
+    require(source.balance >= amount);
+    source.balance = source.balance - amount;
+    supply_state.total_supply = supply_state.total_supply - amount;
+}
+```
+
+**Key ingredients:** paired increment/decrement across two accounts, conservation invariant.
+
+### 10.5 Delegation & Approval (Token, DAO, Proxy)
+
+Core pattern: an owner grants limited permissions to a delegate.
+
+```v
+pub approve(
+    state: DelegableAccount @mut,
+    owner: account @signer,
+    delegate: pubkey,
+    limit: u64
+) {
+    require(state.owner == owner.key);
+    state.delegate = delegate;
+    state.delegated_limit = limit;
+}
+
+pub revoke(
+    state: DelegableAccount @mut,
+    owner: account @signer
+) {
+    require(state.owner == owner.key);
+    state.delegate = 0;
+    state.delegated_limit = 0;
+}
+```
+
+**Key ingredients:** delegate pubkey field, limit tracking, zero-assignment to revoke.
+
+### 10.6 Conservation Math (AMM, Orderbook, Settlement)
+
+Core pattern: total value across accounts must remain constant.
+
+```v
+pub swap(
+    pool_a: PoolAccount @mut,
+    pool_b: PoolAccount @mut,
+    user_a: UserAccount @mut,
+    user_b: UserAccount @mut,
+    trader: account @signer,
+    amount_in: u64
+) {
+    require(user_a.owner == trader.key);
+    require(user_a.balance >= amount_in);
+    require(amount_in > 0);
+    let amount_out = (pool_b.reserve * amount_in) / (pool_a.reserve + amount_in);
+    require(amount_out > 0);
+    user_a.balance = user_a.balance - amount_in;
+    pool_a.reserve = pool_a.reserve + amount_in;
+    pool_b.reserve = pool_b.reserve - amount_out;
+    user_b.balance = user_b.balance + amount_out;
+}
+```
+
+**Key ingredients:** `let` with computed expression, multi-account mutation, balance checks on both sides.
+
+### 10.7 Threshold & Risk Checks (Lending, Collateral, Liquidation)
+
+Core pattern: actions gated by ratio or threshold comparisons.
+
+```v
+pub borrow(
+    position: LoanPosition @mut,
+    borrower: account @signer,
+    collateral_value: u64,
+    borrow_amount: u64
+) {
+    require(position.owner == borrower.key);
+    require(borrow_amount > 0);
+    // Enforce 150% collateral ratio: collateral * 100 >= total_debt * 150
+    let new_debt = position.debt + borrow_amount;
+    require(collateral_value * 100 >= new_debt * 150);
+    position.debt = new_debt;
+}
+```
+
+**Key ingredients:** `let` for intermediate computation, integer math for ratio checks, compound conditions.
 
 ## 11) Mainnet Safety Policy
 
@@ -400,3 +680,245 @@ Complete means:
 3. Avoid hidden defaults for deploy/CPI critical parameters.
 4. Keep changes auditable and reproducible.
 5. If uncertain, inspect compiler/CLI source directly.
+
+## 15) Agent One-Shot Contract Generation Procedure
+
+Follow this procedure to produce correct 5IVE contracts on first compilation, regardless of contract type.
+
+### Step 1: Define account schemas
+- Identify every distinct on-chain state object your contract needs.
+- Each gets an `account Name { ... }` block with **all fields terminated by `;`**.
+- Choose field types from: `pubkey`, `u8`–`u128`, `i8`–`i64`, `bool`, `string<N>`.
+- Include an `authority: pubkey;` field on any account that needs access control.
+- Include a `status: u8;` field for lifecycle/state-machine accounts.
+
+### Step 2: Define initializer functions
+- For each account that users create at runtime, write an `init_*` function.
+- The account parameter uses the full attribute stack: `Type @mut @init(payer=name, space=bytes) @signer`.
+- The payer is `account @mut @signer`.
+- Set every field to a known value (don't leave uninitialized fields).
+- Return `-> pubkey` with `return account.key;` when callers need the address.
+
+### Step 3: Define action functions
+- Every state-mutating function takes the relevant account(s) as `AccountType @mut`.
+- Authorization: take an `account @signer` parameter, then `require(state.authority == signer.key);`.
+- Guards: use `require()` with any comparison operator (`==`, `!=`, `<`, `<=`, `>`, `>=`, `!`).
+- For balance operations: always check `require(source.balance >= amount);` before subtraction.
+- For state machines: check `require(state.status == EXPECTED_STATUS);` before transition.
+- Use `let` for intermediate computations (type inference handles it).
+
+### Step 4: Define read/query functions
+- Use `-> ReturnType` syntax for functions that return values.
+- `return state.field;` to return account data.
+
+### Step 5: Compile and verify
+- Run `5ive build` or `5ive compile src/main.v -o build/main.five`.
+- Fix any parser errors (most common: missing `;` in account fields).
+
+### Syntax quick-reference
+
+| Pattern | Syntax |
+|---|---|
+| Account field | `name: type;` (semicolon required) |
+| Init parameter | `acc: Type @mut @init(payer=p, space=N) @signer` |
+| Signer parameter | `caller: account @signer` or `caller: account @mut @signer` |
+| Ownership check | `require(state.authority == caller.key);` |
+| Balance guard | `require(state.balance >= amount);` |
+| Boolean guard | `require(!state.is_locked);` |
+| Zero-amount guard | `require(amount > 0);` |
+| Revoke authority | `state.authority = 0;` |
+| Status transition | `state.status = 1;` |
+| Local variable | `let x = expr;` |
+| Return value | `pub fn(...) -> u64 { return state.value; }` |
+| Fixed string field | `name: string<32>;` |
+| Zero-init pubkey | `state.delegate = 0;` or `state.delegate = pubkey(0);` |
+
+## 16) Reference Implementations
+
+Three verified, compilable patterns covering distinct contract archetypes. Use as canonical references.
+
+### 16.1 Token (Supply Accounting + Delegation + Freeze)
+
+```v
+account Mint {
+    authority: pubkey;
+    freeze_authority: pubkey;
+    supply: u64;
+    decimals: u8;
+    name: string<32>;
+    symbol: string<32>;
+}
+
+account TokenAccount {
+    owner: pubkey;
+    mint: pubkey;
+    balance: u64;
+    is_frozen: bool;
+    delegate: pubkey;
+    delegated_amount: u64;
+}
+
+pub init_mint(
+    mint_account: Mint @mut @init(payer=authority, space=256) @signer,
+    authority: account @mut @signer,
+    freeze_authority: pubkey,
+    decimals: u8,
+    name: string<32>,
+    symbol: string<32>
+) -> pubkey {
+    require(decimals <= 20);
+    mint_account.authority = authority.key;
+    mint_account.freeze_authority = freeze_authority;
+    mint_account.supply = 0;
+    mint_account.decimals = decimals;
+    mint_account.name = name;
+    mint_account.symbol = symbol;
+    return mint_account.key;
+}
+
+pub transfer(
+    source: TokenAccount @mut,
+    destination: TokenAccount @mut,
+    owner: account @signer,
+    amount: u64
+) {
+    require(source.owner == owner.key);
+    require(source.balance >= amount);
+    require(source.mint == destination.mint);
+    require(!source.is_frozen);
+    require(!destination.is_frozen);
+    require(amount > 0);
+    source.balance = source.balance - amount;
+    destination.balance = destination.balance + amount;
+}
+
+pub approve(
+    source: TokenAccount @mut,
+    owner: account @signer,
+    delegate: pubkey,
+    amount: u64
+) {
+    require(source.owner == owner.key);
+    source.delegate = delegate;
+    source.delegated_amount = amount;
+}
+```
+
+**Patterns exercised:** `@init` stacking, supply accounting, freeze guards, delegation, `.key` extraction, `string<N>`, `-> pubkey` return.
+
+### 16.2 Vault (Custody + Authority Gating)
+
+```v
+account Vault {
+    authority: pubkey;
+    balance: u64;
+    is_locked: bool;
+}
+
+pub init_vault(
+    vault: Vault @mut @init(payer=creator, space=128) @signer,
+    creator: account @mut @signer
+) -> pubkey {
+    vault.authority = creator.key;
+    vault.balance = 0;
+    vault.is_locked = false;
+    return vault.key;
+}
+
+pub deposit(
+    vault: Vault @mut,
+    depositor: account @signer,
+    amount: u64
+) {
+    require(!vault.is_locked);
+    require(amount > 0);
+    vault.balance = vault.balance + amount;
+}
+
+pub withdraw(
+    vault: Vault @mut,
+    authority: account @signer,
+    amount: u64
+) {
+    require(vault.authority == authority.key);
+    require(!vault.is_locked);
+    require(vault.balance >= amount);
+    require(amount > 0);
+    vault.balance = vault.balance - amount;
+}
+
+pub lock_vault(
+    vault: Vault @mut,
+    authority: account @signer
+) {
+    require(vault.authority == authority.key);
+    vault.is_locked = true;
+}
+
+pub transfer_authority(
+    vault: Vault @mut,
+    current_authority: account @signer,
+    new_authority: pubkey
+) {
+    require(vault.authority == current_authority.key);
+    vault.authority = new_authority;
+}
+```
+
+**Patterns exercised:** authority gating, boolean lock, balance guards, authority transfer, `@init` stacking.
+
+### 16.3 Escrow (Lifecycle State Machine + Dual-Party Auth)
+
+```v
+account Escrow {
+    seller: pubkey;
+    buyer: pubkey;
+    amount: u64;
+    status: u8;
+}
+
+pub create_escrow(
+    escrow: Escrow @mut @init(payer=seller, space=128) @signer,
+    seller: account @mut @signer,
+    buyer: pubkey,
+    amount: u64
+) -> pubkey {
+    require(amount > 0);
+    escrow.seller = seller.key;
+    escrow.buyer = buyer;
+    escrow.amount = amount;
+    escrow.status = 0;
+    return escrow.key;
+}
+
+pub fund_escrow(
+    escrow: Escrow @mut,
+    buyer: account @signer,
+    amount: u64
+) {
+    require(escrow.buyer == buyer.key);
+    require(escrow.status == 0);
+    require(amount == escrow.amount);
+    escrow.status = 1;
+}
+
+pub release(
+    escrow: Escrow @mut,
+    buyer: account @signer
+) {
+    require(escrow.buyer == buyer.key);
+    require(escrow.status == 1);
+    escrow.status = 2;
+}
+
+pub cancel(
+    escrow: Escrow @mut,
+    seller: account @signer
+) {
+    require(escrow.seller == seller.key);
+    require(escrow.status == 0);
+    escrow.status = 3;
+}
+```
+
+**Patterns exercised:** integer status for state machine, dual-party authorization, lifecycle transitions, exact-amount matching.
