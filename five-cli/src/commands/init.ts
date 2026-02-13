@@ -246,7 +246,7 @@ async function generatePackageJson(
       'watch': '5ive compile src/**/*.v --watch'
     },
     devDependencies: {
-      'five-cli': '^1.0.0'
+      '@5ive-tech/cli': '^1.0.0'
     },
     keywords: [
       'five-vm',
