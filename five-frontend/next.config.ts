@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import webpack from "webpack";
+import path from "path";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["five-sdk"],
@@ -9,6 +10,7 @@ const nextConfig: NextConfig = {
   experimental: {
     esmExternals: 'loose',
   },
+  outputFileTracingRoot: path.join(__dirname, '../'),
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

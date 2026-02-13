@@ -43,13 +43,14 @@ if ! command -v wasm-pack &> /dev/null; then
     exit 1
 fi
 
-# Build WASM bindings
+# Build WASM bindings (suppress Rust warnings for clean output)
 cd "$SCRIPT_DIR"
+export RUSTFLAGS="-A warnings"
 
 if [ "$BUILD_MODE" = "--dev" ]; then
-    wasm-pack build --dev --target web --out-dir pkg 2>&1 | grep -v "wasm-opt" || true
+    wasm-pack build --dev --target web --out-dir pkg 2>&1 | grep -v "newer version of wasm-pack"
 else
-    wasm-pack build --release --target web --out-dir pkg 2>&1 | grep -v "wasm-opt" || true
+    wasm-pack build --release --target web --out-dir pkg 2>&1 | grep -v "newer version of wasm-pack"
 fi
 
 echo "✓ WASM build complete!"
