@@ -7,14 +7,41 @@
 
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ConfigTarget } from '../config/types.js';
+import { mkdtemp } from 'fs/promises';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 describe('Config Command - Program ID Management', () => {
+  const originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
   const validProgramIds = {
     system: '11111111111111111111111111111112', // System Program
     token: 'TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP', // SPL Token
     associated: 'ATokenGPvbdGVqstVQmcLsNZAqeEbtQvvHta7h1Vvta', // Associated Token
     sol: 'So11111111111111111111111111111111111111112', // SOL Token
   };
+
+  const resetConfigManagerSingleton = () => {
+    (ConfigManager as any).instance = undefined;
+  };
+
+  beforeEach(async () => {
+    const isolatedConfigHome = await mkdtemp(join(tmpdir(), 'five-cli-config-'));
+    process.env.XDG_CONFIG_HOME = isolatedConfigHome;
+    resetConfigManagerSingleton();
+  });
+
+  afterEach(() => {
+    resetConfigManagerSingleton();
+  });
+
+  afterAll(() => {
+    if (originalXdgConfigHome !== undefined) {
+      process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+    } else {
+      delete process.env.XDG_CONFIG_HOME;
+    }
+    resetConfigManagerSingleton();
+  });
 
   describe('setProgramId() - Basic Operations', () => {
     it('should store program ID for current target', async () => {

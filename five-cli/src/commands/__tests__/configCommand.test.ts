@@ -1,5 +1,7 @@
 import { configCommand } from '../config.js';
 
+const mockSetProgramId = jest.fn();
+
 jest.mock('../../config/ConfigManager.js', () => ({
   ConfigManager: {
     getInstance: () => ({
@@ -12,6 +14,7 @@ jest.mock('../../config/ConfigManager.js', () => ({
         showConfig: false
       }),
       setTarget: jest.fn(),
+      setProgramId: mockSetProgramId,
       setKeypair: jest.fn(),
       setShowConfig: jest.fn(),
       set: jest.fn(),
@@ -58,6 +61,10 @@ function createContext() {
 }
 
 describe('config command', () => {
+  beforeEach(() => {
+    mockSetProgramId.mockReset();
+  });
+
   it('prints JSON for a specific key', async () => {
     const ctx = createContext();
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -80,5 +87,24 @@ describe('config command', () => {
     ).rejects.toThrow('exit:1');
 
     exitSpy.mockRestore();
+  });
+
+  it('registers --program-id option and routes it through set', async () => {
+    const hasProgramId = (configCommand.options || []).some(
+      (opt: any) => opt.flags === '--program-id <id>'
+    );
+    expect(hasProgramId).toBe(true);
+
+    const ctx = createContext();
+    await configCommand.handler(
+      ['set'],
+      { programId: '11111111111111111111111111111112', target: 'devnet' },
+      ctx as any
+    );
+
+    expect(mockSetProgramId).toHaveBeenCalledWith(
+      '11111111111111111111111111111112',
+      'devnet'
+    );
   });
 });

@@ -252,8 +252,8 @@ async function handleSet(
   try {
     // Parse command line options and apply changes
     if (options.target) {
-      if (!['local', 'devnet', 'testnet', 'mainnet'].includes(options.target)) {
-        throw new Error(`Invalid target: ${options.target}. Must be one of: devnet, testnet, mainnet, local`);
+      if (!['wasm', 'local', 'devnet', 'testnet', 'mainnet'].includes(options.target)) {
+        throw new Error(`Invalid target: ${options.target}. Must be one of: wasm, devnet, testnet, mainnet, local`);
       }
       await configManager.setTarget(options.target as ConfigTarget);
       changes.push(`${uiColors.info('Target:')} ${options.target}`);
@@ -474,8 +474,13 @@ function formatValue(value: any): string {
 // Add config command options for the CLI parser
 configCommand.options = [
   {
+    flags: '--program-id <id>',
+    description: 'Set Five VM program ID for current or specified target',
+    required: false
+  },
+  {
     flags: '--target <target>',
-    description: 'Set target network (local, devnet, testnet, mainnet)',
+    description: 'Set target network (wasm, local, devnet, testnet, mainnet)',
     required: false
   },
   {

@@ -6,13 +6,42 @@
  */
 
 import { ConfigManager } from '../config/ConfigManager.js';
+import { mkdtemp } from 'fs/promises';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 describe('Program ID Resolution - CLI Integration', () => {
+  const originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
   const testProgramIds = {
     id1: '11111111111111111111111111111112',
     id2: 'TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP',
     id3: 'ATokenGPvbdGVqstVQmcLsNZAqeEbtQvvHta7h1Vvta',
   };
+
+  const resetConfigManagerSingleton = () => {
+    (ConfigManager as any).instance = undefined;
+  };
+
+  beforeEach(async () => {
+    const isolatedConfigHome = await mkdtemp(join(tmpdir(), 'five-cli-config-'));
+    process.env.XDG_CONFIG_HOME = isolatedConfigHome;
+    resetConfigManagerSingleton();
+    delete process.env.FIVE_PROGRAM_ID;
+  });
+
+  afterEach(() => {
+    delete process.env.FIVE_PROGRAM_ID;
+    resetConfigManagerSingleton();
+  });
+
+  afterAll(() => {
+    if (originalXdgConfigHome !== undefined) {
+      process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+    } else {
+      delete process.env.XDG_CONFIG_HOME;
+    }
+    resetConfigManagerSingleton();
+  });
 
   describe('CLI Config Integration', () => {
     it('should handle program ID from config file', async () => {
