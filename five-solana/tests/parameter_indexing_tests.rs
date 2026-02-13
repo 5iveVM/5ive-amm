@@ -113,6 +113,7 @@ mod comprehensive_instruction_tests {
         let mut deploy_data = vec![DEPLOY_INSTRUCTION];
         deploy_data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
         deploy_data.push(permissions);
+        deploy_data.extend_from_slice(&0u32.to_le_bytes()); // metadata_len
         deploy_data.extend_from_slice(&bytecode);
 
         let result = FIVEInstruction::try_from(&deploy_data[..]);

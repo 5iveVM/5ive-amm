@@ -21,7 +21,7 @@ use serde::Deserialize;
 use solana_program::{
     account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError, program_option::COption, pubkey::Pubkey as ProgramPubkey,
 };
-use solana_program_test::{ProgramTest, ProgramTestContext};
+use solana_program_test::{ProgramTest, ProgramTestBanksClientExt, ProgramTestContext};
 use solana_sdk::{
     account::Account,
     compute_budget::ComputeBudgetInstruction,
@@ -3785,6 +3785,12 @@ async fn simulate_and_process(
     extra_signers: Vec<&Keypair>,
     cu_limit: Option<u32>,
 ) -> TxOutcome {
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_new_latest_blockhash(&ctx.last_blockhash)
+        .await
+        .expect("new latest blockhash for tx");
+
     let mut all_instructions = Vec::with_capacity(instructions.len() + 1);
     if let Some(limit) = cu_limit {
         all_instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(limit));

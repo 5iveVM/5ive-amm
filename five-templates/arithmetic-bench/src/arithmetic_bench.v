@@ -3,12 +3,10 @@
 
 mut accumulator: u64;
 
-init {
-    accumulator = 100;
-}
-
 // Public function that performs 1000+ arithmetic operations
 pub compute_intensive() -> u64 {
+    accumulator = 100;
+
     // Series of mixed arithmetic operations
     accumulator = accumulator + 1;
     accumulator = accumulator + 2;
@@ -23,10 +21,7 @@ pub compute_intensive() -> u64 {
     accumulator = accumulator * 2;
     accumulator = accumulator / 2;
 
-    // Repeat the pattern 50 times for total ~550 operations
-    let counter: u64 = 0;
-
-    // Unrolled loop to avoid complex control flow
+    // Unrolled arithmetic sequence to stress ALU-heavy execution paths.
     accumulator = accumulator + 10;
     accumulator = accumulator + 20;
     accumulator = accumulator + 30;
