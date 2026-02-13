@@ -165,6 +165,12 @@ fn harness_executes_external_token_transfer_without_cpi() {
         }}
     "#
     );
+    let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    harness::compile::maybe_write_generated_v(
+        &repo_root,
+        "generated/runtime-script-fixture-transfer-caller.v",
+        &caller_source,
+    );
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller script should compile");
     assert!(

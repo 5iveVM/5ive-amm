@@ -49,3 +49,54 @@ fn fallback_candidates(path: &Path) -> Vec<PathBuf> {
 
     out
 }
+
+/// Optionally write generated Five source files for inspection or manual runs.
+///
+/// Disabled by default. Set `FIVE_WRITE_GENERATED_V=1` (or `true`/`yes`) to enable.
+/// Optional override: `FIVE_GENERATED_V_DIR=/custom/dir`.
+pub fn maybe_write_generated_v(repo_root: &Path, relative_path: &str, source: &str) {
+    if !write_generated_v_enabled() {
+        return;
+    }
+
+    let output_path = generated_v_output_path(repo_root, relative_path);
+    if let Some(parent) = output_path.parent() {
+        if let Err(e) = fs::create_dir_all(parent) {
+            eprintln!(
+                "Warning: could not create generated source directory {}: {}",
+                parent.display(),
+                e
+            );
+            return;
+        }
+    }
+
+    match fs::write(&output_path, source) {
+        Ok(()) => println!("Generated Five source written to: {}", output_path.display()),
+        Err(e) => eprintln!(
+            "Warning: could not write generated source to {}: {}",
+            output_path.display(),
+            e
+        ),
+    }
+}
+
+fn write_generated_v_enabled() -> bool {
+    matches!(
+        std::env::var("FIVE_WRITE_GENERATED_V"),
+        Ok(value) if matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes")
+    )
+}
+
+fn generated_v_output_path(repo_root: &Path, relative_path: &str) -> PathBuf {
+    let requested = PathBuf::from(relative_path);
+    if requested.is_absolute() {
+        return requested;
+    }
+
+    if let Ok(base_dir) = std::env::var("FIVE_GENERATED_V_DIR") {
+        return PathBuf::from(base_dir).join(relative_path);
+    }
+
+    repo_root.join("five-templates").join(relative_path)
+}

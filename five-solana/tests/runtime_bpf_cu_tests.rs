@@ -14,7 +14,7 @@ use five_protocol::{
     opcodes::{self, CALL_EXTERNAL, HALT},
     parser::parse_code_bounds,
 };
-use harness::compile::load_or_compile_bytecode;
+use harness::compile::{load_or_compile_bytecode, maybe_write_generated_v};
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use harness::perf::{assert_no_regression, print_scenario_line, CuMetrics};
 use serde::Deserialize;
@@ -338,6 +338,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         }}
     "#
     );
+    maybe_write_generated_v(&repo_root, "generated/external-transfer-caller.v", &caller_source);
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller script should compile");
     print_external_call_opcode_mix("external_non_cpi", &caller_bytecode);
@@ -589,6 +590,7 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
             // No-op body; success proves selector mapping resolved correctly.
         }
     "#;
+    maybe_write_generated_v(&repo_root, "generated/external-interface-callee.v", callee_source);
     let callee_bytecode =
         DslCompiler::compile_dsl(callee_source).expect("callee script should compile");
 
@@ -641,6 +643,7 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
         }}
     "#
     );
+    maybe_write_generated_v(&repo_root, "generated/external-interface-caller.v", &caller_source);
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller script should compile via lockfile mapping");
     print_external_call_opcode_mix("external_interface_mapping_non_cpi", &caller_bytecode);
@@ -1374,6 +1377,7 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
         }}
     "#
     );
+    maybe_write_generated_v(&repo_root, "generated/external-burst-caller.v", &caller_source);
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller burst script should compile");
     print_external_call_opcode_mix("external_burst_non_cpi", &caller_bytecode);
@@ -1690,14 +1694,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         signature_parts.join(",\n            "),
         call_lines.join("\n            ")
     );
-
-    // Write generated script to file so it can be inspected and compiled manually
-    let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let script_file = output_dir.join("five-templates/mass-transfer-generated.v");
-    let _ = fs::write(&script_file, &caller_source).map_err(|e| {
-        eprintln!("Warning: could not write generated script to {}: {}", script_file.display(), e)
-    });
-    println!("Generated mass_transfer script written to: {}", script_file.display());
+    maybe_write_generated_v(&repo_root, "mass-transfer-generated.v", &caller_source);
 
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller mass-transfer script should compile");
@@ -2913,6 +2910,7 @@ async fn run_external_token_all_public_profile(
 
     let token_import_address = bs58::encode(token_script_pubkey.to_bytes()).into_string();
     let caller_source = build_external_all_public_caller_source(&token_import_address, call_count);
+    maybe_write_generated_v(&repo_root, "generated/external-all-public-caller.v", &caller_source);
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("external all-public caller should compile");
     accounts.insert(

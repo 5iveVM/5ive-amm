@@ -157,6 +157,11 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
         }}
     "#
     );
+    harness::compile::maybe_write_generated_v(
+        &repo_root,
+        "generated/opcode-micro-transfer-caller.v",
+        &caller_source,
+    );
     let caller_bytecode = DslCompiler::compile_dsl(&caller_source).expect("caller script compile");
     accounts.insert(
         "caller_script".to_string(),
