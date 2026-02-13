@@ -21,11 +21,16 @@ export default function DocsEditor({ code, filename = "example.five", height = "
     const [status, setStatus] = useState("Ready");
     const [statusKind, setStatusKind] = useState<"idle" | "running" | "success" | "error">("idle");
 
-    // State for execution results
-    const [executionResult, setExecutionResult] = useState<any>(null);
+    // State for the code to allow editing while syncing with props
+    const [editorCode, setEditorCode] = useState(code);
+
+    // Sync local state when the prop changes (e.g. user selects a different example)
+    useEffect(() => {
+        setEditorCode(code);
+    }, [code]);
 
     // New Hook Integration
-    const { isReady, compile, execute } = useFiveWasm();
+    const { isReady, compile } = useFiveWasm();
 
     const monaco = useMonaco();
     const { theme } = useThemeStore();
@@ -48,58 +53,34 @@ export default function DocsEditor({ code, filename = "example.five", height = "
         monacoInstance.editor.setTheme(theme === 'dark' ? "rose-pine-dark" : "rose-pine-light");
     };
 
-    const handleRun = async () => {
+    const handleBuild = async () => {
         if (!isReady) return;
         setIsRunning(true);
         setStatusKind("running");
-        setStatus("Compiling...");
-        setExecutionResult(null);
+        setStatus("Building...");
 
         try {
             // 1. Compile
-            const compileResult = await compile(code);
+            const compileResult = await compile(editorCode);
 
             if (!compileResult.success) {
                 setStatusKind("error");
-                setStatus("Compilation failed");
-                setExecutionResult({
-                    success: false,
-                    error: compileResult.error || "Unknown compilation error",
-                    logs: compileResult.logs || []
-                });
+                setStatus("Build failed");
                 setIsRunning(false);
                 return;
             }
 
             if (compileResult.bytecode) {
-                setStatus("Running...");
-
-                // 2. Execute
-                // Default execution: run function at index 0 (usually the first pub fn) with no args
-                const execResult = await execute(compileResult.bytecode);
-
-                setExecutionResult(execResult);
-
-                if (execResult.success) {
-                    setStatusKind("success");
-                    setStatus(`Success • ${execResult.computeUnits} CU`);
-                } else {
-                    setStatusKind("error");
-                    setStatus("Runtime Error");
-                }
+                setStatusKind("success");
+                setStatus(`Built • ${compileResult.bytecode.length} bytes`);
             } else {
                 setStatusKind("success");
-                setStatus("Compilation successful");
+                setStatus("Build successful");
             }
 
         } catch (e: any) {
             setStatusKind("error");
             setStatus("System Error");
-            setExecutionResult({
-                success: false,
-                error: e.toString(),
-                logs: []
-            });
         } finally {
             setIsRunning(false);
         }
@@ -141,7 +122,7 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                         {status}
                     </span>
                     <button
-                        onClick={handleRun}
+                        onClick={handleBuild}
                         disabled={!isReady || isRunning}
                         className={cn(
                             "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
@@ -152,8 +133,8 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                                     : "bg-rose-pine-love text-rose-pine-base hover:bg-rose-pine-love/90 hover:scale-105 active:scale-95 shadow-lg shadow-rose-pine-love/20"
                         )}
                     >
-                        {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Play size={10} fill="currentColor" />}
-                        {isRunning ? "Running..." : "Run"}
+                        {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Hammer size={10} fill="currentColor" />}
+                        {isRunning ? "Building..." : "Build"}
                     </button>
                 </div>
             </div>
@@ -162,7 +143,8 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                 <MonacoEditor
                     height="100%"
                     defaultLanguage="five"
-                    defaultValue={code}
+                    value={editorCode}
+                    onChange={(val) => setEditorCode(val || "")}
                     theme={theme === 'dark' ? "rose-pine-dark" : "rose-pine-light"}
                     onMount={handleEditorDidMount}
                     options={{
@@ -196,40 +178,6 @@ export default function DocsEditor({ code, filename = "example.five", height = "
                     </div>
                 )}
             </div>
-
-            {/* Execution Console Output */}
-            {executionResult && (
-                <div className={cn(
-                    "border-t p-3 text-xs font-mono max-h-40 overflow-y-auto",
-                    theme === "dark" ? "border-white/5 bg-black/20" : "border-rose-pine-hl-low/40 bg-rose-pine-surface/50"
-                )}>
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className={cn(
-                            "w-2 h-2 rounded-full",
-                            executionResult.success ? "bg-rose-pine-foam" : "bg-rose-pine-love"
-                        )} />
-                        <span className="font-bold opacity-70">Console Output</span>
-                    </div>
-
-                    {executionResult.logs && executionResult.logs.length > 0 ? (
-                        <div className="space-y-1 text-rose-pine-subtle">
-                            {executionResult.logs.map((log: string, i: number) => (
-                                <div key={i}>{log}</div>
-                            ))}
-                        </div>
-                    ) : executionResult.error ? (
-                        <div className="text-rose-pine-love break-all whitespace-pre-wrap">
-                            Error: {executionResult.error}
-                        </div>
-                    ) : (
-                        <div className="text-rose-pine-muted italic">
-                            Program executed successfully with no output.
-                        </div>
-                    )}
-                </div>
-            )}
         </GlassCard>
     );
 }
-// Import Play icon for Run button
-import { Play } from "lucide-react";

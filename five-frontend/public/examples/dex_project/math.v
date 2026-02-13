@@ -13,5 +13,7 @@ pub min(a: u64, b: u64) -> u64 {
 }
 
 pub sqrt_product(a: u64, b: u64) -> u64 {
+    require(a > 0);
+    require(b > 0);
     return min(a, b);
 }

@@ -29,6 +29,8 @@ account LPAccount {
 import math;
 
 pub init_pool(pool: AMMPool @mut, authority: account @signer, token_a_mint: pubkey, token_b_mint: pubkey, lp_token_mint: pubkey, fee_bps: u64) -> pubkey {
+    require(fee_bps < 10000);
+    require(token_a_mint != token_b_mint);
     pool.token_a_reserve = 0;
     pool.token_b_reserve = 0;
     pool.total_lp_shares = 0;

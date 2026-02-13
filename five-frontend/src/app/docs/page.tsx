@@ -127,13 +127,7 @@ pub settle(
     transfer(from, to, owner, 50);
 }`;
 
-// Verified example: compiler rejects ambiguous unqualified imported calls.
-const IMPORT_AMBIGUITY_SNIPPET = `use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{transfer};
-use "11111111111111111111111111111111"::{transfer};
 
-pub execute(from: account @mut, to: account @mut, owner: account @signer) {
-    transfer(from, to, owner, 50); // compile error: ambiguous imported symbol
-}`;
 
 // Verified example: mirrors interface/CPI compiler tests.
 const INTERFACE_CPI_SNIPPET = `interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
@@ -171,11 +165,10 @@ function DataTypesSection() {
                     <button
                         key={item.type}
                         onClick={() => setActive(item)}
-                        className={`w-full text-left p-3 rounded-lg border transition-all ${
-                            active.type === item.type
-                                ? "bg-rose-pine-surface border-rose-pine-iris/50"
-                                : "bg-white/5 border-white/5 hover:bg-white/10"
-                        }`}
+                        className={`w-full text-left p-3 rounded-lg border transition-all ${active.type === item.type
+                            ? "bg-rose-pine-surface border-rose-pine-iris/50"
+                            : "bg-white/5 border-white/5 hover:bg-white/10"
+                            }`}
                     >
                         <code className="font-bold text-rose-pine-iris text-sm">{item.type}</code>
                         <p className="text-xs text-rose-pine-muted mt-1">{item.desc}</p>
@@ -197,11 +190,10 @@ function LanguagePatternsSection() {
                     <button
                         key={item.name}
                         onClick={() => setActive(item)}
-                        className={`w-full text-left p-3 rounded-lg border transition-all ${
-                            active.name === item.name
-                                ? "bg-rose-pine-surface border-rose-pine-iris/50"
-                                : "bg-white/5 border-white/5 hover:bg-white/10"
-                        }`}
+                        className={`w-full text-left p-3 rounded-lg border transition-all ${active.name === item.name
+                            ? "bg-rose-pine-surface border-rose-pine-iris/50"
+                            : "bg-white/5 border-white/5 hover:bg-white/10"
+                            }`}
                     >
                         <span className="font-bold text-rose-pine-iris text-sm">{item.name}</span>
                         <p className="text-xs text-rose-pine-muted mt-1">{item.desc}</p>
@@ -381,10 +373,7 @@ export default function DocsPage() {
                             </div>
                         </GlassCard>
 
-                        <GlassCard className="p-6 space-y-4">
-                            <h4 className="text-sm font-semibold text-rose-pine-text">Ambiguous imported symbols fail</h4>
-                            <DocsEditor filename="import_ambiguity_error.v" code={IMPORT_AMBIGUITY_SNIPPET} height="200px" />
-                        </GlassCard>
+
                     </section>
 
                     <section id="interfaces-cpi" className="space-y-6">
@@ -450,8 +439,8 @@ export default function DocsPage() {
                 </div>
             </main>
 
-            <footer className="py-8 border-t border-rose-pine-hl-low/20 text-center text-sm text-rose-pine-muted">
-                <p>© 2026 5IVE Org. All rights reserved.</p>
+            <footer className="py-8 border-t border-rose-pine-hl-low/20 text-center text-sm text-rose-pine-muted relative z-10">
+                <p>© 2026 5ive Tech. All rights reserved.</p>
             </footer>
         </div>
     );

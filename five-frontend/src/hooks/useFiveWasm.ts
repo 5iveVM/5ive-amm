@@ -12,6 +12,7 @@ interface FiveWasmModule {
 export interface CompilationResult {
     success: boolean;
     bytecode: Uint8Array | null;
+    abi: any | null;
     error: string | null;
     logs: string[];
 }
@@ -58,7 +59,7 @@ export function useFiveWasm() {
     const compile = async (code: string): Promise<CompilationResult> => {
         if (!wasmModuleRef.current) {
             console.error("useFiveWasm: Module not loaded");
-            return { success: false, bytecode: null, error: "WASM module not loaded", logs: [] };
+            return { success: false, bytecode: null, abi: null, error: "WASM module not loaded", logs: [] };
         }
 
         let compiler;
@@ -73,12 +74,14 @@ export function useFiveWasm() {
 
             if (result.success) {
                 const bytes = result.bytecode || (typeof result.get_bytecode === 'function' ? result.get_bytecode() : null);
-                // Important: Copy the bytes because the original memory might be freed
                 const safeBytes = bytes ? new Uint8Array(bytes) : null;
+                const abiJson = result.abi || (typeof result.get_abi === 'function' ? result.get_abi() : null);
+                const abi = abiJson ? (typeof abiJson === 'string' ? JSON.parse(abiJson) : abiJson) : null;
 
                 return {
                     success: true,
                     bytecode: safeBytes,
+                    abi: abi,
                     error: null,
                     logs: ["Compilation successful"]
                 };
@@ -92,6 +95,7 @@ export function useFiveWasm() {
                 return {
                     success: false,
                     bytecode: null,
+                    abi: null,
                     error: errorMsg,
                     logs: []
                 };
@@ -100,6 +104,7 @@ export function useFiveWasm() {
             return {
                 success: false,
                 bytecode: null,
+                abi: null,
                 error: e.toString(),
                 logs: []
             };

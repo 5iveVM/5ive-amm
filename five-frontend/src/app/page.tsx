@@ -36,9 +36,8 @@ export default function LandingPage() {
             </main>
 
             {/* Simple Footer */}
-            {/* Simple Footer */}
             <footer className="py-8 border-t border-rose-pine-hl-low/20 text-center text-sm text-rose-pine-muted relative z-10">
-                <p>© 2025 5IVE Org. All rights reserved.</p>
+                <p>© 2026 5ive Tech. All rights reserved.</p>
             </footer>
         </div>
     );
