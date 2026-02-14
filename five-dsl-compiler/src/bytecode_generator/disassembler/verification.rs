@@ -118,41 +118,11 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
     let pool_enabled = (features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
     let mut offset = start_offset;
 
-    // If constant pool is enabled, cap scan length at the end of the code section
+    // Cap scan length at code end using canonical protocol parsing when possible.
     let mut scan_len = bytecode_len;
-    if pool_enabled {
-        let metadata_end = find_instructions_start(bytecode);
-        let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
-        if metadata_end + desc_size <= bytecode_len {
-            let base = metadata_end;
-            let pool_offset = u32::from_le_bytes([
-                bytecode[base],
-                bytecode[base + 1],
-                bytecode[base + 2],
-                bytecode[base + 3],
-            ]) as usize;
-            let string_blob_offset = u32::from_le_bytes([
-                bytecode[base + 4],
-                bytecode[base + 5],
-                bytecode[base + 6],
-                bytecode[base + 7],
-            ]) as usize;
-            let string_blob_len = u32::from_le_bytes([
-                bytecode[base + 8],
-                bytecode[base + 9],
-                bytecode[base + 10],
-                bytecode[base + 11],
-            ]) as usize;
-            let pool_slots = u16::from_le_bytes([bytecode[base + 12], bytecode[base + 13]]) as usize;
-            let code_offset = pool_offset + pool_slots * 8;
-            let code_end = if string_blob_len > 0 {
-                string_blob_offset
-            } else {
-                string_blob_offset.max(code_offset)
-            };
-            if code_end > 0 && code_end <= bytecode_len {
-                scan_len = code_end;
-            }
+    if let Ok((_, _code_start, code_end)) = five_protocol::parse_code_bounds(bytecode) {
+        if code_end > 0 && code_end <= bytecode_len {
+            scan_len = code_end;
         }
     }
     
@@ -354,35 +324,6 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
     VerificationResult::with_errors(errors, jump_count, bytecode_len)
 }
 
-/// Find where instructions start by skipping header and metadata
-/// (Same logic as BytecodeInspector::find_instructions_start)
-fn find_instructions_start(bytes: &[u8]) -> usize {
-    // Check for 5IVE magic at start (was STKS in older versions)
-    if bytes.len() < 10 || &bytes[0..4] != b"5IVE" {
-        // No header - raw bytecode starts at 0
-        return 0;
-    }
-
-    // Check for FEATURE_FUNCTION_NAMES at offset [4..8]
-    let features = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
-
-    const FEATURE_FUNCTION_NAMES: u32 = 1 << 8;
-
-    let mut offset = 10; // After header
-
-    // If metadata is present, skip it
-    if (features & FEATURE_FUNCTION_NAMES) != 0 && offset < bytes.len() {
-        // Skip metadata section
-        // Format: [u16 section_size] [u8 name_count] [u8 name_len, bytes...]*
-        if offset + 2 <= bytes.len() {
-            let section_size = u16::from_le_bytes([bytes[offset], bytes[offset+1]]);
-            offset += 2 + section_size as usize;
-        }
-    }
-
-    offset.min(bytes.len())
-}
-
 /// Get human-readable opcode name
 fn opcode_name(opcode: u8) -> &'static str {
     opcodes::opcode_name(opcode)
@@ -472,5 +413,41 @@ mod tests {
         ];
         let result = verify_jump_targets(&bytecode);
         assert!(result.is_valid, "{}", result.error_summary());
+    }
+
+    #[test]
+    fn test_push_array_literal_count_does_not_shift_scanner() {
+        // Regression for CPI instruction-data builders:
+        // PUSH_ARRAY_LITERAL has only a single immediate count byte.
+        // The count itself must not be interpreted as additional inline payload bytes.
+        let bytecode = vec![
+            opcodes::PUSH_ARRAY_LITERAL,
+            0x04, // count
+            opcodes::JUMP,
+            0x05, 0x00, // jump to HALT
+            opcodes::HALT,
+        ];
+
+        let result = verify_jump_targets(&bytecode);
+        assert!(result.is_valid, "{}", result.error_summary());
+        assert_eq!(result.jump_count, 1);
+    }
+
+    #[test]
+    fn test_cast_value_type_immediate_does_not_shift_scanner() {
+        // Regression: CAST includes a 1-byte ValueType immediate.
+        // If CAST is treated as zero-width, scanner lands on the type tag (0x01)
+        // and falsely interprets it as JUMP.
+        let bytecode = vec![
+            opcodes::CAST,
+            0x01, // ValueType::U8
+            opcodes::JUMP,
+            0x05, 0x00, // jump to HALT
+            opcodes::HALT,
+        ];
+
+        let result = verify_jump_targets(&bytecode);
+        assert!(result.is_valid, "{}", result.error_summary());
+        assert_eq!(result.jump_count, 1);
     }
 }

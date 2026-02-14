@@ -2,7 +2,8 @@ use five_protocol::{
     get_opcode_info, is_valid_opcode, opcode_compute_cost, opcode_name,
     operand_size, parser, BytecodeBuilder, ParseError, OPCODE_TABLE,
     // Import some key opcodes to test against
-    ADD, ALLOC_LOCALS, BR_EQ_U8, CREATE_TUPLE, JUMP, LOAD, PUSH_STRING, PUSH_U16, PUSH_U16_W, RETURN, STORE,
+    ADD, ALLOC_LOCALS, BR_EQ_U8, CAST, CREATE_TUPLE, HALT, JUMP, LOAD, PUSH_ARRAY_LITERAL,
+    PUSH_STRING, PUSH_STRING_LITERAL, PUSH_U16, PUSH_U16_W, RETURN, STORE,
 };
 use std::collections::HashSet;
 
@@ -98,10 +99,62 @@ fn test_operand_size_uses_canonical_fixed_and_variable_widths() {
     assert_eq!(operand_size(BR_EQ_U8, &[0x02, 0x34, 0x12], false), Some(3));
     assert_eq!(operand_size(STORE, &[0x01, 0x44, 0x33, 0x22, 0x11], false), Some(5));
     assert_eq!(operand_size(LOAD, &[], false), Some(0));
+    assert_eq!(operand_size(CAST, &[0x01], false), Some(1));
 
     // PUSH_STRING uses u32 length prefix + bytes.
     assert_eq!(operand_size(PUSH_STRING, &[0x03, 0x00, 0x00, 0x00, b'a', b'b', b'c'], false), Some(7));
     assert_eq!(operand_size(PUSH_STRING, &[0x03, 0x00], false), None);
+
+    // Literal builders use a single immediate count byte in bytecode.
+    assert_eq!(operand_size(PUSH_ARRAY_LITERAL, &[0x04], false), Some(1));
+    assert_eq!(operand_size(PUSH_STRING_LITERAL, &[0x03], false), Some(1));
+}
+
+#[test]
+fn parser_advances_correctly_after_literal_builder_opcodes() {
+    let script = {
+        let mut b = BytecodeBuilder::new();
+        b.emit_header(1, 1)
+            .emit_opcode(PUSH_ARRAY_LITERAL)
+            .emit_u8(0x04)
+            .emit_halt()
+            .emit_opcode(PUSH_STRING_LITERAL)
+            .emit_u8(0x02)
+            .emit_halt();
+        b.build()
+    };
+
+    let parsed = parser::parse_bytecode(&script);
+    assert!(parsed.errors.is_empty(), "parser errors: {:?}", parsed.errors);
+    assert_eq!(parsed.instructions.len(), 4);
+    assert_eq!(parsed.instructions[0].opcode, PUSH_ARRAY_LITERAL);
+    assert_eq!(parsed.instructions[0].size, 2);
+    assert_eq!(parsed.instructions[1].opcode, HALT);
+    assert_eq!(parsed.instructions[1].size, 1);
+    assert_eq!(parsed.instructions[2].opcode, PUSH_STRING_LITERAL);
+    assert_eq!(parsed.instructions[2].size, 2);
+    assert_eq!(parsed.instructions[3].opcode, HALT);
+    assert_eq!(parsed.instructions[3].size, 1);
+}
+
+#[test]
+fn parser_advances_correctly_after_cast_immediate() {
+    let script = {
+        let mut b = BytecodeBuilder::new();
+        b.emit_header(1, 1)
+            .emit_opcode(CAST)
+            .emit_u8(0x01)
+            .emit_opcode(HALT);
+        b.build()
+    };
+
+    let parsed = parser::parse_bytecode(&script);
+    assert!(parsed.errors.is_empty(), "parser errors: {:?}", parsed.errors);
+    assert_eq!(parsed.instructions.len(), 2);
+    assert_eq!(parsed.instructions[0].opcode, CAST);
+    assert_eq!(parsed.instructions[0].size, 2);
+    assert_eq!(parsed.instructions[1].opcode, HALT);
+    assert_eq!(parsed.instructions[1].size, 1);
 }
 
 #[test]

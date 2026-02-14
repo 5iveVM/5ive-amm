@@ -344,16 +344,6 @@ pub fn parse_instruction_with_features(
             }
             arg1 = bytecode[offset + total_size] as u64;
             total_size += 1;
-
-            // Special handling for PUSH_STRING_LITERAL (0x66)
-            // ArgType::U8 consumes length. We must also skip the string bytes.
-            if opcode == crate::opcodes::PUSH_STRING_LITERAL {
-                let str_len = arg1 as usize;
-                if offset + total_size + str_len > bytecode.len() {
-                    return Err(ParseError::InstructionOutOfBounds);
-                }
-                total_size += str_len;
-            }
         }
         ArgType::U16 | ArgType::U16Fixed => {
             if offset + total_size + 2 > bytecode.len() {

@@ -1747,6 +1747,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: CAST,
+        name: "CAST",
+        arg_type: ArgType::ValueType,
+        stack_effect: 0,
+        compute_cost: 1,
+    },
+    OpcodeInfo {
         opcode: WRITE_DATA,
         name: "WRITE_DATA",
         arg_type: ArgType::None,
@@ -1965,7 +1972,10 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
             if remaining.is_empty() {
                 return None;
             }
-            return Some(1 + remaining[0] as usize);
+            // Bytecode encoding stores a single u8 immediate count for these opcodes.
+            // The count represents runtime element/string construction metadata, not
+            // additional inline operand bytes.
+            return Some(1);
         }
         // CREATE_TUPLE has an immediate tuple size byte in bytecode format.
         CREATE_TUPLE => return Some(1),
