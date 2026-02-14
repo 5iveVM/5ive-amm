@@ -13,6 +13,8 @@ export interface VSourceTest {
     file: string;
     functionName: string;
     parameters?: any[];
+    expectedResult?: any;
+    expectsResult?: boolean;
     description?: string;
 }
 /**
@@ -36,6 +38,8 @@ export interface DiscoveredTest {
     source?: VSourceTest;
     description?: string;
     parameters?: any[];
+    expectedResult?: any;
+    expectsResult?: boolean;
 }
 /**
  * Discover tests from directory

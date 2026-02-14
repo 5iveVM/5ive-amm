@@ -80,7 +80,11 @@ Use this checklist during execution. Do not skip gates.
 ```bash
 5ive test tests/ --on-chain --target devnet
 ```
-4. Record pass/fail evidence.
+4. Mainnet tests are opt-in only:
+```bash
+5ive test tests/ --on-chain --target mainnet --allow-mainnet-tests --max-cost-sol <N>
+```
+5. Record pass/fail evidence.
 
 ## F) Deploy Gate (If In Scope)
 

@@ -270,6 +270,8 @@ async function generateExampleFiles(projectDir: string, template: string): Promi
   // Generate test file
   const testFile = getTemplateTestFile(template);
   await writeFile(join(projectDir, 'tests/main.test.v'), testFile);
+  const fixtureFile = getTemplateOnChainFixture(template);
+  await writeFile(join(projectDir, 'tests/main.test.json'), fixtureFile);
   
   // Generate README
   const readme = generateReadme(template);
@@ -680,8 +682,9 @@ function getTemplateTestFile(template: string): string {
   // Generate template-specific test functions
   const templates: Record<string, string> = {
     basic: `// Tests for ${template} template
-// Use @test-params to specify function parameters for testing
-// Format: @test-params <param1> <param2> ... <expected_result>
+// Use @test-params to specify function parameters for testing.
+// For non-void functions the last value is the expected result.
+// Space-separated and JSON-array formats are both supported.
 
 // @test-params 10 20 30
 pub test_add(a: u64, b: u64) -> u64 {
@@ -777,6 +780,78 @@ pub test_proposal_threshold(token_balance: u64, threshold: u64) -> bool {
   return templates[template] || templates.basic;
 }
 
+function getTemplateOnChainFixture(template: string): string {
+  const fixtures: Record<string, any> = {
+    basic: {
+      accounts: {
+        sample_account: {
+          owner: 'system',
+          lamports: 1000000,
+          data_len: 0,
+          is_writable: true
+        }
+      },
+      tests: {
+        test_add: {
+          parameters: [10, 20],
+          expected: { success: true }
+        }
+      }
+    },
+    defi: {
+      accounts: {
+        pool_account: {
+          owner: 'system',
+          lamports: 1000000,
+          data_len: 64,
+          is_writable: true
+        }
+      },
+      tests: {
+        test_deposit: {
+          parameters: [1000],
+          expected: { success: true }
+        }
+      }
+    },
+    nft: {
+      accounts: {},
+      tests: {
+        test_mint_nft: {
+          expected: { success: true }
+        }
+      }
+    },
+    game: {
+      accounts: {},
+      tests: {
+        test_move_validation: {
+          parameters: [5, 3],
+          expected: { success: true }
+        }
+      }
+    },
+    dao: {
+      accounts: {
+        proposal_account: {
+          owner: 'system',
+          lamports: 1000000,
+          data_len: 128,
+          is_writable: true
+        }
+      },
+      tests: {
+        test_vote_power: {
+          parameters: [1000, 50],
+          expected: { success: true }
+        }
+      }
+    }
+  };
+
+  return JSON.stringify(fixtures[template] || fixtures.basic, null, 2) + '\n';
+}
+
 /**
  * Generate README content
  */
@@ -809,7 +884,7 @@ npm run build:debug
 
 #### Discover and Run Tests
 
-5IVE CLI automatically discovers test functions from your \`.v\` files:
+5IVE CLI discovers test functions from your \`tests/*.v\` files using \`pub test_*\`:
 
 \`\`\`bash
 # Run all tests
@@ -826,6 +901,11 @@ npm test
 
 # Run with JSON output for CI/CD
 5ive test --format json
+
+# Run on-chain tests (local/devnet/mainnet)
+5ive test --on-chain --target local
+5ive test --on-chain --target devnet
+5ive test --on-chain --target mainnet --allow-mainnet-tests --max-cost-sol 0.5
 \`\`\`
 
 #### Writing Tests
@@ -844,11 +924,13 @@ pub test_multiply(a: u64, b: u64) -> u64 {
 }
 \`\`\`
 
-The \`@test-params\` comment specifies the parameters to pass and expected result. The test runner will:
+The \`@test-params\` comment specifies inputs. For non-void functions the last value is treated as expected result. The test runner will:
 1. Discover test functions automatically
 2. Compile the source file
 3. Execute with the specified parameters
 4. Validate the result matches
+
+For stateful on-chain tests, use companion fixture files (e.g. \`tests/main.test.json\`) to define per-test accounts/parameters.
 
 ### Development
 

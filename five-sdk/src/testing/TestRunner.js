@@ -4,15 +4,16 @@
  * SDK-based test utilities that replace shell script approaches with programmatic
  * Five SDK usage. Provides comprehensive testing capabilities for Five VM scripts.
  */
-import { readFile, readdir, stat } from 'fs/promises';
-import { join, extname, basename } from 'path';
+import { readFile } from 'fs/promises';
+import { basename } from 'path';
 import { FiveSDK } from '../FiveSDK.js';
-import { FiveBytecode, FiveScriptSource } from '../types.js';
+import { TestDiscovery } from './TestDiscovery.js';
 /**
  * Five SDK-based test runner
  */
 export class FiveTestRunner {
     options;
+    compilationCache = new Map();
     constructor(options = {}) {
         this.options = {
             timeout: 30000,
@@ -42,13 +43,22 @@ export class FiveTestRunner {
                 };
             }
             let bytecode;
+            let abi;
             // Get bytecode (compile source or load existing)
             if (testCase.source) {
-                const result = await this.compileToBytecode(testCase.source);
-                if (!result.success || !result.bytecode) {
-                    throw new Error(`Compilation failed: ${result.errors?.join(', ')}`);
+                if (!this.compilationCache.has(testCase.source)) {
+                    const result = await this.compileToBytecode(testCase.source);
+                    if (!result.success || !result.bytecode) {
+                        throw new Error(`Compilation failed: ${result.errors?.join(', ')}`);
+                    }
+                    this.compilationCache.set(testCase.source, {
+                        bytecode: result.bytecode,
+                        abi: result.abi
+                    });
                 }
-                bytecode = result.bytecode;
+                const cached = this.compilationCache.get(testCase.source);
+                bytecode = cached.bytecode;
+                abi = cached.abi;
             }
             else if (testCase.bytecode) {
                 const data = await readFile(testCase.bytecode);
@@ -69,7 +79,8 @@ export class FiveTestRunner {
             const executionPromise = FiveSDK.executeLocally(bytecode, testCase.function || 0, testCase.parameters || [], {
                 debug: this.options.debug,
                 trace: this.options.trace,
-                computeUnitLimit: this.options.maxComputeUnits
+                computeUnitLimit: this.options.maxComputeUnits,
+                abi
             });
             const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Test timeout')), executionTimeout));
             const result = await Promise.race([executionPromise, timeoutPromise]);
@@ -189,22 +200,51 @@ export class FiveTestRunner {
      * Discover and load test suites from directory
      */
     async discoverTestSuites(directory, pattern = '**/*.test.json') {
-        const testFiles = await this.findTestFiles(directory, pattern);
+        const discovered = await TestDiscovery.discoverTests(directory, { verbose: this.options.verbose });
         const suites = [];
-        for (const file of testFiles) {
-            try {
-                const content = await readFile(file, 'utf8');
-                const data = JSON.parse(content);
-                const suite = {
-                    name: data.name || basename(file, '.test.json'),
-                    description: data.description,
-                    testCases: data.tests || data.testCases || []
-                };
-                suites.push(suite);
+        const byFile = new Map();
+        const loadedJsonSuites = new Set();
+        for (const test of discovered) {
+            if (test.type === 'json-suite') {
+                if (loadedJsonSuites.has(test.path)) {
+                    continue;
+                }
+                try {
+                    const content = await readFile(test.path, 'utf8');
+                    const data = JSON.parse(content);
+                    suites.push({
+                        name: data.name || basename(test.path, '.test.json'),
+                        description: data.description,
+                        testCases: data.tests || data.testCases || []
+                    });
+                    loadedJsonSuites.add(test.path);
+                }
+                catch (error) {
+                    console.warn(`Failed to load test suite ${test.path}: ${error}`);
+                }
+                continue;
             }
-            catch (error) {
-                console.warn(`Failed to load test suite ${file}: ${error}`);
+            if (test.type === 'v-source' && test.source) {
+                const cases = byFile.get(test.path) || [];
+                cases.push({
+                    name: test.name,
+                    source: test.path,
+                    function: test.source.functionName,
+                    parameters: test.parameters || [],
+                    expected: {
+                        success: true,
+                        result: test.expectsResult ? test.expectedResult : undefined
+                    }
+                });
+                byFile.set(test.path, cases);
             }
+        }
+        for (const [file, testCases] of byFile.entries()) {
+            suites.push({
+                name: basename(file, '.v'),
+                description: `Tests from ${file}`,
+                testCases
+            });
         }
         return suites;
     }
@@ -247,7 +287,7 @@ export class FiveTestRunner {
     // Private helper methods
     async compileToBytecode(sourcePath) {
         const source = await readFile(sourcePath, 'utf8');
-        return FiveSDK.compile(source, { debug: this.options.debug });
+        return FiveSDK.compile({ filename: sourcePath, content: source }, { debug: this.options.debug });
     }
     validateResult(result, expected) {
         // Check success/failure
@@ -299,26 +339,6 @@ export class FiveTestRunner {
             chunks.push(array.slice(i, i + chunkSize));
         }
         return chunks;
-    }
-    async findTestFiles(directory, pattern) {
-        const files = [];
-        try {
-            const entries = await readdir(directory, { withFileTypes: true });
-            for (const entry of entries) {
-                const fullPath = join(directory, entry.name);
-                if (entry.isDirectory()) {
-                    const subFiles = await this.findTestFiles(fullPath, pattern);
-                    files.push(...subFiles);
-                }
-                else if (entry.isFile() && entry.name.endsWith('.test.json')) {
-                    files.push(fullPath);
-                }
-            }
-        }
-        catch (error) {
-            // Directory doesn't exist or not accessible
-        }
-        return files;
     }
     formatTestResult(result) {
         const icon = result.passed ? '✅' : '❌';

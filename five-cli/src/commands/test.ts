@@ -1,21 +1,19 @@
 // Test command.
 
 import { readFile, readdir, stat } from 'fs/promises';
-import { join, extname, basename, isAbsolute } from 'path';
+import { join, basename } from 'path';
 import ora from 'ora';
 
 import {
   CommandDefinition,
-  CommandContext,
-  VMExecutionOptions,
-  CLIOptions
+  CommandContext
 } from '../types.js';
 import { FiveSDK, FiveTestRunner, TestDiscovery } from '@5ive-tech/sdk';
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ConfigOverrides } from '../config/types.js';
 import { Connection, Keypair } from '@solana/web3.js';
 import { FiveFileManager } from '../utils/FiveFileManager.js';
-import { loadBuildManifest, loadProjectConfig } from '../project/ProjectLoader.js';
+import { loadProjectConfig } from '../project/ProjectLoader.js';
 import { section, success as uiSuccess, error as uiError } from '../utils/cli-ui.js';
 
 interface TestCase {
@@ -23,6 +21,11 @@ interface TestCase {
   bytecode: string;
   input?: string;
   accounts?: string;
+  sourceFile?: string;
+  functionRef?: string | number;
+  parameters?: any[];
+  inlineBytecode?: Uint8Array;
+  inlineAbi?: any;
   expected: {
     success: boolean;
     result?: any;
@@ -78,6 +81,28 @@ interface OnChainTestSummary {
   results: OnChainTestResult[];
 }
 
+interface OnChainFixtureAccount {
+  owner?: string; // "system" or base58 pubkey
+  lamports?: number;
+  data_len?: number;
+  is_signer?: boolean;
+  is_writable?: boolean;
+}
+
+interface OnChainFixtureTestSpec {
+  accounts?: string[];
+  parameters?: any[];
+  expected?: {
+    success?: boolean;
+    errorContains?: string;
+  };
+}
+
+interface OnChainFixtureFile {
+  accounts?: Record<string, OnChainFixtureAccount>;
+  tests?: Record<string, OnChainFixtureTestSpec>;
+}
+
 /**
  * 5IVE test command implementation
  */
@@ -89,8 +114,8 @@ export const testCommand: CommandDefinition = {
   options: [
     {
       flags: '-p, --pattern <pattern>',
-      description: 'Test file pattern (default: **/*.test.json)',
-      defaultValue: '**/*.test.json'
+      description: 'Test discovery pattern (default: *)',
+      defaultValue: '*'
     },
     {
       flags: '-f, --filter <filter>',
@@ -179,6 +204,16 @@ export const testCommand: CommandDefinition = {
       defaultValue: false
     },
     {
+      flags: '--allow-mainnet-tests',
+      description: 'Allow on-chain tests on mainnet (requires --max-cost-sol)',
+      defaultValue: false
+    },
+    {
+      flags: '--max-cost-sol <amount>',
+      description: 'Maximum SOL budget for on-chain test runs',
+      required: false
+    },
+    {
       flags: '--project <path>',
       description: 'Project directory or five.toml path',
       required: false
@@ -225,7 +260,6 @@ export const testCommand: CommandDefinition = {
 
     try {
       const projectContext = await loadProjectConfig(options.project, process.cwd());
-      const manifest = projectContext ? await loadBuildManifest(projectContext.rootDir) : null;
 
       // Apply project defaults if not provided
       if (!options.target && projectContext?.config.cluster) {
@@ -238,17 +272,10 @@ export const testCommand: CommandDefinition = {
         options.keypair = projectContext.config.keypairPath;
       }
 
-      let testPath =
+      const testPath =
         args[0] ||
         (projectContext ? join(projectContext.rootDir, 'tests') : undefined) ||
         './tests';
-      if (!args[0] && manifest?.artifact_path) {
-        testPath = isAbsolute(manifest.artifact_path)
-          ? manifest.artifact_path
-          : projectContext
-            ? join(projectContext.rootDir, manifest.artifact_path)
-            : manifest.artifact_path;
-      }
 
       // Handle on-chain testing mode
       if (options.onChain) {
@@ -314,7 +341,8 @@ async function discoverTestSuites(
   logger: any
 ): Promise<TestSuite[]> {
   const testSuites: TestSuite[] = [];
-  const compiledVTests = new Map<string, Uint8Array>();
+  const compiledVTests = new Map<string, { bytecode: Uint8Array; abi?: any }>();
+  const loadedJsonSuites = new Set<string>();
 
   try {
     // Use new TestDiscovery to find both .test.json and .v files
@@ -334,10 +362,17 @@ async function discoverTestSuites(
           const spinner = ora(`Compiling ${basename(test.path)}...`).start();
 
           try {
-            const compilation = await TestDiscovery.compileVTest(test.path);
+            const source = await readFile(test.path, 'utf8');
+            const compilation = await FiveSDK.compile(
+              { filename: test.path, content: source },
+              { debug: options.verbose, optimize: false }
+            );
 
             if (compilation.success && compilation.bytecode) {
-              compiledVTests.set(test.path, compilation.bytecode);
+              compiledVTests.set(test.path, {
+                bytecode: compilation.bytecode,
+                abi: compilation.abi
+              });
               spinner.succeed(`Compiled ${basename(test.path)}`);
             } else {
               spinner.fail(`Failed to compile ${basename(test.path)}`);
@@ -352,34 +387,33 @@ async function discoverTestSuites(
         }
 
         // Create test case from compiled .v file
-        const bytecode = compiledVTests.get(test.path);
-        if (bytecode) {
-          // Write bytecode to temp location
-          const fs = await import('fs/promises');
-          const tmpDir = join(process.cwd(), '.five', 'test-cache');
-          await fs.mkdir(tmpDir, { recursive: true });
-
-          const bytecodeFile = join(tmpDir, `${test.name.replace(/:/g, '_')}.bin`);
-          await fs.writeFile(bytecodeFile, bytecode);
-
+        const compiled = compiledVTests.get(test.path);
+        if (compiled && test.source) {
           const suite = suiteMap.get(test.path) || [];
           suite.push({
             name: test.name,
-            bytecode: bytecodeFile,
-            input: undefined,
-            accounts: undefined,
+            bytecode: test.path,
+            sourceFile: test.path,
+            functionRef: test.source.functionName,
+            parameters: test.parameters || [],
+            inlineBytecode: compiled.bytecode,
+            inlineAbi: compiled.abi,
             expected: {
               success: true,
-              result: test.parameters ? test.parameters[test.parameters.length - 1] : undefined
+              result: test.expectsResult ? test.expectedResult : undefined
             }
           });
           suiteMap.set(test.path, suite);
         }
       } else if (test.type === 'json-suite') {
+        if (loadedJsonSuites.has(test.path)) {
+          continue;
+        }
         // Load .test.json suite
         const suite = await loadTestSuite(test.path);
         if (suite) {
           testSuites.push(suite);
+          loadedJsonSuites.add(test.path);
         }
       }
     }
@@ -471,22 +505,25 @@ async function runSingleTest(
   const startTime = Date.now();
 
   try {
-    // Load bytecode using centralized manager
-    const fileManager = FiveFileManager.getInstance();
-    const loadedFile = await fileManager.loadFile(testCase.bytecode, {
-      validateFormat: true
-    });
-
-    const bytecode = loadedFile.bytecode;
-
-    // Validation already done by file manager with validateFormat: true
-    const validation = { valid: true }; // Skip redundant validation
-
-    // Validation handled by centralized file manager
+    let bytecode: Uint8Array;
+    let abi: any = testCase.inlineAbi;
+    if (testCase.inlineBytecode) {
+      bytecode = testCase.inlineBytecode;
+    } else {
+      // Load bytecode using centralized manager
+      const fileManager = FiveFileManager.getInstance();
+      const loadedFile = await fileManager.loadFile(testCase.bytecode, {
+        validateFormat: true
+      });
+      bytecode = loadedFile.bytecode;
+      if (!abi) {
+        abi = loadedFile.abi;
+      }
+    }
 
     // Parse input parameters if specified
-    let parameters: any[] = [];
-    if (testCase.input) {
+    let parameters: any[] = testCase.parameters || [];
+    if (parameters.length === 0 && testCase.input) {
       const inputData = await readFile(testCase.input, 'utf8');
       try {
         parameters = JSON.parse(inputData);
@@ -499,13 +536,13 @@ async function runSingleTest(
     // Execute with timeout using 5IVE SDK
     const executionPromise = FiveSDK.executeLocally(
       bytecode,
-      0, // Default to first function
+      testCase.functionRef ?? 0,
       parameters,
       {
         debug: options.verbose,
         trace: options.verbose,
         computeUnitLimit: options.maxCu,
-        abi: loadedFile.abi // Pass ABI for function name resolution
+        abi // Pass ABI for function name resolution
       }
     );
 
@@ -711,15 +748,11 @@ async function runOnChainTests(
     logger.info(`Network: ${config.networks[config.target].rpcUrl}`);
     logger.info(`Keypair: ${config.keypairPath}`);
 
-    // Discover .bin test files
+    // Discover artifact test files (legacy on-chain mode)
     const testFiles = await discoverBinFiles(testPath, options);
-
-    if (testFiles.length === 0) {
-      logger.warn('No .bin test files found');
-      return;
+    if (testFiles.length > 0) {
+      logger.info(`Found ${testFiles.length} artifact test script(s)`);
     }
-
-    logger.info(`Found ${testFiles.length} test script(s)`);
 
     // Setup Solana connection and keypair
     const connection = new Connection(config.networks[config.target].rpcUrl, 'confirmed');
@@ -727,8 +760,46 @@ async function runOnChainTests(
 
     logger.info(`Deployer: ${signerKeypair.publicKey.toString()}`);
 
-    // Run batch testing
-    const results = await runBatchOnChainTests(testFiles, connection, signerKeypair, options, config);
+    const maxCostLamports = parseMaxCostLamports(options.maxCostSol);
+    if (config.target === 'mainnet') {
+      if (!options.allowMainnetTests) {
+        throw new Error('mainnet on-chain tests require --allow-mainnet-tests');
+      }
+      if (maxCostLamports === undefined) {
+        throw new Error('mainnet on-chain tests require --max-cost-sol <amount>');
+      }
+    }
+
+    await ensureOnChainBalance(connection, signerKeypair, config.target, logger);
+
+    const discovered = await TestDiscovery.discoverTests(testPath, { verbose: options.verbose });
+    const vTests = discovered.filter((t) => t.type === 'v-source' && t.source);
+
+    let results: OnChainTestSummary;
+    if (vTests.length > 0) {
+      results = await runDiscoveredVOnChainTests(
+        vTests,
+        connection,
+        signerKeypair,
+        options,
+        config,
+        maxCostLamports
+      );
+    } else {
+      // Fall back to artifact-driven on-chain mode
+      if (testFiles.length === 0) {
+        logger.warn('No on-chain tests discovered (.v test functions or .bin/.five artifacts)');
+        return;
+      }
+      results = await runBatchOnChainTests(
+        testFiles,
+        connection,
+        signerKeypair,
+        options,
+        config,
+        maxCostLamports
+      );
+    }
 
     // Display comprehensive results
     displayOnChainTestResults(results, options, logger);
@@ -745,6 +816,39 @@ async function runOnChainTests(
     logger.error('On-chain testing failed:', error);
     throw error;
   }
+}
+
+function parseMaxCostLamports(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid --max-cost-sol value: ${raw}`);
+  }
+  return Math.floor(parsed * 1_000_000_000);
+}
+
+async function ensureOnChainBalance(
+  connection: Connection,
+  signerKeypair: Keypair,
+  target: string,
+  logger: any
+): Promise<void> {
+  const minLamports = 200_000_000; // 0.2 SOL baseline
+  const balance = await connection.getBalance(signerKeypair.publicKey, 'confirmed');
+  if (balance >= minLamports) {
+    return;
+  }
+
+  if (target === 'local' || target === 'localnet') {
+    logger.info('Low localnet balance detected; requesting airdrop...');
+    const sig = await connection.requestAirdrop(signerKeypair.publicKey, 2_000_000_000);
+    await connection.confirmTransaction(sig, 'confirmed');
+    return;
+  }
+
+  throw new Error(
+    `Insufficient balance for on-chain tests on ${target}. Balance=${(balance / 1e9).toFixed(6)} SOL`
+  );
 }
 
 /**
@@ -767,7 +871,7 @@ async function runWithSdkRunner(
     verbose: options.verbose,
     debug: options.verbose,
     trace: options.verbose,
-    pattern: options.filter || '*',
+    pattern: options.filter || options.pattern || '*',
     failFast: false
   });
 
@@ -924,7 +1028,8 @@ async function runBatchOnChainTests(
   connection: Connection,
   signerKeypair: Keypair,
   options: any,
-  config: any
+  config: any,
+  maxCostLamports?: number
 ): Promise<OnChainTestSummary> {
   const results: OnChainTestResult[] = [];
   const startTime = Date.now();
@@ -1008,6 +1113,11 @@ async function runBatchOnChainTests(
       const testDuration = Date.now() - testStartTime;
       const testCost = (deployResult.deploymentCost || 0) + (executeResult.cost || 0);
       totalCost += testCost;
+      if (maxCostLamports !== undefined && totalCost > maxCostLamports) {
+        throw new Error(
+          `On-chain test cost cap exceeded: ${(totalCost / 1e9).toFixed(6)} SOL > ${(maxCostLamports / 1e9).toFixed(6)} SOL`
+        );
+      }
 
       const passed = deployResult.success && executeResult.success;
 
@@ -1064,6 +1174,244 @@ async function runBatchOnChainTests(
     totalDuration,
     results
   };
+}
+
+async function runDiscoveredVOnChainTests(
+  discoveredVTests: any[],
+  connection: Connection,
+  signerKeypair: Keypair,
+  options: any,
+  config: any,
+  maxCostLamports?: number
+): Promise<OnChainTestSummary> {
+  const grouped = new Map<string, any[]>();
+  for (const test of discoveredVTests) {
+    const tests = grouped.get(test.path) || [];
+    tests.push(test);
+    grouped.set(test.path, tests);
+  }
+
+  const results: OnChainTestResult[] = [];
+  let totalCost = 0;
+  const start = Date.now();
+
+  for (const [sourceFile, tests] of grouped.entries()) {
+    const source = await readFile(sourceFile, 'utf8');
+    const compilation = await FiveSDK.compile(
+      { filename: sourceFile, content: source },
+      { debug: options.verbose, optimize: false }
+    );
+    if (!compilation.success || !compilation.bytecode) {
+      for (const test of tests) {
+        results.push({
+          scriptFile: `${sourceFile}::${test.source.functionName}`,
+          passed: false,
+          totalDuration: 0,
+          totalCost: 0,
+          error: `Compilation failed: ${compilation.errors?.join(', ')}`
+        });
+      }
+      continue;
+    }
+
+    const fixture = await loadOnChainFixture(sourceFile);
+
+    const deploy = await FiveSDK.deployToSolana(
+      compilation.bytecode,
+      connection,
+      signerKeypair,
+      {
+        debug: options.verbose || false,
+        network: config.target,
+        computeBudget: 1_000_000,
+        maxRetries: 3
+      }
+    );
+    totalCost += deploy.deploymentCost || 0;
+    if (!deploy.success || !deploy.programId) {
+      for (const test of tests) {
+        results.push({
+          scriptFile: `${sourceFile}::${test.source.functionName}`,
+          passed: false,
+          deployResult: {
+            success: false,
+            error: deploy.error,
+            cost: deploy.deploymentCost || 0
+          },
+          totalDuration: 0,
+          totalCost: deploy.deploymentCost || 0,
+          error: `Deployment failed: ${deploy.error || 'unknown error'}`
+        });
+      }
+      continue;
+    }
+
+    for (const test of tests) {
+      const testStart = Date.now();
+      const fixtureSpec = fixture?.tests?.[test.source.functionName];
+      const expectedSuccess = fixtureSpec?.expected?.success ?? true;
+      const params = fixtureSpec?.parameters ?? test.parameters ?? [];
+      const { accounts, error: fixtureError } = await createPerTestFixtureAccounts(
+        connection,
+        signerKeypair,
+        fixture,
+        fixtureSpec,
+        options.verbose
+      );
+      if (fixtureError) {
+        results.push({
+          scriptFile: `${sourceFile}::${test.source.functionName}`,
+          passed: false,
+          deployResult: {
+            success: true,
+            scriptAccount: deploy.programId,
+            transactionId: deploy.transactionId,
+            cost: deploy.deploymentCost || 0
+          },
+          totalDuration: Date.now() - testStart,
+          totalCost: 0,
+          error: fixtureError
+        });
+        continue;
+      }
+
+      const execute = await FiveSDK.executeOnSolana(
+        deploy.programId,
+        connection,
+        signerKeypair,
+        test.source.functionName,
+        params,
+        accounts,
+        {
+          debug: options.verbose || false,
+          network: config.target,
+          computeUnitLimit: 1_000_000,
+          maxRetries: 3,
+          abi: compilation.abi
+        }
+      );
+
+      const testCost = execute.cost || 0;
+      totalCost += testCost;
+      if (maxCostLamports !== undefined && totalCost > maxCostLamports) {
+        throw new Error(
+          `On-chain test cost cap exceeded: ${(totalCost / 1e9).toFixed(6)} SOL > ${(maxCostLamports / 1e9).toFixed(6)} SOL`
+        );
+      }
+
+      const passed = expectedSuccess ? execute.success : !execute.success;
+      const errorContains = fixtureSpec?.expected?.errorContains;
+      const errorMatches = errorContains
+        ? (execute.error || '').includes(errorContains)
+        : true;
+
+      results.push({
+        scriptFile: `${sourceFile}::${test.source.functionName}`,
+        passed: passed && errorMatches,
+        deployResult: {
+          success: true,
+          scriptAccount: deploy.programId,
+          transactionId: deploy.transactionId,
+          cost: deploy.deploymentCost || 0
+        },
+        executeResult: {
+          success: execute.success || false,
+          transactionId: execute.transactionId,
+          computeUnitsUsed: execute.computeUnitsUsed,
+          cost: execute.cost,
+          result: execute.result,
+          error: execute.error
+        },
+        totalDuration: Date.now() - testStart,
+        totalCost: testCost,
+        error: passed && errorMatches ? undefined : execute.error
+      });
+    }
+  }
+
+  const passed = results.filter((r) => r.passed).length;
+  const failed = results.length - passed;
+  return {
+    totalScripts: results.length,
+    passed,
+    failed,
+    totalCost,
+    totalDuration: Date.now() - start,
+    results
+  };
+}
+
+async function loadOnChainFixture(sourceFile: string): Promise<OnChainFixtureFile | undefined> {
+  const fixturePath = sourceFile.replace(/\.v$/, '.test.json');
+  try {
+    const content = await readFile(fixturePath, 'utf8');
+    return JSON.parse(content) as OnChainFixtureFile;
+  } catch {
+    return undefined;
+  }
+}
+
+async function createPerTestFixtureAccounts(
+  connection: Connection,
+  signerKeypair: Keypair,
+  fixture: OnChainFixtureFile | undefined,
+  testSpec: OnChainFixtureTestSpec | undefined,
+  verbose: boolean
+): Promise<{ accounts: string[]; error?: string }> {
+  const required = testSpec?.accounts || [];
+  if (required.length === 0) {
+    return { accounts: [] };
+  }
+  if (!fixture?.accounts) {
+    return { accounts: [], error: 'Fixture accounts are required but no companion .test.json accounts block was found' };
+  }
+
+  const { PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction } = await import('@solana/web3.js');
+  const createdAccounts: string[] = [];
+
+  for (const accountName of required) {
+    const spec = fixture.accounts[accountName];
+    if (!spec) {
+      return { accounts: [], error: `Fixture account '${accountName}' not found in companion fixture file` };
+    }
+    if (spec.is_signer) {
+      return {
+        accounts: [],
+        error: `Fixture account '${accountName}' requests is_signer=true; external signer fixtures are not supported yet`
+      };
+    }
+
+    const owner = resolveFixtureOwner(spec.owner, signerKeypair.publicKey.toBase58());
+    const dataLen = spec.data_len || 0;
+    const lamports = spec.lamports ?? (await connection.getMinimumBalanceForRentExemption(dataLen));
+    const keypair = Keypair.generate();
+    const tx = new Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: signerKeypair.publicKey,
+        newAccountPubkey: keypair.publicKey,
+        lamports,
+        space: dataLen,
+        programId: new PublicKey(owner)
+      })
+    );
+    await sendAndConfirmTransaction(connection, tx, [signerKeypair, keypair], { commitment: 'confirmed' });
+    createdAccounts.push(keypair.publicKey.toBase58());
+    if (verbose) {
+      console.log(`[on-chain fixture] created ${accountName}=${keypair.publicKey.toBase58()}`);
+    }
+  }
+
+  return { accounts: createdAccounts };
+}
+
+function resolveFixtureOwner(owner: string | undefined, fallback: string): string {
+  if (!owner || owner === 'system') {
+    return '11111111111111111111111111111111';
+  }
+  if (owner === 'payer') {
+    return fallback;
+  }
+  return owner;
 }
 
 /**

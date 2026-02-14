@@ -6,7 +6,7 @@
  * extracts parameters from @test-params comments, and compiles source files.
  */
 import { readFile, readdir, stat } from 'fs/promises';
-import { join, extname, basename, relative } from 'path';
+import { basename, join } from 'path';
 import { FiveSDK } from '../FiveSDK.js';
 /**
  * Discover tests from directory
@@ -121,80 +121,59 @@ export class TestDiscovery {
         const tests = [];
         try {
             const content = await readFile(file, 'utf8');
-            // Find all function definitions with potential test annotations
-            // Pattern 1: pub function with #[test] annotation
-            // Pattern 2: function with specific naming convention (test_*, *_test)
             const lines = content.split('\n');
-            let currentFunction = null;
-            let currentParams = null;
-            let currentDescription = null;
+            let pendingParams;
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
                 // Check for @test-params comment
-                const paramsMatch = line.match(/@test-params\s+(.*)/);
+                const paramsMatch = line.match(/@test-params(?:\s+(.*))?$/);
                 if (paramsMatch) {
                     try {
-                        const paramsStr = paramsMatch[1].trim();
-                        // Try to parse as JSON array first
-                        if (paramsStr.startsWith('[')) {
-                            currentParams = JSON.parse(paramsStr);
+                        const paramsStr = (paramsMatch[1] || '').trim();
+                        if (paramsStr.length === 0) {
+                            pendingParams = [];
+                        }
+                        else if (paramsStr.startsWith('[')) {
+                            const parsed = JSON.parse(paramsStr);
+                            pendingParams = Array.isArray(parsed) ? parsed : [];
                         }
                         else {
-                            // Parse space-separated values
-                            currentParams = paramsStr.split(/\s+/).map(p => {
-                                // Try to parse as number
-                                if (!isNaN(Number(p))) {
-                                    return Number(p);
-                                }
-                                return p;
-                            });
+                            pendingParams = paramsStr
+                                .split(/\s+/)
+                                .filter(Boolean)
+                                .map((token) => this.parseTokenValue(token));
                         }
                     }
                     catch (error) {
                         console.warn(`Failed to parse @test-params in ${file}:${i + 1}: ${line}`);
+                        pendingParams = undefined;
                     }
                     continue;
                 }
-                // Check for test annotation
-                if (line.startsWith('#[test]') || line.includes('#[test]')) {
-                    // Next non-empty line should be the function definition
-                    for (let j = i + 1; j < lines.length; j++) {
-                        const nextLine = lines[j].trim();
-                        if (nextLine && !nextLine.startsWith('//')) {
-                            const funcMatch = nextLine.match(/(?:pub\s+)?(?:fn|instruction|script)\s+(\w+)\s*\(/);
-                            if (funcMatch) {
-                                currentFunction = funcMatch[1];
-                                break;
-                            }
-                        }
-                    }
-                    continue;
-                }
-                // Check for pub function that matches test naming convention
-                const funcMatch = line.match(/pub\s+(?:fn|instruction|script)\s+(test_\w+|_?\w+_test)\s*\(/);
+                const funcMatch = line.match(/^pub\s+(?:fn\s+)?(test_[A-Za-z0-9_]*|[A-Za-z0-9_]*_test)\s*\([^)]*\)\s*(?:->\s*([A-Za-z0-9_<>\[\]]+))?/);
                 if (funcMatch) {
                     const functionName = funcMatch[1];
-                    // Check if we have parameters from @test-params comment
-                    if (currentParams || currentFunction) {
-                        const name = basename(file, '.v') + '::' + functionName;
-                        tests.push({
-                            name,
-                            path: file,
+                    const returnType = funcMatch[2];
+                    const hasReturnValue = !!returnType;
+                    const [parameters, expectedResult, expectsResult] = this.splitParamsAndExpectation(pendingParams, hasReturnValue);
+                    const name = `${basename(file, '.v')}::${functionName}`;
+                    tests.push({
+                        name,
+                        path: file,
+                        type: 'v-source',
+                        source: {
                             type: 'v-source',
-                            source: {
-                                type: 'v-source',
-                                file,
-                                functionName,
-                                parameters: currentParams || undefined,
-                                description: currentDescription || undefined
-                            },
-                            parameters: currentParams || undefined,
-                            description: currentDescription || undefined
-                        });
-                        currentParams = null;
-                        currentDescription = null;
-                        currentFunction = null;
-                    }
+                            file,
+                            functionName,
+                            parameters: parameters.length > 0 ? parameters : undefined,
+                            expectedResult,
+                            expectsResult
+                        },
+                        parameters: parameters.length > 0 ? parameters : undefined,
+                        expectedResult,
+                        expectsResult
+                    });
+                    pendingParams = undefined;
                 }
             }
         }
@@ -202,6 +181,29 @@ export class TestDiscovery {
             console.warn(`Failed to parse V file ${file}: ${error}`);
         }
         return tests;
+    }
+    static splitParamsAndExpectation(values, hasReturnValue) {
+        const parsed = Array.isArray(values) ? values : [];
+        if (!hasReturnValue || parsed.length === 0) {
+            return [parsed, undefined, false];
+        }
+        const params = parsed.slice(0, parsed.length - 1);
+        return [params, parsed[parsed.length - 1], true];
+    }
+    static parseTokenValue(token) {
+        if ((token.startsWith('"') && token.endsWith('"')) ||
+            (token.startsWith("'") && token.endsWith("'"))) {
+            return token.slice(1, -1);
+        }
+        if (token === 'true')
+            return true;
+        if (token === 'false')
+            return false;
+        const asNumber = Number(token);
+        if (!Number.isNaN(asNumber)) {
+            return asNumber;
+        }
+        return token;
     }
     /**
      * Compile a .v test source file

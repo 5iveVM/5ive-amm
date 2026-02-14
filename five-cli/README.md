@@ -89,7 +89,10 @@ If none are set, on-chain commands fail fast with a program ID setup error.
 
 ```bash
 5ive test --sdk-runner
+5ive test --filter "test_*" --verbose
+5ive test --on-chain --target local
 5ive test tests/ --on-chain --target devnet
+5ive test tests/ --on-chain --target mainnet --allow-mainnet-tests --max-cost-sol 0.5
 ```
 
 ### Namespace operations
@@ -132,6 +135,7 @@ If none are set, on-chain commands fail fast with a program ID setup error.
 ```bash
 5ive test --sdk-runner --format json
 5ive test test-scripts/ --on-chain --target devnet --batch --analyze-costs
+5ive test tests/ --on-chain --target mainnet --allow-mainnet-tests --max-cost-sol 0.5
 5ive test --watch --parallel 4
 ```
 

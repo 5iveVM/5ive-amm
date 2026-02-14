@@ -425,7 +425,10 @@ cd my-program
 ### 6.8 Test modes
 ```bash
 5ive test --sdk-runner
+5ive test --filter "test_*" --verbose
+5ive test --on-chain --target local
 5ive test tests/ --on-chain --target devnet
+5ive test tests/ --on-chain --target mainnet --allow-mainnet-tests --max-cost-sol 0.5
 5ive test --sdk-runner --format json
 ```
 
