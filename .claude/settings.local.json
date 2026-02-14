@@ -65,7 +65,10 @@
       "Bash(npx tsc:*)",
       "Bash(npm run test:jest:*)",
       "Bash(./scripts/set-default-program-id.sh:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(npm view:*)",
+      "Bash(CARGO_TARGET_DIR=/tmp/five-target cargo build:*)",
+      "Bash(CARGO_TARGET_DIR=/tmp/five-target /tmp/five-target/debug/five:*)"
     ]
   }
 }
