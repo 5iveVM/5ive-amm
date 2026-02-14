@@ -304,9 +304,10 @@ export interface DeploymentOptions {
 }
 
 export interface FeeInformation {
-  feeBps: number;                 // Basis points (0-10000)
+  // Deprecated for flat-lamport VM fees; kept for compatibility.
+  feeBps: number;
   basisLamports: number;          // Rent or tx fee basis
-  feeLamports: number;            // Calculated fee
+  feeLamports: number;            // Flat VM fee in lamports
   totalEstimatedCost: number;     // Basis + fee
   costBreakdown: {
     basis: string;                // SOL formatted

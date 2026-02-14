@@ -83,9 +83,11 @@ describe('execute wire format', () => {
 
     const raw = Buffer.from(result.instruction.data, 'base64');
     expect(raw[0]).toBe(9);
-    expect(raw.readUInt32LE(1)).toBe(1);
+    expect(raw[1]).toBe(0xff);
+    expect(raw[2]).toBe(0x53);
     expect(raw.readUInt32LE(5)).toBe(1);
-    expect(Array.from(raw.subarray(9))).toEqual([0xaa, 0xbb]);
+    expect(raw.readUInt32LE(9)).toBe(1);
+    expect(Array.from(raw.subarray(13))).toEqual([0xaa, 0xbb]);
   });
 
   it('supports object-format ABI functions and coerces pubkey/account parameter values', async () => {
@@ -131,8 +133,10 @@ describe('execute wire format', () => {
 
     const raw = Buffer.from(result.instruction.data, 'base64');
     expect(raw[0]).toBe(9);
-    expect(raw.readUInt32LE(1)).toBe(7);
-    expect(raw.readUInt32LE(5)).toBe(1);
+    expect(raw[1]).toBe(0xff);
+    expect(raw[2]).toBe(0x53);
+    expect(raw.readUInt32LE(5)).toBe(7);
+    expect(raw.readUInt32LE(9)).toBe(1);
   });
 
   it('marks payer writable when function has @init + signer account', async () => {
@@ -174,5 +178,56 @@ describe('execute wire format', () => {
     expect(payerMeta).toBeDefined();
     expect(payerMeta.isSigner).toBe(true);
     expect(payerMeta.isWritable).toBe(true);
+  });
+
+  it('rejects non-canonical vmStateAccount override', async () => {
+    const scriptAccount = '11111111111111111111111111111111';
+    const canonical = '11111111111111111111111111111111';
+    const nonCanonical = '11111111111111111111111111111112';
+    mockDeriveVMStatePDA.mockResolvedValueOnce({ address: canonical, bump: 255 });
+
+    await expect(
+      ExecuteModule.generateExecuteInstruction(
+        scriptAccount,
+        0,
+        [],
+        [],
+        undefined,
+        {
+          vmStateAccount: nonCanonical,
+          estimateFees: false,
+          fiveVMProgramId: canonical,
+        },
+      ),
+    ).rejects.toThrow(`vmStateAccount must be canonical PDA ${canonical}`);
+  });
+
+  it('always appends fee tail accounts in strict order', async () => {
+    const scriptAccount = '11111111111111111111111111111111';
+    const payer = '11111111111111111111111111111113';
+    const result = await ExecuteModule.generateExecuteInstruction(
+      scriptAccount,
+      0,
+      [],
+      [payer],
+      undefined,
+      {
+        estimateFees: false,
+        feeShardIndex: 0,
+        payerAccount: payer,
+      },
+    );
+
+    const accounts = result.instruction.accounts;
+    const feeTail = accounts.slice(-3);
+    expect(feeTail[0]).toMatchObject({ pubkey: payer, isSigner: true, isWritable: true });
+    expect(feeTail[2]).toMatchObject({
+      pubkey: '11111111111111111111111111111111',
+      isSigner: false,
+      isWritable: false,
+    });
+    expect(feeTail[1].isSigner).toBe(false);
+    expect(feeTail[1].isWritable).toBe(true);
+    expect(feeTail[1].pubkey).not.toBe(payer);
   });
 });

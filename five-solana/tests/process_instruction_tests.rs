@@ -233,6 +233,49 @@ mod tests {
     }
 
     #[test]
+    fn test_set_fees_rejects_zero_values() {
+        let program_id = canonical_program_id(3);
+        let authority_key = key(4);
+        let mut vm_lamports = 0u64;
+        let mut vm_data = vec![0u8; FIVEVMState::LEN];
+        let mut authority_lamports = 0u64;
+        let mut authority_data = [];
+
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            vm_state.initialize(authority_key, 0);
+        }
+
+        let vm_key = canonical_vm_key(&program_id);
+        let vm_account = create_account(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let authority_account = create_account(
+            &authority_key,
+            true,
+            false,
+            &mut authority_lamports,
+            &mut authority_data,
+            &program_id,
+        );
+        let accounts = [vm_account, authority_account];
+
+        assert_eq!(
+            set_fees(&program_id, &accounts, 0, 1),
+            Err(ProgramError::InvalidInstructionData)
+        );
+        assert_eq!(
+            set_fees(&program_id, &accounts, 1, 0),
+            Err(ProgramError::InvalidInstructionData)
+        );
+    }
+
+    #[test]
     fn test_execute_transfers_fee_to_admin() {
         let program_id = canonical_program_id(10);
         let admin_key = key(11);

@@ -1,6 +1,5 @@
 import { createHash } from "crypto";
 import bs58 from "bs58";
-import { Point } from "@noble/ed25519";
 
 export const __calls = {
   getLatestBlockhash: [] as any[],
@@ -43,18 +42,7 @@ export class PublicKey {
         marker,
       ];
       const hash = createHash("sha256").update(Buffer.concat(parts)).digest();
-
-      let onCurve = false;
-      try {
-        Point.fromHex(hash.toString("hex"));
-        onCurve = true;
-      } catch {
-        onCurve = false;
-      }
-
-      if (!onCurve) {
-        return [new PublicKey(hash), bump];
-      }
+      return [new PublicKey(hash), bump];
     }
 
     throw new Error("Unable to find valid program address");

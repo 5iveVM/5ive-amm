@@ -406,7 +406,12 @@ export async function generateExecuteInstruction(
   const programId = ProgramIdResolver.resolve(options.fiveVMProgramId);
 
   const vmStatePDA = await PDAUtils.deriveVMStatePDA(programId);
-  const vmState = options.vmStateAccount || vmStatePDA.address;
+  if (options.vmStateAccount && options.vmStateAccount !== vmStatePDA.address) {
+    throw new Error(
+      `vmStateAccount must be canonical PDA ${vmStatePDA.address}; got ${options.vmStateAccount}`,
+    );
+  }
+  const vmState = vmStatePDA.address;
   const shardCount = await readVMStateShardCount(connection, vmState);
   const feeShardIndex =
     options.feeShardIndex !== undefined
@@ -634,14 +639,6 @@ export async function executeOnSolana(
     }
 
     const accountKeys = [...executionData.instruction.accounts];
-    if (options.vmStateAccount && accountKeys.length >= 2) {
-      for (let i = 0; i < accountKeys.length; i++) {
-        if (i === 1) {
-          accountKeys[i].pubkey = options.vmStateAccount;
-          break;
-        }
-      }
-    }
 
     const signerPubkey = signerKeypair.publicKey.toString();
     let signerFound = false;

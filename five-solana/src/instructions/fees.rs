@@ -299,6 +299,11 @@ pub fn set_fees(
 ) -> ProgramResult {
     require_min_accounts(accounts, 2)?;
 
+    // Enforce mandatory fee-vault routing by requiring non-zero fees.
+    if deploy_fee_lamports == 0 || execute_fee_lamports == 0 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
     let vm_state_account = &accounts[0];
     let authority = &accounts[1];
 

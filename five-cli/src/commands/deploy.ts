@@ -357,14 +357,14 @@ export const deployCommand: CommandDefinition = {
         const connection = new Connection(rpcUrl, 'confirmed');
         fees = await FiveSDK.getFees(connection, options.programId);
 
-        if (fees.deployFeeBps > 0 || fees.executeFeeBps > 0) {
+        if (fees.deployFeeLamports > 0 || fees.executeFeeLamports > 0) {
           if (context.options.verbose || options.debug) {
             console.log('\n' + section('VM Fees'));
-            if (fees.deployFeeBps > 0) {
-              console.log(keyValue('Deployment Fee', `${(fees.deployFeeBps / 100).toFixed(2)}%`));
+            if (fees.deployFeeLamports > 0) {
+              console.log(keyValue('Deployment Fee', `${fees.deployFeeLamports.toLocaleString()} lamports`));
             }
-            if (fees.executeFeeBps > 0) {
-              console.log(keyValue('Execution Fee', `${(fees.executeFeeBps / 100).toFixed(2)}%`));
+            if (fees.executeFeeLamports > 0) {
+              console.log(keyValue('Execution Fee', `${fees.executeFeeLamports.toLocaleString()} lamports`));
             }
           }
 
@@ -372,7 +372,7 @@ export const deployCommand: CommandDefinition = {
           options.adminAccount = fees.adminAccount;
 
           // Client-side guardrail: fee payer and fee authority must differ.
-          if (fees.deployFeeBps > 0) {
+          if (fees.deployFeeLamports > 0) {
             const signer = await loadKeypair(config.keypairPath, logger);
             if (options.adminAccount && signer.publicKey.toBase58() === options.adminAccount) {
               throw new Error(

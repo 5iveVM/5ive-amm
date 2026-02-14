@@ -3,6 +3,9 @@ import { RentCalculator } from "../crypto/index.js";
 import { getVMState } from "./vm-state.js";
 
 export async function getFees(connection: any, fiveVMProgramId?: string): Promise<{
+  deployFeeLamports: number;
+  executeFeeLamports: number;
+  // Backward-compatible aliases; deprecated.
   deployFeeBps: number;
   executeFeeBps: number;
   adminAccount: string | null;
@@ -10,12 +13,16 @@ export async function getFees(connection: any, fiveVMProgramId?: string): Promis
   try {
     const state = await getVMState(connection, fiveVMProgramId);
     return {
-      deployFeeBps: state.deployFeeBps,
-      executeFeeBps: state.executeFeeBps,
+      deployFeeLamports: state.deployFeeLamports,
+      executeFeeLamports: state.executeFeeLamports,
+      deployFeeBps: state.deployFeeLamports,
+      executeFeeBps: state.executeFeeLamports,
       adminAccount: state.authority,
     };
   } catch (error) {
     return {
+      deployFeeLamports: 0,
+      executeFeeLamports: 0,
       deployFeeBps: 0,
       executeFeeBps: 0,
       adminAccount: null,
@@ -33,19 +40,17 @@ export async function calculateDeployFee(
     const rentLamports = await RentCalculator.calculateRentExemption(accountSize);
 
     const vmState = await getVMState(connection, fiveVMProgramId);
-    const deployFeeBps = vmState.deployFeeBps;
-
-    const feeLamports = Math.floor((rentLamports * deployFeeBps) / 10000);
+    const deployFeeLamports = vmState.deployFeeLamports;
 
     return {
-      feeBps: deployFeeBps,
+      feeBps: 0,
       basisLamports: rentLamports,
-      feeLamports,
-      totalEstimatedCost: rentLamports + feeLamports,
+      feeLamports: deployFeeLamports,
+      totalEstimatedCost: rentLamports + deployFeeLamports,
       costBreakdown: {
         basis: RentCalculator.formatSOL(rentLamports),
-        fee: RentCalculator.formatSOL(feeLamports),
-        total: RentCalculator.formatSOL(rentLamports + feeLamports),
+        fee: RentCalculator.formatSOL(deployFeeLamports),
+        total: RentCalculator.formatSOL(rentLamports + deployFeeLamports),
       },
     };
   } catch (error) {
@@ -74,19 +79,17 @@ export async function calculateExecuteFee(
 
   try {
     const vmState = await getVMState(connection, fiveVMProgramId);
-    const executeFeeBps = vmState.executeFeeBps;
-
-    const feeLamports = Math.floor((STANDARD_TX_FEE * executeFeeBps) / 10000);
+    const executeFeeLamports = vmState.executeFeeLamports;
 
     return {
-      feeBps: executeFeeBps,
+      feeBps: 0,
       basisLamports: STANDARD_TX_FEE,
-      feeLamports,
-      totalEstimatedCost: STANDARD_TX_FEE + feeLamports,
+      feeLamports: executeFeeLamports,
+      totalEstimatedCost: STANDARD_TX_FEE + executeFeeLamports,
       costBreakdown: {
         basis: RentCalculator.formatSOL(STANDARD_TX_FEE),
-        fee: RentCalculator.formatSOL(feeLamports),
-        total: RentCalculator.formatSOL(STANDARD_TX_FEE + feeLamports),
+        fee: RentCalculator.formatSOL(executeFeeLamports),
+        total: RentCalculator.formatSOL(STANDARD_TX_FEE + executeFeeLamports),
       },
     };
   } catch (error) {
@@ -121,7 +124,7 @@ export async function getFeeInformation(
       getVMState(connection, fiveVMProgramId),
     ]);
 
-    const feesEnabled = vmState.deployFeeBps > 0 || vmState.executeFeeBps > 0;
+    const feesEnabled = vmState.deployFeeLamports > 0 || vmState.executeFeeLamports > 0;
 
     return {
       deploy: deployFee,

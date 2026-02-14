@@ -4,6 +4,9 @@ import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 export async function getVMState(connection: any, fiveVMProgramId?: string): Promise<{
   authority: string;
   scriptCount: number;
+  deployFeeLamports: number;
+  executeFeeLamports: number;
+  // Backward-compatible aliases; deprecated.
   deployFeeBps: number;
   executeFeeBps: number;
   feeVaultShardCount: number;
@@ -38,11 +41,16 @@ export async function getVMState(connection: any, fiveVMProgramId?: string): Pro
     const authority = Base58Utils.encode(accountData.slice(0, 32));
     const view = new DataView(accountData.buffer, accountData.byteOffset, accountData.byteLength);
 
+    const deployFeeLamports = view.getUint32(40, true);
+    const executeFeeLamports = view.getUint32(44, true);
     return {
       authority,
       scriptCount: Number(view.getBigUint64(32, true)),
-      deployFeeBps: view.getUint32(40, true),
-      executeFeeBps: view.getUint32(44, true),
+      deployFeeLamports,
+      executeFeeLamports,
+      // Backward-compatible aliases; deprecated.
+      deployFeeBps: deployFeeLamports,
+      executeFeeBps: executeFeeLamports,
       feeVaultShardCount: accountData[50] || 10,
       vmStateBump: accountData[51] || 0,
       isInitialized: accountData[48] === 1

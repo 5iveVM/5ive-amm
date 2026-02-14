@@ -236,6 +236,53 @@ mod tests {
             assert_eq!(validate_vm_and_script_accounts(&program_id, &script_not_owned, &vm_account), Err(ProgramError::IllegalOwner));
         }
     }
+
+    #[test]
+    fn test_verify_canonical_vm_state_rejects_mismatched_stored_bump() {
+        let program_id = Pubkey::from([6u8; 32]);
+        let (canonical_vm_state, canonical_bump) =
+            derive_canonical_vm_state_pda(&program_id).unwrap();
+        let mut lamports = 0u64;
+        let mut vm_data = vec![0u8; FIVEVMState::LEN];
+        {
+            let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            state.initialize(Pubkey::default(), canonical_bump.wrapping_sub(1));
+        }
+        let vm_account = create_account_info(
+            &canonical_vm_state,
+            false,
+            false,
+            &mut lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        assert_eq!(
+            verify_canonical_vm_state_account(&vm_account, &program_id),
+            Err(ProgramError::InvalidAccountData)
+        );
+    }
+
+    #[test]
+    fn test_verify_canonical_vm_state_accepts_canonical_bump() {
+        let program_id = Pubkey::from([7u8; 32]);
+        let (canonical_vm_state, canonical_bump) =
+            derive_canonical_vm_state_pda(&program_id).unwrap();
+        let mut lamports = 0u64;
+        let mut vm_data = vec![0u8; FIVEVMState::LEN];
+        {
+            let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            state.initialize(Pubkey::default(), canonical_bump);
+        }
+        let vm_account = create_account_info(
+            &canonical_vm_state,
+            false,
+            false,
+            &mut lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        assert_eq!(verify_canonical_vm_state_account(&vm_account, &program_id), Ok(()));
+    }
 }
 
 pub const PERMISSION_PRE_BYTECODE: u8 = 0x01;         // Bit 0
@@ -302,17 +349,21 @@ pub fn verify_canonical_vm_state_account(
     vm_state_account: &AccountInfo,
     program_id: &Pubkey,
 ) -> ProgramResult {
+    let (expected_vm_state, expected_bump) = derive_canonical_vm_state_pda(program_id)?;
+    if vm_state_account.key() != &expected_vm_state {
+        return Err(ProgramError::InvalidArgument);
+    }
+
     let data = vm_state_account.try_borrow_data().ok();
     if let Some(data) = data {
         if data.len() >= FIVEVMState::LEN {
             if let Ok(vm_state) = FIVEVMState::from_account_data(&data) {
-                return validate_vm_state_pda_with_bump(vm_state_account, program_id, vm_state.vm_state_bump);
+                if vm_state.is_initialized() && vm_state.vm_state_bump != expected_bump {
+                    return Err(ProgramError::InvalidAccountData);
+                }
+                return validate_vm_state_pda_with_bump(vm_state_account, program_id, expected_bump);
             }
         }
-    }
-    let (expected_vm_state, _bump) = derive_canonical_vm_state_pda(program_id)?;
-    if vm_state_account.key() != &expected_vm_state {
-        return Err(ProgramError::InvalidArgument);
     }
     Ok(())
 }
