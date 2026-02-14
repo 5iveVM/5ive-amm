@@ -251,7 +251,7 @@ export interface CLIError extends Error {
 
 // ==================== Legacy SDK Types (for compatibility) ====================
 
-export const FIVE_VM_PROGRAM_ID = "Five111111111111111111111111111111111111111";
+export const FIVE_VM_PROGRAM_ID = "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d";
 
 export interface FiveSDKConfig {
   network?: string;

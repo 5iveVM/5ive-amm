@@ -9,7 +9,7 @@ import { validator } from '../validation/index.js';
  * Baked program ID injected at release time (set by scripts/set-default-program-id.sh)
  * Empty string by default; overridden in npm published packages.
  */
-export const FIVE_BAKED_PROGRAM_ID = '';
+export const FIVE_BAKED_PROGRAM_ID = '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d';
 
 /**
  * Centralized resolver for program IDs across all SDK operations.

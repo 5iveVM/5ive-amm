@@ -49,6 +49,9 @@ export const DEFAULT_CONFIG: FiveConfig = {
   target: 'devnet',
   networks: DEFAULT_NETWORKS,
   showConfig: false,
+  programIds: {
+    devnet: '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d',
+  },
   wasm: {
     loader: 'auto',
     modulePaths: [],
