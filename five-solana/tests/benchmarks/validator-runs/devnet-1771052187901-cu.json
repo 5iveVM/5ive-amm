@@ -1,0 +1,25 @@
+{
+  "network": "devnet",
+  "rpc_url": "https://api.devnet.solana.com",
+  "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d",
+  "commitment": "confirmed",
+  "started_unix_ms": 1771052187901,
+  "completed_unix_ms": 1771052187901,
+  "scenarios": [
+    {
+      "name": "external_non_cpi",
+      "deploy_signature": "5cZTvKytd2UGNBNsS2Tg5TSmzvjrCVHKzgAZKfY6GZ2ZeP1KaSFy1vVCVTv3kNdt4EE3T4tFYeDrWf28S9ek3yGZ",
+      "deploy_units": 3032,
+      "step_results": [
+        {
+          "name": "external_transfer_non_cpi",
+          "signature": "aayHoXXYXABiRwkB4in6eRe3sKdMbKVdMxEtdFhbnLQmq4o35UVE3Q8jfDLZTi8Y4KhdrNeYEdqMQsFacLYmRtq",
+          "units": 5392,
+          "success": true
+        }
+      ],
+      "total_units": 8424,
+      "elapsed_ms": 49601
+    }
+  ]
+}

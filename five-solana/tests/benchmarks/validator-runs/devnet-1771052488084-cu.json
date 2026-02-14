@@ -1,0 +1,37 @@
+{
+  "network": "devnet",
+  "rpc_url": "https://api.devnet.solana.com",
+  "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d",
+  "commitment": "confirmed",
+  "started_unix_ms": 1771052488084,
+  "completed_unix_ms": 1771052488084,
+  "scenarios": [
+    {
+      "name": "arithmetic_intensive",
+      "deploy_signature": "2YSJi8YJgo9xVsN3zsLScbMVRfFCDHnUcb9eb98VzRa8vcQp7vFfRWG7cVxDEFWAGmKGLZ9aCVj4u8Q8Yz2fpzXU",
+      "deploy_units": 14583,
+      "step_results": [
+        {
+          "name": "compute_intensive_pass_1",
+          "signature": "5FhvFFDm5fST5E1DcZWmWuQi4nbgNbWcb21528zAV3816p46sHMZ2yB5mBePEUjKCx86n31QJrDYGfxEdb9yvoFW",
+          "units": 14702,
+          "success": true
+        },
+        {
+          "name": "compute_intensive_pass_2",
+          "signature": "jyntgjS4Ffdd1bMXq7BZVjqv3YpZ3vS7s6eD3YechM82tpxhgTh3bLzW92r5UefhTzBQWCpQNyUcF2ovhLrXrJq",
+          "units": 14702,
+          "success": true
+        },
+        {
+          "name": "compute_intensive_pass_3",
+          "signature": "463CMRPvvzGTvyE4TjGgZNhRPR7ZBcfV2HCJ6z1ujRmpuwB18fPonMqgRn17kR4jTsGFCbeVA9kYjic97gLDAzAj",
+          "units": 14702,
+          "success": true
+        }
+      ],
+      "total_units": 58689,
+      "elapsed_ms": 18805
+    }
+  ]
+}
