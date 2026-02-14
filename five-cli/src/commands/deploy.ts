@@ -754,6 +754,17 @@ export function __deriveFallbackReason(errorMessage?: string): 'tx_too_large' | 
   return __isTransactionSizeError(errorMessage) ? 'tx_too_large' : 'simulation_failed';
 }
 
+function resolveActualDeploymentMode(
+  result: any,
+  attempted: 'regular' | 'chunked' | 'optimized',
+): 'regular' | 'chunked' | 'optimized' {
+  if (!result?.success) return attempted;
+  if (attempted === 'regular') return 'regular';
+
+  const hasChunkEvidence = Array.isArray(result.transactionIds) || Number(result.totalTransactions || 0) > 1 || Number(result.chunksUsed || 0) > 0;
+  return hasChunkEvidence ? attempted : 'regular';
+}
+
 export async function __regularDeployFitsTransaction(
   bytecodeArray: Uint8Array,
   connection: Connection,
@@ -896,6 +907,7 @@ async function executeDeployment(
               exportMetadata: deploymentOptions.exportMetadata,
               maxRetries: 3,
               chunkSize,
+              forceChunkedSmallProgram: Boolean(options.forceChunked),
               progressCallback: options.progress ? (transaction: number, total: number) => {
                 if (spinner) spinner.text = `Optimized deployment: transaction ${transaction}/${total}...`;
               } : undefined
@@ -912,6 +924,7 @@ async function executeDeployment(
               vmStateAccount: deploymentOptions.vmStateAccount,
               maxRetries: 3,
               chunkSize,
+              forceChunkedSmallProgram: Boolean(options.forceChunked),
               progressCallback: options.progress ? (chunk: number, total: number) => {
                 if (spinner) spinner.text = `Deploying chunk ${chunk}/${total}...`;
               } : undefined
@@ -980,6 +993,13 @@ async function executeDeployment(
         fallbackReason = __deriveFallbackReason(result.error);
         result = await runChunkedDeploy(fallbackReason);
       }
+    }
+
+    selectedMode = resolveActualDeploymentMode(result, selectedMode);
+    if (selectedMode === 'regular' && result?.success && fallbackReason === 'tx_too_large') {
+      // Preflight may classify as oversized when metadata-rich candidate differs from
+      // the actually submitted regular tx path. Report the executed outcome.
+      fallbackReason = undefined;
     }
 
     result = {

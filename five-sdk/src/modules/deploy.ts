@@ -509,6 +509,7 @@ export async function deployLargeProgramToSolana(
     fiveVMProgramId?: string;
     progressCallback?: (chunk: number, total: number) => void;
     vmStateAccount?: string;
+    forceChunkedSmallProgram?: boolean;
   } = {},
 ): Promise<{
   success: boolean;
@@ -532,7 +533,7 @@ export async function deployLargeProgramToSolana(
 
   try {
     // If bytecode is small enough, use regular deployment
-    if (bytecode.length <= 800) {
+    if (bytecode.length <= 800 && !options.forceChunkedSmallProgram) {
       if (options.debug) {
         console.log(
           `[FiveSDK] Bytecode is small (${bytecode.length} bytes), using regular deployment`,
@@ -857,6 +858,7 @@ export async function deployLargeProgramOptimizedToSolana(
     vmStateAccount?: string;
     exportMetadata?: ExportMetadataInput;
     progressCallback?: (transaction: number, total: number) => void;
+    forceChunkedSmallProgram?: boolean;
   } = {},
 ): Promise<{
   success: boolean;
@@ -884,7 +886,7 @@ export async function deployLargeProgramOptimizedToSolana(
 
   try {
     // If bytecode is small enough, use regular deployment
-    if (bytecode.length <= 800) {
+    if (bytecode.length <= 800 && !options.forceChunkedSmallProgram) {
       if (options.debug) {
         console.log(
           `[FiveSDK] Bytecode is small (${bytecode.length} bytes), using regular deployment`,
