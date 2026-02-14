@@ -184,6 +184,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 /// This creates a new Program Derived Address account using the provided seeds and bump.
 /// The PDA address is deterministically derived and the account is created with the specified parameters.
 fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    const RESERVED_FEE_VAULT_NAMESPACE: &[u8] = b"\xFFfive_vm_fee_vault_v1";
     // Pop basic parameters
     let account_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
     let space = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
@@ -220,6 +221,12 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
             .unwrap();
     }
     seeds.reverse();
+    if seeds
+        .iter()
+        .any(|seed| seed.as_slice() == RESERVED_FEE_VAULT_NAMESPACE)
+    {
+        return Err(VMErrorCode::InvalidSeedArray);
+    }
 
     // Pop bump seed
     let bump = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;

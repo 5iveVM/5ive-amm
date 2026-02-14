@@ -6,8 +6,9 @@ use pinocchio::{
 use pinocchio::pubkey::create_program_address;
 
 pub const VM_STATE_SEED: &[u8] = b"vm_state";
-pub const FEE_VAULT_SEED: &[u8] = b"fee_vault";
-pub const FEE_VAULT_SHARD_COUNT: u8 = 10;
+// Reserved namespace for VM-level fee vault PDAs.
+// This namespace is blocked from VM bytecode PDA creation paths.
+pub const FEE_VAULT_SEED: &[u8] = b"\xFFfive_vm_fee_vault_v1";
 
 #[cfg(not(target_os = "solana"))]
 pub fn derive_canonical_vm_state_pda(program_id: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {

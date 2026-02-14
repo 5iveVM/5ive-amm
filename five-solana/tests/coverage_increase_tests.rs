@@ -35,7 +35,7 @@ mod coverage_increase_tests {
 
     fn fee_vault_key(program_id: &Pubkey) -> Pubkey {
         let (pda, _bump) =
-            five_vm_mito::utils::find_program_address_offchain(&[b"fee_vault", &[0u8]], program_id)
+            five_vm_mito::utils::find_program_address_offchain(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], program_id)
                 .expect("fee vault pda");
         pda
     }

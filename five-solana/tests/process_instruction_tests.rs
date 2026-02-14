@@ -263,7 +263,7 @@ mod tests {
         let mut script_lamports = 0u64;
         let mut payer_lamports = 1_000u64;
         let (fee_vault_key, _fee_vault_bump) =
-            five_vm_mito::utils::find_program_address_offchain(&[b"fee_vault", &[0u8]], &program_id)
+            five_vm_mito::utils::find_program_address_offchain(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &program_id)
                 .expect("fee vault pda");
         let mut fee_vault_lamports = 0u64;
         let mut payer_data = [];
@@ -443,7 +443,7 @@ mod tests {
         let mut script_lamports = 0u64;
         let mut payer_lamports = 10_000u64;
         let (fee_vault_key, _fee_vault_bump) =
-            five_vm_mito::utils::find_program_address_offchain(&[b"fee_vault", &[0u8]], &program_id)
+            five_vm_mito::utils::find_program_address_offchain(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &program_id)
                 .expect("fee vault pda");
         let mut fee_vault_lamports = 0u64;
         let mut payer_data = [];

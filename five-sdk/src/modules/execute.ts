@@ -17,10 +17,13 @@ import { loadWasmVM } from "../wasm/instance.js";
 import { BytecodeCompiler } from "../compiler/BytecodeCompiler.js";
 import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 
-const FEE_VAULT_SHARD_COUNT = 10;
+const DEFAULT_FEE_VAULT_SHARD_COUNT = 10;
+const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
+  0xff, 0x66, 0x69, 0x76, 0x65, 0x5f, 0x76, 0x6d, 0x5f, 0x66, 0x65, 0x65,
+  0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x76, 0x31,
+]);
 const EXECUTE_FEE_HEADER_A = 0xff;
 const EXECUTE_FEE_HEADER_B = 0x53;
-const scriptShardCursor = new Map<string, number>();
 
 async function deriveProgramFeeVault(
   programId: string,
@@ -28,17 +31,38 @@ async function deriveProgramFeeVault(
 ): Promise<{ address: string; bump: number }> {
   const { PublicKey } = await import("@solana/web3.js");
   const [pda, bump] = PublicKey.findProgramAddressSync(
-    [Buffer.from("fee_vault"), Buffer.from([shardIndex])],
+    [FEE_VAULT_NAMESPACE_SEED, Buffer.from([shardIndex])],
     new PublicKey(programId),
   );
   return { address: pda.toBase58(), bump };
 }
 
-function selectFeeShard(programId: string): number {
-  const current = scriptShardCursor.get(programId) ?? 0;
-  const next = (current + 1) % FEE_VAULT_SHARD_COUNT;
-  scriptShardCursor.set(programId, next);
-  return current;
+async function readVMStateShardCount(
+  connection: any,
+  vmStateAddress: string,
+): Promise<number> {
+  if (!connection) return DEFAULT_FEE_VAULT_SHARD_COUNT;
+  try {
+    const { PublicKey } = await import("@solana/web3.js");
+    const info = await connection.getAccountInfo(new PublicKey(vmStateAddress), "confirmed");
+    if (!info) return DEFAULT_FEE_VAULT_SHARD_COUNT;
+    const data = new Uint8Array(info.data);
+    if (data.length <= 82) return DEFAULT_FEE_VAULT_SHARD_COUNT;
+    const shardCount = data[82];
+    return shardCount > 0 ? shardCount : DEFAULT_FEE_VAULT_SHARD_COUNT;
+  } catch {
+    return DEFAULT_FEE_VAULT_SHARD_COUNT;
+  }
+}
+
+function selectFeeShard(shardCount: number): number {
+  const totalShards = Math.max(1, shardCount | 0);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const bytes = new Uint32Array(1);
+    crypto.getRandomValues(bytes);
+    return bytes[0] % totalShards;
+  }
+  return Math.floor(Math.random() * totalShards);
 }
 
 // Helper function to initialize ParameterEncoder if needed (though BytecodeEncoder is preferred)
@@ -382,7 +406,11 @@ export async function generateExecuteInstruction(
 
   const vmStatePDA = await PDAUtils.deriveVMStatePDA(programId);
   const vmState = options.vmStateAccount || vmStatePDA.address;
-  const feeShardIndex = options.feeShardIndex ?? selectFeeShard(programId);
+  const shardCount = await readVMStateShardCount(connection, vmState);
+  const feeShardIndex =
+    options.feeShardIndex !== undefined
+      ? ((options.feeShardIndex % shardCount) + shardCount) % shardCount
+      : selectFeeShard(shardCount);
   const feeVault = await deriveProgramFeeVault(programId, feeShardIndex);
 
   const instructionAccounts = [

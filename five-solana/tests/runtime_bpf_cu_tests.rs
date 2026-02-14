@@ -321,7 +321,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
     }
     let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     let (fee_vault_pubkey, _fee_vault_bump) =
-        Pubkey::find_program_address(&[b"fee_vault", &[0u8]], &program_id);
+        Pubkey::find_program_address(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -2109,7 +2109,7 @@ async fn run_fixture_bpf_compute_units(
     };
     let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     let (fee_vault_pubkey, _fee_vault_bump) =
-        Pubkey::find_program_address(&[b"fee_vault", &[0u8]], &program_id);
+        Pubkey::find_program_address(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &program_id);
 
     accounts.insert(
         fixture.authority.name.clone(),

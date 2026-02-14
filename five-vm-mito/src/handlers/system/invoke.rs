@@ -311,6 +311,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             }
         }
         INVOKE_SIGNED => {
+            const RESERVED_FEE_VAULT_NAMESPACE: &[u8] = b"\xFFfive_vm_fee_vault_v1";
             debug_log!("MitoVM: INVOKE_SIGNED operation");
 
             // Pop core CPI arguments
@@ -357,6 +358,12 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 // Copy to stack storage (no heap allocation)
                 seed_storage[i][..seed_len as usize].copy_from_slice(seed_slice);
                 seed_lengths[i] = seed_len;
+            }
+            if (0..seeds_count as usize).any(|i| {
+                let len = seed_lengths[i] as usize;
+                &seed_storage[i][..len] == RESERVED_FEE_VAULT_NAMESPACE
+            }) {
+                return Err(VMErrorCode::InvalidSeedArray);
             }
 
             if seeds_count == 0 {

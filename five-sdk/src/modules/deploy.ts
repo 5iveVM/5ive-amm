@@ -21,34 +21,36 @@ interface ExportMetadataInput {
   interfaces?: ExportMetadataInterfaceInput[];
 }
 
-const FEE_VAULT_SHARD_COUNT = 10;
+const DEFAULT_FEE_VAULT_SHARD_COUNT = 10;
+const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
+  0xff, 0x66, 0x69, 0x76, 0x65, 0x5f, 0x76, 0x6d, 0x5f, 0x66, 0x65, 0x65,
+  0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x76, 0x31,
+]);
 
-async function resolveFeeRecipientAccount(
+async function readVMStateFeeConfig(
   connection: any,
   vmStateAddress: string,
-  fallback?: string,
-): Promise<{ feeRecipientAccount?: string; deployFeeLamports?: number }> {
-  if (fallback) {
-    return { feeRecipientAccount: vmStateAddress };
-  }
+): Promise<{ deployFeeLamports?: number; shardCount: number }> {
   if (!connection) {
-    return { feeRecipientAccount: vmStateAddress };
+    return { shardCount: DEFAULT_FEE_VAULT_SHARD_COUNT };
   }
   try {
     const { PublicKey } = await import("@solana/web3.js");
     const info = await connection.getAccountInfo(new PublicKey(vmStateAddress), "confirmed");
     if (!info) {
-      return { feeRecipientAccount: vmStateAddress };
+      return { shardCount: DEFAULT_FEE_VAULT_SHARD_COUNT };
     }
     const data = new Uint8Array(info.data);
     if (data.length < 88) {
-      return {};
+      return { shardCount: DEFAULT_FEE_VAULT_SHARD_COUNT };
     }
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
     const deployFeeLamports = view.getUint32(72, true);
-    return { feeRecipientAccount: vmStateAddress, deployFeeLamports };
+    const shardCountRaw = data.length > 82 ? data[82] : 0;
+    const shardCount = shardCountRaw > 0 ? shardCountRaw : DEFAULT_FEE_VAULT_SHARD_COUNT;
+    return { deployFeeLamports, shardCount };
   } catch {
-    return { feeRecipientAccount: vmStateAddress };
+    return { shardCount: DEFAULT_FEE_VAULT_SHARD_COUNT };
   }
 }
 
@@ -58,7 +60,7 @@ async function deriveProgramFeeVault(
 ): Promise<{ address: string; bump: number }> {
   const { PublicKey } = await import("@solana/web3.js");
   const [pda, bump] = PublicKey.findProgramAddressSync(
-    [Buffer.from("fee_vault"), Buffer.from([shardIndex])],
+    [FEE_VAULT_NAMESPACE_SEED, Buffer.from([shardIndex])],
     new PublicKey(programId),
   );
   return { address: pda.toBase58(), bump };
@@ -72,13 +74,14 @@ async function initProgramFeeVaultShards(
   connection: any,
   programId: string,
   vmStateAccount: string,
+  shardCount: number,
   payer: any,
   options: { debug?: boolean; maxRetries?: number } = {},
 ): Promise<string[]> {
   const { PublicKey, Transaction, TransactionInstruction, SystemProgram } =
     await import("@solana/web3.js");
   const signatures: string[] = [];
-  for (let shardIndex = 0; shardIndex < FEE_VAULT_SHARD_COUNT; shardIndex++) {
+  for (let shardIndex = 0; shardIndex < shardCount; shardIndex++) {
     const vault = await deriveProgramFeeVault(programId, shardIndex);
     const tx = new Transaction().add(
       new TransactionInstruction({
@@ -164,11 +167,7 @@ export async function generateDeployInstruction(
   const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
   const rentLamports = await RentCalculator.calculateRentExemption(totalAccountSize);
 
-  const { feeRecipientAccount, deployFeeLamports } = await resolveFeeRecipientAccount(
-    connection,
-    vmStatePDA,
-    options.adminAccount,
-  );
+  const { deployFeeLamports } = await readVMStateFeeConfig(connection, vmStatePDA);
   const deployShardIndex = 0;
   const deployVault = await deriveProgramFeeVault(programId, deployShardIndex);
 
@@ -213,7 +212,7 @@ export async function generateDeployInstruction(
         owner: programId,
       },
     },
-    adminAccount: feeRecipientAccount || options.adminAccount,
+    adminAccount: options.adminAccount,
   };
 
   if (options.debug) {
@@ -224,7 +223,7 @@ export async function generateDeployInstruction(
       rentCost: rentLamports,
       deployDataSize: instructionData.length,
       exportMetadataSize: exportMetadata.length,
-      adminAccount: feeRecipientAccount || options.adminAccount,
+      adminAccount: options.adminAccount,
     });
   }
 
@@ -445,12 +444,10 @@ export async function deployToSolana(
     );
     const vmStatePubkey = vmStateResolution.vmStatePubkey;
     const vmStateRent = vmStateResolution.vmStateRent;
-    const feeResolution = await resolveFeeRecipientAccount(
+    const vmStateFeeConfig = await readVMStateFeeConfig(
       connection,
       vmStatePubkey.toString(),
-      options.adminAccount,
     );
-    void feeResolution;
     const deployShardIndex = 0;
     const deployVault = await deriveProgramFeeVault(programId, deployShardIndex);
     const feeVaultKeys = [
@@ -600,6 +597,7 @@ export async function deployToSolana(
       connection,
       programId,
       vmStatePubkey.toString(),
+      vmStateFeeConfig.shardCount,
       deployerKeypair,
       { debug: options.debug, maxRetries: options.maxRetries },
     );
@@ -726,12 +724,10 @@ export async function deployLargeProgramToSolana(
     );
     const vmStatePubkey = vmStateResolution.vmStatePubkey;
     const vmStateRent = vmStateResolution.vmStateRent;
-    const feeResolution = await resolveFeeRecipientAccount(
+    const vmStateFeeConfig = await readVMStateFeeConfig(
       connection,
       vmStatePubkey.toString(),
-      options.adminAccount,
     );
-    void feeResolution;
     const deployShardIndex = 0;
     const deployVault = await deriveProgramFeeVault(programIdStr, deployShardIndex);
     const feeVaultKeys = [
@@ -981,6 +977,7 @@ export async function deployLargeProgramToSolana(
       connection,
       programIdStr,
       vmStatePubkey.toString(),
+      vmStateFeeConfig.shardCount,
       deployerKeypair,
       { debug: options.debug, maxRetries: options.maxRetries },
     );
@@ -1113,12 +1110,10 @@ export async function deployLargeProgramOptimizedToSolana(
     );
     const vmStatePubkey = vmStateResolution.vmStatePubkey;
     const vmStateRent = vmStateResolution.vmStateRent;
-    const feeResolution = await resolveFeeRecipientAccount(
+    const vmStateFeeConfig = await readVMStateFeeConfig(
       connection,
       vmStatePubkey.toString(),
-      options.adminAccount,
     );
-    void feeResolution;
     const deployShardIndex = 0;
     const deployVault = await deriveProgramFeeVault(programIdStr, deployShardIndex);
     const feeVaultKeys = [
@@ -1463,6 +1458,7 @@ export async function deployLargeProgramOptimizedToSolana(
       connection,
       programIdStr,
       vmStatePubkey.toString(),
+      vmStateFeeConfig.shardCount,
       deployerKeypair,
       { debug: options.debug, maxRetries: options.maxRetries },
     );
@@ -1623,7 +1619,7 @@ async function ensureCanonicalVmStateAccount(
     return { vmStatePubkey, vmStateRent: 0, created: false, bump: canonical.bump };
   }
 
-  const VM_STATE_SIZE = 56;
+  const VM_STATE_SIZE = 88;
   const vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
   if (options.debug) {
     console.log(`[FiveSDK] Initializing canonical VM State PDA: ${canonical.address}`);

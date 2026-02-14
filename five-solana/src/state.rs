@@ -15,11 +15,13 @@ pub struct FIVEVMState {
     pub execute_fee_lamports: u32, // Flat execute fee in lamports
     pub is_initialized: u8,   // Using u8 instead of bool for bytemuck compatibility
     pub version: u8,
-    pub _padding: [u8; 6],    // Align to 8 bytes
+    pub fee_vault_shard_count: u8,
+    pub _padding: [u8; 5],    // Align to 8 bytes
 }
 
 impl FIVEVMState {
     pub const VERSION: u8 = 1;
+    pub const DEFAULT_FEE_VAULT_SHARD_COUNT: u8 = 10;
     pub const LEN: usize = 32 + 32 + 8 + 4 + 4 + 1 + 1 + 6; // 88 bytes
 
     pub fn new() -> Self {
@@ -31,7 +33,8 @@ impl FIVEVMState {
             execute_fee_lamports: 0,
             is_initialized: 0,
             version: Self::VERSION,
-            _padding: [0; 6],
+            fee_vault_shard_count: Self::DEFAULT_FEE_VAULT_SHARD_COUNT,
+            _padding: [0; 5],
         }
     }
 
@@ -44,6 +47,7 @@ impl FIVEVMState {
         self.deploy_fee_lamports = 10_000;
         // Targeted baseline: ~$50k/month at 3 TPS when SOL is ~$75.
         self.execute_fee_lamports = 85_734;
+        self.fee_vault_shard_count = Self::DEFAULT_FEE_VAULT_SHARD_COUNT;
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -54,6 +58,15 @@ impl FIVEVMState {
         let id = self.script_count;
         self.script_count += 1;
         id
+    }
+
+    #[inline(always)]
+    pub fn fee_vault_shard_count(&self) -> u8 {
+        if self.fee_vault_shard_count == 0 {
+            Self::DEFAULT_FEE_VAULT_SHARD_COUNT
+        } else {
+            self.fee_vault_shard_count
+        }
     }
 
     pub fn from_account_data(data: &[u8]) -> Result<&Self, ProgramError> {
@@ -494,6 +507,10 @@ mod tests {
         assert_eq!(vm_state.version, FIVEVMState::VERSION);
         assert_eq!(vm_state.deploy_fee_lamports, 10_000);
         assert_eq!(vm_state.execute_fee_lamports, 85_734);
+        assert_eq!(
+            vm_state.fee_vault_shard_count(),
+            FIVEVMState::DEFAULT_FEE_VAULT_SHARD_COUNT
+        );
     }
 
     #[test]

@@ -6,7 +6,7 @@ use pinocchio::{
 use crate::{
     common::{
         derive_fee_vault_pda, verify_canonical_vm_state_account, verify_program_owned,
-        verify_fee_vault_account, FEE_VAULT_SEED, FEE_VAULT_SHARD_COUNT,
+        verify_fee_vault_account, FEE_VAULT_SEED,
     },
     state::FIVEVMState,
 };
@@ -93,6 +93,9 @@ pub fn collect_deploy_fee(
     // SAFETY: The state account is program-owned and read-only here.
     let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
+    if fee_shard_index >= vm_state.fee_vault_shard_count() {
+        return Err(ProgramError::InvalidInstructionData);
+    }
 
     let deploy_fee_lamports = vm_state.deploy_fee_lamports as u64;
     verify_fee_vault_account(
@@ -130,9 +133,6 @@ pub fn init_fee_vault(
     bump: u8,
 ) -> ProgramResult {
     require_min_accounts(accounts, 4)?;
-    if shard_index >= FEE_VAULT_SHARD_COUNT {
-        return Err(ProgramError::InvalidInstructionData);
-    }
 
     let vm_state_account = &accounts[0];
     let payer = &accounts[1];
@@ -151,6 +151,9 @@ pub fn init_fee_vault(
     let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
     if !vm_state.is_initialized() {
         return Err(ProgramError::Custom(7000));
+    }
+    if shard_index >= vm_state.fee_vault_shard_count() {
+        return Err(ProgramError::InvalidInstructionData);
     }
 
     let (expected_key, expected_bump) = derive_fee_vault_pda(program_id, shard_index)?;
@@ -218,9 +221,6 @@ pub fn withdraw_script_fees(
     lamports: u64,
 ) -> ProgramResult {
     require_min_accounts(accounts, 4)?;
-    if shard_index >= FEE_VAULT_SHARD_COUNT {
-        return Err(ProgramError::InvalidInstructionData);
-    }
 
     let vm_state_account = &accounts[0];
     let authority = &accounts[1];
@@ -245,6 +245,9 @@ pub fn withdraw_script_fees(
     if vm_state.authority != *authority.key() {
         return Err(ProgramError::Custom(0));
     }
+    if shard_index >= vm_state.fee_vault_shard_count() {
+        return Err(ProgramError::InvalidInstructionData);
+    }
 
     let rent = pinocchio::sysvars::rent::Rent::get()
         .map_err(|_| ProgramError::AccountNotRentExempt)?;
@@ -259,7 +262,11 @@ pub fn withdraw_script_fees(
     }
 
     *fee_vault_account.try_borrow_mut_lamports()? -= lamports;
-    *recipient.try_borrow_mut_lamports()? += lamports;
+    let new_recipient_balance = recipient
+        .lamports()
+        .checked_add(lamports)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    *recipient.try_borrow_mut_lamports()? = new_recipient_balance;
     Ok(())
 }
 

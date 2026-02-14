@@ -43,6 +43,9 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
     let fee = vm_state.execute_fee_lamports as u64;
     let (fee_shard_index, fee_vault_bump, vm_params) = decode_execute_payload(params);
+    if fee_shard_index >= vm_state.fee_vault_shard_count() {
+        return Err(ProgramError::InvalidInstructionData);
+    }
     let last = accounts.len() - 1;
     let fee_vault = &accounts[last - 1];
     let payer = &accounts[last - 2];

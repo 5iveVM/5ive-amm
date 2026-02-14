@@ -158,7 +158,7 @@ impl RuntimeHarness {
         }
         if !self.index_by_name.contains_key("fee_vault") {
             let (fee_vault, _bump) =
-                five_vm_mito::utils::find_program_address_offchain(&[b"fee_vault", &[0u8]], &self.program_id)
+                five_vm_mito::utils::find_program_address_offchain(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &self.program_id)
                     .expect("derive fee_vault shard 0");
             self.add_account(
                 "fee_vault",

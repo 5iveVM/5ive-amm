@@ -7,6 +7,7 @@ export async function getVMState(connection: any, fiveVMProgramId?: string): Pro
   scriptCount: number;
   deployFeeBps: number;
   executeFeeBps: number;
+  feeVaultShardCount: number;
   isInitialized: boolean;
 }> {
   const programId = ProgramIdResolver.resolve(fiveVMProgramId);
@@ -44,6 +45,7 @@ export async function getVMState(connection: any, fiveVMProgramId?: string): Pro
       scriptCount: Number(view.getBigUint64(64, true)),
       deployFeeBps: view.getUint32(72, true),
       executeFeeBps: view.getUint32(76, true),
+      feeVaultShardCount: accountData[82] || 10,
       isInitialized: accountData[80] === 1
     };
   } catch (error) {
