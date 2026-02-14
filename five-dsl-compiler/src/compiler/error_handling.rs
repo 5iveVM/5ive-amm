@@ -88,7 +88,18 @@ pub fn convert_vm_error_to_compiler_error(
             // Improve error message when expected is empty or generic
             let message = if expected.is_empty() {
                 // Provide more context when expected is not specified
-                format!("unexpected `{}` token at this location", found)
+                if found.contains("type '") {
+                    let type_hint = if found.contains("pubkey") {
+                        "\n\nNote: `pubkey` is a valid type, but may be used in an invalid context."
+                    } else if found.starts_with("type '") {
+                        "\n\nNote: This appears to be a type that's not valid in the current context."
+                    } else {
+                        ""
+                    };
+                    format!("unexpected `{}` token at this location{}", found, type_hint)
+                } else {
+                    format!("unexpected `{}` token at this location", found)
+                }
             } else if expected.len() < 20 && expected.contains("TokenKind") {
                 // TokenKind debug format is not user-friendly
                 format!("expected a different token, found `{}`", found)

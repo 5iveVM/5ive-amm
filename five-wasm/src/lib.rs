@@ -3591,6 +3591,39 @@ impl WasmFiveCompiler {
                     "Check for unclosed blocks, parentheses, or brackets".to_string(),
                 ]
             }
+            // Type-related suggestions
+            (_, found) if found.contains("type '") => {
+                let type_name = found.trim_start_matches("type '").trim_end_matches("'");
+                let mut suggestions = vec![];
+
+                // Add context-aware suggestions for common types
+                suggestions.push(format!("Check that `{}` is a valid type for this context", type_name));
+
+                // Suggest valid primitive types
+                match type_name {
+                    "pubkey" | "address" | "key" => {
+                        suggestions.push("Valid types in Five include: u8, u16, u32, u64, bool, string<N>, pubkey, and user-defined account types".to_string());
+                    }
+                    "string" => {
+                        suggestions.push("Strings must specify a size, e.g., `string<32>` or `string<256>`".to_string());
+                    }
+                    _ => {
+                        suggestions.push("Valid types in Five include: u8, u16, u32, u64, bool, string<N>, pubkey, and user-defined account types".to_string());
+                    }
+                }
+
+                // If it looks like a misspelled common type, suggest alternatives
+                if type_name.len() > 0 {
+                    match type_name {
+                        "pub" => suggestions.push("Did you mean `pubkey`? Use `pub` only for function/type visibility".to_string()),
+                        "int" => suggestions.push("Use `i64` or `u64` instead of `int`".to_string()),
+                        "float" | "f32" | "f64" => suggestions.push("Five does not support floating point types. Use fixed-point math with integer types".to_string()),
+                        _ => {}
+                    }
+                }
+
+                suggestions
+            }
             _ => {
                 vec![
                     format!("Replace `{}` with `{}`", found, expected),

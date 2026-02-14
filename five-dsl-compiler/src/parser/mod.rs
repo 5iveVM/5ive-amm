@@ -350,6 +350,13 @@ impl DslParser {
             Token::AssertFails => "'assert_fails'".to_string(),
             Token::AssertApproxEq => "'assert_approx_eq'".to_string(),
             Token::Type(name) => format!("type '{}'", name),
+            // Account constraint tokens
+            Token::AtSigner => "'@signer'".to_string(),
+            Token::AtMut => "'@mut'".to_string(),
+            Token::AtInit => "'@init'".to_string(),
+            Token::At => "'@'".to_string(),
+            // Dollar sign
+            Token::Dollar => "'$'".to_string(),
             _ => format!("unknown token {:?}", token),
         }
     }
