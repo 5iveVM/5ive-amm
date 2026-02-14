@@ -190,6 +190,21 @@ impl TypeCheckerContext {
             (TypeNode::Sized { base_type, .. }, TypeNode::Primitive(p)) => base_type == p,
             (TypeNode::Primitive(p), TypeNode::Sized { base_type, .. }) => base_type == p,
             (TypeNode::Account, TypeNode::Account) => true,
+            // Account subtyping: custom account types are compatible with Account parameter type
+            (TypeNode::Account, TypeNode::Named(name)) => {
+                // Any custom account type (e.g., CustomAccount, TokenAccount) is assignable to Account
+                // This enables CPI interface calls to accept custom account types
+                // Check if it's a built-in account name or a user-defined account type
+                name == type_names::ACCOUNT_LOWER
+                    || name == type_names::ACCOUNT_UPPER
+                    || self.account_definitions.contains_key(name)  // User-defined account type
+            }
+            (TypeNode::Named(name), TypeNode::Account) => {
+                // Reverse: custom account type parameter compatible with Account
+                name == type_names::ACCOUNT_LOWER
+                    || name == type_names::ACCOUNT_UPPER
+                    || self.account_definitions.contains_key(name)  // User-defined account type
+            }
             (TypeNode::Tuple { elements: e1 }, TypeNode::Tuple { elements: e2 }) => {
                 e1.len() == e2.len()
                     && e1
