@@ -28,7 +28,7 @@ mod parameter_indexing_tests {
         let payload = encode_execute_payload(0, 0, &[]);
         let exec_data = wrap_execute(&payload);
         let parsed = FIVEInstruction::try_from(exec_data.as_slice()).expect("should parse");
-        if let FIVEInstruction::Execute { params } = parsed {
+        if let FIVEInstruction::Execute { params, .. } = parsed {
             assert_eq!(params, payload.as_slice());
             assert_eq!(u32::from_le_bytes(params[0..4].try_into().unwrap()), 0);
             assert_eq!(u32::from_le_bytes(params[4..8].try_into().unwrap()), 0);
@@ -45,7 +45,7 @@ mod parameter_indexing_tests {
         let exec_data = wrap_execute(&payload);
 
         let parsed = FIVEInstruction::try_from(exec_data.as_slice()).expect("should parse");
-        if let FIVEInstruction::Execute { params } = parsed {
+        if let FIVEInstruction::Execute { params, .. } = parsed {
             assert_eq!(params, payload.as_slice());
             assert_eq!(u32::from_le_bytes(params[0..4].try_into().unwrap()), 3);
             assert_eq!(u32::from_le_bytes(params[4..8].try_into().unwrap()), 1);
@@ -67,7 +67,7 @@ mod parameter_indexing_tests {
         let exec_data = wrap_execute(&payload);
 
         let parsed = FIVEInstruction::try_from(exec_data.as_slice()).expect("should parse");
-        if let FIVEInstruction::Execute { params } = parsed {
+        if let FIVEInstruction::Execute { params, .. } = parsed {
             assert_eq!(params, payload.as_slice());
             assert_eq!(u32::from_le_bytes(params[0..4].try_into().unwrap()), 3);
             assert_eq!(u32::from_le_bytes(params[4..8].try_into().unwrap()), 2);
@@ -85,7 +85,7 @@ mod parameter_indexing_tests {
         let exec_data = wrap_execute(&payload);
 
         let parsed = FIVEInstruction::try_from(exec_data.as_slice()).expect("should parse");
-        if let FIVEInstruction::Execute { params } = parsed {
+        if let FIVEInstruction::Execute { params, .. } = parsed {
             assert_eq!(params, payload.as_slice());
         } else {
             panic!("expected execute instruction");

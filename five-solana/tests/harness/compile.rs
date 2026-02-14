@@ -3,6 +3,7 @@ use std::{
     io,
     path::{Path, PathBuf},
 };
+use five_dsl_compiler::DslCompiler;
 
 /// Load committed bytecode artifacts for runtime tests.
 ///
@@ -10,6 +11,9 @@ use std::{
 /// intentionally prefers deterministic checked-in artifacts.
 pub fn load_or_compile_bytecode(script_path: &Path) -> io::Result<Vec<u8>> {
     if script_path.exists() {
+        if is_five_source(script_path) {
+            return compile_v_source(script_path);
+        }
         return fs::read(script_path);
     }
 
@@ -23,6 +27,9 @@ pub fn load_or_compile_bytecode(script_path: &Path) -> io::Result<Vec<u8>> {
     let candidates = fallback_candidates(script_path);
     for candidate in candidates {
         if candidate.exists() {
+            if is_five_source(&candidate) {
+                return compile_v_source(&candidate);
+            }
             return fs::read(candidate);
         }
     }
@@ -31,6 +38,19 @@ pub fn load_or_compile_bytecode(script_path: &Path) -> io::Result<Vec<u8>> {
         io::ErrorKind::NotFound,
         format!("bytecode artifact not found for {}", script_path.display()),
     ))
+}
+
+fn is_five_source(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("v"))
+        .unwrap_or(false)
+}
+
+fn compile_v_source(path: &Path) -> io::Result<Vec<u8>> {
+    let source = fs::read_to_string(path)?;
+    DslCompiler::compile_dsl(&source)
+        .map_err(|e| io::Error::other(format!("failed compiling {}: {}", path.display(), e)))
 }
 
 fn fallback_candidates(path: &Path) -> Vec<PathBuf> {

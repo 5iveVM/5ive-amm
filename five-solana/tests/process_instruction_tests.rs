@@ -87,7 +87,7 @@ mod tests {
 
         let deploy_ix = FIVEInstruction::try_from(deploy_data.as_slice()).unwrap();
         match deploy_ix {
-            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms } => {
+            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms, .. } => {
                 assert_eq!(bc, &bytecode[..]);
                 assert!(metadata.is_empty());
                 assert_eq!(perms, permissions);
@@ -105,7 +105,7 @@ mod tests {
 
         let exec_ix = FIVEInstruction::try_from(exec_data.as_slice()).unwrap();
         match exec_ix {
-            FIVEInstruction::Execute { params } => {
+            FIVEInstruction::Execute { params, .. } => {
                 assert_eq!(params, &input_params[..]);
             }
             _ => panic!("Expected Execute instruction"),
@@ -165,7 +165,7 @@ mod tests {
 
         let deploy_ix = FIVEInstruction::try_from(deploy_data.as_slice()).unwrap();
         match deploy_ix {
-            FIVEInstruction::Deploy { bytecode, metadata, permissions: perms } => {
+            FIVEInstruction::Deploy { bytecode, metadata, permissions: perms, .. } => {
                 assert_eq!(bytecode.len(), 4);
                 assert_eq!(bytecode, &[0x35, 0x49, 0x56, 0x45]);
                 assert!(metadata.is_empty());
@@ -182,7 +182,7 @@ mod tests {
 
         let exec_ix = FIVEInstruction::try_from(exec_data.as_slice()).unwrap();
         match exec_ix {
-            FIVEInstruction::Execute { params } => {
+            FIVEInstruction::Execute { params, .. } => {
                 assert_eq!(params.len(), 0);
             }
             _ => panic!("Expected Execute instruction"),
@@ -262,9 +262,15 @@ mod tests {
 
         let mut script_lamports = 0u64;
         let mut payer_lamports = 1_000u64;
-        let mut admin_lamports = 0u64;
+        let (fee_vault_key, _fee_vault_bump) =
+            five_vm_mito::utils::find_program_address_offchain(&[b"fee_vault", &[0u8]], &program_id)
+                .expect("fee vault pda");
+        let mut fee_vault_lamports = 0u64;
         let mut payer_data = [];
-        let mut admin_data = [];
+        let mut fee_vault_data = [];
+        let system_program_key = Pubkey::default();
+        let mut system_program_lamports = 0u64;
+        let mut system_program_data = [];
 
         let script_account = create_account(
             &script_key,
@@ -290,25 +296,39 @@ mod tests {
             &mut payer_data,
             &program_id,
         );
-        let admin_account = create_account(
-            &admin_key,
+        let fee_vault_account = create_account(
+            &fee_vault_key,
             false,
             true,
-            &mut admin_lamports,
-            &mut admin_data,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
             &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program_key,
+            false,
+            false,
+            &mut system_program_lamports,
+            &mut system_program_data,
+            &system_program_key,
         );
 
         let fee = 200u64;
         execute(
             &program_id,
-            &[script_account, vm_account, payer_account, admin_account],
+            &[
+                script_account,
+                vm_account,
+                payer_account,
+                fee_vault_account,
+                system_program_account,
+            ],
             &[],
         )
         .unwrap();
 
         assert_eq!(payer_account.lamports(), 1_000u64 - fee);
-        assert_eq!(admin_account.lamports(), fee);
+        assert_eq!(fee_vault_account.lamports(), fee);
     }
 
     #[test]
@@ -373,7 +393,7 @@ mod tests {
             &[script_account, vm_account, payer_account],
             &[],
         );
-        assert!(matches!(result, Err(ProgramError::Custom(1110))));
+        assert!(matches!(result, Err(ProgramError::NotEnoughAccountKeys)));
     }
 
     #[test]
@@ -422,9 +442,15 @@ mod tests {
 
         let mut script_lamports = 0u64;
         let mut payer_lamports = 10_000u64;
-        let mut admin_lamports = 0u64;
+        let (fee_vault_key, _fee_vault_bump) =
+            five_vm_mito::utils::find_program_address_offchain(&[b"fee_vault", &[0u8]], &program_id)
+                .expect("fee vault pda");
+        let mut fee_vault_lamports = 0u64;
         let mut payer_data = [];
-        let mut admin_data = [];
+        let mut fee_vault_data = [];
+        let system_program_key = Pubkey::default();
+        let mut system_program_lamports = 0u64;
+        let mut system_program_data = [];
 
         let script_account = create_account(
             &script_key,
@@ -450,25 +476,39 @@ mod tests {
             &mut payer_data,
             &program_id,
         );
-        let admin_account = create_account(
-            &admin_key,
+        let fee_vault_account = create_account(
+            &fee_vault_key,
             false,
             true,
-            &mut admin_lamports,
-            &mut admin_data,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
             &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program_key,
+            false,
+            false,
+            &mut system_program_lamports,
+            &mut system_program_data,
+            &system_program_key,
         );
 
         let expected_fee = 5_000u64;
         execute(
             &program_id,
-            &[script_account, vm_account, payer_account, admin_account],
+            &[
+                script_account,
+                vm_account,
+                payer_account,
+                fee_vault_account,
+                system_program_account,
+            ],
             &[],
         )
         .unwrap();
 
         assert_eq!(payer_account.lamports(), 10_000u64 - expected_fee);
-        assert_eq!(admin_account.lamports(), expected_fee);
+        assert_eq!(fee_vault_account.lamports(), expected_fee);
     }
 
 }

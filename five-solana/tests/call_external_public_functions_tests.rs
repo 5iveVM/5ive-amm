@@ -61,7 +61,7 @@ mod public_function_invocation_tests {
         // Verify the deploy instruction format is correct
         let deploy_ix = FIVEInstruction::try_from(deploy_data.as_slice()).unwrap();
         match deploy_ix {
-            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms } => {
+            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms, .. } => {
                 assert_eq!(bc, &external_bytecode[..]);
                 assert!(metadata.is_empty());
                 assert_eq!(perms, permissions);

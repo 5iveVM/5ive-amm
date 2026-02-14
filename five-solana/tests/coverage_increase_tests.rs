@@ -26,6 +26,20 @@ mod coverage_increase_tests {
         [seed; 32]
     }
 
+    fn canonical_vm_key(program_id: &Pubkey) -> Pubkey {
+        let (pda, _bump) =
+            five_vm_mito::utils::find_program_address_offchain(&[b"vm_state"], program_id)
+                .expect("canonical vm_state pda");
+        pda
+    }
+
+    fn fee_vault_key(program_id: &Pubkey) -> Pubkey {
+        let (pda, _bump) =
+            five_vm_mito::utils::find_program_address_offchain(&[b"fee_vault", &[0u8]], program_id)
+                .expect("fee vault pda");
+        pda
+    }
+
     fn create_vm_state(admin_key: Pubkey) -> (u64, Vec<u8>) {
         let vm_lamports = 0u64;
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
@@ -45,7 +59,8 @@ mod coverage_increase_tests {
         let admin_key = key(81);
         let owner_key = key(82);
         let script_key = key(83);
-        let vm_key = key(84);
+        let vm_key = canonical_vm_key(&program_id);
+        let fee_vault_key = fee_vault_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
 
@@ -57,6 +72,11 @@ mod coverage_increase_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -82,9 +102,31 @@ mod coverage_increase_tests {
             &mut vm_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
         // 1. Initialize
-        let accounts = [script_account.clone(), owner_account.clone(), vm_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            owner_account.clone(),
+            vm_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
         init_large_program(&program_id, &accounts, expected_size, None).unwrap();
 
         // 2. Simulate upload complete but not finalized
@@ -115,7 +157,8 @@ mod coverage_increase_tests {
         let admin_key = key(91);
         let owner_key = key(92);
         let script_key = key(93);
-        let vm_key = key(94);
+        let vm_key = canonical_vm_key(&program_id);
+        let fee_vault_key = fee_vault_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
         let expected_size = 10;
@@ -125,6 +168,11 @@ mod coverage_increase_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -150,8 +198,30 @@ mod coverage_increase_tests {
             &mut vm_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
-        let accounts = [script_account.clone(), owner_account.clone(), vm_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            owner_account.clone(),
+            vm_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
 
         let chunk = vec![0u8; 20]; // Larger than expected_size
         let result = init_large_program(
@@ -171,7 +241,8 @@ mod coverage_increase_tests {
         let admin_key = key(101);
         let owner_key = key(102);
         let script_key = key(103);
-        let vm_key = key(104);
+        let vm_key = canonical_vm_key(&program_id);
+        let fee_vault_key = fee_vault_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
         let expected_size = 100;
@@ -181,6 +252,11 @@ mod coverage_increase_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -206,8 +282,30 @@ mod coverage_increase_tests {
             &mut vm_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
-        let accounts = [script_account.clone(), owner_account.clone(), vm_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            owner_account.clone(),
+            vm_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
         init_large_program(&program_id, &accounts, expected_size, None).unwrap();
 
         let empty_chunk = vec![];

@@ -320,6 +320,8 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         vm_state.execute_fee_lamports = 0;
     }
     let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (fee_vault_pubkey, _fee_vault_bump) =
+        Pubkey::find_program_address(&[b"fee_vault", &[0u8]], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -2106,6 +2108,8 @@ async fn run_fixture_bpf_compute_units(
         CU_EXECUTE_FEE_LAMPORTS
     };
     let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (fee_vault_pubkey, _fee_vault_bump) =
+        Pubkey::find_program_address(&[b"fee_vault", &[0u8]], &program_id);
 
     accounts.insert(
         fixture.authority.name.clone(),
@@ -2156,6 +2160,21 @@ async fn run_fixture_bpf_compute_units(
             executable: false,
         },
     );
+    if !accounts.contains_key("fee_vault") {
+        accounts.insert(
+            "fee_vault".to_string(),
+            RuntimeAccount {
+                pubkey: fee_vault_pubkey,
+                signer: None,
+                owner: program_id,
+                lamports: 1,
+                data: vec![],
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
     if !accounts.contains_key("system_program") {
         accounts.insert(
             "system_program".to_string(),
@@ -2325,11 +2344,9 @@ async fn run_fixture_bpf_compute_units(
     };
     for step in &fixture.steps {
         let payload = build_payload(&accounts, step);
-        let mut effective_extras = step.extras.clone();
-        effective_extras.retain(|name| name != &fixture.authority.name && name != "system_program");
-        effective_extras.push(fixture.authority.name.clone());
-        // Execute always requires deterministic fee account tail ordering, even when fee == 0.
-        effective_extras.push("system_program".to_string());
+        // Preserve fixture account ordering exactly; payload account indices are derived from step.extras.
+        // Fee accounts are appended by instruction builders as a deterministic tail.
+        let effective_extras = step.extras.clone();
 
         let execute_ix = build_execute_instruction_with_extras(
             program_id,
@@ -2339,8 +2356,22 @@ async fn run_fixture_bpf_compute_units(
             &effective_extras,
             payload,
         );
+        if std::env::var("FIVE_DEBUG_CPI_ACCOUNTS").ok().as_deref() == Some("1") {
+            let ordered: Vec<String> = execute_ix
+                .accounts
+                .iter()
+                .enumerate()
+                .map(|(idx, meta)| format!("{}:{}", idx, meta.pubkey))
+                .collect();
+            println!(
+                "BPF_DEBUG step={} extras={:?} account_metas=[{}]",
+                step.name,
+                effective_extras,
+                ordered.join(", ")
+            );
+        }
 
-        let signer_names: Vec<&str> = effective_extras
+        let mut signer_names: Vec<&str> = effective_extras
             .iter()
             .filter_map(|name| {
                 accounts
@@ -2348,13 +2379,16 @@ async fn run_fixture_bpf_compute_units(
                     .and_then(|a| if a.is_signer { Some(name.as_str()) } else { None })
             })
             .collect();
+        if !signer_names.iter().any(|name| *name == fixture.authority.name.as_str()) {
+            signer_names.push(fixture.authority.name.as_str());
+        }
 
-        let vm_state_before = ctx
+        let fee_vault_before = ctx
             .banks_client
-            .get_account(vm_state_pubkey)
+            .get_account(fee_vault_pubkey)
             .await
-            .expect("vm_state fetch before execute")
-            .expect("vm_state account must exist")
+            .expect("fee_vault fetch before execute")
+            .expect("fee_vault account must exist")
             .lamports;
 
         let result = simulate_and_process(
@@ -2365,14 +2399,14 @@ async fn run_fixture_bpf_compute_units(
         )
         .await;
 
-        let vm_state_after = ctx
+        let fee_vault_after = ctx
             .banks_client
-            .get_account(vm_state_pubkey)
+            .get_account(fee_vault_pubkey)
             .await
-            .expect("vm_state fetch after execute")
-            .expect("vm_state account must exist")
+            .expect("fee_vault fetch after execute")
+            .expect("fee_vault account must exist")
             .lamports;
-        let fee_paid = vm_state_after.saturating_sub(vm_state_before);
+        let fee_paid = fee_vault_after.saturating_sub(fee_vault_before);
         match step.expected {
             ExpectedFixture::Success => {
                 assert!(result.success, "step {} failed: {:?}", step.name, result.error);
@@ -2415,13 +2449,13 @@ async fn run_fixture_bpf_compute_units(
             result.units_consumed,
             fee_paid,
             execute_fee_lamports,
-            vm_state_pubkey
+            fee_vault_pubkey
         );
     }
 
     println!(
         "BPF_CU fixture={} mode={} total_units={} execute_fee_lamports={} fee_vault={}",
-        fixture.name, cu_mode.as_str(), total_units, execute_fee_lamports, vm_state_pubkey
+        fixture.name, cu_mode.as_str(), total_units, execute_fee_lamports, fee_vault_pubkey
     );
     if fixture.name == "spl_token_cpi_e2e" {
         assert_spl_token_fixture_result(&mut ctx, &accounts, &fixture.authority.name).await;
@@ -3595,6 +3629,7 @@ fn build_deploy_instruction_with_metadata(
     if permissions != 0 {
         account_metas.push(AccountMeta::new_readonly(accounts[owner_name].pubkey, true));
     }
+    account_metas.push(AccountMeta::new(accounts["fee_vault"].pubkey, false));
     account_metas.push(AccountMeta::new_readonly(system_program::id(), false));
 
     Instruction {
@@ -3720,6 +3755,14 @@ fn build_execute_instruction(
         });
     }
 
+    let payer = accounts
+        .values()
+        .find(|a| a.is_signer && a.is_writable)
+        .expect("missing signer+writable payer account for execute");
+    metas.push(AccountMeta::new(payer.pubkey, true));
+    metas.push(AccountMeta::new(accounts["fee_vault"].pubkey, false));
+    metas.push(AccountMeta::new_readonly(system_program::id(), false));
+
     Instruction {
         program_id,
         accounts: metas,
@@ -3753,6 +3796,14 @@ fn build_execute_instruction_with_extras(
             is_writable: if is_external_script { false } else { a.is_writable },
         });
     }
+
+    let payer = accounts
+        .values()
+        .find(|a| a.is_signer && a.is_writable)
+        .expect("missing signer+writable payer account for execute");
+    metas.push(AccountMeta::new(payer.pubkey, true));
+    metas.push(AccountMeta::new(accounts["fee_vault"].pubkey, false));
+    metas.push(AccountMeta::new_readonly(system_program::id(), false));
 
     Instruction {
         program_id,

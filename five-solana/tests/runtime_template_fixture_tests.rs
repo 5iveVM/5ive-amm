@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use harness::fixtures::{TypedParam, canonical_execute_payload};
 use harness::{AccountSeed, RuntimeHarness, unique_pubkey};
+use pinocchio::pubkey;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -199,13 +200,15 @@ fn run_fixture(repo_root: &Path, fixture_path: &Path, fixture: &RuntimeFixture) 
     );
 
     let program_id = unique_pubkey(fixture.program_seed);
+    let (canonical_vm_state, _) = pubkey::find_program_address(&[b"vm_state"], &program_id);
     let mut rt = RuntimeHarness::start(program_id);
 
     rt.add_account(
         &fixture.authority.name,
         AccountSeed {
             key: unique_pubkey(fixture.authority.key_seed),
-            owner: program_id,
+            // Fee payer must be a system-owned account.
+            owner: [0u8; 32],
             lamports: fixture.authority.lamports,
             data: vec![],
             is_signer: true,
@@ -217,7 +220,7 @@ fn run_fixture(repo_root: &Path, fixture_path: &Path, fixture: &RuntimeFixture) 
     rt.add_account(
         &fixture.vm_state_name,
         AccountSeed {
-            key: unique_pubkey(fixture.program_seed.wrapping_add(1)),
+            key: canonical_vm_state,
             owner: program_id,
             lamports: 0,
             data: vec![0u8; five::state::FIVEVMState::LEN],

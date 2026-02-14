@@ -30,7 +30,7 @@ mod tests {
 
         let deploy_ix = FIVEInstruction::try_from(&deploy_data[..]).unwrap();
         match deploy_ix {
-            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms } => {
+            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms, .. } => {
                 assert_eq!(bc, &bytecode[..]);
                 assert!(metadata.is_empty());
                 assert_eq!(perms, permissions);
@@ -46,7 +46,7 @@ mod tests {
 
         let exec_ix = FIVEInstruction::try_from(&exec_data[..]).unwrap();
         match exec_ix {
-            FIVEInstruction::Execute { params: p } => {
+            FIVEInstruction::Execute { params: p, .. } => {
                 assert_eq!(p, &params[..]);
             }
             _ => panic!("Expected Execute instruction"),

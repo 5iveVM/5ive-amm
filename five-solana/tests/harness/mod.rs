@@ -156,10 +156,44 @@ impl RuntimeHarness {
         if let Some(admin) = admin_name {
             account_names.push(admin);
         }
+        if !self.index_by_name.contains_key("fee_vault") {
+            let (fee_vault, _bump) =
+                five_vm_mito::utils::find_program_address_offchain(&[b"fee_vault", &[0u8]], &self.program_id)
+                    .expect("derive fee_vault shard 0");
+            self.add_account(
+                "fee_vault",
+                AccountSeed {
+                    key: fee_vault,
+                    owner: self.program_id,
+                    lamports: 0,
+                    data: Vec::new(),
+                    is_signer: false,
+                    is_writable: true,
+                    executable: false,
+                },
+            );
+        }
+        if !self.index_by_name.contains_key("system_program") {
+            let system_program = Pubkey::default();
+            self.add_account(
+                "system_program",
+                AccountSeed {
+                    key: system_program,
+                    owner: system_program,
+                    lamports: 0,
+                    data: Vec::new(),
+                    is_signer: false,
+                    is_writable: false,
+                    executable: false,
+                },
+            );
+        }
+        account_names.push("fee_vault");
+        account_names.push("system_program");
 
         let program_id = self.program_id;
         let result = self.with_account_infos(&account_names, |accounts| {
-            deploy(&program_id, accounts, bytecode, &[], permissions)
+            deploy(&program_id, accounts, bytecode, &[], permissions, 0, None)
         });
 
         match result {

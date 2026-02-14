@@ -32,6 +32,13 @@ mod deployment_tests {
         pda
     }
 
+    fn fee_vault_key(program_id: &Pubkey) -> Pubkey {
+        let (pda, _bump) =
+            five_vm_mito::utils::find_program_address_offchain(&[b"fee_vault", &[0u8]], program_id)
+                .expect("fee vault pda");
+        pda
+    }
+
     fn create_vm_state(admin_key: Pubkey) -> (u64, Vec<u8>) {
         let vm_lamports = 0u64;
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
@@ -63,6 +70,12 @@ mod deployment_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let fee_vault_key = fee_vault_key(&program_id);
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -88,8 +101,30 @@ mod deployment_tests {
             &mut owner_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
-        let accounts = [script_account.clone(), vm_account.clone(), owner_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            vm_account.clone(),
+            owner_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
 
         // Execute Deploy
         let result = deploy(
@@ -98,6 +133,8 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0, // No permissions
+            0,
+            None,
         );
         assert!(result.is_ok());
 
@@ -134,6 +171,12 @@ mod deployment_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let fee_vault_key = fee_vault_key(&program_id);
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -159,8 +202,30 @@ mod deployment_tests {
             &mut owner_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
-        let accounts = [script_account.clone(), vm_account.clone(), owner_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            vm_account.clone(),
+            owner_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
 
         // Try to deploy with permissions (e.g., 0x01) without admin signer
         // Should fail because admin account is missing from the list entirely
@@ -170,6 +235,8 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0x01, // PERMISSION_PRE_BYTECODE
+            0,
+            None,
         );
         assert!(matches!(result, Err(ProgramError::NotEnoughAccountKeys)));
 
@@ -189,7 +256,9 @@ mod deployment_tests {
             script_account.clone(),
             vm_account.clone(),
             owner_account.clone(),
-            admin_account.clone()
+            admin_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
         ];
 
         let result = deploy(
@@ -198,6 +267,8 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0x01,
+            0,
+            None,
         );
         assert_eq!(result, Err(ProgramError::MissingRequiredSignature));
 
@@ -214,7 +285,9 @@ mod deployment_tests {
             script_account.clone(),
             vm_account.clone(),
             owner_account.clone(),
-            admin_account_signed.clone()
+            admin_account_signed.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
         ];
 
         let result = deploy(
@@ -223,6 +296,8 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0x01,
+            0,
+            None,
         );
         assert!(result.is_ok());
 
@@ -252,6 +327,12 @@ mod deployment_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let fee_vault_key = fee_vault_key(&program_id);
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -277,8 +358,30 @@ mod deployment_tests {
             &mut owner_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
-        let accounts = [script_account.clone(), vm_account.clone(), owner_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            vm_account.clone(),
+            owner_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
 
         let result = deploy(
             &program_id,
@@ -286,6 +389,8 @@ mod deployment_tests {
             &bad_bytecode,
             &[], // Empty metadata
             0,
+            0,
+            None,
         );
         // Should fail due to size checks or magic bytes
         assert!(result.is_err());
@@ -310,6 +415,12 @@ mod deployment_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let fee_vault_key = fee_vault_key(&program_id);
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -335,8 +446,30 @@ mod deployment_tests {
             &mut vm_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
-        let accounts = [script_account.clone(), owner_account.clone(), vm_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            owner_account.clone(),
+            vm_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
 
         let result = init_large_program(
             &program_id,
@@ -372,6 +505,12 @@ mod deployment_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let fee_vault_key = fee_vault_key(&program_id);
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -397,13 +536,41 @@ mod deployment_tests {
             &mut vm_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
         // 1. Initialize
-        let accounts = [script_account.clone(), owner_account.clone(), vm_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            owner_account.clone(),
+            vm_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
         init_large_program(&program_id, &accounts, expected_size, None).unwrap();
 
         // 2. Append Bytecode (in one chunk for simplicity, or split it)
-        let accounts_append = [script_account.clone(), owner_account.clone(), vm_account.clone()];
+        let accounts_append = [
+            script_account.clone(),
+            owner_account.clone(),
+            vm_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
         let result = append_bytecode(
             &program_id,
             &accounts_append,
@@ -440,6 +607,12 @@ mod deployment_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let fee_vault_key = fee_vault_key(&program_id);
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -465,8 +638,30 @@ mod deployment_tests {
             &mut vm_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
-        let accounts = [script_account.clone(), owner_account.clone(), vm_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            owner_account.clone(),
+            vm_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
         init_large_program(&program_id, &accounts, expected_size, None).unwrap();
 
         let large_chunk = vec![0u8; 10];
@@ -497,6 +692,12 @@ mod deployment_tests {
         let mut script_data = vec![0u8; required_size];
         let mut owner_lamports = 10_000u64;
         let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let fee_vault_key = fee_vault_key(&program_id);
+        let system_program = Pubkey::default();
 
         let script_account = create_account(
             &script_key,
@@ -522,8 +723,30 @@ mod deployment_tests {
             &mut vm_data,
             &program_id,
         );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
 
-        let accounts = [script_account.clone(), owner_account.clone(), vm_account.clone()];
+        let accounts = [
+            script_account.clone(),
+            owner_account.clone(),
+            vm_account.clone(),
+            fee_vault_account.clone(),
+            system_program_account.clone(),
+        ];
 
         let chunk = vec![1, 2, 3, 4, 5];
         let result = init_large_program(
