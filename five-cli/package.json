@@ -31,6 +31,8 @@
     "test:sdk": "five test --sdk-runner",
     "test:sdk:verbose": "five test --sdk-runner --verbose",
     "test:sdk:watch": "five test --sdk-runner --watch",
+    "dev:use-local-sdk": "npm --prefix ../five-sdk run build && npm install --no-save ../five-sdk",
+    "dev:print-sdk": "node -e \"const p=require.resolve('@5ive-tech/sdk/package.json');const pkg=require(p);console.log(`${pkg.name}@${pkg.version}`);console.log(p);\"",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
     "dev": "npm run build:js:dev",

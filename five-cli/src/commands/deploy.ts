@@ -2,6 +2,7 @@
 
 import { readFile, writeFile } from 'fs/promises';
 import { extname, isAbsolute, join } from 'path';
+import { createRequire } from 'module';
 import ora from 'ora';
 import { Connection, Keypair } from '@solana/web3.js';
 import { parse as parseToml, stringify as stringifyToml } from '@iarna/toml';
@@ -25,6 +26,28 @@ import {
   error as uiError,
   isTTY
 } from '../utils/cli-ui.js';
+
+const MAX_SOLANA_TX_SIZE_BYTES = 1232;
+const REGULAR_TX_SAFE_SIZE_BYTES = 1200;
+const DEFAULT_CHUNK_SIZE = 500;
+const CHUNK_RETRY_STEP = 100;
+const MAX_CHUNK_RETRIES = 3;
+
+function getSdkPackageInfo(): { path: string; name: string; version: string } | null {
+  try {
+    const metaUrl = (0, eval)('import.meta.url');
+    const req = createRequire(metaUrl);
+    const sdkPackagePath = req.resolve('@5ive-tech/sdk/package.json');
+    const sdkPackage = req(sdkPackagePath);
+    return {
+      path: sdkPackagePath,
+      name: sdkPackage.name,
+      version: sdkPackage.version,
+    };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 5IVE deploy command implementation
@@ -715,6 +738,64 @@ async function updateLockfileNamespaceManager(
   await writeFile(lockPath, stringifyToml(lockDoc), 'utf8');
 }
 
+export function __isTransactionSizeError(errorMessage?: string): boolean {
+  if (!errorMessage) return false;
+  const lower = errorMessage.toLowerCase();
+  return (
+    lower.includes('transaction too large') ||
+    lower.includes('too large') ||
+    lower.includes('packet') ||
+    lower.includes('max transaction size') ||
+    lower.includes('encoded') && lower.includes('limit')
+  );
+}
+
+export function __deriveFallbackReason(errorMessage?: string): 'tx_too_large' | 'simulation_failed' {
+  return __isTransactionSizeError(errorMessage) ? 'tx_too_large' : 'simulation_failed';
+}
+
+export async function __regularDeployFitsTransaction(
+  bytecodeArray: Uint8Array,
+  connection: Connection,
+  deployerKeypair: Keypair,
+  deploymentOptions: DeploymentOptions,
+  options: any,
+): Promise<{ fits: boolean; serializedSize?: number; reason?: 'tx_too_large' | 'simulation_failed' }> {
+  try {
+    const built = await FiveSDK.createDeploymentTransaction(
+      bytecodeArray,
+      connection,
+      deployerKeypair.publicKey,
+      {
+        debug: options.debug || false,
+        fiveVMProgramId: deploymentOptions.fiveVMProgramId,
+        computeBudget: deploymentOptions.computeBudget,
+        exportMetadata: deploymentOptions.exportMetadata,
+      },
+    );
+
+    built.transaction.partialSign(deployerKeypair);
+    const serialized = built.transaction.serialize();
+    const serializedSize = serialized.length;
+    if (serializedSize > REGULAR_TX_SAFE_SIZE_BYTES || serializedSize > MAX_SOLANA_TX_SIZE_BYTES) {
+      return { fits: false, serializedSize, reason: 'tx_too_large' };
+    }
+
+    const simulation = await connection.simulateTransaction(built.transaction, {
+      sigVerify: false,
+      commitment: 'confirmed',
+    });
+    if (simulation.value.err) {
+      return { fits: false, serializedSize, reason: __deriveFallbackReason(JSON.stringify(simulation.value.err)) };
+    }
+
+    return { fits: true, serializedSize };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { fits: false, reason: __deriveFallbackReason(msg) };
+  }
+}
+
 /**
  * Execute actual deployment to Solana network
  */
@@ -750,72 +831,121 @@ async function executeDeployment(
     const deployerKeypair = await loadKeypair(config.keypairPath, logger);
     if (context.options.debug) {
       logger.debug(`deployer: ${deployerKeypair.publicKey.toString()}`);
+      const sdkInfo = getSdkPackageInfo();
+      if (sdkInfo) {
+        logger.debug(`sdk: ${sdkInfo.name}@${sdkInfo.version}`);
+        logger.debug(`sdk package path: ${sdkInfo.path}`);
+      } else {
+        logger.debug('sdk package introspection unavailable');
+      }
     }
 
     // Deploy using 5IVE SDK
     const spinner = isTTY() ? ora('Deploying via 5IVE SDK...').start() : null;
 
-    // Auto-detect large programs and use appropriate deployment method
+    // Auto-safe deploy strategy:
+    // 1) Respect explicit chunked mode
+    // 2) Otherwise attempt regular deploy only when tx-size/simulation preflight fits
+    // 3) Fallback to chunked deploy when regular is unsafe
     const bytecodeArray = new Uint8Array(deploymentOptions.bytecode);
-    const isLargeProgram = bytecodeArray.length > 800 || options.forceChunked;
+    let selectedMode: 'regular' | 'chunked' | 'optimized' = 'regular';
+    let fallbackReason: 'tx_too_large' | 'simulation_failed' | 'explicit_force' | undefined;
+    let preflightSerializedSize: number | undefined;
+    const useOptimizedChunked = Boolean(options.optimized);
+    const userChunkSize = Number(options.chunkSize) || DEFAULT_CHUNK_SIZE;
+    const chunkSizeStart = options.chunkSize ? userChunkSize : DEFAULT_CHUNK_SIZE;
 
-    if (isLargeProgram) {
-      if (options.optimized) {
+    const runChunkedDeploy = async (reason?: 'tx_too_large' | 'simulation_failed' | 'explicit_force') => {
+      fallbackReason = reason;
+      let chunkSize = chunkSizeStart;
+      let lastResult: any = null;
+
+      for (let attempt = 0; attempt <= MAX_CHUNK_RETRIES; attempt++) {
+        selectedMode = useOptimizedChunked ? 'optimized' : 'chunked';
         if (spinner) {
-          spinner.text = 'Deploying large program via optimized chunked deployment...';
+          spinner.text = useOptimizedChunked
+            ? `Deploying via optimized chunked mode (chunk-size ${chunkSize})...`
+            : `Deploying via chunked mode (chunk-size ${chunkSize})...`;
         }
-      } else {
-        if (spinner) {
-          spinner.text = 'Deploying large program via chunked deployment...';
+
+        const chunkResult = useOptimizedChunked
+          ? await FiveSDK.deployLargeProgramOptimizedToSolana(
+            bytecodeArray,
+            connection,
+            deployerKeypair,
+            {
+              debug: options.debug || false,
+              network: deploymentOptions.network,
+              fiveVMProgramId: deploymentOptions.fiveVMProgramId,
+              vmStateAccount: deploymentOptions.vmStateAccount,
+              exportMetadata: deploymentOptions.exportMetadata,
+              maxRetries: 3,
+              chunkSize,
+              progressCallback: options.progress ? (transaction: number, total: number) => {
+                if (spinner) spinner.text = `Optimized deployment: transaction ${transaction}/${total}...`;
+              } : undefined
+            },
+          )
+          : await FiveSDK.deployLargeProgramToSolana(
+            bytecodeArray,
+            connection,
+            deployerKeypair,
+            {
+              debug: options.debug || false,
+              network: deploymentOptions.network,
+              fiveVMProgramId: deploymentOptions.fiveVMProgramId,
+              vmStateAccount: deploymentOptions.vmStateAccount,
+              maxRetries: 3,
+              chunkSize,
+              progressCallback: options.progress ? (chunk: number, total: number) => {
+                if (spinner) spinner.text = `Deploying chunk ${chunk}/${total}...`;
+              } : undefined
+            },
+          );
+
+        if (chunkResult?.success) {
+          return chunkResult;
         }
+
+        lastResult = chunkResult;
+        if (options.chunkSize || !__isTransactionSizeError(chunkResult?.error) || chunkSize <= CHUNK_RETRY_STEP) {
+          break;
+        }
+        chunkSize = Math.max(CHUNK_RETRY_STEP, chunkSize - CHUNK_RETRY_STEP);
+      }
+
+      return lastResult;
+    };
+
+    if (options.forceChunked) {
+      fallbackReason = 'explicit_force';
+      if (spinner) {
+        spinner.text = options.optimized
+          ? 'Deploying via optimized chunked mode (forced)...'
+          : 'Deploying via chunked mode (forced)...';
+      }
+    } else {
+      const fitResult = await __regularDeployFitsTransaction(
+        bytecodeArray,
+        connection,
+        deployerKeypair,
+        deploymentOptions,
+        options,
+      );
+      preflightSerializedSize = fitResult.serializedSize;
+      if (!fitResult.fits) {
+        fallbackReason = fitResult.reason ?? 'simulation_failed';
       }
     }
 
-    let result;
-    if (isLargeProgram) {
-      if (options.optimized) {
-        // Use the new optimized deployment method
-        result = await FiveSDK.deployLargeProgramOptimizedToSolana(
-          bytecodeArray,
-          connection,
-          deployerKeypair,
-          {
-            debug: options.debug || false,
-            network: deploymentOptions.network,
-            fiveVMProgramId: deploymentOptions.fiveVMProgramId,
-            // vmStateAccount: deploymentOptions.vmStateAccount, // Optimized method does not support this yet
-            maxRetries: 3,
-            chunkSize: options.chunkSize || 950, // Higher default for optimized method
-            progressCallback: options.progress ? (transaction: number, total: number) => {
-              if (spinner) {
-                spinner.text = `Optimized deployment: transaction ${transaction}/${total}...`;
-              }
-            } : undefined
-          }
-        );
-      } else {
-        // Use traditional large program deployment
-        result = await FiveSDK.deployLargeProgramToSolana(
-          bytecodeArray,
-          connection,
-          deployerKeypair,
-          {
-            debug: options.debug || false,
-            network: deploymentOptions.network,
-            fiveVMProgramId: deploymentOptions.fiveVMProgramId,
-            vmStateAccount: deploymentOptions.vmStateAccount,
-            maxRetries: 3,
-            chunkSize: options.chunkSize || 750,
-            progressCallback: options.progress ? (chunk: number, total: number) => {
-              if (spinner) {
-                spinner.text = `Deploying chunk ${chunk}/${total}...`;
-              }
-            } : undefined
-          }
-        );
-      }
+    let result: any;
+    if (fallbackReason) {
+      result = await runChunkedDeploy(fallbackReason);
     } else {
-      // Use regular deployment for small programs
+      selectedMode = 'regular';
+      if (spinner) {
+        spinner.text = 'Deploying via regular mode...';
+      }
       result = await FiveSDK.deployToSolana(
         bytecodeArray,
         connection,
@@ -824,17 +954,31 @@ async function executeDeployment(
           debug: options.debug || false,
           network: deploymentOptions.network,
           computeBudget: deploymentOptions.computeBudget,
-          fiveVMProgramId: deploymentOptions.fiveVMProgramId, // Pass programId
+          fiveVMProgramId: deploymentOptions.fiveVMProgramId,
+          vmStateAccount: deploymentOptions.vmStateAccount,
           exportMetadata: deploymentOptions.exportMetadata,
           maxRetries: 3
         }
       );
+
+      if (!result.success && (__isTransactionSizeError(result.error) || /invalidinstructiondata/i.test(String(result.error || '')))) {
+        fallbackReason = __deriveFallbackReason(result.error);
+        result = await runChunkedDeploy(fallbackReason);
+      }
     }
 
+    result = {
+      ...result,
+      deploymentMode: selectedMode,
+      fallbackReason,
+    };
+
+    const deployedMode = (result.deploymentMode || selectedMode) as 'regular' | 'chunked' | 'optimized';
+
     if (result.success) {
-      if (isLargeProgram && 'chunksUsed' in result && result.chunksUsed) {
+      if ((deployedMode === 'chunked' || deployedMode === 'optimized') && 'chunksUsed' in result && result.chunksUsed) {
         const largeResult = result as any; // Type assertion for large deployment result
-        if (options.optimized && 'optimizationSavings' in result) {
+        if (deployedMode === 'optimized' && 'optimizationSavings' in result) {
           const optimizedResult = result as any;
           const savingsPercent = Math.round(optimizedResult.optimizationSavings.transactionsSaved / (optimizedResult.optimizationSavings.transactionsSaved + optimizedResult.totalTransactions) * 100);
           if (spinner) {
@@ -853,6 +997,16 @@ async function executeDeployment(
     } else {
       if (spinner) {
         spinner.fail('Deployment failed');
+      }
+    }
+
+    if (context.options.debug) {
+      logger.debug(`deploy mode selected: ${selectedMode}`);
+      if (fallbackReason) {
+        logger.debug(`deploy fallback reason: ${fallbackReason}`);
+      }
+      if (preflightSerializedSize !== undefined) {
+        logger.debug(`regular deploy serialized size: ${preflightSerializedSize} bytes`);
       }
     }
 

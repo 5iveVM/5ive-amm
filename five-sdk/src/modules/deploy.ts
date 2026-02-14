@@ -243,7 +243,7 @@ export async function createDeploymentTransaction(
         { pubkey: deployerPublicKey, isSigner: true, isWritable: false },
       ],
       programId: programId,
-      data: Buffer.from([0]), // Initialize discriminator
+      data: buildInitializeVmStateInstructionData(0),
     }),
   );
 
@@ -414,7 +414,7 @@ export async function deployToSolana(
           },
         ],
         programId: new PublicKey(programId),
-        data: Buffer.from([0]), // Initialize discriminator
+        data: buildInitializeVmStateInstructionData(0),
       });
       tx.add(initVmStateIx);
     }
@@ -685,7 +685,7 @@ export async function deployLargeProgramToSolana(
             },
           ],
           programId: programId,
-          data: Buffer.from([0]), // Initialize discriminator
+          data: buildInitializeVmStateInstructionData(0),
         }),
       );
       vmStateTransaction.feePayer = deployerKeypair.publicKey;
@@ -734,10 +734,9 @@ export async function deployLargeProgramToSolana(
     initTransaction.add(createAccountInstruction);
 
     // Add InitLargeProgram instruction (discriminator 4 + expected_size as u32)
-    const initInstructionData = Buffer.concat([
-      Buffer.from([4]), // InitLargeProgram discriminator
-      Buffer.from(new Uint32Array([bytecode.length]).buffer), // expected_size as little-endian u32
-    ]);
+    const initInstructionData = createInitLargeProgramInstructionData(
+      bytecode.length,
+    );
 
     const initLargeProgramInstruction = new TransactionInstruction({
       keys: [
@@ -863,10 +862,7 @@ export async function deployLargeProgramToSolana(
       }
 
       // Add AppendBytecode instruction (discriminator 5 + chunk data)
-      const appendInstructionData = Buffer.concat([
-        Buffer.from([5]), // AppendBytecode discriminator
-        chunk,
-      ]);
+      const appendInstructionData = createAppendBytecodeInstructionData(chunk);
 
       const appendBytecodeInstruction = new TransactionInstruction({
         keys: [
@@ -972,6 +968,8 @@ export async function deployLargeProgramOptimizedToSolana(
     network?: string;
     maxRetries?: number;
     fiveVMProgramId?: string;
+    vmStateAccount?: string;
+    exportMetadata?: ExportMetadataInput;
     progressCallback?: (transaction: number, total: number) => void;
   } = {},
 ): Promise<{
@@ -1014,6 +1012,9 @@ export async function deployLargeProgramOptimizedToSolana(
           debug: options.debug,
           network: options.network,
           maxRetries: options.maxRetries,
+          fiveVMProgramId: options.fiveVMProgramId,
+          vmStateAccount: options.vmStateAccount,
+          exportMetadata: options.exportMetadata,
         },
       );
     }
@@ -1031,7 +1032,7 @@ export async function deployLargeProgramOptimizedToSolana(
     const scriptAccount = scriptKeypair.publicKey.toString();
 
     // Calculate full account size upfront
-    const SCRIPT_HEADER_SIZE = 128; // FIVEScriptHeaderV2::LEN
+    const SCRIPT_HEADER_SIZE = 64; // ScriptAccountHeader::LEN
     const totalAccountSize = SCRIPT_HEADER_SIZE + bytecode.length;
     const rentLamports =
       await connection.getMinimumBalanceForRentExemption(totalAccountSize);
@@ -1092,7 +1093,7 @@ export async function deployLargeProgramOptimizedToSolana(
           },
         ],
         programId: programId,
-        data: Buffer.from([0]), // Initialize discriminator
+        data: buildInitializeVmStateInstructionData(0),
       }),
     );
     vmStateTransaction.feePayer = deployerKeypair.publicKey;
@@ -1159,13 +1160,10 @@ export async function deployLargeProgramOptimizedToSolana(
     });
     initTransaction.add(createAccountInstruction);
 
-    const sizeBuffer = Buffer.allocUnsafe(4);
-    sizeBuffer.writeUInt32LE(bytecode.length, 0);
-    const initInstructionData = Buffer.concat([
-      Buffer.from([4]), // InitLargeProgramWithChunk discriminator (same as InitLargeProgram)
-      sizeBuffer,
+    const initInstructionData = createInitLargeProgramInstructionData(
+      bytecode.length,
       firstChunk,
-    ]);
+    );
 
     const initLargeProgramWithChunkInstruction = new TransactionInstruction({
       keys: [
@@ -1268,10 +1266,9 @@ export async function deployLargeProgramOptimizedToSolana(
             );
           }
 
-          const singleChunkData = Buffer.concat([
-            Buffer.from([5]), // AppendBytecode discriminator
-            Buffer.from(chunkGroup[0]),
-          ]);
+          const singleChunkData = createAppendBytecodeInstructionData(
+            chunkGroup[0],
+          );
 
           appendInstruction = new TransactionInstruction({
             keys: [
@@ -1387,7 +1384,7 @@ export async function deployLargeProgramOptimizedToSolana(
           },
         ],
         programId: programId,
-        data: Buffer.from([7]), // FinalizeScript discriminator
+        data: createFinalizeScriptInstructionData(),
       }),
     );
     finalizeTransaction.feePayer = deployerKeypair.publicKey;
@@ -1619,3 +1616,35 @@ function createMultiChunkInstructionData(chunks: Uint8Array[]): Buffer {
 
   return Buffer.concat(buffers);
 }
+
+function buildInitializeVmStateInstructionData(bump: number = 0): Buffer {
+  return Buffer.from([0, bump & 0xff]);
+}
+
+function createInitLargeProgramInstructionData(
+  expectedSize: number,
+  firstChunk?: Uint8Array,
+): Buffer {
+  const sizeBuffer = Buffer.allocUnsafe(4);
+  sizeBuffer.writeUInt32LE(expectedSize, 0);
+  const parts = [Buffer.from([4]), sizeBuffer];
+  if (firstChunk && firstChunk.length > 0) {
+    parts.push(Buffer.from(firstChunk));
+  }
+  return Buffer.concat(parts);
+}
+
+function createAppendBytecodeInstructionData(chunk: Uint8Array): Buffer {
+  return Buffer.concat([Buffer.from([5]), Buffer.from(chunk)]);
+}
+
+function createFinalizeScriptInstructionData(): Buffer {
+  return Buffer.from([7]);
+}
+
+export const __deployTestUtils = {
+  buildInitializeVmStateInstructionData,
+  createInitLargeProgramInstructionData,
+  createAppendBytecodeInstructionData,
+  createFinalizeScriptInstructionData,
+};

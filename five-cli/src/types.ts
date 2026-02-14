@@ -255,6 +255,8 @@ export interface DeploymentResult {
   deploymentCost?: number;
   error?: string;
   logs?: string[];
+  deploymentMode?: 'regular' | 'chunked' | 'optimized';
+  fallbackReason?: 'tx_too_large' | 'simulation_failed' | 'explicit_force';
 }
 
 // Project Management Types
