@@ -358,8 +358,8 @@ export async function generateExecuteInstruction(
   const vmStatePDA = await PDAUtils.deriveVMStatePDA(programId);
   const vmState = options.vmStateAccount || vmStatePDA.address;
 
-  let adminAccount = options.adminAccount;
-  if (!adminAccount && connection) {
+  let feeRecipientAccount = options.adminAccount;
+  if (!feeRecipientAccount && connection) {
     try {
       let vmStateAddress = options.vmStateAccount;
       if (!vmStateAddress) {
@@ -372,14 +372,14 @@ export async function generateExecuteInstruction(
 
       if (info) {
         const data = new Uint8Array(info.data);
-        if (data.length >= 32) {
-          const authorityPubkey = new PublicKey(data.slice(0, 32));
-          adminAccount = authorityPubkey.toBase58();
+        if (data.length >= 64) {
+          const recipientPubkey = new PublicKey(data.slice(32, 64));
+          feeRecipientAccount = recipientPubkey.toBase58();
         }
       }
     } catch (error) {
       if (options.debug) {
-        console.warn(`[FiveSDK] Failed to resolve admin account from VM state:`, error);
+        console.warn(`[FiveSDK] Failed to resolve fee recipient from VM state:`, error);
       }
     }
   }
@@ -444,7 +444,7 @@ export async function generateExecuteInstruction(
     const abiMetadata = abiAccountMetadata.get(acc);
     const passedMetadata = options.accountMetadata?.get(acc);
     const metadata = abiMetadata || passedMetadata;
-    const isSigner = metadata ? metadata.isSigner : (index === 0 && adminAccount ? true : false);
+    const isSigner = metadata ? metadata.isSigner : (index === 0 && feeRecipientAccount ? true : false);
     const isWritable = metadata ? metadata.isWritable : true;
 
     return {
@@ -456,11 +456,11 @@ export async function generateExecuteInstruction(
 
   instructionAccounts.push(...userInstructionAccounts);
 
-  if (adminAccount) {
-    const existingAdminIdx = instructionAccounts.findIndex(a => a.pubkey === adminAccount);
+  if (feeRecipientAccount) {
+    const existingAdminIdx = instructionAccounts.findIndex(a => a.pubkey === feeRecipientAccount);
     if (existingAdminIdx === -1) {
       instructionAccounts.push({
-        pubkey: adminAccount,
+        pubkey: feeRecipientAccount,
         isSigner: false,
         isWritable: true,
       });
@@ -491,7 +491,8 @@ export async function generateExecuteInstruction(
     estimatedComputeUnits:
       options.computeUnitLimit ||
       estimateComputeUnits(functionIndex, parameters.length),
-    adminAccount: adminAccount,
+    adminAccount: feeRecipientAccount,
+    feeRecipientAccount: feeRecipientAccount,
   };
 
   const shouldEstimateFees = options.estimateFees !== false && connection;
@@ -600,6 +601,11 @@ export async function executeOnSolana(
     }
 
     const signerPubkey = signerKeypair.publicKey.toString();
+    if (executionData.adminAccount && executionData.adminAccount === signerPubkey) {
+      throw new Error(
+        `Fee payer cannot equal fee recipient (${signerPubkey}). Configure a distinct fee recipient account.`,
+      );
+    }
     let signerFound = false;
     for (const meta of accountKeys) {
       if (meta.pubkey === signerPubkey) {

@@ -35,8 +35,8 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
     let fee = vm_state.execute_fee_lamports as u64;
     if fee > 0 {
-        let admin_key = vm_state.authority;
-        let mut admin_account: Option<&AccountInfo> = None;
+        let fee_recipient_key = vm_state.fee_recipient;
+        let mut fee_recipient_account: Option<&AccountInfo> = None;
         let mut payer_account: Option<&AccountInfo> = None;
         let mut system_program: Option<&AccountInfo> = None;
 
@@ -45,8 +45,8 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
             if account.key().as_ref() == &[0u8; 32] {
                 system_program = Some(account);
             }
-            if *account.key() == admin_key {
-                admin_account = Some(account);
+            if *account.key() == fee_recipient_key && account.is_writable() {
+                fee_recipient_account = Some(account);
             }
             if account.is_signer() && account.is_writable() {
                 payer_account = match payer_account {
@@ -56,7 +56,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
             }
         }
 
-        let recipient = admin_account.ok_or(ProgramError::Custom(1107))?;
+        let recipient = fee_recipient_account.ok_or(ProgramError::Custom(1110))?;
         let payer = payer_account.ok_or(ProgramError::MissingRequiredSignature)?;
         transfer_fee(program_id, payer, recipient, fee, system_program)?;
     }

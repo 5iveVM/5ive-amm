@@ -9,6 +9,10 @@ use crate::{
 
 use super::{require_min_accounts, require_signer};
 
+const ERR_FEE_RECIPIENT_MISSING: u32 = 1110;
+const ERR_FEE_PAYER_EQUALS_RECIPIENT: u32 = 1111;
+const ERR_INVALID_FEE_RECIPIENT: u32 = 1113;
+
 /// Transfer fee from payer to recipient
 pub fn transfer_fee(
     program_id: &Pubkey,
@@ -17,8 +21,11 @@ pub fn transfer_fee(
     amount: u64,
     system_program: Option<&AccountInfo>,
 ) -> ProgramResult {
-    if amount == 0 || payer.key() == recipient.key() {
+    if amount == 0 {
         return Ok(());
+    }
+    if payer.key() == recipient.key() {
+        return Err(ProgramError::Custom(ERR_FEE_PAYER_EQUALS_RECIPIENT));
     }
 
     if payer.lamports() < amount {
@@ -87,10 +94,12 @@ pub fn collect_deploy_fee(
 
     let deploy_fee_lamports = vm_state.deploy_fee_lamports as u64;
     if deploy_fee_lamports > 0 {
-        let admin_key = vm_state.authority;
-        let admin_account = accounts.iter().find(|a| *a.key() == admin_key);
+        let recipient_key = vm_state.fee_recipient;
+        let recipient_account = accounts
+            .iter()
+            .find(|a| *a.key() == recipient_key && a.is_writable());
 
-        if let Some(recipient) = admin_account {
+        if let Some(recipient) = recipient_account {
             let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
             transfer_fee(
                 program_id,
@@ -100,8 +109,7 @@ pub fn collect_deploy_fee(
                 system_program,
             )?;
         } else {
-            // If fee is required but admin not present, fail
-            return Err(ProgramError::MissingRequiredSignature);
+            return Err(ProgramError::Custom(ERR_FEE_RECIPIENT_MISSING));
         }
     }
     Ok(())
@@ -138,6 +146,35 @@ pub fn set_fees(
     vm_state.execute_fee_lamports = execute_fee_lamports;
 
     debug_log!("Fees updated successfully");
+    Ok(())
+}
+
+/// Set fee recipient treasury account (authority only).
+pub fn set_fee_recipient(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    fee_recipient: Pubkey,
+) -> ProgramResult {
+    require_min_accounts(accounts, 2)?;
+    if fee_recipient == Pubkey::default() {
+        return Err(ProgramError::Custom(ERR_INVALID_FEE_RECIPIENT));
+    }
+
+    let vm_state_account = &accounts[0];
+    let authority = &accounts[1];
+
+    verify_canonical_vm_state_account(vm_state_account, program_id)?;
+    verify_program_owned(vm_state_account, program_id)?;
+    require_signer(authority)?;
+
+    let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
+    let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
+    if vm_state.authority != *authority.key() {
+        return Err(ProgramError::Custom(0));
+    }
+
+    vm_state.fee_recipient = fee_recipient;
+    debug_log!("Fee recipient updated successfully");
     Ok(())
 }
 

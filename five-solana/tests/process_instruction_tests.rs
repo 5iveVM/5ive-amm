@@ -293,7 +293,7 @@ mod tests {
         let admin_account = create_account(
             &admin_key,
             false,
-            false,
+            true,
             &mut admin_lamports,
             &mut admin_data,
             &program_id,
@@ -373,7 +373,7 @@ mod tests {
             &[script_account, vm_account, payer_account],
             &[],
         );
-        assert!(matches!(result, Err(ProgramError::Custom(1107))));
+        assert!(matches!(result, Err(ProgramError::Custom(1110))));
     }
 
     #[test]
@@ -453,7 +453,7 @@ mod tests {
         let admin_account = create_account(
             &admin_key,
             false,
-            false,
+            true,
             &mut admin_lamports,
             &mut admin_data,
             &program_id,

@@ -6,19 +6,22 @@ export async function getFees(connection: any, fiveVMProgramId?: string): Promis
   deployFeeBps: number;
   executeFeeBps: number;
   adminAccount: string | null;
+  feeRecipientAccount: string | null;
 }> {
   try {
     const state = await getVMState(connection, fiveVMProgramId);
     return {
       deployFeeBps: state.deployFeeBps,
       executeFeeBps: state.executeFeeBps,
-      adminAccount: state.authority
+      adminAccount: state.authority,
+      feeRecipientAccount: state.feeRecipient
     };
   } catch (error) {
     return {
       deployFeeBps: 0,
       executeFeeBps: 0,
-      adminAccount: null
+      adminAccount: null,
+      feeRecipientAccount: null
     };
   }
 }
@@ -112,6 +115,7 @@ export async function getFeeInformation(
   deploy: FeeInformation;
   execute: FeeInformation;
   adminAccount: string | null;
+  feeRecipientAccount: string | null;
   feesEnabled: boolean;
 }> {
   try {
@@ -127,6 +131,7 @@ export async function getFeeInformation(
       deploy: deployFee,
       execute: executeFee,
       adminAccount: vmState.authority,
+      feeRecipientAccount: vmState.feeRecipient,
       feesEnabled,
     };
   } catch (error) {
@@ -141,6 +146,7 @@ export async function getFeeInformation(
       deploy: deployFee,
       execute: executeFee,
       adminAccount: null,
+      feeRecipientAccount: null,
       feesEnabled: false,
     };
   }

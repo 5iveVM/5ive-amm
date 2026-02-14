@@ -9,30 +9,37 @@ use pinocchio::pubkey::Pubkey;
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct FIVEVMState {
     pub authority: Pubkey,
+    pub fee_recipient: Pubkey,
     pub script_count: u64,
     pub deploy_fee_lamports: u32,  // Flat deploy fee in lamports
     pub execute_fee_lamports: u32, // Flat execute fee in lamports
     pub is_initialized: u8,   // Using u8 instead of bool for bytemuck compatibility
-    pub _padding: [u8; 7],    // Align to 8 bytes
+    pub version: u8,
+    pub _padding: [u8; 6],    // Align to 8 bytes
 }
 
 impl FIVEVMState {
-    pub const LEN: usize = 32 + 8 + 4 + 4 + 1 + 7; // 56 bytes
+    pub const VERSION: u8 = 1;
+    pub const LEN: usize = 32 + 32 + 8 + 4 + 4 + 1 + 1 + 6; // 88 bytes
 
     pub fn new() -> Self {
         Self {
             authority: Pubkey::default(),
+            fee_recipient: Pubkey::default(),
             script_count: 0,
             deploy_fee_lamports: 0,
             execute_fee_lamports: 0,
             is_initialized: 0,
-            _padding: [0; 7],
+            version: Self::VERSION,
+            _padding: [0; 6],
         }
     }
 
     pub fn initialize(&mut self, authority: Pubkey) {
         self.authority = authority;
+        self.fee_recipient = authority;
         self.is_initialized = 1;
+        self.version = Self::VERSION;
         self.script_count = 0;
         self.deploy_fee_lamports = 10_000;
         // Targeted baseline: ~$50k/month at 3 TPS when SOL is ~$75.
@@ -53,8 +60,11 @@ impl FIVEVMState {
         if data.len() < Self::LEN {
             return Err(ProgramError::Custom(8001));
         }
-
-        Ok(bytemuck::from_bytes(&data[..Self::LEN]))
+        let state = bytemuck::from_bytes::<Self>(&data[..Self::LEN]);
+        if state.version != Self::VERSION {
+            return Err(ProgramError::Custom(8012));
+        }
+        Ok(state)
     }
 
     #[allow(dead_code)]
@@ -62,7 +72,14 @@ impl FIVEVMState {
         if data.len() < Self::LEN {
             return Err(ProgramError::Custom(8001));
         }
-        Ok(bytemuck::from_bytes_mut(&mut data[..Self::LEN]))
+        let state = bytemuck::from_bytes_mut::<Self>(&mut data[..Self::LEN]);
+        if state.version == 0 {
+            // Deterministically stamp version during controlled migration paths.
+            state.version = Self::VERSION;
+        } else if state.version != Self::VERSION {
+            return Err(ProgramError::Custom(8012));
+        }
+        Ok(state)
     }
 }
 
@@ -473,6 +490,8 @@ mod tests {
 
         assert!(vm_state.is_initialized());
         assert_eq!(vm_state.authority, authority);
+        assert_eq!(vm_state.fee_recipient, authority);
+        assert_eq!(vm_state.version, FIVEVMState::VERSION);
         assert_eq!(vm_state.deploy_fee_lamports, 10_000);
         assert_eq!(vm_state.execute_fee_lamports, 85_734);
     }

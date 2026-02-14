@@ -469,13 +469,21 @@ async function executeScriptAccount(scriptAccount: string, options: any, context
           if (context.options.verbose || options.debug) {
             console.log('\n' + section('VM Fees'));
             console.log(keyValue('Execution Fee', `${(fees.executeFeeBps / 100).toFixed(2)}%`));
-            if (fees.adminAccount) {
-              console.log(keyValue('Admin Account', fees.adminAccount));
+            if (fees.feeRecipientAccount) {
+              console.log(keyValue('Fee Recipient', fees.feeRecipientAccount));
             }
           }
 
-          // Attach admin account to options
-          options.adminAccount = fees.adminAccount;
+          // Attach fee recipient account to options
+          options.adminAccount = fees.feeRecipientAccount || fees.adminAccount;
+          if (
+            options.adminAccount &&
+            deployerKeypair.publicKey.toBase58() === options.adminAccount
+          ) {
+            throw new Error(
+              `Fee payer cannot equal fee recipient (${options.adminAccount}). Use a distinct treasury recipient.`,
+            );
+          }
         }
       } catch (e) {
         if (context.options.debug) {
@@ -579,13 +587,21 @@ async function executeOnChain(inputFile: string, options: any, context: CommandC
         if (context.options.verbose || options.debug) {
           console.log('\n' + section('VM Fees'));
           console.log(keyValue('Execution Fee', `${(fees.executeFeeBps / 100).toFixed(2)}%`));
-          if (fees.adminAccount) {
-            console.log(keyValue('Admin Account', fees.adminAccount));
+          if (fees.feeRecipientAccount) {
+            console.log(keyValue('Fee Recipient', fees.feeRecipientAccount));
           }
         }
 
-        // Attach admin account to options
-        options.adminAccount = fees.adminAccount;
+        // Attach fee recipient account to options
+        options.adminAccount = fees.feeRecipientAccount || fees.adminAccount;
+        if (
+          options.adminAccount &&
+          signerKeypair.publicKey.toBase58() === options.adminAccount
+        ) {
+          throw new Error(
+            `Fee payer cannot equal fee recipient (${options.adminAccount}). Use a distinct treasury recipient.`,
+          );
+        }
       }
     } catch (e) {
       if (context.options.debug) {

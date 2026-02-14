@@ -26,6 +26,12 @@ mod deployment_tests {
         [seed; 32]
     }
 
+    fn canonical_vm_key(program_id: &Pubkey) -> Pubkey {
+        let (pda, _bump) = five_vm_mito::utils::find_program_address_offchain(&[b"vm_state"], program_id)
+            .expect("canonical vm_state pda");
+        pda
+    }
+
     fn create_vm_state(admin_key: Pubkey) -> (u64, Vec<u8>) {
         let vm_lamports = 0u64;
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
@@ -46,7 +52,7 @@ mod deployment_tests {
         let admin_key = key(2);
         let owner_key = key(3);
         let script_key = key(4);
-        let vm_key = key(5);
+        let vm_key = canonical_vm_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
 
@@ -117,7 +123,7 @@ mod deployment_tests {
         let admin_key = key(11);
         let owner_key = key(12); // Not admin
         let script_key = key(13);
-        let vm_key = key(14);
+        let vm_key = canonical_vm_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
 
@@ -235,7 +241,7 @@ mod deployment_tests {
         let admin_key = key(31);
         let owner_key = key(32);
         let script_key = key(33);
-        let vm_key = key(34);
+        let vm_key = canonical_vm_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
 
@@ -293,7 +299,7 @@ mod deployment_tests {
         let admin_key = key(41);
         let owner_key = key(42);
         let script_key = key(43);
-        let vm_key = key(44);
+        let vm_key = canonical_vm_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
 
@@ -354,7 +360,7 @@ mod deployment_tests {
         let admin_key = key(51);
         let owner_key = key(52);
         let script_key = key(53);
-        let vm_key = key(54);
+        let vm_key = canonical_vm_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
 
@@ -424,7 +430,7 @@ mod deployment_tests {
         let admin_key = key(61);
         let owner_key = key(62);
         let script_key = key(63);
-        let vm_key = key(64);
+        let vm_key = canonical_vm_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
         let expected_size = 5;
@@ -480,7 +486,7 @@ mod deployment_tests {
         let admin_key = key(71);
         let owner_key = key(72);
         let script_key = key(73);
-        let vm_key = key(74);
+        let vm_key = canonical_vm_key(&program_id);
 
         let (mut vm_lamports, mut vm_data) = create_vm_state(admin_key);
 

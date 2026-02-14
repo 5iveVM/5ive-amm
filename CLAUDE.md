@@ -673,3 +673,46 @@ solana program deploy target/deploy/five.so --url http://127.0.0.1:8899
 
 ### Program IDs
 - Five VM Program: `HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg` (localnet)
+
+## Mandatory Fee Enforcement (Updated)
+
+Fee payment is now strict for non-zero deploy/execute fees:
+- Fee payer **must not** equal fee recipient.
+- Fee recipient account must be present and writable on fee-bearing txs.
+- System Program account (`11111111111111111111111111111111`) must be present for fee CPI transfers.
+
+VM state now stores:
+- `authority` (admin authority)
+- `fee_recipient` (treasury recipient)
+- fee lamports + initialization/version fields
+
+### Devnet/localnet fee recipient management
+
+```bash
+# Set deploy + execute fees
+node scripts/vm-state-set-fees.mjs \
+  --rpc-url https://api.devnet.solana.com \
+  --program-id 4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d \
+  --vm-state 8ip3qGGETf8774jo6kXbsTTrMm5V9bLuGC4znmyZjT3z \
+  --keypair ~/.config/solana/id.json \
+  --deploy-fee 10000 \
+  --execute-fee 85734
+
+# Set explicit fee recipient treasury
+node scripts/vm-state-set-fee-recipient.mjs \
+  --rpc-url https://api.devnet.solana.com \
+  --program-id 4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d \
+  --vm-state 8ip3qGGETf8774jo6kXbsTTrMm5V9bLuGC4znmyZjT3z \
+  --keypair ~/.config/solana/id.json \
+  --fee-recipient <TREASURY_PUBKEY>
+
+# Verify canonical vm_state fields (authority + fee recipient + fees)
+node scripts/vm-state-parity-check.mjs \
+  --rpc-url https://api.devnet.solana.com \
+  --program-id 4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d \
+  --vm-state 8ip3qGGETf8774jo6kXbsTTrMm5V9bLuGC4znmyZjT3z \
+  --expected-authority <AUTHORITY_PUBKEY> \
+  --expected-fee-recipient <TREASURY_PUBKEY> \
+  --expected-deploy-fee 10000 \
+  --expected-execute-fee 85734
+```

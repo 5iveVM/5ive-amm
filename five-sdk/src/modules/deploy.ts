@@ -21,6 +21,36 @@ interface ExportMetadataInput {
   interfaces?: ExportMetadataInterfaceInput[];
 }
 
+async function resolveFeeRecipientAccount(
+  connection: any,
+  vmStateAddress: string,
+  fallback?: string,
+): Promise<{ feeRecipientAccount?: string; deployFeeLamports?: number }> {
+  if (fallback) {
+    return { feeRecipientAccount: fallback };
+  }
+  if (!connection) {
+    return {};
+  }
+  try {
+    const { PublicKey } = await import("@solana/web3.js");
+    const info = await connection.getAccountInfo(new PublicKey(vmStateAddress), "confirmed");
+    if (!info) {
+      return {};
+    }
+    const data = new Uint8Array(info.data);
+    if (data.length < 88) {
+      return {};
+    }
+    const feeRecipient = new PublicKey(data.slice(32, 64)).toBase58();
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const deployFeeLamports = view.getUint32(72, true);
+    return { feeRecipientAccount: feeRecipient, deployFeeLamports };
+  } catch {
+    return {};
+  }
+}
+
 export async function generateDeployInstruction(
   bytecode: FiveBytecode,
   deployer: string,
@@ -75,22 +105,31 @@ export async function generateDeployInstruction(
   const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
   const rentLamports = await RentCalculator.calculateRentExemption(totalAccountSize);
 
+  const { feeRecipientAccount, deployFeeLamports } = await resolveFeeRecipientAccount(
+    connection,
+    vmStatePDA,
+    options.adminAccount,
+  );
+  if (feeRecipientAccount && feeRecipientAccount === deployer) {
+    throw new Error(`Fee payer cannot equal fee recipient (${deployer}). Configure a distinct fee recipient account.`);
+  }
+
   const deployAccounts = [
     { pubkey: scriptAccount, isSigner: false, isWritable: true },
     { pubkey: vmStatePDA, isSigner: false, isWritable: true },
     { pubkey: deployer, isSigner: true, isWritable: true },
-    {
-      pubkey: "11111111111111111111111111111112",
-      isSigner: false,
-      isWritable: false,
-    },
   ];
 
-  if (options.adminAccount) {
+  if ((deployFeeLamports || 0) > 0 && feeRecipientAccount) {
     deployAccounts.push({
-      pubkey: options.adminAccount,
+      pubkey: feeRecipientAccount,
       isSigner: false,
       isWritable: true,
+    });
+    deployAccounts.push({
+      pubkey: "11111111111111111111111111111111",
+      isSigner: false,
+      isWritable: false,
     });
   }
 
@@ -120,7 +159,7 @@ export async function generateDeployInstruction(
         owner: programId,
       },
     },
-    adminAccount: options.adminAccount,
+    adminAccount: feeRecipientAccount || options.adminAccount,
   };
 
   if (options.debug) {
@@ -131,7 +170,7 @@ export async function generateDeployInstruction(
       rentCost: rentLamports,
       deployDataSize: instructionData.length,
       exportMetadataSize: exportMetadata.length,
-      adminAccount: options.adminAccount,
+      adminAccount: feeRecipientAccount || options.adminAccount,
     });
   }
 
@@ -291,6 +330,7 @@ export async function deployToSolana(
     maxRetries?: number;
     fiveVMProgramId?: string;
     vmStateAccount?: string;
+    adminAccount?: string;
     exportMetadata?: ExportMetadataInput;
   } = {},
 ): Promise<{
@@ -351,7 +391,21 @@ export async function deployToSolana(
     );
     const vmStatePubkey = vmStateResolution.vmStatePubkey;
     const vmStateRent = vmStateResolution.vmStateRent;
-
+    const feeResolution = await resolveFeeRecipientAccount(
+      connection,
+      vmStatePubkey.toString(),
+      options.adminAccount,
+    );
+    if (
+      (feeResolution.deployFeeLamports || 0) > 0 &&
+      feeResolution.feeRecipientAccount === deployerKeypair.publicKey.toString()
+    ) {
+      return {
+        success: false,
+        error: `Fee payer cannot equal fee recipient (${deployerKeypair.publicKey.toString()})`,
+        logs: [],
+      };
+    }
     if (options.debug) {
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
       console.log(`[FiveSDK] VM State Account: ${vmStatePubkey.toString()}`);
@@ -406,6 +460,20 @@ export async function deployToSolana(
           isSigner: true,
           isWritable: true,
         },
+        ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
+          ? [
+              {
+                pubkey: new PublicKey(feeResolution.feeRecipientAccount),
+                isSigner: false,
+                isWritable: true,
+              },
+              {
+                pubkey: SystemProgram.programId,
+                isSigner: false,
+                isWritable: false,
+              },
+            ]
+          : [],
       ],
       programId: new PublicKey(programId),
       data: instructionDataBuffer,
@@ -509,6 +577,7 @@ export async function deployLargeProgramToSolana(
     fiveVMProgramId?: string;
     progressCallback?: (chunk: number, total: number) => void;
     vmStateAccount?: string;
+    adminAccount?: string;
     forceChunkedSmallProgram?: boolean;
   } = {},
 ): Promise<{
@@ -549,6 +618,7 @@ export async function deployLargeProgramToSolana(
           maxRetries: options.maxRetries,
           fiveVMProgramId: options.fiveVMProgramId,
           vmStateAccount: options.vmStateAccount,
+          adminAccount: options.adminAccount,
         },
       );
     }
@@ -586,6 +656,21 @@ export async function deployLargeProgramToSolana(
     );
     const vmStatePubkey = vmStateResolution.vmStatePubkey;
     const vmStateRent = vmStateResolution.vmStateRent;
+    const feeResolution = await resolveFeeRecipientAccount(
+      connection,
+      vmStatePubkey.toString(),
+      options.adminAccount,
+    );
+    if (
+      (feeResolution.deployFeeLamports || 0) > 0 &&
+      feeResolution.feeRecipientAccount === deployerKeypair.publicKey.toString()
+    ) {
+      return {
+        success: false,
+        error: `Fee payer cannot equal fee recipient (${deployerKeypair.publicKey.toString()})`,
+        logs: [],
+      };
+    }
 
     if (options.debug) {
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
@@ -642,6 +727,20 @@ export async function deployLargeProgramToSolana(
           isSigner: false,
           isWritable: true,
         },
+        ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
+          ? [
+              {
+                pubkey: new PublicKey(feeResolution.feeRecipientAccount),
+                isSigner: false,
+                isWritable: true,
+              },
+              {
+                pubkey: SystemProgram.programId,
+                isSigner: false,
+                isWritable: false,
+              },
+            ]
+          : [],
       ],
       programId: programId,
       data: initInstructionData,
@@ -768,6 +867,20 @@ export async function deployLargeProgramToSolana(
             isSigner: false,
             isWritable: true,
           },
+          ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
+            ? [
+                {
+                  pubkey: new PublicKey(feeResolution.feeRecipientAccount),
+                  isSigner: false,
+                  isWritable: true,
+                },
+                {
+                  pubkey: SystemProgram.programId,
+                  isSigner: false,
+                  isWritable: false,
+                },
+              ]
+            : [],
         ],
         programId: programId,
         data: appendInstructionData,
@@ -856,6 +969,7 @@ export async function deployLargeProgramOptimizedToSolana(
     maxRetries?: number;
     fiveVMProgramId?: string;
     vmStateAccount?: string;
+    adminAccount?: string;
     exportMetadata?: ExportMetadataInput;
     progressCallback?: (transaction: number, total: number) => void;
     forceChunkedSmallProgram?: boolean;
@@ -902,6 +1016,7 @@ export async function deployLargeProgramOptimizedToSolana(
           maxRetries: options.maxRetries,
           fiveVMProgramId: options.fiveVMProgramId,
           vmStateAccount: options.vmStateAccount,
+          adminAccount: options.adminAccount,
           exportMetadata: options.exportMetadata,
         },
       );
@@ -940,6 +1055,21 @@ export async function deployLargeProgramOptimizedToSolana(
     );
     const vmStatePubkey = vmStateResolution.vmStatePubkey;
     const vmStateRent = vmStateResolution.vmStateRent;
+    const feeResolution = await resolveFeeRecipientAccount(
+      connection,
+      vmStatePubkey.toString(),
+      options.adminAccount,
+    );
+    if (
+      (feeResolution.deployFeeLamports || 0) > 0 &&
+      feeResolution.feeRecipientAccount === deployerKeypair.publicKey.toString()
+    ) {
+      return {
+        success: false,
+        error: `Fee payer cannot equal fee recipient (${deployerKeypair.publicKey.toString()})`,
+        logs: [],
+      };
+    }
 
     if (options.debug) {
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
@@ -1006,6 +1136,20 @@ export async function deployLargeProgramOptimizedToSolana(
           isSigner: false,
           isWritable: true,
         },
+        ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
+          ? [
+              {
+                pubkey: new PublicKey(feeResolution.feeRecipientAccount),
+                isSigner: false,
+                isWritable: true,
+              },
+              {
+                pubkey: SystemProgram.programId,
+                isSigner: false,
+                isWritable: false,
+              },
+            ]
+          : [],
       ],
       programId: programId,
       data: initInstructionData,
@@ -1111,6 +1255,20 @@ export async function deployLargeProgramOptimizedToSolana(
                 isSigner: false,
                 isWritable: true,
               },
+              ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
+                ? [
+                    {
+                      pubkey: new PublicKey(feeResolution.feeRecipientAccount),
+                      isSigner: false,
+                      isWritable: true,
+                    },
+                    {
+                      pubkey: SystemProgram.programId,
+                      isSigner: false,
+                      isWritable: false,
+                    },
+                  ]
+                : [],
             ],
             programId: programId,
             data: singleChunkData,
@@ -1137,6 +1295,20 @@ export async function deployLargeProgramOptimizedToSolana(
                 isSigner: false,
                 isWritable: true,
               },
+              ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
+                ? [
+                    {
+                      pubkey: new PublicKey(feeResolution.feeRecipientAccount),
+                      isSigner: false,
+                      isWritable: true,
+                    },
+                    {
+                      pubkey: SystemProgram.programId,
+                      isSigner: false,
+                      isWritable: false,
+                    },
+                  ]
+                : [],
             ],
             programId: programId,
             data: multiChunkData,
@@ -1206,6 +1378,20 @@ export async function deployLargeProgramOptimizedToSolana(
             isSigner: true,
             isWritable: true,
           },
+          ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
+            ? [
+                {
+                  pubkey: new PublicKey(feeResolution.feeRecipientAccount),
+                  isSigner: false,
+                  isWritable: true,
+                },
+                {
+                  pubkey: SystemProgram.programId,
+                  isSigner: false,
+                  isWritable: false,
+                },
+              ]
+            : [],
         ],
         programId: programId,
         data: createFinalizeScriptInstructionData(),

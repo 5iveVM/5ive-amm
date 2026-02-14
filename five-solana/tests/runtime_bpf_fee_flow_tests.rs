@@ -38,20 +38,13 @@ async fn deploy_and_execute_fees_are_paid_to_admin() {
 
     let owner = Keypair::new();
     let admin = Keypair::new();
-    let vm_state = Keypair::new();
+    let (vm_state, vm_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     let script = Keypair::new();
 
     let deploy_fee_lamports = 500u32;
     let execute_fee_lamports = 200u32;
 
-    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
-    {
-        let state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
-            .expect("vm state layout");
-        state.initialize(admin.pubkey().to_bytes());
-        state.deploy_fee_lamports = deploy_fee_lamports;
-        state.execute_fee_lamports = execute_fee_lamports;
-    }
+    let vm_state_data = vec![0u8; FIVEVMState::LEN];
 
     let bytecode = script_with_header(1, 1, &[HALT]);
     let script_account_len = ScriptAccountHeader::LEN + bytecode.len();
@@ -77,7 +70,7 @@ async fn deploy_and_execute_fees_are_paid_to_admin() {
         },
     );
     program_test.add_account(
-        vm_state.pubkey(),
+        vm_state,
         Account {
             lamports: 10_000_000,
             data: vm_state_data,
@@ -98,6 +91,59 @@ async fn deploy_and_execute_fees_are_paid_to_admin() {
     );
 
     let mut ctx = program_test.start_with_context().await;
+
+    let init_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(vm_state, false),
+            AccountMeta::new_readonly(admin.pubkey(), true),
+        ],
+        data: vec![0, vm_bump],
+    };
+    let init_tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &admin],
+        ctx.last_blockhash,
+    );
+    ctx.banks_client
+        .process_transaction(init_tx)
+        .await
+        .expect("initialize vm_state must succeed");
+
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_latest_blockhash()
+        .await
+        .expect("latest blockhash for set_fees");
+    let mut set_fees_data = Vec::with_capacity(9);
+    set_fees_data.push(6);
+    set_fees_data.extend_from_slice(&deploy_fee_lamports.to_le_bytes());
+    set_fees_data.extend_from_slice(&execute_fee_lamports.to_le_bytes());
+    let set_fees_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(vm_state, false),
+            AccountMeta::new_readonly(admin.pubkey(), true),
+        ],
+        data: set_fees_data,
+    };
+    let set_fees_tx = Transaction::new_signed_with_payer(
+        &[set_fees_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &admin],
+        ctx.last_blockhash,
+    );
+    ctx.banks_client
+        .process_transaction(set_fees_tx)
+        .await
+        .expect("set_fees must succeed");
+
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_latest_blockhash()
+        .await
+        .expect("latest blockhash for deploy");
 
     let deploy_fee_expected = deploy_fee_lamports as u64;
     let execute_fee_expected = execute_fee_lamports as u64;
@@ -121,7 +167,7 @@ async fn deploy_and_execute_fees_are_paid_to_admin() {
         program_id,
         accounts: vec![
             AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state.pubkey(), false),
+            AccountMeta::new(vm_state, false),
             AccountMeta::new(owner.pubkey(), true),
             AccountMeta::new(admin.pubkey(), false),
             AccountMeta::new_readonly(system_program::id(), false),
@@ -174,7 +220,7 @@ async fn deploy_and_execute_fees_are_paid_to_admin() {
         program_id,
         accounts: vec![
             AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state.pubkey(), false),
+            AccountMeta::new(vm_state, false),
             AccountMeta::new(owner.pubkey(), true),
             AccountMeta::new(admin.pubkey(), false),
             AccountMeta::new_readonly(system_program::id(), false),
@@ -238,19 +284,12 @@ async fn deploy_fails_when_owner_cannot_pay_deploy_fee() {
 
     let owner = Keypair::new();
     let admin = Keypair::new();
-    let vm_state = Keypair::new();
+    let (vm_state, vm_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     let script = Keypair::new();
 
     let deploy_fee_lamports = 5_000u32;
 
-    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
-    {
-        let state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
-            .expect("vm state layout");
-        state.initialize(admin.pubkey().to_bytes());
-        state.deploy_fee_lamports = deploy_fee_lamports;
-        state.execute_fee_lamports = 0;
-    }
+    let vm_state_data = vec![0u8; FIVEVMState::LEN];
 
     let bytecode = script_with_header(1, 1, &[HALT]);
     let script_account_len = ScriptAccountHeader::LEN + bytecode.len();
@@ -276,7 +315,7 @@ async fn deploy_fails_when_owner_cannot_pay_deploy_fee() {
         },
     );
     program_test.add_account(
-        vm_state.pubkey(),
+        vm_state,
         Account {
             lamports: 10_000_000,
             data: vm_state_data,
@@ -298,6 +337,59 @@ async fn deploy_fails_when_owner_cannot_pay_deploy_fee() {
 
     let mut ctx = program_test.start_with_context().await;
 
+    let init_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(vm_state, false),
+            AccountMeta::new_readonly(admin.pubkey(), true),
+        ],
+        data: vec![0, vm_bump],
+    };
+    let init_tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &admin],
+        ctx.last_blockhash,
+    );
+    ctx.banks_client
+        .process_transaction(init_tx)
+        .await
+        .expect("initialize vm_state must succeed");
+
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_latest_blockhash()
+        .await
+        .expect("latest blockhash for set_fees");
+    let mut set_fees_data = Vec::with_capacity(9);
+    set_fees_data.push(6);
+    set_fees_data.extend_from_slice(&deploy_fee_lamports.to_le_bytes());
+    set_fees_data.extend_from_slice(&0u32.to_le_bytes());
+    let set_fees_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(vm_state, false),
+            AccountMeta::new_readonly(admin.pubkey(), true),
+        ],
+        data: set_fees_data,
+    };
+    let set_fees_tx = Transaction::new_signed_with_payer(
+        &[set_fees_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &admin],
+        ctx.last_blockhash,
+    );
+    ctx.banks_client
+        .process_transaction(set_fees_tx)
+        .await
+        .expect("set_fees must succeed");
+
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_latest_blockhash()
+        .await
+        .expect("latest blockhash for deploy");
+
     let owner_before = ctx
         .banks_client
         .get_account(owner.pubkey())
@@ -317,7 +409,7 @@ async fn deploy_fails_when_owner_cannot_pay_deploy_fee() {
         program_id,
         accounts: vec![
             AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state.pubkey(), false),
+            AccountMeta::new(vm_state, false),
             AccountMeta::new(owner.pubkey(), true),
             AccountMeta::new(admin.pubkey(), false),
             AccountMeta::new_readonly(system_program::id(), false),
@@ -370,19 +462,12 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
 
     let owner = Keypair::new();
     let admin = Keypair::new();
-    let vm_state = Keypair::new();
+    let (vm_state, vm_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     let script = Keypair::new();
 
     let execute_fee_lamports = 5_000u32;
 
-    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
-    {
-        let state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
-            .expect("vm state layout");
-        state.initialize(admin.pubkey().to_bytes());
-        state.deploy_fee_lamports = 0;
-        state.execute_fee_lamports = execute_fee_lamports;
-    }
+    let vm_state_data = vec![0u8; FIVEVMState::LEN];
 
     let bytecode = script_with_header(1, 1, &[HALT]);
     let script_account_len = ScriptAccountHeader::LEN + bytecode.len();
@@ -408,7 +493,7 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
         },
     );
     program_test.add_account(
-        vm_state.pubkey(),
+        vm_state,
         Account {
             lamports: 10_000_000,
             data: vm_state_data,
@@ -430,11 +515,64 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
 
     let mut ctx = program_test.start_with_context().await;
 
+    let init_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(vm_state, false),
+            AccountMeta::new_readonly(admin.pubkey(), true),
+        ],
+        data: vec![0, vm_bump],
+    };
+    let init_tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &admin],
+        ctx.last_blockhash,
+    );
+    ctx.banks_client
+        .process_transaction(init_tx)
+        .await
+        .expect("initialize vm_state must succeed");
+
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_latest_blockhash()
+        .await
+        .expect("latest blockhash for set_fees");
+    let mut set_fees_data = Vec::with_capacity(9);
+    set_fees_data.push(6);
+    set_fees_data.extend_from_slice(&0u32.to_le_bytes());
+    set_fees_data.extend_from_slice(&execute_fee_lamports.to_le_bytes());
+    let set_fees_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(vm_state, false),
+            AccountMeta::new_readonly(admin.pubkey(), true),
+        ],
+        data: set_fees_data,
+    };
+    let set_fees_tx = Transaction::new_signed_with_payer(
+        &[set_fees_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &admin],
+        ctx.last_blockhash,
+    );
+    ctx.banks_client
+        .process_transaction(set_fees_tx)
+        .await
+        .expect("set_fees must succeed");
+
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_latest_blockhash()
+        .await
+        .expect("latest blockhash for deploy");
+
     let deploy_ix = Instruction {
         program_id,
         accounts: vec![
             AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state.pubkey(), false),
+            AccountMeta::new(vm_state, false),
             AccountMeta::new(owner.pubkey(), true),
             AccountMeta::new(admin.pubkey(), false),
             AccountMeta::new_readonly(system_program::id(), false),
@@ -476,7 +614,7 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
         program_id,
         accounts: vec![
             AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state.pubkey(), false),
+            AccountMeta::new(vm_state, false),
             AccountMeta::new(owner.pubkey(), true),
             AccountMeta::new(admin.pubkey(), false),
             AccountMeta::new_readonly(system_program::id(), false),

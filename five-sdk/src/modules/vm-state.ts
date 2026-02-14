@@ -3,6 +3,7 @@ import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 
 export async function getVMState(connection: any, fiveVMProgramId?: string): Promise<{
   authority: string;
+  feeRecipient: string;
   scriptCount: number;
   deployFeeBps: number;
   executeFeeBps: number;
@@ -31,17 +32,19 @@ export async function getVMState(connection: any, fiveVMProgramId?: string): Pro
       throw new Error("Invalid connection object: must support getAccountInfo or getAccountData");
     }
 
-    if (accountData.length < 56) throw new Error(`VM State account data too small: expected 56, got ${accountData.length}`);
+    if (accountData.length < 88) throw new Error(`VM State account data too small: expected 88, got ${accountData.length}`);
 
     const authority = Base58Utils.encode(accountData.slice(0, 32));
+    const feeRecipient = Base58Utils.encode(accountData.slice(32, 64));
     const view = new DataView(accountData.buffer, accountData.byteOffset, accountData.byteLength);
 
     return {
       authority,
-      scriptCount: Number(view.getBigUint64(32, true)),
-      deployFeeBps: view.getUint32(40, true),
-      executeFeeBps: view.getUint32(44, true),
-      isInitialized: accountData[48] === 1
+      feeRecipient,
+      scriptCount: Number(view.getBigUint64(64, true)),
+      deployFeeBps: view.getUint32(72, true),
+      executeFeeBps: view.getUint32(76, true),
+      isInitialized: accountData[80] === 1
     };
   } catch (error) {
     throw new Error(`Failed to fetch VM state: ${error instanceof Error ? error.message : "Unknown error"}`);

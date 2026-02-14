@@ -366,13 +366,23 @@ export const deployCommand: CommandDefinition = {
             if (fees.executeFeeBps > 0) {
               console.log(keyValue('Execution Fee', `${(fees.executeFeeBps / 100).toFixed(2)}%`));
             }
-            if (fees.adminAccount) {
-              console.log(keyValue('Admin Account', fees.adminAccount));
+            if (fees.feeRecipientAccount) {
+              console.log(keyValue('Fee Recipient', fees.feeRecipientAccount));
             }
           }
 
-          // Attach admin account to options for use in deployment
-          options.adminAccount = fees.adminAccount;
+          // Attach fee recipient account to options for use in deployment
+          options.adminAccount = fees.feeRecipientAccount || fees.adminAccount;
+
+          // Client-side guardrail: fee payer and fee recipient must differ.
+          if (fees.deployFeeBps > 0) {
+            const signer = await loadKeypair(config.keypairPath, logger);
+            if (options.adminAccount && signer.publicKey.toBase58() === options.adminAccount) {
+              throw new Error(
+                `Fee payer cannot equal fee recipient (${options.adminAccount}). Use a distinct treasury recipient.`,
+              );
+            }
+          }
         }
       } catch (e) {
         if (context.options.debug) {
