@@ -259,6 +259,14 @@ impl ASTGenerator {
                 self.generate_ast_node(emitter, &args[2])?;
                 emitter.emit_opcode(TRANSFER);
             }
+            "pubkey" => {
+                // Compatibility constructor: pubkey(x).
+                // Arguments were already generated onto the stack above.
+                // Keep the argument value as-is (identity). Type checker enforces valid forms.
+                if args.len() != 1 {
+                    return Err(VMError::InvalidParameterCount);
+                }
+            }
 
             // ===== NATIVE SYSCALL FUNCTIONS =====
             // These functions provide direct access to Solana/Pinocchio syscalls via CALL_NATIVE.

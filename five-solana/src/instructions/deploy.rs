@@ -88,8 +88,8 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
 
         invoke_signed::<3>(&instruction, &[payer, vm_state_account, system_program], &[signer])?;
     } else {
-        // Verify ownership for existing account
-        verify_canonical_vm_state_account(vm_state_account, program_id)?;
+        // Ownership is enough here because canonical key+bump was already checked above.
+        // This allows legacy initialized state (stale stored bump) to pass into migration.
         verify_program_owned(vm_state_account, program_id)?;
     }
 
@@ -100,6 +100,17 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
     let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
     if vm_state.is_initialized() {
+        // Legacy migration path: older devnet/localnet vm_state accounts were initialized
+        // before the canonical bump field was enforced. Allow the authority signer to
+        // backfill the canonical bump without resetting counters/fees/authority.
+        if vm_state.authority == *authority.key() && vm_state.vm_state_bump != bump {
+            vm_state.version = FIVEVMState::VERSION;
+            vm_state.vm_state_bump = bump;
+            if vm_state.fee_vault_shard_count == 0 {
+                vm_state.fee_vault_shard_count = FIVEVMState::DEFAULT_FEE_VAULT_SHARD_COUNT;
+            }
+            return Ok(());
+        }
         return Err(program_already_initialized_error());
     }
     vm_state.initialize(*authority.key(), bump);

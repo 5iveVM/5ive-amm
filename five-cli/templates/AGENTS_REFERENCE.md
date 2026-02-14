@@ -50,6 +50,11 @@ Rules:
 1. signer params are `account @signer`
 2. use `.key` when comparing or assigning pubkeys from account params
 
+### Zero pubkey sentinel
+
+Use `0` for unset/revoked pubkey values in assignments and checks.
+Do not use `pubkey(0)`; current parser paths treat `pubkey` as a type token, not a callable constructor.
+
 ### Init attribute order
 
 Canonical order for initialized account params:

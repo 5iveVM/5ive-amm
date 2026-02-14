@@ -421,3 +421,37 @@ fn test_parse_array_literal() {
         _ => panic!("Expected ArrayLiteral"),
     }
 }
+
+#[test]
+fn test_parse_pubkey_zero_constructor_identifier_token() {
+    let tokens = vec![
+        Token::Identifier("pubkey".to_string()),
+        Token::LeftParen,
+        Token::NumberLiteral(0),
+        Token::RightParen,
+        Token::Eof,
+    ];
+    let ast = parse_expr(tokens);
+
+    match ast {
+        AstNode::Literal(Value::U64(v)) => assert_eq!(v, 0),
+        _ => panic!("Expected Literal(U64(0)) for pubkey(0), got {:?}", ast),
+    }
+}
+
+#[test]
+fn test_parse_pubkey_zero_constructor_type_token() {
+    let tokens = vec![
+        Token::Type("pubkey".to_string()),
+        Token::LeftParen,
+        Token::NumberLiteral(0),
+        Token::RightParen,
+        Token::Eof,
+    ];
+    let ast = parse_expr(tokens);
+
+    match ast {
+        AstNode::Literal(Value::U64(v)) => assert_eq!(v, 0),
+        _ => panic!("Expected Literal(U64(0)) for pubkey(0), got {:?}", ast),
+    }
+}

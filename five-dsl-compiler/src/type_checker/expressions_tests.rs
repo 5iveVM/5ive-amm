@@ -215,3 +215,26 @@ fn test_check_struct_literal() {
 
     assert!(checker.check_expression(&node).is_ok());
 }
+
+#[test]
+fn test_infer_pubkey_zero_constructor_type() {
+    let mut checker = TypeCheckerContext::new();
+    let node = AstNode::FunctionCall {
+        name: "pubkey".to_string(),
+        args: vec![AstNode::Literal(Value::U64(0))],
+    };
+
+    let ty = checker.infer_type(&node).expect("pubkey(0) should infer");
+    assert_eq!(ty, TypeNode::Primitive("pubkey".to_string()));
+}
+
+#[test]
+fn test_infer_pubkey_constructor_rejects_non_zero_numeric() {
+    let mut checker = TypeCheckerContext::new();
+    let node = AstNode::FunctionCall {
+        name: "pubkey".to_string(),
+        args: vec![AstNode::Literal(Value::U64(1))],
+    };
+
+    assert!(matches!(checker.infer_type(&node), Err(VMError::TypeMismatch)));
+}

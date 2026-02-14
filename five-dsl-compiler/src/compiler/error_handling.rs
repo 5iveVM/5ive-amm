@@ -123,7 +123,7 @@ pub fn convert_vm_error_to_compiler_error(
         ),
         VMError::InvalidScript => (
             ErrorCode::INVALID_SYNTAX,
-            "invalid script syntax".to_string(),
+            "invalid script syntax - check for syntax errors in accounts, functions, or statements".to_string(),
         ),
         VMError::TypeMismatch => (
             ErrorCode::TYPE_MISMATCH,

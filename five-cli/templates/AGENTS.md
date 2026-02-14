@@ -45,7 +45,7 @@ Always run this sequence:
 2. Use `account @signer` for auth params (not `pubkey @signer`).
 3. Use `.key` on `account` values for comparisons/assignments.
 4. Functions returning values must declare `-> ReturnType`.
-5. `0` and `pubkey(0)` are valid pubkey zero-init/revocation values.
+5. Use `0` for pubkey zero-init/revocation values. Do not use `pubkey(0)`.
 6. `string<N>` is production-safe.
 7. `require()` supports `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`, `&&`, `||`.
 8. Locals are immutable by default. Use `let mut` if reassigning.

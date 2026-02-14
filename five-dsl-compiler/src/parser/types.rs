@@ -213,8 +213,27 @@ pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
             }
         }
 
-        // Handle built-in types that are identifiers (String, etc.)
-        Token::Identifier(name) if matches!(name.as_str(), "String" | "str") => {
+        // Handle built-in primitive types that may be tokenized as identifiers.
+        Token::Identifier(name)
+            if matches!(
+                name.as_str(),
+                "pubkey"
+                    | "u8"
+                    | "u16"
+                    | "u32"
+                    | "u64"
+                    | "u128"
+                    | "i8"
+                    | "i16"
+                    | "i32"
+                    | "i64"
+                    | "bool"
+                    | "string"
+                    | "lamports"
+                    | "String"
+                    | "str"
+            ) =>
+        {
             let type_name = name.clone();
             parser.advance();
             Ok(TypeNode::Primitive(type_name))

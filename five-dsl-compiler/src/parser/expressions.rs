@@ -461,7 +461,37 @@ impl DslParser {
                         true,
                         |s| s.parse_argument_expr(),
                     )?;
+                    // Backward compatibility: allow `pubkey(0)` as a zero pubkey sentinel.
+                    if name == "pubkey"
+                        && args.len() == 1
+                        && matches!(args[0], AstNode::Literal(Value::U64(0)))
+                    {
+                        return Ok(AstNode::Literal(Value::U64(0)));
+                    }
                     Ok(AstNode::FunctionCall { name, args })
+                } else {
+                    Ok(AstNode::Identifier(name))
+                }
+            }
+            // Older tokenizer variants can emit `pubkey` as Token::Type in expression position.
+            // Accept `pubkey(0)` here for compatibility.
+            Token::Type(name) if name == "pubkey" => {
+                let name = name.clone();
+                self.advance();
+
+                if matches!(self.current_token, Token::LeftParen) {
+                    let (args, _trailing) = self.parse_list(
+                        TokenKind::LeftParen,
+                        TokenKind::RightParen,
+                        TokenKind::Comma,
+                        true,
+                        |s| s.parse_argument_expr(),
+                    )?;
+                    if args.len() == 1 && matches!(args[0], AstNode::Literal(Value::U64(0))) {
+                        Ok(AstNode::Literal(Value::U64(0)))
+                    } else {
+                        Ok(AstNode::FunctionCall { name, args })
+                    }
                 } else {
                     Ok(AstNode::Identifier(name))
                 }

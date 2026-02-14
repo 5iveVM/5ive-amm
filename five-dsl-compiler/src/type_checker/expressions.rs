@@ -548,6 +548,24 @@ impl TypeCheckerContext {
                 }
                 Ok(TypeNode::Primitive("void".to_string()))
             }
+            "pubkey" => {
+                // Backward compatibility constructor.
+                // Supported forms:
+                // - pubkey(0)            -> pubkey zero sentinel
+                // - pubkey(existing_key) -> identity
+                if args.len() != 1 {
+                    return Err(VMError::InvalidOperation);
+                }
+                let arg_type = self.infer_type(&args[0])?;
+                let is_zero_literal = matches!(&args[0], AstNode::Literal(Value::U64(0)));
+                let is_pubkey_arg =
+                    matches!(arg_type, TypeNode::Primitive(ref name) if name == "pubkey");
+                if is_zero_literal || is_pubkey_arg {
+                    Ok(TypeNode::Primitive("pubkey".to_string()))
+                } else {
+                    Err(VMError::TypeMismatch)
+                }
+            }
             _ => {
                 // For user-defined functions, use pre-registered return type if available; default to void
                 for arg in args {

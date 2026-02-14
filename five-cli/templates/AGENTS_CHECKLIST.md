@@ -45,6 +45,7 @@ Use this checklist during execution. Do not skip gates.
 - wrong attribute stack order
 - immutable variable reassignment
 - wrong signer type (`pubkey @signer`)
+- `pubkey(0)` usage (replace with `0`)
 - CPI account type/mutability mismatch
 3. Re-run compile until clean.
 4. Capture artifact path and byte size changes.

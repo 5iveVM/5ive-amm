@@ -622,12 +622,11 @@ impl<'a> DslTokenizer<'a> {
             // Account keyword
             "account" => Token::Account,
 
-            // Built-in types
+            // Built-in types - only tokenize as Type when they're in type position
+            // For now, treat them as regular identifiers so pubkey(0) works as a function call
+            // The parser/type checker will determine if it's a type or function based on context
             "pubkey" | "u64" | "u32" | "u16" | "u8" | "i64" | "i32" | "i16" | "i8" | "bool"
-            | "string" | "lamports" | "u128" => Token::Type(identifier.to_string()),
-
-            // Account type (uppercase)
-            "Account" => Token::Type(identifier.to_string()),
+            | "string" | "lamports" | "u128" | "Account" => Token::Identifier(identifier.to_string()),
 
             // Regular identifier
             _ => Token::Identifier(identifier.to_string()),

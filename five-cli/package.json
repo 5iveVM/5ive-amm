@@ -1,6 +1,6 @@
 {
   "name": "@5ive-tech/cli",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "description": "High-performance CLI for Five VM development with WebAssembly integration",
   "type": "module",
   "main": "dist/index.js",
@@ -72,7 +72,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@5ive-tech/sdk": "^1.1.9",
+    "@5ive-tech/sdk": "^1.1.10",
     "@iarna/toml": "^2.2.5",
     "@solana/web3.js": "^1.90.0",
     "bs58": "^5.0.0",
