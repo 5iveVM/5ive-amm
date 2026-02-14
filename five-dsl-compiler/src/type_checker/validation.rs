@@ -184,6 +184,31 @@ impl TypeCheckerContext {
                 name1 == name2
                     || ((name1 == type_names::LAMPORTS && name2 == type_names::U64)
                         || (name1 == type_names::U64 && name2 == type_names::LAMPORTS))
+                    // Allow numeric widening conversions (smaller types -> larger types)
+                    || matches!(
+                        (name1.as_str(), name2.as_str()),
+                        // u8 can widen to larger types
+                        (type_names::U8, type_names::U16)
+                            | (type_names::U8, type_names::U32)
+                            | (type_names::U8, type_names::U64)
+                            | (type_names::U8, type_names::U128)
+                        // u16 can widen to larger types
+                            | (type_names::U16, type_names::U32)
+                            | (type_names::U16, type_names::U64)
+                            | (type_names::U16, type_names::U128)
+                        // u32 can widen to larger types
+                            | (type_names::U32, type_names::U64)
+                            | (type_names::U32, type_names::U128)
+                        // u64 can widen to u128
+                            | (type_names::U64, type_names::U128)
+                        // Signed integer widening
+                            | (type_names::I8, type_names::I16)
+                            | (type_names::I8, type_names::I32)
+                            | (type_names::I8, type_names::I64)
+                            | (type_names::I16, type_names::I32)
+                            | (type_names::I16, type_names::I64)
+                            | (type_names::I32, type_names::I64)
+                    )
             }
             (TypeNode::Named(name1), TypeNode::Named(name2)) => name1 == name2,
             (TypeNode::Sized { base_type: b1, size: s1 }, TypeNode::Sized { base_type: b2, size: s2 }) => b1 == b2 && s1 == s2,

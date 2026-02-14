@@ -236,3 +236,84 @@ pub main() {
     // Should succeed with all u64 fields
     assert!(result.is_ok(), "All u64 fields should work");
 }
+
+#[test]
+fn test_u128_cast_with_explicit_type_annotation() {
+    // NEW TEST: Cast with explicit type annotation should work
+    // Currently fails: explicit type annotation + cast creates Named("u128") type mismatch
+    let dsl = r#"
+pub compute() -> u128 {
+    let x: u64 = 100;
+    let y: u128 = x as u128;  // Should work with explicit type annotation
+    return y;
+}
+
+pub main() {
+}
+"#;
+
+    let result = DslCompiler::compile_dsl(dsl);
+
+    // After fix: should pass
+    assert!(
+        result.is_ok(),
+        "u128 cast with explicit type annotation should work"
+    );
+}
+
+#[test]
+fn test_numeric_coercion_to_u128() {
+    // NEW TEST: numeric types should coerce to u128
+    // Currently fails: no coercion rules from u8/u16/u32/u64 -> u128
+    let dsl = r#"
+pub compute() -> u128 {
+    let a: u8 = 1;
+    let b: u16 = 100;
+    let c: u32 = 10000;
+    let d: u64 = 1000000;
+
+    let a128: u128 = a as u128;
+    let b128: u128 = b as u128;
+    let c128: u128 = c as u128;
+    let d128: u128 = d as u128;
+
+    return a128 + b128 + c128 + d128;
+}
+
+pub main() {
+}
+"#;
+
+    let result = DslCompiler::compile_dsl(dsl);
+
+    // After fix: should pass
+    assert!(result.is_ok(), "numeric types should coerce to u128");
+}
+
+#[test]
+fn test_nested_u128_cast_expressions_defi_pattern() {
+    // NEW TEST: Real DeFi pattern from 5ive-lending-4
+    // Currently fails: multiple nested casts with type annotations
+    let dsl = r#"
+account Reserve {
+    total_borrowed: u64,
+}
+
+pub calculate_utilization(reserve: Reserve, total_assets: u64) -> u128 {
+    let utilization: u128 =
+        (reserve.total_borrowed as u128 * 100 as u128) / total_assets as u128;
+    return utilization;
+}
+
+pub main() {
+}
+"#;
+
+    let result = DslCompiler::compile_dsl(dsl);
+
+    // After fix: should pass
+    assert!(
+        result.is_ok(),
+        "nested u128 casts in DeFi calculations should work"
+    );
+}

@@ -337,7 +337,15 @@ impl TypeCheckerContext {
             } => {
                 // Convert target_type AST node to TypeNode
                 match target_type.as_ref() {
-                    AstNode::Identifier(type_name) => Ok(TypeNode::Named(type_name.clone())),
+                    AstNode::Identifier(type_name) => {
+                        // Check if this is a primitive type name (e.g., u128, bool, string)
+                        // If so, return Primitive type; otherwise it's a user-defined type
+                        if super::type_helpers::is_primitive_type_name(type_name) {
+                            Ok(TypeNode::Primitive(type_name.clone()))
+                        } else {
+                            Ok(TypeNode::Named(type_name.clone()))
+                        }
+                    }
                     _ => Err(VMError::TypeMismatch),
                 }
             }

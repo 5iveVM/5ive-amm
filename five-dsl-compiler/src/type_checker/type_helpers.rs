@@ -165,6 +165,28 @@ pub fn is_numeric_type_name(name: &str) -> bool {
     )
 }
 
+/// Check if a string is a primitive type name (numeric, bool, string, pubkey, etc.)
+pub fn is_primitive_type_name(name: &str) -> bool {
+    matches!(
+        name,
+        type_names::U8
+            | type_names::U16
+            | type_names::U32
+            | type_names::U64
+            | type_names::U128
+            | type_names::I8
+            | type_names::I16
+            | type_names::I32
+            | type_names::I64
+            | type_names::LAMPORTS
+            | type_names::BOOL
+            | type_names::STRING
+            | type_names::PUBKEY
+            | type_names::ACCOUNT_LOWER
+            | type_names::ACCOUNT_UPPER
+    )
+}
+
 /// Check if a string is a built-in account property
 pub fn is_builtin_account_property(name: &str) -> bool {
     matches!(
