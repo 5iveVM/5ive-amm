@@ -216,13 +216,20 @@ impl TypeCheckerContext {
                 Ok(())
             }
             AstNode::BinaryExpression {
-                operator: _,
+                operator,
                 left,
                 right,
             } => {
                 // Type check both operands
                 self.check_types(left)?;
                 self.check_types(right)?;
+
+                // For equality operators, perform inference to catch type errors early
+                if matches!(operator.as_str(), "==" | "!=") {
+                    // Infer types to trigger type compatibility checking
+                    let _ = self.infer_type(expr)?;
+                }
+
                 Ok(())
             }
             _ => {
@@ -322,10 +329,18 @@ impl TypeCheckerContext {
                 let is_string =
                     |t: &TypeNode| matches!(t, TypeNode::Primitive(name) if name == "string");
 
+                // Check for pubkey zero comparison (pubkey == 0 or pubkey != 0)
+                let is_pubkey_zero_compare = {
+                    let object_is_pubkey = is_pubkey(&object_type);
+                    let arg_is_zero = matches!(&args[0], AstNode::Literal(Value::U64(0)));
+                    (object_is_pubkey && arg_is_zero) || (is_pubkey(&arg_type) && matches!(object, AstNode::Literal(Value::U64(0))))
+                };
+
                 let ok = (is_bool(&object_type) && is_bool(&arg_type))
                     || (is_numeric(&object_type) && is_numeric(&arg_type))
                     || (is_pubkey(&object_type) && is_pubkey(&arg_type))
                     || (is_string(&object_type) && is_string(&arg_type))
+                    || is_pubkey_zero_compare
                     || self.types_are_compatible(&object_type, &arg_type);
                 if !ok {
                     return Err(VMError::TypeMismatch);

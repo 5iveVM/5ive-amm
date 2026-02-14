@@ -189,6 +189,11 @@ impl TypeCheckerContext {
                         if both_numeric {
                             return Ok(TypeNode::primitive(type_names::BOOL));
                         }
+
+                        // Note: == and != operators are parsed as method calls (.eq() and .ne()),
+                        // not BinaryExpressions, so this code path is not reached for comparisons.
+                        // The actual fix is in expressions.rs in infer_method_call_type().
+
                         if self.types_are_compatible(&left_type, &right_type) {
                             Ok(TypeNode::primitive(type_names::BOOL))
                         } else {

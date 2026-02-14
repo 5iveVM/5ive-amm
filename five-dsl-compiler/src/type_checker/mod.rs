@@ -169,7 +169,7 @@ impl types::TypeCheckerContext {
                             // Aggregate all parameters
                         }
                     }
-                    
+
                     if let Err(e) = self.check_types(instruction_def) {
                         eprintln!("Failed checking instruction definition: {:?}", e);
                         return Err(e);
