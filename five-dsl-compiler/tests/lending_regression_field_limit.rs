@@ -56,9 +56,9 @@ pub main() {
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    // CURRENT BEHAVIOR: Compilation succeeds even with 65 fields
-    // The error would only occur during FiveFile serialization
-    assert!(result.is_ok(), "Currently: >64 fields still compile successfully (error only at serialization)");
+    // FIXED: Compilation now fails early with >64 fields
+    // Field limit is now enforced during account registration
+    assert!(result.is_err(), "Account with >64 fields should fail compilation");
 }
 
 #[test]

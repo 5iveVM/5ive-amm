@@ -104,6 +104,16 @@ impl AccountSystem {
 
         let field_count = account_fields.len();
 
+        // Validate field count limit (64 fields max for account definitions)
+        const MAX_ACCOUNT_FIELDS: usize = 64;
+        if field_count > MAX_ACCOUNT_FIELDS {
+            eprintln!(
+                "ERROR: Account definition '{}' exceeds 64-field limit: {} fields defined",
+                name, field_count
+            );
+            return Err(VMError::InvalidScript);
+        }
+
         // Create account type info
         let account_type_info = AccountTypeInfo {
             name: name.to_string(),
