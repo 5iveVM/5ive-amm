@@ -11,7 +11,7 @@ use five::state::{FIVEVMState, ScriptAccountHeader};
 use five_dsl_compiler::DslCompiler;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
-use solana_client::rpc_config::RpcTransactionConfig;
+use solana_client::rpc_config::{RpcSimulateTransactionConfig, RpcTransactionConfig};
 use solana_program::system_instruction;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -66,6 +66,8 @@ pub struct FeeFixture {
 #[derive(Debug, Deserialize)]
 pub struct AccountFixture {
     pub name: String,
+    #[serde(default)]
+    pub key_seed: Option<u8>,
     #[serde(default)]
     pub pubkey: Option<String>,
     pub owner: AccountOwner,
@@ -308,7 +310,30 @@ impl ValidatorHarness {
             data: init_data,
         };
         self.send_ixs("initialize_vm_state", vec![init_ix], vec![], None)?;
+        self.set_vm_fees(vm_state.pubkey(), 0, 0)?;
         Ok(vm_state.pubkey())
+    }
+
+    pub fn set_vm_fees(
+        &self,
+        vm_state_pubkey: Pubkey,
+        deploy_fee_lamports: u32,
+        execute_fee_lamports: u32,
+    ) -> Result<(), String> {
+        let mut data = Vec::with_capacity(9);
+        data.push(6);
+        data.extend_from_slice(&deploy_fee_lamports.to_le_bytes());
+        data.extend_from_slice(&execute_fee_lamports.to_le_bytes());
+        let ix = Instruction {
+            program_id: self.program_id,
+            accounts: vec![
+                AccountMeta::new(vm_state_pubkey, false),
+                AccountMeta::new_readonly(self.payer.pubkey(), true),
+            ],
+            data,
+        };
+        self.send_ixs("set_vm_fees", vec![ix], vec![], None)?;
+        Ok(())
     }
 
     pub fn rent_exempt(&self, space: usize) -> Result<u64, String> {
@@ -341,6 +366,25 @@ impl ValidatorHarness {
 
         tx.try_sign(&all_signers, recent)
             .map_err(|e| format!("{}: signing failed: {}", label, e))?;
+
+        let sim = self
+            .rpc
+            .simulate_transaction_with_config(
+                &tx,
+                RpcSimulateTransactionConfig {
+                    sig_verify: false,
+                    commitment: Some(CommitmentConfig::confirmed()),
+                    ..RpcSimulateTransactionConfig::default()
+                },
+            )
+            .map_err(|e| format!("{}: simulate failed: {}", label, e))?;
+        if sim.value.err.is_some() {
+            let logs = sim.value.logs.unwrap_or_default().join(" | ");
+            return Err(format!(
+                "{}: simulation err={:?} logs=[{}]",
+                label, sim.value.err, logs
+            ));
+        }
 
         let sig = self
             .rpc
@@ -444,6 +488,29 @@ fn parse_cu_from_logs(logs: Option<&[String]>) -> Option<u64> {
     None
 }
 
+fn step_signers<'a>(
+    h: &'a ValidatorHarness,
+    accounts: &'a BTreeMap<String, RuntimeAccount>,
+    authority_name: &str,
+    extras: &[String],
+) -> Vec<&'a Keypair> {
+    extras
+        .iter()
+        .filter_map(|name| {
+            if name == authority_name {
+                return Some(&h.payer);
+            }
+            accounts.get(name).and_then(|a| {
+                if a.is_signer {
+                    a.signer.as_ref()
+                } else {
+                    None
+                }
+            })
+        })
+        .collect()
+}
+
 fn now_unix_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -506,6 +573,166 @@ pub fn build_deploy_instruction(
         ],
         data,
     }
+}
+
+fn build_init_large_instruction(
+    program_id: Pubkey,
+    accounts: &BTreeMap<String, RuntimeAccount>,
+    script_name: &str,
+    owner_name: &str,
+    vm_state_name: &str,
+    expected_size: usize,
+    chunk: &[u8],
+) -> Instruction {
+    let mut data = Vec::with_capacity(1 + 4 + chunk.len());
+    data.push(4);
+    data.extend_from_slice(&(expected_size as u32).to_le_bytes());
+    data.extend_from_slice(chunk);
+    Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(accounts[script_name].pubkey, false),
+            AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
+            AccountMeta::new(accounts[vm_state_name].pubkey, false),
+        ],
+        data,
+    }
+}
+
+fn build_append_instruction(
+    program_id: Pubkey,
+    accounts: &BTreeMap<String, RuntimeAccount>,
+    script_name: &str,
+    owner_name: &str,
+    vm_state_name: &str,
+    chunk: &[u8],
+) -> Instruction {
+    let mut data = Vec::with_capacity(1 + chunk.len());
+    data.push(5);
+    data.extend_from_slice(chunk);
+    Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(accounts[script_name].pubkey, false),
+            AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
+            AccountMeta::new(accounts[vm_state_name].pubkey, false),
+        ],
+        data,
+    }
+}
+
+fn build_finalize_upload_instruction(
+    program_id: Pubkey,
+    accounts: &BTreeMap<String, RuntimeAccount>,
+    script_name: &str,
+    owner_name: &str,
+) -> Instruction {
+    Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(accounts[script_name].pubkey, false),
+            AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
+        ],
+        data: vec![7],
+    }
+}
+
+fn deploy_script_with_chunk_fallback(
+    h: &ValidatorHarness,
+    accounts: &BTreeMap<String, RuntimeAccount>,
+    script_name: &str,
+    vm_state_name: &str,
+    owner_name: &str,
+    bytecode: &[u8],
+    permissions: u8,
+    metadata: &[u8],
+    label_prefix: &str,
+) -> Result<TxCuResult, String> {
+    let direct = h.send_ixs(
+        &format!("{}_direct", label_prefix),
+        vec![build_deploy_instruction(
+            h.program_id,
+            accounts,
+            script_name,
+            vm_state_name,
+            owner_name,
+            bytecode,
+            permissions,
+            metadata,
+        )],
+        vec![],
+        Some(1_400_000),
+    );
+    if let Ok(ok) = direct {
+        return Ok(ok);
+    }
+
+    let err = direct.err().unwrap_or_else(|| "direct deploy failed".to_string());
+    if !err.contains("too large") {
+        return Err(err);
+    }
+
+    const INIT_CHUNK_SIZE: usize = 512;
+    const APPEND_CHUNK_SIZE: usize = 850;
+
+    let first = bytecode.len().min(INIT_CHUNK_SIZE);
+    let init = h.send_ixs(
+        &format!("{}_init_large", label_prefix),
+        vec![build_init_large_instruction(
+            h.program_id,
+            accounts,
+            script_name,
+            owner_name,
+            vm_state_name,
+            bytecode.len(),
+            &bytecode[..first],
+        )],
+        vec![],
+        Some(1_400_000),
+    )?;
+
+    let mut total = init.units_consumed;
+    let mut tail_sig = init.signature;
+
+    let mut offset = first;
+    while offset < bytecode.len() {
+        let end = (offset + APPEND_CHUNK_SIZE).min(bytecode.len());
+        let append = h.send_ixs(
+            &format!("{}_append", label_prefix),
+            vec![build_append_instruction(
+                h.program_id,
+                accounts,
+                script_name,
+                owner_name,
+                vm_state_name,
+                &bytecode[offset..end],
+            )],
+            vec![],
+            Some(1_400_000),
+        )?;
+        total = total.saturating_add(append.units_consumed);
+        tail_sig = append.signature;
+        offset = end;
+    }
+
+    let finalize = h.send_ixs(
+        &format!("{}_finalize", label_prefix),
+        vec![build_finalize_upload_instruction(
+            h.program_id,
+            accounts,
+            script_name,
+            owner_name,
+        )],
+        vec![],
+        Some(1_400_000),
+    )?;
+    total = total.saturating_add(finalize.units_consumed);
+    tail_sig = finalize.signature;
+
+    Ok(TxCuResult {
+        signature: tail_sig,
+        units_consumed: total,
+    })
 }
 
 pub fn build_execute_instruction_with_extras(
@@ -606,10 +833,26 @@ pub fn setup_accounts_for_fixture(
     );
 
     for account in &fixture.extra_accounts {
-        let pubkey = match &account.pubkey {
+        let configured_pubkey = match &account.pubkey {
             Some(value) => Pubkey::from_str(value)
                 .map_err(|e| format!("invalid pubkey in fixture for {}: {}", account.name, e))?,
             None => Keypair::new().pubkey(),
+        };
+        let pubkey = if account.executable {
+            match account.owner {
+                AccountOwner::System => system_program::id(),
+                AccountOwner::SplTokenProgram => spl_token::id(),
+                AccountOwner::AnchorTokenProgram => configured_pubkey,
+                _ => {
+                    if account.name == "system_program" {
+                        system_program::id()
+                    } else {
+                        configured_pubkey
+                    }
+                }
+            }
+        } else {
+            configured_pubkey
         };
 
         if !account.executable {
@@ -701,6 +944,11 @@ pub fn run_fixture_scenario(
     let now = Instant::now();
     let vm_state = h.ensure_vm_state()?;
     let mut accounts = setup_accounts_for_fixture(h, &fixture, vm_state)?;
+    if let Some(fees) = &fixture.vm_fees {
+        h.set_vm_fees(vm_state, fees.deploy_fee_lamports, fees.execute_fee_lamports)?;
+    } else {
+        h.set_vm_fees(vm_state, 0, 0)?;
+    }
 
     let bytecode_path = resolve_bytecode_path(repo_root, fixture_path, &fixture.bytecode_path);
     let bytecode = load_or_compile_bytecode(&bytecode_path)
@@ -726,8 +974,8 @@ pub fn run_fixture_scenario(
         },
     );
 
-    let deploy_ix = build_deploy_instruction(
-        h.program_id,
+    let deploy = deploy_script_with_chunk_fallback(
+        h,
         &accounts,
         &fixture.script_name,
         &fixture.vm_state_name,
@@ -735,8 +983,8 @@ pub fn run_fixture_scenario(
         &bytecode,
         fixture.permissions,
         &[],
-    );
-    let deploy = h.send_ixs("fixture_deploy", vec![deploy_ix], vec![], Some(1_400_000))?;
+        "fixture_deploy",
+    )?;
 
     let steps = if let Some(filter) = step_filter {
         filter_steps(&fixture.steps, filter)
@@ -758,23 +1006,7 @@ pub fn run_fixture_scenario(
             payload,
         );
 
-        let signer_names: HashSet<&str> = step
-            .extras
-            .iter()
-            .filter(|name| accounts.get(*name).map(|a| a.is_signer).unwrap_or(false))
-            .map(|s| s.as_str())
-            .collect();
-
-        let extra_signers: Vec<&Keypair> = signer_names
-            .iter()
-            .filter_map(|name| {
-                if *name == fixture.authority.name {
-                    Some(&h.payer)
-                } else {
-                    accounts.get(*name).and_then(|a| a.signer.as_ref())
-                }
-            })
-            .collect();
+        let extra_signers = step_signers(h, &accounts, &fixture.authority.name, &step.extras);
 
         let tx = h.send_ixs("fixture_execute", vec![ix], extra_signers, Some(1_400_000))?;
         total = total.saturating_add(tx.units_consumed);
@@ -848,20 +1080,16 @@ pub fn run_external_non_cpi(
         },
     );
 
-    let deploy_token = h.send_ixs(
+    let deploy_token = deploy_script_with_chunk_fallback(
+        h,
+        &accounts,
+        &parsed.script_name,
+        &parsed.vm_state_name,
+        &parsed.authority.name,
+        &token_bytecode,
+        parsed.permissions,
+        &[],
         "external_non_cpi_deploy_token",
-        vec![build_deploy_instruction(
-            h.program_id,
-            &accounts,
-            &parsed.script_name,
-            &parsed.vm_state_name,
-            &parsed.authority.name,
-            &token_bytecode,
-            parsed.permissions,
-            &[],
-        )],
-        vec![],
-        Some(1_400_000),
     )?;
 
     let init_steps = filter_steps(&parsed.steps, &setup_steps);
@@ -874,8 +1102,29 @@ pub fn run_external_non_cpi(
             &step.extras,
             build_payload(&accounts, &step),
         );
-        h.send_ixs("external_non_cpi_setup_step", vec![ix], vec![], Some(1_400_000))?;
+        let extra_signers = step_signers(h, &accounts, &parsed.authority.name, &step.extras);
+        h.send_ixs(
+            "external_non_cpi_setup_step",
+            vec![ix],
+            extra_signers,
+            Some(1_400_000),
+        )?;
     }
+    // Alias imported callee account with `_script` suffix so execute meta builder keeps it read-only.
+    let token_script_pubkey = accounts[&parsed.script_name].pubkey;
+    accounts.insert(
+        "token_script".to_string(),
+        RuntimeAccount {
+            pubkey: token_script_pubkey,
+            signer: None,
+            owner: h.program_id,
+            lamports: 0,
+            data_len: 0,
+            is_signer: false,
+            is_writable: false,
+            executable: false,
+        },
+    );
 
     let token_import = bs58::encode(accounts[&parsed.script_name].pubkey.to_bytes()).into_string();
     let caller_source = format!(
@@ -915,20 +1164,16 @@ pub fn run_external_non_cpi(
         },
     );
 
-    let deploy_caller = h.send_ixs(
+    let deploy_caller = deploy_script_with_chunk_fallback(
+        h,
+        &accounts,
+        "caller_script",
+        &parsed.vm_state_name,
+        &parsed.authority.name,
+        &caller_bytecode,
+        0,
+        &[],
         "external_non_cpi_deploy_caller",
-        vec![build_deploy_instruction(
-            h.program_id,
-            &accounts,
-            "caller_script",
-            &parsed.vm_state_name,
-            &parsed.authority.name,
-            &caller_bytecode,
-            0,
-            &[],
-        )],
-        vec![],
-        Some(1_400_000),
     )?;
 
     let execute_step = StepFixture {
@@ -938,7 +1183,7 @@ pub fn run_external_non_cpi(
             "user2_token".to_string(),
             "user3_token".to_string(),
             "user2".to_string(),
-            parsed.script_name.clone(),
+            "token_script".to_string(),
         ],
         params: vec![
             ParamFixture::AccountRef {
@@ -951,11 +1196,12 @@ pub fn run_external_non_cpi(
                 account: "user2".to_string(),
             },
             ParamFixture::AccountRef {
-                account: parsed.script_name,
+                account: "token_script".to_string(),
             },
         ],
     };
 
+    let execute_signers = step_signers(h, &accounts, &parsed.authority.name, &execute_step.extras);
     let execute = h.send_ixs(
         "external_non_cpi_execute",
         vec![build_execute_instruction_with_extras(
@@ -966,7 +1212,7 @@ pub fn run_external_non_cpi(
             &execute_step.extras,
             build_payload(&accounts, &execute_step),
         )],
-        vec![],
+        execute_signers,
         Some(1_400_000),
     )?;
 
@@ -1021,20 +1267,16 @@ pub fn run_external_burst_non_cpi(
         },
     );
 
-    let deploy_token = h.send_ixs(
+    let deploy_token = deploy_script_with_chunk_fallback(
+        h,
+        &accounts,
+        &parsed.script_name,
+        &parsed.vm_state_name,
+        &parsed.authority.name,
+        &token_bytecode,
+        parsed.permissions,
+        &[],
         "external_burst_deploy_token",
-        vec![build_deploy_instruction(
-            h.program_id,
-            &accounts,
-            &parsed.script_name,
-            &parsed.vm_state_name,
-            &parsed.authority.name,
-            &token_bytecode,
-            parsed.permissions,
-            &[],
-        )],
-        vec![],
-        Some(1_400_000),
     )?;
 
     let setup_steps = [
@@ -1052,8 +1294,28 @@ pub fn run_external_burst_non_cpi(
             &step.extras,
             build_payload(&accounts, &step),
         );
-        h.send_ixs("external_burst_setup_step", vec![ix], vec![], Some(1_400_000))?;
+        let extra_signers = step_signers(h, &accounts, &parsed.authority.name, &step.extras);
+        h.send_ixs(
+            "external_burst_setup_step",
+            vec![ix],
+            extra_signers,
+            Some(1_400_000),
+        )?;
     }
+    let token_script_pubkey = accounts[&parsed.script_name].pubkey;
+    accounts.insert(
+        "token_script".to_string(),
+        RuntimeAccount {
+            pubkey: token_script_pubkey,
+            signer: None,
+            owner: h.program_id,
+            lamports: 0,
+            data_len: 0,
+            is_signer: false,
+            is_writable: false,
+            executable: false,
+        },
+    );
 
     let token_import = bs58::encode(accounts[&parsed.script_name].pubkey.to_bytes()).into_string();
     let caller_source = format!(
@@ -1096,20 +1358,16 @@ pub fn run_external_burst_non_cpi(
         },
     );
 
-    let deploy_caller = h.send_ixs(
+    let deploy_caller = deploy_script_with_chunk_fallback(
+        h,
+        &accounts,
+        "caller_script",
+        &parsed.vm_state_name,
+        &parsed.authority.name,
+        &caller_bytecode,
+        0,
+        &[],
         "external_burst_deploy_caller",
-        vec![build_deploy_instruction(
-            h.program_id,
-            &accounts,
-            "caller_script",
-            &parsed.vm_state_name,
-            &parsed.authority.name,
-            &caller_bytecode,
-            0,
-            &[],
-        )],
-        vec![],
-        Some(1_400_000),
     )?;
 
     let execute_step = StepFixture {
@@ -1119,7 +1377,7 @@ pub fn run_external_burst_non_cpi(
             "user1_token".to_string(),
             "user2_token".to_string(),
             "user1".to_string(),
-            parsed.script_name.clone(),
+            "token_script".to_string(),
         ],
         params: vec![
             ParamFixture::AccountRef {
@@ -1132,11 +1390,12 @@ pub fn run_external_burst_non_cpi(
                 account: "user1".to_string(),
             },
             ParamFixture::AccountRef {
-                account: parsed.script_name,
+                account: "token_script".to_string(),
             },
         ],
     };
 
+    let execute_signers = step_signers(h, &accounts, &parsed.authority.name, &execute_step.extras);
     let execute = h.send_ixs(
         "external_burst_execute",
         vec![build_execute_instruction_with_extras(
@@ -1147,7 +1406,7 @@ pub fn run_external_burst_non_cpi(
             &execute_step.extras,
             build_payload(&accounts, &execute_step),
         )],
-        vec![],
+        execute_signers,
         Some(1_400_000),
     )?;
 
@@ -1310,36 +1569,28 @@ pub fn run_external_interface_mapping_non_cpi(
         );
     }
 
-    let deploy_callee = h.send_ixs(
+    let deploy_callee = deploy_script_with_chunk_fallback(
+        h,
+        &accounts,
+        "callee_script",
+        "vm_state",
+        "owner",
+        &callee_bytecode,
+        0,
+        &callee_metadata,
         "external_interface_deploy_callee",
-        vec![build_deploy_instruction(
-            h.program_id,
-            &accounts,
-            "callee_script",
-            "vm_state",
-            "owner",
-            &callee_bytecode,
-            0,
-            &callee_metadata,
-        )],
-        vec![],
-        Some(1_400_000),
     )?;
 
-    let deploy_caller = h.send_ixs(
+    let deploy_caller = deploy_script_with_chunk_fallback(
+        h,
+        &accounts,
+        "caller_script",
+        "vm_state",
+        "owner",
+        &caller_bytecode,
+        0,
+        &[],
         "external_interface_deploy_caller",
-        vec![build_deploy_instruction(
-            h.program_id,
-            &accounts,
-            "caller_script",
-            "vm_state",
-            "owner",
-            &caller_bytecode,
-            0,
-            &[],
-        )],
-        vec![],
-        Some(1_400_000),
     )?;
 
     let step = StepFixture {
@@ -1367,6 +1618,7 @@ pub fn run_external_interface_mapping_non_cpi(
         ],
     };
 
+    let execute_signers = step_signers(h, &accounts, "owner", &step.extras);
     let execute = h.send_ixs(
         "external_interface_execute",
         vec![build_execute_instruction_with_extras(
@@ -1377,7 +1629,7 @@ pub fn run_external_interface_mapping_non_cpi(
             &step.extras,
             build_payload(&accounts, &step),
         )],
-        vec![],
+        execute_signers,
         Some(1_400_000),
     )?;
 

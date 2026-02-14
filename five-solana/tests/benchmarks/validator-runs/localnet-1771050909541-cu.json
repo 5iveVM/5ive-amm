@@ -1,0 +1,25 @@
+{
+  "network": "localnet",
+  "rpc_url": "http://127.0.0.1:8899",
+  "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d",
+  "commitment": "confirmed",
+  "started_unix_ms": 1771050909541,
+  "completed_unix_ms": 1771050909541,
+  "scenarios": [
+    {
+      "name": "external_non_cpi",
+      "deploy_signature": "3mZxsahfHrhHW1bqeCG1oGLyLsMpa7ZDK4Moa8ZwApAowFtSpeLRFX1yppuJkCuAogwNcJTSqFRRkA9WaqSU4BV3",
+      "deploy_units": 3032,
+      "step_results": [
+        {
+          "name": "external_transfer_non_cpi",
+          "signature": "34411XcBmb4CR4e1g2vEUC9vgJrzKL2QkC1brBJCUKXoyva1zQ1hqRGrL2bWDLMLDH9JK6tzLQkGD2xu5A8d3FDf",
+          "units": 5392,
+          "success": true
+        }
+      ],
+      "total_units": 8424,
+      "elapsed_ms": 11160
+    }
+  ]
+}

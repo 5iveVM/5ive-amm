@@ -163,6 +163,95 @@ Common failures:
   - Ensure `token.bin` is built and the SBF program is rebuilt.
   - Note: `external_token_all_public_non_cpi_bpf_compute_units` is `#[ignore]` pending support for non-`transfer` external calls.
 
+### Benchmarking (Validator-backed CU: localnet/devnet)
+
+Use this when you want CU numbers from a real validator RPC (not `ProgramTest`), while keeping the fast in-process harness unchanged.
+
+Files:
+- Orchestrator: `five-solana/tests/runtime_validator_cu_tests.rs`
+- Backend: `five-solana/tests/harness/validator.rs`
+- Output reports: `five-solana/tests/benchmarks/validator-runs/*.json`
+
+Default validator scenarios (V1):
+- `token_full_e2e`
+- `external_non_cpi`
+- `external_interface_mapping_non_cpi`
+- `external_burst_non_cpi`
+- `memory_string_heavy`
+- `arithmetic_intensive`
+
+Required env:
+```bash
+export FIVE_CU_NETWORK=localnet              # localnet | devnet
+export FIVE_CU_PAYER_KEYPAIR="$HOME/.config/solana/id.json"
+export FIVE_CU_PROGRAM_ID="<predeployed-five-program-id>"
+```
+
+Optional env:
+```bash
+export FIVE_CU_RPC_URL="http://127.0.0.1:8899"   # defaults by network
+export FIVE_CU_SCENARIOS="token_full_e2e,external_non_cpi,external_interface_mapping_non_cpi,external_burst_non_cpi,memory_string_heavy,arithmetic_intensive"
+export FIVE_CU_RESULTS_FILE="/tmp/localnet-cu.json"
+```
+
+Run command:
+```bash
+cargo test -p five --test runtime_validator_cu_tests validator_cu_orchestrator -- --ignored --nocapture
+```
+
+#### Localnet quick start (copy/paste)
+```bash
+# 1) Start local validator
+solana-test-validator -r
+
+# 2) Build and deploy Five program to local validator
+cargo build-sbf --manifest-path five-solana/Cargo.toml
+solana program deploy target/deploy/five.so \
+  --program-id target/deploy/five-keypair.json \
+  --url http://127.0.0.1:8899 \
+  --keypair "$HOME/.config/solana/id.json"
+
+# 3) Run validator CU harness
+FIVE_CU_NETWORK=localnet \
+FIVE_CU_RPC_URL=http://127.0.0.1:8899 \
+FIVE_CU_PAYER_KEYPAIR="$HOME/.config/solana/id.json" \
+FIVE_CU_PROGRAM_ID="$(solana-keygen pubkey target/deploy/five-keypair.json)" \
+cargo test -p five --test runtime_validator_cu_tests validator_cu_orchestrator -- --ignored --nocapture
+```
+
+#### Devnet run (manual opt-in only)
+Devnet is intentionally gated and does not auto-airdrop.
+
+```bash
+FIVE_CU_NETWORK=devnet \
+FIVE_CU_DEVNET_OPT_IN=1 \
+FIVE_CU_PAYER_KEYPAIR="$HOME/.config/solana/id.json" \
+FIVE_CU_PROGRAM_ID="<devnet-five-program-id>" \
+cargo test -p five --test runtime_validator_cu_tests validator_cu_orchestrator -- --ignored --nocapture
+```
+
+#### What success looks like
+- Per-step lines:
+  - `BPF_CU validator step=<name> signature=<sig> units=<n> success=true`
+- Per-scenario lines:
+  - `BPF_CU validator scenario=<name> deploy=<n> execute=<n> total=<n> steps=<k>`
+- Report line:
+  - `BPF_CU validator report=<path>`
+- Test status:
+  - `test result: ok. 1 passed; 0 failed`
+
+#### Troubleshooting
+- `RPC response error ... transaction too large`
+  - The validator harness now auto-falls back to chunked upload (`init_large_program` + append/finalize). If this still appears, verify you are on latest harness code.
+- `custom program error: 0x453` during execute
+  - This is typically missing execute-fee recipient when fees are non-zero. The harness now zeroes VM fees on setup (or applies fixture fee override).
+- `invalid instruction data` in external scenarios
+  - Ensure external imported bytecode accounts are passed as `*_script` extras (read-only imported script behavior).
+- `not enough signers`
+  - Ensure fixture extra signer accounts are created as signers and forwarded in execute extras; latest harness includes signer resolution for step extras.
+- Devnet run exits early for balance
+  - Expected. Devnet mode does not auto-airdrop; pre-fund the payer wallet.
+
 ### Unified BPF-CU Benchmark Suite (micro + scenario + regression gates)
 
 Use this suite as the default performance workflow for VM hotpath work.
