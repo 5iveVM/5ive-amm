@@ -157,6 +157,8 @@ pub struct ValidatorRunReport {
     pub rpc_url: String,
     pub program_id: String,
     pub commitment: String,
+    pub commit_sha: String,
+    pub cu_mode: String,
     pub started_unix_ms: u128,
     pub completed_unix_ms: u128,
     pub scenarios: Vec<ScenarioRunResult>,
@@ -316,6 +318,25 @@ impl ValidatorHarness {
         Ok(vm_state)
     }
 
+    pub fn ensure_fee_vault_shard(&self, vm_state_pubkey: Pubkey, shard_index: u8) -> Result<Pubkey, String> {
+        let (fee_vault, bump) = Pubkey::find_program_address(
+            &[b"\xFFfive_vm_fee_vault_v1", &[shard_index]],
+            &self.program_id,
+        );
+        let init_ix = Instruction {
+            program_id: self.program_id,
+            accounts: vec![
+                AccountMeta::new(vm_state_pubkey, false),
+                AccountMeta::new(self.payer.pubkey(), true),
+                AccountMeta::new(fee_vault, false),
+                AccountMeta::new_readonly(system_program::id(), false),
+            ],
+            data: vec![11u8, shard_index, bump],
+        };
+        self.send_ixs("initialize_fee_vault", vec![init_ix], vec![], None)?;
+        Ok(fee_vault)
+    }
+
     pub fn set_vm_fees(
         &self,
         vm_state_pubkey: Pubkey,
@@ -445,6 +466,8 @@ impl ValidatorHarness {
             rpc_url: self.rpc_url.clone(),
             program_id: self.program_id.to_string(),
             commitment: "confirmed".to_string(),
+            commit_sha: std::env::var("FIVE_CU_COMMIT_SHA").unwrap_or_else(|_| "unknown".to_string()),
+            cu_mode: std::env::var("FIVE_CU_MODE").unwrap_or_else(|_| "parity".to_string()),
             started_unix_ms: started,
             completed_unix_ms: completed,
             scenarios,
@@ -558,6 +581,10 @@ pub fn build_deploy_instruction(
     permissions: u8,
     metadata: &[u8],
 ) -> Instruction {
+    let (fee_vault_pubkey, fee_vault_bump) = Pubkey::find_program_address(
+        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+        &program_id,
+    );
     let mut data = Vec::with_capacity(10 + metadata.len() + bytecode.len());
     data.push(DEPLOY_INSTRUCTION);
     data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
@@ -565,6 +592,8 @@ pub fn build_deploy_instruction(
     data.extend_from_slice(&(metadata.len() as u32).to_le_bytes());
     data.extend_from_slice(metadata);
     data.extend_from_slice(bytecode);
+    data.push(0u8);
+    data.push(fee_vault_bump);
 
     Instruction {
         program_id,
@@ -572,6 +601,8 @@ pub fn build_deploy_instruction(
             AccountMeta::new(accounts[script_name].pubkey, false),
             AccountMeta::new(accounts[vm_state_name].pubkey, false),
             AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
+            AccountMeta::new(fee_vault_pubkey, false),
+            AccountMeta::new_readonly(system_program::id(), false),
         ],
         data,
     }
@@ -745,8 +776,16 @@ pub fn build_execute_instruction_with_extras(
     extras: &[String],
     payload: Vec<u8>,
 ) -> Instruction {
+    let (fee_vault_pubkey, fee_vault_bump) = Pubkey::find_program_address(
+        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+        &program_id,
+    );
     let mut data = Vec::with_capacity(1 + payload.len());
     data.push(EXECUTE_INSTRUCTION);
+    data.push(0xff);
+    data.push(0x53);
+    data.push(0u8);
+    data.push(fee_vault_bump);
     data.extend_from_slice(&payload);
 
     let mut metas = vec![
@@ -763,6 +802,21 @@ pub fn build_execute_instruction_with_extras(
             is_writable: if is_external_script { false } else { a.is_writable },
         });
     }
+
+    let payer = accounts
+        .get("payer")
+        .filter(|a| a.is_signer && a.is_writable)
+        .or_else(|| {
+            extras
+                .iter()
+                .filter_map(|name| accounts.get(name))
+                .find(|a| a.is_signer && a.is_writable)
+        })
+        .or_else(|| accounts.values().find(|a| a.is_signer && a.is_writable))
+        .expect("missing signer+writable payer account for execute");
+    metas.push(AccountMeta::new(payer.pubkey, true));
+    metas.push(AccountMeta::new(fee_vault_pubkey, false));
+    metas.push(AccountMeta::new_readonly(system_program::id(), false));
 
     Instruction {
         program_id,
@@ -805,6 +859,10 @@ pub fn setup_accounts_for_fixture(
     vm_state_pubkey: Pubkey,
 ) -> Result<BTreeMap<String, RuntimeAccount>, String> {
     let mut out = BTreeMap::<String, RuntimeAccount>::new();
+    let (fee_vault_pubkey, _fee_vault_bump) = Pubkey::find_program_address(
+        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+        &h.program_id,
+    );
 
     out.insert(
         fixture.authority.name.clone(),
@@ -831,6 +889,34 @@ pub fn setup_accounts_for_fixture(
             is_signer: false,
             is_writable: true,
             executable: false,
+        },
+    );
+
+    out.insert(
+        "fee_vault".to_string(),
+        RuntimeAccount {
+            pubkey: fee_vault_pubkey,
+            signer: None,
+            owner: h.program_id,
+            lamports: 0,
+            data_len: 0,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    out.insert(
+        "system_program".to_string(),
+        RuntimeAccount {
+            pubkey: system_program::id(),
+            signer: None,
+            owner: system_program::id(),
+            lamports: 0,
+            data_len: 0,
+            is_signer: false,
+            is_writable: false,
+            executable: true,
         },
     );
 
@@ -946,6 +1032,10 @@ pub fn run_fixture_scenario(
     let now = Instant::now();
     let vm_state = h.ensure_vm_state()?;
     let mut accounts = setup_accounts_for_fixture(h, &fixture, vm_state)?;
+    let fee_vault = h.ensure_fee_vault_shard(vm_state, 0)?;
+    if let Some(existing) = accounts.get_mut("fee_vault") {
+        existing.pubkey = fee_vault;
+    }
     if let Some(fees) = &fixture.vm_fees {
         h.set_vm_fees(vm_state, fees.deploy_fee_lamports, fees.execute_fee_lamports)?;
     } else {

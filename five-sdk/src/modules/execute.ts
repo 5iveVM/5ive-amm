@@ -293,6 +293,7 @@ export async function generateExecuteInstruction(
     estimateFees?: boolean;
     accountMetadata?: Map<string, { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }>;
     feeShardIndex?: number;
+    payerAccount?: string;
   } = {},
 ): Promise<SerializedExecution> {
   validator.validateBase58Address(scriptAccount, "scriptAccount");
@@ -493,6 +494,27 @@ export async function generateExecuteInstruction(
     feeVault.bump,
   );
 
+  // Runtime requires strict tail: [payer, fee_vault, system_program].
+  const signerCandidates = instructionAccounts
+    .filter((acc) => acc.isSigner)
+    .map((acc) => acc.pubkey);
+  const inferredPayer =
+    options.payerAccount ||
+    (signerCandidates.length > 0
+      ? signerCandidates[signerCandidates.length - 1]
+      : accounts[0]);
+  if (!inferredPayer) {
+    throw new Error(
+      "Could not infer execute fee payer account. Provide a signer account or set options.payerAccount.",
+    );
+  }
+  const feeTailAccounts = [
+    { pubkey: inferredPayer, isSigner: true, isWritable: true },
+    { pubkey: feeVault.address, isSigner: false, isWritable: true },
+    { pubkey: "11111111111111111111111111111111", isSigner: false, isWritable: false },
+  ];
+  instructionAccounts.push(...feeTailAccounts);
+
   const result: SerializedExecution = {
     instruction: {
       programId: programId,
@@ -553,6 +575,7 @@ export async function executeOnSolana(
     fiveVMProgramId?: string;
     abi?: any;
     feeShardIndex?: number;
+    payerAccount?: string;
   } = {},
 ): Promise<{
   success: boolean;
@@ -588,6 +611,7 @@ export async function executeOnSolana(
           fiveVMProgramId: options.fiveVMProgramId,
           abi: options.abi,
           feeShardIndex: options.feeShardIndex,
+          payerAccount: options.payerAccount || signerKeypair.publicKey.toString(),
         },
       );
     } catch (metadataError) {
@@ -621,7 +645,6 @@ export async function executeOnSolana(
     }
 
     const signerPubkey = signerKeypair.publicKey.toString();
-    const systemProgramId = "11111111111111111111111111111111";
     let signerFound = false;
     for (const meta of accountKeys) {
       if (meta.pubkey === signerPubkey) {
@@ -638,22 +661,6 @@ export async function executeOnSolana(
         isWritable: true,
       });
     }
-    // Strict runtime fee account contract tail: [payer, fee_vault, system_program]
-    accountKeys.push({
-      pubkey: signerPubkey,
-      isSigner: true,
-      isWritable: true,
-    });
-    accountKeys.push({
-      pubkey: executionData.adminAccount!,
-      isSigner: false,
-      isWritable: true,
-    });
-    accountKeys.push({
-      pubkey: systemProgramId,
-      isSigner: false,
-      isWritable: false,
-    });
 
     const executeInstruction = new TransactionInstruction({
       keys: accountKeys.map((acc) => ({

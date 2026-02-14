@@ -2167,7 +2167,7 @@ async fn run_fixture_bpf_compute_units(
                 pubkey: fee_vault_pubkey,
                 signer: None,
                 owner: program_id,
-                lamports: 1,
+                lamports: Rent::default().minimum_balance(0),
                 data: vec![],
                 is_signer: false,
                 is_writable: true,
@@ -2371,17 +2371,22 @@ async fn run_fixture_bpf_compute_units(
             );
         }
 
-        let mut signer_names: Vec<&str> = effective_extras
+        let required_signers: Vec<Pubkey> = execute_ix
+            .accounts
             .iter()
-            .filter_map(|name| {
-                accounts
-                    .get(name)
-                    .and_then(|a| if a.is_signer { Some(name.as_str()) } else { None })
+            .filter(|m| m.is_signer)
+            .map(|m| m.pubkey)
+            .collect();
+        let signer_names: Vec<&str> = accounts
+            .iter()
+            .filter_map(|(name, account)| {
+                if account.signer.is_some() && required_signers.contains(&account.pubkey) {
+                    Some(name.as_str())
+                } else {
+                    None
+                }
             })
             .collect();
-        if !signer_names.iter().any(|name| *name == fixture.authority.name.as_str()) {
-            signer_names.push(fixture.authority.name.as_str());
-        }
 
         let fee_vault_before = ctx
             .banks_client
@@ -2651,10 +2656,41 @@ async fn minimal_execute_floor_bpf_compute_units() {
             executable: false,
         },
     );
+    let (fee_vault_pubkey, _fee_vault_bump) =
+        Pubkey::find_program_address(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &program_id);
+    accounts.insert(
+        "fee_vault".to_string(),
+        RuntimeAccount {
+            pubkey: fee_vault_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(0),
+            data: vec![],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "system_program".to_string(),
+        RuntimeAccount {
+            pubkey: system_program::id(),
+            signer: None,
+            owner: system_program::id(),
+            lamports: 1,
+            data: vec![],
+            is_signer: false,
+            is_writable: false,
+            executable: true,
+        },
+    );
 
     let mut program_test = ProgramTest::new("five", program_id, None);
     program_test.prefer_bpf(true);
     for account in accounts.values() {
+        if account.pubkey == system_program::id() {
+            continue;
+        }
         program_test.add_account(
             account.pubkey,
             Account {
@@ -3613,23 +3649,35 @@ fn build_deploy_instruction_with_metadata(
     metadata: &[u8],
     permissions: u8,
 ) -> Instruction {
-    let mut data = Vec::with_capacity(10 + metadata.len() + bytecode.len());
+    let (default_fee_vault, default_fee_vault_bump) = Pubkey::find_program_address(
+        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+        &program_id,
+    );
+    let fee_vault_pubkey = accounts
+        .get("fee_vault")
+        .map(|a| a.pubkey)
+        .unwrap_or(default_fee_vault);
+    let fee_vault_bump = default_fee_vault_bump;
+
+    let mut data = Vec::with_capacity(12 + metadata.len() + bytecode.len());
     data.push(DEPLOY_INSTRUCTION);
     data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
     data.push(permissions);
     data.extend_from_slice(&(metadata.len() as u32).to_le_bytes());
     data.extend_from_slice(metadata);
     data.extend_from_slice(bytecode);
+    data.push(0); // fee shard index
+    data.push(fee_vault_bump);
 
     let mut account_metas = vec![
         AccountMeta::new(accounts[script_name].pubkey, false),
         AccountMeta::new(accounts[vm_state_name].pubkey, false),
-        AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
+        AccountMeta::new(accounts[owner_name].pubkey, true),
     ];
     if permissions != 0 {
         account_metas.push(AccountMeta::new_readonly(accounts[owner_name].pubkey, true));
     }
-    account_metas.push(AccountMeta::new(accounts["fee_vault"].pubkey, false));
+    account_metas.push(AccountMeta::new(fee_vault_pubkey, false));
     account_metas.push(AccountMeta::new_readonly(system_program::id(), false));
 
     Instruction {
@@ -3736,8 +3784,18 @@ fn build_execute_instruction(
     step: &StepFixture,
     payload: Vec<u8>,
 ) -> Instruction {
-    let mut data = Vec::with_capacity(1 + payload.len());
+    let (default_fee_vault, default_fee_vault_bump) = Pubkey::find_program_address(
+        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+        &program_id,
+    );
+    let fee_vault_pubkey = accounts
+        .get("fee_vault")
+        .map(|a| a.pubkey)
+        .unwrap_or(default_fee_vault);
+
+    let mut data = Vec::with_capacity(5 + payload.len());
     data.push(EXECUTE_INSTRUCTION);
+    data.extend_from_slice(&[0xFF, 0x53, 0, default_fee_vault_bump]); // shard=0 + canonical bump
     data.extend_from_slice(&payload);
 
     let mut metas = vec![
@@ -3749,18 +3807,25 @@ fn build_execute_instruction(
         let is_external_script = name != script_name && name.ends_with("_script");
         metas.push(AccountMeta {
             pubkey: a.pubkey,
-            is_signer: a.is_signer,
+            is_signer: a.is_signer && a.signer.is_some(),
             // Imported bytecode accounts must be read-only during execution.
             is_writable: if is_external_script { false } else { a.is_writable },
         });
     }
 
     let payer = accounts
-        .values()
-        .find(|a| a.is_signer && a.is_writable)
+        .get("payer")
+        .filter(|a| a.is_signer && a.is_writable)
+        .or_else(|| {
+            step.extras
+                .iter()
+                .filter_map(|name| accounts.get(name))
+                .find(|a| a.is_signer && a.is_writable)
+        })
+        .or_else(|| accounts.values().find(|a| a.is_signer && a.is_writable))
         .expect("missing signer+writable payer account for execute");
     metas.push(AccountMeta::new(payer.pubkey, true));
-    metas.push(AccountMeta::new(accounts["fee_vault"].pubkey, false));
+    metas.push(AccountMeta::new(fee_vault_pubkey, false));
     metas.push(AccountMeta::new_readonly(system_program::id(), false));
 
     Instruction {
@@ -3778,8 +3843,18 @@ fn build_execute_instruction_with_extras(
     extras: &[String],
     payload: Vec<u8>,
 ) -> Instruction {
-    let mut data = Vec::with_capacity(1 + payload.len());
+    let (default_fee_vault, default_fee_vault_bump) = Pubkey::find_program_address(
+        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+        &program_id,
+    );
+    let fee_vault_pubkey = accounts
+        .get("fee_vault")
+        .map(|a| a.pubkey)
+        .unwrap_or(default_fee_vault);
+
+    let mut data = Vec::with_capacity(5 + payload.len());
     data.push(EXECUTE_INSTRUCTION);
+    data.extend_from_slice(&[0xFF, 0x53, 0, default_fee_vault_bump]); // shard=0 + canonical bump
     data.extend_from_slice(&payload);
 
     let mut metas = vec![
@@ -3791,18 +3866,25 @@ fn build_execute_instruction_with_extras(
         let is_external_script = name != script_name && name.ends_with("_script");
         metas.push(AccountMeta {
             pubkey: a.pubkey,
-            is_signer: a.is_signer,
+            is_signer: a.is_signer && a.signer.is_some(),
             // Imported bytecode accounts must be read-only during execution.
             is_writable: if is_external_script { false } else { a.is_writable },
         });
     }
 
     let payer = accounts
-        .values()
-        .find(|a| a.is_signer && a.is_writable)
+        .get("payer")
+        .filter(|a| a.is_signer && a.is_writable)
+        .or_else(|| {
+            extras
+                .iter()
+                .filter_map(|name| accounts.get(name))
+                .find(|a| a.is_signer && a.is_writable)
+        })
+        .or_else(|| accounts.values().find(|a| a.is_signer && a.is_writable))
         .expect("missing signer+writable payer account for execute");
     metas.push(AccountMeta::new(payer.pubkey, true));
-    metas.push(AccountMeta::new(accounts["fee_vault"].pubkey, false));
+    metas.push(AccountMeta::new(fee_vault_pubkey, false));
     metas.push(AccountMeta::new_readonly(system_program::id(), false));
 
     Instruction {

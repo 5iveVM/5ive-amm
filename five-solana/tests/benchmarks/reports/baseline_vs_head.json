@@ -1,0 +1,175 @@
+{
+  "baseline_commit": "8f0b32a7723315e2e8c5e331b7dbc6702ae8fb53",
+  "head_commit": "890f1130da86",
+  "generated_at": "2026-02-14T13:20:24Z",
+  "scenarios": [
+    {
+      "scenario": "token_full_e2e",
+      "baseline": {
+        "scenario": "token_full_e2e",
+        "deploy": 1168,
+        "execute": 8396,
+        "total": 57181,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052041551-cu.json",
+        "source_ts": 1771052041551,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "head": {
+        "scenario": "token_full_e2e",
+        "deploy": 1168,
+        "execute": 8396,
+        "total": 57181,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052041551-cu.json",
+        "source_ts": 1771052041551,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "delta": {
+        "deploy": 0,
+        "execute": 0,
+        "total": 0
+      }
+    },
+    {
+      "scenario": "external_non_cpi",
+      "baseline": {
+        "scenario": "external_non_cpi",
+        "deploy": 3032,
+        "execute": 5392,
+        "total": 8424,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052187901-cu.json",
+        "source_ts": 1771052187901,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "head": {
+        "scenario": "external_non_cpi",
+        "deploy": 3032,
+        "execute": 5392,
+        "total": 8424,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052187901-cu.json",
+        "source_ts": 1771052187901,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "delta": {
+        "deploy": 0,
+        "execute": 0,
+        "total": 0
+      }
+    },
+    {
+      "scenario": "external_interface_mapping_non_cpi",
+      "baseline": {
+        "scenario": "external_interface_mapping_non_cpi",
+        "deploy": 3319,
+        "execute": 4049,
+        "total": 7368,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052247830-cu.json",
+        "source_ts": 1771052247830,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "head": {
+        "scenario": "external_interface_mapping_non_cpi",
+        "deploy": 3319,
+        "execute": 4049,
+        "total": 7368,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052247830-cu.json",
+        "source_ts": 1771052247830,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "delta": {
+        "deploy": 0,
+        "execute": 0,
+        "total": 0
+      }
+    },
+    {
+      "scenario": "external_burst_non_cpi",
+      "baseline": {
+        "scenario": "external_burst_non_cpi",
+        "deploy": 4259,
+        "execute": 11320,
+        "total": 15579,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052348281-cu.json",
+        "source_ts": 1771052348281,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "head": {
+        "scenario": "external_burst_non_cpi",
+        "deploy": 4259,
+        "execute": 11320,
+        "total": 15579,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052348281-cu.json",
+        "source_ts": 1771052348281,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "delta": {
+        "deploy": 0,
+        "execute": 0,
+        "total": 0
+      }
+    },
+    {
+      "scenario": "memory_string_heavy",
+      "baseline": {
+        "scenario": "memory_string_heavy",
+        "deploy": 1168,
+        "execute": 8396,
+        "total": 57180,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052459632-cu.json",
+        "source_ts": 1771052459632,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "head": {
+        "scenario": "memory_string_heavy",
+        "deploy": 1168,
+        "execute": 8396,
+        "total": 57180,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052459632-cu.json",
+        "source_ts": 1771052459632,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "delta": {
+        "deploy": 0,
+        "execute": 0,
+        "total": 0
+      }
+    },
+    {
+      "scenario": "arithmetic_intensive",
+      "baseline": {
+        "scenario": "arithmetic_intensive",
+        "deploy": 14583,
+        "execute": 14702,
+        "total": 58689,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052488084-cu.json",
+        "source_ts": 1771052488084,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "head": {
+        "scenario": "arithmetic_intensive",
+        "deploy": 14583,
+        "execute": 14702,
+        "total": 58689,
+        "source_file": "five-solana/tests/benchmarks/validator-runs/devnet-1771052488084-cu.json",
+        "source_ts": 1771052488084,
+        "network": "devnet",
+        "program_id": "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+      },
+      "delta": {
+        "deploy": 0,
+        "execute": 0,
+        "total": 0
+      }
+    }
+  ]
+}

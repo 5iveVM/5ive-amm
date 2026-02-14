@@ -93,11 +93,32 @@ pub fn collect_deploy_fee(
     // SAFETY: The state account is program-owned and read-only here.
     let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
-    if fee_shard_index >= vm_state.fee_vault_shard_count() {
+    collect_deploy_fee_with_state(
+        program_id,
+        payer,
+        fee_vault_account,
+        system_program,
+        fee_shard_index,
+        fee_vault_bump,
+        vm_state.deploy_fee_lamports as u64,
+        vm_state.fee_vault_shard_count(),
+    )
+}
+
+pub fn collect_deploy_fee_with_state(
+    program_id: &Pubkey,
+    payer: &AccountInfo,
+    fee_vault_account: &AccountInfo,
+    system_program: &AccountInfo,
+    fee_shard_index: u8,
+    fee_vault_bump: Option<u8>,
+    deploy_fee_lamports: u64,
+    fee_vault_shard_count: u8,
+) -> ProgramResult {
+    if fee_shard_index >= fee_vault_shard_count {
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    let deploy_fee_lamports = vm_state.deploy_fee_lamports as u64;
     verify_fee_vault_account(
         fee_vault_account,
         program_id,

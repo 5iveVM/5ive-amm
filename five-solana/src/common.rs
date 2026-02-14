@@ -308,18 +308,46 @@ pub fn derive_fee_vault_pda(program_id: &Pubkey, shard_index: u8) -> Result<(Pub
 }
 
 #[inline(always)]
+pub fn derive_fee_vault_pda_with_bump(
+    program_id: &Pubkey,
+    shard_index: u8,
+    bump: u8,
+) -> Result<Pubkey, ProgramError> {
+    let shard_seed = [shard_index];
+    let bump_seed = [bump];
+    #[cfg(not(target_os = "solana"))]
+    {
+        let mut pid = [0u8; 32];
+        pid.copy_from_slice(program_id.as_ref());
+        let pda = five_vm_mito::utils::derive_pda_offchain(
+            &[FEE_VAULT_SEED, &shard_seed, &bump_seed],
+            &pid,
+        )
+        .map_err(|_| ProgramError::InvalidArgument)?;
+        Ok(Pubkey::from(pda))
+    }
+    #[cfg(target_os = "solana")]
+    {
+        create_program_address(&[FEE_VAULT_SEED, &shard_seed, &bump_seed], program_id)
+            .map_err(|_| ProgramError::InvalidArgument)
+    }
+}
+
+#[inline(always)]
 pub fn verify_fee_vault_account(
     fee_vault_account: &AccountInfo,
     program_id: &Pubkey,
     shard_index: u8,
     expected_bump: Option<u8>,
 ) -> ProgramResult {
-    let (expected_key, derived_bump) = derive_fee_vault_pda(program_id, shard_index)?;
-    if fee_vault_account.key() != &expected_key {
-        return Err(ProgramError::InvalidArgument);
-    }
     if let Some(bump) = expected_bump {
-        if bump != derived_bump {
+        let expected_key = derive_fee_vault_pda_with_bump(program_id, shard_index, bump)?;
+        if fee_vault_account.key() != &expected_key {
+            return Err(ProgramError::InvalidArgument);
+        }
+    } else {
+        let (expected_key, _derived_bump) = derive_fee_vault_pda(program_id, shard_index)?;
+        if fee_vault_account.key() != &expected_key {
             return Err(ProgramError::InvalidArgument);
         }
     }

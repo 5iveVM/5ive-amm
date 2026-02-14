@@ -173,7 +173,7 @@ export async function generateDeployInstruction(
 
   const deployAccounts = [
     { pubkey: scriptAccount, isSigner: false, isWritable: true },
-    { pubkey: vmStatePDA, isSigner: false, isWritable: false },
+    { pubkey: vmStatePDA, isSigner: false, isWritable: true },
     { pubkey: deployer, isSigner: true, isWritable: true },
     { pubkey: deployVault.address, isSigner: false, isWritable: true },
   ];
@@ -469,6 +469,14 @@ export async function deployToSolana(
       console.log(`[FiveSDK] Export metadata size: ${exportMetadata.length} bytes`);
       console.log(`[FiveSDK] Rent cost: ${((rentLamports + vmStateRent) / 1e9)} SOL`);
     }
+    const feeVaultInitSigs = await initProgramFeeVaultShards(
+      connection,
+      programId,
+      vmStatePubkey.toString(),
+      vmStateFeeConfig.shardCount,
+      deployerKeypair,
+      { debug: options.debug, maxRetries: options.maxRetries },
+    );
 
     // SINGLE TRANSACTION: create script account + deploy bytecode
     const tx = new Transaction();
@@ -515,7 +523,7 @@ export async function deployToSolana(
         {
           pubkey: vmStatePubkey,
           isSigner: false,
-          isWritable: false,
+          isWritable: true,
         },
         {
           pubkey: deployerKeypair.publicKey,
@@ -592,15 +600,6 @@ export async function deployToSolana(
     if (options.debug) {
       console.log(`[FiveSDK] Combined deployment succeeded: ${signature}`);
     }
-
-    const feeVaultInitSigs = await initProgramFeeVaultShards(
-      connection,
-      programId,
-      vmStatePubkey.toString(),
-      vmStateFeeConfig.shardCount,
-      deployerKeypair,
-      { debug: options.debug, maxRetries: options.maxRetries },
-    );
 
     return {
       success: true,
@@ -753,6 +752,14 @@ export async function deployLargeProgramToSolana(
         `[FiveSDK] Initial rent cost: ${(rentLamports + vmStateRent) / 1e9} SOL`,
       );
     }
+    const feeVaultInitSigs = await initProgramFeeVaultShards(
+      connection,
+      programIdStr,
+      vmStatePubkey.toString(),
+      vmStateFeeConfig.shardCount,
+      deployerKeypair,
+      { debug: options.debug, maxRetries: options.maxRetries },
+    );
 
     const transactionIds: string[] = [];
     let totalCost = rentLamports + vmStateRent;
@@ -973,15 +980,6 @@ export async function deployLargeProgramToSolana(
       );
     }
 
-    const feeVaultInitSigs = await initProgramFeeVaultShards(
-      connection,
-      programIdStr,
-      vmStatePubkey.toString(),
-      vmStateFeeConfig.shardCount,
-      deployerKeypair,
-      { debug: options.debug, maxRetries: options.maxRetries },
-    );
-
     return {
       success: true,
       scriptAccount,
@@ -1141,6 +1139,14 @@ export async function deployLargeProgramOptimizedToSolana(
         `[FiveSDK] Full rent cost paid upfront: ${(rentLamports + vmStateRent) / 1e9} SOL`,
       );
     }
+    const feeVaultInitSigs = await initProgramFeeVaultShards(
+      connection,
+      programIdStr,
+      vmStatePubkey.toString(),
+      vmStateFeeConfig.shardCount,
+      deployerKeypair,
+      { debug: options.debug, maxRetries: options.maxRetries },
+    );
 
     const transactionIds: string[] = [];
     let totalCost = rentLamports + vmStateRent;
@@ -1454,15 +1460,6 @@ export async function deployLargeProgramOptimizedToSolana(
         `[FiveSDK]   Estimated cost saved: ${estimatedCostSaved / 1e9} SOL`,
       );
     }
-    const feeVaultInitSigs = await initProgramFeeVaultShards(
-      connection,
-      programIdStr,
-      vmStatePubkey.toString(),
-      vmStateFeeConfig.shardCount,
-      deployerKeypair,
-      { debug: options.debug, maxRetries: options.maxRetries },
-    );
-
     return {
       success: true,
       scriptAccount,

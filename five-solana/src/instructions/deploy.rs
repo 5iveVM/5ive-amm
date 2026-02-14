@@ -14,7 +14,7 @@ use crate::{
 };
 
 use super::{
-    fees::{collect_deploy_fee},
+    fees::{collect_deploy_fee, collect_deploy_fee_with_state},
     verify::{verify_bytecode_content},
     require_min_accounts, require_signer, safe_realloc,
 };
@@ -137,13 +137,12 @@ pub fn deploy(
     let owner = &accounts[2];
 
     validate_vm_and_script_accounts(program_id, script_account, vm_state_account)?;
+    let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+    let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
     require_signer(owner)?;
 
     // If any permissions are set, require admin key (VM authority) signature
     let (fee_vault_idx, system_program_idx) = if permissions != 0 {
-        // Get the admin key from VM state authority
-        let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
-        let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
         let admin_key = vm_state.authority;
 
         // Admin account must be present and be the signer when special permissions are used
@@ -193,15 +192,15 @@ pub fn deploy(
     }
 
     // Charge deploy fee only after all non-mutating deployment validations pass.
-    collect_deploy_fee(
+    collect_deploy_fee_with_state(
         program_id,
-        vm_state_account,
         owner,
         fee_vault_account,
         system_program,
         fee_shard_index,
         fee_vault_bump,
-        required_size,
+        vm_state.deploy_fee_lamports as u64,
+        vm_state.fee_vault_shard_count(),
     )?;
 
     // SAFETY: `vm_state_account` verified.

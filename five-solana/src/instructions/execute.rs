@@ -4,8 +4,10 @@ use pinocchio::{
 
 use crate::{
     common::{
-        validate_vm_and_script_accounts, verify_fee_vault_account, has_permission, PERMISSION_POST_BYTECODE,
+        has_permission, verify_canonical_vm_state_account, verify_fee_vault_account,
+        verify_program_owned, PERMISSION_POST_BYTECODE,
     },
+    error,
     state::{FIVEVMState, ScriptAccountHeader},
 };
 use five_vm_mito::{MitoVM, StackStorage};
@@ -34,13 +36,16 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
 
-    if let Err(e) = validate_vm_and_script_accounts(program_id, script_account, vm_state_account) {
-         return Err(e);
-    }
+    verify_program_owned(script_account, program_id)?;
+    verify_canonical_vm_state_account(vm_state_account, program_id)?;
+    verify_program_owned(vm_state_account, program_id)?;
 
-    // SAFETY: state account is program-owned and read-only here.
+    // SAFETY: state account was verified program-owned and read-only here.
     let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
+    if !vm_state.is_initialized() {
+        return Err(error::program_not_initialized_error());
+    }
     let fee = vm_state.execute_fee_lamports as u64;
     let (fee_shard_index, fee_vault_bump, vm_params) = decode_execute_payload(params);
     if fee_shard_index >= vm_state.fee_vault_shard_count() {
