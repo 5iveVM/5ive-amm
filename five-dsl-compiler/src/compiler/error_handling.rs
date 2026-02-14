@@ -85,9 +85,20 @@ pub fn convert_vm_error_to_compiler_error(
             )
             .with_file(file_path);
 
+            // Improve error message when expected is empty or generic
+            let message = if expected.is_empty() {
+                // Provide more context when expected is not specified
+                format!("unexpected `{}` token at this location", found)
+            } else if expected.len() < 20 && expected.contains("TokenKind") {
+                // TokenKind debug format is not user-friendly
+                format!("expected a different token, found `{}`", found)
+            } else {
+                format!("expected `{}`, found `{}`", expected, found)
+            };
+
             let error = integration::parse_error(
                 ErrorCode::EXPECTED_TOKEN,
-                format!("expected `{}`, found `{}`", expected, found),
+                message,
                 Some(location),
                 Some(vec![expected.to_string()]),
                 Some(found.to_string()),

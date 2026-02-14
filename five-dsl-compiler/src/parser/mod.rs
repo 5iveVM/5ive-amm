@@ -349,6 +349,7 @@ impl DslParser {
             Token::AssertFalse => "'assert_false'".to_string(),
             Token::AssertFails => "'assert_fails'".to_string(),
             Token::AssertApproxEq => "'assert_approx_eq'".to_string(),
+            Token::Type(name) => format!("type '{}'", name),
             _ => format!("unknown token {:?}", token),
         }
     }

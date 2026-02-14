@@ -1,6 +1,6 @@
 {
   "name": "@5ive-tech/cli",
-  "version": "1.0.20",
+  "version": "1.0.25",
   "description": "High-performance CLI for Five VM development with WebAssembly integration",
   "type": "module",
   "main": "dist/index.js",
@@ -32,7 +32,7 @@
     "test:sdk:verbose": "five test --sdk-runner --verbose",
     "test:sdk:watch": "five test --sdk-runner --watch",
     "dev:use-local-sdk": "npm --prefix ../five-sdk run build && npm install --no-save ../five-sdk",
-    "dev:print-sdk": "node -e \"const p=require.resolve('@5ive-tech/sdk/package.json');const pkg=require(p);console.log(`${pkg.name}@${pkg.version}`);console.log(p);\"",
+    "dev:print-sdk": "node -e \"const fs=require('fs');const path=require('path');const pkgPath=path.resolve(process.cwd(),'node_modules','@5ive-tech','sdk','package.json');const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));console.log(pkg.name+'@'+pkg.version);console.log(pkgPath);\"",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
     "dev": "npm run build:js:dev",
@@ -72,7 +72,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@5ive-tech/sdk": "^1.1.7",
+    "@5ive-tech/sdk": "^1.1.9",
     "@iarna/toml": "^2.2.5",
     "@solana/web3.js": "^1.90.0",
     "bs58": "^5.0.0",

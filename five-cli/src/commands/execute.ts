@@ -465,10 +465,11 @@ async function executeScriptAccount(scriptAccount: string, options: any, context
       try {
         fees = await FiveSDK.getFees(connection, options.programId);
 
-        if (fees.executeFeeLamports > 0) {
+        const executeFeeLamports = (fees as any).executeFeeLamports ?? (fees as any).executeFeeBps ?? 0;
+        if (executeFeeLamports > 0) {
           if (context.options.verbose || options.debug) {
             console.log('\n' + section('VM Fees'));
-            console.log(keyValue('Execution Fee', `${fees.executeFeeLamports.toLocaleString()} lamports`));
+            console.log(keyValue('Execution Fee', `${executeFeeLamports.toLocaleString()} lamports`));
           }
 
           // Attach fee authority account to options
@@ -572,10 +573,11 @@ async function executeOnChain(inputFile: string, options: any, context: CommandC
     try {
       fees = await FiveSDK.getFees(connection, options.programId);
 
-      if (fees.executeFeeLamports > 0) {
+      const executeFeeLamports = (fees as any).executeFeeLamports ?? (fees as any).executeFeeBps ?? 0;
+      if (executeFeeLamports > 0) {
         if (context.options.verbose || options.debug) {
           console.log('\n' + section('VM Fees'));
-          console.log(keyValue('Execution Fee', `${fees.executeFeeLamports.toLocaleString()} lamports`));
+          console.log(keyValue('Execution Fee', `${executeFeeLamports.toLocaleString()} lamports`));
         }
 
         // Attach fee authority account to options

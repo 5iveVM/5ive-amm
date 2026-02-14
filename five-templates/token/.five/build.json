@@ -1,12 +1,17 @@
 {
-  "artifact_path": "/tmp/five-token-build-cli-verify/token.five",
+  "artifact_path": "/Users/ivmidable/Development/five-mono/five-templates/token/build/five-token-template.five",
   "compiler_version": "unknown",
   "source_files": [
-    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/src/token.v"
+    "/Users/ivmidable/Development/five-mono/five-templates/token/src/token.v",
+    "/Users/ivmidable/Development/five-mono/five-templates/token/src/main.v",
+    "/Users/ivmidable/Development/five-mono/five-templates/token/src/types/token_types.v",
+    "/Users/ivmidable/Development/five-mono/five-templates/token/src/token/token_transfer.v",
+    "/Users/ivmidable/Development/five-mono/five-templates/token/src/token/token_mint.v",
+    "/Users/ivmidable/Development/five-mono/five-templates/token/src/token/token_core.v"
   ],
   "target": "vm",
-  "timestamp": "2026-02-13T22:26:58.318Z",
-  "hash": "b42094e81a02ba421b65d92909042043d3a4f06bd006012698d73257d9ef0009",
+  "timestamp": "2026-02-14T19:18:37.291Z",
+  "hash": "4f9b63734b4bc879c28723c3c8f6634da76a9ccef9b7d6f162d1a8a32b105b31",
   "format": "five",
   "entry_point": "src/token.v",
   "source_dir": "src"
