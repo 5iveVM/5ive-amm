@@ -9,6 +9,7 @@ use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::
 pub mod compile;
 pub mod fixtures;
 pub mod perf;
+pub mod validator;
 
 #[derive(Clone, Debug)]
 pub struct AccountSeed {
