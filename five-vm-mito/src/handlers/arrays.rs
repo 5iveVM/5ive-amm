@@ -40,7 +40,7 @@ use five_protocol::{opcodes::*, ValueRef};
 
 /// Handle unified array and string operations (0x60-0x6F range)
 /// 🎯 LOGICAL REORGANIZATION: All array and string operations consolidated
-#[inline(always)]
+#[inline(never)]
 pub fn handle_arrays(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         // Array creation and management (0x60-0x65)

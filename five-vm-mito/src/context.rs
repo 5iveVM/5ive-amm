@@ -4,7 +4,7 @@ use crate::{
     error::{CompactResult, Result, VMErrorCode},
     metadata::ImportMetadata,
     stack::StackStorage,
-    types::{CallFrame, ExternalCallCacheEntry, ExternalImportVerifyCacheEntry},
+    types::{CallFrame, ExternalCallCacheEntry, ExternalCacheState, ExternalImportVerifyCacheEntry},
     MAX_LOCALS, MAX_PARAMETERS, MAX_SCRIPT_SIZE,
 };
 
@@ -77,22 +77,8 @@ pub struct ExecutionContext<'a> {
     // Import verification metadata.
     pub import_metadata: ImportMetadata<'a>,
 
-    // CALL_EXTERNAL caches (transaction-local, allocation-free).
-    pub external_call_cache: [ExternalCallCacheEntry; EXTERNAL_CALL_CACHE_SIZE],
-    pub external_call_cache_next: usize,
-    pub external_import_verify_cache: [ExternalImportVerifyCacheEntry; EXTERNAL_VERIFY_CACHE_SIZE],
-    pub external_import_verify_cache_next: usize,
-    pub external_hot_account_index: u8,
-    pub external_hot_script_ptr: usize,
-    pub external_hot_script_len: u32,
-    pub external_hot_code_fingerprint: u32,
-    pub external_hot_import_authorized: bool,
-    pub external_hot_valid: bool,
-
-    // Optional cache metrics for harness/debug visibility.
-    pub external_cache_hits: u32,
-    pub external_cache_misses: u32,
-    pub import_verify_cache_hits: u32,
+    // CALL_EXTERNAL cache state (stored in StackStorage to keep context frame small).
+    pub external_cache_state: &'a mut ExternalCacheState,
 
     // Syscall caching.
     pub cached_clock: Option<pinocchio::sysvars::clock::Clock>,
@@ -149,7 +135,7 @@ impl<'a> ExecutionContext<'a> {
         string_blob_offset: u32,
         string_blob_len: u32,
     ) -> Self {
-        let (stack, call_stack, locals, temp, heap) = storage.split_mut();
+        let (stack, call_stack, locals, temp, external_cache_state, heap) = storage.split_mut();
         Self {
             bytecode,
             root_bytecode: bytecode,
@@ -181,19 +167,7 @@ impl<'a> ExecutionContext<'a> {
                 // If parsing fails, create empty metadata (backward compatible).
                 ImportMetadata::new(&[], 0).unwrap()
             }),
-            external_call_cache: [ExternalCallCacheEntry::empty(); EXTERNAL_CALL_CACHE_SIZE],
-            external_call_cache_next: 0,
-            external_import_verify_cache: [ExternalImportVerifyCacheEntry::empty(); EXTERNAL_VERIFY_CACHE_SIZE],
-            external_import_verify_cache_next: 0,
-            external_hot_account_index: u8::MAX,
-            external_hot_script_ptr: 0,
-            external_hot_script_len: 0,
-            external_hot_code_fingerprint: 0,
-            external_hot_import_authorized: false,
-            external_hot_valid: false,
-            external_cache_hits: 0,
-            external_cache_misses: 0,
-            import_verify_cache_hits: 0,
+            external_cache_state,
             cached_clock: None,
             cached_rent: None,
         }
@@ -1047,26 +1021,29 @@ impl<'a> ExecutionContext<'a> {
         selector: u16,
         code_fingerprint: u32,
     ) -> Option<ExternalCallCacheEntry> {
-        for entry in &self.external_call_cache {
+        for entry in &self.external_cache_state.external_call_cache {
             if entry.valid
                 && entry.resolved_account_index == resolved_account_index
                 && entry.selector == selector
                 && entry.code_fingerprint == code_fingerprint
             {
-                self.external_cache_hits = self.external_cache_hits.saturating_add(1);
+                self.external_cache_state.external_cache_hits =
+                    self.external_cache_state.external_cache_hits.saturating_add(1);
                 return Some(*entry);
             }
         }
 
-        self.external_cache_misses = self.external_cache_misses.saturating_add(1);
+        self.external_cache_state.external_cache_misses =
+            self.external_cache_state.external_cache_misses.saturating_add(1);
         None
     }
 
     #[inline(always)]
     pub fn external_call_cache_store(&mut self, entry: ExternalCallCacheEntry) {
-        let idx = self.external_call_cache_next % EXTERNAL_CALL_CACHE_SIZE;
-        self.external_call_cache[idx] = entry;
-        self.external_call_cache_next = (self.external_call_cache_next + 1) % EXTERNAL_CALL_CACHE_SIZE;
+        let idx = self.external_cache_state.external_call_cache_next % EXTERNAL_CALL_CACHE_SIZE;
+        self.external_cache_state.external_call_cache[idx] = entry;
+        self.external_cache_state.external_call_cache_next =
+            (self.external_cache_state.external_call_cache_next + 1) % EXTERNAL_CALL_CACHE_SIZE;
     }
 
     #[inline(always)]
@@ -1075,12 +1052,13 @@ impl<'a> ExecutionContext<'a> {
         resolved_account_index: u8,
         code_fingerprint: u32,
     ) -> Option<bool> {
-        for entry in &self.external_import_verify_cache {
+        for entry in &self.external_cache_state.external_import_verify_cache {
             if entry.valid
                 && entry.resolved_account_index == resolved_account_index
                 && entry.code_fingerprint == code_fingerprint
             {
-                self.import_verify_cache_hits = self.import_verify_cache_hits.saturating_add(1);
+                self.external_cache_state.import_verify_cache_hits =
+                    self.external_cache_state.import_verify_cache_hits.saturating_add(1);
                 return Some(entry.authorized);
             }
         }
@@ -1094,32 +1072,39 @@ impl<'a> ExecutionContext<'a> {
         code_fingerprint: u32,
         authorized: bool,
     ) {
-        let idx = self.external_import_verify_cache_next % EXTERNAL_VERIFY_CACHE_SIZE;
-        self.external_import_verify_cache[idx] = ExternalImportVerifyCacheEntry {
+        let idx =
+            self.external_cache_state.external_import_verify_cache_next % EXTERNAL_VERIFY_CACHE_SIZE;
+        self.external_cache_state.external_import_verify_cache[idx] = ExternalImportVerifyCacheEntry {
             resolved_account_index,
             code_fingerprint,
             authorized,
             valid: true,
         };
-        self.external_import_verify_cache_next =
-            (self.external_import_verify_cache_next + 1) % EXTERNAL_VERIFY_CACHE_SIZE;
+        self.external_cache_state.external_import_verify_cache_next =
+            (self.external_cache_state.external_import_verify_cache_next + 1)
+                % EXTERNAL_VERIFY_CACHE_SIZE;
     }
 
     #[inline(always)]
     pub fn external_cache_metrics(&self) -> (u32, u32, u32) {
         (
-            self.external_cache_hits,
-            self.external_cache_misses,
-            self.import_verify_cache_hits,
+            self.external_cache_state.external_cache_hits,
+            self.external_cache_state.external_cache_misses,
+            self.external_cache_state.import_verify_cache_hits,
         )
     }
 
     #[inline(always)]
     pub fn external_hot_ctx_lookup(&self, resolved_account_index: u8) -> Option<(u32, bool)> {
-        if !self.external_hot_valid || self.external_hot_account_index != resolved_account_index {
+        if !self.external_cache_state.external_hot_valid
+            || self.external_cache_state.external_hot_account_index != resolved_account_index
+        {
             return None;
         }
-        Some((self.external_hot_code_fingerprint, self.external_hot_import_authorized))
+        Some((
+            self.external_cache_state.external_hot_code_fingerprint,
+            self.external_cache_state.external_hot_import_authorized,
+        ))
     }
 
     #[inline(always)]
@@ -1132,25 +1117,29 @@ impl<'a> ExecutionContext<'a> {
         import_authorized: bool,
     ) -> CompactResult<()> {
         let script_len_u32 = u32::try_from(script_len).map_err(|_| VMErrorCode::InvalidScriptSize)?;
-        self.external_hot_account_index = resolved_account_index;
-        self.external_hot_script_ptr = script_ptr;
-        self.external_hot_script_len = script_len_u32;
-        self.external_hot_code_fingerprint = code_fingerprint;
-        self.external_hot_import_authorized = import_authorized;
-        self.external_hot_valid = true;
+        self.external_cache_state.external_hot_account_index = resolved_account_index;
+        self.external_cache_state.external_hot_script_ptr = script_ptr;
+        self.external_cache_state.external_hot_script_len = script_len_u32;
+        self.external_cache_state.external_hot_code_fingerprint = code_fingerprint;
+        self.external_cache_state.external_hot_import_authorized = import_authorized;
+        self.external_cache_state.external_hot_valid = true;
         Ok(())
     }
 
     #[inline(always)]
     pub fn external_hot_ctx_script(&self, resolved_account_index: u8) -> Option<&'a [u8]> {
-        if !self.external_hot_valid || self.external_hot_account_index != resolved_account_index {
+        if !self.external_cache_state.external_hot_valid
+            || self.external_cache_state.external_hot_account_index != resolved_account_index
+        {
             return None;
         }
-        if self.external_hot_script_ptr == 0 || self.external_hot_script_len == 0 {
+        if self.external_cache_state.external_hot_script_ptr == 0
+            || self.external_cache_state.external_hot_script_len == 0
+        {
             return None;
         }
-        let ptr = self.external_hot_script_ptr as *const u8;
-        let len = self.external_hot_script_len as usize;
+        let ptr = self.external_cache_state.external_hot_script_ptr as *const u8;
+        let len = self.external_cache_state.external_hot_script_len as usize;
         // SAFETY: Pointer and len were captured from a live AccountInfo data slice for this tx.
         Some(unsafe { core::slice::from_raw_parts(ptr, len) })
     }

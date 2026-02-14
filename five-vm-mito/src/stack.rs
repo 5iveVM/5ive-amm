@@ -1,5 +1,5 @@
 use crate::{
-    types::CallFrame,
+    types::{CallFrame, ExternalCacheState},
     MAX_CALL_DEPTH, MAX_LOCALS, STACK_SIZE, TEMP_BUFFER_SIZE,
 };
 use five_protocol::ValueRef;
@@ -34,7 +34,11 @@ const TEMP_BUFFER_BYTES: usize = TEMP_BUFFER_SIZE;
 
 // 5. Heap Buffer
 // Align to 16 bytes (u128 alignment)
-const HEAP_BUFFER_OFFSET: usize = (TEMP_BUFFER_OFFSET + TEMP_BUFFER_BYTES + 15) & !15;
+const EXTERNAL_CACHE_OFFSET: usize =
+    (TEMP_BUFFER_OFFSET + TEMP_BUFFER_BYTES + (align_of::<ExternalCacheState>() - 1))
+        & !(align_of::<ExternalCacheState>() - 1);
+const EXTERNAL_CACHE_BYTES: usize = size_of::<ExternalCacheState>();
+const HEAP_BUFFER_OFFSET: usize = (EXTERNAL_CACHE_OFFSET + EXTERNAL_CACHE_BYTES + 15) & !15;
 // Heap takes the rest of the storage
 const HEAP_BUFFER_BYTES: usize = STORAGE_SIZE - HEAP_BUFFER_OFFSET;
 
@@ -147,6 +151,15 @@ impl StackStorage {
         &mut self.memory[HEAP_BUFFER_OFFSET..HEAP_BUFFER_OFFSET + HEAP_BUFFER_BYTES]
     }
 
+    /// Get mutable reference to external call cache state.
+    #[inline(always)]
+    pub fn external_cache_state_mut(&mut self) -> &mut ExternalCacheState {
+        unsafe {
+            let ptr = self.memory.as_mut_ptr().add(EXTERNAL_CACHE_OFFSET) as *mut ExternalCacheState;
+            &mut *ptr
+        }
+    }
+
     /// Split storage into mutable slices for all regions.
     /// This allows simultaneous mutable access to disjoint regions which is required
     /// for initializing the ExecutionContext.
@@ -156,7 +169,8 @@ impl StackStorage {
         &mut [CallFrame],
         &mut [core::mem::MaybeUninit<ValueRef>],
         &mut [u8],
-        &mut [u8]
+        &mut ExternalCacheState,
+        &mut [u8],
     ) {
         unsafe {
             let ptr = self.memory.as_mut_ptr();
@@ -166,9 +180,11 @@ impl StackStorage {
             let locals = core::slice::from_raw_parts_mut(ptr.add(LOCALS_OFFSET) as *mut core::mem::MaybeUninit<ValueRef>, MAX_LOCALS);
             // Temp
             let temp = core::slice::from_raw_parts_mut(ptr.add(TEMP_BUFFER_OFFSET), TEMP_BUFFER_BYTES);
+            let external_cache_state = &mut *(ptr.add(EXTERNAL_CACHE_OFFSET) as *mut ExternalCacheState);
+            *external_cache_state = ExternalCacheState::empty();
             // Heap
             let heap = core::slice::from_raw_parts_mut(ptr.add(HEAP_BUFFER_OFFSET), HEAP_BUFFER_BYTES);
-            (stack, call_stack, locals, temp, heap)
+            (stack, call_stack, locals, temp, external_cache_state, heap)
         }
     }
 }

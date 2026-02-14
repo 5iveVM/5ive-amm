@@ -221,232 +221,7 @@ impl MitoVM {
             #[cfg(not(target_os = "solana"))]
             ctx.set_current_opcode(opcode);
 
-            // Dispatch opcode to appropriate handler.
-            let result = match opcode {
-                // Control Flow (0x00-0x0F)
-                HALT => handle_control_flow(HALT, ctx),
-                JUMP => handle_control_flow(JUMP, ctx),
-                JUMP_IF => handle_control_flow(JUMP_IF, ctx),
-                JUMP_IF_NOT => handle_control_flow(JUMP_IF_NOT, ctx),
-                REQUIRE => handle_control_flow(REQUIRE, ctx),
-                ASSERT => handle_control_flow(ASSERT, ctx),
-                RETURN => handle_control_flow(RETURN, ctx),
-                RETURN_VALUE => handle_control_flow(RETURN_VALUE, ctx),
-                NOP => handle_control_flow(NOP, ctx),
-                BR_EQ_U8 => handle_control_flow(BR_EQ_U8, ctx),
-                CMP_EQ_JUMP => handle_control_flow(CMP_EQ_JUMP, ctx),
-                DEC_JUMP_NZ => handle_control_flow(DEC_JUMP_NZ, ctx),
-                DEC_LOCAL_JUMP_NZ => handle_control_flow(DEC_LOCAL_JUMP_NZ, ctx),
-
-                // Stack Operations (0x10-0x1F)
-                POP => handle_stack_ops(POP, ctx),
-                DUP => handle_stack_ops(DUP, ctx),
-                DUP2 => handle_stack_ops(DUP2, ctx),
-                SWAP => handle_stack_ops(SWAP, ctx),
-                PICK => handle_stack_ops(PICK, ctx),
-                ROT => handle_stack_ops(ROT, ctx),
-                DROP => handle_stack_ops(DROP, ctx),
-                OVER => handle_stack_ops(OVER, ctx),
-                PUSH_U8 => handle_stack_ops(PUSH_U8, ctx),
-                PUSH_U16 => handle_stack_ops(PUSH_U16, ctx),
-                PUSH_U32 => handle_stack_ops(PUSH_U32, ctx),
-                PUSH_U64 => handle_stack_ops(PUSH_U64, ctx),
-                PUSH_I64 => handle_stack_ops(PUSH_I64, ctx),
-                PUSH_BOOL => handle_stack_ops(PUSH_BOOL, ctx),
-                PUSH_PUBKEY => handle_stack_ops(PUSH_PUBKEY, ctx),
-                PUSH_U128 => handle_stack_ops(PUSH_U128, ctx),
-                PUSH_U8_W => handle_stack_ops(PUSH_U8_W, ctx),
-                PUSH_U16_W => handle_stack_ops(PUSH_U16_W, ctx),
-                PUSH_U32_W => handle_stack_ops(PUSH_U32_W, ctx),
-                PUSH_U64_W => handle_stack_ops(PUSH_U64_W, ctx),
-                PUSH_I64_W => handle_stack_ops(PUSH_I64_W, ctx),
-                PUSH_BOOL_W => handle_stack_ops(PUSH_BOOL_W, ctx),
-                PUSH_PUBKEY_W => handle_stack_ops(PUSH_PUBKEY_W, ctx),
-                PUSH_U128_W => handle_stack_ops(PUSH_U128_W, ctx),
-
-                // Arithmetic Operations (0x20-0x2F)
-                ADD => handle_arithmetic(ADD, ctx),
-                SUB => handle_arithmetic(SUB, ctx),
-                MUL => handle_arithmetic(MUL, ctx),
-                DIV => handle_arithmetic(DIV, ctx),
-                MOD => handle_arithmetic(MOD, ctx),
-                GT => handle_arithmetic(GT, ctx),
-                LT => handle_arithmetic(LT, ctx),
-                EQ => handle_arithmetic(EQ, ctx),
-                GTE => handle_arithmetic(GTE, ctx),
-                LTE => handle_arithmetic(LTE, ctx),
-                NEQ => handle_arithmetic(NEQ, ctx),
-                NEG => handle_arithmetic(NEG, ctx),
-                ADD_CHECKED => handle_arithmetic(ADD_CHECKED, ctx),
-                SUB_CHECKED => handle_arithmetic(SUB_CHECKED, ctx),
-                MUL_CHECKED => handle_arithmetic(MUL_CHECKED, ctx),
-                MUL_DIV => handle_arithmetic(MUL_DIV, ctx),
-
-                // Logical Operations (0x30-0x3F)
-                AND => handle_logical(AND, ctx),
-                OR => handle_logical(OR, ctx),
-                NOT => handle_logical(NOT, ctx),
-                XOR => handle_logical(XOR, ctx),
-                BITWISE_NOT => handle_logical(BITWISE_NOT, ctx),
-                BITWISE_AND => handle_logical(BITWISE_AND, ctx),
-                BITWISE_OR => handle_logical(BITWISE_OR, ctx),
-                BITWISE_XOR => handle_logical(BITWISE_XOR, ctx),
-                SHIFT_LEFT => handle_logical(SHIFT_LEFT, ctx),
-                SHIFT_RIGHT => handle_logical(SHIFT_RIGHT, ctx),
-                SHIFT_RIGHT_ARITH => handle_logical(SHIFT_RIGHT_ARITH, ctx),
-                ROTATE_LEFT => handle_logical(ROTATE_LEFT, ctx),
-                ROTATE_RIGHT => handle_logical(ROTATE_RIGHT, ctx),
-                BYTE_SWAP_16 => handle_logical(BYTE_SWAP_16, ctx),
-                BYTE_SWAP_32 => handle_logical(BYTE_SWAP_32, ctx),
-                BYTE_SWAP_64 => handle_logical(BYTE_SWAP_64, ctx),
-
-                // Memory Operations (0x40-0x4F)
-                STORE => handle_memory(STORE, ctx),
-                LOAD => handle_memory(LOAD, ctx),
-                STORE_FIELD => handle_memory(STORE_FIELD, ctx),
-                LOAD_FIELD => handle_memory(LOAD_FIELD, ctx),
-                LOAD_INPUT => handle_memory(LOAD_INPUT, ctx),
-                STORE_GLOBAL => handle_memory(STORE_GLOBAL, ctx),
-                LOAD_GLOBAL => handle_memory(LOAD_GLOBAL, ctx),
-                LOAD_EXTERNAL_FIELD => handle_memory(LOAD_EXTERNAL_FIELD, ctx),
-                LOAD_FIELD_PUBKEY => handle_memory(LOAD_FIELD_PUBKEY, ctx),
-
-                // Account Operations (0x50-0x5F)
-                CREATE_ACCOUNT => handle_accounts(CREATE_ACCOUNT, ctx),
-                LOAD_ACCOUNT => handle_accounts(LOAD_ACCOUNT, ctx),
-                SAVE_ACCOUNT => handle_accounts(SAVE_ACCOUNT, ctx),
-                GET_ACCOUNT => handle_accounts(GET_ACCOUNT, ctx),
-                GET_LAMPORTS => handle_accounts(GET_LAMPORTS, ctx),
-                SET_LAMPORTS => handle_accounts(SET_LAMPORTS, ctx),
-                GET_DATA => handle_accounts(GET_DATA, ctx),
-                GET_KEY => handle_accounts(GET_KEY, ctx),
-                GET_OWNER => handle_accounts(GET_OWNER, ctx),
-                TRANSFER => handle_accounts(TRANSFER, ctx),
-                TRANSFER_SIGNED => handle_accounts(TRANSFER_SIGNED, ctx),
-
-                // Array Operations (0x60-0x6F)
-                CREATE_ARRAY => handle_arrays(CREATE_ARRAY, ctx),
-                PUSH_ARRAY_LITERAL => handle_arrays(PUSH_ARRAY_LITERAL, ctx),
-                ARRAY_INDEX => handle_arrays(ARRAY_INDEX, ctx),
-                ARRAY_LENGTH => handle_arrays(ARRAY_LENGTH, ctx),
-                ARRAY_SET => handle_arrays(ARRAY_SET, ctx),
-                ARRAY_GET => handle_arrays(ARRAY_GET, ctx),
-                PUSH_STRING_LITERAL => handle_arrays(PUSH_STRING_LITERAL, ctx),
-                PUSH_STRING => handle_arrays(PUSH_STRING, ctx),
-                PUSH_STRING_W => handle_arrays(PUSH_STRING_W, ctx),
-
-                // Constraint Operations (0x70-0x7F)
-                CHECK_SIGNER => handle_constraints(CHECK_SIGNER, ctx),
-                CHECK_WRITABLE => handle_constraints(CHECK_WRITABLE, ctx),
-                CHECK_OWNER => handle_constraints(CHECK_OWNER, ctx),
-                CHECK_INITIALIZED => handle_constraints(CHECK_INITIALIZED, ctx),
-                CHECK_PDA => handle_constraints(CHECK_PDA, ctx),
-                CHECK_UNINITIALIZED => handle_constraints(CHECK_UNINITIALIZED, ctx),
-                CHECK_DEDUPE_TABLE => handle_constraints(CHECK_DEDUPE_TABLE, ctx),
-                CHECK_CACHED => handle_constraints(CHECK_CACHED, ctx),
-                CHECK_COMPLEXITY_GROUP => handle_constraints(CHECK_COMPLEXITY_GROUP, ctx),
-                CHECK_DEDUPE_MASK => handle_constraints(CHECK_DEDUPE_MASK, ctx),
-                REQUIRE_OWNER => handle_constraints(REQUIRE_OWNER, ctx),
-
-                // System Operations (0x80-0x8F)
-                // Universal Fused Operations (0xC0-0xCF)
-                REQUIRE_GTE_U64 => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_GTE_U64, ctx),
-                REQUIRE_NOT_BOOL => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_NOT_BOOL, ctx),
-                FIELD_ADD_PARAM => crate::handlers::fused_ops::handle_fused_ops(FIELD_ADD_PARAM, ctx),
-                FIELD_SUB_PARAM => crate::handlers::fused_ops::handle_fused_ops(FIELD_SUB_PARAM, ctx),
-                REQUIRE_PARAM_GT_ZERO => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_PARAM_GT_ZERO, ctx),
-                REQUIRE_LOCAL_GT_ZERO => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_LOCAL_GT_ZERO, ctx),
-                REQUIRE_EQ_PUBKEY => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_EQ_PUBKEY, ctx),
-                CHECK_SIGNER_WRITABLE => crate::handlers::fused_ops::handle_fused_ops(CHECK_SIGNER_WRITABLE, ctx),
-                // Tier 3 fused opcodes (0xC7-0xCA)
-                STORE_PARAM_TO_FIELD => crate::handlers::fused_ops::handle_fused_ops(STORE_PARAM_TO_FIELD, ctx),
-                STORE_FIELD_ZERO => crate::handlers::fused_ops::handle_fused_ops(STORE_FIELD_ZERO, ctx),
-                STORE_KEY_TO_FIELD => crate::handlers::fused_ops::handle_fused_ops(STORE_KEY_TO_FIELD, ctx),
-                REQUIRE_EQ_FIELDS => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_EQ_FIELDS, ctx),
-                REQUIRE_FIELD_EQ_IMM => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_FIELD_EQ_IMM, ctx),
-                FIELD_SUB_ADD_PARAM => crate::handlers::fused_ops::handle_fused_ops(FIELD_SUB_ADD_PARAM, ctx),
-                REQUIRE_PARAM_LTE_IMM => crate::handlers::fused_ops::handle_fused_ops(REQUIRE_PARAM_LTE_IMM, ctx),
-
-                // System Operations (0x80-0x8F)
-                INVOKE => handle_system_ops(INVOKE, ctx),
-                INVOKE_SIGNED => handle_system_ops(INVOKE_SIGNED, ctx),
-                GET_CLOCK => handle_system_ops(GET_CLOCK, ctx),
-                GET_RENT => handle_system_ops(GET_RENT, ctx),
-                INIT_ACCOUNT => handle_system_ops(INIT_ACCOUNT, ctx),
-                INIT_PDA_ACCOUNT => handle_system_ops(INIT_PDA_ACCOUNT, ctx),
-                DERIVE_PDA => handle_system_ops(DERIVE_PDA, ctx),
-                FIND_PDA => handle_system_ops(FIND_PDA, ctx),
-                DERIVE_PDA_PARAMS => handle_system_ops(DERIVE_PDA_PARAMS, ctx),
-                FIND_PDA_PARAMS => handle_system_ops(FIND_PDA_PARAMS, ctx),
-
-                // Function Operations (0x90-0x9F)
-                CALL => handle_functions(CALL, ctx),
-                CALL_EXTERNAL => handle_functions(CALL_EXTERNAL, ctx),
-                CALL_NATIVE => handle_functions(CALL_NATIVE, ctx),
-                PREPARE_CALL => handle_functions(PREPARE_CALL, ctx),
-                FINISH_CALL => handle_functions(FINISH_CALL, ctx),
-
-                // Locals & General (0xA0-0xAF)
-                ALLOC_LOCALS => handle_locals(ALLOC_LOCALS, ctx),
-                DEALLOC_LOCALS => handle_locals(DEALLOC_LOCALS, ctx),
-                SET_LOCAL => handle_locals(SET_LOCAL, ctx),
-                GET_LOCAL => handle_locals(GET_LOCAL, ctx),
-                CLEAR_LOCAL => handle_locals(CLEAR_LOCAL, ctx),
-                LOAD_PARAM => handle_locals(LOAD_PARAM, ctx),
-                STORE_PARAM => handle_locals(STORE_PARAM, ctx),
-                WRITE_DATA => handle_locals(WRITE_DATA, ctx),
-                DATA_LEN => handle_locals(DATA_LEN, ctx),
-                EMIT_EVENT => handle_locals(EMIT_EVENT, ctx),
-                LOG_DATA => handle_locals(LOG_DATA, ctx),
-                GET_SIGNER_KEY => handle_locals(GET_SIGNER_KEY, ctx),
-                RESULT_UNWRAP => handle_option_result_ops(RESULT_UNWRAP, ctx),
-                RESULT_GET_VALUE => handle_option_result_ops(RESULT_GET_VALUE, ctx),
-                RESULT_GET_ERROR => handle_option_result_ops(RESULT_GET_ERROR, ctx),
-                CAST => handle_locals(CAST, ctx),
-
-                // Nibble Locals (0xD0-0xDF)
-                GET_LOCAL_0 => handle_nibble_locals(GET_LOCAL_0, ctx),
-                GET_LOCAL_1 => handle_nibble_locals(GET_LOCAL_1, ctx),
-                GET_LOCAL_2 => handle_nibble_locals(GET_LOCAL_2, ctx),
-                GET_LOCAL_3 => handle_nibble_locals(GET_LOCAL_3, ctx),
-                SET_LOCAL_0 => handle_nibble_locals(SET_LOCAL_0, ctx),
-                SET_LOCAL_1 => handle_nibble_locals(SET_LOCAL_1, ctx),
-                SET_LOCAL_2 => handle_nibble_locals(SET_LOCAL_2, ctx),
-                SET_LOCAL_3 => handle_nibble_locals(SET_LOCAL_3, ctx),
-                PUSH_0 => handle_nibble_locals(PUSH_0, ctx),
-                PUSH_1 => handle_nibble_locals(PUSH_1, ctx),
-                PUSH_2 => handle_nibble_locals(PUSH_2, ctx),
-                PUSH_3 => handle_nibble_locals(PUSH_3, ctx),
-                LOAD_PARAM_0 => handle_nibble_locals(LOAD_PARAM_0, ctx),
-                LOAD_PARAM_1 => handle_nibble_locals(LOAD_PARAM_1, ctx),
-                LOAD_PARAM_2 => handle_nibble_locals(LOAD_PARAM_2, ctx),
-                LOAD_PARAM_3 => handle_nibble_locals(LOAD_PARAM_3, ctx),
-
-                // Advanced / Option Result (0xF0-0xFF)
-                RESULT_OK => handle_option_result_ops(RESULT_OK, ctx),
-                RESULT_ERR => handle_option_result_ops(RESULT_ERR, ctx),
-                OPTIONAL_SOME => handle_option_result_ops(OPTIONAL_SOME, ctx),
-                OPTIONAL_NONE => handle_option_result_ops(OPTIONAL_NONE, ctx),
-                OPTIONAL_UNWRAP => handle_option_result_ops(OPTIONAL_UNWRAP, ctx),
-                OPTIONAL_IS_SOME => handle_option_result_ops(OPTIONAL_IS_SOME, ctx),
-                OPTIONAL_GET_VALUE => handle_option_result_ops(OPTIONAL_GET_VALUE, ctx),
-                CREATE_TUPLE => handle_option_result_ops(CREATE_TUPLE, ctx),
-                TUPLE_GET => handle_option_result_ops(TUPLE_GET, ctx),
-                UNPACK_TUPLE => handle_option_result_ops(UNPACK_TUPLE, ctx),
-                OPTIONAL_IS_NONE => handle_option_result_ops(OPTIONAL_IS_NONE, ctx),
-                RESULT_IS_OK => handle_option_result_ops(RESULT_IS_OK, ctx),
-                RESULT_IS_ERR => handle_option_result_ops(RESULT_IS_ERR, ctx),
-
-                // Fallthrough for gaps, removed opcodes (0xC0-0xCF), and unimplemented pattern fusion (0xE0-0xEF)
-                _ => {
-                    debug_log!(
-                        "MitoVM: FATAL_ERROR: UNKNOWN/UNIMPLEMENTED OPCODE {} at ip {}",
-                        opcode,
-                        (ctx.ip() - 1) as u32
-                    );
-                    Err(VMErrorCode::InvalidInstruction)
-                }
-            };
+            let result = Self::dispatch_opcode(opcode, ctx);
 
             // Check result and provide clear error context
             if let Err(e) = result {
@@ -476,6 +251,104 @@ impl MitoVM {
 
 
         Ok(())
+    }
+
+    #[inline(always)]
+    fn dispatch_opcode(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        match opcode & 0xF0 {
+            0x00 => handle_control_flow(opcode, ctx),
+            0x10 | 0xB0 => Self::dispatch_stack_sparse(opcode, ctx),
+            0x20 => handle_arithmetic(opcode, ctx),
+            0x30 => handle_logical(opcode, ctx),
+            0x40 => Self::dispatch_memory(opcode, ctx),
+            0x50 => handle_accounts(opcode, ctx),
+            0x60 => Self::dispatch_arrays_compat(opcode, ctx),
+            0x70 => Self::dispatch_constraints_compat(opcode, ctx),
+            0x80 => Self::dispatch_system_compat(opcode, ctx),
+            0x90 => Self::dispatch_functions_compat(opcode, ctx),
+            0xA0 => Self::dispatch_locals_sparse(opcode, ctx),
+            0xC0 | 0xE0 => Self::dispatch_fused(opcode, ctx),
+            0xD0 => handle_nibble_locals(opcode, ctx),
+            0xF0 => handle_option_result_ops(opcode, ctx),
+            _ => Self::dispatch_invalid(opcode, ctx),
+        }
+    }
+
+    #[inline(always)]
+    fn dispatch_stack_sparse(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        handle_stack_ops(opcode, ctx)
+    }
+
+    #[inline(always)]
+    fn dispatch_locals_sparse(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        handle_locals(opcode, ctx)
+    }
+
+    #[inline(always)]
+    fn dispatch_invalid(_opcode: u8, _ctx: &ExecutionManager) -> CompactResult<()> {
+        error_log!(
+            "MitoVM: FATAL_ERROR: UNKNOWN/UNIMPLEMENTED OPCODE {} at ip {}",
+            _opcode,
+            (_ctx.ip() - 1) as u32
+        );
+        Err(VMErrorCode::InvalidInstruction)
+    }
+
+    #[inline(never)]
+    fn dispatch_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        handle_memory(opcode, ctx)
+    }
+
+    #[inline(never)]
+    fn dispatch_arrays(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        handle_arrays(opcode, ctx)
+    }
+
+    #[inline(always)]
+    fn dispatch_arrays_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        match Self::dispatch_arrays(opcode, ctx) {
+            Err(VMErrorCode::InvalidInstruction) => handle_constraints(opcode, ctx),
+            other => other,
+        }
+    }
+
+    #[inline(always)]
+    fn dispatch_constraints_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        match handle_constraints(opcode, ctx) {
+            Err(VMErrorCode::InvalidInstruction) => Self::dispatch_system(opcode, ctx),
+            other => other,
+        }
+    }
+
+    #[inline(never)]
+    fn dispatch_system(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        handle_system_ops(opcode, ctx)
+    }
+
+    #[inline(always)]
+    fn dispatch_system_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        match Self::dispatch_system(opcode, ctx) {
+            Err(VMErrorCode::InvalidInstruction) => Self::dispatch_functions(opcode, ctx),
+            other => other,
+        }
+    }
+
+    #[inline(never)]
+    fn dispatch_functions(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        handle_functions(opcode, ctx)
+    }
+
+    #[inline(always)]
+    fn dispatch_functions_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        match Self::dispatch_functions(opcode, ctx) {
+            Err(VMErrorCode::InvalidInstruction) => Self::dispatch_locals_sparse(opcode, ctx),
+            other => other,
+        }
+    }
+
+    #[inline(always)]
+    fn dispatch_fused(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+        crate::handlers::fused_ops::handle_fused_ops(opcode, ctx)
     }
 
     /// Convert ValueRef (zero-copy reference) to concrete Value using current execution state.

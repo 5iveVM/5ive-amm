@@ -82,6 +82,45 @@ impl ExternalImportVerifyCacheEntry {
     }
 }
 
+/// Aggregated transaction-local external call cache state.
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct ExternalCacheState {
+    pub external_call_cache: [ExternalCallCacheEntry; 32],
+    pub external_call_cache_next: usize,
+    pub external_import_verify_cache: [ExternalImportVerifyCacheEntry; 16],
+    pub external_import_verify_cache_next: usize,
+    pub external_hot_account_index: u8,
+    pub external_hot_script_ptr: usize,
+    pub external_hot_script_len: u32,
+    pub external_hot_code_fingerprint: u32,
+    pub external_hot_import_authorized: bool,
+    pub external_hot_valid: bool,
+    pub external_cache_hits: u32,
+    pub external_cache_misses: u32,
+    pub import_verify_cache_hits: u32,
+}
+
+impl ExternalCacheState {
+    pub const fn empty() -> Self {
+        Self {
+            external_call_cache: [ExternalCallCacheEntry::empty(); 32],
+            external_call_cache_next: 0,
+            external_import_verify_cache: [ExternalImportVerifyCacheEntry::empty(); 16],
+            external_import_verify_cache_next: 0,
+            external_hot_account_index: u8::MAX,
+            external_hot_script_ptr: 0,
+            external_hot_script_len: 0,
+            external_hot_code_fingerprint: 0,
+            external_hot_import_authorized: false,
+            external_hot_valid: false,
+            external_cache_hits: 0,
+            external_cache_misses: 0,
+            import_verify_cache_hits: 0,
+        }
+    }
+}
+
 impl CallFrame {
     /// Create call frame with return address and local variable count.
     pub fn new(return_address: u16, local_count: u8, local_base: u8, bytecode_context: u8) -> Self {
