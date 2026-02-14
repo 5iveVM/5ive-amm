@@ -1025,6 +1025,16 @@ impl FunctionDispatcher {
         let mut account_counter: u32 = 0;
         let mut data_counter: u32 = 0;
 
+        // Count data parameters to ensure field_counter starts after them
+        let total_data_params: u32 = parameters
+            .iter()
+            .filter(|p| !super::account_utils::is_account_parameter(
+                &p.param_type,
+                &p.attributes,
+                Some(account_system.get_account_registry())
+            ))
+            .count() as u32;
+
         for (_index, param) in parameters.iter().enumerate() {
             let param_type = self.type_node_to_string(&param.param_type);
 
@@ -1058,6 +1068,11 @@ impl FunctionDispatcher {
             };
             ast_generator.add_parameter_to_symbol_table(param.name.clone(), field_info);
         }
+
+        // CRITICAL FIX: Ensure field_counter doesn't collide with data parameters
+        // Data parameters are allocated offsets 0..(total_data_params-1)
+        // So new locals should start at total_data_params
+        ast_generator.field_counter = std::cmp::max(ast_generator.field_counter, total_data_params);
 
         // Add function start label for jumps
         // Note: Function offset already recorded before ALLOC_LOCALS

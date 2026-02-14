@@ -15,7 +15,7 @@ pub add_liquidity(
     require(amount_a > 0);
     require(amount_b > 0);
 
-    let shares: u64 = 0;
+    let mut shares: u64 = 0;
     if (pool.total_lp_shares == 0) {
         shares = amount_a + amount_b;
     } else {

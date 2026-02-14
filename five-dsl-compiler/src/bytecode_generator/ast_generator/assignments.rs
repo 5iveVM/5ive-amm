@@ -141,23 +141,24 @@ impl ASTGenerator {
             // Optimization: use nibble immediate opcodes for indices 0-3
             if field_info.offset <= 3 {
                 match field_info.offset {
-                    0 => emitter.emit_opcode(SET_LOCAL_0),
-                    1 => emitter.emit_opcode(SET_LOCAL_1),
-                    2 => emitter.emit_opcode(SET_LOCAL_2),
-                    3 => emitter.emit_opcode(SET_LOCAL_3),
-                    _ => unreachable!("Index checked to be 0-3"),
+                    0 => {
+                        emitter.emit_opcode(SET_LOCAL_0);
+                    }
+                    1 => {
+                        emitter.emit_opcode(SET_LOCAL_1);
+                    }
+                    2 => {
+                        emitter.emit_opcode(SET_LOCAL_2);
+                    }
+                    3 => {
+                        emitter.emit_opcode(SET_LOCAL_3);
+                    }
+                    _ => unreachable!("Index checked to be 0-3, but got {}", field_info.offset),
                 }
-                #[cfg(debug_assertions)]
-                println!("DEBUG: Generated SET_LOCAL_{} (nibble immediate) for assignment to '{}'", field_info.offset, target);
             } else {
                 // Standard SET_LOCAL with index parameter
                 emitter.emit_opcode(SET_LOCAL);
                 emitter.emit_u8(field_info.offset as u8);
-                #[cfg(debug_assertions)]
-                println!(
-                    "DEBUG: Generated SET_LOCAL {} for assignment to '{}'",
-                    field_info.offset, target
-                );
             };
         } else if let Some(field_info) = self.global_symbol_table.get(target) {
             // It's a global script field, so we need to store it
