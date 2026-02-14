@@ -42,6 +42,7 @@ These rules are non-negotiable and prevent the most common compilation failures:
 5. **`pubkey(0)` and `0` are valid** for zero-initializing pubkey fields (disabling authorities).
 6. **`string<N>` is production-safe** — use freely in accounts and function parameters.
 7. **All comparison operators work in `require()`** — `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`.
+8. **Local variables are immutable by default** — use `let x = value;` for immutable bindings. **Use `let mut x = value;` if the variable will be reassigned** (e.g., in conditional branches). Attempting to reassign an immutable local causes a compiler error.
 
 ## 4) DSL Feature Inventory (Deep)
 
@@ -145,6 +146,9 @@ Observed and parser-supported:
 1. `let` declarations (with `mut` and optional type annotation)
    - Type inference works: `let is_owner = source.owner == authority.key;` infers `bool`
    - Use `let` without explicit annotation for boolean and scalar expressions
+   - **Immutability by default**: `let x = value;` creates an immutable binding; reassignment will fail
+   - **For reassignable variables, use `let mut`**: `let mut x: u64 = 0; ... x = new_value;`
+   - Example: `let mut shares: u64 = 0; if (condition) { shares = computed_value; }`
 2. Assignment:
    - direct: `x = y`
    - compound: `+=`, `-=`, `*=`, `/=`, `<<=`, `>>=`, `&=`, `|=`, `^=`
@@ -210,27 +214,69 @@ Parser handles:
    - list: `::{a, b}`
    - typed list entries: `method foo`, `interface Bar`
 
-### 4.9 Interfaces and CPI features
-Interface parser supports:
-1. `interface Name ... { methods... }`
-2. Program binding:
-   - `program("...")`
-   - `@program("...")`
-3. Serializer hints:
-   - `serializer(...)`
-   - `@serializer(...)`
-4. Anchor marker:
-   - `@anchor interface ...`
-5. Method discriminators:
-   - `@discriminator(u8)`
-   - `@discriminator([byte,...])`
-   - `discriminator_bytes(...)` forms in parser/compiler AST
-6. Optional interface method return types
+### 4.9 Interfaces and CPI (Cross-Program Invocation)
 
-CPI hard rule for agents:
-1. Always set `@program(...)`
-2. Always set `@serializer(...)` explicitly
-3. Always set discriminator explicitly
+Interfaces define external program calls. **Empirically verified rules:**
+
+1. **Program binding:** always use `@program("...")` (the `@` prefix is required)
+2. **Serializer options:**
+   - **Default (bincode):** omit `@serializer(...)` — bincode is the default, works for SPL programs and most Solana programs
+   - **Anchor programs (borsh):** use `@anchor` marker — automatically sets borsh serializer **and** auto-generates discriminators from method names
+   - **Explicit borsh:** use `@serializer("borsh")` if needed without `@anchor`
+3. **Discriminators:**
+   - **Manual:** use single `u8` value inline on method: `method @discriminator(N) (...)`
+   - **Anchor auto-generation:** `@anchor` interface automatically computes discriminators from method names — **do not** manually specify `@discriminator` with `@anchor`
+   - **Format:** single u8 value, **not** array format `@discriminator([3, 0, 0, 0])`
+4. **Account parameters in interfaces:** use `Account` type, **not** `pubkey`
+   - `pubkey` is for data values only; `Account` represents an on-chain account passed to the CPI
+5. **Calling interface methods:** use dot notation `InterfaceName.method(...)`, **not** `InterfaceName::method(...)`
+6. **Passing accounts to CPI:** pass `account`-typed parameters directly, **not** `param.key`
+7. **Function parameters for CPI accounts:** must be typed `account @mut` (not `pubkey`)
+
+```v
+// ✅ CORRECT: SPL Token (bincode, manual discriminators)
+interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
+    transfer @discriminator(3) (
+        source: Account,
+        destination: Account,
+        authority: Account,
+        amount: u64
+    );
+}
+
+// ✅ CORRECT: Anchor program (borsh, auto discriminators)
+interface MyAnchorProgram @anchor @program("...") {
+    initialize(          // discriminator auto-generated from "initialize"
+        state: Account,
+        authority: Account,
+        value: u64
+    );
+}
+
+// ✅ CORRECT: CPI call
+pub call_external(
+    external_account: account @mut,
+    authority: account @signer,
+    value: u64
+) {
+    MyAnchorProgram.initialize(external_account, authority, value);
+}
+
+// ❌ WRONG — common mistakes
+// interface Program program("...")          ← missing @ on program
+// @discriminator([3, 0, 0, 0])              ← array format, not u8
+// transfer(src: pubkey, dst: pubkey, ...)   ← pubkey instead of Account
+// Program::method(...)                      ← :: instead of .
+// Program.method(account.key, ...)          ← .key unnecessary for accounts
+// @anchor with @discriminator(3)            ← @anchor auto-generates, don't specify manually
+```
+
+CPI hard rules for agents:
+1. Always use `@program("...")` with correct program ID
+2. For Anchor programs: use `@anchor`, omit `@discriminator`
+3. For non-Anchor programs: set `@discriminator(N)` as single u8 on each method, omit `@serializer`
+4. Use `Account` for on-chain account params, scalar types for data params
+5. Call with dot notation and pass account params directly
 
 ### 4.10 Events and error/enums
 Parser/AST include:
@@ -635,6 +681,49 @@ pub borrow(
 
 **Key ingredients:** `let` for intermediate computation, integer math for ratio checks, compound conditions.
 
+### 10.8 External Program Integration (CPI)
+
+Core pattern: call external Solana programs from within your contract via interfaces.
+
+```v
+// Non-Anchor program (bincode, manual discriminators)
+interface ExternalProgram @program("ExternalProgramID111111111111111111111111111") {
+    process @discriminator(1) (
+        state: Account,
+        authority: Account,
+        amount: u64
+    );
+}
+
+// Anchor program (borsh, auto discriminators)
+interface AnchorProgram @anchor @program("AnchorProgramID11111111111111111111111111111") {
+    execute(              // discriminator auto-generated
+        config: Account,
+        user: Account,
+        value: u64
+    );
+}
+
+pub perform_action(
+    local_state: MyState @mut,
+    external_account: account @mut,
+    user: account @signer,
+    amount: u64
+) {
+    require(local_state.authority == user.key);
+    require(amount > 0);
+    
+    // CPI to external program
+    ExternalProgram.process(external_account, user, amount);
+    
+    // Update local state after CPI
+    local_state.last_amount = amount;
+    local_state.call_count = local_state.call_count + 1;
+}
+```
+
+**Key ingredients:** interface with `@program`, `@discriminator` (or `@anchor` for auto), `Account` types for CPI params, dot-notation calls, `account @mut` function params for all CPI accounts, mixing CPI calls with local state updates.
+
 ## 11) Mainnet Safety Policy
 
 Required preflight gates:
@@ -699,19 +788,26 @@ Follow this procedure to produce correct 5IVE contracts on first compilation, re
 - Set every field to a known value (don't leave uninitialized fields).
 - Return `-> pubkey` with `return account.key;` when callers need the address.
 
-### Step 3: Define action functions
+### Step 3: Define interfaces (if calling external programs)
+- Declare `interface Name @program("...") { ... }` at the top of your file.
+- Each method gets `@discriminator(N)` as a single u8 inline: `method @discriminator(N) (...)`.
+- Use `Account` type for on-chain account params, scalar types for data params.
+- **Do not** add `@serializer(...)` — bincode is the default.
+
+### Step 4: Define action functions
 - Every state-mutating function takes the relevant account(s) as `AccountType @mut`.
 - Authorization: take an `account @signer` parameter, then `require(state.authority == signer.key);`.
 - Guards: use `require()` with any comparison operator (`==`, `!=`, `<`, `<=`, `>`, `>=`, `!`).
 - For balance operations: always check `require(source.balance >= amount);` before subtraction.
 - For state machines: check `require(state.status == EXPECTED_STATUS);` before transition.
 - Use `let` for intermediate computations (type inference handles it).
+- For CPI calls: pass `account`-typed params directly (not `.key`), use dot notation `Interface.method(...)`.
 
-### Step 4: Define read/query functions
+### Step 5: Define read/query functions
 - Use `-> ReturnType` syntax for functions that return values.
 - `return state.field;` to return account data.
 
-### Step 5: Compile and verify
+### Step 6: Compile and verify
 - Run `5ive build` or `5ive compile src/main.v -o build/main.five`.
 - Fix any parser errors (most common: missing `;` in account fields).
 
@@ -728,10 +824,16 @@ Follow this procedure to produce correct 5IVE contracts on first compilation, re
 | Zero-amount guard | `require(amount > 0);` |
 | Revoke authority | `state.authority = 0;` |
 | Status transition | `state.status = 1;` |
-| Local variable | `let x = expr;` |
+| Local variable (immutable) | `let x = expr;` |
+| Local variable (mutable) | `let mut x = expr;` (required for reassignment) |
+| Reassign local variable | `let mut x: u64 = 0; ... x = new_value;` |
 | Return value | `pub fn(...) -> u64 { return state.value; }` |
 | Fixed string field | `name: string<32>;` |
 | Zero-init pubkey | `state.delegate = 0;` or `state.delegate = pubkey(0);` |
+| Interface decl | `interface Name @program("...") { ... }` |
+| Interface method | `method @discriminator(N) (param: Account, val: u64);` |
+| CPI call | `InterfaceName.method(acct_param, value);` |
+| CPI account param | `name: account @mut` (not `pubkey`) |
 
 ## 16) Reference Implementations
 
@@ -922,3 +1024,74 @@ pub cancel(
 ```
 
 **Patterns exercised:** integer status for state machine, dual-party authorization, lifecycle transitions, exact-amount matching.
+
+### 16.4 CPI to External Program (Interface + Cross-Program Calls)
+
+```v
+// Interface for external program (non-Anchor, bincode)
+interface ExternalProgram @program("ExternalProgramID111111111111111111111111111") {
+    update_value @discriminator(5) (
+        state: Account,
+        authority: Account,
+        new_value: u64
+    );
+}
+
+// Interface for Anchor program (borsh, auto discriminators)
+interface AnchorProgram @anchor @program("AnchorProgramID11111111111111111111111111111") {
+    process(              // discriminator auto-generated from method name
+        config: Account,
+        user: Account,
+        amount: u64
+    );
+}
+
+account Controller {
+    authority: pubkey;
+    counter: u64;
+    last_value: u64;
+}
+
+pub init_controller(
+    controller: Controller @mut @init(payer=creator, space=128) @signer,
+    creator: account @mut @signer
+) -> pubkey {
+    controller.authority = creator.key;
+    controller.counter = 0;
+    controller.last_value = 0;
+    return controller.key;
+}
+
+pub call_external(
+    controller: Controller @mut,
+    external_state: account @mut,
+    authority: account @signer,
+    value: u64
+) {
+    require(controller.authority == authority.key);
+    require(value > 0);
+    
+    // CPI to external program
+    ExternalProgram.update_value(external_state, authority, value);
+    
+    // Update local state
+    controller.counter = controller.counter + 1;
+    controller.last_value = value;
+}
+
+pub call_anchor(
+    controller: Controller @mut,
+    anchor_config: account @mut,
+    user: account @signer,
+    amount: u64
+) {
+    require(controller.authority == user.key);
+    
+    // CPI to Anchor program
+    AnchorProgram.process(anchor_config, user, amount);
+    
+    controller.counter = controller.counter + 1;
+}
+```
+
+**Patterns exercised:** dual interface types (bincode with manual discriminators, Anchor with auto discriminators), `@program` + `@discriminator` vs `@anchor`, `Account` types in interfaces, dot-notation CPI calls, `account @mut` params for CPI, local state updates after CPI.
