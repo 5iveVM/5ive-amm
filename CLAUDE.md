@@ -37,6 +37,19 @@ five-mono/
 └── third_party/            # Vendored dependencies (pinocchio fork)
 ```
 
+## Agent Bootstrap Docs
+
+The internal agent bootstrap source files live here:
+- `/Users/ivmidable/Development/five-mono/docs/internal/agent-playbooks/FIVE_AGENT_CONTRACT.md`
+- `/Users/ivmidable/Development/five-mono/docs/internal/agent-playbooks/FIVE_AGENT_CHECKLIST.md`
+- `/Users/ivmidable/Development/five-mono/docs/internal/agent-playbooks/FIVE_AGENT_REFERENCE.md`
+
+These are the docs used to bootstrap agents via `five-cli init` (through the template files in `five-cli/templates/`).
+If any of the three internal playbooks are updated, mirror the same updates in:
+- `/Users/ivmidable/Development/five-mono/five-cli/templates/AGENTS.md`
+- `/Users/ivmidable/Development/five-mono/five-cli/templates/AGENTS_CHECKLIST.md`
+- `/Users/ivmidable/Development/five-mono/five-cli/templates/AGENTS_REFERENCE.md`
+
 ## Essential Commands
 
 ### Building

@@ -11,6 +11,9 @@ Use this checklist during execution. Do not skip gates.
 - USD/price scale (for example `1e6`)
 - rate scale (for example `1e9`)
 4. Decide one-shot target: contract + tests + minimal SDK client flow.
+5. Decide execution mode:
+- online mode: use docs/examples as supplemental context
+- offline mode: rely on CLI help, `five.toml`, compile errors, ABI, and tx logs
 
 ## B) Authoring Gate
 
@@ -66,9 +69,30 @@ Use this checklist during execution. Do not skip gates.
 5ive test --filter "test_*" --verbose
 ```
 3. Add tests for every guard path and at least one happy path per public instruction.
-4. Record pass/fail evidence.
+4. Required negative tests:
+- unauthorized signer
+- invalid state transition
+- zero/invalid amount or boundary values
+- CPI account mismatch or missing account (if CPI is used)
+5. Record pass/fail evidence.
 
-## F) Deploy and Execute Gate (If In Scope)
+## F) Security Gate
+
+1. Access control:
+- every privileged path validates authority/signer
+- authority rotation/revocation paths are explicit
+2. State machine safety:
+- valid status transitions only
+- one-time init or replay-sensitive flows guarded
+3. Arithmetic and limits:
+- no unchecked overflow/underflow behavior in critical math
+- units/scales applied consistently
+4. CPI safety (if used):
+- interface program IDs and discriminators validated
+- writable/signer account constraints enforced
+5. Security test evidence recorded.
+
+## G) Deploy and Execute Gate (If In Scope)
 
 1. Resolve program ID/target explicitly with precedence:
 - `--program-id`
@@ -78,23 +102,29 @@ Use this checklist during execution. Do not skip gates.
 2. Deploy with explicit target.
 3. Execute instruction.
 4. Confirm `meta.err == null`.
-5. Record signature and compute units.
+5. Record:
+- signature
+- confirmed `meta.err`
+- compute units consumed
 
-## G) SDK Client Gate
+## H) SDK Client Gate
 
 1. Build a client call for each public instruction needed by the user flow.
 2. Ensure `.accounts(...)`, `.args(...)`, signer list, and payer are complete.
 3. Add one script that runs the happy path end-to-end.
-4. Include error logging that prints transaction signature and on-chain logs.
+4. Include error logging that prints transaction signature, confirmation status, and on-chain logs.
 
-## H) Final Output Gate
+## I) Final Output Gate
 
-1. Contract source and `.five` artifact ready.
-2. Tests and results provided.
-3. Deployment/execute proof provided if requested.
-4. SDK client snippet or runnable script provided if requested.
+Unless user asks for another format, output must contain:
+1. Scope implemented and files changed.
+2. Build/test commands and results.
+3. Security checks and results.
+4. Deployment/execute proof (if requested): target, program ID, signatures, `meta.err`, compute units.
+5. SDK client snippet or runnable script path.
+6. Remaining risks and next steps.
 
-## I) Quick Triage Map
+## J) Quick Triage Map
 
 1. Parser error near account block:
 - check missing `;` first.

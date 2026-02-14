@@ -13,7 +13,13 @@ No placeholder logic in production paths.
 When docs conflict, follow this order:
 1. Local compiler/CLI/SDK source code installed in the workspace
 2. Package manifests and command definitions
-3. READMEs/examples/docs
+3. CLI help output and generated project artifacts (`five.toml`, `.five`, ABI)
+4. READMEs/examples/docs
+
+Offline-first fallback:
+1. If source/docs are unavailable, continue with local CLI behavior and generated artifacts.
+2. Never block waiting for external docs when compile/test feedback is available.
+3. Treat compiler and runtime output as the immediate truth source.
 
 ## 3) Non-Negotiable Workflow
 
@@ -27,10 +33,11 @@ Always run this sequence:
 
 ## 4) One-Shot Delivery Policy
 
-1. Target one complete contract pass first: state, guards, init flows, core instructions, tests, and basic client integration.
-2. If first compile fails, do not replace the design with a simplified contract.
-3. Keep the original scope and fix errors incrementally using compiler output and checklist gates.
-4. Only reduce scope if the user explicitly requests reduced scope.
+1. Start with full-scope design: state, guards, init flows, core instructions, tests, and client integration.
+2. Implement in compile-clean increments: state/init first, then each instruction, then tests, then client.
+3. If compile fails, do not replace the design with a simplified contract.
+4. Keep original scope and fix errors incrementally using compiler output and checklist gates.
+5. Only reduce scope if the user explicitly requests reduced scope.
 
 ## 5) Hard Authoring Rules
 
@@ -54,7 +61,23 @@ Work is done only when all applicable items are true:
 5. Signatures and compute units recorded.
 6. SDK/frontend integration snippet delivered when requested.
 
-## 7) Where to Look Next
+## 7) Required Agent Output Format
+
+Unless the user explicitly asks for a different format, final output must include:
+1. Scope implemented (what was built).
+2. Files changed.
+3. Build/test commands run and outcomes.
+4. Security checks performed and results.
+5. Deploy/execute evidence:
+   - target
+   - program ID
+   - signature(s)
+   - `meta.err` result
+   - compute units
+6. SDK/client usage snippet or runnable command path.
+7. Remaining risks and explicit next steps.
+
+## 8) Where to Look Next
 
 1. `./AGENTS_CHECKLIST.md` for step-by-step gates and failure triage.
 2. `./AGENTS_REFERENCE.md` for syntax, CPI rules, testing patterns, and SDK client templates.

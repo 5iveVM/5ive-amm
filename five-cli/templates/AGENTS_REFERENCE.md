@@ -10,7 +10,16 @@ Use with `./AGENTS.md` and `./AGENTS_CHECKLIST.md`.
 3. CLI: `@5ive-tech/cli` commands `5ive` or `five`
 4. SDK: `@5ive-tech/sdk`
 
-## 2) Compiler-Critical Syntax
+## 2) Online and Offline Working Modes
+
+1. Online mode:
+- use docs/examples as supplemental context
+- still treat compile output and tx logs as authoritative
+2. Offline mode:
+- rely on `five.toml`, CLI help, compiler errors, generated ABI, and runtime logs
+- do not block waiting for external references
+
+## 3) Compiler-Critical Syntax
 
 ### Account declarations
 
@@ -72,7 +81,7 @@ Rules:
 1. functions returning values must use `-> ReturnType`
 2. locals are immutable unless declared with `let mut`
 
-## 3) Built-ins and Units
+## 4) Built-ins and Units
 
 Compiler-aligned signatures:
 1. `get_clock() -> u64`
@@ -84,7 +93,7 @@ Recommended unit standards:
 2. USD price scale `1e6`
 3. rate scale `1e9` (or `1e12`, but stay consistent per contract)
 
-## 4) CPI Rules
+## 5) CPI Rules
 
 1. Interface uses `@program("...")` with valid base58 program ID.
 2. Anchor CPI: use `@anchor` and do not add manual discriminator.
@@ -94,7 +103,7 @@ Recommended unit standards:
 6. Pass account params directly in CPI calls, not `.key`.
 7. CPI-writable accounts must be `account @mut` in caller signature.
 
-## 5) Build and Test Commands
+## 6) Build and Test Commands
 
 ```bash
 5ive build
@@ -106,7 +115,16 @@ Discovery behavior:
 1. test functions can be named `pub test_*`
 2. `.v` tests and `.test.json` suites are supported by `5ive test`
 
-## 6) Debugging Loop for Weak Error Messages
+## 7) Security Review Minimum
+
+Before deploy, verify:
+1. every privileged instruction checks signer/authority correctly
+2. state transitions are explicit and valid
+3. math and units are consistent and bounded
+4. CPI interfaces and account mutability/signer expectations are correct
+5. negative tests cover auth, state, and boundary failures
+
+## 8) Debugging Loop for Weak Error Messages
 
 When compiler errors are unclear, use this fixed loop:
 1. Keep the requested contract scope intact.
@@ -120,7 +138,7 @@ When compiler errors are unclear, use this fixed loop:
 5. If still failing, isolate one instruction block, fix it, then merge back.
 6. Do not downgrade to a simplified contract unless the user requests it.
 
-## 7) five.toml and Program ID Resolution
+## 9) five.toml and Program ID Resolution
 
 On-chain command precedence (`deploy`, `execute`, `namespace`):
 1. `--program-id`
@@ -130,7 +148,18 @@ On-chain command precedence (`deploy`, `execute`, `namespace`):
 
 Never deploy/execute with ambiguous target or program ID.
 
-## 8) SDK Client Pattern
+## 10) Deployment and Execution Evidence
+
+Minimum evidence to report:
+1. target and program ID used
+2. deploy signature (if deploy is in scope)
+3. execute signature(s)
+4. confirmed `meta.err == null`
+5. compute units consumed
+
+Use CLI and RPC checks to confirm transaction status and logs; never infer success from submission alone.
+
+## 11) SDK Client Pattern
 
 Use this pattern for clients:
 
@@ -170,13 +199,15 @@ Client debugging checks:
 2. required accounts must all be provided
 3. args shape/order must match ABI
 4. signer/payer must be funded and correct
-5. print and inspect transaction logs on failure
+5. confirm tx and inspect logs on failure
 
-## 9) Delivery Checklist Summary
+## 12) Required Final Output (Default)
 
-Before declaring done:
-1. `.five` built
-2. tests green
-3. deploy/execute verified when requested (`meta.err == null`)
-4. signature and compute units recorded
-5. client snippet or script included when requested
+Unless the user explicitly asks for a different format, include:
+1. scope implemented
+2. files changed
+3. build/test commands and results
+4. security checks and outcomes
+5. deploy/execute evidence (`meta.err`, signatures, compute units)
+6. SDK/client usage snippet or runnable path
+7. remaining risks and next steps
