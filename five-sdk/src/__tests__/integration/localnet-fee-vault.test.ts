@@ -41,6 +41,23 @@ function encodeExecuteData(functionIndex: number, shardIndex: number, vaultBump:
   return out;
 }
 
+function encodeSetFeesData(deployFeeLamports: number, executeFeeLamports: number): Buffer {
+  const out = Buffer.alloc(9);
+  out[0] = 6; // SetFees discriminator
+  out.writeUInt32LE(deployFeeLamports >>> 0, 1);
+  out.writeUInt32LE(executeFeeLamports >>> 0, 5);
+  return out;
+}
+
+function encodeWithdrawScriptFeesData(script: PublicKey, shardIndex: number, lamports: number): Buffer {
+  const out = Buffer.alloc(42);
+  out[0] = 12; // WithdrawScriptFees discriminator
+  Buffer.from(script.toBytes()).copy(out, 1);
+  out[33] = shardIndex & 0xff;
+  out.writeBigUInt64LE(BigInt(lamports), 34);
+  return out;
+}
+
 const enabled = process.env.RUN_LOCALNET_VALIDATOR_TESTS === "1";
 const maybeDescribe = enabled ? describe : describe.skip;
 
@@ -50,6 +67,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
   let fiveVmProgramId: string;
   let warmupScriptAccount: string;
   let vmStateAddress: PublicKey;
+  let vmStateBump: number;
   let feeVaultAddress: PublicKey;
   let feeVaultBump: number;
 
@@ -75,7 +93,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
     }
 
     const programPk = new PublicKey(fiveVmProgramId);
-    [vmStateAddress] = PublicKey.findProgramAddressSync([Buffer.from("vm_state")], programPk);
+    [vmStateAddress, vmStateBump] = PublicKey.findProgramAddressSync([Buffer.from("vm_state")], programPk);
     [feeVaultAddress, feeVaultBump] = PublicKey.findProgramAddressSync(
       [FEE_VAULT_NAMESPACE_SEED, Buffer.from([0])],
       programPk,
@@ -181,6 +199,98 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
 
     await expect(
       sendAndConfirmTransaction(connection, tx, [payer], { commitment: "confirmed" }),
+    ).rejects.toThrow();
+
+    const after = await connection.getBalance(feeVaultAddress, "confirmed");
+    expect(after).toBe(before);
+  }, 120_000);
+
+  it("rejects unauthorized set_fees updates", async () => {
+    const attacker = Keypair.generate();
+    const sig = await connection.requestAirdrop(attacker.publicKey, 2_000_000_000);
+    await connection.confirmTransaction(sig, "confirmed");
+
+    const before = await FiveSDK.getVMState(connection, fiveVmProgramId);
+    const ix = new TransactionInstruction({
+      programId: new PublicKey(fiveVmProgramId),
+      keys: [
+        { pubkey: vmStateAddress, isSigner: false, isWritable: true },
+        { pubkey: attacker.publicKey, isSigner: true, isWritable: false },
+      ],
+      data: encodeSetFeesData(before.deployFeeLamports + 1, before.executeFeeLamports + 1),
+    });
+    const tx = new Transaction().add(ix);
+
+    await expect(
+      sendAndConfirmTransaction(connection, tx, [attacker], { commitment: "confirmed" }),
+    ).rejects.toThrow();
+
+    const after = await FiveSDK.getVMState(connection, fiveVmProgramId);
+    expect(after.deployFeeLamports).toBe(before.deployFeeLamports);
+    expect(after.executeFeeLamports).toBe(before.executeFeeLamports);
+  }, 120_000);
+
+  it("rejects vm_state re-initialization", async () => {
+    const initData = Buffer.from([0, vmStateBump]); // Initialize discriminator + bump
+    const ix = new TransactionInstruction({
+      programId: new PublicKey(fiveVmProgramId),
+      keys: [
+        { pubkey: vmStateAddress, isSigner: false, isWritable: true },
+        { pubkey: payer.publicKey, isSigner: true, isWritable: false },
+      ],
+      data: initData,
+    });
+    const tx = new Transaction().add(ix);
+
+    await expect(
+      sendAndConfirmTransaction(connection, tx, [payer], { commitment: "confirmed" }),
+    ).rejects.toThrow();
+  }, 120_000);
+
+  it("rejects execute with spoofed fee vault account", async () => {
+    const before = await connection.getBalance(feeVaultAddress, "confirmed");
+    const spoofedVault = payer.publicKey; // not canonical fee vault PDA
+    const ix = new TransactionInstruction({
+      programId: new PublicKey(fiveVmProgramId),
+      keys: [
+        { pubkey: new PublicKey(warmupScriptAccount), isSigner: false, isWritable: false },
+        { pubkey: vmStateAddress, isSigner: false, isWritable: false },
+        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: spoofedVault, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: encodeExecuteData(0, 0, feeVaultBump),
+    });
+    const tx = new Transaction().add(ix);
+
+    await expect(
+      sendAndConfirmTransaction(connection, tx, [payer], { commitment: "confirmed" }),
+    ).rejects.toThrow();
+
+    const after = await connection.getBalance(feeVaultAddress, "confirmed");
+    expect(after).toBe(before);
+  }, 120_000);
+
+  it("rejects unauthorized fee-vault withdrawal", async () => {
+    const attacker = Keypair.generate();
+    const sig = await connection.requestAirdrop(attacker.publicKey, 2_000_000_000);
+    await connection.confirmTransaction(sig, "confirmed");
+
+    const before = await connection.getBalance(feeVaultAddress, "confirmed");
+    const ix = new TransactionInstruction({
+      programId: new PublicKey(fiveVmProgramId),
+      keys: [
+        { pubkey: vmStateAddress, isSigner: false, isWritable: false },
+        { pubkey: attacker.publicKey, isSigner: true, isWritable: false },
+        { pubkey: feeVaultAddress, isSigner: false, isWritable: true },
+        { pubkey: attacker.publicKey, isSigner: false, isWritable: true },
+      ],
+      data: encodeWithdrawScriptFeesData(new PublicKey(warmupScriptAccount), 0, 1),
+    });
+    const tx = new Transaction().add(ix);
+
+    await expect(
+      sendAndConfirmTransaction(connection, tx, [attacker], { commitment: "confirmed" }),
     ).rejects.toThrow();
 
     const after = await connection.getBalance(feeVaultAddress, "confirmed");
