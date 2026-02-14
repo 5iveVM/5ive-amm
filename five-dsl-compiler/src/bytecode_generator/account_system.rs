@@ -342,6 +342,7 @@ impl AccountSystem {
                     "u16" => Ok(2),
                     "u32" => Ok(4),
                     "u64" | "i64" => Ok(8),
+                    "u128" | "i128" => Ok(16),
                     "bool" => Ok(1),
                     "pubkey" => Ok(32),
                     // "string" fallback removed - require TypeNode::Sized
