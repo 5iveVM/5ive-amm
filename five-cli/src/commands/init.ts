@@ -116,10 +116,10 @@ export const initCommand: CommandDefinition = {
       await generateClientScaffold(projectDir, templateToClientFunctions(options.template));
       spinner.succeed('Configuration files generated');
 
-      // Generate agent playbook (always, even with --no-examples)
-      spinner.start('Generating AGENTS.md playbook...');
-      await generateAgentPlaybook(projectDir);
-      spinner.succeed('AGENTS.md generated');
+      // Generate agent playbooks (always, even with --no-examples)
+      spinner.start('Generating AGENTS playbooks...');
+      await generateAgentPlaybooks(projectDir);
+      spinner.succeed('AGENTS playbooks generated');
       
       // Generate source files
       if (!options.noExamples) {
@@ -1343,26 +1343,28 @@ Thumbs.db
 }
 
 /**
- * Generate AGENTS.md playbook content and write it to project root.
+ * Generate AGENTS playbooks and write them to project root.
  */
-async function generateAgentPlaybook(
-  projectDir: string
-): Promise<void> {
-  const playbookTemplate = await loadAgentPlaybookTemplate();
-  await writeFile(join(projectDir, 'AGENTS.md'), playbookTemplate);
+async function generateAgentPlaybooks(projectDir: string): Promise<void> {
+  const templateFiles = ['AGENTS.md', 'AGENTS_CHECKLIST.md', 'AGENTS_REFERENCE.md'];
+
+  for (const templateFile of templateFiles) {
+    const templateContent = await loadAgentPlaybookTemplate(templateFile);
+    await writeFile(join(projectDir, templateFile), templateContent);
+  }
 }
 
-async function loadAgentPlaybookTemplate(): Promise<string> {
+async function loadAgentPlaybookTemplate(templateFile: string): Promise<string> {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
 
   const candidatePaths = [
     // dist runtime
-    resolve(__dirname, '../../templates/AGENTS.md'),
+    resolve(__dirname, `../../templates/${templateFile}`),
     // src/test runtime
-    resolve(__dirname, '../templates/AGENTS.md'),
+    resolve(__dirname, `../templates/${templateFile}`),
     // repo-root fallback
-    resolve(process.cwd(), 'five-cli/templates/AGENTS.md'),
+    resolve(process.cwd(), `five-cli/templates/${templateFile}`),
   ];
 
   for (const p of candidatePaths) {
@@ -1376,7 +1378,7 @@ async function loadAgentPlaybookTemplate(): Promise<string> {
     }
   }
 
-  throw new Error('Failed to load AGENTS.md template from five-cli/templates/AGENTS.md');
+  throw new Error(`Failed to load ${templateFile} template from five-cli/templates/${templateFile}`);
 }
 
 /**
@@ -1384,7 +1386,9 @@ async function loadAgentPlaybookTemplate(): Promise<string> {
  */
 function displaySuccessMessage(projectDir: string, projectName: string, options: any): void {
   console.log('\n' + uiSuccess('Project initialized'));
-  console.log(`  ${uiColors.info('Generated')} AGENTS.md - Agent playbook for build/deploy/test workflow`);
+  console.log(`  ${uiColors.info('Generated')} AGENTS.md - Agent operating contract`);
+  console.log(`  ${uiColors.info('Generated')} AGENTS_CHECKLIST.md - Step-by-step delivery gates`);
+  console.log(`  ${uiColors.info('Generated')} AGENTS_REFERENCE.md - Language and integration reference`);
   console.log('\n' + chalk.bold('Next steps:'));
   
   if (projectDir !== process.cwd()) {
