@@ -43,6 +43,7 @@ These rules are non-negotiable and prevent the most common compilation failures:
 6. **`string<N>` is production-safe** — use freely in accounts and function parameters.
 7. **All comparison operators work in `require()`** — `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`.
 8. **Local variables are immutable by default** — use `let x = value;` for immutable bindings. **Use `let mut x = value;` if the variable will be reassigned** (e.g., in conditional branches). Attempting to reassign an immutable local causes a compiler error.
+9. **Zero-stub mandate for production contracts** — do not ship placeholder logic (`// simplified`, hardcoded timestamps/rates/auth bypasses) when built-ins and real state checks exist. Use `get_clock()`, deterministic fixed-point math, and explicit `require()` guards.
 
 ## 4) DSL Feature Inventory (Deep)
 
@@ -121,6 +122,11 @@ pub init_mint(
 ```
 
 Order: (1) Type declaration → (2) `@mut` → (3) `@init(...)` → (4) `@signer`.
+
+Parser-safe quick reference:
+1. ✅ `state: State @mut @init(payer=creator, space=128) @signer`
+2. ✅ `authority: account @mut @signer`
+3. ❌ `state: State @signer @init(...) @mut` (invalid/fragile order)
 
 ### 4.5 Types
 Supported/parsed type families:
@@ -232,6 +238,8 @@ Interfaces define external program calls. **Empirically verified rules:**
 5. **Calling interface methods:** use dot notation `InterfaceName.method(...)`, **not** `InterfaceName::method(...)`
 6. **Passing accounts to CPI:** pass `account`-typed parameters directly, **not** `param.key`
 7. **Function parameters for CPI accounts:** must be typed `account @mut` (not `pubkey`)
+8. **CPI writable accounts must be mutable in caller signature:** any account that may be written by CPI must be received as `account @mut` in the calling function.
+9. **Internal authority (PDA signer) pattern:** when CPI requires vault/program authority, pass that PDA authority account as `account @signer`; do not downgrade to `pubkey`.
 
 ```v
 // ✅ CORRECT: SPL Token (bincode, manual discriminators)
@@ -277,6 +285,8 @@ CPI hard rules for agents:
 3. For non-Anchor programs: set `@discriminator(N)` as single u8 on each method, omit `@serializer`
 4. Use `Account` for on-chain account params, scalar types for data params
 5. Call with dot notation and pass account params directly
+6. Any CPI-writable account in caller params must be `account @mut`
+7. For CPI authority PDAs, pass the authority account as `account @signer` (VM handles PDA signing path)
 
 ### 4.10 Events and error/enums
 Parser/AST include:
@@ -303,12 +313,25 @@ From tokenizer/parser support:
 
 Repository tests also use comment-based param conventions (`// @test-params ...`) in many scripts.
 
+Canonical test discovery behavior:
+1. `5ive test` discovers both `.v` test sources and `.test.json` suites.
+2. For `.v` tests, prefer `pub test_*` function naming.
+3. Use `// @test-params <arg1> <arg2> ... <expected>` for deterministic input/expected conventions.
+4. Default scaffolded path is `tests/main.test.v`.
+5. Useful selectors: `5ive test --filter "<pattern>"`, `5ive test --watch`.
+
 ### 4.12 Blockchain-oriented built-ins
 Core built-ins available in all contracts:
 1. `derive_pda(...)` (including bump-return and bump-specified variants)
 2. `get_clock()`
 3. `get_key(...)`
 4. **Account key access: `param.key`** — **core pattern for all `account`-typed parameters.** Use `.key` to extract pubkeys for comparisons and assignments.
+
+Built-in signature reference (compiler/type-checker aligned where explicit):
+1. `get_clock() -> u64` (Unix timestamp, seconds)
+2. `derive_pda(seed1, seed2, ...) -> (pubkey, u8)` (find PDA + bump)
+3. `derive_pda(seed1, seed2, ..., bump: u8) -> pubkey` (validate PDA with explicit bump)
+4. `get_key(account_like) -> pubkey` (widely used in templates/examples; `param.key` remains preferred in most contract code)
 
 ```v
 pub action(
@@ -427,7 +450,17 @@ cd my-program
 5ive test --sdk-runner
 5ive test tests/ --on-chain --target devnet
 5ive test --sdk-runner --format json
+5ive test --filter "test_*" --verbose
+5ive test --watch
 ```
+
+### 6.9 Build Telemetry Interpretation
+Use compile/build output as a feedback loop for program size and complexity.
+1. Per-file compile output (single-file/verbose) includes: `source chars -> bytecode bytes (ms)`.
+2. Project build summary includes artifact size in bytes, e.g. `build (..., N bytes)`.
+3. Treat sudden bytecode growth as a regression signal; inspect for dead code, duplicated branches, and overly broad interfaces.
+4. If close to deployment limits, run deploy dry-run/chunked settings before mainnet push.
+5. For `.five` artifacts, inspect both `bytecode` length and ABI shape (function count/arg count changes) before deploy.
 
 ## 7) Program ID and Target Resolution
 
@@ -484,6 +517,14 @@ const program = FiveProgram.fromABI("<SCRIPT_ACCOUNT>", abi, {
 ## 10) Contract Pattern Recipes
 
 This section provides composable patterns for the most common contract archetypes. When building a novel contract, identify which patterns apply and combine them.
+
+### 10.0 Fixed-Point and Units Standard
+Use consistent scaling end-to-end; do not mix scales across functions.
+1. Time: always seconds from `get_clock()`.
+2. Prices/USD: default scale `1e6`.
+3. Interest/rates: default scale `1e9` (or `1e12` when precision demands it, but keep one standard per contract).
+4. Convert at boundaries, not mid-formula. Keep internal accounting in one fixed-point domain.
+5. Document scale constants in-state or as clear code constants so liquidation/repayment math stays consistent.
 
 ### 10.1 Authority-Gated State (Vault, Treasury, Config)
 
@@ -802,6 +843,7 @@ Follow this procedure to produce correct 5IVE contracts on first compilation, re
 - For state machines: check `require(state.status == EXPECTED_STATUS);` before transition.
 - Use `let` for intermediate computations (type inference handles it).
 - For CPI calls: pass `account`-typed params directly (not `.key`), use dot notation `Interface.method(...)`.
+- For time/rates/math: use `get_clock()` and fixed-point scaling constants; avoid hardcoded/placeholder values in production paths.
 
 ### Step 5: Define read/query functions
 - Use `-> ReturnType` syntax for functions that return values.
@@ -834,6 +876,10 @@ Follow this procedure to produce correct 5IVE contracts on first compilation, re
 | Interface method | `method @discriminator(N) (param: Account, val: u64);` |
 | CPI call | `InterfaceName.method(acct_param, value);` |
 | CPI account param | `name: account @mut` (not `pubkey`) |
+| CPI authority PDA | `vault_authority: account @signer` |
+| Current time | `let now = get_clock();` |
+| PDA derivation (find) | `let (addr, bump) = derive_pda(seed1, seed2);` |
+| PDA derivation (validate) | `let addr = derive_pda(seed1, seed2, bump);` |
 
 ## 16) Reference Implementations
 
