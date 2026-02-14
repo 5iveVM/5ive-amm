@@ -448,8 +448,9 @@ Never run on-chain commands with ambiguous target/program-id context.
 When this project is created via `5ive init`, start from `client/main.ts`:
 1. Load `build/main.five` with `FiveSDK.loadFiveFile(...)`.
 2. Create `FiveProgram` from generated ABI.
-3. Add function-specific client flows that mirror your contract methods and `tests/main.test.v`.
-4. Keep this client file in sync whenever contract signatures or test scenarios change.
+3. Use the self-contained default setup (devnet RPC + generated `script-account.json` + payer auto-loading).
+4. Add function-specific client flows that mirror your contract methods and `tests/main.test.v`.
+5. Keep this client file in sync whenever contract signatures or test scenarios change.
 
 ### 8.1 Load artifact
 ```ts

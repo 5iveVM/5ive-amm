@@ -323,7 +323,7 @@ async function generateClientScaffold(
     join(projectDir, 'client/README.md'),
     `# Node Client Starter
 
-This client uses \`FiveProgram\` with ABI loaded from \`../build/main.five\`.
+This client is designed for on-chain execution on devnet/mainnet using \`FiveProgram\` + ABI from \`../build/main.five\`.
 
 ## Quickstart
 
@@ -335,11 +335,17 @@ npm install
 npm run run
 \`\`\`
 
+The starter is self-contained:
+1. Uses a default devnet RPC URL in code.
+2. Creates \`client/script-account.json\` on first run.
+3. Uses \`~/.config/solana/id.json\` if available, otherwise creates \`client/payer.json\`.
+
 ## Notes
 
 1. \`client/main.ts\` demonstrates instruction building for your starter contract.
-2. For functions without account params, it also attempts local execution and prints result/CU.
-3. Expand this file as your contract grows; keep it aligned with \`tests/main.test.v\`.
+2. It sends and confirms on-chain transactions, then prints signature, \`meta.err\`, and CU.
+3. For account-required functions, set account mappings directly in \`ACCOUNT_OVERRIDES\` in \`client/main.ts\`.
+4. Expand this file as your contract grows; keep it aligned with \`tests/main.test.v\`.
 `
   );
 
@@ -955,7 +961,15 @@ function getTemplateClientMain(preferredFunctions: string[]): string {
   const preferredArray = JSON.stringify(preferredFunctions);
   return `import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { Keypair } from '@solana/web3.js';
+import { homedir } from 'os';
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+  sendAndConfirmTransaction
+} from '@solana/web3.js';
 import { FiveProgram, FiveSDK } from '@5ive-tech/sdk';
 
 type AbiParameter = {
@@ -965,8 +979,81 @@ type AbiParameter = {
   type?: string;
 };
 
+const DEVNET_RPC_URL = 'https://api.devnet.solana.com';
+const DEVNET_FIVE_VM_PROGRAM_ID = '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d';
+const SCRIPT_ACCOUNT_FILE = join(process.cwd(), 'script-account.json');
+const FALLBACK_PAYER_FILE = join(process.cwd(), 'payer.json');
+const ACCOUNT_OVERRIDES: Record<string, Record<string, string>> = {
+  // Example:
+  // init_counter: {
+  //   counter: '<COUNTER_PUBKEY>',
+  //   authority: '<AUTHORITY_PUBKEY>'
+  // }
+};
+
+function normalizePath(path: string): string {
+  if (path.startsWith('~/')) {
+    return join(homedir(), path.slice(2));
+  }
+  return path;
+}
+
+async function loadPayer(): Promise<Keypair> {
+  const defaultPath = normalizePath('~/.config/solana/id.json');
+  try {
+    const secret = JSON.parse(await readFile(defaultPath, 'utf8')) as number[];
+    return Keypair.fromSecretKey(new Uint8Array(secret));
+  } catch {
+    try {
+      const secret = JSON.parse(await readFile(FALLBACK_PAYER_FILE, 'utf8')) as number[];
+      return Keypair.fromSecretKey(new Uint8Array(secret));
+    } catch {
+      const generated = Keypair.generate();
+      const { writeFile } = await import('fs/promises');
+      await writeFile(FALLBACK_PAYER_FILE, JSON.stringify(Array.from(generated.secretKey), null, 2) + '\\n');
+      return generated;
+    }
+  }
+}
+
+async function loadOrCreateScriptAccount(): Promise<string> {
+  try {
+    const saved = JSON.parse(await readFile(SCRIPT_ACCOUNT_FILE, 'utf8')) as { pubkey?: string };
+    if (saved.pubkey) return saved.pubkey;
+  } catch {
+    // create below
+  }
+  const kp = Keypair.generate();
+  const { writeFile } = await import('fs/promises');
+  await writeFile(
+    SCRIPT_ACCOUNT_FILE,
+    JSON.stringify(
+      {
+        pubkey: kp.publicKey.toBase58(),
+        secretKey: Array.from(kp.secretKey)
+      },
+      null,
+      2
+    ) + '\\n'
+  );
+  return kp.publicKey.toBase58();
+}
+
 function placeholderPubkey(): string {
   return Keypair.generate().publicKey.toBase58();
+}
+
+function getAccountOverrides(functionName: string): Record<string, string> {
+  return ACCOUNT_OVERRIDES[functionName] || ACCOUNT_OVERRIDES['*'] || {};
+}
+
+function parseComputeUnitsFromLogs(logs: string[] | null | undefined): number | undefined {
+  if (!logs) return undefined;
+  for (const line of logs) {
+    const match = line.match(/consumed\\s+(\\d+)\\s+of/i);
+    if (match) return Number(match[1]);
+  }
+  return undefined;
 }
 
 function defaultValueForType(typeName: string | undefined): any {
@@ -980,11 +1067,15 @@ function defaultValueForType(typeName: string | undefined): any {
 async function run(): Promise<void> {
   const artifactPath = join(process.cwd(), '..', 'build', 'main.five');
   const artifactText = await readFile(artifactPath, 'utf8');
-  const { bytecode, abi } = await FiveSDK.loadFiveFile(artifactText);
+  const { abi } = await FiveSDK.loadFiveFile(artifactText);
 
-  const scriptAccount = process.env.FIVE_SCRIPT_ACCOUNT || placeholderPubkey();
-  const fiveVmProgramId = process.env.FIVE_PROGRAM_ID || '11111111111111111111111111111111';
-  const program = FiveProgram.fromABI(scriptAccount, abi, { fiveVMProgramId: fiveVmProgramId });
+  const connection = new Connection(DEVNET_RPC_URL, 'confirmed');
+  const payer = await loadPayer();
+  const scriptAccount = await loadOrCreateScriptAccount();
+  const program = FiveProgram.fromABI(scriptAccount, abi, {
+    fiveVMProgramId: DEVNET_FIVE_VM_PROGRAM_ID
+  });
+  const fiveVmProgramId = program.getFiveVMProgramId();
 
   const preferred = ${preferredArray} as string[];
   const available = program.getFunctions();
@@ -998,19 +1089,27 @@ async function run(): Promise<void> {
   }
 
   console.log('[client] Loaded ABI from ../build/main.five');
+  console.log('[client] RPC:', DEVNET_RPC_URL);
+  console.log('[client] Payer:', payer.publicKey.toBase58());
   console.log('[client] Script account:', scriptAccount);
   console.log('[client] Five VM program id:', fiveVmProgramId);
+  console.log('[client] Mode: on-chain');
   console.log('[client] Target functions:', targets.join(', '));
 
   for (const functionName of targets) {
     const functionDef: any = program.getFunction(functionName);
     const params: AbiParameter[] = functionDef?.parameters || [];
-    const accountArgs: Record<string, string> = {};
+    const accountArgs: Record<string, string> = getAccountOverrides(functionName);
     const dataArgs: Record<string, any> = {};
 
     for (const param of params) {
-      if (param.is_account) {
-        accountArgs[param.name] = placeholderPubkey();
+      if (param.is_account && !accountArgs[param.name]) {
+        const attributes = (param as any).attributes || [];
+        if (Array.isArray(attributes) && attributes.includes('signer')) {
+          accountArgs[param.name] = payer.publicKey.toBase58();
+        } else {
+          accountArgs[param.name] = placeholderPubkey();
+        }
       } else {
         dataArgs[param.name] = defaultValueForType(param.param_type || param.type);
       }
@@ -1029,21 +1128,31 @@ async function run(): Promise<void> {
     console.log('[client] instruction bytes:', Buffer.from(instruction.data, 'base64').length);
     console.log('[client] account metas:', instruction.keys.length);
 
-    const hasAccountParams = params.some((p) => p.is_account);
-    if (hasAccountParams) {
-      console.log('[client] result: instruction-only (function requires accounts)');
-      console.log('[client] compute units: n/a');
-      continue;
+    const txIx = new TransactionInstruction({
+      programId: new PublicKey(instruction.programId),
+      keys: instruction.keys.map((k) => ({
+        pubkey: new PublicKey(k.pubkey),
+        isSigner: k.isSigner,
+        isWritable: k.isWritable
+      })),
+      data: Buffer.from(instruction.data, 'base64')
+    });
+    const tx = new Transaction().add(txIx);
+    const signature = await sendAndConfirmTransaction(connection, tx, [payer], { commitment: 'confirmed' });
+    const txDetails = await connection.getTransaction(signature, {
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0
+    });
+    const metaErr = txDetails?.meta?.err ?? null;
+    const computeUnits =
+      txDetails?.meta?.computeUnitsConsumed ?? parseComputeUnitsFromLogs(txDetails?.meta?.logMessages);
+
+    console.log('[client] signature:', signature);
+    console.log('[client] meta.err:', metaErr);
+    console.log('[client] compute units:', computeUnits ?? 'n/a');
+    if (metaErr !== null) {
+      throw new Error('on-chain execution failed');
     }
-
-    const orderedArgs = params
-      .filter((p) => !p.is_account)
-      .map((p) => dataArgs[p.name]);
-
-    const exec = await FiveSDK.executeLocally(bytecode, functionName, orderedArgs, { abi });
-    console.log('[client] result:', exec.result ?? null);
-    console.log('[client] compute units:', exec.computeUnitsUsed ?? 'n/a');
-    console.log('[client] success:', exec.success === true);
   }
 }
 
@@ -1136,18 +1245,18 @@ For stateful on-chain tests, use companion fixture files (e.g. \`tests/main.test
 
 ### Node Client
 
-Use the generated Node starter under \`client/main.ts\` as your baseline integration path:
+Use the generated Node starter under \`client/main.ts\` for devnet/mainnet execution:
 
 \`\`\`bash
 # Build contract artifact first
 npm run build
 
-# Build and run minimal FiveProgram + ABI client
+# Build and run on-chain client
 npm run client:build
 npm run client:run
 \`\`\`
 
-The starter loads \`build/main.five\`, constructs a \`FiveProgram\`, and demonstrates function calls that align with the default contract/test flow.
+The starter is self-contained (default devnet RPC, generated script-account file, payer auto-loading) and prints signature, \`meta.err\`, and CU.
 
 ### Development
 
