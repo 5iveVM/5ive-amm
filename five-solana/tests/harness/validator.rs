@@ -617,16 +617,23 @@ fn build_init_large_instruction(
     expected_size: usize,
     chunk: &[u8],
 ) -> Instruction {
+    let (fee_vault_pubkey, _fee_vault_bump) = Pubkey::find_program_address(
+        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+        &program_id,
+    );
     let mut data = Vec::with_capacity(1 + 4 + chunk.len());
     data.push(4);
     data.extend_from_slice(&(expected_size as u32).to_le_bytes());
     data.extend_from_slice(chunk);
+
     Instruction {
         program_id,
         accounts: vec![
             AccountMeta::new(accounts[script_name].pubkey, false),
             AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
             AccountMeta::new(accounts[vm_state_name].pubkey, false),
+            AccountMeta::new(fee_vault_pubkey, false),
+            AccountMeta::new_readonly(system_program::id(), false),
         ],
         data,
     }
@@ -640,6 +647,10 @@ fn build_append_instruction(
     vm_state_name: &str,
     chunk: &[u8],
 ) -> Instruction {
+    let (fee_vault_pubkey, _fee_vault_bump) = Pubkey::find_program_address(
+        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+        &program_id,
+    );
     let mut data = Vec::with_capacity(1 + chunk.len());
     data.push(5);
     data.extend_from_slice(chunk);
@@ -649,6 +660,8 @@ fn build_append_instruction(
             AccountMeta::new(accounts[script_name].pubkey, false),
             AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
             AccountMeta::new(accounts[vm_state_name].pubkey, false),
+            AccountMeta::new(fee_vault_pubkey, false),
+            AccountMeta::new_readonly(system_program::id(), false),
         ],
         data,
     }
@@ -709,20 +722,31 @@ fn deploy_script_with_chunk_fallback(
     const APPEND_CHUNK_SIZE: usize = 850;
 
     let first = bytecode.len().min(INIT_CHUNK_SIZE);
-    let init = h.send_ixs(
-        &format!("{}_init_large", label_prefix),
-        vec![build_init_large_instruction(
-            h.program_id,
-            accounts,
-            script_name,
-            owner_name,
-            vm_state_name,
-            bytecode.len(),
-            &bytecode[..first],
-        )],
-        vec![],
-        Some(1_400_000),
-    )?;
+    let init = {
+        let owner_signers: Vec<&Keypair> = if owner_name == "payer" {
+            vec![&h.payer]
+        } else {
+            accounts
+                .get(owner_name)
+                .and_then(|a| a.signer.as_ref())
+                .map(|signer| vec![signer])
+                .unwrap_or_default()
+        };
+        h.send_ixs(
+            &format!("{}_init_large", label_prefix),
+            vec![build_init_large_instruction(
+                h.program_id,
+                accounts,
+                script_name,
+                owner_name,
+                vm_state_name,
+                bytecode.len(),
+                &bytecode[..first],
+            )],
+            owner_signers,
+            Some(1_400_000),
+        )
+    }?;
 
     let mut total = init.units_consumed;
     let mut tail_sig = init.signature;
@@ -730,35 +754,57 @@ fn deploy_script_with_chunk_fallback(
     let mut offset = first;
     while offset < bytecode.len() {
         let end = (offset + APPEND_CHUNK_SIZE).min(bytecode.len());
-        let append = h.send_ixs(
-            &format!("{}_append", label_prefix),
-            vec![build_append_instruction(
-                h.program_id,
-                accounts,
-                script_name,
-                owner_name,
-                vm_state_name,
-                &bytecode[offset..end],
-            )],
-            vec![],
-            Some(1_400_000),
-        )?;
+        let append = {
+            let owner_signers: Vec<&Keypair> = if owner_name == "payer" {
+                vec![&h.payer]
+            } else {
+                accounts
+                    .get(owner_name)
+                    .and_then(|a| a.signer.as_ref())
+                    .map(|signer| vec![signer])
+                    .unwrap_or_default()
+            };
+            h.send_ixs(
+                &format!("{}_append", label_prefix),
+                vec![build_append_instruction(
+                    h.program_id,
+                    accounts,
+                    script_name,
+                    owner_name,
+                    vm_state_name,
+                    &bytecode[offset..end],
+                )],
+                owner_signers,
+                Some(1_400_000),
+            )
+        }?;
         total = total.saturating_add(append.units_consumed);
         tail_sig = append.signature;
         offset = end;
     }
 
-    let finalize = h.send_ixs(
-        &format!("{}_finalize", label_prefix),
-        vec![build_finalize_upload_instruction(
-            h.program_id,
-            accounts,
-            script_name,
-            owner_name,
-        )],
-        vec![],
-        Some(1_400_000),
-    )?;
+    let finalize = {
+        let owner_signers: Vec<&Keypair> = if owner_name == "payer" {
+            vec![&h.payer]
+        } else {
+            accounts
+                .get(owner_name)
+                .and_then(|a| a.signer.as_ref())
+                .map(|signer| vec![signer])
+                .unwrap_or_default()
+        };
+        h.send_ixs(
+            &format!("{}_finalize", label_prefix),
+            vec![build_finalize_upload_instruction(
+                h.program_id,
+                accounts,
+                script_name,
+                owner_name,
+            )],
+            owner_signers,
+            Some(1_400_000),
+        )
+    }?;
     total = total.saturating_add(finalize.units_consumed);
     tail_sig = finalize.signature;
 

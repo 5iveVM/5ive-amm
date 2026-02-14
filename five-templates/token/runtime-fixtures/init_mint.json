@@ -6,13 +6,13 @@
   "authority": {
     "name": "payer",
     "key_seed": 99,
-    "lamports": 20000000
+    "lamports": 50000000
   },
   "vm_state_name": "vm_state",
   "script_name": "script",
   "vm_fees": {
-    "deploy_fee_bps": 0,
-    "execute_fee_bps": 0
+    "deploy_fee_lamports": 10000,
+    "execute_fee_lamports": 85734
   },
   "extra_accounts": [
     {
@@ -82,6 +82,16 @@
       "lamports": 0,
       "data_len": 0,
       "is_signer": true,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "fee_recipient",
+      "key_seed": 100,
+      "owner": "system",
+      "lamports": 0,
+      "data_len": 0,
+      "is_signer": false,
       "is_writable": true,
       "executable": false
     },

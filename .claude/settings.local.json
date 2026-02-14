@@ -68,7 +68,13 @@
       "Bash(npm test:*)",
       "Bash(npm view:*)",
       "Bash(CARGO_TARGET_DIR=/tmp/five-target cargo build:*)",
-      "Bash(CARGO_TARGET_DIR=/tmp/five-target /tmp/five-target/debug/five:*)"
+      "Bash(CARGO_TARGET_DIR=/tmp/five-target /tmp/five-target/debug/five:*)",
+      "Bash(/tmp/test_debug2.sh:*)",
+      "Bash(/tmp/test_debug2.sh)",
+      "Bash(/tmp/test_debug3.sh:*)",
+      "Bash(/tmp/test_debug3.sh)",
+      "Bash(/tmp/test_debug4.sh:*)",
+      "Bash(/tmp/test_debug4.sh)"
     ]
   }
 }
