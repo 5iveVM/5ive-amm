@@ -1,3 +1,14 @@
+const useSolanaMocks = process.env.USE_SOLANA_MOCKS !== '0';
+
+const moduleNameMapper = {
+  '^(\\.{1,2}/.*)\\.js$': '$1',
+  '^five-sdk$': '<rootDir>/src/__tests__/mocks/five-sdk.ts',
+};
+
+if (useSolanaMocks) {
+  moduleNameMapper['^@solana/web3.js$'] = '<rootDir>/src/__tests__/mocks/solana-web3.ts';
+}
+
 export default {
   preset: 'ts-jest/presets/default-esm', // Use ESM preset
   testEnvironment: 'node',
@@ -8,11 +19,7 @@ export default {
     '<rootDir>/src/assets/vm/package.json',
     '<rootDir>/src/assets/wasm/package.json',
   ],
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^five-sdk$': '<rootDir>/src/__tests__/mocks/five-sdk.ts',
-    '^@solana/web3.js$': '<rootDir>/src/__tests__/mocks/solana-web3.ts',
-  },
+  moduleNameMapper,
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,

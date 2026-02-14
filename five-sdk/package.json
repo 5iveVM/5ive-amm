@@ -36,6 +36,7 @@
     "copy-assets": "mkdir -p dist/assets/vm && COPYFILE_DISABLE=1 cp src/assets/vm/* dist/assets/vm/",
     "test": "node examples/basic-usage.js",
     "test:jest": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
+    "test:localnet": "USE_SOLANA_MOCKS=0 RUN_LOCALNET_VALIDATOR_TESTS=1 NODE_OPTIONS=--experimental-vm-modules jest --runInBand src/__tests__/integration/localnet-fee-vault.test.ts",
     "gen-types": "node ./node_modules/typescript/bin/tsc && node dist/bin/gen-types.js",
     "prepublishOnly": "npm run build"
   },
