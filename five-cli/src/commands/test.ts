@@ -347,6 +347,13 @@ async function discoverTestSuites(
   try {
     // Use new TestDiscovery to find both .test.json and .v files
     const discoveredTests = await TestDiscovery.discoverTests(testPath, { verbose: options.verbose });
+    const discoveredVTests = discoveredTests.filter((t: any) => t.type === 'v-source' && t.source);
+
+    // Fallback for SDK versions that do not yet discover pub test_* .v tests.
+    if (discoveredVTests.length === 0) {
+      const fallbackVTests = await discoverVTestsLocally(testPath);
+      discoveredTests.push(...fallbackVTests as any[]);
+    }
 
     if (discoveredTests.length === 0 && options.verbose) {
       logger.info('No tests discovered');
@@ -449,16 +456,142 @@ async function loadTestSuite(filePath: string): Promise<TestSuite | null> {
   try {
     const content = await readFile(filePath, 'utf8');
     const data = JSON.parse(content);
+    const testCases = data.tests || data.testCases || [];
+    // Ignore fixture-shaped JSON files in local test mode.
+    if (!Array.isArray(testCases)) {
+      return null;
+    }
 
     return {
       name: data.name || basename(filePath, '.test.json'),
       description: data.description,
-      testCases: data.tests || data.testCases || []
+      testCases
     };
   } catch (error) {
     console.warn(`Failed to load test suite ${filePath}: ${error}`);
     return null;
   }
+}
+
+async function discoverVTestsLocally(testPath: string): Promise<Array<{
+  name: string;
+  path: string;
+  type: 'v-source';
+  source: { functionName: string; expectedResult?: any; expectsResult?: boolean };
+  parameters?: any[];
+}>> {
+  const vFiles = await findFilesByExtension(testPath, '.v');
+  const tests: Array<{
+    name: string;
+    path: string;
+    type: 'v-source';
+    source: { functionName: string; expectedResult?: any; expectsResult?: boolean };
+    parameters?: any[];
+  }> = [];
+
+  for (const file of vFiles) {
+    const content = await readFile(file, 'utf8');
+    const lines = content.split('\n');
+    let pendingParams: any[] | undefined;
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      const paramsMatch = line.match(/@test-params(?:\s+(.*))?$/);
+      if (paramsMatch) {
+        const paramsStr = (paramsMatch[1] || '').trim();
+        if (paramsStr.length === 0) {
+          pendingParams = [];
+        } else if (paramsStr.startsWith('[')) {
+          const parsed = JSON.parse(paramsStr);
+          pendingParams = Array.isArray(parsed) ? parsed : [];
+        } else {
+          pendingParams = paramsStr
+            .split(/\s+/)
+            .filter(Boolean)
+            .map(parseTestParamToken);
+        }
+        continue;
+      }
+
+      const funcMatch = line.match(
+        /^pub\s+(?:fn\s+)?(test_[A-Za-z0-9_]*|[A-Za-z0-9_]*_test)\s*\([^)]*\)\s*(?:->\s*([A-Za-z0-9_<>\[\]]+))?/
+      );
+      if (!funcMatch) continue;
+
+      const functionName = funcMatch[1];
+      const hasReturnValue = !!funcMatch[2];
+      const [parameters, expectedResult, expectsResult] = splitParamsAndExpectation(
+        pendingParams,
+        hasReturnValue
+      );
+
+      tests.push({
+        name: `${basename(file, '.v')}::${functionName}`,
+        path: file,
+        type: 'v-source',
+        source: {
+          functionName,
+          expectedResult,
+          expectsResult
+        },
+        parameters: parameters.length > 0 ? parameters : undefined
+      });
+      pendingParams = undefined;
+    }
+  }
+
+  return tests;
+}
+
+async function findFilesByExtension(testPath: string, extension: string): Promise<string[]> {
+  const result: string[] = [];
+  const stats = await stat(testPath);
+
+  if (stats.isFile()) {
+    if (testPath.endsWith(extension)) {
+      result.push(testPath);
+    }
+    return result;
+  }
+
+  const entries = await readdir(testPath, { recursive: true });
+  for (const entry of entries) {
+    if (typeof entry !== 'string') continue;
+    if (!entry.endsWith(extension)) continue;
+    const fullPath = join(testPath, entry);
+    if (fullPath.includes('node_modules')) continue;
+    const entryStats = await stat(fullPath);
+    if (entryStats.isFile()) {
+      result.push(fullPath);
+    }
+  }
+
+  return result;
+}
+
+function splitParamsAndExpectation(
+  values: any[] | undefined,
+  hasReturnValue: boolean
+): [any[], any | undefined, boolean] {
+  const parsed = Array.isArray(values) ? values : [];
+  if (!hasReturnValue || parsed.length === 0) {
+    return [parsed, undefined, false];
+  }
+  return [parsed.slice(0, parsed.length - 1), parsed[parsed.length - 1], true];
+}
+
+function parseTestParamToken(token: string): any {
+  if (
+    (token.startsWith('"') && token.endsWith('"')) ||
+    (token.startsWith("'") && token.endsWith("'"))
+  ) {
+    return token.slice(1, -1);
+  }
+  if (token === 'true') return true;
+  if (token === 'false') return false;
+  const asNumber = Number(token);
+  if (!Number.isNaN(asNumber)) return asNumber;
+  return token;
 }
 
 /**

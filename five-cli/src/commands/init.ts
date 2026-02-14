@@ -113,6 +113,7 @@ export const initCommand: CommandDefinition = {
       spinner.start('Generating configuration files...');
       await generateProjectConfig(projectDir, projectName, options);
       await generatePackageJson(projectDir, projectName, options);
+      await generateClientScaffold(projectDir, templateToClientFunctions(options.template));
       spinner.succeed('Configuration files generated');
 
       // Generate agent playbook (always, even with --no-examples)
@@ -175,6 +176,9 @@ async function createProjectStructure(projectDir: string, template: string): Pro
   const dirs = [
     'src',
     'tests',
+    'client',
+    'client/src',
+    'client/scripts',
     'examples',
     'build',
     'docs',
@@ -243,7 +247,9 @@ async function generatePackageJson(
       deploy: '5ive deploy',
       'build:release': '5ive compile src/**/*.v -O 3',
       'build:debug': '5ive compile src/**/*.v --debug',
-      'watch': '5ive compile src/**/*.v --watch'
+      'watch': '5ive compile src/**/*.v --watch',
+      'client:build': 'npm --prefix client install && npm --prefix client run build',
+      'client:run': 'npm --prefix client install && npm --prefix client run run'
     },
     devDependencies: {
       '@5ive-tech/cli': '^1.0.0'
@@ -259,6 +265,87 @@ async function generatePackageJson(
   await writeFile(
     join(projectDir, 'package.json'), 
     JSON.stringify(packageJson, null, 2)
+  );
+}
+
+async function generateClientScaffold(
+  projectDir: string,
+  preferredFunctions: string[]
+): Promise<void> {
+  await writeFile(
+    join(projectDir, 'client/package.json'),
+    JSON.stringify(
+      {
+        name: `${projectDir.split('/').pop() || 'five-project'}-client`,
+        private: true,
+        version: '0.1.0',
+        type: 'module',
+        scripts: {
+          build: 'tsc -p tsconfig.json',
+          check: 'tsc --noEmit -p tsconfig.json',
+          run: 'npm run build && node dist/main.js'
+        },
+        dependencies: {
+          '@5ive-tech/sdk': '^1.1.7',
+          '@solana/web3.js': '^1.98.4'
+        },
+        devDependencies: {
+          '@types/node': '^20.0.0',
+          typescript: '^5.9.2'
+        }
+      },
+      null,
+      2
+    ) + '\n'
+  );
+
+  await writeFile(
+    join(projectDir, 'client/tsconfig.json'),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          target: 'ES2022',
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          strict: true,
+          esModuleInterop: true,
+          skipLibCheck: true,
+          outDir: 'dist'
+        },
+        include: ['main.ts']
+      },
+      null,
+      2
+    ) + '\n'
+  );
+
+  await writeFile(
+    join(projectDir, 'client/README.md'),
+    `# Node Client Starter
+
+This client uses \`FiveProgram\` with ABI loaded from \`../build/main.five\`.
+
+## Quickstart
+
+\`\`\`bash
+# From project root
+npm run build
+cd client
+npm install
+npm run run
+\`\`\`
+
+## Notes
+
+1. \`client/main.ts\` demonstrates instruction building for your starter contract.
+2. For functions without account params, it also attempts local execution and prints result/CU.
+3. Expand this file as your contract grows; keep it aligned with \`tests/main.test.v\`.
+`
+  );
+
+  await writeFile(
+    join(projectDir, 'client/main.ts'),
+    getTemplateClientMain(preferredFunctions)
   );
 }
 
@@ -685,6 +772,7 @@ function getTemplateTestFile(template: string): string {
 // Use @test-params to specify function parameters for testing.
 // For non-void functions the last value is the expected result.
 // Space-separated and JSON-array formats are both supported.
+// Keep client/main.ts calls aligned with these starter semantics.
 
 // @test-params 10 20 30
 pub test_add(a: u64, b: u64) -> u64 {
@@ -852,6 +940,120 @@ function getTemplateOnChainFixture(template: string): string {
   return JSON.stringify(fixtures[template] || fixtures.basic, null, 2) + '\n';
 }
 
+function templateToClientFunctions(template: string): string[] {
+  const map: Record<string, string[]> = {
+    basic: ['init_counter', 'get_value'],
+    defi: ['swap', 'add_liquidity'],
+    nft: ['mint_nft', 'transfer_nft'],
+    game: ['move_player', 'level_up'],
+    dao: ['create_proposal', 'vote']
+  };
+  return map[template] || map.basic;
+}
+
+function getTemplateClientMain(preferredFunctions: string[]): string {
+  const preferredArray = JSON.stringify(preferredFunctions);
+  return `import { readFile } from 'fs/promises';
+import { join } from 'path';
+import { Keypair } from '@solana/web3.js';
+import { FiveProgram, FiveSDK } from '@5ive-tech/sdk';
+
+type AbiParameter = {
+  name: string;
+  is_account?: boolean;
+  param_type?: string;
+  type?: string;
+};
+
+function placeholderPubkey(): string {
+  return Keypair.generate().publicKey.toBase58();
+}
+
+function defaultValueForType(typeName: string | undefined): any {
+  const normalized = (typeName || '').toLowerCase();
+  if (normalized === 'bool' || normalized === 'boolean') return true;
+  if (normalized.startsWith('string')) return 'demo';
+  if (normalized === 'pubkey') return placeholderPubkey();
+  return 1;
+}
+
+async function run(): Promise<void> {
+  const artifactPath = join(process.cwd(), '..', 'build', 'main.five');
+  const artifactText = await readFile(artifactPath, 'utf8');
+  const { bytecode, abi } = await FiveSDK.loadFiveFile(artifactText);
+
+  const scriptAccount = process.env.FIVE_SCRIPT_ACCOUNT || placeholderPubkey();
+  const fiveVmProgramId = process.env.FIVE_PROGRAM_ID || '11111111111111111111111111111111';
+  const program = FiveProgram.fromABI(scriptAccount, abi, { fiveVMProgramId: fiveVmProgramId });
+
+  const preferred = ${preferredArray} as string[];
+  const available = program.getFunctions();
+  const targets = preferred.filter((name) => available.includes(name));
+  if (targets.length === 0 && available.length > 0) {
+    targets.push(available[0]);
+  }
+
+  if (targets.length === 0) {
+    throw new Error('No functions found in ABI. Run npm run build first.');
+  }
+
+  console.log('[client] Loaded ABI from ../build/main.five');
+  console.log('[client] Script account:', scriptAccount);
+  console.log('[client] Five VM program id:', fiveVmProgramId);
+  console.log('[client] Target functions:', targets.join(', '));
+
+  for (const functionName of targets) {
+    const functionDef: any = program.getFunction(functionName);
+    const params: AbiParameter[] = functionDef?.parameters || [];
+    const accountArgs: Record<string, string> = {};
+    const dataArgs: Record<string, any> = {};
+
+    for (const param of params) {
+      if (param.is_account) {
+        accountArgs[param.name] = placeholderPubkey();
+      } else {
+        dataArgs[param.name] = defaultValueForType(param.param_type || param.type);
+      }
+    }
+
+    let builder = program.function(functionName);
+    if (Object.keys(accountArgs).length > 0) {
+      builder = builder.accounts(accountArgs);
+    }
+    if (Object.keys(dataArgs).length > 0) {
+      builder = builder.args(dataArgs);
+    }
+
+    const instruction = await builder.instruction();
+    console.log('\\n[client] function:', functionName);
+    console.log('[client] instruction bytes:', Buffer.from(instruction.data, 'base64').length);
+    console.log('[client] account metas:', instruction.keys.length);
+
+    const hasAccountParams = params.some((p) => p.is_account);
+    if (hasAccountParams) {
+      console.log('[client] result: instruction-only (function requires accounts)');
+      console.log('[client] compute units: n/a');
+      continue;
+    }
+
+    const orderedArgs = params
+      .filter((p) => !p.is_account)
+      .map((p) => dataArgs[p.name]);
+
+    const exec = await FiveSDK.executeLocally(bytecode, functionName, orderedArgs, { abi });
+    console.log('[client] result:', exec.result ?? null);
+    console.log('[client] compute units:', exec.computeUnitsUsed ?? 'n/a');
+    console.log('[client] success:', exec.success === true);
+  }
+}
+
+run().catch((error) => {
+  console.error('[client] failed:', error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
+`;
+}
+
 /**
  * Generate README content
  */
@@ -932,6 +1134,21 @@ The \`@test-params\` comment specifies inputs. For non-void functions the last v
 
 For stateful on-chain tests, use companion fixture files (e.g. \`tests/main.test.json\`) to define per-test accounts/parameters.
 
+### Node Client
+
+Use the generated Node starter under \`client/main.ts\` as your baseline integration path:
+
+\`\`\`bash
+# Build contract artifact first
+npm run build
+
+# Build and run minimal FiveProgram + ABI client
+npm run client:build
+npm run client:run
+\`\`\`
+
+The starter loads \`build/main.five\`, constructs a \`FiveProgram\`, and demonstrates function calls that align with the default contract/test flow.
+
 ### Development
 
 \`\`\`bash
@@ -950,6 +1167,7 @@ npm run deploy
 
 - \`src/\` - 5IVE VM source files (.v)
 - \`tests/\` - Test files (.v files with test_* functions)
+- \`client/\` - Node TypeScript client starter (FiveProgram + ABI)
 - \`build/\` - Compiled bytecode
 - \`docs/\` - Documentation
 - \`five.toml\` - Project configuration
@@ -1067,6 +1285,7 @@ function displaySuccessMessage(projectDir: string, projectName: string, options:
   console.log(`  ${uiColors.info('npm install')} - Install dependencies`);
   console.log(`  ${uiColors.info('npm run build')} - Compile the project`);
   console.log(`  ${uiColors.info('npm test')} - Run tests`);
+  console.log(`  ${uiColors.info('npm run client:run')} - Run Node client starter`);
   console.log(`  ${uiColors.info('npm run watch')} - Start development mode`);
   
   console.log('\n' + uiColors.muted('Happy coding with 5IVE VM.'));
