@@ -3,8 +3,8 @@
  */
 
 import bs58 from 'bs58';
-import { Point } from '@noble/ed25519';
 import { randomBytes } from 'crypto';
+import { PublicKey } from '@solana/web3.js';
 
 /**
  * Program Derived Address (PDA) utilities - pure implementation
@@ -88,14 +88,7 @@ export class PDAUtils {
    * Check if hash is off the Ed25519 curve (valid PDA)
    */
   private static isOffCurve(hash: Buffer): boolean {
-    try {
-      // If point conversion succeeds, it's ON the curve
-      Point.fromHex(hash.toString('hex'));
-      return false;
-    } catch {
-      // If point conversion fails, it's OFF the curve (valid PDA)
-      return true;
-    }
+    return !PublicKey.isOnCurve(hash);
   }
 
   /**

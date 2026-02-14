@@ -27,6 +27,27 @@ mod tests {
         [seed; 32]
     }
 
+    fn canonical_program_id(start_seed: u8) -> Pubkey {
+        let mut seed = start_seed;
+        loop {
+            let pid = [seed; 32];
+            if five_vm_mito::utils::find_program_address_offchain(&[b"vm_state"], &pid).is_ok() {
+                return pid;
+            }
+            seed = seed.wrapping_add(1);
+            assert!(seed != start_seed, "unable to find PDA-compatible test program id");
+        }
+    }
+
+    fn canonical_vm_key(program_id: &Pubkey) -> Pubkey {
+        let mut pid = [0u8; 32];
+        pid.copy_from_slice(program_id);
+        let (pda, _bump) =
+            five_vm_mito::utils::find_program_address_offchain(&[b"vm_state"], &pid)
+                .expect("canonical vm_state pda");
+        pda
+    }
+
     #[test]
     fn test_instruction_parsing() {
         // Test Initialize
@@ -170,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_set_fees_updates_state() {
-        let program_id = key(1);
+        let program_id = canonical_program_id(1);
         let authority_key = key(2);
         let mut vm_lamports = 0u64;
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
@@ -182,7 +203,7 @@ mod tests {
             vm_state.initialize(authority_key);
         }
 
-        let vm_key = key(3);
+        let vm_key = canonical_vm_key(&program_id);
         let vm_account = create_account(
             &vm_key,
             false,
@@ -213,11 +234,11 @@ mod tests {
 
     #[test]
     fn test_execute_transfers_fee_to_admin() {
-        let program_id = key(10);
+        let program_id = canonical_program_id(10);
         let admin_key = key(11);
         let payer_key = key(12);
         let script_key = key(13);
-        let vm_key = key(14);
+        let vm_key = canonical_vm_key(&program_id);
 
         let mut vm_lamports = 0u64;
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
@@ -292,11 +313,11 @@ mod tests {
 
     #[test]
     fn test_execute_fee_requires_admin_account() {
-        let program_id = key(20);
+        let program_id = canonical_program_id(20);
         let admin_key = key(21);
         let payer_key = key(22);
         let script_key = key(23);
-        let vm_key = key(24);
+        let vm_key = canonical_vm_key(&program_id);
 
         let mut vm_lamports = 0u64;
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
@@ -373,11 +394,11 @@ mod tests {
 
     #[test]
     fn test_execute_charges_full_fee() {
-        let program_id = key(30);
+        let program_id = canonical_program_id(30);
         let admin_key = key(31);
         let payer_key = key(32);
         let script_key = key(33);
-        let vm_key = key(34);
+        let vm_key = canonical_vm_key(&program_id);
 
         let mut vm_lamports = 0u64;
         let mut vm_data = vec![0u8; FIVEVMState::LEN];

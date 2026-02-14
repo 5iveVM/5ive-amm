@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { extname, isAbsolute, join } from 'path';
 import { createRequire } from 'module';
 import ora from 'ora';
-import { Connection, Keypair } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { parse as parseToml, stringify as stringifyToml } from '@iarna/toml';
 
 import {
@@ -839,6 +839,21 @@ async function executeDeployment(
         logger.debug('sdk package introspection unavailable');
       }
     }
+
+    // Enforce canonical singleton VM state PDA.
+    if (!deploymentOptions.fiveVMProgramId) {
+      throw new Error('fiveVMProgramId is required to derive canonical vm_state PDA');
+    }
+    const [canonicalVmState] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vm_state')],
+      new PublicKey(deploymentOptions.fiveVMProgramId),
+    );
+    if (deploymentOptions.vmStateAccount && deploymentOptions.vmStateAccount !== canonicalVmState.toBase58()) {
+      throw new Error(
+        `--vm-state-account must be canonical PDA ${canonicalVmState.toBase58()} (got ${deploymentOptions.vmStateAccount})`,
+      );
+    }
+    deploymentOptions.vmStateAccount = canonicalVmState.toBase58();
 
     // Deploy using 5IVE SDK
     const spinner = isTTY() ? ora('Deploying via 5IVE SDK...').start() : null;

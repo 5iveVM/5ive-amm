@@ -3,7 +3,7 @@ use pinocchio::{
 };
 
 use crate::{
-    common::verify_program_owned,
+    common::{verify_canonical_vm_state_account, verify_program_owned},
     state::FIVEVMState,
 };
 
@@ -120,6 +120,7 @@ pub fn set_fees(
     let authority = &accounts[1];
 
     // Verify ownership
+    verify_canonical_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
     require_signer(authority)?;
 

@@ -201,15 +201,13 @@ export async function createDeploymentTransaction(
   const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
   const rentLamports = await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 
-  // Generate VM state keypair
-  const vmStateKeypair = Keypair.generate();
-  const VM_STATE_SIZE = 56; // FIVEVMState::LEN
-  const vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
+  const vmStatePDA = await PDAUtils.deriveVMStatePDA(programIdStr);
+  const vmStatePubkey = new PublicKey(vmStatePDA.address);
 
   if (options.debug) {
     console.log(`[FiveSDK] Preparing deployment transaction:`);
     console.log(`  - Script Account: ${scriptAccount}`);
-    console.log(`  - VM State Account: ${vmStateKeypair.publicKey.toString()}`);
+    console.log(`  - VM State Account: ${vmStatePubkey.toString()}`);
     console.log(`  - Deployer: ${deployerPublicKey.toString()}`);
   }
 
@@ -224,30 +222,24 @@ export async function createDeploymentTransaction(
     );
   }
 
-  // 1. Create VM State Account
-  tx.add(
-    SystemProgram.createAccount({
-      fromPubkey: deployerPublicKey,
-      newAccountPubkey: vmStateKeypair.publicKey,
-      lamports: vmStateRent,
-      space: VM_STATE_SIZE,
-      programId: programId,
-    }),
-  );
+  // 1. Initialize canonical VM State if missing
+  const vmStateInfo = await connection.getAccountInfo(vmStatePubkey);
+  if (!vmStateInfo) {
+    tx.add(
+      new TransactionInstruction({
+        keys: [
+          { pubkey: vmStatePubkey, isSigner: false, isWritable: true },
+          { pubkey: deployerPublicKey, isSigner: true, isWritable: false },
+          { pubkey: deployerPublicKey, isSigner: true, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        programId: programId,
+        data: buildInitializeVmStateInstructionData(vmStatePDA.bump),
+      }),
+    );
+  }
 
-  // 2. Initialize VM State
-  tx.add(
-    new TransactionInstruction({
-      keys: [
-        { pubkey: vmStateKeypair.publicKey, isSigner: false, isWritable: true },
-        { pubkey: deployerPublicKey, isSigner: true, isWritable: false },
-      ],
-      programId: programId,
-      data: buildInitializeVmStateInstructionData(0),
-    }),
-  );
-
-  // 3. Create Script Account
+  // 2. Create Script Account
   tx.add(
     SystemProgram.createAccount({
       fromPubkey: deployerPublicKey,
@@ -258,13 +250,13 @@ export async function createDeploymentTransaction(
     }),
   );
 
-  // 4. Deploy Instruction
+  // 3. Deploy Instruction
   const deployData = encodeDeployInstruction(bytecode, 0, exportMetadata);
   tx.add(
     new TransactionInstruction({
       keys: [
         { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
-        { pubkey: vmStateKeypair.publicKey, isSigner: false, isWritable: true },
+        { pubkey: vmStatePubkey, isSigner: false, isWritable: true },
         { pubkey: deployerPublicKey, isSigner: true, isWritable: true },
       ],
       programId: programId,
@@ -278,12 +270,11 @@ export async function createDeploymentTransaction(
 
   // Partial sign with generated keys
   tx.partialSign(scriptKeypair);
-  tx.partialSign(vmStateKeypair);
 
   return {
     transaction: tx,
     scriptKeypair,
-    vmStateKeypair,
+    vmStateKeypair: null,
     programId: scriptAccount,
     rentLamports,
   };
@@ -348,22 +339,18 @@ export async function deployToSolana(
     const rentLamports =
       await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 
-    // Generate VM state keypair for this deployment OR reuse
-    let vmStatePubkey: any;
-    let vmStateKeypair: any;
-    let vmStateRent = 0;
-    const VM_STATE_SIZE = 56; // FIVEVMState::LEN
-
-    if (options.vmStateAccount) {
-      vmStatePubkey = new PublicKey(options.vmStateAccount);
-      if (options.debug) {
-        console.log(`[FiveSDK] Reuse VM State: ${vmStatePubkey.toString()}`);
-      }
-    } else {
-      vmStateKeypair = Keypair.generate();
-      vmStatePubkey = vmStateKeypair.publicKey;
-      vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
-    }
+    const vmStateResolution = await ensureCanonicalVmStateAccount(
+      connection,
+      deployerKeypair,
+      new PublicKey(programId),
+      {
+        vmStateAccount: options.vmStateAccount,
+        maxRetries: options.maxRetries,
+        debug: options.debug,
+      },
+    );
+    const vmStatePubkey = vmStateResolution.vmStatePubkey;
+    const vmStateRent = vmStateResolution.vmStateRent;
 
     if (options.debug) {
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
@@ -373,7 +360,7 @@ export async function deployToSolana(
       console.log(`[FiveSDK] Rent cost: ${((rentLamports + vmStateRent) / 1e9)} SOL`);
     }
 
-    // SINGLE TRANSACTION: create VM state + initialize + create script account + deploy bytecode
+    // SINGLE TRANSACTION: create script account + deploy bytecode
     const tx = new Transaction();
 
     // Optional compute budget
@@ -388,38 +375,7 @@ export async function deployToSolana(
       } catch { }
     }
 
-    if (!options.vmStateAccount) {
-      // 1) Create VM state account owned by the program
-      const createVmStateIx = SystemProgram.createAccount({
-        fromPubkey: deployerKeypair.publicKey,
-        newAccountPubkey: vmStatePubkey,
-        lamports: vmStateRent,
-        space: VM_STATE_SIZE,
-        programId: new PublicKey(programId),
-      });
-      tx.add(createVmStateIx);
-
-      // 2) Initialize VM state: [discriminator(0)] with accounts [vm_state, authority]
-      const initVmStateIx = new TransactionInstruction({
-        keys: [
-          {
-            pubkey: vmStatePubkey,
-            isSigner: false,
-            isWritable: true,
-          },
-          {
-            pubkey: deployerKeypair.publicKey,
-            isSigner: true,
-            isWritable: false,
-          },
-        ],
-        programId: new PublicKey(programId),
-        data: buildInitializeVmStateInstructionData(0),
-      });
-      tx.add(initVmStateIx);
-    }
-
-    // 3) Create script account
+    // 1) Create script account
     const createAccountIx = SystemProgram.createAccount({
       fromPubkey: deployerKeypair.publicKey,
       newAccountPubkey: scriptKeypair.publicKey,
@@ -461,9 +417,6 @@ export async function deployToSolana(
     tx.feePayer = deployerKeypair.publicKey;
 
     tx.partialSign(deployerKeypair);
-    if (!options.vmStateAccount) {
-      tx.partialSign(vmStateKeypair);
-    }
     tx.partialSign(scriptKeypair);
 
     const txSerialized = tx.serialize();
@@ -518,7 +471,7 @@ export async function deployToSolana(
       success: true,
       programId: scriptAccount,
       transactionId: signature,
-      deploymentCost: rentLamports,
+      deploymentCost: rentLamports + vmStateRent,
       logs: [
         `Script Account: ${scriptAccount}`,
         `Deployment TX: ${signature}`,
@@ -620,23 +573,18 @@ export async function deployLargeProgramToSolana(
     const programIdStr = ProgramIdResolver.resolve(options.fiveVMProgramId);
     const programId = new PublicKey(programIdStr);
 
-    // Handle VM state account (reuse or create)
-    let vmStatePubkey: any;
-    let vmStateKeypair: any;
-    let vmStateRent = 0;
-    const VM_STATE_SIZE = 56; // FIVEVMState::LEN
-
-    if (options.vmStateAccount) {
-      vmStatePubkey = new PublicKey(options.vmStateAccount);
-      if (options.debug) {
-        console.log(`[FiveSDK] Reuse existing VM State: ${vmStatePubkey.toString()}`);
-      }
-    } else {
-      // Generate NEW VM state account
-      vmStateKeypair = Keypair.generate();
-      vmStatePubkey = vmStateKeypair.publicKey;
-      vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
-    }
+    const vmStateResolution = await ensureCanonicalVmStateAccount(
+      connection,
+      deployerKeypair,
+      programId,
+      {
+        vmStateAccount: options.vmStateAccount,
+        maxRetries: options.maxRetries,
+        debug: options.debug,
+      },
+    );
+    const vmStatePubkey = vmStateResolution.vmStatePubkey;
+    const vmStateRent = vmStateResolution.vmStateRent;
 
     if (options.debug) {
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
@@ -651,68 +599,6 @@ export async function deployLargeProgramToSolana(
 
     const transactionIds: string[] = [];
     let totalCost = rentLamports + vmStateRent;
-
-    // TRANSACTION 0: Create VM State Account + Initialize (ONLY IF CREATING NEW)
-    if (!options.vmStateAccount) {
-      if (options.debug) {
-        console.log(
-          `[FiveSDK] Step 0: Create VM state account and initialize`,
-        );
-      }
-
-      const vmStateTransaction = new Transaction();
-      vmStateTransaction.add(
-        SystemProgram.createAccount({
-          fromPubkey: deployerKeypair.publicKey,
-          newAccountPubkey: vmStateKeypair.publicKey,
-          lamports: vmStateRent,
-          space: VM_STATE_SIZE,
-          programId: programId,
-        }),
-      );
-      vmStateTransaction.add(
-        new TransactionInstruction({
-          keys: [
-            {
-              pubkey: vmStateKeypair.publicKey,
-              isSigner: false,
-              isWritable: true,
-            },
-            {
-              pubkey: deployerKeypair.publicKey,
-              isSigner: true,
-              isWritable: false,
-            },
-          ],
-          programId: programId,
-          data: buildInitializeVmStateInstructionData(0),
-        }),
-      );
-      vmStateTransaction.feePayer = deployerKeypair.publicKey;
-      const vmStateBlockhash =
-        await connection.getLatestBlockhash("confirmed");
-      vmStateTransaction.recentBlockhash = vmStateBlockhash.blockhash;
-      vmStateTransaction.partialSign(deployerKeypair);
-      vmStateTransaction.partialSign(vmStateKeypair);
-
-      const vmStateSignature = await connection.sendRawTransaction(
-        vmStateTransaction.serialize(),
-        {
-          skipPreflight: true,
-          preflightCommitment: "confirmed",
-          maxRetries: options.maxRetries || 3,
-        },
-      );
-
-      await connection.confirmTransaction(vmStateSignature, "confirmed");
-      transactionIds.push(vmStateSignature);
-
-      if (options.debug) {
-        console.log(
-          `[FiveSDK] ✅ VM state initialized: ${vmStateSignature}`,
-        );
-      }
-    }
 
     // TRANSACTION 1: Create Account + InitLargeProgram
     if (options.debug) {
@@ -1040,16 +926,23 @@ export async function deployLargeProgramOptimizedToSolana(
     const programIdStr = ProgramIdResolver.resolve(options.fiveVMProgramId);
     const programId = new PublicKey(programIdStr);
 
-    // Generate VM state account for this deployment
-    const vmStateKeypair = Keypair.generate();
-    const VM_STATE_SIZE = 56; // FIVEVMState::LEN (32 + 8 + 4 + 4 + 1 + 7)
-    const vmStateRent =
-      await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
+    const vmStateResolution = await ensureCanonicalVmStateAccount(
+      connection,
+      deployerKeypair,
+      programId,
+      {
+        vmStateAccount: options.vmStateAccount,
+        maxRetries: options.maxRetries,
+        debug: options.debug,
+      },
+    );
+    const vmStatePubkey = vmStateResolution.vmStatePubkey;
+    const vmStateRent = vmStateResolution.vmStateRent;
 
     if (options.debug) {
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
       console.log(
-        `[FiveSDK] VM State Account: ${vmStateKeypair.publicKey.toString()}`,
+        `[FiveSDK] VM State Account: ${vmStatePubkey.toString()}`,
       );
       console.log(
         `[FiveSDK] PRE-ALLOCATED full account size: ${totalAccountSize} bytes`,
@@ -1061,77 +954,6 @@ export async function deployLargeProgramOptimizedToSolana(
 
     const transactionIds: string[] = [];
     let totalCost = rentLamports + vmStateRent;
-
-    if (options.debug) {
-      console.log(
-        `[FiveSDK] Create VM state account and initialize`,
-      );
-    }
-
-    const vmStateTransaction = new Transaction();
-    vmStateTransaction.add(
-      SystemProgram.createAccount({
-        fromPubkey: deployerKeypair.publicKey,
-        newAccountPubkey: vmStateKeypair.publicKey,
-        lamports: vmStateRent,
-        space: VM_STATE_SIZE,
-        programId: programId,
-      }),
-    );
-    vmStateTransaction.add(
-      new TransactionInstruction({
-        keys: [
-          {
-            pubkey: vmStateKeypair.publicKey,
-            isSigner: false,
-            isWritable: true,
-          },
-          {
-            pubkey: deployerKeypair.publicKey,
-            isSigner: true,
-            isWritable: false,
-          },
-        ],
-        programId: programId,
-        data: buildInitializeVmStateInstructionData(0),
-      }),
-    );
-    vmStateTransaction.feePayer = deployerKeypair.publicKey;
-    const vmStateBlockhash =
-      await connection.getLatestBlockhash("confirmed");
-    vmStateTransaction.recentBlockhash = vmStateBlockhash.blockhash;
-    vmStateTransaction.partialSign(deployerKeypair);
-    vmStateTransaction.partialSign(vmStateKeypair);
-
-    const vmStateSignature = await connection.sendRawTransaction(
-      vmStateTransaction.serialize(),
-      {
-        skipPreflight: true,
-        preflightCommitment: "confirmed",
-        maxRetries: options.maxRetries || 3,
-      },
-    );
-    const vmStateConfirmation = await pollForConfirmation(
-      connection,
-      vmStateSignature,
-      "confirmed",
-      120000,
-      options.debug
-    );
-    if (!vmStateConfirmation.success) {
-      return {
-        success: false,
-        error: `VM state initialization confirmation failed: ${vmStateConfirmation.error}`,
-        transactionIds: [vmStateSignature]
-      };
-    }
-    transactionIds.push(vmStateSignature);
-
-    if (options.debug) {
-      console.log(
-        `[FiveSDK] ✅ VM state initialized: ${vmStateSignature}`,
-      );
-    }
 
     const chunks = chunkBytecode(bytecode, chunkSize);
     const firstChunk = chunks[0];
@@ -1178,7 +1000,7 @@ export async function deployLargeProgramOptimizedToSolana(
           isWritable: true,
         },
         {
-          pubkey: vmStateKeypair.publicKey,
+          pubkey: vmStatePubkey,
           isSigner: false,
           isWritable: true,
         },
@@ -1283,7 +1105,7 @@ export async function deployLargeProgramOptimizedToSolana(
                 isWritable: true,
               },
               {
-                pubkey: vmStateKeypair.publicKey,
+                pubkey: vmStatePubkey,
                 isSigner: false,
                 isWritable: true,
               },
@@ -1309,7 +1131,7 @@ export async function deployLargeProgramOptimizedToSolana(
                 isWritable: true,
               },
               {
-                pubkey: vmStateKeypair.publicKey,
+                pubkey: vmStatePubkey,
                 isSigner: false,
                 isWritable: true,
               },
@@ -1446,7 +1268,7 @@ export async function deployLargeProgramOptimizedToSolana(
       totalTransactions: optimizedTransactionCount,
       deploymentCost: totalCost,
       chunksUsed: chunks.length,
-      vmStateAccount: vmStateKeypair.publicKey.toString(),
+      vmStateAccount: vmStatePubkey.toString(),
       optimizationSavings: {
         transactionsSaved,
         estimatedCostSaved,
@@ -1548,6 +1370,88 @@ function encodeExportMetadata(input?: ExportMetadataInput): Uint8Array {
   }
 
   return Uint8Array.from(out);
+}
+
+async function ensureCanonicalVmStateAccount(
+  connection: any,
+  deployerKeypair: any,
+  programId: any,
+  options: {
+    vmStateAccount?: string;
+    maxRetries?: number;
+    debug?: boolean;
+  } = {},
+): Promise<{ vmStatePubkey: any; vmStateRent: number; created: boolean; bump: number }> {
+  const { PublicKey, Transaction, TransactionInstruction, SystemProgram } =
+    await import("@solana/web3.js");
+
+  const canonical = await PDAUtils.deriveVMStatePDA(programId.toString());
+  if (options.vmStateAccount && options.vmStateAccount !== canonical.address) {
+    throw new Error(
+      `vmStateAccount must be canonical PDA ${canonical.address}; got ${options.vmStateAccount}`,
+    );
+  }
+
+  const vmStatePubkey = new PublicKey(canonical.address);
+  const existing = await connection.getAccountInfo(vmStatePubkey);
+  if (existing) {
+    if (existing.owner.toBase58() !== programId.toBase58()) {
+      throw new Error(
+        `canonical VM state ${canonical.address} exists but is owned by ${existing.owner.toBase58()}, expected ${programId.toBase58()}`,
+      );
+    }
+    if (options.debug) {
+      console.log(`[FiveSDK] Reusing canonical VM State PDA: ${canonical.address}`);
+    }
+    return { vmStatePubkey, vmStateRent: 0, created: false, bump: canonical.bump };
+  }
+
+  const VM_STATE_SIZE = 56;
+  const vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
+  if (options.debug) {
+    console.log(`[FiveSDK] Initializing canonical VM State PDA: ${canonical.address}`);
+  }
+
+  const initTransaction = new Transaction();
+  initTransaction.add(
+    new TransactionInstruction({
+      keys: [
+        { pubkey: vmStatePubkey, isSigner: false, isWritable: true },
+        { pubkey: deployerKeypair.publicKey, isSigner: true, isWritable: false },
+        { pubkey: deployerKeypair.publicKey, isSigner: true, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      programId,
+      data: buildInitializeVmStateInstructionData(canonical.bump),
+    }),
+  );
+  initTransaction.feePayer = deployerKeypair.publicKey;
+  const initBlockhash = await connection.getLatestBlockhash("confirmed");
+  initTransaction.recentBlockhash = initBlockhash.blockhash;
+  initTransaction.partialSign(deployerKeypair);
+
+  const initSignature = await connection.sendRawTransaction(
+    initTransaction.serialize(),
+    {
+      skipPreflight: true,
+      preflightCommitment: "confirmed",
+      maxRetries: options.maxRetries || 3,
+    },
+  );
+  const initConfirmation = await pollForConfirmation(
+    connection,
+    initSignature,
+    "confirmed",
+    120000,
+    options.debug,
+  );
+  if (!initConfirmation.success || initConfirmation.err) {
+    throw new Error(
+      `canonical VM state initialization failed: ${initConfirmation.error || JSON.stringify(initConfirmation.err)}`,
+    );
+  }
+
+  return { vmStatePubkey, vmStateRent, created: true, bump: canonical.bump };
 }
 
 function chunkBytecode(

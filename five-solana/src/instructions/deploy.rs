@@ -7,7 +7,7 @@ use pinocchio::{
 use crate::{
     common::{
         validate_vm_and_script_accounts, verify_program_owned, validate_permissions,
-        verify_admin_signer,
+        verify_admin_signer, verify_canonical_vm_state_account,
     },
     error::program_already_initialized_error,
     state::{FIVEVMState, ScriptAccountHeader},
@@ -29,6 +29,11 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
 
     let vm_state_account = &accounts[0];
     let authority = &accounts[1];
+    let (expected_vm_state, expected_bump) =
+        crate::common::derive_canonical_vm_state_pda(program_id)?;
+    if vm_state_account.key() != &expected_vm_state || bump != expected_bump {
+        return Err(ProgramError::InvalidArgument);
+    }
 
     // Check if the account is already owned by the program or needs to be created
     if vm_state_account.owner() == &Pubkey::default() {
@@ -84,6 +89,7 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
         invoke_signed::<3>(&instruction, &[payer, vm_state_account, system_program], &[signer])?;
     } else {
         // Verify ownership for existing account
+        verify_canonical_vm_state_account(vm_state_account, program_id)?;
         verify_program_owned(vm_state_account, program_id)?;
     }
 
@@ -229,6 +235,7 @@ pub fn init_large_program(
     verify_program_owned(script_account, program_id)?;
 
     // Verify VM state is owned by this program and initialized
+    verify_canonical_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
     let data = unsafe { vm_state_account.borrow_data_unchecked() };
     let state = FIVEVMState::from_account_data(data)?;
@@ -479,10 +486,14 @@ mod tests {
         b
     }
 
+    fn canonical_vm_key(program_id: &Pubkey) -> (Pubkey, u8) {
+        crate::common::derive_canonical_vm_state_pda(program_id).unwrap()
+    }
+
     #[test]
     fn initialize_is_one_time_only() {
         let program_id = Pubkey::from([7u8; 32]);
-        let vm_key = Pubkey::from([8u8; 32]);
+        let (vm_key, vm_bump) = canonical_vm_key(&program_id);
         let authority_key = Pubkey::from([9u8; 32]);
         let system_owner = Pubkey::default();
 
@@ -509,9 +520,9 @@ mod tests {
         );
         let accounts = [vm_account, authority];
 
-        assert!(initialize(&program_id, &accounts, 0).is_ok());
+        assert!(initialize(&program_id, &accounts, vm_bump).is_ok());
         assert_eq!(
-            initialize(&program_id, &accounts, 0),
+            initialize(&program_id, &accounts, vm_bump),
             Err(program_already_initialized_error())
         );
     }
@@ -520,7 +531,7 @@ mod tests {
     fn deploy_rejects_overwrite_of_existing_script() {
         let program_id = Pubkey::from([11u8; 32]);
         let script_key = Pubkey::from([12u8; 32]);
-        let vm_key = Pubkey::from([13u8; 32]);
+        let (vm_key, _vm_bump) = canonical_vm_key(&program_id);
         let owner_key = Pubkey::from([14u8; 32]);
         let system_owner = Pubkey::default();
 
@@ -579,7 +590,7 @@ mod tests {
     fn deploy_does_not_charge_fee_on_failed_overwrite() {
         let program_id = Pubkey::from([31u8; 32]);
         let script_key = Pubkey::from([32u8; 32]);
-        let vm_key = Pubkey::from([33u8; 32]);
+        let (vm_key, _vm_bump) = canonical_vm_key(&program_id);
         let owner_key = Pubkey::from([34u8; 32]);
         let admin_key = Pubkey::from([35u8; 32]);
 
@@ -654,7 +665,7 @@ mod tests {
         let program_id = Pubkey::from([41u8; 32]);
         let script_key = Pubkey::from([42u8; 32]);
         let owner_key = Pubkey::from([43u8; 32]);
-        let vm_key = Pubkey::from([44u8; 32]);
+        let (vm_key, _vm_bump) = canonical_vm_key(&program_id);
         let admin_key = Pubkey::from([45u8; 32]);
 
         let bytecode = minimal_valid_bytecode();

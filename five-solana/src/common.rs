@@ -2,6 +2,31 @@ use crate::{error, state::FIVEVMState};
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
+#[cfg(target_os = "solana")]
+use pinocchio::pubkey::create_program_address;
+
+pub const VM_STATE_SEED: &[u8] = b"vm_state";
+
+#[cfg(not(target_os = "solana"))]
+pub fn derive_canonical_vm_state_pda(program_id: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
+    let mut pid = [0u8; 32];
+    pid.copy_from_slice(program_id.as_ref());
+    let (pda, bump) = five_vm_mito::utils::find_program_address_offchain(&[VM_STATE_SEED], &pid)
+        .map_err(|_| ProgramError::InvalidArgument)?;
+    Ok((Pubkey::from(pda), bump))
+}
+
+#[cfg(target_os = "solana")]
+pub fn derive_canonical_vm_state_pda(program_id: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
+    for bump in (0u8..=255u8).rev() {
+        let bump_seed = [bump];
+        let seeds: &[&[u8]] = &[VM_STATE_SEED, &bump_seed];
+        if let Ok(pda) = create_program_address(seeds, program_id) {
+            return Ok((pda, bump));
+        }
+    }
+    Err(ProgramError::InvalidArgument)
+}
 
 /// Admin key that can deploy bytecode with special permissions.
 
@@ -123,6 +148,8 @@ mod tests {
     #[test]
     fn test_validate_vm_and_script_accounts_checks() {
         let program_id = Pubkey::from([5u8; 32]);
+        let (canonical_vm_state, _bump) =
+            derive_canonical_vm_state_pda(&program_id).unwrap();
         let mut lamports = 0;
 
         // Case 1: Success
@@ -137,7 +164,7 @@ mod tests {
             }
 
             let script_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut script_data, &program_id);
-            let vm_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut vm_data, &program_id);
+            let vm_account = create_account_info(&canonical_vm_state, false, false, &mut lamports, &mut vm_data, &program_id);
 
             assert_eq!(validate_vm_and_script_accounts(&program_id, &script_account, &vm_account), Ok(()));
         }
@@ -149,7 +176,7 @@ mod tests {
             // No init
 
             let script_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut script_data, &program_id);
-            let vm_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut vm_data, &program_id);
+            let vm_account = create_account_info(&canonical_vm_state, false, false, &mut lamports, &mut vm_data, &program_id);
 
             assert_eq!(validate_vm_and_script_accounts(&program_id, &script_account, &vm_account), Err(error::program_not_initialized_error()));
         }
@@ -167,7 +194,7 @@ mod tests {
 
             let other_owner = Pubkey::default();
             let script_not_owned = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut script_data, &other_owner);
-            let vm_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut vm_data, &program_id);
+            let vm_account = create_account_info(&canonical_vm_state, false, false, &mut lamports, &mut vm_data, &program_id);
 
             assert_eq!(validate_vm_and_script_accounts(&program_id, &script_not_owned, &vm_account), Err(ProgramError::IllegalOwner));
         }
@@ -234,12 +261,25 @@ pub fn verify_program_owned(account: &AccountInfo, program_id: &Pubkey) -> Progr
 }
 
 #[inline(always)]
+pub fn verify_canonical_vm_state_account(
+    vm_state_account: &AccountInfo,
+    program_id: &Pubkey,
+) -> ProgramResult {
+    let (expected_vm_state, _bump) = derive_canonical_vm_state_pda(program_id)?;
+    if vm_state_account.key() != &expected_vm_state {
+        return Err(ProgramError::InvalidArgument);
+    }
+    Ok(())
+}
+
+#[inline(always)]
 pub fn validate_vm_and_script_accounts(
     program_id: &Pubkey,
     script_account: &AccountInfo,
     vm_state_account: &AccountInfo,
 ) -> ProgramResult {
     verify_program_owned(script_account, program_id)?;
+    verify_canonical_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
     let data = unsafe { vm_state_account.borrow_data_unchecked() };
     let state = FIVEVMState::from_account_data(data)?;
