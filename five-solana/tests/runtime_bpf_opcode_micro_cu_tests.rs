@@ -954,7 +954,7 @@ fn base_accounts(program_id: Pubkey, owner_lamports: u64) -> BTreeMap<String, Ru
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.initialize(owner_pubkey.to_bytes(), 0);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }

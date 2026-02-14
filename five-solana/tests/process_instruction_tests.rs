@@ -200,7 +200,7 @@ mod tests {
 
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(authority_key);
+            vm_state.initialize(authority_key, 0);
         }
 
         let vm_key = canonical_vm_key(&program_id);
@@ -244,7 +244,7 @@ mod tests {
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(admin_key);
+            vm_state.initialize(admin_key, 0);
             vm_state.execute_fee_lamports = 200;
         }
 
@@ -343,7 +343,7 @@ mod tests {
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(admin_key);
+            vm_state.initialize(admin_key, 0);
             vm_state.execute_fee_lamports = 100;
         }
 
@@ -403,7 +403,7 @@ mod tests {
 
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(authority_key);
+            vm_state.initialize(authority_key, 0);
         }
 
         let vm_state = FIVEVMState::from_account_data(&vm_data).unwrap();
@@ -424,7 +424,7 @@ mod tests {
         let mut vm_data = vec![0u8; FIVEVMState::LEN];
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(admin_key);
+            vm_state.initialize(admin_key, 0);
             vm_state.execute_fee_lamports = 5_000;
         }
 

@@ -469,13 +469,10 @@ async function executeScriptAccount(scriptAccount: string, options: any, context
           if (context.options.verbose || options.debug) {
             console.log('\n' + section('VM Fees'));
             console.log(keyValue('Execution Fee', `${(fees.executeFeeBps / 100).toFixed(2)}%`));
-            if (fees.feeRecipientAccount) {
-              console.log(keyValue('Fee Recipient', fees.feeRecipientAccount));
-            }
           }
 
-          // Attach fee recipient account to options
-          options.adminAccount = fees.feeRecipientAccount || fees.adminAccount;
+          // Attach fee authority account to options
+          options.adminAccount = fees.adminAccount;
         }
       } catch (e) {
         if (context.options.debug) {
@@ -579,13 +576,10 @@ async function executeOnChain(inputFile: string, options: any, context: CommandC
         if (context.options.verbose || options.debug) {
           console.log('\n' + section('VM Fees'));
           console.log(keyValue('Execution Fee', `${(fees.executeFeeBps / 100).toFixed(2)}%`));
-          if (fees.feeRecipientAccount) {
-            console.log(keyValue('Fee Recipient', fees.feeRecipientAccount));
-          }
         }
 
-        // Attach fee recipient account to options
-        options.adminAccount = fees.feeRecipientAccount || fees.adminAccount;
+        // Attach fee authority account to options
+        options.adminAccount = fees.adminAccount;
       }
     } catch (e) {
       if (context.options.debug) {

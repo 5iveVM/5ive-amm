@@ -1,0 +1,111 @@
+{
+  "network": "localnet",
+  "rpc_url": "http://127.0.0.1:8899",
+  "program_id": "3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1",
+  "commitment": "confirmed",
+  "commit_sha": "unknown",
+  "cu_mode": "parity",
+  "started_unix_ms": 1771085921688,
+  "completed_unix_ms": 1771085921688,
+  "scenarios": [
+    {
+      "name": "token_full_e2e",
+      "deploy_signature": "36NyL4Mj933Yqr4Qm7XEnyXHdyFXagNUNAioJh4fTghhqhXrGCk9DjpYoBao35LrByAVGZawiy3U2TxxYuP4vw4J",
+      "deploy_units": 7311,
+      "step_results": [
+        {
+          "name": "init_mint",
+          "signature": "42y6SQD6JMoLkQDcW62yj32PDcAqrtaRs1xF7UjyBuuGVTgATna1R6uLDFLMMTTxCdUBg8fUN2e4WCeNPc4JWFDY",
+          "units": 12874,
+          "success": true
+        },
+        {
+          "name": "init_token_account_user1",
+          "signature": "5GF7FsaDzjYH2C2TNLbcoSTSGiYJU7UhtsNBVAdb1xy3ncBp3bHnN8QuWyYuqAqTkktRXhfEmf1PcNHnxT46Bmcn",
+          "units": 11919,
+          "success": true
+        },
+        {
+          "name": "init_token_account_user2",
+          "signature": "4DkEkycqCVA4rg7G5VS2F4JAE9ES1373uq4Vbit4VFSsh2auY49WhjYDZgPPhFovF8rAdSCZ55SjKZLT9RUQLXec",
+          "units": 11919,
+          "success": true
+        },
+        {
+          "name": "init_token_account_user3",
+          "signature": "3sfeqFvBbs5gvKNkLBdvAvt8FoY5eXmrdGtNdBWsdhKkinLWetY5e1pPusBVs2KGVxYF1s3zVEbKhenUq2Svp4PT",
+          "units": 11919,
+          "success": true
+        },
+        {
+          "name": "mint_to_user1",
+          "signature": "2QtDJGJcwLbu6NbwP6R5JzzWqbeR9ekMG7sYwuDp5kZjovwpyEpy7H7tT3CStuFYE89HAHvTGGA8gKh8YqWUpguT",
+          "units": 6758,
+          "success": true
+        },
+        {
+          "name": "mint_to_user2",
+          "signature": "dXbWRfJ5WYNjBfcQsKEp3VdWCbJc846fvjLHfJgfnvaMAPLuUQyusxgtFkazvDrZArnuhxhbMxDUSZnMBpXQDP3",
+          "units": 6758,
+          "success": true
+        },
+        {
+          "name": "mint_to_user3",
+          "signature": "4VhvDUqb2bA9eLTBMVu1eoj84wxLkh8eNVua1mzjEqXGFiRJthr7DoQmM5c9sYQyzZZKJz7CGrbx6chRSiC7X7Vo",
+          "units": 6758,
+          "success": true
+        },
+        {
+          "name": "transfer_user2_to_user3",
+          "signature": "5XFe8PmHT8e4GBTL4eYFRgMZA9kVFLtyqEt3c1XEtNQaw8XexLnQt7dznJ9sfyF4p92LbRG1vCXjVMdgkd735xZA",
+          "units": 6893,
+          "success": true
+        },
+        {
+          "name": "approve_user3_to_user2",
+          "signature": "4nzced79qStSJxkVWnKAALqGRot9aHGPoQm952Sy51ovBXAw1ounpX4NND4zDXBocvUj3LyDEPWoH4sngJaa1cCg",
+          "units": 6708,
+          "success": true
+        },
+        {
+          "name": "transfer_from_user3_to_user1_by_user2",
+          "signature": "2R5qqh9WSEufMHN3RfWHaCMJFTA8U9uxynPJBRndemGTc6qP7mVFvrPK2Wo2Qib3MMtihHNZopqRddwbWzVGgikx",
+          "units": 8135,
+          "success": true
+        },
+        {
+          "name": "revoke_user3",
+          "signature": "4EJ3J1KVAQvL3dNtUhHdXEzcpnWRmoCGZdCWYAFrdDaLJBDCMcLFTZPkVgxfkj3vJowVXwYeHdNFziGM8ZAQ6y98",
+          "units": 6372,
+          "success": true
+        },
+        {
+          "name": "burn_user1",
+          "signature": "5hxxFRZjqUNpE7En1jo5ZyyEnok9ZKdRsLTADWqsZV3sVBGuWm4WjyfyiFnvbxZLAgoRSSbUJ1qrZPrpUrr9uGqB",
+          "units": 6850,
+          "success": true
+        },
+        {
+          "name": "freeze_user2",
+          "signature": "5NaKorMGygqwpVTtm1Yh8T874AioPVnaneME1YVMMA1MRYxZF38Htp7k7YCRHWWcpJb9Mv7WrVyDJnHEPafL2xqJ",
+          "units": 6512,
+          "success": true
+        },
+        {
+          "name": "thaw_user2",
+          "signature": "cUWiNknAfDLnrxecXTtEbCzxofgn7k18b2sMZ4xR1dF5sfmTrZ8g2KFQ1kgJgxjnSsBQ3S49EywX8AWa8oTTNwj",
+          "units": 6512,
+          "success": true
+        },
+        {
+          "name": "disable_mint",
+          "signature": "wtk1h3T5XAd7DF1urhK4FNuKgbFDSv9UMstT43hAWnV5b1CFKZPpZF7CLBXMkBWzgq9UiYzeww8xJXkfYPu8BWq",
+          "units": 6274,
+          "success": true
+        }
+      ],
+      "total_units": 130472,
+      "elapsed_ms": 16218
+    }
+  ]
+}

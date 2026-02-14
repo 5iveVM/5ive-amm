@@ -291,7 +291,6 @@ export interface DeploymentOptions {
   debug?: boolean;
   permissions?: number;
   adminAccount?: string; // Admin account for fee collection
-  feeRecipientAccount?: string; // Explicit fee recipient treasury
   estimateFees?: boolean; // Fee estimation (true by default when connection provided, false to disable)
   fiveVMProgramId?: string; // Custom Five VM Program ID
   exportMetadata?: {
@@ -326,7 +325,6 @@ export interface SerializedDeployment {
   bytecodeSize?: number;
   setupInstructions?: any;
   adminAccount?: string;
-  feeRecipientAccount?: string;
   feeInformation?: FeeInformation;  // Fee estimation data
 }
 
@@ -340,7 +338,6 @@ export interface SerializedExecution {
   parameters?: any;
   requiredSigners?: string[];
   adminAccount?: string;
-  feeRecipientAccount?: string;
   feeInformation?: FeeInformation;  // Fee estimation data
 }
 

@@ -74,7 +74,7 @@ mod tests {
 
         let mut state = FIVEVMState::new();
         let authority: Pubkey = [1u8; 32];
-        state.initialize(authority);
+        state.initialize(authority, 0);
         let id = state.create_script_id();
         assert_eq!(id, 0);
         assert!(state.is_initialized());

@@ -102,7 +102,7 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
     if vm_state.is_initialized() {
         return Err(program_already_initialized_error());
     }
-    vm_state.initialize(*authority.key());
+    vm_state.initialize(*authority.key(), bump);
 
     Ok(())
 }
@@ -584,7 +584,7 @@ mod tests {
         let mut vm_data = [0u8; FIVEVMState::LEN];
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(owner_key);
+            vm_state.initialize(owner_key, 0);
             vm_state.deploy_fee_lamports = 0;
         }
 
@@ -665,7 +665,7 @@ mod tests {
         let mut vm_data = [0u8; FIVEVMState::LEN];
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(admin_key);
+            vm_state.initialize(admin_key, 0);
             vm_state.deploy_fee_lamports = 10;
         }
 
@@ -759,7 +759,7 @@ mod tests {
         let mut vm_data = [0u8; FIVEVMState::LEN];
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(admin_key);
+            vm_state.initialize(admin_key, 0);
             vm_state.deploy_fee_lamports = 25;
         }
 

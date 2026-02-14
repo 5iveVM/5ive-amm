@@ -9,38 +9,37 @@ use pinocchio::pubkey::Pubkey;
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct FIVEVMState {
     pub authority: Pubkey,
-    pub fee_recipient: Pubkey,
     pub script_count: u64,
     pub deploy_fee_lamports: u32,  // Flat deploy fee in lamports
     pub execute_fee_lamports: u32, // Flat execute fee in lamports
     pub is_initialized: u8,   // Using u8 instead of bool for bytemuck compatibility
     pub version: u8,
     pub fee_vault_shard_count: u8,
-    pub _padding: [u8; 5],    // Align to 8 bytes
+    pub vm_state_bump: u8,    // Canonical vm_state PDA bump for O(1) validation
+    pub _padding: [u8; 4],    // Align to 8 bytes
 }
 
 impl FIVEVMState {
     pub const VERSION: u8 = 1;
     pub const DEFAULT_FEE_VAULT_SHARD_COUNT: u8 = 10;
-    pub const LEN: usize = 32 + 32 + 8 + 4 + 4 + 1 + 1 + 6; // 88 bytes
+    pub const LEN: usize = 32 + 8 + 4 + 4 + 1 + 1 + 1 + 1 + 4; // 56 bytes
 
     pub fn new() -> Self {
         Self {
             authority: Pubkey::default(),
-            fee_recipient: Pubkey::default(),
             script_count: 0,
             deploy_fee_lamports: 0,
             execute_fee_lamports: 0,
             is_initialized: 0,
             version: Self::VERSION,
             fee_vault_shard_count: Self::DEFAULT_FEE_VAULT_SHARD_COUNT,
-            _padding: [0; 5],
+            vm_state_bump: 0,
+            _padding: [0; 4],
         }
     }
 
-    pub fn initialize(&mut self, authority: Pubkey) {
+    pub fn initialize(&mut self, authority: Pubkey, vm_state_bump: u8) {
         self.authority = authority;
-        self.fee_recipient = authority;
         self.is_initialized = 1;
         self.version = Self::VERSION;
         self.script_count = 0;
@@ -48,6 +47,7 @@ impl FIVEVMState {
         // Targeted baseline: ~$50k/month at 3 TPS when SOL is ~$75.
         self.execute_fee_lamports = 85_734;
         self.fee_vault_shard_count = Self::DEFAULT_FEE_VAULT_SHARD_COUNT;
+        self.vm_state_bump = vm_state_bump;
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -499,14 +499,14 @@ mod tests {
         assert_eq!(vm_state.script_count, 0);
 
         let authority = Pubkey::from([7u8; 32]);
-        vm_state.initialize(authority);
+        vm_state.initialize(authority, 42);
 
         assert!(vm_state.is_initialized());
         assert_eq!(vm_state.authority, authority);
-        assert_eq!(vm_state.fee_recipient, authority);
         assert_eq!(vm_state.version, FIVEVMState::VERSION);
         assert_eq!(vm_state.deploy_fee_lamports, 10_000);
         assert_eq!(vm_state.execute_fee_lamports, 85_734);
+        assert_eq!(vm_state.vm_state_bump, 42);
         assert_eq!(
             vm_state.fee_vault_shard_count(),
             FIVEVMState::DEFAULT_FEE_VAULT_SHARD_COUNT
@@ -516,7 +516,7 @@ mod tests {
     #[test]
     fn test_five_vm_state_create_script_id() {
         let mut vm_state = FIVEVMState::new();
-        vm_state.initialize(Pubkey::default());
+        vm_state.initialize(Pubkey::default(), 0);
 
         assert_eq!(vm_state.script_count, 0);
 

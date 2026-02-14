@@ -41,12 +41,12 @@ async function readVMStateFeeConfig(
       return { shardCount: DEFAULT_FEE_VAULT_SHARD_COUNT };
     }
     const data = new Uint8Array(info.data);
-    if (data.length < 88) {
+    if (data.length < 56) {
       return { shardCount: DEFAULT_FEE_VAULT_SHARD_COUNT };
     }
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-    const deployFeeLamports = view.getUint32(72, true);
-    const shardCountRaw = data.length > 82 ? data[82] : 0;
+    const deployFeeLamports = view.getUint32(40, true);
+    const shardCountRaw = data.length > 50 ? data[50] : 0;
     const shardCount = shardCountRaw > 0 ? shardCountRaw : DEFAULT_FEE_VAULT_SHARD_COUNT;
     return { deployFeeLamports, shardCount };
   } catch {
@@ -1616,7 +1616,7 @@ async function ensureCanonicalVmStateAccount(
     return { vmStatePubkey, vmStateRent: 0, created: false, bump: canonical.bump };
   }
 
-  const VM_STATE_SIZE = 88;
+  const VM_STATE_SIZE = 56;
   const vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
   if (options.debug) {
     console.log(`[FiveSDK] Initializing canonical VM State PDA: ${canonical.address}`);

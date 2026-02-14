@@ -47,8 +47,8 @@ async function readVMStateShardCount(
     const info = await connection.getAccountInfo(new PublicKey(vmStateAddress), "confirmed");
     if (!info) return DEFAULT_FEE_VAULT_SHARD_COUNT;
     const data = new Uint8Array(info.data);
-    if (data.length <= 82) return DEFAULT_FEE_VAULT_SHARD_COUNT;
-    const shardCount = data[82];
+    if (data.length <= 50) return DEFAULT_FEE_VAULT_SHARD_COUNT;
+    const shardCount = data[50];
     return shardCount > 0 ? shardCount : DEFAULT_FEE_VAULT_SHARD_COUNT;
   } catch {
     return DEFAULT_FEE_VAULT_SHARD_COUNT;
@@ -532,7 +532,6 @@ export async function generateExecuteInstruction(
       options.computeUnitLimit ||
       estimateComputeUnits(functionIndex, parameters.length),
     adminAccount: feeVault.address,
-    feeRecipientAccount: feeVault.address,
   };
 
   const shouldEstimateFees = options.estimateFees !== false && connection;

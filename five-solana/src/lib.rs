@@ -117,10 +117,6 @@ fn process_administrative_instruction(
             );
             instructions::set_fees(program_id, accounts, deploy_fee_lamports, execute_fee_lamports)
         }
-        FIVEInstruction::SetFeeRecipient { recipient } => {
-            debug_log!("Processing SetFeeRecipient instruction");
-            instructions::set_fee_recipient(program_id, accounts, Pubkey::from(recipient))
-        }
         FIVEInstruction::InitFeeVault { shard_index, bump } => {
             debug_log!("Processing InitFeeVault instruction");
             instructions::init_fee_vault(program_id, accounts, shard_index, bump)

@@ -13,7 +13,6 @@ use crate::{
 
 use super::{require_min_accounts, require_signer};
 
-const ERR_INVALID_FEE_RECIPIENT: u32 = 1113;
 
 /// Transfer fee from payer to recipient
 pub fn transfer_fee(
@@ -322,35 +321,6 @@ pub fn set_fees(
     vm_state.execute_fee_lamports = execute_fee_lamports;
 
     debug_log!("Fees updated successfully");
-    Ok(())
-}
-
-/// Set fee recipient treasury account (authority only).
-pub fn set_fee_recipient(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    fee_recipient: Pubkey,
-) -> ProgramResult {
-    require_min_accounts(accounts, 2)?;
-    if fee_recipient == Pubkey::default() {
-        return Err(ProgramError::Custom(ERR_INVALID_FEE_RECIPIENT));
-    }
-
-    let vm_state_account = &accounts[0];
-    let authority = &accounts[1];
-
-    verify_canonical_vm_state_account(vm_state_account, program_id)?;
-    verify_program_owned(vm_state_account, program_id)?;
-    require_signer(authority)?;
-
-    let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
-    let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
-    if vm_state.authority != *authority.key() {
-        return Err(ProgramError::Custom(0));
-    }
-
-    vm_state.fee_recipient = fee_recipient;
-    debug_log!("Fee recipient updated successfully");
     Ok(())
 }
 

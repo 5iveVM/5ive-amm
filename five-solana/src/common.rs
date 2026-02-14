@@ -19,6 +19,35 @@ pub fn derive_canonical_vm_state_pda(program_id: &Pubkey) -> Result<(Pubkey, u8)
     Ok((Pubkey::from(pda), bump))
 }
 
+#[inline(always)]
+pub fn validate_vm_state_pda_with_bump(
+    vm_state_account: &AccountInfo,
+    program_id: &Pubkey,
+    bump: u8,
+) -> ProgramResult {
+    let bump_seed = [bump];
+    #[cfg(not(target_os = "solana"))]
+    {
+        let mut pid = [0u8; 32];
+        pid.copy_from_slice(program_id.as_ref());
+        let pda = five_vm_mito::utils::derive_pda_offchain(&[VM_STATE_SEED, &bump_seed], &pid)
+            .map_err(|_| ProgramError::InvalidArgument)?;
+        if vm_state_account.key() != &Pubkey::from(pda) {
+            return Err(ProgramError::InvalidArgument);
+        }
+        Ok(())
+    }
+    #[cfg(target_os = "solana")]
+    {
+        let expected = create_program_address(&[VM_STATE_SEED, &bump_seed], program_id)
+            .map_err(|_| ProgramError::InvalidArgument)?;
+        if vm_state_account.key() != &expected {
+            return Err(ProgramError::InvalidArgument);
+        }
+        Ok(())
+    }
+}
+
 #[cfg(target_os = "solana")]
 pub fn derive_canonical_vm_state_pda(program_id: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
     for bump in (0u8..=255u8).rev() {
@@ -163,7 +192,7 @@ mod tests {
             // Initialize VM state
             {
                 let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-                state.initialize(Pubkey::default());
+                state.initialize(Pubkey::default(), 0);
             }
 
             let script_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut script_data, &program_id);
@@ -197,7 +226,7 @@ mod tests {
             // Initialize VM state
             {
                 let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-                state.initialize(Pubkey::default());
+                state.initialize(Pubkey::default(), 0);
             }
 
             let other_owner = Pubkey::default();
@@ -273,6 +302,14 @@ pub fn verify_canonical_vm_state_account(
     vm_state_account: &AccountInfo,
     program_id: &Pubkey,
 ) -> ProgramResult {
+    let data = vm_state_account.try_borrow_data().ok();
+    if let Some(data) = data {
+        if data.len() >= FIVEVMState::LEN {
+            if let Ok(vm_state) = FIVEVMState::from_account_data(&data) {
+                return validate_vm_state_pda_with_bump(vm_state_account, program_id, vm_state.vm_state_bump);
+            }
+        }
+    }
     let (expected_vm_state, _bump) = derive_canonical_vm_state_pda(program_id)?;
     if vm_state_account.key() != &expected_vm_state {
         return Err(ProgramError::InvalidArgument);

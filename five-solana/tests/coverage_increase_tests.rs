@@ -46,7 +46,7 @@ mod coverage_increase_tests {
         {
             // SAFETY: We are creating fresh data for tests
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(admin_key);
+            vm_state.initialize(admin_key, 0);
             // Disable deploy fee to avoid Rent syscall in tests
             vm_state.deploy_fee_lamports = 0;
         }

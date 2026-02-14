@@ -166,7 +166,7 @@ mod tests {
         let mut vm_data = [0u8; FIVEVMState::LEN];
         {
             let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            state.initialize(admin_key);
+            state.initialize(admin_key, 0);
             state.execute_fee_lamports = 1;
         }
         let mut fee_vault_data = [];

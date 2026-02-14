@@ -315,7 +315,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.initialize(owner_pubkey.to_bytes(), 0);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
@@ -590,7 +590,7 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.initialize(owner_pubkey.to_bytes(), 0);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
@@ -954,7 +954,7 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.initialize(owner_pubkey.to_bytes(), 0);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
@@ -1354,7 +1354,7 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.initialize(owner_pubkey.to_bytes(), 0);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
@@ -1664,7 +1664,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes());
+        vm_state.initialize(owner_pubkey.to_bytes(), 0);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
@@ -2129,7 +2129,7 @@ async fn run_fixture_bpf_compute_units(
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(authority_pubkey.to_bytes());
+        vm_state.initialize(authority_pubkey.to_bytes(), 0);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = execute_fee_lamports;
     }
@@ -2619,7 +2619,7 @@ async fn minimal_execute_floor_bpf_compute_units() {
     let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data).unwrap();
-        vm_state.initialize(authority_pubkey.to_bytes());
+        vm_state.initialize(authority_pubkey.to_bytes(), 0);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
@@ -2960,7 +2960,7 @@ async fn run_external_token_all_public_profile(
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(payer_pubkey.to_bytes());
+        vm_state.initialize(payer_pubkey.to_bytes(), 0);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }

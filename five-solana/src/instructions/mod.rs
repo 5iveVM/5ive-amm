@@ -6,7 +6,7 @@ pub mod verify;
 // Re-export functions to maintain compatibility with lib.rs usage
 pub use deploy::{deploy, initialize, init_large_program, append_bytecode, finalize_script_upload};
 pub use execute::execute;
-pub use fees::{init_fee_vault, set_fees, set_fee_recipient, withdraw_script_fees};
+pub use fees::{init_fee_vault, set_fees, withdraw_script_fees};
 pub use verify::verify_bytecode_content;
 
 use pinocchio::{
@@ -67,7 +67,6 @@ pub enum FIVEInstruction<'a> {
     InitLargeProgram { expected_size: u32, chunk_data: Option<&'a [u8]> },
     AppendBytecode { data: &'a [u8] },
     SetFees { deploy_fee_lamports: u32, execute_fee_lamports: u32 },
-    SetFeeRecipient { recipient: [u8; 32] },
     InitFeeVault { shard_index: u8, bump: u8 },
     WithdrawScriptFees { script: [u8; 32], shard_index: u8, lamports: u64 },
     Deploy {
@@ -118,14 +117,6 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 let deploy_fee_lamports = u32::from_le_bytes(data[1..5].try_into().unwrap());
                 let execute_fee_lamports = u32::from_le_bytes(data[5..9].try_into().unwrap());
                 Ok(FIVEInstruction::SetFees { deploy_fee_lamports, execute_fee_lamports })
-            }
-            10 => {
-                if data.len() < 33 {
-                    return Err(ProgramError::InvalidInstructionData);
-                }
-                let mut recipient = [0u8; 32];
-                recipient.copy_from_slice(&data[1..33]);
-                Ok(FIVEInstruction::SetFeeRecipient { recipient })
             }
             11 => {
                 if data.len() < 3 {
