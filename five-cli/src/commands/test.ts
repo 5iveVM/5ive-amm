@@ -389,6 +389,7 @@ async function discoverTestSuites(
         // Create test case from compiled .v file
         const compiled = compiledVTests.get(test.path);
         if (compiled && test.source) {
+          const sourceMeta = test.source as any;
           const suite = suiteMap.get(test.path) || [];
           suite.push({
             name: test.name,
@@ -400,7 +401,7 @@ async function discoverTestSuites(
             inlineAbi: compiled.abi,
             expected: {
               success: true,
-              result: test.expectsResult ? test.expectedResult : undefined
+              result: sourceMeta?.expectsResult ? sourceMeta?.expectedResult : undefined
             }
           });
           suiteMap.set(test.path, suite);

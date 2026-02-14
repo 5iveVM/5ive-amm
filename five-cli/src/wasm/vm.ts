@@ -383,7 +383,7 @@ export class FiveVM {
       const simpleValues = parameters.map(param => param.value);
       const rawParams = ParameterEncoder.encode_execute(functionIndex, simpleValues);
 
-      const { BytecodeEncoder } = await import('five-sdk');
+      const { BytecodeEncoder } = await import('@5ive-tech/sdk');
       const discriminator = new Uint8Array([9]);
       const functionIndexBytes = BytecodeEncoder.encodeU32(functionIndex);
       const instructionData = new Uint8Array(
