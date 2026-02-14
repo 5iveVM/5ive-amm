@@ -331,6 +331,16 @@ impl TypeCheckerContext {
                     _ => Err(VMError::TypeMismatch), // Not an array type
                 }
             }
+            AstNode::Cast {
+                value: _,
+                target_type,
+            } => {
+                // Convert target_type AST node to TypeNode
+                match target_type.as_ref() {
+                    AstNode::Identifier(type_name) => Ok(TypeNode::Named(type_name.clone())),
+                    _ => Err(VMError::TypeMismatch),
+                }
+            }
             AstNode::MethodCall {
                 object,
                 method,

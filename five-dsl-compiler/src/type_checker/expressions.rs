@@ -232,6 +232,11 @@ impl TypeCheckerContext {
 
                 Ok(())
             }
+            AstNode::Cast { value, target_type: _ } => {
+                // Type check the value being cast
+                self.check_types(value)?;
+                Ok(())
+            }
             _ => {
                 // Not an expression node, delegate to main check_types
                 Err(VMError::InvalidScript)

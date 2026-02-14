@@ -174,7 +174,8 @@ impl ASTGenerator {
             | AstNode::AccountDefinition { .. }
             | AstNode::FieldDefinition { .. }
             | AstNode::InstructionDefinition { .. }
-            | AstNode::EventDefinition { .. } => false,
+            | AstNode::EventDefinition { .. }
+            | AstNode::Cast { .. } => false,
         }
     }
 

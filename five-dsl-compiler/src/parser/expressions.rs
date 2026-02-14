@@ -1,4 +1,4 @@
-use crate::ast::{AstNode, StructLiteralField};
+use crate::ast::{AstNode, StructLiteralField, TypeNode};
 use crate::parser::{DslParser, types};
 use crate::tokenizer::{Token, TokenKind};
 use five_vm_mito::error::VMError;
@@ -314,12 +314,21 @@ impl DslParser {
         // Handle postfix operators with left-associativity
         loop {
             match &self.current_token {
-                // Rust-style cast: expr as Type (ignore at AST level, used only for type hints)
+                // Rust-style cast: expr as Type
                 Token::As => {
                     self.advance(); // consume 'as'
-                                    // Parse and ignore the type annotation after 'as'
-                    let _ = types::parse_type(self)?;
-                    // Do not change expr; keep parsing further postfix ops
+                    let target_type = types::parse_type(self)?;
+                    // Convert TypeNode to AstNode (for Named types, use Identifier)
+                    let target_ast = match target_type {
+                        TypeNode::Named(name) => AstNode::Identifier(name),
+                        TypeNode::Primitive(name) => AstNode::Identifier(name),
+                        TypeNode::Account => AstNode::Identifier("Account".to_string()),
+                        _ => return Err(VMError::TypeMismatch), // Complex types can't be cast to
+                    };
+                    expr = AstNode::Cast {
+                        value: Box::new(expr),
+                        target_type: Box::new(target_ast),
+                    };
                 }
                 // Field access: object.field1.field2
                 Token::Dot => {

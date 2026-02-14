@@ -210,6 +210,10 @@ pub enum AstNode {
         object: Box<AstNode>,
         field: String,
     },
+    Cast {
+        value: Box<AstNode>,
+        target_type: Box<AstNode>,
+    },
     TupleAccess {
         object: Box<AstNode>,
         index: u32,
