@@ -77,15 +77,14 @@ describe('execute wire format', () => {
     expect(mockEncodeExecute).toHaveBeenCalledTimes(1);
     const [functionIndex, paramDefs, paramValues] = mockEncodeExecute.mock.calls[0];
     expect(functionIndex).toBe(1);
-    expect(paramDefs).toHaveLength(2);
-    // Account pubkey should be normalized to VM account index+1.
-    expect(paramValues.from).toBe(1);
+    expect(paramDefs).toHaveLength(1);
+    expect(paramValues.from).toBeUndefined();
     expect(paramValues.flag).toBe(true);
 
     const raw = Buffer.from(result.instruction.data, 'base64');
     expect(raw[0]).toBe(9);
     expect(raw.readUInt32LE(1)).toBe(1);
-    expect(raw.readUInt32LE(5)).toBe(2);
+    expect(raw.readUInt32LE(5)).toBe(1);
     expect(Array.from(raw.subarray(9))).toEqual([0xaa, 0xbb]);
   });
 
@@ -128,12 +127,12 @@ describe('execute wire format', () => {
     const [functionIndex, , paramValues] = mockEncodeExecute.mock.calls[0];
     expect(functionIndex).toBe(7);
     expect(paramValues.owner).toBe(ownerPubkey);
-    expect(paramValues.counter).toBe(1);
+    expect(paramValues.counter).toBeUndefined();
 
     const raw = Buffer.from(result.instruction.data, 'base64');
     expect(raw[0]).toBe(9);
     expect(raw.readUInt32LE(1)).toBe(7);
-    expect(raw.readUInt32LE(5)).toBe(2);
+    expect(raw.readUInt32LE(5)).toBe(1);
   });
 
   it('marks payer writable when function has @init + signer account', async () => {

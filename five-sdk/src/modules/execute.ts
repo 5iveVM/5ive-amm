@@ -313,15 +313,15 @@ export async function generateExecuteInstruction(
       ? scriptMetadata.functions.find((f: any) => f.index === functionIndex)
       : scriptMetadata.functions[functionIndex];
 
-    const paramDefs = (funcDef.parameters || []);
-    actualParamCount = paramDefs.length;
-    encodedParams = await encodeParametersWithABI(
+    const encoded = await encodeParametersWithABI(
       parameters,
       funcDef,
       functionIndex,
       accounts,
       options,
     );
+    actualParamCount = encoded.paramCount;
+    encodedParams = encoded.encoded;
   } catch (metadataError) {
     if (options.debug) {
       console.log(
@@ -862,9 +862,9 @@ async function encodeParametersWithABI(
   parameters: any[],
   functionDef: any,
   functionIndex: number,
-  accounts: string[] = [],
+  _accounts: string[] = [],
   options: any = {},
-): Promise<Uint8Array> {
+): Promise<{ encoded: Uint8Array; paramCount: number }> {
   const isAccountParam = (param: any): boolean => {
     if (!param) return false;
     if (param.isAccount || param.is_account) return true;
@@ -879,59 +879,46 @@ async function encodeParametersWithABI(
   };
 
   const paramDefs = (functionDef.parameters || []);
+  const nonAccountParamDefs = paramDefs.filter((param: any) => !isAccountParam(param));
+  const fullParameterListProvided = parameters.length >= paramDefs.length;
 
-  if (parameters.length !== paramDefs.length) {
+  if (fullParameterListProvided && parameters.length !== paramDefs.length) {
     console.warn(
       `[FiveSDK] Parameter validation warning: Function '${functionDef.name}' expects ${paramDefs.length} parameters, but received ${parameters.length}.`
     );
   }
 
   const paramValues: Record<string, any> = {};
-
-  paramDefs.forEach((param: any, index: number) => {
-    if (index < parameters.length) {
-      let value = parameters[index];
-      if (isAccountParam(param)) {
-        let accountPubkey: string | null = null;
-        if (value && typeof value === 'object' && typeof value.toBase58 === 'function') {
-          accountPubkey = value.toBase58();
-        } else if (typeof value === 'string') {
-          accountPubkey = value;
-        } else if (typeof value === 'number') {
-          if (value >= 0 && value < accounts.length) {
-            accountPubkey = accounts[value];
-          } else {
-            throw new Error(`Account index ${value} out of bounds`);
-          }
-        }
-
-        if (accountPubkey) {
-          const accountIndex = accounts.indexOf(accountPubkey);
-          if (accountIndex >= 0) {
-            // MitoVM receives accounts excluding the script account.
-            // Account index 0 is the VM state account.
-            value = accountIndex + 1;
-          } else {
-            throw new Error(`Account ${accountPubkey} not found in accounts array`);
-          }
-        }
-      } else if (isPubkeyParam(param)) {
-        if (value && typeof value === 'object' && typeof value.toBase58 === 'function') {
-          value = value.toBase58();
-        }
-      }
-      paramValues[param.name] = value;
+  let argCursor = 0;
+  for (let index = 0; index < paramDefs.length; index++) {
+    const param = paramDefs[index];
+    if (isAccountParam(param)) {
+      continue;
     }
-  });
+
+    const sourceIndex = fullParameterListProvided ? index : argCursor;
+    if (sourceIndex >= parameters.length) {
+      throw new Error(`Missing value for parameter: ${param.name}`);
+    }
+
+    let value = parameters[sourceIndex];
+    if (isPubkeyParam(param)) {
+      if (value && typeof value === 'object' && typeof value.toBase58 === 'function') {
+        value = value.toBase58();
+      }
+    }
+    paramValues[param.name] = value;
+    argCursor += 1;
+  }
 
   const encoded = await BytecodeEncoder.encodeExecute(
     functionIndex,
-    paramDefs,
+    nonAccountParamDefs,
     paramValues,
     true,
     options,
   );
-  return encoded;
+  return { encoded, paramCount: nonAccountParamDefs.length };
 }
 
 function estimateComputeUnits(
