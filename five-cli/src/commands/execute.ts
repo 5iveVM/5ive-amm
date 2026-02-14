@@ -476,14 +476,6 @@ async function executeScriptAccount(scriptAccount: string, options: any, context
 
           // Attach fee recipient account to options
           options.adminAccount = fees.feeRecipientAccount || fees.adminAccount;
-          if (
-            options.adminAccount &&
-            deployerKeypair.publicKey.toBase58() === options.adminAccount
-          ) {
-            throw new Error(
-              `Fee payer cannot equal fee recipient (${options.adminAccount}). Use a distinct treasury recipient.`,
-            );
-          }
         }
       } catch (e) {
         if (context.options.debug) {
@@ -594,14 +586,6 @@ async function executeOnChain(inputFile: string, options: any, context: CommandC
 
         // Attach fee recipient account to options
         options.adminAccount = fees.feeRecipientAccount || fees.adminAccount;
-        if (
-          options.adminAccount &&
-          signerKeypair.publicKey.toBase58() === options.adminAccount
-        ) {
-          throw new Error(
-            `Fee payer cannot equal fee recipient (${options.adminAccount}). Use a distinct treasury recipient.`,
-          );
-        }
       }
     } catch (e) {
       if (context.options.debug) {

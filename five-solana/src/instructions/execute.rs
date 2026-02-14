@@ -4,7 +4,7 @@ use pinocchio::{
 
 use crate::{
     common::{
-        validate_vm_and_script_accounts, has_permission, PERMISSION_POST_BYTECODE,
+        validate_vm_and_script_accounts, verify_fee_vault_account, has_permission, PERMISSION_POST_BYTECODE,
     },
     state::{FIVEVMState, ScriptAccountHeader},
 };
@@ -19,9 +19,17 @@ use super::{
     require_min_accounts,
 };
 
+fn decode_execute_payload<'a>(payload: &'a [u8]) -> (u8, Option<u8>, &'a [u8]) {
+    if payload.len() >= 4 && payload[0] == 0xFF && payload[1] == 0x53 {
+        (payload[2], Some(payload[3]), &payload[4..])
+    } else {
+        (0, None, payload)
+    }
+}
+
 /// Execute a script with optional pre/post bytecode hooks.
 pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> ProgramResult {
-    require_min_accounts(accounts, 2)?;
+    require_min_accounts(accounts, 5)?;
 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
@@ -34,32 +42,28 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
     let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
     let fee = vm_state.execute_fee_lamports as u64;
-    if fee > 0 {
-        let fee_recipient_key = vm_state.fee_recipient;
-        let mut fee_recipient_account: Option<&AccountInfo> = None;
-        let mut payer_account: Option<&AccountInfo> = None;
-        let mut system_program: Option<&AccountInfo> = None;
+    let (fee_shard_index, fee_vault_bump, vm_params) = decode_execute_payload(params);
+    let last = accounts.len() - 1;
+    let fee_vault = &accounts[last - 1];
+    let payer = &accounts[last - 2];
+    let system_program = &accounts[last];
 
-        // Skip [script, vm_state] by construction.
-        for account in &accounts[2..] {
-            if account.key().as_ref() == &[0u8; 32] {
-                system_program = Some(account);
-            }
-            if *account.key() == fee_recipient_key && account.is_writable() {
-                fee_recipient_account = Some(account);
-            }
-            if account.is_signer() && account.is_writable() {
-                payer_account = match payer_account {
-                    Some(current) if current.lamports() >= account.lamports() => Some(current),
-                    _ => Some(account),
-                };
-            }
-        }
-
-        let recipient = fee_recipient_account.ok_or(ProgramError::Custom(1110))?;
-        let payer = payer_account.ok_or(ProgramError::MissingRequiredSignature)?;
-        transfer_fee(program_id, payer, recipient, fee, system_program)?;
+    verify_fee_vault_account(
+        fee_vault,
+        program_id,
+        fee_shard_index,
+        fee_vault_bump,
+    )?;
+    if system_program.key().as_ref() != &[0u8; 32] {
+        return Err(ProgramError::InvalidArgument);
     }
+    if !payer.is_signer() || !payer.is_writable() {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !fee_vault.is_writable() {
+        return Err(ProgramError::InvalidArgument);
+    }
+    transfer_fee(program_id, payer, fee_vault, fee, Some(system_program))?;
     // VM sees [vm_state, ...remaining execution accounts].
     let vm_accounts = &accounts[1..];
 
@@ -88,7 +92,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     // Initialize VM Storage using optimized heap allocation
     // Uses new_on_heap() which constructs directly in heap memory to avoid stack overflow
     let mut storage = StackStorage::new_on_heap();
-    if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage) {
+    if let Err(vm_error) = MitoVM::execute_direct(bytecode, vm_params, vm_accounts, program_id, &mut *storage) {
         #[cfg(feature = "debug-logs")]
         debug_log!(
             "MitoVM MAIN execution failed code={}",
@@ -104,7 +108,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         // Allocate new optimized heap storage for retry
         let mut storage_retry = StackStorage::new_on_heap();
 
-        if let Err(vm_error) = MitoVM::execute_direct(bytecode, params, vm_accounts, program_id, &mut *storage_retry) {
+        if let Err(vm_error) = MitoVM::execute_direct(bytecode, vm_params, vm_accounts, program_id, &mut *storage_retry) {
             #[cfg(feature = "debug-logs")]
             debug_log!(
                 "MitoVM POST hook failed code={}",
@@ -138,14 +142,16 @@ mod tests {
     fn execute_fee_ignores_readonly_signer_as_payer() {
         let program_id = Pubkey::from([21u8; 32]);
         let script_key = Pubkey::from([22u8; 32]);
-        let vm_key = Pubkey::from([23u8; 32]);
+        let (vm_key, _vm_bump) = crate::common::derive_canonical_vm_state_pda(&program_id).unwrap();
         let admin_key = Pubkey::from([24u8; 32]);
         let payer_key = Pubkey::from([25u8; 32]);
+        let (fee_vault_key, _fee_vault_bump) =
+            crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
         let system_owner = Pubkey::default();
 
         let mut script_lamports = 1_000_000;
         let mut vm_lamports = 1_000_000;
-        let mut admin_lamports = 1_000_000;
+        let mut fee_vault_lamports = 1_000_000;
         let mut payer_lamports = 1_000_000;
 
         let mut script_data = vec![0u8; ScriptAccountHeader::LEN];
@@ -155,8 +161,10 @@ mod tests {
             state.initialize(admin_key);
             state.execute_fee_lamports = 1;
         }
-        let mut admin_data = [];
+        let mut fee_vault_data = [];
         let mut payer_data = [];
+        let mut system_lamports = 1;
+        let mut system_data = [];
 
         let script = create_account_info(
             &script_key,
@@ -174,13 +182,13 @@ mod tests {
             &mut vm_data,
             &program_id,
         );
-        let admin = create_account_info(
-            &admin_key,
+        let fee_vault = create_account_info(
+            &fee_vault_key,
             false,
             true,
-            &mut admin_lamports,
-            &mut admin_data,
-            &system_owner,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
         );
         // Readonly signer: must NOT be accepted as fee payer.
         let readonly_signer = create_account_info(
@@ -191,8 +199,16 @@ mod tests {
             &mut payer_data,
             &system_owner,
         );
+        let system_program = create_account_info(
+            &system_owner,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_owner,
+        );
 
-        let accounts = [script, vm, admin, readonly_signer];
+        let accounts = [script, vm, readonly_signer, fee_vault, system_program];
         let result = execute(&program_id, &accounts, &[]);
         assert_eq!(result, Err(ProgramError::MissingRequiredSignature));
     }

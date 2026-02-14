@@ -6,6 +6,8 @@ use pinocchio::{
 use pinocchio::pubkey::create_program_address;
 
 pub const VM_STATE_SEED: &[u8] = b"vm_state";
+pub const FEE_VAULT_SEED: &[u8] = b"fee_vault";
+pub const FEE_VAULT_SHARD_COUNT: u8 = 10;
 
 #[cfg(not(target_os = "solana"))]
 pub fn derive_canonical_vm_state_pda(program_id: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
@@ -173,7 +175,12 @@ mod tests {
         {
             let mut script_data = vec![0u8; 100];
             let mut vm_data = vec![0u8; FIVEVMState::LEN];
-            // No init
+            // Stamp version but keep uninitialized flag to assert not-initialized path.
+            {
+                let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+                state.version = FIVEVMState::VERSION;
+                state.is_initialized = 0;
+            }
 
             let script_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut script_data, &program_id);
             let vm_account = create_account_info(&canonical_vm_state, false, false, &mut lamports, &mut vm_data, &program_id);
@@ -268,6 +275,55 @@ pub fn verify_canonical_vm_state_account(
     let (expected_vm_state, _bump) = derive_canonical_vm_state_pda(program_id)?;
     if vm_state_account.key() != &expected_vm_state {
         return Err(ProgramError::InvalidArgument);
+    }
+    Ok(())
+}
+
+#[inline(always)]
+pub fn derive_fee_vault_pda(program_id: &Pubkey, shard_index: u8) -> Result<(Pubkey, u8), ProgramError> {
+    let shard_seed = [shard_index];
+    #[cfg(not(target_os = "solana"))]
+    {
+        let mut pid = [0u8; 32];
+        pid.copy_from_slice(program_id.as_ref());
+        let (pda, bump) = five_vm_mito::utils::find_program_address_offchain(
+            &[FEE_VAULT_SEED, &shard_seed],
+            &pid,
+        )
+        .map_err(|_| ProgramError::InvalidArgument)?;
+        Ok((Pubkey::from(pda), bump))
+    }
+    #[cfg(target_os = "solana")]
+    {
+        for bump in (0u8..=255u8).rev() {
+            let bump_seed = [bump];
+            let seeds: &[&[u8]] = &[FEE_VAULT_SEED, &shard_seed, &bump_seed];
+            if let Ok(pda) = create_program_address(seeds, program_id) {
+                return Ok((pda, bump));
+            }
+        }
+        Err(ProgramError::InvalidArgument)
+    }
+}
+
+#[inline(always)]
+pub fn verify_fee_vault_account(
+    fee_vault_account: &AccountInfo,
+    program_id: &Pubkey,
+    shard_index: u8,
+    expected_bump: Option<u8>,
+) -> ProgramResult {
+    let (expected_key, derived_bump) = derive_fee_vault_pda(program_id, shard_index)?;
+    if fee_vault_account.key() != &expected_key {
+        return Err(ProgramError::InvalidArgument);
+    }
+    if let Some(bump) = expected_bump {
+        if bump != derived_bump {
+            return Err(ProgramError::InvalidArgument);
+        }
+    }
+    if fee_vault_account.owner() != program_id {
+        return Err(ProgramError::IllegalOwner);
     }
     Ok(())
 }

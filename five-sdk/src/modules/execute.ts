@@ -17,6 +17,30 @@ import { loadWasmVM } from "../wasm/instance.js";
 import { BytecodeCompiler } from "../compiler/BytecodeCompiler.js";
 import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 
+const FEE_VAULT_SHARD_COUNT = 10;
+const EXECUTE_FEE_HEADER_A = 0xff;
+const EXECUTE_FEE_HEADER_B = 0x53;
+const scriptShardCursor = new Map<string, number>();
+
+async function deriveProgramFeeVault(
+  programId: string,
+  shardIndex: number,
+): Promise<{ address: string; bump: number }> {
+  const { PublicKey } = await import("@solana/web3.js");
+  const [pda, bump] = PublicKey.findProgramAddressSync(
+    [Buffer.from("fee_vault"), Buffer.from([shardIndex])],
+    new PublicKey(programId),
+  );
+  return { address: pda.toBase58(), bump };
+}
+
+function selectFeeShard(programId: string): number {
+  const current = scriptShardCursor.get(programId) ?? 0;
+  const next = (current + 1) % FEE_VAULT_SHARD_COUNT;
+  scriptShardCursor.set(programId, next);
+  return current;
+}
+
 // Helper function to initialize ParameterEncoder if needed (though BytecodeEncoder is preferred)
 // Assume BytecodeEncoder handles it or call it if needed.
 // BytecodeEncoder uses WASM module directly via loader.
@@ -244,6 +268,7 @@ export async function generateExecuteInstruction(
     adminAccount?: string;
     estimateFees?: boolean;
     accountMetadata?: Map<string, { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }>;
+    feeShardIndex?: number;
   } = {},
 ): Promise<SerializedExecution> {
   validator.validateBase58Address(scriptAccount, "scriptAccount");
@@ -357,36 +382,12 @@ export async function generateExecuteInstruction(
 
   const vmStatePDA = await PDAUtils.deriveVMStatePDA(programId);
   const vmState = options.vmStateAccount || vmStatePDA.address;
-
-  let feeRecipientAccount = options.adminAccount;
-  if (!feeRecipientAccount && connection) {
-    try {
-      let vmStateAddress = options.vmStateAccount;
-      if (!vmStateAddress) {
-        const pda = await PDAUtils.deriveVMStatePDA(programId);
-        vmStateAddress = pda.address;
-      }
-
-      const { PublicKey } = await import("@solana/web3.js");
-      const info = await connection.getAccountInfo(new PublicKey(vmStateAddress));
-
-      if (info) {
-        const data = new Uint8Array(info.data);
-        if (data.length >= 64) {
-          const recipientPubkey = new PublicKey(data.slice(32, 64));
-          feeRecipientAccount = recipientPubkey.toBase58();
-        }
-      }
-    } catch (error) {
-      if (options.debug) {
-        console.warn(`[FiveSDK] Failed to resolve fee recipient from VM state:`, error);
-      }
-    }
-  }
+  const feeShardIndex = options.feeShardIndex ?? selectFeeShard(programId);
+  const feeVault = await deriveProgramFeeVault(programId, feeShardIndex);
 
   const instructionAccounts = [
     { pubkey: scriptAccount, isSigner: false, isWritable: false },
-    { pubkey: vmState, isSigner: false, isWritable: true },
+    { pubkey: vmState, isSigner: false, isWritable: false },
   ];
 
   const abiAccountMetadata = new Map<string, { isSigner: boolean; isWritable: boolean }>();
@@ -439,12 +440,12 @@ export async function generateExecuteInstruction(
     });
   }
 
-  const userInstructionAccounts = accounts.map((acc, index) => {
+  const userInstructionAccounts = accounts.map((acc) => {
     // Check both derived ABI metadata and passed-in metadata (from FunctionBuilder)
     const abiMetadata = abiAccountMetadata.get(acc);
     const passedMetadata = options.accountMetadata?.get(acc);
     const metadata = abiMetadata || passedMetadata;
-    const isSigner = metadata ? metadata.isSigner : (index === 0 && feeRecipientAccount ? true : false);
+    const isSigner = metadata ? metadata.isSigner : false;
     const isWritable = metadata ? metadata.isWritable : true;
 
     return {
@@ -456,23 +457,12 @@ export async function generateExecuteInstruction(
 
   instructionAccounts.push(...userInstructionAccounts);
 
-  if (feeRecipientAccount) {
-    const existingAdminIdx = instructionAccounts.findIndex(a => a.pubkey === feeRecipientAccount);
-    if (existingAdminIdx === -1) {
-      instructionAccounts.push({
-        pubkey: feeRecipientAccount,
-        isSigner: false,
-        isWritable: true,
-      });
-    } else {
-      instructionAccounts[existingAdminIdx].isWritable = true;
-    }
-  }
-
   const instructionData = encodeExecuteInstruction(
     functionIndex,
     encodedParams,
     actualParamCount,
+    feeShardIndex,
+    feeVault.bump,
   );
 
   const result: SerializedExecution = {
@@ -491,8 +481,8 @@ export async function generateExecuteInstruction(
     estimatedComputeUnits:
       options.computeUnitLimit ||
       estimateComputeUnits(functionIndex, parameters.length),
-    adminAccount: feeRecipientAccount,
-    feeRecipientAccount: feeRecipientAccount,
+    adminAccount: feeVault.address,
+    feeRecipientAccount: feeVault.address,
   };
 
   const shouldEstimateFees = options.estimateFees !== false && connection;
@@ -534,6 +524,7 @@ export async function executeOnSolana(
     vmStateAccount?: string;
     fiveVMProgramId?: string;
     abi?: any;
+    feeShardIndex?: number;
   } = {},
 ): Promise<{
   success: boolean;
@@ -568,6 +559,7 @@ export async function executeOnSolana(
           vmStateAccount: options.vmStateAccount,
           fiveVMProgramId: options.fiveVMProgramId,
           abi: options.abi,
+          feeShardIndex: options.feeShardIndex,
         },
       );
     } catch (metadataError) {
@@ -601,15 +593,12 @@ export async function executeOnSolana(
     }
 
     const signerPubkey = signerKeypair.publicKey.toString();
-    if (executionData.adminAccount && executionData.adminAccount === signerPubkey) {
-      throw new Error(
-        `Fee payer cannot equal fee recipient (${signerPubkey}). Configure a distinct fee recipient account.`,
-      );
-    }
+    const systemProgramId = "11111111111111111111111111111111";
     let signerFound = false;
     for (const meta of accountKeys) {
       if (meta.pubkey === signerPubkey) {
         meta.isSigner = true;
+        meta.isWritable = true;
         signerFound = true;
       }
     }
@@ -621,6 +610,22 @@ export async function executeOnSolana(
         isWritable: true,
       });
     }
+    // Strict runtime fee account contract tail: [payer, fee_vault, system_program]
+    accountKeys.push({
+      pubkey: signerPubkey,
+      isSigner: true,
+      isWritable: true,
+    });
+    accountKeys.push({
+      pubkey: executionData.adminAccount!,
+      isSigner: false,
+      isWritable: true,
+    });
+    accountKeys.push({
+      pubkey: systemProgramId,
+      isSigner: false,
+      isWritable: false,
+    });
 
     const executeInstruction = new TransactionInstruction({
       keys: accountKeys.map((acc) => ({
@@ -818,9 +823,19 @@ function encodeExecuteInstruction(
   functionIndex: number,
   encodedParams: Uint8Array,
   paramCount: number,
+  feeShardIndex: number,
+  feeVaultBump: number,
 ): Uint8Array {
   const parts = [];
   parts.push(new Uint8Array([9]));
+  parts.push(
+    new Uint8Array([
+      EXECUTE_FEE_HEADER_A,
+      EXECUTE_FEE_HEADER_B,
+      feeShardIndex & 0xff,
+      feeVaultBump & 0xff,
+    ]),
+  );
   // Function index as fixed u32
   parts.push(encodeU32(functionIndex));
 

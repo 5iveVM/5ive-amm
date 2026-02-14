@@ -121,17 +121,45 @@ fn process_administrative_instruction(
             debug_log!("Processing SetFeeRecipient instruction");
             instructions::set_fee_recipient(program_id, accounts, Pubkey::from(recipient))
         }
+        FIVEInstruction::InitFeeVault { shard_index, bump } => {
+            debug_log!("Processing InitFeeVault instruction");
+            instructions::init_fee_vault(program_id, accounts, shard_index, bump)
+        }
+        FIVEInstruction::WithdrawScriptFees {
+            script,
+            shard_index,
+            lamports,
+        } => {
+            debug_log!("Processing WithdrawScriptFees instruction");
+            instructions::withdraw_script_fees(
+                program_id,
+                accounts,
+                Pubkey::from(script),
+                shard_index,
+                lamports,
+            )
+        }
         FIVEInstruction::Deploy {
             bytecode,
             metadata,
             permissions,
+            fee_shard_index,
+            fee_vault_bump,
         } => {
             debug_log!(
                 "Processing Deploy instruction with {} bytes of bytecode, permissions: 0x{}",
                 bytecode.len(),
                 permissions
             );
-            instructions::deploy(program_id, accounts, bytecode, metadata, permissions)
+            instructions::deploy(
+                program_id,
+                accounts,
+                bytecode,
+                metadata,
+                permissions,
+                fee_shard_index,
+                fee_vault_bump,
+            )
         }
         FIVEInstruction::Execute { .. } => {
             // Already handled in hot path

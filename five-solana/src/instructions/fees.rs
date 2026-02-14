@@ -1,16 +1,18 @@
 use pinocchio::{
-    account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+    account_info::AccountInfo, instruction::{AccountMeta, Instruction, Seed, Signer}, program::invoke_signed,
+    program_error::ProgramError, pubkey::Pubkey, ProgramResult, sysvars::Sysvar,
 };
 
 use crate::{
-    common::{verify_canonical_vm_state_account, verify_program_owned},
+    common::{
+        derive_fee_vault_pda, verify_canonical_vm_state_account, verify_program_owned,
+        verify_fee_vault_account, FEE_VAULT_SEED, FEE_VAULT_SHARD_COUNT,
+    },
     state::FIVEVMState,
 };
 
 use super::{require_min_accounts, require_signer};
 
-const ERR_FEE_RECIPIENT_MISSING: u32 = 1110;
-const ERR_FEE_PAYER_EQUALS_RECIPIENT: u32 = 1111;
 const ERR_INVALID_FEE_RECIPIENT: u32 = 1113;
 
 /// Transfer fee from payer to recipient
@@ -23,9 +25,6 @@ pub fn transfer_fee(
 ) -> ProgramResult {
     if amount == 0 {
         return Ok(());
-    }
-    if payer.key() == recipient.key() {
-        return Err(ProgramError::Custom(ERR_FEE_PAYER_EQUALS_RECIPIENT));
     }
 
     if payer.lamports() < amount {
@@ -84,8 +83,11 @@ pub fn transfer_fee(
 pub fn collect_deploy_fee(
     program_id: &Pubkey,
     vm_state_account: &AccountInfo,
-    accounts: &[AccountInfo],
     payer: &AccountInfo,
+    fee_vault_account: &AccountInfo,
+    system_program: &AccountInfo,
+    fee_shard_index: u8,
+    fee_vault_bump: Option<u8>,
     _total_script_size: usize,
 ) -> ProgramResult {
     // SAFETY: The state account is program-owned and read-only here.
@@ -93,25 +95,171 @@ pub fn collect_deploy_fee(
     let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
 
     let deploy_fee_lamports = vm_state.deploy_fee_lamports as u64;
-    if deploy_fee_lamports > 0 {
-        let recipient_key = vm_state.fee_recipient;
-        let recipient_account = accounts
-            .iter()
-            .find(|a| *a.key() == recipient_key && a.is_writable());
-
-        if let Some(recipient) = recipient_account {
-            let system_program = accounts.iter().find(|a| a.key().as_ref() == &[0u8; 32]);
-            transfer_fee(
-                program_id,
-                payer,
-                recipient,
-                deploy_fee_lamports,
-                system_program,
-            )?;
-        } else {
-            return Err(ProgramError::Custom(ERR_FEE_RECIPIENT_MISSING));
-        }
+    verify_fee_vault_account(
+        fee_vault_account,
+        program_id,
+        fee_shard_index,
+        fee_vault_bump,
+    )?;
+    if system_program.key().as_ref() != &[0u8; 32] {
+        return Err(ProgramError::InvalidArgument);
     }
+    if !payer.is_signer() || !payer.is_writable() {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !fee_vault_account.is_writable() {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    transfer_fee(
+        program_id,
+        payer,
+        fee_vault_account,
+        deploy_fee_lamports,
+        Some(system_program),
+    )?;
+    Ok(())
+}
+
+/// Initialize a VM-scoped fee vault PDA shard.
+/// Accounts: [vm_state, payer, fee_vault, system_program]
+pub fn init_fee_vault(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    shard_index: u8,
+    bump: u8,
+) -> ProgramResult {
+    require_min_accounts(accounts, 4)?;
+    if shard_index >= FEE_VAULT_SHARD_COUNT {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let vm_state_account = &accounts[0];
+    let payer = &accounts[1];
+    let fee_vault_account = &accounts[2];
+    let system_program = &accounts[3];
+
+    verify_canonical_vm_state_account(vm_state_account, program_id)?;
+    verify_program_owned(vm_state_account, program_id)?;
+    require_signer(payer)?;
+    if system_program.key().as_ref() != &[0u8; 32] {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    // Validate VM initialized.
+    let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+    let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
+    if !vm_state.is_initialized() {
+        return Err(ProgramError::Custom(7000));
+    }
+
+    let (expected_key, expected_bump) = derive_fee_vault_pda(program_id, shard_index)?;
+    if fee_vault_account.key() != &expected_key || bump != expected_bump {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    // Idempotent: already created by this program.
+    if fee_vault_account.owner() == program_id {
+        return Ok(());
+    }
+    if fee_vault_account.owner() != &Pubkey::default() {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let rent = pinocchio::sysvars::rent::Rent::get()
+        .map_err(|_| ProgramError::AccountNotRentExempt)?;
+    let rent_lamports = rent.minimum_balance(0);
+
+    // system_instruction::create_account
+    let mut create_account_data = [0u8; 52];
+    create_account_data[0..4].copy_from_slice(&0u32.to_le_bytes());
+    create_account_data[4..12].copy_from_slice(&rent_lamports.to_le_bytes());
+    create_account_data[12..20].copy_from_slice(&(0u64).to_le_bytes());
+    create_account_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let shard_seed = [shard_index];
+    let bump_seed = [bump];
+    let seeds: &[Seed] = &[
+        Seed::from(FEE_VAULT_SEED),
+        Seed::from(&shard_seed),
+        Seed::from(&bump_seed),
+    ];
+    let signer = Signer::from(seeds);
+
+    let metas = [
+        AccountMeta {
+            pubkey: payer.key(),
+            is_signer: true,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: fee_vault_account.key(),
+            is_signer: true,
+            is_writable: true,
+        },
+    ];
+
+    let instruction = Instruction {
+        program_id: system_program.key(),
+        accounts: &metas,
+        data: &create_account_data,
+    };
+    invoke_signed::<3>(&instruction, &[payer, fee_vault_account, system_program], &[signer])?;
+    Ok(())
+}
+
+/// Withdraw fees from a VM-scoped fee-vault shard.
+/// Accounts: [vm_state, authority, fee_vault, recipient]
+pub fn withdraw_script_fees(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    _script: Pubkey,
+    shard_index: u8,
+    lamports: u64,
+) -> ProgramResult {
+    require_min_accounts(accounts, 4)?;
+    if shard_index >= FEE_VAULT_SHARD_COUNT {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let vm_state_account = &accounts[0];
+    let authority = &accounts[1];
+    let fee_vault_account = &accounts[2];
+    let recipient = &accounts[3];
+
+    verify_canonical_vm_state_account(vm_state_account, program_id)?;
+    verify_program_owned(vm_state_account, program_id)?;
+    verify_fee_vault_account(
+        fee_vault_account,
+        program_id,
+        shard_index,
+        None,
+    )?;
+    require_signer(authority)?;
+    if !fee_vault_account.is_writable() || !recipient.is_writable() {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+    let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
+    if vm_state.authority != *authority.key() {
+        return Err(ProgramError::Custom(0));
+    }
+
+    let rent = pinocchio::sysvars::rent::Rent::get()
+        .map_err(|_| ProgramError::AccountNotRentExempt)?;
+    let min_balance = rent.minimum_balance(0);
+    let current = fee_vault_account.lamports();
+    if current < min_balance {
+        return Err(ProgramError::InsufficientFunds);
+    }
+    let available = current.saturating_sub(min_balance);
+    if lamports > available {
+        return Err(ProgramError::InsufficientFunds);
+    }
+
+    *fee_vault_account.try_borrow_mut_lamports()? -= lamports;
+    *recipient.try_borrow_mut_lamports()? += lamports;
     Ok(())
 }
 
@@ -260,5 +408,27 @@ mod tests {
         assert_eq!(result, Ok(()));
         assert_eq!(payer.lamports(), 990);
         assert_eq!(recipient.lamports(), 110);
+    }
+
+    #[test]
+    fn transfer_fee_allows_same_payer_and_recipient() {
+        let program_id = Pubkey::from([12u8; 32]);
+        let account_key = Pubkey::from([13u8; 32]);
+
+        let mut lamports = 1_000;
+        let mut data = [];
+
+        let account = create_account_info(
+            &account_key,
+            true,
+            true,
+            &mut lamports,
+            &mut data,
+            &program_id,
+        );
+
+        let result = transfer_fee(&program_id, &account, &account, 10, None);
+        assert_eq!(result, Ok(()));
+        assert_eq!(account.lamports(), 1_000);
     }
 }

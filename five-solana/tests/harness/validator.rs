@@ -291,27 +291,29 @@ impl ValidatorHarness {
     }
 
     pub fn ensure_vm_state(&self) -> Result<Pubkey, String> {
-        let vm_state = self.create_program_owned_account(
-            FIVEVMState::LEN,
-            self.rent_exempt(FIVEVMState::LEN)?,
-            self.program_id,
-        )?;
+        let (vm_state, bump) = Pubkey::find_program_address(&[b"vm_state"], &self.program_id);
 
-        let mut init_data = vec![0u8, 0u8];
-        init_data[0] = 0;
-        init_data[1] = 0;
+        // Canonical PDA already exists and is initialized.
+        if let Ok(existing) = self.rpc.get_account(&vm_state) {
+            if existing.owner == self.program_id && existing.data.len() >= FIVEVMState::LEN {
+                return Ok(vm_state);
+            }
+        }
 
+        // Initialize canonical VM state PDA.
         let init_ix = Instruction {
             program_id: self.program_id,
             accounts: vec![
-                AccountMeta::new(vm_state.pubkey(), false),
+                AccountMeta::new(vm_state, false),
                 AccountMeta::new_readonly(self.payer.pubkey(), true),
+                AccountMeta::new(self.payer.pubkey(), true),
+                AccountMeta::new_readonly(system_program::id(), false),
             ],
-            data: init_data,
+            data: vec![0u8, bump],
         };
         self.send_ixs("initialize_vm_state", vec![init_ix], vec![], None)?;
-        self.set_vm_fees(vm_state.pubkey(), 0, 0)?;
-        Ok(vm_state.pubkey())
+        self.set_vm_fees(vm_state, 0, 0)?;
+        Ok(vm_state)
     }
 
     pub fn set_vm_fees(

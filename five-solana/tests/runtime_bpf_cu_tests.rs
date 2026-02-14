@@ -200,6 +200,31 @@ struct RuntimeAccount {
 const CU_EXECUTE_FEE_LAMPORTS: u32 = 500;
 const CU_FEE_STEP_HEADROOM: u64 = 6_000;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CuMode {
+    Parity,
+    Micro,
+}
+
+impl CuMode {
+    fn from_env() -> Self {
+        match std::env::var("FIVE_CU_MODE")
+            .unwrap_or_else(|_| "parity".to_string())
+            .as_str()
+        {
+            "micro" => Self::Micro,
+            _ => Self::Parity,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Parity => "parity",
+            Self::Micro => "micro",
+        }
+    }
+}
+
 const TOKEN_ALL_PUBLIC_CALLS: [&str; 14] = [
     "mint_to(mint_account, user1_token, user1, 1000);",
     "mint_to(mint_account, user2_token, user1, 500);",
@@ -294,10 +319,11 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: vm_state_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
@@ -566,10 +592,11 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: vm_state_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
@@ -929,10 +956,11 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: vm_state_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
@@ -1328,10 +1356,11 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: vm_state_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
@@ -1637,10 +1666,11 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: vm_state_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
@@ -2046,6 +2076,7 @@ async fn run_fixture_bpf_compute_units(
     fixture_path: &Path,
     total_budget_override: Option<u64>,
 ) -> u64 {
+    let cu_mode = CuMode::from_env();
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
@@ -2062,14 +2093,19 @@ async fn run_fixture_bpf_compute_units(
 
     let authority_signer = Keypair::new();
     let authority_pubkey = authority_signer.pubkey();
-    let fee_admin_name = "__fee_admin".to_string();
-    let fee_admin_pubkey = Pubkey::new_unique();
-    let execute_fee_lamports = fixture
+    let configured_execute_fee = fixture
         .vm_fees
         .as_ref()
         .map(|fees| fees.execute_fee_lamports)
-        .filter(|fee| *fee > 0)
-        .unwrap_or(CU_EXECUTE_FEE_LAMPORTS);
+        .unwrap_or(0);
+    let execute_fee_lamports = if cu_mode == CuMode::Micro {
+        0
+    } else if configured_execute_fee > 0 {
+        configured_execute_fee
+    } else {
+        CU_EXECUTE_FEE_LAMPORTS
+    };
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
 
     accounts.insert(
         fixture.authority.name.clone(),
@@ -2089,14 +2125,14 @@ async fn run_fixture_bpf_compute_units(
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(fee_admin_pubkey.to_bytes());
+        vm_state.initialize(authority_pubkey.to_bytes());
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = execute_fee_lamports;
     }
     accounts.insert(
         fixture.vm_state_name.clone(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: vm_state_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
@@ -2115,19 +2151,6 @@ async fn run_fixture_bpf_compute_units(
             owner: program_id,
             lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + bytecode.len()],
-            is_signer: false,
-            is_writable: true,
-            executable: false,
-        },
-    );
-    accounts.insert(
-        fee_admin_name.clone(),
-        RuntimeAccount {
-            pubkey: fee_admin_pubkey,
-            signer: None,
-            owner: system_program::id(),
-            lamports: 5_000_000,
-            data: vec![],
             is_signer: false,
             is_writable: true,
             executable: false,
@@ -2303,15 +2326,10 @@ async fn run_fixture_bpf_compute_units(
     for step in &fixture.steps {
         let payload = build_payload(&accounts, step);
         let mut effective_extras = step.extras.clone();
-        if !effective_extras.iter().any(|name| name == &fixture.authority.name) {
-            effective_extras.push(fixture.authority.name.clone());
-        }
-        if !effective_extras.iter().any(|name| name == &fee_admin_name) {
-            effective_extras.push(fee_admin_name.clone());
-        }
-        if !effective_extras.iter().any(|name| name == "system_program") {
-            effective_extras.push("system_program".to_string());
-        }
+        effective_extras.retain(|name| name != &fixture.authority.name && name != "system_program");
+        effective_extras.push(fixture.authority.name.clone());
+        // Execute always requires deterministic fee account tail ordering, even when fee == 0.
+        effective_extras.push("system_program".to_string());
 
         let execute_ix = build_execute_instruction_with_extras(
             program_id,
@@ -2331,12 +2349,12 @@ async fn run_fixture_bpf_compute_units(
             })
             .collect();
 
-        let admin_before = ctx
+        let vm_state_before = ctx
             .banks_client
-            .get_account(fee_admin_pubkey)
+            .get_account(vm_state_pubkey)
             .await
-            .expect("fee admin fetch before execute")
-            .expect("fee admin account must exist")
+            .expect("vm_state fetch before execute")
+            .expect("vm_state account must exist")
             .lamports;
 
         let result = simulate_and_process(
@@ -2347,14 +2365,14 @@ async fn run_fixture_bpf_compute_units(
         )
         .await;
 
-        let admin_after = ctx
+        let vm_state_after = ctx
             .banks_client
-            .get_account(fee_admin_pubkey)
+            .get_account(vm_state_pubkey)
             .await
-            .expect("fee admin fetch after execute")
-            .expect("fee admin account must exist")
+            .expect("vm_state fetch after execute")
+            .expect("vm_state account must exist")
             .lamports;
-        let fee_paid = admin_after.saturating_sub(admin_before);
+        let fee_paid = vm_state_after.saturating_sub(vm_state_before);
         match step.expected {
             ExpectedFixture::Success => {
                 assert!(result.success, "step {} failed: {:?}", step.name, result.error);
@@ -2378,28 +2396,32 @@ async fn run_fixture_bpf_compute_units(
                 CU_FEE_STEP_HEADROOM
             );
         }
-        assert_eq!(
-            fee_paid,
-            execute_fee_lamports as u64,
-            "step {} should charge exactly one execute fee",
-            step.name
-        );
+        if execute_fee_lamports > 0 {
+            assert_eq!(
+                fee_paid,
+                execute_fee_lamports as u64,
+                "step {} should charge exactly one execute fee",
+                step.name
+            );
+        } else {
+            assert_eq!(fee_paid, 0, "step {} should not charge execute fee", step.name);
+        }
         total_units = total_units.saturating_add(result.units_consumed);
         println!(
-            "BPF_CU step={} expected={:?} success={} units={} fee_paid={} fee_expected={} fee_admin={}",
+            "BPF_CU step={} expected={:?} success={} units={} fee_paid={} fee_expected={} fee_vault={}",
             step.name,
             step.expected,
             result.success,
             result.units_consumed,
             fee_paid,
             execute_fee_lamports,
-            fee_admin_pubkey
+            vm_state_pubkey
         );
     }
 
     println!(
-        "BPF_CU fixture={} total_units={} execute_fee_lamports={} fee_admin={}",
-        fixture.name, total_units, execute_fee_lamports, fee_admin_pubkey
+        "BPF_CU fixture={} mode={} total_units={} execute_fee_lamports={} fee_vault={}",
+        fixture.name, cu_mode.as_str(), total_units, execute_fee_lamports, vm_state_pubkey
     );
     if fixture.name == "spl_token_cpi_e2e" {
         assert_spl_token_fixture_result(&mut ctx, &accounts, &fixture.authority.name).await;
@@ -2562,10 +2584,11 @@ async fn minimal_execute_floor_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: vm_state_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
@@ -2871,10 +2894,11 @@ async fn run_external_token_all_public_profile(
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: vm_state_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
@@ -3563,13 +3587,19 @@ fn build_deploy_instruction_with_metadata(
     data.extend_from_slice(metadata);
     data.extend_from_slice(bytecode);
 
+    let mut account_metas = vec![
+        AccountMeta::new(accounts[script_name].pubkey, false),
+        AccountMeta::new(accounts[vm_state_name].pubkey, false),
+        AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
+    ];
+    if permissions != 0 {
+        account_metas.push(AccountMeta::new_readonly(accounts[owner_name].pubkey, true));
+    }
+    account_metas.push(AccountMeta::new_readonly(system_program::id(), false));
+
     Instruction {
         program_id,
-        accounts: vec![
-            AccountMeta::new(accounts[script_name].pubkey, false),
-            AccountMeta::new(accounts[vm_state_name].pubkey, false),
-            AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
-        ],
+        accounts: account_metas,
         data,
     }
 }

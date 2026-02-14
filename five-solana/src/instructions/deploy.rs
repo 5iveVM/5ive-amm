@@ -123,12 +123,14 @@ pub fn deploy(
     bytecode: &[u8],
     metadata: &[u8],
     permissions: u8,
+    fee_shard_index: u8,
+    fee_vault_bump: Option<u8>,
 ) -> ProgramResult {
 
     // Validate permissions bitmask
     validate_permissions(permissions)?;
 
-    require_min_accounts(accounts, 3)?;
+    require_min_accounts(accounts, 5)?;
 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
@@ -138,17 +140,22 @@ pub fn deploy(
     require_signer(owner)?;
 
     // If any permissions are set, require admin key (VM authority) signature
-    if permissions != 0 {
+    let (fee_vault_idx, system_program_idx) = if permissions != 0 {
         // Get the admin key from VM state authority
         let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
         let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
         let admin_key = vm_state.authority;
 
         // Admin account must be present and be the signer when special permissions are used
-        require_min_accounts(accounts, 4)?;
+        require_min_accounts(accounts, 6)?;
         let admin_account = &accounts[3];
         verify_admin_signer(admin_account, &admin_key)?;
-    }
+        (4usize, 5usize)
+    } else {
+        (3usize, 4usize)
+    };
+    let fee_vault_account = &accounts[fee_vault_idx];
+    let system_program = &accounts[system_program_idx];
 
     // Validate bytecode size
     if bytecode.len() < 4 || bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
@@ -186,7 +193,16 @@ pub fn deploy(
     }
 
     // Charge deploy fee only after all non-mutating deployment validations pass.
-    collect_deploy_fee(program_id, vm_state_account, accounts, owner, required_size)?;
+    collect_deploy_fee(
+        program_id,
+        vm_state_account,
+        owner,
+        fee_vault_account,
+        system_program,
+        fee_shard_index,
+        fee_vault_bump,
+        required_size,
+    )?;
 
     // SAFETY: `vm_state_account` verified.
     let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
@@ -226,11 +242,13 @@ pub fn init_large_program(
 ) -> ProgramResult {
     let chunk_len = chunk_data.map(|c| c.len()).unwrap_or(0);
 
-    require_min_accounts(accounts, 3)?;
+    require_min_accounts(accounts, 5)?;
 
     let script_account = &accounts[0];
     let owner = &accounts[1];
     let vm_state_account = &accounts[2];
+    let fee_vault_account = &accounts[3];
+    let system_program = &accounts[4];
 
     verify_program_owned(script_account, program_id)?;
 
@@ -272,7 +290,16 @@ pub fn init_large_program(
     // without ever entering append_bytecode's completion fee branch.
     if chunk_len == expected_size {
         let final_size = ScriptAccountHeader::LEN + expected_size;
-        collect_deploy_fee(program_id, vm_state_account, accounts, owner, final_size)?;
+        collect_deploy_fee(
+            program_id,
+            vm_state_account,
+            owner,
+            fee_vault_account,
+            system_program,
+            0,
+            None,
+            final_size,
+        )?;
     }
 
     // SAFETY: `vm_state_account` is verified and uniquely borrowed for mutation.
@@ -308,7 +335,7 @@ pub fn append_bytecode(
     accounts: &[AccountInfo],
     chunk: &[u8],
 ) -> ProgramResult {
-    require_min_accounts(accounts, 3)?;
+    require_min_accounts(accounts, 5)?;
     if chunk.is_empty() {
         return Err(ProgramError::Custom(8201)); // Empty chunk
     }
@@ -316,6 +343,8 @@ pub fn append_bytecode(
     let script_account = &accounts[0];
     let owner = &accounts[1];
     let vm_state_account = &accounts[2];
+    let fee_vault_account = &accounts[3];
+    let system_program = &accounts[4];
 
     validate_vm_and_script_accounts(program_id, script_account, vm_state_account)?;
     require_signer(owner)?;
@@ -381,7 +410,16 @@ pub fn append_bytecode(
         // Collect deployment fee if configured
         {
             let final_size = ScriptAccountHeader::LEN + expected_size;
-            collect_deploy_fee(program_id, vm_state_account, accounts, owner, final_size)?;
+            collect_deploy_fee(
+                program_id,
+                vm_state_account,
+                owner,
+                fee_vault_account,
+                system_program,
+                0,
+                None,
+                final_size,
+            )?;
         }
 
         let mut final_header = ScriptAccountHeader::create_from_bytecode(
@@ -534,6 +572,8 @@ mod tests {
         let (vm_key, _vm_bump) = canonical_vm_key(&program_id);
         let owner_key = Pubkey::from([14u8; 32]);
         let system_owner = Pubkey::default();
+        let (fee_vault_key, fee_vault_bump) =
+            crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
 
         let bytecode = minimal_valid_bytecode();
         let mut script_data = vec![0u8; ScriptAccountHeader::LEN + bytecode.len()];
@@ -552,7 +592,11 @@ mod tests {
         let mut script_lamports = 1_000_000;
         let mut vm_lamports = 1_000_000;
         let mut owner_lamports = 1_000_000;
+        let mut fee_vault_lamports = 0;
+        let mut system_lamports = 1;
         let mut owner_data = [];
+        let mut fee_vault_data = [];
+        let mut system_data = [];
 
         let script_account = create_account_info(
             &script_key,
@@ -578,10 +622,26 @@ mod tests {
             &mut owner_data,
             &system_owner,
         );
+        let fee_vault = create_account_info(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program = create_account_info(
+            &system_owner,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_owner,
+        );
 
-        let accounts = [script_account, vm_account, owner];
+        let accounts = [script_account, vm_account, owner, fee_vault, system_program];
         assert_eq!(
-            deploy(&program_id, &accounts, &bytecode, &[], 0),
+            deploy(&program_id, &accounts, &bytecode, &[], 0, 0, Some(fee_vault_bump)),
             Err(ProgramError::Custom(7007))
         );
     }
@@ -593,6 +653,8 @@ mod tests {
         let (vm_key, _vm_bump) = canonical_vm_key(&program_id);
         let owner_key = Pubkey::from([34u8; 32]);
         let admin_key = Pubkey::from([35u8; 32]);
+        let (fee_vault_key, fee_vault_bump) =
+            crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
 
         let bytecode = minimal_valid_bytecode();
         let mut script_data = vec![0u8; ScriptAccountHeader::LEN + bytecode.len()];
@@ -612,8 +674,13 @@ mod tests {
         let mut vm_lamports = 1_000_000;
         let mut owner_lamports = 1_000;
         let mut admin_lamports = 500;
+        let mut fee_vault_lamports = 0;
+        let mut system_lamports = 1;
         let mut owner_data = [];
         let mut admin_data = [];
+        let mut fee_vault_data = [];
+        let mut system_data = [];
+        let system_owner = Pubkey::default();
 
         let script_account = create_account_info(
             &script_key,
@@ -647,13 +714,29 @@ mod tests {
             &mut admin_data,
             &program_id,
         );
+        let fee_vault = create_account_info(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program = create_account_info(
+            &system_owner,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_owner,
+        );
 
         let owner_before = owner.lamports();
         let admin_before = admin.lamports();
 
-        let accounts = [script_account, vm_account, owner, admin];
+        let accounts = [script_account, vm_account, owner, admin, fee_vault, system_program];
         assert_eq!(
-            deploy(&program_id, &accounts, &bytecode, &[], 0),
+            deploy(&program_id, &accounts, &bytecode, &[], 0, 0, Some(fee_vault_bump)),
             Err(ProgramError::Custom(7007))
         );
         assert_eq!(accounts[2].lamports(), owner_before);
@@ -667,6 +750,8 @@ mod tests {
         let owner_key = Pubkey::from([43u8; 32]);
         let (vm_key, _vm_bump) = canonical_vm_key(&program_id);
         let admin_key = Pubkey::from([45u8; 32]);
+        let (fee_vault_key, _fee_vault_bump) =
+            crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
 
         let bytecode = minimal_valid_bytecode();
         let expected_size = bytecode.len() as u32;
@@ -682,9 +767,12 @@ mod tests {
         let mut script_lamports = 1_000_000;
         let mut owner_lamports = 1_000;
         let mut vm_lamports = 1_000_000;
-        let mut admin_lamports = 100;
+        let mut fee_vault_lamports = 100;
+        let mut system_lamports = 1;
         let mut owner_data = [];
-        let mut admin_data = [];
+        let mut fee_vault_data = [];
+        let mut system_data = [];
+        let system_owner = Pubkey::default();
 
         let script_account = create_account_info(
             &script_key,
@@ -710,24 +798,32 @@ mod tests {
             &mut vm_data,
             &program_id,
         );
-        let admin = create_account_info(
-            &admin_key,
+        let fee_vault = create_account_info(
+            &fee_vault_key,
             false,
             true,
-            &mut admin_lamports,
-            &mut admin_data,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
             &program_id,
+        );
+        let system_program = create_account_info(
+            &system_owner,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_owner,
         );
 
         let owner_before = owner.lamports();
-        let admin_before = admin.lamports();
-        let accounts = [script_account, owner, vm_account, admin];
+        let vault_before = fee_vault.lamports();
+        let accounts = [script_account, owner, vm_account, fee_vault, system_program];
 
         assert_eq!(
             init_large_program(&program_id, &accounts, expected_size, Some(&bytecode)),
             Ok(())
         );
         assert_eq!(accounts[1].lamports(), owner_before - 25);
-        assert_eq!(accounts[3].lamports(), admin_before + 25);
+        assert_eq!(accounts[3].lamports(), vault_before + 25);
     }
 }

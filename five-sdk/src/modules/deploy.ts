@@ -21,34 +21,93 @@ interface ExportMetadataInput {
   interfaces?: ExportMetadataInterfaceInput[];
 }
 
+const FEE_VAULT_SHARD_COUNT = 10;
+
 async function resolveFeeRecipientAccount(
   connection: any,
   vmStateAddress: string,
   fallback?: string,
 ): Promise<{ feeRecipientAccount?: string; deployFeeLamports?: number }> {
   if (fallback) {
-    return { feeRecipientAccount: fallback };
+    return { feeRecipientAccount: vmStateAddress };
   }
   if (!connection) {
-    return {};
+    return { feeRecipientAccount: vmStateAddress };
   }
   try {
     const { PublicKey } = await import("@solana/web3.js");
     const info = await connection.getAccountInfo(new PublicKey(vmStateAddress), "confirmed");
     if (!info) {
-      return {};
+      return { feeRecipientAccount: vmStateAddress };
     }
     const data = new Uint8Array(info.data);
     if (data.length < 88) {
       return {};
     }
-    const feeRecipient = new PublicKey(data.slice(32, 64)).toBase58();
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
     const deployFeeLamports = view.getUint32(72, true);
-    return { feeRecipientAccount: feeRecipient, deployFeeLamports };
+    return { feeRecipientAccount: vmStateAddress, deployFeeLamports };
   } catch {
-    return {};
+    return { feeRecipientAccount: vmStateAddress };
   }
+}
+
+async function deriveProgramFeeVault(
+  programId: string,
+  shardIndex: number,
+): Promise<{ address: string; bump: number }> {
+  const { PublicKey } = await import("@solana/web3.js");
+  const [pda, bump] = PublicKey.findProgramAddressSync(
+    [Buffer.from("fee_vault"), Buffer.from([shardIndex])],
+    new PublicKey(programId),
+  );
+  return { address: pda.toBase58(), bump };
+}
+
+function createInitFeeVaultInstructionData(shardIndex: number, bump: number): Uint8Array {
+  return Uint8Array.from([11, shardIndex & 0xff, bump & 0xff]);
+}
+
+async function initProgramFeeVaultShards(
+  connection: any,
+  programId: string,
+  vmStateAccount: string,
+  payer: any,
+  options: { debug?: boolean; maxRetries?: number } = {},
+): Promise<string[]> {
+  const { PublicKey, Transaction, TransactionInstruction, SystemProgram } =
+    await import("@solana/web3.js");
+  const signatures: string[] = [];
+  for (let shardIndex = 0; shardIndex < FEE_VAULT_SHARD_COUNT; shardIndex++) {
+    const vault = await deriveProgramFeeVault(programId, shardIndex);
+    const tx = new Transaction().add(
+      new TransactionInstruction({
+        programId: new PublicKey(programId),
+        keys: [
+          { pubkey: new PublicKey(vmStateAccount), isSigner: false, isWritable: false },
+          { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+          { pubkey: new PublicKey(vault.address), isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        data: Buffer.from(createInitFeeVaultInstructionData(shardIndex, vault.bump)),
+      }),
+    );
+    const { blockhash } = await connection.getLatestBlockhash("confirmed");
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = payer.publicKey;
+    tx.partialSign(payer);
+    const sig = await connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: true,
+      preflightCommitment: "confirmed",
+      maxRetries: options.maxRetries || 3,
+    });
+    await connection.confirmTransaction(sig, "confirmed");
+    signatures.push(sig);
+    if (options.debug) {
+      console.log(`[FiveSDK] Initialized fee vault shard ${shardIndex}: ${vault.address}`);
+    }
+  }
+  return signatures;
 }
 
 export async function generateDeployInstruction(
@@ -110,33 +169,28 @@ export async function generateDeployInstruction(
     vmStatePDA,
     options.adminAccount,
   );
-  if (feeRecipientAccount && feeRecipientAccount === deployer) {
-    throw new Error(`Fee payer cannot equal fee recipient (${deployer}). Configure a distinct fee recipient account.`);
-  }
+  const deployShardIndex = 0;
+  const deployVault = await deriveProgramFeeVault(programId, deployShardIndex);
 
   const deployAccounts = [
     { pubkey: scriptAccount, isSigner: false, isWritable: true },
-    { pubkey: vmStatePDA, isSigner: false, isWritable: true },
+    { pubkey: vmStatePDA, isSigner: false, isWritable: false },
     { pubkey: deployer, isSigner: true, isWritable: true },
+    { pubkey: deployVault.address, isSigner: false, isWritable: true },
   ];
 
-  if ((deployFeeLamports || 0) > 0 && feeRecipientAccount) {
-    deployAccounts.push({
-      pubkey: feeRecipientAccount,
-      isSigner: false,
-      isWritable: true,
-    });
-    deployAccounts.push({
-      pubkey: "11111111111111111111111111111111",
-      isSigner: false,
-      isWritable: false,
-    });
-  }
+  deployAccounts.push({
+    pubkey: "11111111111111111111111111111111",
+    isSigner: false,
+    isWritable: false,
+  });
 
   const instructionData = encodeDeployInstruction(
     bytecode,
     options.permissions || 0,
     exportMetadata,
+    deployShardIndex,
+    deployVault.bump,
   );
 
   const result: SerializedDeployment = {
@@ -396,16 +450,21 @@ export async function deployToSolana(
       vmStatePubkey.toString(),
       options.adminAccount,
     );
-    if (
-      (feeResolution.deployFeeLamports || 0) > 0 &&
-      feeResolution.feeRecipientAccount === deployerKeypair.publicKey.toString()
-    ) {
-      return {
-        success: false,
-        error: `Fee payer cannot equal fee recipient (${deployerKeypair.publicKey.toString()})`,
-        logs: [],
-      };
-    }
+    void feeResolution;
+    const deployShardIndex = 0;
+    const deployVault = await deriveProgramFeeVault(programId, deployShardIndex);
+    const feeVaultKeys = [
+      {
+        pubkey: new PublicKey(deployVault.address),
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: SystemProgram.programId,
+        isSigner: false,
+        isWritable: false,
+      },
+    ];
     if (options.debug) {
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
       console.log(`[FiveSDK] VM State Account: ${vmStatePubkey.toString()}`);
@@ -439,7 +498,13 @@ export async function deployToSolana(
     });
     tx.add(createAccountIx);
 
-    const deployData = encodeDeployInstruction(bytecode, 0, exportMetadata);
+    const deployData = encodeDeployInstruction(
+      bytecode,
+      0,
+      exportMetadata,
+      deployShardIndex,
+      deployVault.bump,
+    );
 
     const instructionDataBuffer = Buffer.from(deployData);
 
@@ -453,27 +518,23 @@ export async function deployToSolana(
         {
           pubkey: vmStatePubkey,
           isSigner: false,
-          isWritable: true,
+          isWritable: false,
         },
         {
           pubkey: deployerKeypair.publicKey,
           isSigner: true,
           isWritable: true,
         },
-        ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
-          ? [
-              {
-                pubkey: new PublicKey(feeResolution.feeRecipientAccount),
-                isSigner: false,
-                isWritable: true,
-              },
-              {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-              },
-            ]
-          : [],
+        {
+          pubkey: new PublicKey(deployVault.address),
+          isSigner: false,
+          isWritable: true,
+        },
+        {
+          pubkey: SystemProgram.programId,
+          isSigner: false,
+          isWritable: false,
+        },
       ],
       programId: new PublicKey(programId),
       data: instructionDataBuffer,
@@ -535,6 +596,14 @@ export async function deployToSolana(
       console.log(`[FiveSDK] Combined deployment succeeded: ${signature}`);
     }
 
+    const feeVaultInitSigs = await initProgramFeeVaultShards(
+      connection,
+      programId,
+      vmStatePubkey.toString(),
+      deployerKeypair,
+      { debug: options.debug, maxRetries: options.maxRetries },
+    );
+
     return {
       success: true,
       programId: scriptAccount,
@@ -546,6 +615,7 @@ export async function deployToSolana(
         `Deployment cost (rent): ${rentLamports / 1e9} SOL`,
         `Bytecode size: ${bytecode.length} bytes`,
         `VM State Account: ${vmStatePubkey.toString()}`,
+        `Fee vault shards initialized: ${feeVaultInitSigs.length}`,
       ],
       vmStateAccount: vmStatePubkey.toString(),
     };
@@ -661,16 +731,21 @@ export async function deployLargeProgramToSolana(
       vmStatePubkey.toString(),
       options.adminAccount,
     );
-    if (
-      (feeResolution.deployFeeLamports || 0) > 0 &&
-      feeResolution.feeRecipientAccount === deployerKeypair.publicKey.toString()
-    ) {
-      return {
-        success: false,
-        error: `Fee payer cannot equal fee recipient (${deployerKeypair.publicKey.toString()})`,
-        logs: [],
-      };
-    }
+    void feeResolution;
+    const deployShardIndex = 0;
+    const deployVault = await deriveProgramFeeVault(programIdStr, deployShardIndex);
+    const feeVaultKeys = [
+      {
+        pubkey: new PublicKey(deployVault.address),
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: SystemProgram.programId,
+        isSigner: false,
+        isWritable: false,
+      },
+    ];
 
     if (options.debug) {
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
@@ -725,22 +800,9 @@ export async function deployLargeProgramToSolana(
         {
           pubkey: vmStatePubkey,
           isSigner: false,
-          isWritable: true,
+          isWritable: false,
         },
-        ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
-          ? [
-              {
-                pubkey: new PublicKey(feeResolution.feeRecipientAccount),
-                isSigner: false,
-                isWritable: true,
-              },
-              {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-              },
-            ]
-          : [],
+        ...feeVaultKeys,
       ],
       programId: programId,
       data: initInstructionData,
@@ -865,22 +927,9 @@ export async function deployLargeProgramToSolana(
           {
             pubkey: vmStatePubkey,
             isSigner: false,
-            isWritable: true,
+            isWritable: false,
           },
-          ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
-            ? [
-                {
-                  pubkey: new PublicKey(feeResolution.feeRecipientAccount),
-                  isSigner: false,
-                  isWritable: true,
-                },
-                {
-                  pubkey: SystemProgram.programId,
-                  isSigner: false,
-                  isWritable: false,
-                },
-              ]
-            : [],
+          ...feeVaultKeys,
         ],
         programId: programId,
         data: appendInstructionData,
@@ -928,6 +977,14 @@ export async function deployLargeProgramToSolana(
       );
     }
 
+    const feeVaultInitSigs = await initProgramFeeVaultShards(
+      connection,
+      programIdStr,
+      vmStatePubkey.toString(),
+      deployerKeypair,
+      { debug: options.debug, maxRetries: options.maxRetries },
+    );
+
     return {
       success: true,
       scriptAccount,
@@ -938,6 +995,7 @@ export async function deployLargeProgramToSolana(
       vmStateAccount: vmStatePubkey.toString(),
       logs: [
         `Deployed ${bytecode.length} bytes in ${chunks.length} chunks using ${transactionIds.length} transactions`,
+        `Fee vault shards initialized: ${feeVaultInitSigs.length}`,
       ],
     };
   } catch (error) {
@@ -1060,16 +1118,21 @@ export async function deployLargeProgramOptimizedToSolana(
       vmStatePubkey.toString(),
       options.adminAccount,
     );
-    if (
-      (feeResolution.deployFeeLamports || 0) > 0 &&
-      feeResolution.feeRecipientAccount === deployerKeypair.publicKey.toString()
-    ) {
-      return {
-        success: false,
-        error: `Fee payer cannot equal fee recipient (${deployerKeypair.publicKey.toString()})`,
-        logs: [],
-      };
-    }
+    void feeResolution;
+    const deployShardIndex = 0;
+    const deployVault = await deriveProgramFeeVault(programIdStr, deployShardIndex);
+    const feeVaultKeys = [
+      {
+        pubkey: new PublicKey(deployVault.address),
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: SystemProgram.programId,
+        isSigner: false,
+        isWritable: false,
+      },
+    ];
 
     if (options.debug) {
       console.log(`[FiveSDK] Script Account: ${scriptAccount}`);
@@ -1134,22 +1197,9 @@ export async function deployLargeProgramOptimizedToSolana(
         {
           pubkey: vmStatePubkey,
           isSigner: false,
-          isWritable: true,
+          isWritable: false,
         },
-        ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
-          ? [
-              {
-                pubkey: new PublicKey(feeResolution.feeRecipientAccount),
-                isSigner: false,
-                isWritable: true,
-              },
-              {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-              },
-            ]
-          : [],
+        ...feeVaultKeys,
       ],
       programId: programId,
       data: initInstructionData,
@@ -1255,20 +1305,7 @@ export async function deployLargeProgramOptimizedToSolana(
                 isSigner: false,
                 isWritable: true,
               },
-              ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
-                ? [
-                    {
-                      pubkey: new PublicKey(feeResolution.feeRecipientAccount),
-                      isSigner: false,
-                      isWritable: true,
-                    },
-                    {
-                      pubkey: SystemProgram.programId,
-                      isSigner: false,
-                      isWritable: false,
-                    },
-                  ]
-                : [],
+              ...feeVaultKeys,
             ],
             programId: programId,
             data: singleChunkData,
@@ -1295,20 +1332,7 @@ export async function deployLargeProgramOptimizedToSolana(
                 isSigner: false,
                 isWritable: true,
               },
-              ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
-                ? [
-                    {
-                      pubkey: new PublicKey(feeResolution.feeRecipientAccount),
-                      isSigner: false,
-                      isWritable: true,
-                    },
-                    {
-                      pubkey: SystemProgram.programId,
-                      isSigner: false,
-                      isWritable: false,
-                    },
-                  ]
-                : [],
+              ...feeVaultKeys,
             ],
             programId: programId,
             data: multiChunkData,
@@ -1378,20 +1402,7 @@ export async function deployLargeProgramOptimizedToSolana(
             isSigner: true,
             isWritable: true,
           },
-          ...(feeResolution.deployFeeLamports || 0) > 0 && feeResolution.feeRecipientAccount
-            ? [
-                {
-                  pubkey: new PublicKey(feeResolution.feeRecipientAccount),
-                  isSigner: false,
-                  isWritable: true,
-                },
-                {
-                  pubkey: SystemProgram.programId,
-                  isSigner: false,
-                  isWritable: false,
-                },
-              ]
-            : [],
+          ...feeVaultKeys,
         ],
         programId: programId,
         data: createFinalizeScriptInstructionData(),
@@ -1448,6 +1459,13 @@ export async function deployLargeProgramOptimizedToSolana(
         `[FiveSDK]   Estimated cost saved: ${estimatedCostSaved / 1e9} SOL`,
       );
     }
+    const feeVaultInitSigs = await initProgramFeeVaultShards(
+      connection,
+      programIdStr,
+      vmStatePubkey.toString(),
+      deployerKeypair,
+      { debug: options.debug, maxRetries: options.maxRetries },
+    );
 
     return {
       success: true,
@@ -1467,6 +1485,7 @@ export async function deployLargeProgramOptimizedToSolana(
         `💰 Cost: ${totalCost / 1e9} SOL`,
         `🧩 Chunks: ${chunks.length}`,
         `⚡ Optimization: ${Math.round((transactionsSaved / traditionalTransactionCount) * 100)}% fewer transactions`,
+        `🏦 Fee vault shards initialized: ${feeVaultInitSigs.length}`,
       ],
     };
   } catch (error: any) {
@@ -1487,19 +1506,29 @@ function encodeDeployInstruction(
   bytecode: FiveBytecode,
   permissions: number = 0,
   metadata: Uint8Array = new Uint8Array(),
+  feeShardIndex: number = 0,
+  feeVaultBump?: number,
 ): Uint8Array {
   const lengthBuffer = Buffer.allocUnsafe(4);
   lengthBuffer.writeUInt32LE(bytecode.length, 0);
   const metadataLenBuffer = Buffer.allocUnsafe(4);
   metadataLenBuffer.writeUInt32LE(metadata.length, 0);
 
-  const result = new Uint8Array(1 + 4 + 1 + 4 + metadata.length + bytecode.length);
+  const hasFeeTrailer = typeof feeVaultBump === "number";
+  const result = new Uint8Array(
+    1 + 4 + 1 + 4 + metadata.length + bytecode.length + (hasFeeTrailer ? 2 : 0),
+  );
   result[0] = 8; // Deploy discriminator (matches on-chain FIVE program)
   result.set(new Uint8Array(lengthBuffer), 1); // u32 LE length at bytes 1-4
   result[5] = permissions; // permissions byte at byte 5
   result.set(new Uint8Array(metadataLenBuffer), 6); // metadata length at bytes 6-9
   result.set(metadata, 10);
   result.set(bytecode, 10 + metadata.length);
+  if (hasFeeTrailer) {
+    const trailerOffset = 10 + metadata.length + bytecode.length;
+    result[trailerOffset] = feeShardIndex & 0xff;
+    result[trailerOffset + 1] = feeVaultBump! & 0xff;
+  }
 
   console.log(`[FiveSDK] Deploy instruction encoded:`, {
     discriminator: result[0],
@@ -1508,7 +1537,7 @@ function encodeDeployInstruction(
     metadataLength: metadata.length,
     bytecodeLength: bytecode.length,
     totalInstructionLength: result.length,
-    expectedFormat: `[8, ${bytecode.length}_as_u32le, 0x${permissions.toString(16).padStart(2, '0')}, ${metadata.length}_as_u32le, metadata_bytes, bytecode_bytes]`,
+    expectedFormat: `[8, ${bytecode.length}_as_u32le, 0x${permissions.toString(16).padStart(2, '0')}, ${metadata.length}_as_u32le, metadata_bytes, bytecode_bytes, optional(shard,bump)]`,
     instructionHex:
       Buffer.from(result).toString("hex").substring(0, 20) + "...",
   });
