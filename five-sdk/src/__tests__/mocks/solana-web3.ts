@@ -91,3 +91,7 @@ export class Connection {
     return { value: { err: null } };
   }
 }
+
+export const SystemProgram = {
+  programId: new PublicKey("11111111111111111111111111111111"),
+};

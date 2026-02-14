@@ -37,6 +37,7 @@ import * as VMState from "./modules/vm-state.js";
 import * as Accounts from "./modules/accounts.js";
 import * as StateDiff from "./modules/state-diff.js";
 import * as Namespaces from "./modules/namespaces.js";
+import * as Admin from "./modules/admin.js";
 
 /**
  * Main Five SDK class - entry point for all Five VM interactions
@@ -49,6 +50,17 @@ export class FiveSDK {
   private fiveVMProgramId?: string;
   private debug: boolean;
   private network?: string;
+
+  static admin = {
+    generateInitializeVmStateInstruction: Admin.generateInitializeVmStateInstruction,
+    generateSetFeesInstruction: Admin.generateSetFeesInstruction,
+    generateInitFeeVaultInstruction: Admin.generateInitFeeVaultInstruction,
+    generateWithdrawScriptFeesInstruction: Admin.generateWithdrawScriptFeesInstruction,
+    initializeVmStateOnSolana: Admin.initializeVmStateOnSolana,
+    setFeesOnSolana: Admin.setFeesOnSolana,
+    initFeeVaultOnSolana: Admin.initFeeVaultOnSolana,
+    withdrawScriptFeesOnSolana: Admin.withdrawScriptFeesOnSolana,
+  };
 
   constructor(config: FiveSDKConfig = {}) {
     // Store the config but resolve at call time
