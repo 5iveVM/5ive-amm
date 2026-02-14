@@ -11,6 +11,7 @@
 pub mod context;
 pub mod formatting;
 pub mod integration;
+pub mod recovery;
 pub mod registry;
 pub mod suggestions;
 pub mod templates;
