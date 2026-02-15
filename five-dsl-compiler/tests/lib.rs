@@ -239,6 +239,24 @@ fn test_else_if_chain_compiles() {
 }
 
 #[test]
+fn test_bitwise_operators_compile() {
+    let source = r#"
+        script bitwise_ops {
+            pub fn flags(a: u64, b: u64) -> u64 {
+                let anded = a & b;
+                let ored = a | b;
+                let xored = a ^ b;
+                let shifted = (anded << 2) >> 1;
+                return shifted | ored | xored;
+            }
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("bitwise operators should compile");
+    assert!(bytecode.starts_with(&five_protocol::FIVE_MAGIC));
+}
+
+#[test]
 fn test_dsl_bytecode_generator_simple_assignment() {
     let ast = AstNode::Assignment {
         target: "amount".to_string(),
@@ -1149,6 +1167,64 @@ fn test_account_field_sized_string_parses() {
     } else {
         panic!("expected Program node");
     }
+}
+
+#[test]
+fn test_nested_option_sized_string_type_parses() {
+    let source = r#"
+        script nested_sized_string {
+            pub fn f(name: Option<string<32>>) {}
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer
+        .tokenize()
+        .expect("Should tokenize nested sized string type");
+    let mut parser = DslParser::new(tokens);
+    let ast = parser
+        .parse()
+        .expect("Should parse nested sized string type");
+
+    if let AstNode::Program {
+        instruction_definitions,
+        ..
+    } = &ast
+    {
+        if let AstNode::InstructionDefinition { parameters, .. } = &instruction_definitions[0] {
+            match &parameters[0].param_type {
+                TypeNode::Generic { base, args } => {
+                    assert_eq!(base, "Option");
+                    assert_eq!(args.len(), 1);
+                    match &args[0] {
+                        TypeNode::Sized { base_type, size } => {
+                            assert_eq!(base_type, "string");
+                            assert_eq!(*size, 32);
+                        }
+                        other => panic!("expected Option<string<32>> inner type, got {:?}", other),
+                    }
+                }
+                other => panic!("expected Option generic parameter type, got {:?}", other),
+            }
+        } else {
+            panic!("expected InstructionDefinition");
+        }
+    } else {
+        panic!("expected Program node");
+    }
+}
+
+#[test]
+fn test_nested_option_sized_string_type_compiles() {
+    let source = r#"
+        script nested_sized_string_compile {
+            pub fn f(name: Option<string<32>>) {}
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source)
+        .expect("Option<string<32>> in parameter type should compile");
+    assert!(bytecode.starts_with(&five_protocol::FIVE_MAGIC));
 }
 
 #[test]

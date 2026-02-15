@@ -3,6 +3,25 @@ use crate::parser::DslParser;
 use crate::tokenizer::{Token};
 use five_vm_mito::error::VMError;
 
+fn parse_sized_suffix(parser: &mut DslParser, base_type: String) -> Result<TypeNode, VMError> {
+    parser.advance(); // consume '<'
+
+    let size = match &parser.current_token {
+        Token::NumberLiteral(n) => *n,
+        _ => return Err(parser.parse_error("size number literal in sized type")),
+    };
+    parser.advance();
+
+    // Nested generic closers can be tokenized as >> or >>>.
+    parser.split_generic_closer();
+    if !matches!(parser.current_token, Token::GT) {
+        return Err(parser.parse_error("'>' to end sized type"));
+    }
+    parser.advance(); // consume '>'
+
+    Ok(TypeNode::Sized { base_type, size })
+}
+
 pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
     let token = parser.current_token.clone();
     match &token {
@@ -127,20 +146,7 @@ pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
 
             // Check for sized types: string<32>
             if matches!(parser.current_token, Token::LT) {
-                parser.advance(); // consume '<'
-
-                let size = match &parser.current_token {
-                    Token::NumberLiteral(n) => *n,
-                    _ => return Err(parser.parse_error("size number literal in sized type")),
-                };
-                parser.advance();
-
-                if !matches!(parser.current_token, Token::GT) {
-                    return Err(parser.parse_error("'>' to end sized type"));
-                }
-                parser.advance(); // consume '>'
-
-                Ok(TypeNode::Sized { base_type, size })
+                parse_sized_suffix(parser, base_type)
             } else {
                 // Check for TypeScript-style arrays: pubkey[], string[], etc.
                 if matches!(parser.current_token, Token::LeftBracket) {
@@ -239,23 +245,7 @@ pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
 
             // Support sized built-ins like string<32> when built-ins are tokenized as identifiers.
             if matches!(parser.current_token, Token::LT) {
-                parser.advance(); // consume '<'
-
-                let size = match &parser.current_token {
-                    Token::NumberLiteral(n) => *n,
-                    _ => return Err(parser.parse_error("size number literal in sized type")),
-                };
-                parser.advance();
-
-                if !matches!(parser.current_token, Token::GT) {
-                    return Err(parser.parse_error("'>' to end sized type"));
-                }
-                parser.advance(); // consume '>'
-
-                Ok(TypeNode::Sized {
-                    base_type: type_name,
-                    size,
-                })
+                parse_sized_suffix(parser, type_name)
             } else if matches!(parser.current_token, Token::LeftBracket) {
                 // Support TypeScript-style arrays for identifier-tokenized built-ins: string[], u64[4], etc.
                 parser.advance(); // consume '['

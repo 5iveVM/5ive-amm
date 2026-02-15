@@ -220,6 +220,28 @@ impl TypeCheckerContext {
                         }
                         Ok(TypeNode::primitive(type_names::BOOL))
                     }
+                    "&" | "|" | "^" => {
+                        // Bitwise ops require integer-like numeric operands.
+                        if !left_type.is_numeric() || !right_type.is_numeric() {
+                            return Err(VMError::TypeMismatch);
+                        }
+                        if self.types_are_compatible(&left_type, &right_type) {
+                            Ok(left_type)
+                        } else if let Some(promoted) =
+                            Self::promote_numeric_types(&left_type, &right_type)
+                        {
+                            Ok(promoted)
+                        } else {
+                            Err(VMError::TypeMismatch)
+                        }
+                    }
+                    "<<" | ">>" | ">>>" | "<<<" => {
+                        // Shift/rotate require numeric operands and preserve lhs type.
+                        if !left_type.is_numeric() || !right_type.is_numeric() {
+                            return Err(VMError::TypeMismatch);
+                        }
+                        Ok(left_type)
+                    }
                     _ => Err(VMError::InvalidOperation),
                 }
             }
