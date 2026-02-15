@@ -23,6 +23,19 @@ pub struct AccountSystem {
 }
 
 impl AccountSystem {
+    fn vec_capacity_from_args(&self, args: &[TypeNode]) -> Result<u32, VMError> {
+        match args {
+            [_elem] => Ok(DEFAULT_ACCOUNT_VEC_CAPACITY),
+            [_elem, TypeNode::Sized { base_type, size }] if base_type == "__const" => {
+                if *size == 0 {
+                    return Err(VMError::TypeMismatch);
+                }
+                u32::try_from(*size).map_err(|_| VMError::TypeMismatch)
+            }
+            _ => Err(VMError::TypeMismatch),
+        }
+    }
+
     /// Create a new account system
     pub fn new() -> Self {
         Self::with_registry(AccountRegistry::new())
@@ -392,11 +405,15 @@ impl AccountSystem {
                     // reserve a 1-byte tag plus the inner payload width.
                     let inner_size = self.calculate_type_size(&args[0])?;
                     Ok(1 + inner_size)
-                } else if base == "Vec" && args.len() == 1 {
+                } else if base == "Vec" {
                     // Account vectors use fixed-capacity layout for deterministic offsets:
                     // [u32 length][capacity * element_size].
+                    if args.is_empty() {
+                        return Err(VMError::TypeMismatch);
+                    }
                     let element_size = self.calculate_type_size(&args[0])?;
-                    Ok(4 + element_size * DEFAULT_ACCOUNT_VEC_CAPACITY)
+                    let capacity = self.vec_capacity_from_args(args)?;
+                    Ok(4 + element_size * capacity)
                 } else {
                     Err(VMError::TypeMismatch)
                 }
@@ -424,7 +441,11 @@ impl AccountSystem {
                 }
             }
             TypeNode::Sized { base_type, size } => {
-                format!("{}<{}>", base_type, size)
+                if base_type == "__const" {
+                    size.to_string()
+                } else {
+                    format!("{}<{}>", base_type, size)
+                }
             }
             TypeNode::Account => "Account".to_string(),
             TypeNode::Named(name) => name.clone(),
@@ -610,6 +631,18 @@ mod tests {
             account_system.calculate_type_size(&vec_u64).unwrap(),
             4 + (8 * DEFAULT_ACCOUNT_VEC_CAPACITY)
         );
+
+        let vec_u64_64 = TypeNode::Generic {
+            base: "Vec".to_string(),
+            args: vec![
+                TypeNode::Primitive("u64".to_string()),
+                TypeNode::Sized {
+                    base_type: "__const".to_string(),
+                    size: 64,
+                },
+            ],
+        };
+        assert_eq!(account_system.calculate_type_size(&vec_u64_64).unwrap(), 4 + (8 * 64));
     }
 
     #[test]

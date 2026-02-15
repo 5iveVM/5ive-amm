@@ -32,7 +32,17 @@ fn parse_generic_args(parser: &mut DslParser) -> Result<Vec<TypeNode>, VMError> 
             break;
         }
 
-        args.push(parse_type(parser)?);
+        if let Token::NumberLiteral(n) = parser.current_token {
+            // Support const-like generic numeric args, e.g. Vec<u64, 64>.
+            // Encoded via a sentinel sized type consumed by specific generic handlers.
+            args.push(TypeNode::Sized {
+                base_type: "__const".to_string(),
+                size: n,
+            });
+            parser.advance();
+        } else {
+            args.push(parse_type(parser)?);
+        }
 
         if matches!(parser.current_token, Token::Comma) {
             parser.advance(); // consume ','

@@ -28,7 +28,11 @@ impl TypeCheckerContext {
                 format!("{}<{}>", base, inner.join(", "))
             }
             TypeNode::Sized { base_type, size } => {
-                format!("{}<{}>", base_type, size)
+                if base_type == "__const" {
+                    size.to_string()
+                } else {
+                    format!("{}<{}>", base_type, size)
+                }
             }
             _ => "<unknown>".to_string(),
         }
@@ -134,6 +138,9 @@ impl TypeCheckerContext {
                 if base == type_names::OPTION
                     || base == type_names::RESULT
                     || (base == "Vec" && args.len() == 1)
+                    || (base == "Vec"
+                        && args.len() == 2
+                        && matches!(args[1], TypeNode::Sized { ref base_type, .. } if base_type == "__const"))
                 {
                     args.iter().all(|arg| self.is_valid_type_node(arg))
                 } else {
@@ -148,7 +155,7 @@ impl TypeCheckerContext {
             TypeNode::Named(_) => true, // Named types validated against account definitions during compilation
             TypeNode::Sized { base_type, .. } => {
                 // Currently only string<N> is supported as a sized primitive
-                base_type == type_names::STRING
+                base_type == type_names::STRING || base_type == "__const"
             }
             TypeNode::Tuple { elements } => elements
                 .iter()

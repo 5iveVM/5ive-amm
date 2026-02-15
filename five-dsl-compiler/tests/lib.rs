@@ -1031,6 +1031,59 @@ fn test_identifier_generic_vec_type_parses() {
 }
 
 #[test]
+fn test_identifier_generic_vec_with_capacity_parses() {
+    let source = r#"
+        script test_vec_capacity_type {
+            init {
+                let recipients: Vec<pubkey, 64> = owner;
+            }
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer
+        .tokenize()
+        .expect("Should tokenize Vec<T, N> generic");
+    let mut parser = DslParser::new(tokens);
+    let ast = parser
+        .parse()
+        .expect("Should parse Vec<T, N> generic type");
+
+    if let AstNode::Program {
+        init_block: Some(init),
+        ..
+    } = &ast
+    {
+        if let AstNode::Block {
+            kind: BlockKind::Init,
+            statements,
+        } = init.as_ref()
+        {
+            if let AstNode::LetStatement {
+                type_annotation: Some(type_node),
+                ..
+            } = &statements[0]
+            {
+                if let TypeNode::Generic { base, args } = type_node.as_ref() {
+                    assert_eq!(base, "Vec");
+                    assert_eq!(args.len(), 2);
+                    assert!(matches!(args[0], TypeNode::Primitive(ref p) if p == "pubkey"));
+                    assert!(matches!(
+                        args[1],
+                        TypeNode::Sized {
+                            ref base_type,
+                            size: 64
+                        } if base_type == "__const"
+                    ));
+                } else {
+                    panic!("Expected Vec generic type, got {:?}", type_node);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn test_account_fixed_array_fields_compile() {
     let source = r#"
         account Vault {
@@ -1066,6 +1119,26 @@ fn test_account_vec_fields_compile() {
     assert!(
         result.is_ok(),
         "Vec<T> fields in accounts should compile: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_account_vec_fields_with_capacity_compile() {
+    let source = r#"
+        account Vault {
+            balances: Vec<u64, 64>,
+            owners: Vec<pubkey, 8>,
+        }
+
+        pub main() {
+        }
+    "#;
+
+    let result = DslCompiler::compile_dsl(source);
+    assert!(
+        result.is_ok(),
+        "Vec<T, N> fields in accounts should compile: {:?}",
         result
     );
 }
