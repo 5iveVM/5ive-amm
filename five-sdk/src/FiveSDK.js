@@ -2452,7 +2452,7 @@ export class FiveSDK {
                 preflightCommitment: "confirmed",
                 maxRetries: options.maxRetries || 3,
             });
-            await connection.confirmTransaction(initSignature, "confirmed");
+            await connection.confirmTransaction(initSignature, "finalized");
             transactionIds.push(initSignature);
             if (options.debug) {
                 console.log(`[FiveSDK] ✅ Initialization completed: ${initSignature}`);
@@ -2471,7 +2471,7 @@ export class FiveSDK {
                     console.log(`[FiveSDK] Step ${i + 2}: Appending chunk ${i + 1}/${chunks.length} (${chunk.length} bytes)`);
                 }
                 // Calculate additional rent needed for this chunk
-                const currentInfo = await connection.getAccountInfo(scriptKeypair.publicKey);
+                const currentInfo = await connection.getAccountInfo(scriptKeypair.publicKey, "finalized");
                 const newSize = currentInfo.data.length + chunk.length;
                 const newRentRequired = await connection.getMinimumBalanceForRentExemption(newSize);
                 const additionalRent = Math.max(0, newRentRequired - currentInfo.lamports);

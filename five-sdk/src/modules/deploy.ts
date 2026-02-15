@@ -828,7 +828,7 @@ export async function deployLargeProgramToSolana(
       },
     );
 
-    await connection.confirmTransaction(initSignature, "confirmed");
+    await connection.confirmTransaction(initSignature, "finalized");
     transactionIds.push(initSignature);
 
     if (options.debug) {
@@ -858,13 +858,17 @@ export async function deployLargeProgramToSolana(
       // Calculate additional rent needed for this chunk
       let currentInfo = await connection.getAccountInfo(
         scriptKeypair.publicKey,
+        "finalized",
       );
 
       // Retry logic for account info if null (eventual consistency)
       if (!currentInfo) {
         if (options.debug) console.log(`[FiveSDK] Account info null, retrying...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
-        currentInfo = await connection.getAccountInfo(scriptKeypair.publicKey);
+        currentInfo = await connection.getAccountInfo(
+          scriptKeypair.publicKey,
+          "finalized",
+        );
         if (!currentInfo) throw new Error("Script account not found after initialization");
       }
       const newSize = currentInfo.data.length + chunk.length;
