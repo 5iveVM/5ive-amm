@@ -22,6 +22,32 @@ fn parse_sized_suffix(parser: &mut DslParser, base_type: String) -> Result<TypeN
     Ok(TypeNode::Sized { base_type, size })
 }
 
+fn parse_generic_args(parser: &mut DslParser) -> Result<Vec<TypeNode>, VMError> {
+    parser.advance(); // consume '<'
+    let mut args = Vec::new();
+
+    loop {
+        parser.split_generic_closer();
+        if matches!(parser.current_token, Token::GT) || matches!(parser.current_token, Token::Eof) {
+            break;
+        }
+
+        args.push(parse_type(parser)?);
+
+        if matches!(parser.current_token, Token::Comma) {
+            parser.advance(); // consume ','
+        }
+    }
+
+    parser.split_generic_closer();
+    if !matches!(parser.current_token, Token::GT) {
+        return Err(parser.parse_error("'>' to end generic type"));
+    }
+    parser.advance(); // consume '>'
+
+    Ok(args)
+}
+
 pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
     let token = parser.current_token.clone();
     match &token {
@@ -189,30 +215,7 @@ pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
 
             // Check for generic arguments: <T, E>
             if matches!(parser.current_token, Token::LT) {
-                parser.advance(); // consume '<'
-                let mut args = Vec::new();
-
-                loop {
-                    parser.split_generic_closer();
-                    if matches!(parser.current_token, Token::GT)
-                        || matches!(parser.current_token, Token::Eof)
-                    {
-                        break;
-                    }
-
-                    args.push(parse_type(parser)?);
-
-                    if matches!(parser.current_token, Token::Comma) {
-                        parser.advance(); // consume ','
-                    }
-                }
-
-                parser.split_generic_closer();
-                if !matches!(parser.current_token, Token::GT) {
-                    return Err(parser.parse_error("'>' to end generic type"));
-                }
-                parser.advance(); // consume '>'
-
+                let args = parse_generic_args(parser)?;
                 Ok(TypeNode::Generic { base, args })
             } else {
                 Ok(TypeNode::Named(base))
@@ -296,6 +299,15 @@ pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
                 } else {
                     return Err(parser.parse_error("identifier after '::' in type name"));
                 }
+            }
+
+            // Check for generic type arguments: Type<T>, Vec<pubkey>, Foo::Bar<A, B>
+            if matches!(parser.current_token, Token::LT) {
+                let args = parse_generic_args(parser)?;
+                return Ok(TypeNode::Generic {
+                    base: type_name,
+                    args,
+                });
             }
 
             // Check for TypeScript-style arrays: Type[N]

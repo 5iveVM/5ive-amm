@@ -989,6 +989,68 @@ fn test_array_types_rust_and_ts_style() {
 }
 
 #[test]
+fn test_identifier_generic_vec_type_parses() {
+    let source = r#"
+        script test_vec_type {
+            init {
+                let recipients: Vec<pubkey> = owner;
+            }
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer.tokenize().expect("Should tokenize Vec generic");
+    let mut parser = DslParser::new(tokens);
+    let ast = parser.parse().expect("Should parse Vec generic type");
+
+    if let AstNode::Program {
+        init_block: Some(init),
+        ..
+    } = &ast
+    {
+        if let AstNode::Block {
+            kind: BlockKind::Init,
+            statements,
+        } = init.as_ref()
+        {
+            if let AstNode::LetStatement {
+                type_annotation: Some(type_node),
+                ..
+            } = &statements[0]
+            {
+                if let TypeNode::Generic { base, args } = type_node.as_ref() {
+                    assert_eq!(base, "Vec");
+                    assert_eq!(args.len(), 1);
+                    assert!(matches!(args[0], TypeNode::Primitive(ref p) if p == "pubkey"));
+                } else {
+                    panic!("Expected Vec generic type, got {:?}", type_node);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test_account_fixed_array_fields_compile() {
+    let source = r#"
+        account Vault {
+            balances: [u64; 4],
+            owners: [pubkey; 2],
+        }
+
+        pub main() {
+        }
+    "#;
+
+    let result = DslCompiler::compile_dsl(source);
+    assert!(
+        result.is_ok(),
+        "Fixed-size array fields in accounts should compile: {:?}",
+        result
+    );
+}
+
+#[test]
 fn test_field_definition_with_type_annotation() {
     let source = r#"
         script test_vault {
@@ -1224,6 +1286,21 @@ fn test_nested_option_sized_string_type_compiles() {
 
     let bytecode = DslCompiler::compile_dsl(source)
         .expect("Option<string<32>> in parameter type should compile");
+    assert!(bytecode.starts_with(&five_protocol::FIVE_MAGIC));
+}
+
+#[test]
+fn test_derive_pda_with_bump_typechecks_as_pubkey() {
+    let source = r#"
+        script derive_pda_bump_typed {
+            pub fn f() {
+                let k: pubkey = derive_pda("vault", 7 as u8);
+            }
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source)
+        .expect("derive_pda with explicit u8 bump should typecheck as pubkey");
     assert!(bytecode.starts_with(&five_protocol::FIVE_MAGIC));
 }
 

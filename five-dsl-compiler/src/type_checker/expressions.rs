@@ -485,8 +485,8 @@ impl TypeCheckerContext {
             "derive_pda" => {
                 // derive_pda supports multiple signatures:
                 // derive_pda(seed1, seed2, ...) -> (pubkey, u8) - Find PDA
-                // derive_pda(seed1, seed2, ..., bump) -> pubkey - Validate PDA with known bump
-                if args.len() < 2 {
+                // derive_pda(seed1, seed2, ..., bump: u8) -> pubkey - Validate PDA with known bump
+                if args.is_empty() {
                     return Err(VMError::InvalidOperation);
                 }
 
@@ -495,25 +495,12 @@ impl TypeCheckerContext {
                     self.infer_type(arg)?;
                 }
 
-                // Return type depends on whether bump is provided as last argument
-                // If last argument is u8 (bump), return single pubkey
-                // Otherwise return tuple (pubkey, u8)
-                if args.len() >= 3 {
-                    let last_arg_type = self.infer_type(&args[args.len() - 1])?;
-                    if matches!(last_arg_type, TypeNode::Primitive(ref name) if name == "u8") {
-                        // Bump provided, return single pubkey (validation mode)
-                        Ok(TypeNode::Primitive("pubkey".to_string()))
-                    } else {
-                        // No bump, return tuple (find mode)
-                        Ok(TypeNode::Tuple {
-                            elements: vec![
-                                TypeNode::Primitive("pubkey".to_string()),
-                                TypeNode::Primitive("u8".to_string()),
-                            ],
-                        })
-                    }
+                // Return type depends on whether bump is provided as last argument.
+                // If last argument is u8, use validation mode and return pubkey.
+                let last_arg_type = self.infer_type(&args[args.len() - 1])?;
+                if matches!(last_arg_type, TypeNode::Primitive(ref name) if name == "u8") {
+                    Ok(TypeNode::Primitive("pubkey".to_string()))
                 } else {
-                    // 2 arguments, return tuple (find mode)
                     Ok(TypeNode::Tuple {
                         elements: vec![
                             TypeNode::Primitive("pubkey".to_string()),

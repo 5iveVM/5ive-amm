@@ -353,7 +353,7 @@ fn golden_require_emitted() {
     }
 }
 
-/// Golden test: ensure derive_pda invocation emits DERIVE_PDA opcode and pushes seeds count
+/// Golden test: ensure derive_pda without explicit bump emits FIND_PDA and pushes seeds count
 #[test]
 fn golden_derive_pda_emitted() {
     let source = r#"
@@ -366,16 +366,16 @@ fn golden_derive_pda_emitted() {
 
     let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
 
-    // DERIVE_PDA should appear somewhere in the bytecode
-    let derive_positions = find_opcode_positions(&bytecode, opcodes::DERIVE_PDA);
+    // FIND_PDA should appear somewhere in the bytecode
+    let derive_positions = find_opcode_positions(&bytecode, opcodes::FIND_PDA);
     assert!(
         !derive_positions.is_empty(),
-        "Golden check failed: expected DERIVE_PDA opcode in bytecode. Bytecode prefix: {:?}",
+        "Golden check failed: expected FIND_PDA opcode in bytecode. Bytecode prefix: {:?}",
         &bytecode[..std::cmp::min(64, bytecode.len())]
     );
 
-    // Verify there's a PUSH_U8 (seeds count) preceding DERIVE_PDA in the instruction stream
-    // Find any PUSH_U8 before a DERIVE_PDA index (we expect at least one)
+    // Verify there's a PUSH_U8 (seeds count) preceding FIND_PDA in the instruction stream
+    // Find any PUSH_U8 before a FIND_PDA index (we expect at least one)
     let push_u8_positions = find_opcode_positions(&bytecode, opcodes::PUSH_U8);
     let found = derive_positions
         .iter()
@@ -383,7 +383,7 @@ fn golden_derive_pda_emitted() {
 
     assert!(
         found,
-        "Golden check failed: expected a PUSH_U8 (seeds count) before DERIVE_PDA. push_u8_positions={:?}, derive_positions={:?}",
+        "Golden check failed: expected a PUSH_U8 (seeds count) before FIND_PDA. push_u8_positions={:?}, derive_positions={:?}",
         push_u8_positions,
         derive_positions
     );

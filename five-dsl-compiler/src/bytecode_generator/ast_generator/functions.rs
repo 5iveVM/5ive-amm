@@ -268,8 +268,14 @@ impl ASTGenerator {
                 ];
                 emitter.emit_const_pubkey(&five_vm_program_id)?;
 
-                // Invoke PDA derivation (handler pops: program_id, seeds_count, then each seed)
-                emitter.emit_opcode(DERIVE_PDA);
+                // Invoke PDA operation (handler pops: program_id, seeds_count, then each seed)
+                // - validation mode (explicit bump): DERIVE_PDA
+                // - find mode (no bump): FIND_PDA
+                if returns_pubkey_only {
+                    emitter.emit_opcode(DERIVE_PDA);
+                } else {
+                    emitter.emit_opcode(FIND_PDA);
+                }
 
                 // DERIVE_PDA currently returns a tuple (pubkey, bump).
                 // In validation mode we expose only the pubkey to match language typing.

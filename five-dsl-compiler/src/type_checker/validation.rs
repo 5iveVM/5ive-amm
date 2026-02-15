@@ -130,8 +130,11 @@ impl TypeCheckerContext {
                     | type_names::LAMPORTS
             ),
             TypeNode::Generic { base, args } => {
-                // Allow Result, Option generics
-                if base == type_names::OPTION || base == type_names::RESULT {
+                // Allow core generics used by DSL and account models.
+                if base == type_names::OPTION
+                    || base == type_names::RESULT
+                    || (base == "Vec" && args.len() == 1)
+                {
                     args.iter().all(|arg| self.is_valid_type_node(arg))
                 } else {
                     false
