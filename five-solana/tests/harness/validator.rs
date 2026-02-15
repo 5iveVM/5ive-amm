@@ -191,6 +191,27 @@ impl Network {
     }
 }
 
+fn cu_fee_bypass_enabled() -> bool {
+    matches!(
+        std::env::var("FIVE_CU_BYPASS_FEES")
+            .ok()
+            .map(|v| v.to_ascii_lowercase()),
+        Some(v) if v == "1" || v == "true" || v == "yes" || v == "on"
+    )
+}
+
+fn cu_fee_shard_index() -> u8 {
+    if cu_fee_bypass_enabled() {
+        assert!(
+            cfg!(feature = "cu-bypass-fees"),
+            "FIVE_CU_BYPASS_FEES=1 requires cargo feature `cu-bypass-fees`"
+        );
+        five::instructions::fees::FEE_BYPASS_SHARD_INDEX
+    } else {
+        0
+    }
+}
+
 pub struct ValidatorHarness {
     pub rpc: RpcClient,
     pub network: Network,
@@ -581,10 +602,16 @@ pub fn build_deploy_instruction(
     permissions: u8,
     metadata: &[u8],
 ) -> Instruction {
+    let fee_shard_index = cu_fee_shard_index();
     let (fee_vault_pubkey, fee_vault_bump) = Pubkey::find_program_address(
         &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
         &program_id,
     );
+    let encoded_bump = if fee_shard_index == five::instructions::fees::FEE_BYPASS_SHARD_INDEX {
+        0
+    } else {
+        fee_vault_bump
+    };
     let mut data = Vec::with_capacity(10 + metadata.len() + bytecode.len());
     data.push(DEPLOY_INSTRUCTION);
     data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
@@ -592,8 +619,8 @@ pub fn build_deploy_instruction(
     data.extend_from_slice(&(metadata.len() as u32).to_le_bytes());
     data.extend_from_slice(metadata);
     data.extend_from_slice(bytecode);
-    data.push(0u8);
-    data.push(fee_vault_bump);
+    data.push(fee_shard_index);
+    data.push(encoded_bump);
 
     Instruction {
         program_id,
@@ -822,16 +849,22 @@ pub fn build_execute_instruction_with_extras(
     extras: &[String],
     payload: Vec<u8>,
 ) -> Instruction {
+    let fee_shard_index = cu_fee_shard_index();
     let (fee_vault_pubkey, fee_vault_bump) = Pubkey::find_program_address(
         &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
         &program_id,
     );
+    let encoded_bump = if fee_shard_index == five::instructions::fees::FEE_BYPASS_SHARD_INDEX {
+        0
+    } else {
+        fee_vault_bump
+    };
     let mut data = Vec::with_capacity(1 + payload.len());
     data.push(EXECUTE_INSTRUCTION);
     data.push(0xff);
     data.push(0x53);
-    data.push(0u8);
-    data.push(fee_vault_bump);
+    data.push(fee_shard_index);
+    data.push(encoded_bump);
     data.extend_from_slice(&payload);
 
     let mut metas = vec![
@@ -1083,7 +1116,11 @@ pub fn run_fixture_scenario(
         existing.pubkey = fee_vault;
     }
     if let Some(fees) = &fixture.vm_fees {
-        h.set_vm_fees(vm_state, fees.deploy_fee_lamports, fees.execute_fee_lamports)?;
+        if cu_fee_bypass_enabled() {
+            h.set_vm_fees(vm_state, 0, 0)?;
+        } else {
+            h.set_vm_fees(vm_state, fees.deploy_fee_lamports, fees.execute_fee_lamports)?;
+        }
     } else {
         h.set_vm_fees(vm_state, 0, 0)?;
     }

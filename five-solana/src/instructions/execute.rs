@@ -4,7 +4,7 @@ use pinocchio::{
 
 use crate::{
     common::{
-        has_permission, verify_canonical_vm_state_account, verify_fee_vault_account,
+        has_permission, verify_hardcoded_vm_state_account, verify_hardcoded_fee_vault_account,
         verify_program_owned, PERMISSION_POST_BYTECODE,
     },
     error,
@@ -17,15 +17,15 @@ use five_vm_mito::VMError;
 use five_vm_mito::error::VMErrorCode;
 
 use super::{
-    fees::transfer_fee,
+    fees::{should_bypass_fee_path, transfer_fee},
     require_min_accounts,
 };
 
-fn decode_execute_payload<'a>(payload: &'a [u8]) -> (u8, Option<u8>, &'a [u8]) {
-    if payload.len() >= 4 && payload[0] == 0xFF && payload[1] == 0x53 {
-        (payload[2], Some(payload[3]), &payload[4..])
+fn decode_execute_payload<'a>(payload: &'a [u8]) -> (u8, &'a [u8]) {
+    if payload.len() >= 3 && payload[0] == 0xFF && payload[1] == 0x53 {
+        (payload[2], &payload[3..])
     } else {
-        (0, None, payload)
+        (0, payload)
     }
 }
 
@@ -37,7 +37,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let vm_state_account = &accounts[1];
 
     verify_program_owned(script_account, program_id)?;
-    verify_canonical_vm_state_account(vm_state_account, program_id)?;
+    verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
 
     // SAFETY: state account was verified program-owned and read-only here.
@@ -47,31 +47,32 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         return Err(error::program_not_initialized_error());
     }
     let fee = vm_state.execute_fee_lamports as u64;
-    let (fee_shard_index, fee_vault_bump, vm_params) = decode_execute_payload(params);
-    if fee_shard_index >= vm_state.fee_vault_shard_count() {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-    let last = accounts.len() - 1;
-    let fee_vault = &accounts[last - 1];
-    let payer = &accounts[last - 2];
-    let system_program = &accounts[last];
+    let (fee_shard_index, vm_params) = decode_execute_payload(params);
+    if !should_bypass_fee_path(fee_shard_index) {
+        if fee_shard_index >= vm_state.fee_vault_shard_count() {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        let last = accounts.len() - 1;
+        let fee_vault = &accounts[last - 1];
+        let payer = &accounts[last - 2];
+        let system_program = &accounts[last];
 
-    verify_fee_vault_account(
-        fee_vault,
-        program_id,
-        fee_shard_index,
-        fee_vault_bump,
-    )?;
-    if system_program.key().as_ref() != &[0u8; 32] {
-        return Err(ProgramError::InvalidArgument);
+        verify_hardcoded_fee_vault_account(
+            fee_vault,
+            program_id,
+            fee_shard_index,
+        )?;
+        if system_program.key().as_ref() != &[0u8; 32] {
+            return Err(ProgramError::InvalidArgument);
+        }
+        if !payer.is_signer() || !payer.is_writable() {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+        if !fee_vault.is_writable() {
+            return Err(ProgramError::InvalidArgument);
+        }
+        transfer_fee(program_id, payer, fee_vault, fee, Some(system_program))?;
     }
-    if !payer.is_signer() || !payer.is_writable() {
-        return Err(ProgramError::MissingRequiredSignature);
-    }
-    if !fee_vault.is_writable() {
-        return Err(ProgramError::InvalidArgument);
-    }
-    transfer_fee(program_id, payer, fee_vault, fee, Some(system_program))?;
     // VM sees [vm_state, ...remaining execution accounts].
     let vm_accounts = &accounts[1..];
 

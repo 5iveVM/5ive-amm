@@ -29,6 +29,9 @@ pub mod instructions;
 pub mod state;
 pub mod upgrade;
 
+#[cfg(all(feature = "production", feature = "cu-bypass-fees"))]
+compile_error!("feature `cu-bypass-fees` must never be enabled with `production`");
+
 use instructions::FIVEInstruction;
 
 const MAX_ACCOUNTS: usize = (u8::MAX - 1) as usize;
@@ -140,7 +143,6 @@ fn process_administrative_instruction(
             metadata,
             permissions,
             fee_shard_index,
-            fee_vault_bump,
         } => {
             debug_log!(
                 "Processing Deploy instruction with {} bytes of bytecode, permissions: 0x{}",
@@ -154,7 +156,6 @@ fn process_administrative_instruction(
                 metadata,
                 permissions,
                 fee_shard_index,
-                fee_vault_bump,
             )
         }
         FIVEInstruction::Execute { .. } => {

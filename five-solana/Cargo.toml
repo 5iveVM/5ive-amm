@@ -48,6 +48,8 @@ default = []
 debug-logs = ["pinocchio-log", "five-vm-mito/debug-logs", "five-vm-mito/trace-execution"]
 # Use test-sbf feature when running tests
 test-sbf = []
+# Runtime fee-path bypass for CU attribution (bench/testing only).
+cu-bypass-fees = []
 # Production builds with minimal dependencies
 production = ["five-vm-mito/unchecked-execution"]
 

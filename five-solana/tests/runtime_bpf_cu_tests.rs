@@ -225,6 +225,27 @@ impl CuMode {
     }
 }
 
+fn cu_fee_bypass_enabled() -> bool {
+    matches!(
+        std::env::var("FIVE_CU_BYPASS_FEES")
+            .ok()
+            .map(|v| v.to_ascii_lowercase()),
+        Some(v) if v == "1" || v == "true" || v == "yes" || v == "on"
+    )
+}
+
+fn cu_fee_shard_index() -> u8 {
+    if cu_fee_bypass_enabled() {
+        assert!(
+            cfg!(feature = "cu-bypass-fees"),
+            "FIVE_CU_BYPASS_FEES=1 requires cargo feature `cu-bypass-fees`"
+        );
+        five::instructions::fees::FEE_BYPASS_SHARD_INDEX
+    } else {
+        0
+    }
+}
+
 const TOKEN_ALL_PUBLIC_CALLS: [&str; 14] = [
     "mint_to(mint_account, user1_token, user1, 1000);",
     "mint_to(mint_account, user2_token, user1, 500);",
@@ -2100,7 +2121,7 @@ async fn run_fixture_bpf_compute_units(
         .as_ref()
         .map(|fees| fees.execute_fee_lamports)
         .unwrap_or(0);
-    let execute_fee_lamports = if cu_mode == CuMode::Micro {
+    let execute_fee_lamports = if cu_mode == CuMode::Micro || cu_fee_bypass_enabled() {
         0
     } else if configured_execute_fee > 0 {
         configured_execute_fee
@@ -2305,6 +2326,16 @@ async fn run_fixture_bpf_compute_units(
         let deploy_signers = collect_signers(&accounts, &[fixture.authority.name.as_str()]);
         let deploy_result =
             simulate_and_process(&mut ctx, vec![deploy_ix], deploy_signers, Some(1_400_000)).await;
+        if cu_fee_bypass_enabled() && !deploy_result.success {
+            if let Some(err) = &deploy_result.error {
+                if err.contains("invalid instruction data") {
+                    panic!(
+                        "deploy failed with invalid instruction data while FIVE_CU_BYPASS_FEES=1; \
+rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so)"
+                    );
+                }
+            }
+        }
         assert!(deploy_result.success, "deploy failed: {:?}", deploy_result.error);
         println!("BPF_CU deploy={}", deploy_result.units_consumed);
         total_units = deploy_result.units_consumed;
@@ -3658,6 +3689,12 @@ fn build_deploy_instruction_with_metadata(
         .map(|a| a.pubkey)
         .unwrap_or(default_fee_vault);
     let fee_vault_bump = default_fee_vault_bump;
+    let fee_shard_index = cu_fee_shard_index();
+    let encoded_bump = if fee_shard_index == five::instructions::fees::FEE_BYPASS_SHARD_INDEX {
+        0
+    } else {
+        fee_vault_bump
+    };
 
     let mut data = Vec::with_capacity(12 + metadata.len() + bytecode.len());
     data.push(DEPLOY_INSTRUCTION);
@@ -3666,8 +3703,8 @@ fn build_deploy_instruction_with_metadata(
     data.extend_from_slice(&(metadata.len() as u32).to_le_bytes());
     data.extend_from_slice(metadata);
     data.extend_from_slice(bytecode);
-    data.push(0); // fee shard index
-    data.push(fee_vault_bump);
+    data.push(fee_shard_index);
+    data.push(encoded_bump);
 
     let mut account_metas = vec![
         AccountMeta::new(accounts[script_name].pubkey, false),
@@ -3793,9 +3830,15 @@ fn build_execute_instruction(
         .map(|a| a.pubkey)
         .unwrap_or(default_fee_vault);
 
+    let fee_shard_index = cu_fee_shard_index();
+    let encoded_bump = if fee_shard_index == five::instructions::fees::FEE_BYPASS_SHARD_INDEX {
+        0
+    } else {
+        default_fee_vault_bump
+    };
     let mut data = Vec::with_capacity(5 + payload.len());
     data.push(EXECUTE_INSTRUCTION);
-    data.extend_from_slice(&[0xFF, 0x53, 0, default_fee_vault_bump]); // shard=0 + canonical bump
+    data.extend_from_slice(&[0xFF, 0x53, fee_shard_index, encoded_bump]);
     data.extend_from_slice(&payload);
 
     let mut metas = vec![
@@ -3852,9 +3895,15 @@ fn build_execute_instruction_with_extras(
         .map(|a| a.pubkey)
         .unwrap_or(default_fee_vault);
 
+    let fee_shard_index = cu_fee_shard_index();
+    let encoded_bump = if fee_shard_index == five::instructions::fees::FEE_BYPASS_SHARD_INDEX {
+        0
+    } else {
+        default_fee_vault_bump
+    };
     let mut data = Vec::with_capacity(5 + payload.len());
     data.push(EXECUTE_INSTRUCTION);
-    data.extend_from_slice(&[0xFF, 0x53, 0, default_fee_vault_bump]); // shard=0 + canonical bump
+    data.extend_from_slice(&[0xFF, 0x53, fee_shard_index, encoded_bump]);
     data.extend_from_slice(&payload);
 
     let mut metas = vec![

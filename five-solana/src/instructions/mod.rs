@@ -74,9 +74,8 @@ pub enum FIVEInstruction<'a> {
         metadata: &'a [u8],
         permissions: u8,
         fee_shard_index: u8,
-        fee_vault_bump: Option<u8>,
     },
-    Execute { params: &'a [u8], fee_shard_index: u8, fee_vault_bump: Option<u8> },
+    Execute { params: &'a [u8], fee_shard_index: u8 },
     FinalizeScript,
 }
 
@@ -154,31 +153,28 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 }
                 let metadata_start = crate::instructions::deploy::MIN_DEPLOY_LEN;
                 let metadata_end = metadata_start + metadata_len;
-                let (fee_shard_index, fee_vault_bump) = if data.len() >= total_len + 2 {
-                    (data[total_len], Some(data[total_len + 1]))
+                let fee_shard_index = if data.len() >= total_len + 1 {
+                    data[total_len]
                 } else {
-                    (0u8, None)
+                    0u8
                 };
                 Ok(FIVEInstruction::Deploy {
                     metadata: &data[metadata_start..metadata_end],
                     bytecode: &data[metadata_end..total_len],
                     permissions,
                     fee_shard_index,
-                    fee_vault_bump,
                 })
             }
             EXECUTE_INSTRUCTION => {
-                if data.len() >= 5 && data[1] == 0xFF && data[2] == 0x53 {
+                if data.len() >= 4 && data[1] == 0xFF && data[2] == 0x53 {
                     Ok(FIVEInstruction::Execute {
                         fee_shard_index: data[3],
-                        fee_vault_bump: Some(data[4]),
-                        params: &data[5..],
+                        params: &data[4..],
                     })
                 } else {
                     Ok(FIVEInstruction::Execute {
                         params: &data[1..],
                         fee_shard_index: 0,
-                        fee_vault_bump: None,
                     })
                 }
             }

@@ -317,9 +317,12 @@ Repository tests also use comment-based param conventions (`// @test-params ...`
 Canonical test discovery behavior:
 1. `5ive test` discovers both `.v` test sources and `.test.json` suites.
 2. For `.v` tests, prefer `pub test_*` function naming.
-3. Use `// @test-params <arg1> <arg2> ... <expected>` for deterministic input/expected conventions.
-4. Default scaffolded path is `tests/main.test.v`.
-5. Useful selectors: `5ive test --filter "<pattern>"`, `5ive test --watch`.
+3. Use `// @test-params ...` in either space-separated or JSON-array form.
+4. For non-void `.v` tests, the last `@test-params` value is treated as expected result.
+5. Default scaffolded path is `tests/main.test.v`.
+6. Useful selectors: `5ive test --filter "<pattern>"`, `5ive test --watch`.
+7. Use companion fixture files (e.g. `tests/main.test.json`) for stateful/on-chain account setup.
+8. On-chain test guardrail: mainnet requires `--allow-mainnet-tests --max-cost-sol <N>`.
 
 ### 4.12 Blockchain-oriented built-ins
 Core built-ins available in all contracts:

@@ -82,13 +82,17 @@ Default scaling standards:
 Canonical expectations:
 1. `5ive test` discovers `.v` tests and `.test.json` suites.
 2. Prefer `pub test_*` function naming in `.v` tests.
-3. Use `// @test-params <arg...> <expected>` where deterministic outputs are expected.
+3. Use `// @test-params ...` (space-separated or JSON array). For non-void tests, last value is expected result.
 4. Common scaffold path: `tests/main.test.v`.
+5. For stateful on-chain tests, use companion fixture files such as `tests/main.test.json`.
 
 Useful commands:
 1. `5ive test --filter "test_*" --verbose`
 2. `5ive test --watch`
 3. `5ive test --sdk-runner`
+4. `5ive test --on-chain --target local`
+5. `5ive test --on-chain --target devnet`
+6. `5ive test --on-chain --target mainnet --allow-mainnet-tests --max-cost-sol <N>`
 
 ## 9) Program ID/Target Resolution
 

@@ -7,7 +7,7 @@ use pinocchio::{
 use crate::{
     common::{
         validate_vm_and_script_accounts, verify_program_owned, validate_permissions,
-        verify_admin_signer, verify_canonical_vm_state_account,
+        verify_admin_signer,
     },
     error::program_already_initialized_error,
     state::{FIVEVMState, ScriptAccountHeader},
@@ -135,7 +135,6 @@ pub fn deploy(
     metadata: &[u8],
     permissions: u8,
     fee_shard_index: u8,
-    fee_vault_bump: Option<u8>,
 ) -> ProgramResult {
 
     // Validate permissions bitmask
@@ -209,7 +208,6 @@ pub fn deploy(
         fee_vault_account,
         system_program,
         fee_shard_index,
-        fee_vault_bump,
         vm_state.deploy_fee_lamports as u64,
         vm_state.fee_vault_shard_count(),
     )?;
@@ -263,7 +261,7 @@ pub fn init_large_program(
     verify_program_owned(script_account, program_id)?;
 
     // Verify VM state is owned by this program and initialized
-    verify_canonical_vm_state_account(vm_state_account, program_id)?;
+    crate::common::verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
     let data = unsafe { vm_state_account.borrow_data_unchecked() };
     let state = FIVEVMState::from_account_data(data)?;
@@ -307,7 +305,6 @@ pub fn init_large_program(
             fee_vault_account,
             system_program,
             0,
-            None,
             final_size,
         )?;
     }
@@ -427,7 +424,6 @@ pub fn append_bytecode(
                 fee_vault_account,
                 system_program,
                 0,
-                None,
                 final_size,
             )?;
         }
@@ -579,7 +575,7 @@ mod tests {
     fn deploy_rejects_overwrite_of_existing_script() {
         let program_id = Pubkey::from([11u8; 32]);
         let script_key = Pubkey::from([12u8; 32]);
-        let (vm_key, _vm_bump) = canonical_vm_key(&program_id);
+        let (vm_key, vm_bump) = canonical_vm_key(&program_id);
         let owner_key = Pubkey::from([14u8; 32]);
         let system_owner = Pubkey::default();
         let (fee_vault_key, fee_vault_bump) =
@@ -595,7 +591,7 @@ mod tests {
         let mut vm_data = [0u8; FIVEVMState::LEN];
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(owner_key, 0);
+            vm_state.initialize(owner_key, vm_bump);
             vm_state.deploy_fee_lamports = 0;
         }
 
@@ -651,7 +647,7 @@ mod tests {
 
         let accounts = [script_account, vm_account, owner, fee_vault, system_program];
         assert_eq!(
-            deploy(&program_id, &accounts, &bytecode, &[], 0, 0, Some(fee_vault_bump)),
+            deploy(&program_id, &accounts, &bytecode, &[], 0, 0),
             Err(ProgramError::Custom(7007))
         );
     }
@@ -660,7 +656,7 @@ mod tests {
     fn deploy_does_not_charge_fee_on_failed_overwrite() {
         let program_id = Pubkey::from([31u8; 32]);
         let script_key = Pubkey::from([32u8; 32]);
-        let (vm_key, _vm_bump) = canonical_vm_key(&program_id);
+        let (vm_key, vm_bump) = canonical_vm_key(&program_id);
         let owner_key = Pubkey::from([34u8; 32]);
         let admin_key = Pubkey::from([35u8; 32]);
         let (fee_vault_key, fee_vault_bump) =
@@ -676,7 +672,7 @@ mod tests {
         let mut vm_data = [0u8; FIVEVMState::LEN];
         {
             let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(admin_key, 0);
+            vm_state.initialize(admin_key, vm_bump);
             vm_state.deploy_fee_lamports = 10;
         }
 
@@ -746,7 +742,7 @@ mod tests {
 
         let accounts = [script_account, vm_account, owner, admin, fee_vault, system_program];
         assert_eq!(
-            deploy(&program_id, &accounts, &bytecode, &[], 0, 0, Some(fee_vault_bump)),
+            deploy(&program_id, &accounts, &bytecode, &[], 0, 0),
             Err(ProgramError::Custom(7007))
         );
         assert_eq!(accounts[2].lamports(), owner_before);

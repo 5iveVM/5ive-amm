@@ -10,6 +10,45 @@ pub const VM_STATE_SEED: &[u8] = b"vm_state";
 // This namespace is blocked from VM bytecode PDA creation paths.
 pub const FEE_VAULT_SEED: &[u8] = b"\xFFfive_vm_fee_vault_v1";
 
+// ============================================================================
+// Hardcoded Fee Vault and VM State PDA Constants (Optimization)
+// ============================================================================
+// These addresses are derived for program ID: 3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1
+// Using seeds: [FEE_VAULT_SEED, &[shard_index], &[bump]]
+// To regenerate for a different program ID, run:
+//   cargo test --lib generate_hardcoded_pdas -- --nocapture
+// and copy the output below.
+
+// Fee Vault Shard 0
+pub const HARDCODED_FEE_VAULT_0: [u8; 32] = [
+    0x52, 0xac, 0xd5, 0x65, 0xd4, 0xe6, 0x8f, 0x8c,
+    0xad, 0xbb, 0xe6, 0x10, 0x66, 0xf8, 0x17, 0x7c,
+    0x1d, 0xeb, 0x43, 0x63, 0x14, 0x4b, 0x45, 0x29,
+    0xf1, 0xc0, 0xf9, 0xca, 0xbe, 0xeb, 0x9c, 0x09,
+];
+pub const HARDCODED_FEE_VAULT_0_BUMP: u8 = 255;
+
+// Fee Vault Shard 1
+pub const HARDCODED_FEE_VAULT_1: [u8; 32] = [
+    0x84, 0xba, 0xcc, 0x14, 0x22, 0x22, 0x2a, 0x1d,
+    0x85, 0x5f, 0xa6, 0xff, 0x9f, 0x45, 0x81, 0x44,
+    0x49, 0x56, 0xb1, 0x97, 0xc6, 0x73, 0x5f, 0xfb,
+    0x2b, 0x96, 0x4c, 0xc8, 0xd7, 0x6c, 0x30, 0x15,
+];
+pub const HARDCODED_FEE_VAULT_1_BUMP: u8 = 255;
+
+
+// Canonical VM State PDA
+pub const HARDCODED_VM_STATE_PDA: [u8; 32] = [
+    0x5f, 0x35, 0x23, 0x14, 0x05, 0x93, 0xba, 0xb7,
+    0x8a, 0x7b, 0xc1, 0x93, 0x95, 0xc4, 0x13, 0x94,
+    0xeb, 0x88, 0x78, 0x86, 0xd0, 0xd2, 0x07, 0x8c,
+    0x12, 0x1c, 0x69, 0x63, 0xf3, 0x69, 0x3a, 0x59,
+];
+pub const HARDCODED_VM_STATE_BUMP: u8 = 255;
+
+pub const HARDCODED_FEE_VAULT_COUNT: u8 = 2;
+
 #[cfg(not(target_os = "solana"))]
 pub fn derive_canonical_vm_state_pda(program_id: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
     let mut pid = [0u8; 32];
@@ -178,9 +217,76 @@ mod tests {
     }
 
     #[test]
+    fn generate_hardcoded_pdas() {
+        // This test generates the hardcoded PDA values for program ID: 3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1
+        // Run with: cargo test --lib generate_hardcoded_pdas -- --nocapture
+        // Copy the output below into the HARDCODED_* constants
+
+        let program_id = Pubkey::from([
+            0x2f, 0xb1, 0xf4, 0x4e, 0xea, 0xd0, 0x75, 0xf6,
+            0x64, 0x5f, 0x89, 0xbb, 0xa2, 0x8c, 0xf5, 0x66,
+            0x91, 0x91, 0xdf, 0x5d, 0xc6, 0xd9, 0x2e, 0xde,
+            0xea, 0x76, 0x61, 0x0f, 0xb3, 0x63, 0x9a, 0x56,
+        ]);
+
+        println!("\n=== HARDCODED FEE VAULT ADDRESSES ===");
+        for shard in 0..2 {
+            match derive_fee_vault_pda(&program_id, shard) {
+                Ok((pda, bump)) => {
+                    let bytes = pda.as_ref();
+                    println!("// Shard {}", shard);
+                    println!("pub const HARDCODED_FEE_VAULT_{}: [u8; 32] = [", shard);
+                    for (i, chunk) in bytes.chunks(8).enumerate() {
+                        print!("    ");
+                        for (j, byte) in chunk.iter().enumerate() {
+                            if i == 0 && j == 0 {
+                                // Continue from previous line
+                            }
+                            print!("0x{:02x}", byte);
+                            if !(i == 3 && j == 7) {
+                                print!(", ");
+                            }
+                        }
+                        println!();
+                    }
+                    println!("];");
+                    println!("pub const HARDCODED_FEE_VAULT_{}_BUMP: u8 = {};", shard, bump);
+                    println!();
+                }
+                Err(_) => {
+                    println!("// Shard {} - FAILED TO DERIVE", shard);
+                }
+            }
+        }
+
+        println!("\n=== HARDCODED VM STATE PDA ===");
+        match derive_canonical_vm_state_pda(&program_id) {
+            Ok((pda, bump)) => {
+                let bytes = pda.as_ref();
+                println!("pub const HARDCODED_VM_STATE_PDA: [u8; 32] = [");
+                for (i, chunk) in bytes.chunks(8).enumerate() {
+                    print!("    ");
+                    for (j, byte) in chunk.iter().enumerate() {
+                        print!("0x{:02x}", byte);
+                        if !(i == 3 && j == 7) {
+                            print!(", ");
+                        }
+                    }
+                    println!();
+                }
+                println!("];");
+                println!("pub const HARDCODED_VM_STATE_BUMP: u8 = {};", bump);
+            }
+            Err(_) => {
+                println!("// VM STATE - FAILED TO DERIVE");
+            }
+        }
+    }
+
+    #[test]
     fn test_validate_vm_and_script_accounts_checks() {
         let program_id = Pubkey::from([5u8; 32]);
-        let (canonical_vm_state, _bump) =
+        let (canonical_vm_state, canonical_bump) =
             derive_canonical_vm_state_pda(&program_id).unwrap();
         let mut lamports = 0;
 
@@ -189,10 +295,10 @@ mod tests {
             let mut script_data = vec![0u8; 100];
             let mut vm_data = vec![0u8; FIVEVMState::LEN];
 
-            // Initialize VM state
+            // Initialize VM state with the correct canonical bump
             {
                 let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-                state.initialize(Pubkey::default(), 0);
+                state.initialize(Pubkey::default(), canonical_bump);
             }
 
             let script_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut script_data, &program_id);
@@ -363,6 +469,90 @@ pub fn verify_canonical_vm_state_account(
                 }
                 return validate_vm_state_pda_with_bump(vm_state_account, program_id, expected_bump);
             }
+        }
+    }
+    Ok(())
+}
+
+/// Get hardcoded fee vault address by shard index (0-1)
+/// Returns None if index is out of range (2+)
+#[inline(always)]
+pub fn get_hardcoded_fee_vault(shard_index: u8) -> Option<Pubkey> {
+    match shard_index {
+        0 => Some(Pubkey::from(HARDCODED_FEE_VAULT_0)),
+        1 => Some(Pubkey::from(HARDCODED_FEE_VAULT_1)),
+        _ => None,
+    }
+}
+
+/// Get hardcoded fee vault bump by shard index (0-1)
+/// Returns None if index is out of range (2+)
+#[inline(always)]
+pub fn get_hardcoded_fee_vault_bump(shard_index: u8) -> Option<u8> {
+    match shard_index {
+        0 => Some(HARDCODED_FEE_VAULT_0_BUMP),
+        1 => Some(HARDCODED_FEE_VAULT_1_BUMP),
+        _ => None,
+    }
+}
+
+/// Optimized fee vault verification using hardcoded addresses (no PDA derivation, no syscalls)
+#[inline(always)]
+pub fn verify_hardcoded_fee_vault_account(
+    fee_vault_account: &AccountInfo,
+    program_id: &Pubkey,
+    shard_index: u8,
+) -> ProgramResult {
+    // In production, use hardcoded addresses for maximum performance.
+    // In tests, fall back to derivation to allow flexible test program IDs.
+    #[cfg(not(test))]
+    {
+        let expected_key = get_hardcoded_fee_vault(shard_index)
+            .ok_or(ProgramError::InvalidInstructionData)?;
+        if fee_vault_account.key() != &expected_key {
+            return Err(ProgramError::InvalidArgument);
+        }
+    }
+    #[cfg(test)]
+    {
+        let (expected_key, _) = derive_fee_vault_pda(program_id, shard_index)?;
+        if fee_vault_account.key() != &expected_key {
+            return Err(ProgramError::InvalidArgument);
+        }
+    }
+
+    if fee_vault_account.owner() != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+    Ok(())
+}
+
+/// Get hardcoded VM state PDA address
+#[inline(always)]
+pub fn get_hardcoded_vm_state_pda() -> Pubkey {
+    Pubkey::from(HARDCODED_VM_STATE_PDA)
+}
+
+/// Optimized VM state verification using hardcoded address (no PDA derivation, no syscalls)
+#[inline(always)]
+pub fn verify_hardcoded_vm_state_account(
+    vm_state_account: &AccountInfo,
+    program_id: &Pubkey,
+) -> ProgramResult {
+    // In production, use hardcoded address for maximum performance.
+    // In tests, fall back to derivation to allow flexible test program IDs.
+    #[cfg(not(test))]
+    {
+        let expected_vm_state = get_hardcoded_vm_state_pda();
+        if vm_state_account.key() != &expected_vm_state {
+            return Err(ProgramError::InvalidArgument);
+        }
+    }
+    #[cfg(test)]
+    {
+        let (expected_vm_state, _) = derive_canonical_vm_state_pda(program_id)?;
+        if vm_state_account.key() != &expected_vm_state {
+            return Err(ProgramError::InvalidArgument);
         }
     }
     Ok(())

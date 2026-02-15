@@ -5,14 +5,29 @@ use pinocchio::{
 
 use crate::{
     common::{
-        derive_fee_vault_pda, verify_canonical_vm_state_account, verify_program_owned,
-        verify_fee_vault_account, FEE_VAULT_SEED,
+        verify_hardcoded_fee_vault_account, verify_hardcoded_vm_state_account,
+        verify_program_owned, FEE_VAULT_SEED,
     },
     state::FIVEVMState,
 };
 
 use super::{require_min_accounts, require_signer};
 
+const ERR_INVALID_FEE_RECIPIENT: u32 = 1113;
+pub const FEE_BYPASS_SHARD_INDEX: u8 = u8::MAX;
+
+#[inline(always)]
+pub fn should_bypass_fee_path(fee_shard_index: u8) -> bool {
+    #[cfg(feature = "cu-bypass-fees")]
+    {
+        return fee_shard_index == FEE_BYPASS_SHARD_INDEX;
+    }
+    #[cfg(not(feature = "cu-bypass-fees"))]
+    {
+        let _ = fee_shard_index;
+        false
+    }
+}
 
 /// Transfer fee from payer to recipient
 pub fn transfer_fee(
@@ -86,7 +101,6 @@ pub fn collect_deploy_fee(
     fee_vault_account: &AccountInfo,
     system_program: &AccountInfo,
     fee_shard_index: u8,
-    fee_vault_bump: Option<u8>,
     _total_script_size: usize,
 ) -> ProgramResult {
     // SAFETY: The state account is program-owned and read-only here.
@@ -98,7 +112,6 @@ pub fn collect_deploy_fee(
         fee_vault_account,
         system_program,
         fee_shard_index,
-        fee_vault_bump,
         vm_state.deploy_fee_lamports as u64,
         vm_state.fee_vault_shard_count(),
     )
@@ -110,19 +123,21 @@ pub fn collect_deploy_fee_with_state(
     fee_vault_account: &AccountInfo,
     system_program: &AccountInfo,
     fee_shard_index: u8,
-    fee_vault_bump: Option<u8>,
     deploy_fee_lamports: u64,
     fee_vault_shard_count: u8,
 ) -> ProgramResult {
+    if should_bypass_fee_path(fee_shard_index) {
+        return Ok(());
+    }
+
     if fee_shard_index >= fee_vault_shard_count {
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    verify_fee_vault_account(
+    verify_hardcoded_fee_vault_account(
         fee_vault_account,
         program_id,
         fee_shard_index,
-        fee_vault_bump,
     )?;
     if system_program.key().as_ref() != &[0u8; 32] {
         return Err(ProgramError::InvalidArgument);
@@ -159,7 +174,7 @@ pub fn init_fee_vault(
     let fee_vault_account = &accounts[2];
     let system_program = &accounts[3];
 
-    verify_canonical_vm_state_account(vm_state_account, program_id)?;
+    verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
     require_signer(payer)?;
     if system_program.key().as_ref() != &[0u8; 32] {
@@ -176,7 +191,10 @@ pub fn init_fee_vault(
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    let (expected_key, expected_bump) = derive_fee_vault_pda(program_id, shard_index)?;
+    let expected_key = crate::common::get_hardcoded_fee_vault(shard_index)
+        .ok_or(ProgramError::InvalidInstructionData)?;
+    let expected_bump = crate::common::get_hardcoded_fee_vault_bump(shard_index)
+        .ok_or(ProgramError::InvalidInstructionData)?;
     if fee_vault_account.key() != &expected_key || bump != expected_bump {
         return Err(ProgramError::InvalidArgument);
     }
@@ -247,13 +265,12 @@ pub fn withdraw_script_fees(
     let fee_vault_account = &accounts[2];
     let recipient = &accounts[3];
 
-    verify_canonical_vm_state_account(vm_state_account, program_id)?;
+    verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
-    verify_fee_vault_account(
+    verify_hardcoded_fee_vault_account(
         fee_vault_account,
         program_id,
         shard_index,
-        None,
     )?;
     require_signer(authority)?;
     if !fee_vault_account.is_writable() || !recipient.is_writable() {
@@ -308,7 +325,7 @@ pub fn set_fees(
     let authority = &accounts[1];
 
     // Verify ownership
-    verify_canonical_vm_state_account(vm_state_account, program_id)?;
+    verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
     require_signer(authority)?;
 
