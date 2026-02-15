@@ -7,6 +7,8 @@ use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
+const DEFAULT_ACCOUNT_VEC_CAPACITY: u32 = 16;
+
 /// Account System for managing account definitions and operations
 #[derive(Clone)]
 pub struct AccountSystem {
@@ -390,6 +392,11 @@ impl AccountSystem {
                     // reserve a 1-byte tag plus the inner payload width.
                     let inner_size = self.calculate_type_size(&args[0])?;
                     Ok(1 + inner_size)
+                } else if base == "Vec" && args.len() == 1 {
+                    // Account vectors use fixed-capacity layout for deterministic offsets:
+                    // [u32 length][capacity * element_size].
+                    let element_size = self.calculate_type_size(&args[0])?;
+                    Ok(4 + element_size * DEFAULT_ACCOUNT_VEC_CAPACITY)
                 } else {
                     Err(VMError::TypeMismatch)
                 }
@@ -593,6 +600,15 @@ mod tests {
         assert_eq!(
             account_system.calculate_type_size(&option_u64).unwrap(),
             9
+        );
+
+        let vec_u64 = TypeNode::Generic {
+            base: "Vec".to_string(),
+            args: vec![TypeNode::Primitive("u64".to_string())],
+        };
+        assert_eq!(
+            account_system.calculate_type_size(&vec_u64).unwrap(),
+            4 + (8 * DEFAULT_ACCOUNT_VEC_CAPACITY)
         );
     }
 

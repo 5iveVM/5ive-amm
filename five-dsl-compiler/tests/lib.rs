@@ -1051,6 +1051,26 @@ fn test_account_fixed_array_fields_compile() {
 }
 
 #[test]
+fn test_account_vec_fields_compile() {
+    let source = r#"
+        account Vault {
+            balances: Vec<u64>,
+            owners: Vec<pubkey>,
+        }
+
+        pub main() {
+        }
+    "#;
+
+    let result = DslCompiler::compile_dsl(source);
+    assert!(
+        result.is_ok(),
+        "Vec<T> fields in accounts should compile: {:?}",
+        result
+    );
+}
+
+#[test]
 fn test_field_definition_with_type_annotation() {
     let source = r#"
         script test_vault {
