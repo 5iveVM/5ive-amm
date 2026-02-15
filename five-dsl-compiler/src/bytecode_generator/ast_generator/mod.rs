@@ -258,6 +258,26 @@ impl ASTGenerator {
                 Ok(())
             }
 
+            AstNode::EmitStatement { event_name, fields } => {
+                // Emit a header marker so indexers can identify event boundaries.
+                let header = format!("event:{}", event_name);
+                emitter.emit_const_string(header.as_bytes())?;
+                emitter.emit_opcode(EMIT_EVENT);
+
+                // Emit each field name and value as separate event records.
+                // This keeps lowering simple while still preserving structured data.
+                for field in fields {
+                    let key = format!("field:{}", field.field_name);
+                    emitter.emit_const_string(key.as_bytes())?;
+                    emitter.emit_opcode(EMIT_EVENT);
+
+                    self.generate_ast_node(emitter, &field.value)?;
+                    emitter.emit_opcode(EMIT_EVENT);
+                }
+
+                Ok(())
+            }
+
             AstNode::RequireStatement { condition } => {
                 // Try to emit fused opcode first for CU optimization
                 if self.try_emit_fused_require(emitter, condition)? {

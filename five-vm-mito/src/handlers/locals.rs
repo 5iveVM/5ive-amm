@@ -9,6 +9,9 @@ use crate::{
 };
 use five_protocol::{opcodes::*, ValueRef};
 
+#[cfg(target_os = "solana")]
+use pinocchio::syscalls;
+
 /// Handle nibble immediate operations (0xD0-0xDF).
 /// Covers locals (0xD0-0xD7), constants (0xD8-0xDB), and parameters (0xDC-0xDF).
 #[inline(always)]
@@ -194,8 +197,71 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             }
         }
 
+        EMIT_EVENT => {
+            let value = ctx.pop()?;
+            emit_event_value(ctx, value)?;
+        }
+
         // Legacy u128 opcodes removed - all arithmetic now uses polymorphic generic opcodes
         _ => return Err(VMErrorCode::InvalidInstruction),
     }
     Ok(())
+}
+
+#[inline(always)]
+fn emit_event_value(ctx: &ExecutionManager, value: ValueRef) -> CompactResult<()> {
+    match value {
+        ValueRef::StringRef(_) | ValueRef::TempRef(_, _) | ValueRef::ArrayRef(_) => {
+            let (_len, bytes) = ctx.extract_string_slice(&value).map_err(|_| VMErrorCode::TypeMismatch)?;
+            emit_event_bytes(bytes);
+            Ok(())
+        }
+        ValueRef::PubkeyRef(_) => {
+            let pubkey = ctx.extract_pubkey(&value)?;
+            emit_event_bytes(&pubkey);
+            Ok(())
+        }
+        ValueRef::U8(v) => {
+            emit_event_bytes(core::slice::from_ref(&v));
+            Ok(())
+        }
+        ValueRef::Bool(v) => {
+            let b = if v { 1u8 } else { 0u8 };
+            emit_event_bytes(core::slice::from_ref(&b));
+            Ok(())
+        }
+        ValueRef::U64(v) => {
+            let bytes = v.to_le_bytes();
+            emit_event_bytes(&bytes);
+            Ok(())
+        }
+        ValueRef::I64(v) => {
+            let bytes = v.to_le_bytes();
+            emit_event_bytes(&bytes);
+            Ok(())
+        }
+        ValueRef::U128(v) => {
+            let bytes = v.to_le_bytes();
+            emit_event_bytes(&bytes);
+            Ok(())
+        }
+        _ => {
+            debug_log!("MitoVM: EMIT_EVENT unsupported value type");
+            Err(VMErrorCode::TypeMismatch)
+        }
+    }
+}
+
+#[inline(always)]
+fn emit_event_bytes(bytes: &[u8]) {
+    #[cfg(target_os = "solana")]
+    unsafe {
+        let fields: [&[u8]; 1] = [bytes];
+        syscalls::sol_log_data(&fields as *const _ as *const u8, 1);
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = bytes;
+        debug_log!("EMIT_EVENT: {} bytes", bytes.len() as u64);
+    }
 }

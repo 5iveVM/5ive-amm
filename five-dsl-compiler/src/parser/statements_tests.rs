@@ -202,6 +202,56 @@ fn test_parse_if_statement() {
 }
 
 #[test]
+fn test_parse_else_if_statement() {
+    // if true { } else if false { } else { }
+    let tokens = vec![
+        Token::If,
+        Token::True,
+        Token::LeftBrace,
+        Token::RightBrace,
+        Token::Else,
+        Token::If,
+        Token::False,
+        Token::LeftBrace,
+        Token::RightBrace,
+        Token::Else,
+        Token::LeftBrace,
+        Token::RightBrace,
+        Token::Eof,
+    ];
+    let ast = parse_stmt(tokens);
+    match ast {
+        AstNode::IfStatement {
+            condition,
+            then_branch: _,
+            else_branch,
+        } => {
+            match *condition {
+                AstNode::Literal(Value::Bool(true)) => {}
+                _ => panic!("Expected top-level true condition"),
+            }
+
+            let else_branch = else_branch.expect("Expected else branch");
+            match *else_branch {
+                AstNode::IfStatement {
+                    condition: nested_condition,
+                    then_branch: _,
+                    else_branch: nested_else,
+                } => {
+                    match *nested_condition {
+                        AstNode::Literal(Value::Bool(false)) => {}
+                        _ => panic!("Expected nested false condition"),
+                    }
+                    assert!(nested_else.is_some(), "Expected final else block");
+                }
+                _ => panic!("Expected else-if to parse as nested IfStatement"),
+            }
+        }
+        _ => panic!("Expected IfStatement"),
+    }
+}
+
+#[test]
 fn test_parse_while_loop() {
     // while (true) { }
     let tokens = vec![

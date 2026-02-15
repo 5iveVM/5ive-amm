@@ -466,3 +466,36 @@ fn golden_array_create_and_length() {
         len_positions
     );
 }
+
+#[test]
+fn golden_emit_event_opcode_is_generated() {
+    let source = r#"
+        script golden_emit {
+            event Trade {
+                amount: u64,
+                maker: u64
+            }
+
+            pub fn log_trade(amount: u64, maker: u64) {
+                emit Trade { amount: amount, maker: maker };
+            }
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
+    let emit_positions = find_opcode_positions(&bytecode, opcodes::EMIT_EVENT);
+
+    assert!(
+        !emit_positions.is_empty(),
+        "Golden check failed: expected EMIT_EVENT opcode from emit statement"
+    );
+
+    // Current lowering emits one event header plus key/value pairs for each field.
+    // With 2 fields that is 1 + (2 * 2) = 5 EMIT_EVENT opcodes.
+    assert_eq!(
+        emit_positions.len(),
+        5,
+        "expected 5 EMIT_EVENT opcodes (header + key/value per field), found {}",
+        emit_positions.len()
+    );
+}

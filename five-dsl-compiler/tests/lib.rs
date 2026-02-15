@@ -216,6 +216,29 @@ fn test_lamports_field_access_rejected_for_non_accounts() {
 }
 
 #[test]
+fn test_else_if_chain_compiles() {
+    let source = r#"
+        script else_if_chain {
+            pub fn pick(a: bool, b: bool) -> u64 {
+                if a {
+                    return 1;
+                } else if b {
+                    return 2;
+                } else {
+                    return 3;
+                }
+            }
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("else-if chain should compile");
+    assert!(
+        bytecode.starts_with(&five_protocol::FIVE_MAGIC),
+        "compiled output should include FIVE header magic"
+    );
+}
+
+#[test]
 fn test_dsl_bytecode_generator_simple_assignment() {
     let ast = AstNode::Assignment {
         target: "amount".to_string(),
