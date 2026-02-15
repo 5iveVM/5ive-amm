@@ -219,6 +219,36 @@ impl ASTGenerator {
                     return Err(VMError::InvalidParameterCount);
                 }
 
+                // Validation mode: derive_pda(seed1, seed2, ..., bump: u8) -> pubkey
+                // Find mode:       derive_pda(seed1, seed2, ...)          -> (pubkey, u8)
+                // This must align with type_checker::expressions::infer_function_call_type.
+                let returns_pubkey_only = if args.len() >= 2 {
+                    let last = &args[args.len() - 1];
+                    match last {
+                        AstNode::Literal(Value::U8(_)) => true,
+                        AstNode::Cast { target_type, .. } => {
+                            matches!(target_type.as_ref(), AstNode::Identifier(t) if t == "u8")
+                        }
+                        AstNode::Identifier(name) => {
+                            self.local_symbol_table
+                                .get(name)
+                                .map(|f| f.field_type == "u8")
+                                .or_else(|| {
+                                    self.global_symbol_table
+                                        .get(name)
+                                        .map(|f| f.field_type == "u8")
+                                })
+                                .unwrap_or(false)
+                        }
+                        _ => self
+                            .infer_type_from_node(last)
+                            .map(|t| t == "u8")
+                            .unwrap_or(false),
+                    }
+                } else {
+                    false
+                };
+
                 // Generate all seed arguments first (they will be on stack)
                 for arg in args {
                     self.generate_ast_node(emitter, arg)?;
@@ -240,6 +270,15 @@ impl ASTGenerator {
 
                 // Invoke PDA derivation (handler pops: program_id, seeds_count, then each seed)
                 emitter.emit_opcode(DERIVE_PDA);
+
+                // DERIVE_PDA currently returns a tuple (pubkey, bump).
+                // In validation mode we expose only the pubkey to match language typing.
+                if returns_pubkey_only {
+                    emitter.emit_opcode(UNPACK_TUPLE);
+                    // Stack after UNPACK_TUPLE: [pubkey, bump] (bump on top)
+                    // Drop bump so only pubkey remains.
+                    emitter.emit_opcode(DROP);
+                }
             }
             "invoke_signed" => {
                 // New logic for handling invoke_signed

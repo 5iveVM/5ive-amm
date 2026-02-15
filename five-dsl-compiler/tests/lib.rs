@@ -1080,6 +1080,90 @@ fn test_field_definition_typescript_style() {
 }
 
 #[test]
+fn test_account_field_sized_string_parses() {
+    let source = r#"
+        script sized_string_account {
+            account Profile {
+                name: string<32>;
+                tag: string<8>;
+            }
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer
+        .tokenize()
+        .expect("Should tokenize account sized strings");
+    let mut parser = DslParser::new(tokens);
+    let ast = parser
+        .parse()
+        .expect("Should parse account sized strings");
+
+    if let AstNode::Program {
+        account_definitions, ..
+    } = &ast
+    {
+        assert_eq!(account_definitions.len(), 1);
+        if let AstNode::AccountDefinition { fields, .. } = &account_definitions[0] {
+            assert_eq!(fields.len(), 2);
+            match &fields[0].field_type {
+                TypeNode::Sized { base_type, size } => {
+                    assert_eq!(base_type, "string");
+                    assert_eq!(*size, 32);
+                }
+                other => panic!("expected sized string type, found {:?}", other),
+            }
+            match &fields[1].field_type {
+                TypeNode::Sized { base_type, size } => {
+                    assert_eq!(base_type, "string");
+                    assert_eq!(*size, 8);
+                }
+                other => panic!("expected sized string type, found {:?}", other),
+            }
+        } else {
+            panic!("expected AccountDefinition node");
+        }
+    } else {
+        panic!("expected Program node");
+    }
+}
+
+#[test]
+fn test_transfer_identifier_not_reserved_for_function_name() {
+    let source = r#"
+        script transfer_name_ok {
+            pub transfer(from: account @mut, to: account @mut, amount: u64) {
+                require(amount > 0);
+            }
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer
+        .tokenize()
+        .expect("Should tokenize function named transfer");
+    let mut parser = DslParser::new(tokens);
+    let ast = parser
+        .parse()
+        .expect("Should parse function named transfer");
+
+    if let AstNode::Program {
+        instruction_definitions,
+        ..
+    } = ast
+    {
+        assert_eq!(instruction_definitions.len(), 1);
+        if let AstNode::InstructionDefinition { name, .. } = &instruction_definitions[0] {
+            assert_eq!(name, "transfer");
+        } else {
+            panic!("Expected instruction definition");
+        }
+    } else {
+        panic!("Expected program AST");
+    }
+}
+
+#[test]
 fn test_basic_instruction_definition() {
     let source = r#"
         script payment_vault {
@@ -2497,6 +2581,83 @@ fn test_error_propagation_operator() {
     // Test should verify that ? operator is parsed correctly
     // Implementation will be added to parser
     assert!(matches!(ast, AstNode::Program { .. }));
+}
+
+#[test]
+fn test_multi_return_type_shorthand_parses_as_tuple() {
+    let source = r#"
+        script test_multi_ret_type {
+            pair(a: u64, b: bool) -> u64, bool {
+                return a, b;
+            }
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer.tokenize().expect("Should tokenize");
+
+    let mut parser = DslParser::new(tokens);
+    let ast = parser.parse().expect("Should parse");
+
+    match ast {
+        AstNode::Program {
+            instruction_definitions,
+            ..
+        } => match &instruction_definitions[0] {
+            AstNode::InstructionDefinition { return_type, .. } => {
+                match return_type.as_ref().expect("has return type").as_ref() {
+                    TypeNode::Tuple { elements } => {
+                        assert_eq!(elements.len(), 2);
+                    }
+                    other => panic!("Expected tuple return type, got {:?}", other),
+                }
+            }
+            _ => panic!("Expected InstructionDefinition"),
+        },
+        _ => panic!("Expected Program"),
+    }
+}
+
+#[test]
+fn test_return_comma_values_parses_as_tuple_literal() {
+    let source = r#"
+        script test_multi_ret_value {
+            pair(a: u64, b: bool) -> (u64, bool) {
+                return a, b;
+            }
+        }
+    "#;
+
+    let mut tokenizer = DslTokenizer::new(source);
+    let tokens = tokenizer.tokenize().expect("Should tokenize");
+
+    let mut parser = DslParser::new(tokens);
+    let ast = parser.parse().expect("Should parse");
+
+    match ast {
+        AstNode::Program {
+            instruction_definitions,
+            ..
+        } => match &instruction_definitions[0] {
+            AstNode::InstructionDefinition { body, .. } => {
+                if let AstNode::Block { statements, .. } = body.as_ref() {
+                    match &statements[0] {
+                        AstNode::ReturnStatement { value } => match value.as_deref() {
+                            Some(AstNode::TupleLiteral { elements }) => {
+                                assert_eq!(elements.len(), 2);
+                            }
+                            other => panic!("Expected tuple literal return value, got {:?}", other),
+                        },
+                        _ => panic!("Expected ReturnStatement"),
+                    }
+                } else {
+                    panic!("Expected function body block");
+                }
+            }
+            _ => panic!("Expected InstructionDefinition"),
+        },
+        _ => panic!("Expected Program"),
+    }
 }
 
 #[test]

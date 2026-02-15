@@ -352,9 +352,34 @@ pub(crate) fn store_value_into_buffer(
             })?;
             data[offset..offset + 32].copy_from_slice(&pubkey_bytes);
         }
-        ValueRef::AccountRef(_, _) => {
-            // AccountRef copy (u64)
-            let v = utils::resolve_u64(value, ctx)?;
+        ValueRef::AccountRef(account_idx, inner_offset) => {
+            // Option<T> account-field encoding:
+            // - AccountRef(255, _) => None  => tag=0
+            // - AccountRef(0, temp) => Some(value-from-temp) => tag=1 + payload
+            // Account indices are 1-based in compiler-emitted account refs, so idx=0
+            // is reserved here as temp-backed Option::Some marker.
+            if account_idx == 255 {
+                if (offset + 1) > data.len() {
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
+                data[offset] = 0;
+                return Ok(());
+            }
+
+            if account_idx == 0 {
+                if (offset + 1) > data.len() {
+                    return Err(VMErrorCode::InvalidAccountData);
+                }
+                data[offset] = 1;
+
+                let inner = ctx
+                    .read_value_from_temp(inner_offset)
+                    .map_err(|_| VMErrorCode::ProtocolError)?;
+                return store_value_into_buffer(data, offset + 1, inner, ctx);
+            }
+
+            // Regular AccountRef copy as u64.
+            let v = utils::resolve_u64(ValueRef::AccountRef(account_idx, inner_offset), ctx)?;
             if (offset + 8) > data.len() {
                 return Err(VMErrorCode::InvalidAccountData);
             }

@@ -258,21 +258,20 @@ fn test_parse_logical_and() {
     ];
     let ast = parse_expr(tokens);
 
-    // Logical AND is parsed as a method call .and() in current implementation
+    // Logical AND parses as a binary expression
     match ast {
-        AstNode::MethodCall { object, method, args } => {
-            assert_eq!(method, "and");
-            match *object {
+        AstNode::BinaryExpression { left, operator, right } => {
+            assert_eq!(operator, "&&");
+            match *left {
                 AstNode::Literal(Value::Bool(v)) => assert!(v),
                 _ => panic!("Expected left boolean"),
             }
-            assert_eq!(args.len(), 1);
-            match args[0] {
+            match *right {
                 AstNode::Literal(Value::Bool(v)) => assert!(!v),
                 _ => panic!("Expected right boolean"),
             }
         }
-        _ => panic!("Expected MethodCall for Logical AND"),
+        _ => panic!("Expected BinaryExpression for Logical AND"),
     }
 }
 
@@ -287,21 +286,20 @@ fn test_parse_logical_or() {
     ];
     let ast = parse_expr(tokens);
 
-    // Logical OR is parsed as a method call .or()
+    // Logical OR parses as a binary expression
     match ast {
-        AstNode::MethodCall { object, method, args } => {
-            assert_eq!(method, "or");
-            match *object {
+        AstNode::BinaryExpression { left, operator, right } => {
+            assert_eq!(operator, "||");
+            match *left {
                 AstNode::Literal(Value::Bool(v)) => assert!(v),
                 _ => panic!("Expected left boolean"),
             }
-            assert_eq!(args.len(), 1);
-            match args[0] {
+            match *right {
                 AstNode::Literal(Value::Bool(v)) => assert!(!v),
                 _ => panic!("Expected right boolean"),
             }
         }
-        _ => panic!("Expected MethodCall for Logical OR"),
+        _ => panic!("Expected BinaryExpression for Logical OR"),
     }
 }
 

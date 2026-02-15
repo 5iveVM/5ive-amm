@@ -17,17 +17,28 @@ const ACCOUNT_REF_NONE: u8 = 255; // Option::None
 const ACCOUNT_REF_ERR: u8 = 254; // Result::Err
 const ACCOUNT_REF_MAX_VALID: u8 = 253; // Max valid account index for Some/Ok
 
-// Macros for zero-cost pattern matching
-// These expand directly to match statements to avoid any function call overhead or enum construction
-
-macro_rules! match_option_status {
-    ($value:expr, None => $none_arm:block, Some($offset:ident) => $some_arm:block, Invalid => $invalid_arm:block) => {
-        match $value {
-            ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => $none_arm
-            ValueRef::AccountRef(idx, $offset) if idx <= ACCOUNT_REF_MAX_VALID => $some_arm
-            _ => $invalid_arm
+#[inline(always)]
+fn read_account_option_tag(
+    ctx: &ExecutionManager,
+    account_idx: u8,
+    field_offset: u16,
+) -> CompactResult<Option<u16>> {
+    let account = ctx.get_account_for_read(account_idx)?;
+    // SAFETY: Read-only borrow to inspect account-backed optional encoding.
+    let data = unsafe { account.borrow_data_unchecked() };
+    let base = field_offset as usize;
+    if base >= data.len() {
+        return Err(VMErrorCode::InvalidAccountData);
+    }
+    if data[base] == 0 {
+        Ok(None)
+    } else {
+        let payload = base.saturating_add(1);
+        if payload >= data.len() {
+            return Err(VMErrorCode::InvalidAccountData);
         }
-    };
+        Ok(Some(payload as u16))
+    }
 }
 
 macro_rules! match_result_status {
@@ -124,21 +135,31 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_UNWRAP unwrapping optional {}", s.as_str());
             }
 
-            match_option_status!(optional_value,
-                None => {
-                    // None value - panic
+            match optional_value {
+                ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => {
                     debug_log!("MitoVM: OPTIONAL_UNWRAP panic - unwrapping None value");
                     return Err(VMErrorCode::InvalidOperation);
-                },
-                Some(offset) => {
-                    // Some value - read from account/temp buffer
+                }
+                ValueRef::AccountRef(0, offset) => {
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
-                },
-                Invalid => {
+                }
+                ValueRef::AccountRef(account_idx, offset) if account_idx <= ACCOUNT_REF_MAX_VALID => {
+                    // Account-backed optional field: [tag][payload...]
+                    match read_account_option_tag(ctx, account_idx, offset)? {
+                        Some(payload_offset) => {
+                            ctx.push(ValueRef::AccountRef(account_idx, payload_offset))?;
+                        }
+                        None => {
+                            debug_log!("MitoVM: OPTIONAL_UNWRAP panic - account-backed None");
+                            return Err(VMErrorCode::InvalidOperation);
+                        }
+                    }
+                }
+                _ => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
-            );
+            }
         }
         OPTIONAL_IS_SOME => {
             // OPTIONAL_IS_SOME - Check if Optional has Some value
@@ -150,11 +171,14 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_IS_SOME checking optional {}", s.as_str());
             }
 
-            let is_some = match_option_status!(optional_value,
-                None => { false },
-                Some(_offset) => { true },
-                Invalid => { false } // Treating invalid as false for consistency with original code
-            );
+            let is_some = match optional_value {
+                ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => false,
+                ValueRef::AccountRef(0, _) => true,
+                ValueRef::AccountRef(account_idx, offset) if account_idx <= ACCOUNT_REF_MAX_VALID => {
+                    read_account_option_tag(ctx, account_idx, offset)?.is_some()
+                }
+                _ => false, // Preserve prior "invalid => false" behavior
+            };
             ctx.push(ValueRef::Bool(is_some))?;
         }
         OPTIONAL_IS_NONE => {
@@ -167,11 +191,14 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_IS_NONE checking optional {}", s.as_str());
             }
 
-            let is_none = match_option_status!(optional_value,
-                None => { true },
-                Some(_offset) => { false },
-                Invalid => { false } // Treating invalid as false
-            );
+            let is_none = match optional_value {
+                ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => true,
+                ValueRef::AccountRef(0, _) => false,
+                ValueRef::AccountRef(account_idx, offset) if account_idx <= ACCOUNT_REF_MAX_VALID => {
+                    read_account_option_tag(ctx, account_idx, offset)?.is_none()
+                }
+                _ => false, // Preserve prior "invalid => false" behavior
+            };
             ctx.push(ValueRef::Bool(is_none))?;
         }
         OPTIONAL_GET_VALUE => {
@@ -184,21 +211,30 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 debug_log!("MitoVM: OPTIONAL_GET_VALUE extracting from optional {}", s.as_str());
             }
 
-            match_option_status!(optional_value,
-                None => {
-                    // Unsafe operation - return empty value for None (undefined behavior)
+            match optional_value {
+                ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => {
                     debug_log!("MitoVM: OPTIONAL_GET_VALUE unsafe - extracting from None");
                     ctx.push(ValueRef::Empty)?;
-                },
-                Some(offset) => {
-                    // Some value - read from temp buffer
+                }
+                ValueRef::AccountRef(0, offset) => {
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
-                },
-                Invalid => {
+                }
+                ValueRef::AccountRef(account_idx, offset) if account_idx <= ACCOUNT_REF_MAX_VALID => {
+                    match read_account_option_tag(ctx, account_idx, offset)? {
+                        Some(payload_offset) => {
+                            ctx.push(ValueRef::AccountRef(account_idx, payload_offset))?;
+                        }
+                        None => {
+                            debug_log!("MitoVM: OPTIONAL_GET_VALUE unsafe - account-backed None");
+                            ctx.push(ValueRef::Empty)?;
+                        }
+                    }
+                }
+                _ => {
                     return Err(VMErrorCode::TypeMismatch);
                 }
-            );
+            }
         }
         RESULT_IS_OK => {
             // RESULT_IS_OK - Check if Result is Ok

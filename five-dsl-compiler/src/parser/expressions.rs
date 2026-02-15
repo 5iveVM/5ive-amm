@@ -16,10 +16,10 @@ impl DslParser {
             self.advance(); // consume '||'
             let right = self.parse_logical_and()?;
 
-            left = AstNode::MethodCall {
-                object: Box::new(left),
-                method: "or".to_string(),
-                args: vec![right],
+            left = AstNode::BinaryExpression {
+                left: Box::new(left),
+                operator: "||".to_string(),
+                right: Box::new(right),
             };
         }
 
@@ -34,10 +34,10 @@ impl DslParser {
             self.advance(); // consume '&&'
             let right = self.parse_bitwise_or()?;
 
-            left = AstNode::MethodCall {
-                object: Box::new(left),
-                method: "and".to_string(),
-                args: vec![right],
+            left = AstNode::BinaryExpression {
+                left: Box::new(left),
+                operator: "&&".to_string(),
+                right: Box::new(right),
             };
         }
 

@@ -31,6 +31,31 @@ impl ASTGenerator {
         right: &AstNode,
         operator: &str,
     ) -> Result<(), VMError> {
+        // Preserve language-level short-circuit semantics for logical operators.
+        if operator == "&&" || operator == "||" {
+            let short_label = self.new_label();
+            let end_label = self.new_label();
+
+            self.generate_ast_node(emitter, left)?;
+            emitter.emit_opcode(DUP);
+
+            if operator == "&&" {
+                self.emit_jump(emitter, JUMP_IF_NOT, short_label.clone());
+            } else {
+                self.emit_jump(emitter, JUMP_IF, short_label.clone());
+            }
+
+            // Left operand does not determine the result; discard it and evaluate RHS.
+            emitter.emit_opcode(POP);
+            self.generate_ast_node(emitter, right)?;
+            self.emit_jump(emitter, JUMP, end_label.clone());
+
+            // Left operand already on stack is the result in short-circuit path.
+            self.place_label(emitter, short_label);
+            self.place_label(emitter, end_label);
+            return Ok(());
+        }
+
         // Try optimized binary expression first
         if self.try_optimized_binary_expression(emitter, left, right, operator)? {
             return Ok(());

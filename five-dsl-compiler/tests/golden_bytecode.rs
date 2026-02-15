@@ -269,6 +269,39 @@ fn golden_division_left_associative() {
     }
 }
 
+#[test]
+fn golden_logical_or_short_circuits_with_jumps() {
+    let source = r#"
+        script golden_or_sc {
+            pub fn f(a: bool, b: bool) -> bool {
+                return a || b;
+            }
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
+    let (_pool_info, code_start) = parse_constant_pool_layout(&bytecode);
+    let code = &bytecode[code_start..];
+
+    let jump_if_positions = find_opcode_positions(code, opcodes::JUMP_IF);
+    let jump_positions = find_opcode_positions(code, opcodes::JUMP);
+    let dup_positions = find_opcode_positions(code, opcodes::DUP);
+    let pop_positions = find_opcode_positions(code, opcodes::POP);
+
+    assert!(
+        !jump_if_positions.is_empty(),
+        "Golden check failed: expected JUMP_IF for logical-or short-circuit path"
+    );
+    assert!(
+        !jump_positions.is_empty(),
+        "Golden check failed: expected JUMP for logical-or merge path"
+    );
+    assert!(
+        !dup_positions.is_empty() && !pop_positions.is_empty(),
+        "Golden check failed: expected DUP + POP in short-circuit lowering"
+    );
+}
+
 /// Golden test: ensure `require(...)` compiles to a REQUIRE opcode in the final bytecode
 #[test]
 fn golden_require_emitted() {
@@ -353,6 +386,44 @@ fn golden_derive_pda_emitted() {
         "Golden check failed: expected a PUSH_U8 (seeds count) before DERIVE_PDA. push_u8_positions={:?}, derive_positions={:?}",
         push_u8_positions,
         derive_positions
+    );
+}
+
+/// Golden test: derive_pda with explicit u8 bump should unwrap tuple and keep only pubkey
+#[test]
+fn golden_derive_pda_with_bump_unwraps_to_pubkey() {
+    let source = r#"
+        script golden_pda_with_bump {
+            init {
+                let vault_key = derive_pda("vault", 7 as u8);
+            }
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
+    let derive_positions = find_opcode_positions(&bytecode, opcodes::DERIVE_PDA);
+    assert!(!derive_positions.is_empty(), "expected DERIVE_PDA in bytecode");
+
+    // In bump-validation mode codegen should emit UNPACK_TUPLE + DROP after DERIVE_PDA.
+    let unpack_positions = find_opcode_positions(&bytecode, opcodes::UNPACK_TUPLE);
+    let drop_positions = find_opcode_positions(&bytecode, opcodes::DROP);
+    assert!(
+        !unpack_positions.is_empty(),
+        "expected UNPACK_TUPLE after DERIVE_PDA in bump mode"
+    );
+    assert!(
+        !drop_positions.is_empty(),
+        "expected DROP after DERIVE_PDA in bump mode"
+    );
+
+    let has_ordered_pattern = derive_positions.iter().any(|&d| {
+        unpack_positions.iter().any(|&u| {
+            u > d && drop_positions.iter().any(|&dr| dr > u)
+        })
+    });
+    assert!(
+        has_ordered_pattern,
+        "expected ordered pattern DERIVE_PDA -> UNPACK_TUPLE -> DROP"
     );
 }
 

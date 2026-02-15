@@ -469,7 +469,17 @@ impl DslParser {
         let value = if matches!(self.current_token, Token::Semicolon | Token::RightBrace) {
             None // Early return without value
         } else {
-            Some(Box::new(self.parse_expression()?))
+            let first = self.parse_expression()?;
+            if matches!(self.current_token, Token::Comma) {
+                let mut elements = vec![first];
+                while matches!(self.current_token, Token::Comma) {
+                    self.advance(); // consume ','
+                    elements.push(self.parse_expression()?);
+                }
+                Some(Box::new(AstNode::TupleLiteral { elements }))
+            } else {
+                Some(Box::new(first))
+            }
         };
 
         // Optional semicolon

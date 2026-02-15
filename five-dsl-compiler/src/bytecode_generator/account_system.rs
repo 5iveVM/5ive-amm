@@ -85,12 +85,18 @@ impl AccountSystem {
         for field in fields {
             let field_type = self.type_node_to_string(&field.field_type);
             let field_size = self.calculate_type_size(&field.field_type)?;
+            let is_option_type = matches!(
+                &field.field_type,
+                TypeNode::Generic { base, args } if base == "Option" && args.len() == 1
+            );
 
             let field_info = FieldInfo {
                 offset: total_size,
                 field_type: field_type.clone(),
                 is_mutable: field.is_mutable,
-                is_optional: field.is_optional,
+                // Treat Option<T> account fields as optional even without `?` marker.
+                // This aligns account metadata with type-level optional semantics.
+                is_optional: field.is_optional || is_option_type,
                 is_parameter: false,
             };
 
@@ -378,6 +384,16 @@ impl AccountSystem {
                     Err(VMError::TypeMismatch)
                 }
             }
+            TypeNode::Generic { base, args } => {
+                if base == "Option" && args.len() == 1 {
+                    // Fixed-width account storage for Option<T>:
+                    // reserve a 1-byte tag plus the inner payload width.
+                    let inner_size = self.calculate_type_size(&args[0])?;
+                    Ok(1 + inner_size)
+                } else {
+                    Err(VMError::TypeMismatch)
+                }
+            }
             _ => Err(VMError::TypeMismatch),
         }
     }
@@ -569,6 +585,15 @@ mod tests {
             account_system.calculate_type_size(&sized_string).unwrap(),
             64
         );
+
+        let option_u64 = TypeNode::Generic {
+            base: "Option".to_string(),
+            args: vec![TypeNode::Primitive("u64".to_string())],
+        };
+        assert_eq!(
+            account_system.calculate_type_size(&option_u64).unwrap(),
+            9
+        );
     }
 
     #[test]
@@ -600,5 +625,34 @@ mod tests {
         let account_info = &account_system.account_registry.account_types["CustomAccount"];
         assert_eq!(account_info.fields.len(), 2);
         assert_eq!(account_info.total_size, 40); // 8 + 32 bytes
+    }
+
+    #[test]
+    fn test_option_field_marked_optional_in_registry() {
+        let mut account_system = AccountSystem::new();
+
+        let fields = vec![
+            StructField {
+                name: "nickname".to_string(),
+                field_type: TypeNode::Generic {
+                    base: "Option".to_string(),
+                    args: vec![TypeNode::Sized {
+                        base_type: "string".to_string(),
+                        size: 16,
+                    }],
+                },
+                is_mutable: true,
+                is_optional: false,
+            },
+        ];
+
+        account_system
+            .process_account_definition("Profile", &fields)
+            .unwrap();
+
+        let account_info = &account_system.account_registry.account_types["Profile"];
+        let nickname = account_info.fields.get("nickname").unwrap();
+        assert!(nickname.is_optional, "Option<T> fields should be optional");
+        assert_eq!(account_info.total_size, 17, "tag + payload size");
     }
 }

@@ -342,7 +342,7 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
     // Parse optional return type: -> ReturnType
     let return_type = if matches!(parser.current_token, Token::Arrow) {
         parser.advance(); // consume '->'
-        Some(Box::new(types::parse_type(parser)?))
+        Some(Box::new(types::parse_return_type(parser)?))
     } else {
         None
     };

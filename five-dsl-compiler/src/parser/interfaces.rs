@@ -510,7 +510,7 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
         // Parse optional return type: -> ReturnType
         let return_type = if matches!(parser.current_token, Token::Arrow) {
             parser.advance(); // consume '->'
-            Some(Box::new(types::parse_type(parser)?))
+            Some(Box::new(types::parse_return_type(parser)?))
         } else {
             None
         };

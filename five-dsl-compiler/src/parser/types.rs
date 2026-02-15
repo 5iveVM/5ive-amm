@@ -236,7 +236,51 @@ pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
         {
             let type_name = name.clone();
             parser.advance();
-            Ok(TypeNode::Primitive(type_name))
+
+            // Support sized built-ins like string<32> when built-ins are tokenized as identifiers.
+            if matches!(parser.current_token, Token::LT) {
+                parser.advance(); // consume '<'
+
+                let size = match &parser.current_token {
+                    Token::NumberLiteral(n) => *n,
+                    _ => return Err(parser.parse_error("size number literal in sized type")),
+                };
+                parser.advance();
+
+                if !matches!(parser.current_token, Token::GT) {
+                    return Err(parser.parse_error("'>' to end sized type"));
+                }
+                parser.advance(); // consume '>'
+
+                Ok(TypeNode::Sized {
+                    base_type: type_name,
+                    size,
+                })
+            } else if matches!(parser.current_token, Token::LeftBracket) {
+                // Support TypeScript-style arrays for identifier-tokenized built-ins: string[], u64[4], etc.
+                parser.advance(); // consume '['
+
+                let size = match &parser.current_token {
+                    Token::NumberLiteral(n) => Some(*n),
+                    _ => None, // Dynamic array: type[]
+                };
+
+                if size.is_some() {
+                    parser.advance(); // consume size
+                }
+
+                if !matches!(parser.current_token, Token::RightBracket) {
+                    return Err(parser.parse_error("']' to end TypeScript-style array type"));
+                }
+                parser.advance(); // consume ']'
+
+                Ok(TypeNode::Array {
+                    element_type: Box::new(TypeNode::Primitive(type_name)),
+                    size,
+                })
+            } else {
+                Ok(TypeNode::Primitive(type_name))
+            }
         }
 
         // Handle built-in account type with implicit properties
@@ -293,4 +337,21 @@ pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
 
         _ => Err(parser.parse_error("type specification")),
     }
+}
+
+/// Parse a return type, allowing tuple shorthand:
+/// - `-> T`
+/// - `-> T1, T2, ...` (lowered to `TypeNode::Tuple`)
+pub(crate) fn parse_return_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
+    let first = parse_type(parser)?;
+    if !matches!(parser.current_token, Token::Comma) {
+        return Ok(first);
+    }
+
+    let mut elements = vec![first];
+    while matches!(parser.current_token, Token::Comma) {
+        parser.advance(); // consume ','
+        elements.push(parse_type(parser)?);
+    }
+    Ok(TypeNode::Tuple { elements })
 }
