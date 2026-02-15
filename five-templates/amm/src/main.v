@@ -6,7 +6,7 @@ import pool_manager;
 use "11111111111111111111111111111111"::{transfer};
 
 pub fn initialize_pool(
-    pool: amm_types::AMMPool @mut @init(payer=payer),
+    pool: amm_types::AMMPool @mut,
     payer: account @signer,
     token_a: pubkey,
     token_b: pubkey,
@@ -55,13 +55,7 @@ pub fn remove_liquidity(
     min_b: u64,
     token_bytecode: account
 ) {
-    let amount_a: u64 = (liquidity * pool.token_a_reserve) / pool.total_liquidity;
-    let amount_b: u64 = (liquidity * pool.token_b_reserve) / pool.total_liquidity;
-
     amm_liquidity::remove_liquidity(pool, lp_account, provider, liquidity, min_a, min_b);
-
-    transfer(pool_token_a, provider_token_a, pool_authority, amount_a);
-    transfer(pool_token_b, provider_token_b, pool_authority, amount_b);
 }
 
 pub fn swap_a_to_b(

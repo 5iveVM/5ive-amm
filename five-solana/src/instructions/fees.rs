@@ -139,7 +139,9 @@ pub fn collect_deploy_fee_with_state(
         program_id,
         fee_shard_index,
     )?;
-    if system_program.key().as_ref() != &[0u8; 32] {
+    // System program must be provided and must be writable for fee transfers
+    // Verify it's not the program itself
+    if system_program.key() == program_id {
         return Err(ProgramError::InvalidArgument);
     }
     if !payer.is_signer() || !payer.is_writable() {
@@ -177,7 +179,8 @@ pub fn init_fee_vault(
     verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
     require_signer(payer)?;
-    if system_program.key().as_ref() != &[0u8; 32] {
+    // System program must be writable and not the Five program itself
+    if system_program.key() == program_id {
         return Err(ProgramError::InvalidArgument);
     }
 

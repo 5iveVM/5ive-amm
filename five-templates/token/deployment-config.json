@@ -1,7 +1,7 @@
 {
-  "tokenScriptAccount": "GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ",
+  "tokenScriptAccount": "2caUNt4w57YHmLZsmM85DsUiamSEchYRUMjUkdqwFEzG",
   "fiveProgramId": "3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1",
   "vmStatePda": "AJm3tpMgv9mXCWK2Sj9dZ2DxtUWXuQBXiK5HcYtHmKit",
-  "rpcUrl": "http://127.0.0.1:8899",
-  "timestamp": "2026-02-14T21:30:00.000Z"
+  "rpcUrl": "https://api.devnet.solana.com",
+  "timestamp": "2026-02-15T04:59:06.519Z"
 }

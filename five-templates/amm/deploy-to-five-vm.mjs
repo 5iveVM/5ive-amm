@@ -1,3 +1,10 @@
+#!/usr/bin/env node
+
+/**
+ * Deploy AMM template to Five VM on localnet
+ * Uses chunked deployment via InitLargeProgram + AppendBytecode
+ */
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,9 +32,9 @@ const CYAN = '\x1b[36m';
 const RED = '\x1b[31m';
 const NC = '\x1b[0m';
 
-async function deployProgram(programName = 'Token') {
+async function deployAMM() {
     console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}`);
-    console.log(`${CYAN}${programName} Template - Five VM Deployment (Robust)${NC}`);
+    console.log(`${CYAN}AMM Template - Five VM Deployment${NC}`);
     console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}\n`);
 
     try {
@@ -48,17 +55,11 @@ async function deployProgram(programName = 'Token') {
             process.exit(1);
         }
 
-        const artifactPathOverride = process.env.FIVE_ARTIFACT_PATH;
-        let artifactName = process.env.FIVE_ARTIFACT;
-        if (!artifactName) {
-            artifactName = programName.toLowerCase() === 'amm' ? 'five-amm-baseline.five' : 'five-token-baseline.five';
-        }
-        let bytecodeFile = artifactPathOverride
-            ? path.resolve(artifactPathOverride)
-            : path.join(__dirname, 'build', artifactName);
-        // If running from token dir but need amm, adjust path
-        if (!artifactPathOverride && programName.toLowerCase() === 'amm' && !fs.existsSync(bytecodeFile)) {
-            bytecodeFile = path.join(__dirname, '..', 'amm', 'build', artifactName);
+        const artifactName = process.env.FIVE_ARTIFACT || 'five-amm-baseline.five';
+        // Allow running from token directory via copy
+        let bytecodeFile = path.join(__dirname, 'build', artifactName);
+        if (!fs.existsSync(bytecodeFile)) {
+            bytecodeFile = path.join(process.cwd(), '..', 'amm', 'build', artifactName);
         }
         if (!fs.existsSync(bytecodeFile)) {
             console.log(`${RED}✗ File not found: ${bytecodeFile}${NC}`);
@@ -90,13 +91,10 @@ async function deployProgram(programName = 'Token') {
             return signature;
         };
 
-        // --- Deployment Logic ---
-
         // 1. Use hardcoded VM State Account
         const vmStatePda = new PublicKey(VM_STATE_PDA);
         console.log(`${CYAN}▶ Using hardcoded VM State Account: ${vmStatePda.toBase58()}${NC}`);
 
-        // Check if VM State exists
         let vmStateInfo = await connection.getAccountInfo(vmStatePda);
 
         if (!vmStateInfo) {
@@ -106,7 +104,6 @@ async function deployProgram(programName = 'Token') {
             process.exit(1);
         }
 
-        // Check VM State Owner
         if (!vmStateInfo.owner.equals(FIVE_PROGRAM_ID)) {
             console.error(`${RED}Error: VM State owned by ${vmStateInfo.owner.toBase58()}, expected ${FIVE_PROGRAM_ID.toBase58()}${NC}`);
             process.exit(1);
@@ -117,14 +114,11 @@ async function deployProgram(programName = 'Token') {
         const scriptKeypair = Keypair.generate();
         const SCRIPT_HEADER_SIZE = 64;
 
-        // Calculate actual rent needed for final script size
         const finalScriptSize = SCRIPT_HEADER_SIZE + bytecode.length;
         const rentRequired = await connection.getMinimumBalanceForRentExemption(finalScriptSize);
-        // Add small buffer to handle reallocation overhead (bytecode is small, so buffer is small)
-        const REALLOCATION_BUFFER = 0.01 * LAMPORTS_PER_SOL;  // 0.01 SOL buffer
+        const REALLOCATION_BUFFER = 0.01 * LAMPORTS_PER_SOL;
         const initialLamports = rentRequired + REALLOCATION_BUFFER;
 
-        // Verify Five Program ownership will be set correctly
         if (!FIVE_PROGRAM_ID) {
             console.log(`${RED}✗ Five Program ID not set!${NC}`);
             process.exit(1);
@@ -135,6 +129,7 @@ async function deployProgram(programName = 'Token') {
         console.log(`  Final size: ${finalScriptSize} bytes`);
         console.log(`  Rent required: ${rentRequired} lamports`);
         console.log(`  Initial funding: ${initialLamports} lamports (${(initialLamports / LAMPORTS_PER_SOL).toFixed(8)} SOL)`);
+
         // Fee vault account (hardcoded shard 0)
         const FEE_VAULT_0 = new PublicKey('HXW6bZsdJW6Be5c51NNpNb9NcVxmHbUrF9oKkt4C1tEH');
 
@@ -144,7 +139,7 @@ async function deployProgram(programName = 'Token') {
                 fromPubkey: payer.publicKey,
                 newAccountPubkey: scriptKeypair.publicKey,
                 lamports: initialLamports,
-                space: finalScriptSize,  // Allocate full size upfront to avoid realloc issues
+                space: finalScriptSize,
                 programId: FIVE_PROGRAM_ID,
             }),
             new TransactionInstruction({
@@ -158,7 +153,7 @@ async function deployProgram(programName = 'Token') {
                 programId: FIVE_PROGRAM_ID,
                 data: Buffer.concat([
                     Buffer.from([4]), // InitLargeProgram
-                    Buffer.from(new Uint32Array([bytecode.length]).buffer) // expected_size
+                    Buffer.from(new Uint32Array([bytecode.length]).buffer)
                 ]),
             })
         );
@@ -167,7 +162,6 @@ async function deployProgram(programName = 'Token') {
         await confirmTx(initSig, 'Script Account Init');
         console.log(`  Script Account: ${scriptKeypair.publicKey.toBase58()} (${initSig})`);
 
-        // Wait for account to be visible
         await new Promise(r => setTimeout(r, 1000));
 
         // 3. Append Chunks
@@ -183,16 +177,10 @@ async function deployProgram(programName = 'Token') {
 
         for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i];
-
-            // Calculate size based on LOCAL tracking
             const newSize = currentSize + chunk.length;
-
-            // Pre-funded, so no need to transfer additional rent
-            // const oldRent = ...
 
             const appendTx = new Transaction();
             appendTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }));
-            // appendTx.add(SystemProgram.transfer({...}));
 
             appendTx.add(new TransactionInstruction({
                 keys: [
@@ -211,20 +199,16 @@ async function deployProgram(programName = 'Token') {
 
             appendTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
             appendTx.feePayer = payer.publicKey;
-            const msg = appendTx.compileMessage();
-            console.log(`DEBUG: Chunk ${i} keys:`, msg.accountKeys.map(k => k.toBase58()));
 
             const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
             await confirmTx(appendSig, `Chunk ${i} append`);
             process.stdout.write('.');
 
-            // Update current size for next iteration for ACCURATE rent calculation
             currentSize = newSize;
         }
         console.log(`\n${GREEN}✓ All chunks appended.${NC}\n`);
 
-        // 4. Finalize the script upload (discriminator 7)
-        // This marks upload_complete = true, allowing Execute calls to succeed
+        // 4. Finalize the script upload
         console.log(`${CYAN}▶ Finalizing script upload...${NC}`);
         const finalizeTx = new Transaction().add(
             ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
@@ -245,29 +229,29 @@ async function deployProgram(programName = 'Token') {
         await confirmTx(finalizeSig, 'Finalize Script');
         console.log(`${GREEN}✓ Script finalized: ${finalizeSig}${NC}\n`);
 
-        const tokenScriptAccount = scriptKeypair.publicKey.toBase58();
+        const ammScriptAccount = scriptKeypair.publicKey.toBase58();
         const vmStatePdaString = vmStatePda.toBase58();
 
         console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}`);
         console.log(`${GREEN}✓ Deployment Complete${NC}\n`);
-        console.log(`  Script Account: ${tokenScriptAccount}`);
+        console.log(`  Script Account: ${ammScriptAccount}`);
         console.log(`  VM State: ${vmStatePdaString}\n`);
 
         // Save config
         const config = {
-            tokenScriptAccount: tokenScriptAccount,
+            ammScriptAccount: ammScriptAccount,
             fiveProgramId: FIVE_PROGRAM_ID.toBase58(),
             vmStatePda: vmStatePdaString,
             rpcUrl: RPC_URL,
             timestamp: new Date().toISOString(),
         };
 
-        fs.writeFileSync('deployment-config.json', JSON.stringify(config, null, 2));
+        fs.writeFileSync(path.join(__dirname, 'deployment-config.json'), JSON.stringify(config, null, 2));
         console.log(`${GREEN}✓ Config saved to deployment-config.json${NC}\n`);
 
-        // Verify account ownership (post-deployment check)
+        // Verify account ownership
         console.log(`${CYAN}▶ Verifying account ownership...${NC}`);
-        const finalScriptInfo = await connection.getAccountInfo(new PublicKey(tokenScriptAccount));
+        const finalScriptInfo = await connection.getAccountInfo(new PublicKey(ammScriptAccount));
         const finalVmStateInfo = await connection.getAccountInfo(new PublicKey(vmStatePdaString));
 
         if (finalScriptInfo && finalScriptInfo.owner.equals(FIVE_PROGRAM_ID)) {
@@ -284,16 +268,7 @@ async function deployProgram(programName = 'Token') {
             console.log(`  ${GREEN}✓ VM state owner correct${NC}\n`);
         } else {
             console.log(`  ${RED}✗ VM state owner WRONG!${NC}`);
-            if (finalVmStateInfo) {
-                console.log(`    Current: ${finalVmStateInfo.owner.toBase58()}`);
-                console.log(`    Expected: ${FIVE_PROGRAM_ID.toBase58()}`);
-            }
-            console.log();
         }
-
-        console.log(`${YELLOW}Next steps:${NC}`);
-        console.log(`  1. Run tests: npm run test:e2e`);
-        console.log(`  2. Debug ownership if needed: npm run test:debug-owner`);
 
     } catch (error) {
         console.error(`\n${RED}Error: ${error.message}${NC}`);
@@ -302,5 +277,4 @@ async function deployProgram(programName = 'Token') {
     }
 }
 
-const programName = process.argv[2] || 'Token';
-deployProgram(programName);
+deployAMM();

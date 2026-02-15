@@ -49,3 +49,4 @@ test-ledger*/
 /five-cli/.npm-cache
 .claude/worktrees/
 /.localnet-vm-parity-ledger
+/.localnet-cu-ledger

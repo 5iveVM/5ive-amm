@@ -40,6 +40,7 @@ const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
 let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || '7JizMjzU3u8z3p5QuPNUE2r7YmA6Cks1V7attcujVQrd');
 let VM_STATE_PDA = new PublicKey('DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
 let TOKEN_SCRIPT_ACCOUNT = new PublicKey('GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
+const FEE_VAULT_ACCOUNT = new PublicKey(process.env.FEE_VAULT_ACCOUNT || 'HXW6bZsdJW6Be5c51NNpNb9NcVxmHbUrF9oKkt4C1tEH');
 
 // ============================================================================ 
 // LOGGING UTILITIES
@@ -141,6 +142,27 @@ async function sendInstruction(connection, instructionData, signers, label = '')
         isSigner: k.isSigner,
         isWritable: k.isWritable
     }));
+
+    // Enforce execute tail expected by on-chain runtime:
+    // [...existing metas, payer, fee_vault, system_program]
+    const payerSigner = signers[0];
+    if (payerSigner?.publicKey) {
+        keys.push({
+            pubkey: payerSigner.publicKey,
+            isSigner: true,
+            isWritable: true,
+        });
+    }
+    keys.push({
+        pubkey: FEE_VAULT_ACCOUNT,
+        isSigner: false,
+        isWritable: true,
+    });
+    keys.push({
+        pubkey: SystemProgram.programId,
+        isSigner: false,
+        isWritable: false,
+    });
 
     const ix = {
         programId: new PublicKey(instructionData.programId),

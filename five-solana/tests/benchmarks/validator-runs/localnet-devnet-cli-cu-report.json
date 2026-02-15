@@ -1,0 +1,344 @@
+{
+  "generatedAt": "2026-02-15T05:03:31.636Z",
+  "vmProgramId": "3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1",
+  "vmState": "AJm3tpMgv9mXCWK2Sj9dZ2DxtUWXuQBXiK5HcYtHmKit",
+  "localnet": {
+    "rpcUrl": "http://127.0.0.1:8899",
+    "tokenScriptAccount": "AqaGN3uVLiu5zgedfBFMx4kfhpGAuNieDuXVzzN5SL4f",
+    "ammScriptAccount": "4JJpaq9JV17cdwt132ovr7oBtD2Wg4nbi2YyEGWLxrPt",
+    "confirmedTransactions": [
+      {
+        "network": "localnet",
+        "signature": "t29ExjVbJs1HyB4KeTFvzKpRXe1nhDKRvaMmtXiTW9jVdNLz68H9g4uHUddzB2hT8ocG5AkHBzxci8wDR1q1VPQ",
+        "scenario": "local_vm_state_init",
+        "slot": 34,
+        "computeUnits": 3248,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "5R4cNAUFxXipADhqc18obmn7rJxXndwVDQiikdRgnecrz6KBXHcUUPEivS3m7WjuEvQWt4NPFaF2ubf89LhyhtZZ",
+        "scenario": "local_fee_vault_init_shard0",
+        "slot": 36,
+        "computeUnits": 1765,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "23GN8xmgahdLLkzj14hZj2kuf62UMWmTKVHAMMUcxZ5NYTkJ7pkoABDuLLju5fRPiKBnH1z4pQPy6Nf7VYVpXVvp",
+        "scenario": "local_fee_vault_init_shard1",
+        "slot": 37,
+        "computeUnits": 1764,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "3Gmb8x7uCEtgvzrk4ra9KGmBsXTpDek5qAhiPahNqqwJh7VP4hkSoaPTFUctcqAqecq3JBaNvX8MEYkZsZwucnnH",
+        "scenario": "local_five_cli_deploy_attempt_failed_not_enough_keys",
+        "slot": 104,
+        "computeUnits": 270,
+        "status": "error",
+        "error": {
+          "InstructionError": [
+            1,
+            "NotEnoughAccountKeys"
+          ]
+        }
+      },
+      {
+        "network": "localnet",
+        "signature": "ErWUgBrwR5MMNJsh466h7Uut6CAVfrCwo3F5MqvxUiEEZkjdyjvLZnEM3dodSefbYU6VZwcbFQ5Xq4vQdmCGbvo",
+        "scenario": "local_amm_deploy_init_large_program",
+        "slot": 142,
+        "computeUnits": 604,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "fpWJiggo96H27b9jjWZxx8WsHJ5MwyHvveMrWH23oqrwUEcy1qFFVMKB259FEfvdht86qWdEgV9tV3gE7HAJyT8",
+        "scenario": "local_token_deploy_init_large_program",
+        "slot": 144,
+        "computeUnits": 604,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "SCQ5uV4eTwdodjjLobyPDScuvDZ8fY7VmrxEHuJh2JKEquc629RuDFtyZMJv93z8BibLCmVAWjTJBLuwDP2bhwE",
+        "scenario": "local_amm_deploy_append_chunk_0",
+        "slot": 145,
+        "computeUnits": 5012,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "261uB5GXdbQeHfesT9gwiAPiS3qnuhSqFTadAEiTwzu6UYTJKiwbkwhdkKAE2KHAmtpdetgFwkdFsSejSerKUMa7",
+        "scenario": "local_amm_deploy_finalize",
+        "slot": 146,
+        "computeUnits": 317,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "4U7gzfB9hA4WomxgYP5sipxgbe1RjuhW6tXvPEn2B4P5z6uzUFXXAMRBrrKkV9WFR2XSxFhfzW5KjzKMw1YRQ8CH",
+        "scenario": "local_token_deploy_append_chunk_0",
+        "slot": 147,
+        "computeUnits": 3594,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "3nCzGYwebtXiWUDvSxEJP8NwXvz2QygceATtxtKu3HXrJtUDSgGC2uhsaW5gYsftUSGNDJcPkNeVeYjm9yDhLnd",
+        "scenario": "local_token_deploy_append_chunk_1",
+        "slot": 148,
+        "computeUnits": 3594,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "2Br1jgSzrZffCngVXaYPsh7d2WfCtxHGe9ceQWTC2iv4Vm1gZRPK1YPDkt6wmJYFoEPWn3azPW2iygDVsQr6U4Wb",
+        "scenario": "local_token_deploy_append_chunk_2",
+        "slot": 149,
+        "computeUnits": 5012,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "5REXd5P2STU5dhrvmwLfKxQpHXJB4fL99AhCbsVfyE1LNmbsAoY5oQUD7JamQhXfAe3eUmEqm6794jDVGuksaUsz",
+        "scenario": "local_token_deploy_finalize",
+        "slot": 150,
+        "computeUnits": 317,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "22iR3K6U8zwmPBWTQc5jR64btA7QKyQ8tEXVRNjSeeFhUEVoKTg3mdqVpeSGMcgRuL3dgZ1ReTgvm8N5YDPwBNyu",
+        "scenario": "local_token_mint_flow_user_funding_1",
+        "slot": 270,
+        "computeUnits": 150,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "2n8VHrrtbvgn9o86MHBiAaEeutMgJwgd3fQcujt8TZ63rYZeNqGrfhfAxVDxkyURrNqyVxXT3UMfX6J5FHPHh3HR",
+        "scenario": "local_token_mint_flow_user_funding_2",
+        "slot": 271,
+        "computeUnits": 150,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "localnet",
+        "signature": "2rChS1rZE2nSAEazooT5GHuwo4R5UTEpm98NYgPCoWtoZuS9unJjEF1KB7oVqfP6PahTNY9x3TP6LkUEDSqFyU2W",
+        "scenario": "local_token_mint_flow_user_funding_3",
+        "slot": 272,
+        "computeUnits": 150,
+        "status": "ok",
+        "error": null
+      }
+    ],
+    "simulatedCliExecute": [
+      {
+        "scenario": "local_token_execute_f0_simulated",
+        "txid": "MqShu3f93XLB9iKxvwZ8kd1u5LJkQe7n9xsZnJ38VV3rpAwJ4xSjGsp1hzrCk7RNdS2xmyz1k3MF3rEesUPRuax",
+        "cuFromLogs": 66,
+        "confirmed": false
+      },
+      {
+        "scenario": "local_token_execute_f1_simulated",
+        "txid": "WxkgR2APVJUiAG19A3LGwYbU9EH5MZNatMHe3C27iW9zgCGk7nyqsBnbweC8WLaQHR4cAvqLFWkqzSJCw7U3Rq2",
+        "cuFromLogs": 66,
+        "confirmed": false
+      },
+      {
+        "scenario": "local_token_execute_f2_simulated",
+        "txid": "5MKZm3frg45vqAYfJMVSca5Hx4UCHNAmmuRgTa1wKSacpJp6DwEFm1PZWw4e4qbbwhebpEchT83Hsk7JzbF4eYTB",
+        "cuFromLogs": 66,
+        "confirmed": false
+      },
+      {
+        "scenario": "local_amm_execute_f0_simulated",
+        "txid": "UkRB6jo3DdpkuzVAd2mt9RBfcrYLHFizwgTJSUDKzMoKbg43qpoQfM8D9C6NM9kQmXkuHA3xgZEqa7XBixjJHJ8",
+        "cuFromLogs": 66,
+        "confirmed": false
+      },
+      {
+        "scenario": "local_amm_execute_f1_simulated",
+        "txid": "2KwAVHMmsapbYs1fV8ugMXB97ZnAKUGeEvJ5MRFGVfHKL15xXg6EF98pUtSTGyzSjLPgbDEL5seE2fLudohPtk5u",
+        "cuFromLogs": 66,
+        "confirmed": false
+      }
+    ]
+  },
+  "devnet": {
+    "rpcUrl": "https://api.devnet.solana.com",
+    "vmProgramId": "3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1",
+    "vmState": "AJm3tpMgv9mXCWK2Sj9dZ2DxtUWXuQBXiK5HcYtHmKit",
+    "tokenScriptAccount": "BhZsLNy2RHwCXzMDJpBgghm12kTJBKnNU3wKZgD92hVZ",
+    "ammScriptAccount": "2caUNt4w57YHmLZsmM85DsUiamSEchYRUMjUkdqwFEzG",
+    "feeSettings": {
+      "deployFeeLamports": 10000,
+      "executeFeeLamports": 85734,
+      "shardCount": 2
+    },
+    "confirmedTransactions": [
+      {
+        "network": "devnet",
+        "scenario": "devnet_vm_program_deploy",
+        "signature": "48fYc8K5s4WgRL4APWUKynNvqForhVr5fiZUR7qLNt9u9tCXKU3uCY8gxJGHKPuHe6LoFabojsUGhLSe2rFXSneC",
+        "slot": 442246290,
+        "computeUnits": 2670,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_vm_state_init",
+        "signature": "4yeAZgrtW3bdpDfFyoKwsksEqCLjL65dHZ8gVngVfky7zgJQVKQ3VZEu853DmBgRHSP2iWdNVvza7h4m7YQ95eVz",
+        "slot": 442246392,
+        "computeUnits": 3248,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_fee_vault_init_shard0",
+        "signature": "WzKaFmeqQr3PHu1BAowRQofGioF9WP9pL8oWBgBK25xkevneYnqD924v21zDWxao9VMzZbe9thrS2SvQCKnbAhH",
+        "slot": 442246394,
+        "computeUnits": 1765,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_fee_vault_init_shard1",
+        "signature": "5qCAGybwLtHUu3ucSAaC8t7qDvyLHP7rj1wxUpvNCmp9e2XwsVqXuQM5Z1wqZ32iUXPx3JS1b29Y5vrN9PJTRKcE",
+        "slot": 442246396,
+        "computeUnits": 1764,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_token_deploy_init_large_program",
+        "signature": "4A2xLHHVEDDkhvX99VcgNRTesmHbJRc5sSVCkz29dTGGYLd5DLWSz8nbgsBoZoApsAjEAFaQFgkaAXyBHdMZn6Ht",
+        "slot": 442246470,
+        "computeUnits": 604,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_token_deploy_finalize",
+        "signature": "mkurxG2ANTEQyxoCBryKUJFDSq9WLaKau41VMWS1D5mYsCFtgqianm227ssDBSfLe4W2Wy5S5wWVUiLkE6FQGoc",
+        "slot": 442246479,
+        "computeUnits": 317,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_amm_deploy_init_large_program",
+        "signature": "3Qc9Fht7d829i3csW4cG83jE6wzz7a5yrm4bhp3hmVQwxo15df3oH8SFNh4nDbHbgUkX5wb2iTGQYjuNXrHvW6UT",
+        "slot": 442246512,
+        "computeUnits": 604,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_amm_deploy_finalize",
+        "signature": "9QiZYhSSTvD6zE5CvYcKqPTQpc9j6EhPBLA8QHjqjHtoGKqyoujhLNR57HThLs5vamoZBfBpyAUEeQcFHiqxAod",
+        "slot": 442246518,
+        "computeUnits": 317,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_token_execute_f0",
+        "signature": "4LWztycoDZa6Uh4DrwwpXL3WrjAa7LoGgncuifnx4JUnnRaAFaXjBWa2gEZTyYgbzLKZ3pxaPRjWEXvLjZ3KW8AT",
+        "slot": 442247001,
+        "computeUnits": 2553,
+        "status": "error",
+        "error": {
+          "InstructionError": [
+            1,
+            "InvalidInstructionData"
+          ]
+        }
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_token_execute_f1",
+        "signature": "4NFsoZTydht8cV3LuukMH7FW4sXcRzz6kXrceWJN13eDjm7LKviLBr8GqywaTPvFLjJ4UaziE2xDC4cJeX345CZi",
+        "slot": 442247003,
+        "computeUnits": 2553,
+        "status": "error",
+        "error": {
+          "InstructionError": [
+            1,
+            "InvalidInstructionData"
+          ]
+        }
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_token_execute_f2_mint_path",
+        "signature": "4A5YJ6nHBCdHaFtkTi3prfU7nBs6jqjDZ68ejLuE5efyEKqPfCZbUCg3XMxmq6gEg3nFFcLXMpn7CB8qF5XGLLSE",
+        "slot": 442247005,
+        "computeUnits": 2553,
+        "status": "error",
+        "error": {
+          "InstructionError": [
+            1,
+            "InvalidInstructionData"
+          ]
+        }
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_amm_execute_f0",
+        "signature": "5nCnvVfQMYXxGjZRbhZXsaubC7Htsay9xT7GRFSeZYwVus3vh7TDL29TJYaEHpZxKaP2HJ1o1dtDA6HW96KFPWPk",
+        "slot": 442247007,
+        "computeUnits": 1913,
+        "status": "error",
+        "error": {
+          "InstructionError": [
+            1,
+            "InvalidInstructionData"
+          ]
+        }
+      },
+      {
+        "network": "devnet",
+        "scenario": "devnet_amm_execute_f1",
+        "signature": "ZgN82WEajLMNtzyRSinimx3RHqJxBDfRJ7Z6W96DqeDep43wnA38FQEzNgVnuTt71CWsX9hmEnFPyFrex2jsAeN",
+        "slot": 442247008,
+        "computeUnits": 1913,
+        "status": "error",
+        "error": {
+          "InstructionError": [
+            1,
+            "InvalidInstructionData"
+          ]
+        }
+      }
+    ],
+    "notes": [
+      "Fresh random devnet program ID was incompatible with production hardcoded vm_state/fee-vault checks.",
+      "Fee-vault path fixed by deploying to hardcoded-compatible program ID 3Sz... and initializing vm_state + fee vaults there."
+    ]
+  }
+}
