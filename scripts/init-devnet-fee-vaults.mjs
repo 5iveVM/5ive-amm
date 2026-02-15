@@ -12,9 +12,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-const DEVNET_RPC = 'https://api.devnet.solana.com';
-const FIVE_PROGRAM_ID = '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d';
-const VM_STATE_ACCOUNT = '8ip3qGGETf8774jo6kXbsTTrMm5V9bLuGC4znmyZjT3z';
+// Support both localnet and devnet via command line arguments
+const network = process.argv[2] || 'devnet';
+const rpcUrl = network === 'localnet'
+  ? 'http://127.0.0.1:8899'
+  : 'https://api.devnet.solana.com';
+
+// For localnet, we need to derive these values
+// For devnet, use the known addresses
+const LOCALNET_PROGRAM_ID = '3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1';
+const DEVNET_PROGRAM_ID = '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d';
+const DEVNET_VM_STATE = '8ip3qGGETf8774jo6kXbsTTrMm5V9bLuGC4znmyZjT3z';
+const LOCALNET_VM_STATE_SEED = Buffer.from('vm_state', 'utf-8');
+
+const FIVE_PROGRAM_ID = network === 'localnet' ? LOCALNET_PROGRAM_ID : DEVNET_PROGRAM_ID;
 
 // Fee vault seed matches Rust: b"\xFFfive_vm_fee_vault_v1"
 const FEE_VAULT_SEED = Buffer.from([
@@ -22,7 +33,7 @@ const FEE_VAULT_SEED = Buffer.from([
   0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x76, 0x31,
 ]);
 
-const DEFAULT_FEE_VAULT_SHARD_COUNT = 10;
+const DEFAULT_FEE_VAULT_SHARD_COUNT = 2;
 const INIT_FEE_VAULT_INSTRUCTION = 11;
 
 async function deriveFeeVault(shardIndex) {
@@ -34,7 +45,7 @@ async function deriveFeeVault(shardIndex) {
 }
 
 async function main() {
-  const connection = new Connection(DEVNET_RPC, 'confirmed');
+  const connection = new Connection(rpcUrl, 'confirmed');
 
   // Load payer keypair
   const keypairPath = path.join(os.homedir(), '.config/solana/id.json');
@@ -45,7 +56,20 @@ async function main() {
   const keypairData = JSON.parse(await readFile(keypairPath, 'utf-8'));
   const payer = Keypair.fromSecretKey(Uint8Array.from(keypairData));
 
-  console.log(`\n📋 Initializing Fee Vault Shards on Devnet`);
+  // Derive VM state for localnet, use hardcoded for devnet
+  let VM_STATE_ACCOUNT;
+  if (network === 'localnet') {
+    const [vmStatePda] = PublicKey.findProgramAddressSync(
+      [LOCALNET_VM_STATE_SEED],
+      new PublicKey(FIVE_PROGRAM_ID)
+    );
+    VM_STATE_ACCOUNT = vmStatePda.toBase58();
+  } else {
+    VM_STATE_ACCOUNT = DEVNET_VM_STATE;
+  }
+
+  console.log(`\n📋 Initializing Fee Vault Shards on ${network.toUpperCase()}`);
+  console.log(`   RPC: ${rpcUrl}`);
   console.log(`   Payer: ${payer.publicKey.toBase58()}`);
   console.log(`   Program ID: ${FIVE_PROGRAM_ID}`);
   console.log(`   VM State: ${VM_STATE_ACCOUNT}\n`);
@@ -53,7 +77,7 @@ async function main() {
   // Check VM state account exists
   const vmStateInfo = await connection.getAccountInfo(new PublicKey(VM_STATE_ACCOUNT));
   if (!vmStateInfo) {
-    throw new Error(`VM State account ${VM_STATE_ACCOUNT} not found on devnet`);
+    throw new Error(`VM State account ${VM_STATE_ACCOUNT} not found on ${network}`);
   }
   console.log(`✓ VM State account found (${vmStateInfo.data.length} bytes)`);
 
