@@ -102,33 +102,29 @@ mod deploy_verification_tests {
     }
 
     #[test]
-    fn test_verify_empty_function_test_bytecode() {
-        // This is the actual bytecode from empty-function.v compiled by Five CLI
-        // Used for localnet testing with the test-runner
+    fn test_rejects_stale_empty_function_fixture() {
         let bytecode_data = vec![
-            0x35, 0x49, 0x56, 0x45, // Magic: "5IVE"
-            0x4f, 0x01, 0x00, 0x00, // Features: 0x0000014f
-            0x01,                    // Public function count: 1
-            0x01,                    // Total function count: 1
+            0x35, 0x49, 0x56, 0x45,
+            0x4f, 0x01, 0x00, 0x00,
+            0x01,
+            0x01,
             0x06, 0x01, 0x04, 0x74, 0x65, 0x73, 0x74, 0x19, 0x64, 0x07, 0x00,
         ];
 
-        // Debug: check what the parser says about this bytecode
         let parsed = five_protocol::parser::parse_bytecode(&bytecode_data);
-        println!("Parser errors: {:?}", parsed.errors);
-        println!("Parser result: {:?}", parsed);
-
-        // This bytecode should pass verification
-        match verify_bytecode_content(&bytecode_data) {
-            Ok(()) => {
-                println!("✓ empty-function.v bytecode verification passed");
-            }
-            Err(e) => {
-                eprintln!("✗ empty-function.v bytecode verification failed: {:?}", e);
-                // Don't panic - just print for debugging
-                println!("Note: This bytecode is failing on-chain validation");
-            }
-        }
+        assert!(
+            !parsed.errors.is_empty(),
+            "legacy fixture should be parser-invalid until regenerated"
+        );
+        assert!(
+            parsed.errors.iter().any(|e| matches!(e, five_protocol::parser::ParseError::HeaderTooShort)),
+            "expected HeaderTooShort from legacy fixture, got {:?}",
+            parsed.errors
+        );
+        assert!(
+            verify_bytecode_content(&bytecode_data).is_err(),
+            "legacy fixture should be deploy-verifier invalid until regenerated"
+        );
     }
 
     #[test]
