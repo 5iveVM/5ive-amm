@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
 import web3 from "../five-cli/node_modules/@solana/web3.js/lib/index.cjs.js";
+import { loadClusterConfig, deriveVmAddresses, resolveClusterFromEnvOrDefault } from "./lib/vm-cluster-config.mjs";
 const {
   Connection,
   Keypair,
@@ -18,8 +19,11 @@ function readArg(name, fallback = undefined) {
 }
 
 const rpcUrl = readArg("rpc-url", "http://127.0.0.1:8899");
-const programIdRaw = readArg("program-id", "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d");
-const vmStateRaw = readArg("vm-state", "8ip3qGGETf8774jo6kXbsTTrMm5V9bLuGC4znmyZjT3z");
+const cluster = readArg("cluster", resolveClusterFromEnvOrDefault());
+const profile = loadClusterConfig({ cluster });
+const derived = deriveVmAddresses(profile);
+const programIdRaw = readArg("program-id", profile.programId);
+const vmStateRaw = readArg("vm-state", derived.vmStatePda);
 const feeRecipientRaw = readArg("fee-recipient");
 const keypairPath = readArg("keypair");
 
@@ -27,7 +31,7 @@ if (!keypairPath || !feeRecipientRaw) {
   console.error(
     "usage: node scripts/vm-state-set-fee-recipient.mjs " +
       "--keypair <path> --fee-recipient <pubkey> " +
-      "[--rpc-url ...] [--program-id ...] [--vm-state ...]",
+      "[--cluster localnet|devnet|mainnet] [--rpc-url ...] [--program-id ...] [--vm-state ...]",
   );
   process.exit(2);
 }

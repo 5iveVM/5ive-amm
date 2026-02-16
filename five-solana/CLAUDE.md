@@ -55,3 +55,23 @@ Regression behavior:
 - `scenario_high_external_call_fanout_bpf_compute_units` is currently a regression hook line; heavy external fanout is still exercised by:
   - `external_token_transfer_burst_non_cpi_bpf_compute_units`
   - `external_token_transfer_mass_non_cpi_bpf_compute_units`
+
+## Cluster Constants Build Rule
+
+For deterministic benchmark CU and O(1) account validation paths, `five.so` must be built with generated cluster constants:
+
+```bash
+./scripts/build-five-solana-cluster.sh --cluster localnet   # or devnet/mainnet
+```
+
+Source files:
+- `five-solana/constants.vm.toml`
+- `five-solana/src/generated_constants.rs` (generated)
+
+Before localnet/devnet benchmark/deploy runs, use:
+
+```bash
+node scripts/check-vm-constants-parity.mjs --rpc-url <RPC_URL>
+```
+
+If constants and deployed program/state mismatch, treat benchmark output as invalid.

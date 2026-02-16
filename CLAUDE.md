@@ -672,6 +672,30 @@ Previously resolved:
 
 ## Deployment
 
+### Cluster-Deterministic VM Constants (Required for CU Benchmarks)
+
+Five VM now uses generated hardcoded constants for `vm_state` and fee-vault PDAs.
+Build one `five.so` per cluster to preserve O(1) validation and deterministic CU:
+
+```bash
+# 1) Generate constants + build for one cluster
+./scripts/build-five-solana-cluster.sh --cluster localnet   # or devnet/mainnet
+
+# 2) Optional: strict parity check before init/deploy
+node scripts/check-vm-constants-parity.mjs \
+  --rpc-url http://127.0.0.1:8899
+```
+
+Source of truth:
+- `five-solana/constants.vm.toml` (`program_id` + `fee_vault_shard_count` per cluster)
+- `scripts/generate-vm-constants.mjs` emits `five-solana/src/generated_constants.rs`
+
+Rotation flow (program ID changed):
+1. Update `five-solana/constants.vm.toml` for target cluster.
+2. Re-run `./scripts/build-five-solana-cluster.sh --cluster <cluster>`.
+3. Deploy rebuilt `five.so` using the matching program keypair for that cluster.
+4. Re-initialize vm_state/fee vaults if needed and re-run parity check.
+
 ### Local Development
 
 ```bash

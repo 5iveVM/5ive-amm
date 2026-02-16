@@ -1,0 +1,16 @@
+# Cluster-scoped VM program IDs and shard policy.
+# PDAs are derived deterministically from these program IDs by:
+#   node scripts/generate-vm-constants.mjs --cluster <localnet|devnet|mainnet>
+
+[clusters.localnet]
+program_id = "3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1"
+fee_vault_shard_count = 2
+
+[clusters.devnet]
+program_id = "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+fee_vault_shard_count = 2
+
+[clusters.mainnet]
+# Replace with the production-deployed Five VM program ID before mainnet build/deploy.
+program_id = "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+fee_vault_shard_count = 2

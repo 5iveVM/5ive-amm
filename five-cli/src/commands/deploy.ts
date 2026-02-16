@@ -17,6 +17,7 @@ import {
 import { FiveSDK, ProgramIdResolver } from '@5ive-tech/sdk';
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ConfigOverrides } from '../config/types.js';
+import { VmClusterConfigResolver } from '../config/VmClusterConfigResolver.js';
 import { FiveFileManager } from '../utils/FiveFileManager.js';
 import { computeHash, loadBuildManifest, loadProjectConfig } from '../project/ProjectLoader.js';
 import {
@@ -221,11 +222,18 @@ export const deployCommand: CommandDefinition = {
 
       const config = await configManager.applyOverrides(overrides);
 
-      // Resolve program ID AFTER target override is applied, using the correct target
-      // Precedence: CLI flag → project config → config file (per-target) → env var
+      // Resolve program ID AFTER target override is applied.
+      // Precedence: CLI flag → project config → CLI config per-target → vm cluster constants.
       if (!options.programId) {
         const configuredProgramId = await configManager.getProgramId(config.target as any);
-        options.programId = projectContext?.config.programId || configuredProgramId || process.env.FIVE_PROGRAM_ID;
+        if (projectContext?.config.programId) {
+          options.programId = projectContext.config.programId;
+        } else if (configuredProgramId) {
+          options.programId = configuredProgramId;
+        } else {
+          const cluster = VmClusterConfigResolver.fromCliTarget(config.target as any);
+          options.programId = VmClusterConfigResolver.loadClusterConfig({ cluster }).programId;
+        }
       }
       if (context.options.debug) {
         logger.debug(`config: ${JSON.stringify(config, null, 2)}`);

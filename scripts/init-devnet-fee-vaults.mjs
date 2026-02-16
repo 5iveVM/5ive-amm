@@ -1,31 +1,42 @@
 #!/usr/bin/env node
 
 /**
- * Initialize fee vault shards on devnet
+ * Initialize fee vault shards on localnet/devnet/mainnet.
  * This must be run before deploying scripts to ensure fee collection accounts exist.
  */
 
 import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import web3 from '../five-cli/node_modules/@solana/web3.js/lib/index.cjs.js';
+import { loadClusterConfig, resolveClusterFromEnvOrDefault } from './lib/vm-cluster-config.mjs';
 const { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } = web3;
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
-// Support both localnet and devnet via command line arguments
-const network = process.argv[2] || 'devnet';
-const rpcUrl = network === 'localnet'
-  ? 'http://127.0.0.1:8899'
-  : 'https://api.devnet.solana.com';
+function parseArgs(argv) {
+  const args = { network: 'devnet' };
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--network' && argv[i + 1]) args.network = argv[++i];
+    else if (a === '--rpc-url' && argv[i + 1]) args.rpcUrl = argv[++i];
+    else if (a === '--program-id' && argv[i + 1]) args.programId = argv[++i];
+    else if (a === '--vm-state' && argv[i + 1]) args.vmState = argv[++i];
+    else if (a === '--shards' && argv[i + 1]) args.shards = Number(argv[++i]);
+    else if (a === '--strict') args.strict = true;
+  }
+  return args;
+}
 
-// For localnet, we need to derive these values
-// For devnet, use the known addresses
-const LOCALNET_PROGRAM_ID = '3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1';
-const DEVNET_PROGRAM_ID = '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d';
-const DEVNET_VM_STATE = '8ip3qGGETf8774jo6kXbsTTrMm5V9bLuGC4znmyZjT3z';
-const LOCALNET_VM_STATE_SEED = Buffer.from('vm_state', 'utf-8');
-
-const FIVE_PROGRAM_ID = network === 'localnet' ? LOCALNET_PROGRAM_ID : DEVNET_PROGRAM_ID;
+function defaultsForNetwork(network) {
+  if (network === 'localnet') return { rpcUrl: 'http://127.0.0.1:8899' };
+  if (network === 'mainnet' || network === 'mainnet-beta') {
+    return { rpcUrl: 'https://api.mainnet-beta.solana.com' };
+  }
+  return { rpcUrl: 'https://api.devnet.solana.com' };
+}
 
 // Fee vault seed matches Rust: b"\xFFfive_vm_fee_vault_v1"
 const FEE_VAULT_SEED = Buffer.from([
@@ -36,15 +47,26 @@ const FEE_VAULT_SEED = Buffer.from([
 const DEFAULT_FEE_VAULT_SHARD_COUNT = 2;
 const INIT_FEE_VAULT_INSTRUCTION = 11;
 
-async function deriveFeeVault(shardIndex) {
+async function deriveFeeVault(programId, shardIndex) {
   const [pda, bump] = PublicKey.findProgramAddressSync(
     [FEE_VAULT_SEED, Buffer.from([shardIndex])],
-    new PublicKey(FIVE_PROGRAM_ID)
+    programId
   );
   return { address: pda.toBase58(), bump };
 }
 
 async function main() {
+  const args = parseArgs(process.argv);
+  const cluster = args.network === 'localnet' ? 'localnet' : (args.network === 'mainnet' || args.network === 'mainnet-beta' ? 'mainnet' : 'devnet');
+  const defaults = defaultsForNetwork(args.network);
+  const rpcUrl = args.rpcUrl || process.env.FIVE_RPC_URL || defaults.rpcUrl;
+  const configProgramId = loadClusterConfig({ cluster: process.env.FIVE_VM_CLUSTER || cluster || resolveClusterFromEnvOrDefault() }).programId;
+  const programIdRaw = args.programId || process.env.FIVE_PROGRAM_ID || configProgramId;
+  const programId = new PublicKey(programIdRaw);
+  const shardCount = Number.isFinite(args.shards) && args.shards > 0
+    ? args.shards
+    : DEFAULT_FEE_VAULT_SHARD_COUNT;
+
   const connection = new Connection(rpcUrl, 'confirmed');
 
   // Load payer keypair
@@ -56,30 +78,39 @@ async function main() {
   const keypairData = JSON.parse(await readFile(keypairPath, 'utf-8'));
   const payer = Keypair.fromSecretKey(Uint8Array.from(keypairData));
 
-  // Derive VM state for localnet, use hardcoded for devnet
-  let VM_STATE_ACCOUNT;
-  if (network === 'localnet') {
-    const [vmStatePda] = PublicKey.findProgramAddressSync(
-      [LOCALNET_VM_STATE_SEED],
-      new PublicKey(FIVE_PROGRAM_ID)
-    );
-    VM_STATE_ACCOUNT = vmStatePda.toBase58();
-  } else {
-    VM_STATE_ACCOUNT = DEVNET_VM_STATE;
-  }
+  const vmStateRaw = args.vmState || process.env.FIVE_VM_STATE;
+  const [derivedVmState] = PublicKey.findProgramAddressSync(
+    [Buffer.from('vm_state', 'utf-8')],
+    programId
+  );
+  const vmState = vmStateRaw ? new PublicKey(vmStateRaw) : derivedVmState;
 
-  console.log(`\n📋 Initializing Fee Vault Shards on ${network.toUpperCase()}`);
+  console.log(`\n📋 Initializing Fee Vault Shards on ${args.network.toUpperCase()}`);
   console.log(`   RPC: ${rpcUrl}`);
   console.log(`   Payer: ${payer.publicKey.toBase58()}`);
-  console.log(`   Program ID: ${FIVE_PROGRAM_ID}`);
-  console.log(`   VM State: ${VM_STATE_ACCOUNT}\n`);
+  console.log(`   Program ID: ${programId.toBase58()}`);
+  console.log(`   VM State: ${vmState.toBase58()}`);
+  console.log(`   Shards: ${shardCount}\n`);
 
   // Check VM state account exists
-  const vmStateInfo = await connection.getAccountInfo(new PublicKey(VM_STATE_ACCOUNT));
+  const vmStateInfo = await connection.getAccountInfo(vmState);
   if (!vmStateInfo) {
-    throw new Error(`VM State account ${VM_STATE_ACCOUNT} not found on ${network}`);
+    throw new Error(`VM State account ${vmState.toBase58()} not found on ${args.network}`);
   }
   console.log(`✓ VM State account found (${vmStateInfo.data.length} bytes)`);
+
+  if (args.strict) {
+    console.log('⏳ Strict parity precheck (compiled constants vs chain)...');
+    const result = spawnSync('node', [
+      path.join(SCRIPT_DIR, 'check-vm-constants-parity.mjs'),
+      '--rpc-url', rpcUrl,
+      '--program-id', programId.toBase58(),
+      '--vm-state', vmState.toBase58(),
+    ], { stdio: 'inherit' });
+    if (result.status !== 0) {
+      throw new Error('Strict parity precheck failed');
+    }
+  }
 
   // Get current balance
   const balance = await connection.getBalance(payer.publicKey);
@@ -91,8 +122,8 @@ async function main() {
 
   // Initialize fee vault shards
   const txSignatures = [];
-  for (let shardIndex = 0; shardIndex < DEFAULT_FEE_VAULT_SHARD_COUNT; shardIndex++) {
-    const vault = await deriveFeeVault(shardIndex);
+  for (let shardIndex = 0; shardIndex < shardCount; shardIndex++) {
+    const vault = await deriveFeeVault(programId, shardIndex);
 
     // Check if vault already exists
     const vaultInfo = await connection.getAccountInfo(new PublicKey(vault.address));
@@ -105,9 +136,9 @@ async function main() {
     const data = Buffer.from([INIT_FEE_VAULT_INSTRUCTION, shardIndex & 0xff, vault.bump & 0xff]);
 
     const instruction = new TransactionInstruction({
-      programId: new PublicKey(FIVE_PROGRAM_ID),
+      programId,
       keys: [
-        { pubkey: new PublicKey(VM_STATE_ACCOUNT), isSigner: false, isWritable: false },
+        { pubkey: vmState, isSigner: false, isWritable: false },
         { pubkey: payer.publicKey, isSigner: true, isWritable: true },
         { pubkey: new PublicKey(vault.address), isSigner: false, isWritable: true },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
@@ -125,7 +156,7 @@ async function main() {
     try {
       console.log(`⏳ Shard ${shardIndex}: Sending initialization...`);
       const sig = await connection.sendRawTransaction(tx.serialize(), {
-        skipPreflight: true,
+        skipPreflight: false,
         preflightCommitment: 'confirmed',
         maxRetries: 5,
       });
@@ -146,12 +177,12 @@ async function main() {
 
   console.log(`\n✅ Fee vault initialization complete!`);
   console.log(`   Total shards initialized: ${txSignatures.length}`);
-  console.log(`   Ready for script deployment on devnet\n`);
+  console.log(`   Ready for script deployment on ${args.network}\n`);
 
   // Print shard addresses for reference
   console.log('Fee Vault Shard Addresses:');
-  for (let i = 0; i < DEFAULT_FEE_VAULT_SHARD_COUNT; i++) {
-    const vault = await deriveFeeVault(i);
+  for (let i = 0; i < shardCount; i++) {
+    const vault = await deriveFeeVault(programId, i);
     console.log(`   Shard ${i}: ${vault.address}`);
   }
 }

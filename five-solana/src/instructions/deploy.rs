@@ -7,6 +7,7 @@ use pinocchio::{
 use crate::{
     common::{
         validate_vm_and_script_accounts, verify_program_owned, validate_permissions,
+        verify_hardcoded_vm_state_account_with_bump,
         verify_admin_signer,
     },
     error::program_already_initialized_error,
@@ -29,11 +30,7 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
 
     let vm_state_account = &accounts[0];
     let authority = &accounts[1];
-    let (expected_vm_state, expected_bump) =
-        crate::common::derive_canonical_vm_state_pda(program_id)?;
-    if vm_state_account.key() != &expected_vm_state || bump != expected_bump {
-        return Err(ProgramError::InvalidArgument);
-    }
+    verify_hardcoded_vm_state_account_with_bump(vm_state_account, program_id, bump)?;
 
     // Check if the account is already owned by the program or needs to be created
     if vm_state_account.owner() == &Pubkey::default() {

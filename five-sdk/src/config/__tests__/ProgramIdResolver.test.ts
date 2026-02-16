@@ -4,23 +4,24 @@
 
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { ProgramIdResolver } from '../ProgramIdResolver';
+import { VmClusterConfigResolver } from '../VmClusterConfigResolver';
 
 describe('ProgramIdResolver', () => {
-  // Store original env for restoration
-  const originalEnv = process.env.FIVE_PROGRAM_ID;
+  const originalCluster = process.env.FIVE_VM_CLUSTER;
+  const clusterProgramId = VmClusterConfigResolver.loadClusterConfig({ cluster: 'localnet' }).programId;
 
   beforeEach(() => {
     // Clear state before each test
     ProgramIdResolver.clearDefault();
-    delete process.env.FIVE_PROGRAM_ID;
+    process.env.FIVE_VM_CLUSTER = 'localnet';
   });
 
   afterEach(() => {
     // Restore original state
-    if (originalEnv) {
-      process.env.FIVE_PROGRAM_ID = originalEnv;
+    if (originalCluster) {
+      process.env.FIVE_VM_CLUSTER = originalCluster;
     } else {
-      delete process.env.FIVE_PROGRAM_ID;
+      delete process.env.FIVE_VM_CLUSTER;
     }
     ProgramIdResolver.clearDefault();
   });
@@ -28,11 +29,9 @@ describe('ProgramIdResolver', () => {
   describe('Precedence Order (CRITICAL)', () => {
     const validProgramId = '11111111111111111111111111111112'; // System Program
     const validDefaultId = 'TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP'; // SPL Token
-    const validEnvId = 'ATokenGPvbdGVqstVQmcLsNZAqeEbtQvvHta7h1Vvta'; // Associated Token
 
     it('explicit parameter takes precedence over all', () => {
       ProgramIdResolver.setDefault(validDefaultId);
-      process.env.FIVE_PROGRAM_ID = validEnvId;
 
       const result = ProgramIdResolver.resolve(validProgramId);
 
@@ -47,34 +46,15 @@ describe('ProgramIdResolver', () => {
       expect(result).toBe(validDefaultId);
     });
 
-    it('environment variable used when no default or explicit', () => {
-      process.env.FIVE_PROGRAM_ID = validEnvId;
-
+    it('cluster config is used when no default or explicit', () => {
       const result = ProgramIdResolver.resolve();
-
-      expect(result).toBe(validEnvId);
+      expect(result).toBe(clusterProgramId);
     });
 
-    it('throws error when no resolution possible', () => {
+    it('error message contains setup guidance when cluster config is invalid', () => {
       ProgramIdResolver.clearDefault();
-      delete process.env.FIVE_PROGRAM_ID;
-
-      expect(() => ProgramIdResolver.resolve()).toThrow(/No program ID resolved/);
-    });
-
-    it('error message contains setup guidance', () => {
-      ProgramIdResolver.clearDefault();
-      delete process.env.FIVE_PROGRAM_ID;
-
-      try {
-        ProgramIdResolver.resolve();
-        fail('Should have thrown');
-      } catch (error: any) {
-        expect(error.message).toContain('explicit call parameter');
-        expect(error.message).toContain('FiveSDK.setDefaultProgramId()');
-        expect(error.message).toContain('FIVE_PROGRAM_ID');
-        expect(error.message).toContain('docs.five.build');
-      }
+      process.env.FIVE_VM_CLUSTER = 'invalid-cluster';
+      expect(() => ProgramIdResolver.resolve()).toThrow(/No program ID resolved for Five VM/);
     });
   });
 
@@ -118,16 +98,11 @@ describe('ProgramIdResolver', () => {
   describe('Optional Resolution', () => {
     const validTestId = '11111111111111111111111111111112'; // System Program
     const validDefaultId = 'TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP'; // SPL Token
-    const validEnvId = 'ATokenGPvbdGVqstVQmcLsNZAqeEbtQvvHta7h1Vvta'; // Associated Token
     const validExplicitId = 'So11111111111111111111111111111111111111112'; // SOL token mint
 
-    it('returns undefined when no resolution possible', () => {
-      ProgramIdResolver.clearDefault();
-      delete process.env.FIVE_PROGRAM_ID;
-
+    it('returns cluster-config value when explicit/default missing', () => {
       const result = ProgramIdResolver.resolveOptional();
-
-      expect(result).toBeUndefined();
+      expect(result).toBe(clusterProgramId);
     });
 
     it('returns resolved value if available', () => {
@@ -140,7 +115,6 @@ describe('ProgramIdResolver', () => {
 
     it('returns explicit value with highest priority', () => {
       ProgramIdResolver.setDefault(validDefaultId);
-      process.env.FIVE_PROGRAM_ID = validEnvId;
 
       const result = ProgramIdResolver.resolveOptional(validExplicitId);
 
@@ -179,30 +153,24 @@ describe('ProgramIdResolver', () => {
     });
   });
 
-  describe('Environment Variable Integration', () => {
-    const validSystemId = '11111111111111111111111111111112'; // System Program
-    const validEnvId = 'TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP'; // SPL Token
+  describe('Cluster Config Integration', () => {
+    const validDefaultId = 'TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP'; // SPL Token
     const validExplicitId = 'ATokenGPvbdGVqstVQmcLsNZAqeEbtQvvHta7h1Vvta'; // Associated Token
 
-    it('respects FIVE_PROGRAM_ID env var', () => {
-      process.env.FIVE_PROGRAM_ID = validSystemId;
+    it('resolves from cluster config when default absent', () => {
+      const result = ProgramIdResolver.resolve();
+      expect(result).toBe(clusterProgramId);
+    });
+
+    it('sdk default overrides cluster config', () => {
+      ProgramIdResolver.setDefault(validDefaultId);
 
       const result = ProgramIdResolver.resolve();
 
-      expect(result).toBe(validSystemId);
+      expect(result).toBe(validDefaultId);
     });
 
-    it('env var overrides missing default', () => {
-      process.env.FIVE_PROGRAM_ID = validEnvId;
-
-      const result = ProgramIdResolver.resolve();
-
-      expect(result).toBe(validEnvId);
-    });
-
-    it('explicit overrides env var', () => {
-      process.env.FIVE_PROGRAM_ID = validEnvId;
-
+    it('explicit overrides cluster config/default', () => {
       const result = ProgramIdResolver.resolve(validExplicitId);
 
       expect(result).toBe(validExplicitId);
@@ -240,7 +208,7 @@ describe('ProgramIdResolver', () => {
     it('allows whitespace in validation error message', () => {
       try {
         ProgramIdResolver.resolve('  spaces  ');
-        fail('Should throw');
+        throw new Error('Should throw');
       } catch (error: any) {
         expect(error.message).toBeDefined();
       }
@@ -277,9 +245,7 @@ describe('ProgramIdResolver', () => {
     it('can reset and reconfigure', () => {
       ProgramIdResolver.setDefault('11111111111111111111111111111112');
       ProgramIdResolver.clearDefault();
-      delete process.env.FIVE_PROGRAM_ID;
-
-      expect(() => ProgramIdResolver.resolve()).toThrow();
+      expect(ProgramIdResolver.resolve()).toBe(clusterProgramId);
 
       ProgramIdResolver.setDefault('TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP');
       expect(ProgramIdResolver.resolve()).toBe('TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP');

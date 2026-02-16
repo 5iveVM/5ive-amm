@@ -186,7 +186,7 @@ describe('project-aware commands', () => {
     const ctx = createContext();
     await expect(
       compileCommand.handler([], { validate: true }, ctx as any)
-    ).rejects.toThrow(/No Five source files found/);
+    ).rejects.toThrow(/No 5ive source files found/);
   });
 
   it('deploy/execute handlers require artifact if manifest missing', async () => {

@@ -8,6 +8,7 @@ module.exports = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^five-sdk$': '<rootDir>/__mocks__/five-sdk.js',
+    '^@5ive-tech/sdk$': '<rootDir>/__mocks__/five-sdk.js',
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
   transformIgnorePatterns: [

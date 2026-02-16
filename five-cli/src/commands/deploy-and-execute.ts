@@ -12,6 +12,7 @@ import {
 import { FiveSDK, ProgramIdResolver } from '@5ive-tech/sdk';
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ConfigOverrides } from '../config/types.js';
+import { VmClusterConfigResolver } from '../config/VmClusterConfigResolver.js';
 import { FiveFileManager } from '../utils/FiveFileManager.js';
 import { section, success as uiSuccess, error as uiError, isTTY } from '../utils/cli-ui.js';
 
@@ -79,8 +80,8 @@ export const deployAndExecuteCommand: CommandDefinition = {
     },
     {
       flags: '--program-id <address>',
-      description: 'Override Five VM program ID for this run (env: FIVE_PROGRAM_ID)',
-      defaultValue: process.env.FIVE_PROGRAM_ID
+      description: 'Override Five VM program ID for this run',
+      defaultValue: undefined
     }
   ],
 
@@ -135,9 +136,14 @@ export const deployAndExecuteCommand: CommandDefinition = {
 
       const config = await configManager.applyOverrides(overrides);
 
-      // Resolve program ID with precedence: CLI flag → config file (per-target) → env var
+      // Resolve program ID with precedence: CLI flag → CLI config per-target → vm cluster constants
       const configuredProgramId = await configManager.getProgramId(config.target as any);
-      const programIdOverride = options.programId || configuredProgramId || process.env.FIVE_PROGRAM_ID;
+      const programIdOverride =
+        options.programId ||
+        configuredProgramId ||
+        VmClusterConfigResolver.loadClusterConfig({
+          cluster: VmClusterConfigResolver.fromCliTarget(config.target as any),
+        }).programId;
 
       // Show target context prefix
       const targetPrefix = ConfigManager.getTargetPrefix(config.target);

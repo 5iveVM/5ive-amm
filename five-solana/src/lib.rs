@@ -24,6 +24,7 @@ macro_rules! debug_log {
 
 mod common;
 mod error;
+mod generated_constants;
 pub use error::FIVEError;
 pub mod instructions;
 pub mod state;

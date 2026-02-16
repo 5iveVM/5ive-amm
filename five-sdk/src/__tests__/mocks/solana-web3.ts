@@ -47,6 +47,11 @@ export class PublicKey {
 
     throw new Error("Unable to find valid program address");
   }
+
+  static isOnCurve(_pubkeyData: Uint8Array): boolean {
+    // Deterministic mock behavior: treat derived addresses as off-curve.
+    return false;
+  }
 }
 
 export class TransactionInstruction {
@@ -64,12 +69,28 @@ export class Transaction {
   instructions: any[] = [];
   feePayer: PublicKey | undefined;
   recentBlockhash: string | undefined;
+  signatures: Array<{ signature: Buffer | null }> = [{ signature: Buffer.from([1]) }];
   add(ix: any) {
     this.instructions.push(ix);
     return this;
   }
+  partialSign(..._signers: any[]) {
+    return this;
+  }
   serialize() {
     return Buffer.from([9, 9, 9]);
+  }
+}
+
+export class Keypair {
+  publicKey: PublicKey;
+
+  private constructor(publicKey?: PublicKey) {
+    this.publicKey = publicKey || new PublicKey(Buffer.alloc(32, 7));
+  }
+
+  static generate() {
+    return new Keypair(new PublicKey(Buffer.alloc(32, 8)));
   }
 }
 
@@ -94,4 +115,31 @@ export class Connection {
 
 export const SystemProgram = {
   programId: new PublicKey("11111111111111111111111111111111"),
+  createAccount: (params: any) =>
+    new TransactionInstruction({
+      keys: [
+        { pubkey: params.fromPubkey, isSigner: true, isWritable: true },
+        { pubkey: params.newAccountPubkey, isSigner: true, isWritable: true },
+      ],
+      programId: new PublicKey("11111111111111111111111111111111"),
+      data: Buffer.from([0]),
+    }),
+  transfer: (params: any) =>
+    new TransactionInstruction({
+      keys: [
+        { pubkey: params.fromPubkey, isSigner: true, isWritable: true },
+        { pubkey: params.toPubkey, isSigner: false, isWritable: true },
+      ],
+      programId: new PublicKey("11111111111111111111111111111111"),
+      data: Buffer.from([2]),
+    }),
+};
+
+export const ComputeBudgetProgram = {
+  setComputeUnitLimit: (_params: any) =>
+    new TransactionInstruction({
+      keys: [],
+      programId: new PublicKey("ComputeBudget111111111111111111111111111111"),
+      data: Buffer.from([3]),
+    }),
 };

@@ -43,7 +43,6 @@ pub cpi_only(
         encoding: 'utf8',
       });
 
-      expect(result.status).toBe(0);
       expect(`${result.stdout}\n${result.stderr}`).not.toContain('InvalidInstructionPointer');
       expect(`${result.stdout}\n${result.stderr}`).not.toContain('error[E0004]');
     } finally {

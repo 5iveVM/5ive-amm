@@ -9,7 +9,6 @@ import {
   SystemProgram,
   Transaction,
   TransactionInstruction,
-  sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import { FiveSDK } from "../../FiveSDK.js";
 
@@ -198,7 +197,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
     const tx = new Transaction().add(ix);
 
     await expect(
-      sendAndConfirmTransaction(connection, tx, [payer], { commitment: "confirmed" }),
+      connection.sendTransaction(tx, [payer], { skipPreflight: false, preflightCommitment: "confirmed" }),
     ).rejects.toThrow();
 
     const after = await connection.getBalance(feeVaultAddress, "confirmed");
@@ -222,7 +221,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
     const tx = new Transaction().add(ix);
 
     await expect(
-      sendAndConfirmTransaction(connection, tx, [attacker], { commitment: "confirmed" }),
+      connection.sendTransaction(tx, [attacker], { skipPreflight: false, preflightCommitment: "confirmed" }),
     ).rejects.toThrow();
 
     const after = await FiveSDK.getVMState(connection, fiveVmProgramId);

@@ -8,17 +8,15 @@
 import { readFile } from 'node:fs/promises';
 import web3 from '../five-cli/node_modules/@solana/web3.js/lib/index.cjs.js';
 const { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } = web3;
+import { loadClusterConfig, deriveVmAddresses } from './lib/vm-cluster-config.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
 const LOCALNET_RPC = 'http://127.0.0.1:8899';
-const FIVE_PROGRAM_ID = '3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1';
-const VM_STATE_SEED = Buffer.from('vm_state', 'utf-8');
-
-// Hardcoded addresses from common.rs
-const HARDCODED_FEE_VAULT_0 = '3UYQEdrwkD7YqZzQm9R7yt3NYJNPBcDUYBzxNqSzSBGN';
-const HARDCODED_FEE_VAULT_1 = 'GBLnGfT3PvfWRz6Y8hY5gB4JknTpfpRG3oWD1xqkV8p';
+const profile = loadClusterConfig({ cluster: 'localnet' });
+const derived = deriveVmAddresses(profile);
+const FIVE_PROGRAM_ID = profile.programId;
 
 async function main() {
   const connection = new Connection(LOCALNET_RPC, 'confirmed');
@@ -33,10 +31,7 @@ async function main() {
   const payer = Keypair.fromSecretKey(Uint8Array.from(keypairData));
 
   // Derive VM state for localnet
-  const [vmStatePda] = PublicKey.findProgramAddressSync(
-    [VM_STATE_SEED],
-    new PublicKey(FIVE_PROGRAM_ID)
-  );
+  const vmStatePda = new PublicKey(derived.vmStatePda);
 
   console.log(`\n📋 Testing Hardcoded Fee Vault Verification on Localnet`);
   console.log(`   RPC: ${LOCALNET_RPC}`);
@@ -101,7 +96,7 @@ async function main() {
       { pubkey: scriptKeyPair.publicKey, isSigner: false, isWritable: true },
       { pubkey: vmStatePda, isSigner: false, isWritable: true },
       { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-      { pubkey: new PublicKey(HARDCODED_FEE_VAULT_0), isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(derived.feeVaultPdas[0].address), isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     data: deployData,

@@ -16,12 +16,19 @@ import { calculateExecuteFee } from "./fees.js";
 import { loadWasmVM } from "../wasm/instance.js";
 import { BytecodeCompiler } from "../compiler/BytecodeCompiler.js";
 import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
+import { VmClusterConfigResolver } from "../config/VmClusterConfigResolver.js";
 import {
   confirmTransactionRobust,
   getAccountInfoWithRetry,
 } from "../utils/transaction.js";
 
-const DEFAULT_FEE_VAULT_SHARD_COUNT = 10;
+const DEFAULT_FEE_VAULT_SHARD_COUNT = (() => {
+  try {
+    return VmClusterConfigResolver.loadClusterConfig().feeVaultShardCount;
+  } catch {
+    return 2;
+  }
+})();
 const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
   0xff, 0x66, 0x69, 0x76, 0x65, 0x5f, 0x76, 0x6d, 0x5f, 0x66, 0x65, 0x65,
   0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x76, 0x31,

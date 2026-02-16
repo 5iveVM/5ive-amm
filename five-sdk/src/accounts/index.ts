@@ -6,6 +6,7 @@
  */
 
 import { PDAUtils, SolanaPublicKeyUtils, RentCalculator, AccountValidator } from '../crypto/index.js';
+import { ProgramIdResolver } from '../config/ProgramIdResolver.js';
 
 /**
  * Account data interface (replaces Web3.js AccountInfo)
@@ -155,8 +156,8 @@ export interface TransactionInstruction {
 export class FiveAccountManager {
   private programId: string;
 
-  constructor(programId: string = 'FiveProgramID11111111111111111111111111111') {
-    this.programId = programId;
+  constructor(programId?: string) {
+    this.programId = ProgramIdResolver.resolve(programId);
   }
 
   /**

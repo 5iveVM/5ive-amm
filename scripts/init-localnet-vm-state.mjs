@@ -1,24 +1,56 @@
 #!/usr/bin/env node
 
 /**
- * Initialize VM state on localnet
- * Must be run before fee vault initialization
+ * Initialize VM state on localnet/devnet/mainnet.
+ * Must be run before fee vault initialization.
  */
 
 import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import web3 from '../five-cli/node_modules/@solana/web3.js/lib/index.cjs.js';
+import { loadClusterConfig, resolveClusterFromEnvOrDefault } from './lib/vm-cluster-config.mjs';
 const { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } = web3;
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
-const LOCALNET_RPC = 'http://127.0.0.1:8899';
-const FIVE_PROGRAM_ID = '3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1';
 const VM_STATE_SEED = Buffer.from('vm_state', 'utf-8');
 const INIT_INSTRUCTION = 0; // Initialize
 
+function parseArgs(argv) {
+  const args = { network: 'localnet' };
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--network' && argv[i + 1]) args.network = argv[++i];
+    else if (a === '--rpc-url' && argv[i + 1]) args.rpcUrl = argv[++i];
+    else if (a === '--program-id' && argv[i + 1]) args.programId = argv[++i];
+    else if (a === '--strict') args.strict = true;
+  }
+  return args;
+}
+
+function defaultsForNetwork(network) {
+  if (network === 'devnet') {
+    return { rpcUrl: 'https://api.devnet.solana.com' };
+  }
+  if (network === 'mainnet' || network === 'mainnet-beta') {
+    return { rpcUrl: 'https://api.mainnet-beta.solana.com' };
+  }
+  return { rpcUrl: 'http://127.0.0.1:8899' };
+}
+
 async function main() {
-  const connection = new Connection(LOCALNET_RPC, 'confirmed');
+  const args = parseArgs(process.argv);
+  const cluster = args.network === 'localnet' ? 'localnet' : (args.network === 'mainnet' || args.network === 'mainnet-beta' ? 'mainnet' : 'devnet');
+  const defaults = defaultsForNetwork(args.network);
+  const rpcUrl = args.rpcUrl || process.env.FIVE_RPC_URL || defaults.rpcUrl;
+  const configProgramId = loadClusterConfig({ cluster: process.env.FIVE_VM_CLUSTER || cluster || resolveClusterFromEnvOrDefault() }).programId;
+  const programIdRaw = args.programId || process.env.FIVE_PROGRAM_ID || configProgramId;
+  const programId = new PublicKey(programIdRaw);
+
+  const connection = new Connection(rpcUrl, 'confirmed');
 
   // Load payer keypair
   const keypairPath = path.join(os.homedir(), '.config/solana/id.json');
@@ -32,13 +64,13 @@ async function main() {
   // Derive VM state PDA
   const [vmStatePda, vmStateBump] = PublicKey.findProgramAddressSync(
     [VM_STATE_SEED],
-    new PublicKey(FIVE_PROGRAM_ID)
+    programId
   );
 
-  console.log(`\n📋 Initializing VM State on Localnet`);
-  console.log(`   RPC: ${LOCALNET_RPC}`);
+  console.log(`\n📋 Initializing VM State on ${args.network.toUpperCase()}`);
+  console.log(`   RPC: ${rpcUrl}`);
   console.log(`   Payer: ${payer.publicKey.toBase58()}`);
-  console.log(`   Program ID: ${FIVE_PROGRAM_ID}`);
+  console.log(`   Program ID: ${programId.toBase58()}`);
   console.log(`   VM State PDA: ${vmStatePda.toBase58()}`);
   console.log(`   VM State Bump: ${vmStateBump}\n`);
 
@@ -47,6 +79,19 @@ async function main() {
   if (vmStateInfo) {
     console.log(`✓ VM State already initialized\n`);
     return;
+  }
+
+  if (args.strict) {
+    console.log('⏳ Strict parity precheck (compiled constants vs chain)...');
+    const result = spawnSync('node', [
+      path.join(SCRIPT_DIR, 'check-vm-constants-parity.mjs'),
+      '--rpc-url', rpcUrl,
+      '--program-id', programId.toBase58(),
+      '--vm-state', vmStatePda.toBase58(),
+    ], { stdio: 'inherit' });
+    if (result.status !== 0) {
+      throw new Error('Strict parity precheck failed');
+    }
   }
 
   // Get balance
@@ -61,7 +106,7 @@ async function main() {
   const data = Buffer.from([INIT_INSTRUCTION, vmStateBump]);
 
   const instruction = new TransactionInstruction({
-    programId: new PublicKey(FIVE_PROGRAM_ID),
+    programId,
     keys: [
       { pubkey: vmStatePda, isSigner: false, isWritable: true },
       { pubkey: payer.publicKey, isSigner: true, isWritable: false }, // authority (must sign)
@@ -81,7 +126,7 @@ async function main() {
   try {
     console.log(`⏳ Sending VM state initialization...`);
     const sig = await connection.sendRawTransaction(tx.serialize(), {
-      skipPreflight: true,
+      skipPreflight: false,
       preflightCommitment: 'confirmed',
       maxRetries: 5,
     });

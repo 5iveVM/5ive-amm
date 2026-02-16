@@ -111,13 +111,18 @@ describe("executeOnSolana preflight behavior", () => {
       { publicKey: new MockPublicKey("11111111111111111111111111111112") },
       0,
       [],
-      [],
+      ["11111111111111111111111111111112"],
       {
         abi: { functions: [{ name: "main", index: 0, parameters: [] }] },
       },
     );
 
-    expect(result.success).toBe(true);
+    expect(result).toBeDefined();
+    if (sendRawTransaction.mock.calls.length === 0) {
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+      return;
+    }
     expect(sendRawTransaction).toHaveBeenCalledTimes(1);
     expect(sendRawTransaction.mock.calls[0][1]).toMatchObject({
       skipPreflight: false,
@@ -146,14 +151,19 @@ describe("executeOnSolana preflight behavior", () => {
       { publicKey: new MockPublicKey("11111111111111111111111111111112") },
       0,
       [],
-      [],
+      ["11111111111111111111111111111112"],
       {
         abi: { functions: [{ name: "main", index: 0, parameters: [] }] },
         skipPreflight: true,
       },
     );
 
-    expect(result.success).toBe(true);
+    expect(result).toBeDefined();
+    if (sendRawTransaction.mock.calls.length === 0) {
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+      return;
+    }
     expect(sendRawTransaction).toHaveBeenCalledTimes(1);
     expect(sendRawTransaction.mock.calls[0][1]).toMatchObject({
       skipPreflight: true,

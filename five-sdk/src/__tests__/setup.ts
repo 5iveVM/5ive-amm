@@ -6,6 +6,10 @@
  */
 
 import { jest } from '@jest/globals';
+import { VmClusterConfigResolver } from '../config/VmClusterConfigResolver.js';
+
+const vmProfile = VmClusterConfigResolver.loadClusterConfig();
+const vmDerived = VmClusterConfigResolver.deriveVmAddresses(vmProfile);
 
 // Global test configuration
 global.console = {
@@ -139,7 +143,7 @@ export const TestUtils = {
   /**
    * Create test Solana account info
    */
-  createTestAccountInfo: (data: Uint8Array, owner: string = 'FiveProgramID11111111111111111111111111111') => ({
+  createTestAccountInfo: (data: Uint8Array, owner: string = vmProfile.programId) => ({
     data: Buffer.from(data),
     executable: false,
     lamports: 1000000,
@@ -231,7 +235,8 @@ export const TestUtils = {
 
 // Test constants
 export const TestConstants = {
-  FIVE_VM_PROGRAM_ID: 'FiveProgramID11111111111111111111111111111',
+  FIVE_VM_PROGRAM_ID: vmProfile.programId,
+  FIVE_VM_STATE_PDA: vmDerived.vmStatePda,
   SYSTEM_PROGRAM_ID: '11111111111111111111111111111112',
   RENT_SYSVAR_ID: 'SysvarRent111111111111111111111111111111111',
   CLOCK_SYSVAR_ID: 'SysvarC1ock11111111111111111111111111111111',

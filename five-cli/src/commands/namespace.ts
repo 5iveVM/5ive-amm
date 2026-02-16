@@ -7,6 +7,7 @@ import { Connection, Keypair } from "@solana/web3.js";
 
 import { CommandContext, CommandDefinition } from "../types.js";
 import { ConfigManager } from "../config/ConfigManager.js";
+import { VmClusterConfigResolver } from "../config/VmClusterConfigResolver.js";
 import { loadProjectConfig } from "../project/ProjectLoader.js";
 import { section, success as uiSuccess, error as uiError, keyValue } from "../utils/cli-ui.js";
 import { FiveSDK, ProgramIdResolver } from "@5ive-tech/sdk";
@@ -159,13 +160,11 @@ export const namespaceCommand: CommandDefinition = {
       keypair: projectContext?.config.keypairPath,
     });
 
-    // Resolve program ID with precedence: CLI flag → project config → config file (per-target) → env var
+    // Resolve program ID with precedence: CLI flag → project config → config file (per-target) → vm constants
     const configuredProgramId = await configManager.getProgramId(config.target as any);
-    const vmProgramId =
-      options.programId ||
-      projectContext?.config.programId ||
-      configuredProgramId ||
-      process.env.FIVE_PROGRAM_ID;
+    const vmProgramId = options.programId || projectContext?.config.programId || configuredProgramId || VmClusterConfigResolver.loadClusterConfig({
+      cluster: VmClusterConfigResolver.fromCliTarget(config.target as any),
+    }).programId;
     let signer: Keypair | undefined;
     let connection: Connection | undefined;
 

@@ -8,6 +8,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { spawnSync } from 'child_process';
+import { loadClusterConfig, deriveVmAddresses, resolveClusterFromEnvOrDefault } from './lib/vm-cluster-config.mjs';
 import web3 from '../five-cli/node_modules/@solana/web3.js/lib/index.cjs.js';
 const {
     Connection,
@@ -23,9 +25,12 @@ const {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const cluster = process.env.FIVE_VM_CLUSTER || resolveClusterFromEnvOrDefault();
+const profile = loadClusterConfig({ cluster });
+const derived = deriveVmAddresses(profile);
 const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8899';
-const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || '3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1');
-const VM_STATE_PDA = process.env.VM_STATE_PDA || 'AJm3tpMgv9mXCWK2Sj9dZ2DxtUWXuQBXiK5HcYtHmKit';
+const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || profile.programId);
+const VM_STATE_PDA = process.env.VM_STATE_PDA || derived.vmStatePda;
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -49,6 +54,19 @@ async function deployAMM() {
         console.log(`  RPC URL: ${RPC_URL}`);
         console.log(`  Payer: ${payer.publicKey.toBase58()}`);
         console.log(`  Five Program: ${FIVE_PROGRAM_ID.toBase58()}\n`);
+
+        if (process.env.STRICT_VM_CONSTANTS === '1') {
+            const strictCheck = path.join(__dirname, 'check-vm-constants-parity.mjs');
+            const parity = spawnSync('node', [
+                strictCheck,
+                '--rpc-url', RPC_URL,
+                '--program-id', FIVE_PROGRAM_ID.toBase58(),
+                '--vm-state', VM_STATE_PDA,
+            ], { stdio: 'inherit' });
+            if (parity.status !== 0) {
+                process.exit(parity.status ?? 1);
+            }
+        }
 
         const balance = await connection.getBalance(payer.publicKey);
         if (balance < 0.1 * LAMPORTS_PER_SOL) {
@@ -128,7 +146,7 @@ async function deployAMM() {
         console.log(`  Initial funding: ${initialLamports} lamports (${(initialLamports / LAMPORTS_PER_SOL).toFixed(8)} SOL)`);
 
         // Fee vault account (hardcoded shard 0)
-        const FEE_VAULT_0 = new PublicKey('HXW6bZsdJW6Be5c51NNpNb9NcVxmHbUrF9oKkt4C1tEH');
+        const FEE_VAULT_0 = new PublicKey(derived.feeVaultPdas[0].address);
 
         const initTx = new Transaction().add(
             ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),

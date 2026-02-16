@@ -1,15 +1,10 @@
 /**
  * Centralized program ID resolution for Five SDK.
- * Implements consistent precedence: explicit → default → env → baked → error
+ * Implements strict precedence: explicit → SDK default → cluster config → error
  */
 
 import { validator } from '../validation/index.js';
-
-/**
- * Baked program ID injected at release time (set by scripts/set-default-program-id.sh)
- * Empty string by default; overridden in npm published packages.
- */
-export const FIVE_BAKED_PROGRAM_ID = '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d';
+import { VmClusterConfigResolver } from './VmClusterConfigResolver.js';
 
 /**
  * Centralized resolver for program IDs across all SDK operations.
@@ -59,18 +54,19 @@ export class ProgramIdResolver {
     explicit?: string,
     options?: { allowUndefined?: boolean }
   ): string {
-    // Precedence: explicit → default → env → baked
-    // Note: Must check for explicit empty string differently from undefined
+    // Precedence: explicit → default → cluster-config
     let resolved: string | undefined;
 
     if (explicit) {
       resolved = explicit;
     } else if (this.defaultProgramId) {
       resolved = this.defaultProgramId;
-    } else if (process.env.FIVE_PROGRAM_ID) {
-      resolved = process.env.FIVE_PROGRAM_ID;
-    } else if (FIVE_BAKED_PROGRAM_ID) {
-      resolved = FIVE_BAKED_PROGRAM_ID;
+    } else {
+      try {
+        resolved = VmClusterConfigResolver.loadClusterConfig().programId;
+      } catch {
+        resolved = undefined;
+      }
     }
 
     if (!resolved && !options?.allowUndefined) {
@@ -79,9 +75,7 @@ export class ProgramIdResolver {
         `Set via one of: ` +
         `(1) explicit call parameter, ` +
         `(2) FiveSDK.setDefaultProgramId(), ` +
-        `(3) FIVE_PROGRAM_ID environment variable, ` +
-        `(4) released package default. ` +
-        `For setup guidance, see: https://docs.five.build/cli/program-id-setup`
+        `(3) five-solana/constants.vm.toml cluster profile.`
       );
     }
 

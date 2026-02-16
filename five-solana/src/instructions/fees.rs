@@ -194,10 +194,14 @@ pub fn init_fee_vault(
         return Err(ProgramError::InvalidInstructionData);
     }
 
+    #[cfg(not(test))]
     let expected_key = crate::common::get_hardcoded_fee_vault(shard_index)
         .ok_or(ProgramError::InvalidInstructionData)?;
+    #[cfg(not(test))]
     let expected_bump = crate::common::get_hardcoded_fee_vault_bump(shard_index)
         .ok_or(ProgramError::InvalidInstructionData)?;
+    #[cfg(test)]
+    let (expected_key, expected_bump) = crate::common::derive_fee_vault_pda(program_id, shard_index)?;
     if fee_vault_account.key() != &expected_key || bump != expected_bump {
         return Err(ProgramError::InvalidArgument);
     }

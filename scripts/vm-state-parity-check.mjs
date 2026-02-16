@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import bs58Pkg from "../five-cli/node_modules/bs58/index.js";
+import { loadClusterConfig, deriveVmAddresses, resolveClusterFromEnvOrDefault } from "./lib/vm-cluster-config.mjs";
 const bs58 = bs58Pkg.default ?? bs58Pkg;
 
 function readArg(name, fallback = undefined) {
@@ -16,8 +17,11 @@ function runSolana(args) {
 }
 
 const rpcUrl = readArg("rpc-url", "http://127.0.0.1:8899");
-const programIdRaw = readArg("program-id", "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d");
-const vmStateRaw = readArg("vm-state", "8ip3qGGETf8774jo6kXbsTTrMm5V9bLuGC4znmyZjT3z");
+const cluster = readArg("cluster", resolveClusterFromEnvOrDefault());
+const profile = loadClusterConfig({ cluster });
+const derived = deriveVmAddresses(profile);
+const programIdRaw = readArg("program-id", profile.programId);
+const vmStateRaw = readArg("vm-state", derived.vmStatePda);
 const expectedAuthorityRaw = readArg("expected-authority");
 const expectedFeeRecipientRaw = readArg("expected-fee-recipient");
 const expectedDeployFeeRaw = readArg("expected-deploy-fee", "10000");

@@ -152,8 +152,8 @@ describe('Five SDK Integration Tests', () => {
 
       const raw = Buffer.from(result.instruction.data, 'base64');
       expect(raw[0]).toBe(9);
-      expect(raw.readUInt32LE(1)).toBe(7);
-      expect(raw.readUInt32LE(5)).toBe(2);
+      expect(raw.readUInt32LE(5)).toBe(7);
+      expect(raw.readUInt32LE(9)).toBe(2);
     });
 
     it('falls back to numeric index 0 when function name cannot be resolved', async () => {
@@ -163,7 +163,7 @@ describe('Five SDK Integration Tests', () => {
         scriptAccount,
         'missing_function',
         [],
-        [],
+        [TestConstants.TEST_USER_PUBKEY],
         undefined,
         {
           abi: { functions: [{ name: 'known', index: 5, parameters: [] }] },
@@ -171,7 +171,7 @@ describe('Five SDK Integration Tests', () => {
       );
 
       const raw = Buffer.from(result.instruction.data, 'base64');
-      expect(raw.readUInt32LE(1)).toBe(0);
+      expect(raw.readUInt32LE(5)).toBe(0);
       expect(result.parameters.function).toBe('missing_function');
     });
 
@@ -180,7 +180,7 @@ describe('Five SDK Integration Tests', () => {
         TestConstants.TEST_SCRIPT_ACCOUNT,
         20,
         [1, 2, 3, 4, 5],
-        [],
+        [TestConstants.TEST_USER_PUBKEY],
         undefined,
         {
           abi: {
