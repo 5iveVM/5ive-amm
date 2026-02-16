@@ -144,73 +144,31 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     #[cfg(feature = "debug-logs")]
     debug_log!("MitoVM: internal CALL params={} stack={}", param_count as u64, ctx.size() as u64);
 
+    let call_args = materialize_call_args(ctx, param_count)?;
     ctx.allocate_params(param_count + 1)?;
-    // Hot path for the common small-arity case.
-    match param_count {
-        0 => {}
-        1 => {
-            let p1 = ctx.pop()?;
-            ctx.parameters_mut()[1] = p1;
-        }
-        2 => {
-            let p2 = ctx.pop()?;
-            let p1 = ctx.pop()?;
-            let params = ctx.parameters_mut();
-            params[1] = p1;
-            params[2] = p2;
-        }
-        3 => {
-            let p3 = ctx.pop()?;
-            let p2 = ctx.pop()?;
-            let p1 = ctx.pop()?;
-            let params = ctx.parameters_mut();
-            params[1] = p1;
-            params[2] = p2;
-            params[3] = p3;
-        }
-        _ => {
-            for i in 0..param_count {
-                let value = ctx.pop()?;
-                let idx = (param_count - i) as usize;
-                ctx.parameters_mut()[idx] = value;
-            }
+    {
+        let params = ctx.parameters_mut();
+        for (i, value) in call_args.iter().take(param_count as usize).enumerate() {
+            params[i + 1] = *value;
         }
     }
 
     let current_ip = ctx.ip();
-    let current_local_count = ctx.local_count();
-    let current_local_base = ctx.local_base();
-
-    // Check if we have enough space for callee's locals before pushing frame
-    let new_local_base = current_local_base
-        .checked_add(current_local_count)
-        .ok_or(VMErrorCode::CallStackOverflow)?;
-    let locals_to_allocate = (param_count as usize).max(3);
-    if (new_local_base as usize + locals_to_allocate) > crate::MAX_LOCALS {
-        // Return CallStackOverflow instead of LocalsOverflow to indicate call depth limit
-        return Err(VMErrorCode::CallStackOverflow);
-    }
-
-    // Save caller's frame state including local base offset
-    ctx.push_call_frame(CallFrame::with_parameters(
-        current_ip as u16,
-        current_local_count,
-        current_local_base,
+    let script_ptr = ctx.script().as_ptr() as usize;
+    let script_len = ctx.script().len() as u32;
+    let current_context = ctx.current_context;
+    let remap = ctx.external_account_remap();
+    prepare_callee_frame(
+        ctx,
+        param_count,
         caller_start,
         caller_len,
-        ctx.current_context,
-        ctx.external_account_remap(),
-        ctx.script().as_ptr() as usize,
-        ctx.script().len() as u32,
-    ))?;
-
-    // Set callee's local base to end of caller's locals (per-frame window)
-    ctx.set_local_base(new_local_base);
-    ctx.set_local_count(0);
-    // Allocate locals for the callee frame
-    // Use max(param_count, 3) to allow functions to use at least 3 local slots by default
-    let locals_to_allocate = param_count.max(3);
-    ctx.allocate_locals(locals_to_allocate)?;
+        current_ip,
+        current_context,
+        remap,
+        script_ptr,
+        script_len,
+    )?;
     ctx.set_ip(func_addr);
 
     debug_log!(
@@ -897,10 +855,70 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let caller_len = ctx.param_len();
 
     let return_address = ctx.ip();
-    let current_local_count = ctx.local_count();
-    let current_local_base = ctx.local_base();
 
     // Materialize CALL_EXTERNAL arguments in call order.
+    let call_args = materialize_call_args(ctx, param_count)?;
+
+    // Build external account remap: external account slots are bound from account args in call order.
+    let (remap, bound_account_count, scalar_arg_count) =
+        build_external_account_remap(ctx, &call_args, param_count)?;
+
+    // Validate that provided account args satisfy external function constraints.
+    if required_account_count > 0 {
+        validate_external_function_constraints(
+            ctx,
+            required_account_count,
+            &constraints,
+            &remap,
+            bound_account_count,
+        )?;
+    }
+
+    let script_ptr = ctx.script().as_ptr() as usize;
+    let script_len = ctx.script().len() as u32;
+    let current_context = ctx.current_context;
+    let remap = ctx.external_account_remap();
+    prepare_callee_frame(
+        ctx,
+        param_count,
+        caller_start,
+        caller_len,
+        return_address,
+        current_context,
+        remap,
+        script_ptr,
+        script_len,
+    )?;
+    // External functions address account arguments by account index; parameter slots are used
+    // for non-account values (e.g. scalar inputs used by fused ops).
+    ctx.allocate_params(scalar_arg_count.saturating_add(1))?;
+    write_scalar_params(ctx, &call_args, param_count);
+
+    ctx.set_external_account_remap(remap);
+
+    debug_log!(
+        "MitoVM: CALL_EXTERNAL about to switch_to_external_bytecode - current IP: {}, new offset: {}",
+        ctx.ip() as u32,
+        resolved_func_offset as u32
+    );
+    
+    ctx.switch_to_external_bytecode(external_bytecode, resolved_func_offset)?;
+    ctx.current_context = resolved_account_index as u8;
+    
+    debug_log!(
+        "MitoVM: CALL_EXTERNAL after switch_to_external_bytecode - new IP: {}, script len: {}",
+        ctx.ip() as u32,
+        ctx.script().len() as u32
+    );
+    
+    Ok(())
+}
+
+#[inline]
+fn materialize_call_args(
+    ctx: &mut ExecutionManager,
+    param_count: u8,
+) -> CompactResult<[ValueRef; MAX_PARAMETERS]> {
     let mut call_args = [ValueRef::Empty; MAX_PARAMETERS];
     match param_count {
         0 => {}
@@ -939,88 +957,64 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
             }
         }
     }
+    Ok(call_args)
+}
 
-    // Build external account remap: external account slots are bound from account args in call order.
-    let (remap, bound_account_count, scalar_arg_count) =
-        build_external_account_remap(ctx, &call_args, param_count)?;
+#[inline]
+fn prepare_callee_frame(
+    ctx: &mut ExecutionManager,
+    param_count: u8,
+    caller_start: u8,
+    caller_len: u8,
+    return_address: usize,
+    context_id: u8,
+    remap: [u8; MAX_PARAMETERS + 1],
+    script_ptr: usize,
+    script_len: u32,
+) -> CompactResult<()> {
+    let current_local_count = ctx.local_count();
+    let current_local_base = ctx.local_base();
 
-    // Validate that provided account args satisfy external function constraints.
-    if required_account_count > 0 {
-        validate_external_function_constraints(
-            ctx,
-            required_account_count,
-            &constraints,
-            &remap,
-            bound_account_count,
-        )?;
-    }
-
-    // Check if we have enough space for callee's locals before pushing frame
     let new_local_base = current_local_base
         .checked_add(current_local_count)
         .ok_or(VMErrorCode::CallStackOverflow)?;
     let locals_to_allocate = (param_count as usize).max(3);
     if (new_local_base as usize + locals_to_allocate) > crate::MAX_LOCALS {
-        // Return CallStackOverflow instead of LocalsOverflow to indicate call depth limit
         return Err(VMErrorCode::CallStackOverflow);
     }
 
-    // Save caller's frame state including local base offset
     ctx.push_call_frame(CallFrame::with_parameters(
         return_address as u16,
         current_local_count,
         current_local_base,
         caller_start,
         caller_len,
-        ctx.current_context,
-        ctx.external_account_remap(),
-        ctx.script().as_ptr() as usize,
-        ctx.script().len() as u32,
+        context_id,
+        remap,
+        script_ptr,
+        script_len,
     ))?;
 
-    // Set callee's local base to end of caller's locals (per-frame window)
     ctx.set_local_base(new_local_base);
     ctx.set_local_count(0);
-    // Allocate locals for the callee frame
-    // Use max(param_count, 3) to allow functions to use at least 3 local slots by default
-    let locals_to_allocate = param_count.max(3);
-    ctx.allocate_locals(locals_to_allocate)?;
-    // External functions address account arguments by account index; parameter slots are used
-    // for non-account values (e.g. scalar inputs used by fused ops).
-    ctx.allocate_params(scalar_arg_count.saturating_add(1))?;
-    {
-        let params = ctx.parameters_mut();
-        params[0] = ValueRef::U64(0);
-        let mut out_idx = 1usize;
-        for value in call_args.iter().take(param_count as usize) {
-            if !matches!(value, ValueRef::AccountRef(_, _)) {
-                params[out_idx] = *value;
-                out_idx += 1;
-            }
-        }
-        for slot in out_idx..params.len() {
-            params[slot] = ValueRef::Empty;
+    ctx.allocate_locals(param_count.max(3))?;
+    Ok(())
+}
+
+#[inline(always)]
+fn write_scalar_params(ctx: &mut ExecutionManager, call_args: &[ValueRef; MAX_PARAMETERS], param_count: u8) {
+    let params = ctx.parameters_mut();
+    params[0] = ValueRef::U64(0);
+    let mut out_idx = 1usize;
+    for value in call_args.iter().take(param_count as usize) {
+        if !matches!(value, ValueRef::AccountRef(_, _)) {
+            params[out_idx] = *value;
+            out_idx += 1;
         }
     }
-
-    ctx.set_external_account_remap(remap);
-
-    debug_log!(
-        "MitoVM: CALL_EXTERNAL about to switch_to_external_bytecode - current IP: {}, new offset: {}",
-        ctx.ip() as u32,
-        resolved_func_offset as u32
-    );
-    
-    ctx.switch_to_external_bytecode(external_bytecode, resolved_func_offset)?;
-    ctx.current_context = resolved_account_index as u8;
-    
-    debug_log!(
-        "MitoVM: CALL_EXTERNAL after switch_to_external_bytecode - new IP: {}, script len: {}",
-        ctx.ip() as u32,
-        ctx.script().len() as u32
-    );
-    
-    Ok(())
+    for slot in out_idx..params.len() {
+        params[slot] = ValueRef::Empty;
+    }
 }
 
 #[inline(always)]

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use five_protocol::{
-    opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC, MAX_FUNCTIONS,
+    opcodes::*, BytecodeBuilder, FIVE_HEADER_OPTIMIZED_SIZE, MAX_FUNCTIONS,
 };
 
 /// Errors returned by [`ScriptBuilder`].
@@ -173,13 +173,11 @@ impl ScriptBuilder {
         let mut function_offsets: HashMap<String, usize> = HashMap::new();
         let total_body_len: usize = self.functions.iter().map(|f| f.body.code.len()).sum();
 
-        let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + total_body_len);
-        script.extend_from_slice(&FIVE_MAGIC);
-        // Header V3: features(4 bytes LE) + public_function_count(1) + total_function_count(1)
-        let features_u32 = self.features as u32;
-        script.extend_from_slice(&features_u32.to_le_bytes());
-        script.push(public_functions as u8);
-        script.push(total_functions as u8);
+        let mut header = BytecodeBuilder::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE);
+        header.emit_header(public_functions as u8, total_functions as u8);
+        header.patch_u32(4, self.features as u32).expect("header feature patch");
+        let mut script = header.build();
+        script.reserve(total_body_len);
 
         let mut cursor = FIVE_HEADER_OPTIMIZED_SIZE;
         for func in &self.functions {

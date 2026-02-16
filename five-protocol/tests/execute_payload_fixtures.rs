@@ -1,6 +1,7 @@
 #![cfg(feature = "test-fixtures")]
 
 use five_protocol::{
+    execute_payload::{canonical_execute_payload, TypedParam},
     test_fixtures::{
         execute_payload_minimal, execute_payload_typed_sample,
         execute_payload_truncated_function_index, execute_payload_truncated_param_count,
@@ -43,6 +44,21 @@ fn typed_execute_payload_has_expected_layout() {
     // param 5: ACCOUNT(3) as u32
     assert_eq!(payload[62], types::ACCOUNT);
     assert_eq!(u32::from_le_bytes(payload[63..67].try_into().unwrap()), 3);
+}
+
+#[test]
+fn typed_fixture_matches_canonical_encoder_bytes() {
+    let encoded = canonical_execute_payload(
+        2,
+        &[
+            TypedParam::U64(42),
+            TypedParam::Bool(true),
+            TypedParam::String("hi".to_string()),
+            TypedParam::Pubkey([7u8; 32]),
+            TypedParam::Account(3),
+        ],
+    );
+    assert_eq!(encoded, execute_payload_typed_sample());
 }
 
 #[test]

@@ -7,7 +7,9 @@
 
 #![cfg(test)]
 
-use solana_program::pubkey::Pubkey;
+use solana_sdk::pubkey::Pubkey;
+#[path = "../harness/addresses.rs"]
+mod addresses;
 
 /// Derive the VM State PDA using the standard seed ["vm_state"]
 ///
@@ -26,8 +28,7 @@ use solana_program::pubkey::Pubkey;
 /// // vm_state_pda is now the deterministic address for this program's VM state
 /// ```
 pub fn derive_vm_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
-    let seeds: &[&[u8]] = &[b"vm_state"];
-    Pubkey::find_program_address(seeds, program_id)
+    addresses::vm_state_pda(program_id)
 }
 
 /// Derive a namespace registry PDA for PDA operations

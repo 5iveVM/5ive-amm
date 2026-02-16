@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    fees::{collect_deploy_fee, collect_deploy_fee_with_state},
+    fees::{build_system_create_account_ix, collect_deploy_fee, collect_deploy_fee_with_state},
     verify::{verify_bytecode_content},
     require_min_accounts, require_signer, safe_realloc,
 };
@@ -50,12 +50,8 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
             .map_err(|_| ProgramError::AccountNotRentExempt)?;
         let rent_lamports = rent.minimum_balance(FIVEVMState::LEN);
 
-        // Prepare CreateAccount instruction data
-        let mut create_account_data = [0u8; 52];
-        create_account_data[0..4].copy_from_slice(&0u32.to_le_bytes()); // CreateAccount discriminator
-        create_account_data[4..12].copy_from_slice(&rent_lamports.to_le_bytes());
-        create_account_data[12..20].copy_from_slice(&(FIVEVMState::LEN as u64).to_le_bytes());
-        create_account_data[20..52].copy_from_slice(program_id.as_ref());
+        let create_account_data =
+            build_system_create_account_ix(rent_lamports, FIVEVMState::LEN as u64, program_id);
 
         let bump_seed = [bump];
         let seeds: &[Seed] = &[

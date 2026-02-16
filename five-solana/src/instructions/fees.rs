@@ -17,6 +17,43 @@ const ERR_INVALID_FEE_RECIPIENT: u32 = 1113;
 pub const FEE_BYPASS_SHARD_INDEX: u8 = u8::MAX;
 
 #[inline(always)]
+pub(crate) fn validate_fee_transfer_accounts(
+    program_id: &Pubkey,
+    payer: &AccountInfo,
+    fee_vault_account: &AccountInfo,
+    system_program: &AccountInfo,
+) -> ProgramResult {
+    if system_program.key() == program_id {
+        return Err(ProgramError::InvalidArgument);
+    }
+    if !payer.is_signer() || !payer.is_writable() {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !fee_vault_account.is_writable() {
+        return Err(ProgramError::InvalidArgument);
+    }
+    Ok(())
+}
+
+#[inline(always)]
+pub(crate) fn build_system_transfer_ix(amount: u64) -> [u8; 12] {
+    let mut data = [0u8; 12];
+    data[0] = 2; // transfer discriminator
+    data[4..12].copy_from_slice(&amount.to_le_bytes());
+    data
+}
+
+#[inline(always)]
+pub(crate) fn build_system_create_account_ix(lamports: u64, space: u64, owner: &Pubkey) -> [u8; 52] {
+    let mut data = [0u8; 52];
+    data[0..4].copy_from_slice(&0u32.to_le_bytes()); // create_account discriminator
+    data[4..12].copy_from_slice(&lamports.to_le_bytes());
+    data[12..20].copy_from_slice(&space.to_le_bytes());
+    data[20..52].copy_from_slice(owner.as_ref());
+    data
+}
+
+#[inline(always)]
 pub fn should_bypass_fee_path(fee_shard_index: u8) -> bool {
     #[cfg(feature = "cu-bypass-fees")]
     {
@@ -51,11 +88,7 @@ pub fn transfer_fee(
         // Must use CPI
         let system_program = system_program.ok_or(ProgramError::MissingRequiredSignature)?; // Just borrow error code
 
-        // Manual instruction construction for Transfer (discriminator 2)
-        let mut data = [0u8; 12];
-        data[0] = 2; // Transfer discriminator (u32 little endian: 2, 0, 0, 0)
-        let amount_bytes = amount.to_le_bytes();
-        data[4..12].copy_from_slice(&amount_bytes);
+        let data = build_system_transfer_ix(amount);
 
         let instruction = pinocchio::instruction::Instruction {
             program_id: system_program.key(),
@@ -139,17 +172,7 @@ pub fn collect_deploy_fee_with_state(
         program_id,
         fee_shard_index,
     )?;
-    // System program must be provided and must be writable for fee transfers
-    // Verify it's not the program itself
-    if system_program.key() == program_id {
-        return Err(ProgramError::InvalidArgument);
-    }
-    if !payer.is_signer() || !payer.is_writable() {
-        return Err(ProgramError::MissingRequiredSignature);
-    }
-    if !fee_vault_account.is_writable() {
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_fee_transfer_accounts(program_id, payer, fee_vault_account, system_program)?;
 
     transfer_fee(
         program_id,
@@ -218,12 +241,7 @@ pub fn init_fee_vault(
         .map_err(|_| ProgramError::AccountNotRentExempt)?;
     let rent_lamports = rent.minimum_balance(0);
 
-    // system_instruction::create_account
-    let mut create_account_data = [0u8; 52];
-    create_account_data[0..4].copy_from_slice(&0u32.to_le_bytes());
-    create_account_data[4..12].copy_from_slice(&rent_lamports.to_le_bytes());
-    create_account_data[12..20].copy_from_slice(&(0u64).to_le_bytes());
-    create_account_data[20..52].copy_from_slice(program_id.as_ref());
+    let create_account_data = build_system_create_account_ix(rent_lamports, 0u64, program_id);
 
     let shard_seed = [shard_index];
     let bump_seed = [bump];

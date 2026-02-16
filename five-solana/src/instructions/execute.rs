@@ -17,7 +17,7 @@ use five_vm_mito::VMError;
 use five_vm_mito::error::VMErrorCode;
 
 use super::{
-    fees::{should_bypass_fee_path, transfer_fee},
+    fees::{should_bypass_fee_path, transfer_fee, validate_fee_transfer_accounts},
     require_min_accounts,
 };
 
@@ -65,12 +65,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         if system_program.key().as_ref() != &[0u8; 32] {
             return Err(ProgramError::InvalidArgument);
         }
-        if !payer.is_signer() || !payer.is_writable() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !fee_vault.is_writable() {
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_fee_transfer_accounts(program_id, payer, fee_vault, system_program)?;
         transfer_fee(program_id, payer, fee_vault, fee, Some(system_program))?;
     }
     // VM sees [vm_state, ...remaining execution accounts].

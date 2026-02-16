@@ -15,6 +15,9 @@ pub mod types;
 pub mod value;
 
 #[cfg(feature = "test-fixtures")]
+pub mod execute_payload;
+
+#[cfg(feature = "test-fixtures")]
 pub mod test_fixtures;
 
 pub use bytecode_builder::*;
