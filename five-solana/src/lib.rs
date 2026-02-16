@@ -37,6 +37,10 @@ use instructions::FIVEInstruction;
 
 const MAX_ACCOUNTS: usize = (u8::MAX - 1) as usize;
 
+pub fn hardcoded_program_id() -> Pubkey {
+    Pubkey::from(generated_constants::VM_PROGRAM_ID_BYTES)
+}
+
 program_entrypoint!(process_instruction, MAX_ACCOUNTS);
 default_allocator!();
 default_panic_handler!();

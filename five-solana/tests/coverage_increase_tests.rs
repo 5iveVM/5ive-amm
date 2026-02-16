@@ -55,7 +55,7 @@ mod coverage_increase_tests {
 
     #[test]
     fn test_finalize_script_upload_manual() {
-        let program_id = key(80);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(81);
         let owner_key = key(82);
         let script_key = key(83);
@@ -153,7 +153,7 @@ mod coverage_increase_tests {
 
     #[test]
     fn test_init_large_program_chunk_too_large() {
-        let program_id = key(90);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(91);
         let owner_key = key(92);
         let script_key = key(93);
@@ -237,7 +237,7 @@ mod coverage_increase_tests {
 
     #[test]
     fn test_append_bytecode_empty_chunk() {
-        let program_id = key(100);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(101);
         let owner_key = key(102);
         let script_key = key(103);

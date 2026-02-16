@@ -55,7 +55,7 @@ mod deployment_tests {
 
     #[test]
     fn test_deploy_standard_success() {
-        let program_id = key(1);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(2);
         let owner_key = key(3);
         let script_key = key(4);
@@ -133,8 +133,7 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0, // No permissions
-            0,
-            None,
+            0
         );
         assert!(result.is_ok());
 
@@ -156,7 +155,7 @@ mod deployment_tests {
 
     #[test]
     fn test_deploy_permissions_requires_admin() {
-        let program_id = key(10);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(11);
         let owner_key = key(12); // Not admin
         let script_key = key(13);
@@ -235,8 +234,7 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0x01, // PERMISSION_PRE_BYTECODE
-            0,
-            None,
+            0
         );
         assert!(matches!(result, Err(ProgramError::NotEnoughAccountKeys)));
 
@@ -267,8 +265,7 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0x01,
-            0,
-            None,
+            0
         );
         assert_eq!(result, Err(ProgramError::MissingRequiredSignature));
 
@@ -296,8 +293,7 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0x01,
-            0,
-            None,
+            0
         );
         assert!(result.is_ok());
 
@@ -312,7 +308,7 @@ mod deployment_tests {
 
     #[test]
     fn test_deploy_invalid_bytecode() {
-        let program_id = key(30);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(31);
         let owner_key = key(32);
         let script_key = key(33);
@@ -389,8 +385,7 @@ mod deployment_tests {
             &bad_bytecode,
             &[], // Empty metadata
             0,
-            0,
-            None,
+            0
         );
         // Should fail due to size checks or magic bytes
         assert!(result.is_err());
@@ -400,7 +395,7 @@ mod deployment_tests {
 
     #[test]
     fn test_init_large_program_success() {
-        let program_id = key(40);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(41);
         let owner_key = key(42);
         let script_key = key(43);
@@ -489,7 +484,7 @@ mod deployment_tests {
 
     #[test]
     fn test_append_bytecode_success_and_finalize() {
-        let program_id = key(50);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(51);
         let owner_key = key(52);
         let script_key = key(53);
@@ -593,7 +588,7 @@ mod deployment_tests {
 
     #[test]
     fn test_append_bytecode_chunk_exceeds_size() {
-        let program_id = key(60);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(61);
         let owner_key = key(62);
         let script_key = key(63);
@@ -677,7 +672,7 @@ mod deployment_tests {
 
     #[test]
     fn test_init_large_program_with_chunk() {
-        let program_id = key(70);
+        let program_id = five::hardcoded_program_id();
         let admin_key = key(71);
         let owner_key = key(72);
         let script_key = key(73);

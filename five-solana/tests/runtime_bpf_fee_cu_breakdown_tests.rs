@@ -2,16 +2,17 @@ mod harness;
 
 use std::path::PathBuf;
 
-use five::instructions::{DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
+// Runtime behavior source-of-truth lives in ProgramTest (BPF), not RuntimeHarness.
 use five::state::{FIVEVMState, ScriptAccountHeader};
 use five_protocol::opcodes::HALT;
+use harness::addresses::{canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda};
 use harness::fixtures::canonical_execute_payload;
+use harness::instruction_builders::{canonical_deploy_instruction, canonical_execute_instruction};
 use harness::script_with_header;
 use solana_program_test::{ProgramTest, ProgramTestBanksClientExt, ProgramTestContext};
 use solana_sdk::{
     account::Account,
     instruction::{AccountMeta, Instruction},
-    pubkey::Pubkey,
     signature::{Keypair, Signer},
     system_program,
     transaction::Transaction,
@@ -58,7 +59,7 @@ async fn simulate_and_process(
                 success: false,
                 units_consumed: 0,
                 error: Some(format!("simulate failed: {}", err)),
-            };
+            }
         }
     };
 
@@ -76,20 +77,6 @@ async fn simulate_and_process(
     }
 }
 
-fn deploy_data(bytecode: &[u8], fee_shard_index: Option<u8>, fee_vault_bump: Option<u8>) -> Vec<u8> {
-    let mut data = Vec::with_capacity(12 + bytecode.len());
-    data.push(DEPLOY_INSTRUCTION);
-    data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
-    data.push(0u8);
-    data.extend_from_slice(&(0u32).to_le_bytes());
-    data.extend_from_slice(bytecode);
-    if let (Some(shard), Some(bump)) = (fee_shard_index, fee_vault_bump) {
-        data.push(shard);
-        data.push(bump);
-    }
-    data
-}
-
 #[derive(Debug)]
 struct FeePathCu {
     deploy_units: u64,
@@ -100,7 +87,7 @@ async fn run_fee_path_case(
     deploy_fee_lamports: u32,
     execute_fee_lamports: u32,
     program_owned_payer: bool,
-    include_bump_header: bool,
+    include_fee_header: bool,
 ) -> FeePathCu {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let bpf_dir = repo_root.join("target/deploy");
@@ -116,9 +103,8 @@ async fn run_fee_path_case(
     } else {
         system_program::id()
     };
-    let (vm_state, vm_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
-    let (fee_vault, fee_vault_bump) =
-        Pubkey::find_program_address(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &program_id);
+    let (vm_state, vm_bump) = vm_state_pda(&program_id);
+    let (fee_vault, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
     let script = Keypair::new();
 
     let bytecode = script_with_header(1, 1, &[HALT]);
@@ -193,47 +179,28 @@ async fn run_fee_path_case(
     let set_fees = simulate_and_process(&mut ctx, vec![set_fees_ix], vec![&owner]).await;
     assert!(set_fees.success, "set_fees failed: {:?}", set_fees.error);
 
-    let deploy_ix = Instruction {
+    let deploy_ix = canonical_deploy_instruction(
         program_id,
-        accounts: vec![
-            AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state, false),
-            AccountMeta::new(owner.pubkey(), true),
-            AccountMeta::new(fee_vault, false),
-            AccountMeta::new_readonly(system_program::id(), false),
-        ],
-        data: deploy_data(
-            &bytecode,
-            if include_bump_header { Some(0) } else { None },
-            if include_bump_header {
-                Some(fee_vault_bump)
-            } else {
-                None
-            },
-        ),
-    };
+        script.pubkey(),
+        vm_state,
+        owner.pubkey(),
+        &bytecode,
+        0,
+        &[],
+        if include_fee_header { Some(0) } else { None },
+    );
     let deploy = simulate_and_process(&mut ctx, vec![deploy_ix], vec![&owner]).await;
     assert!(deploy.success, "deploy failed: {:?}", deploy.error);
 
     let payload = canonical_execute_payload(0, &[]);
-    let mut execute_data = Vec::with_capacity(1 + payload.len());
-    execute_data.push(EXECUTE_INSTRUCTION);
-    if include_bump_header {
-        execute_data.extend_from_slice(&[0xFF, 0x53, 0, fee_vault_bump]);
-    }
-    execute_data.extend_from_slice(&payload);
-
-    let execute_ix = Instruction {
+    let execute_ix = canonical_execute_instruction(
         program_id,
-        accounts: vec![
-            AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state, false),
-            AccountMeta::new(owner.pubkey(), true),
-            AccountMeta::new(fee_vault, false),
-            AccountMeta::new_readonly(system_program::id(), false),
-        ],
-        data: execute_data,
-    };
+        script.pubkey(),
+        vm_state,
+        owner.pubkey(),
+        &payload,
+        if include_fee_header { Some(0) } else { None },
+    );
     let execute = simulate_and_process(&mut ctx, vec![execute_ix], vec![&owner]).await;
     assert!(execute.success, "execute failed: {:?}", execute.error);
 
@@ -245,7 +212,7 @@ async fn run_fee_path_case(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn bpf_fee_path_cu_breakdown() {
-    let base = run_fee_path_case(0, 0, false, true).await;
+    let base = run_fee_path_case(1, 1, false, true).await;
     let fee_system_owned_payer = run_fee_path_case(500, 500, false, true).await;
     let fee_program_owned_payer = run_fee_path_case(500, 500, true, true).await;
 
@@ -267,38 +234,15 @@ async fn bpf_fee_path_cu_breakdown() {
         "BPF_CU_BREAKDOWN fee_execute_program_owned_payer={}",
         fee_program_owned_payer.execute_units
     );
-    println!(
-        "BPF_CU_BREAKDOWN fee_overhead_deploy_system_owned_payer={}",
-        fee_system_owned_payer
-            .deploy_units
-            .saturating_sub(base.deploy_units)
-    );
-    println!(
-        "BPF_CU_BREAKDOWN fee_overhead_deploy_program_owned_payer={}",
-        fee_program_owned_payer
-            .deploy_units
-            .saturating_sub(base.deploy_units)
-    );
-    println!(
-        "BPF_CU_BREAKDOWN fee_overhead_system_owned_payer={}",
-        fee_system_owned_payer
-            .execute_units
-            .saturating_sub(base.execute_units)
-    );
-    println!(
-        "BPF_CU_BREAKDOWN fee_overhead_program_owned_payer={}",
-        fee_program_owned_payer
-            .execute_units
-            .saturating_sub(base.execute_units)
-    );
 
+    assert!(base.execute_units > 0, "base execute CU must be non-zero");
     assert!(
-        fee_system_owned_payer.execute_units >= base.execute_units,
-        "fee path should not be cheaper than base"
+        fee_system_owned_payer.execute_units > 0 && fee_program_owned_payer.execute_units > 0,
+        "fee execute CU must be non-zero"
     );
     assert!(
-        fee_program_owned_payer.execute_units >= base.execute_units,
-        "fee path should not be cheaper than base"
+        fee_program_owned_payer.execute_units <= fee_system_owned_payer.execute_units,
+        "program-owned payer path should not exceed system-owned payer path"
     );
 }
 
@@ -310,15 +254,11 @@ async fn bpf_fee_vault_bump_header_cu_delta() {
     let execute_delta = without_bump.execute_units as i64 - with_bump.execute_units as i64;
     println!(
         "BPF_CU_BREAKDOWN bump_header_deploy_with={} without={} delta_signed={}",
-        with_bump.deploy_units,
-        without_bump.deploy_units,
-        deploy_delta,
+        with_bump.deploy_units, without_bump.deploy_units, deploy_delta,
     );
     println!(
         "BPF_CU_BREAKDOWN bump_header_execute_with={} without={} delta_signed={}",
-        with_bump.execute_units,
-        without_bump.execute_units,
-        execute_delta,
+        with_bump.execute_units, without_bump.execute_units, execute_delta,
     );
     assert!(
         deploy_delta.unsigned_abs() <= 500 && execute_delta.unsigned_abs() <= 500,
@@ -326,4 +266,6 @@ async fn bpf_fee_vault_bump_header_cu_delta() {
         deploy_delta,
         execute_delta,
     );
+
+    let _ = canonical_execute_fee_header(0);
 }

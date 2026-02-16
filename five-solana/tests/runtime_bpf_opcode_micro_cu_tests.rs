@@ -13,6 +13,9 @@ use five_protocol::opcodes::{
     LOAD_FIELD, MUL, MUL_DIV, NOT, OR, POP, PUSH_1, PUSH_2, PUSH_STRING, PUSH_U8, PUSH_U64,
     REQUIRE, REQUIRE_PARAM_GT_ZERO, SET_LOCAL_0, SHIFT_LEFT, STORE_FIELD, SUB,
 };
+use harness::addresses::{
+    canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda,
+};
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use harness::perf::{assert_no_regression, print_bench_line, CuMetrics};
 use solana_program_test::{ProgramTest, ProgramTestContext};
@@ -950,22 +953,38 @@ fn base_accounts(program_id: Pubkey, owner_lamports: u64) -> BTreeMap<String, Ru
         },
     );
 
+    let (vm_state_pubkey, vm_state_bump) = vm_state_pda(&program_id);
+    let (fee_vault_pubkey, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
+
     let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes(), 0);
+        vm_state.initialize(owner_pubkey.to_bytes(), vm_state_bump);
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: vm_state_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
             data: vm_state_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "fee_vault".to_string(),
+        RuntimeAccount {
+            pubkey: fee_vault_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(0),
+            data: vec![],
             is_signer: false,
             is_writable: true,
             executable: false,
@@ -1012,13 +1031,16 @@ fn build_deploy_instruction(
     data.push(0);
     data.extend_from_slice(&0u32.to_le_bytes());
     data.extend_from_slice(bytecode);
+    data.push(0);
 
     Instruction {
         program_id,
         accounts: vec![
             AccountMeta::new(accounts[script_name].pubkey, false),
             AccountMeta::new(accounts[vm_state_name].pubkey, false),
-            AccountMeta::new_readonly(accounts[owner_name].pubkey, true),
+            AccountMeta::new(accounts[owner_name].pubkey, true),
+            AccountMeta::new(accounts["fee_vault"].pubkey, false),
+            AccountMeta::new_readonly(system_program::id(), false),
         ],
         data,
     }
@@ -1032,8 +1054,9 @@ fn build_execute_instruction(
     extras: &[&str],
     payload: Vec<u8>,
 ) -> Instruction {
-    let mut data = Vec::with_capacity(1 + payload.len());
+    let mut data = Vec::with_capacity(4 + payload.len());
     data.push(EXECUTE_INSTRUCTION);
+    data.extend_from_slice(&canonical_execute_fee_header(0));
     data.extend_from_slice(&payload);
 
     let mut metas = vec![
@@ -1049,12 +1072,38 @@ fn build_execute_instruction(
             is_writable: if is_external_script { false } else { account.is_writable },
         });
     }
+    let payer = select_execute_payer(accounts, extras);
+    metas.push(AccountMeta::new(payer.pubkey, true));
+    metas.push(AccountMeta::new(accounts["fee_vault"].pubkey, false));
+    metas.push(AccountMeta::new_readonly(system_program::id(), false));
 
     Instruction {
         program_id,
         accounts: metas,
         data,
     }
+}
+
+fn select_execute_payer<'a>(
+    accounts: &'a BTreeMap<String, RuntimeAccount>,
+    extras: &[&str],
+) -> &'a RuntimeAccount {
+    accounts
+        .get("payer")
+        .filter(|a| a.is_signer && a.is_writable)
+        .or_else(|| {
+            extras
+                .iter()
+                .filter_map(|name| accounts.get(*name))
+                .find(|a| a.is_signer && a.is_writable)
+        })
+        .or_else(|| {
+            accounts
+                .get("owner")
+                .filter(|a| a.is_signer && a.is_writable)
+        })
+        .or_else(|| accounts.values().find(|a| a.is_signer && a.is_writable))
+        .expect("missing signer+writable payer account for execute")
 }
 
 fn collect_signers<'a>(accounts: &'a BTreeMap<String, RuntimeAccount>, names: &[&str]) -> Vec<&'a Keypair> {

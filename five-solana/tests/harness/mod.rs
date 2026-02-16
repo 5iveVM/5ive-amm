@@ -1,3 +1,9 @@
+//! Test harness contract:
+//! - `RuntimeHarness` is for fast unit/encoding/negative-shape tests only.
+//! - `ProgramTest`-backed tests are the source of truth for runtime behavior.
+//! - `ValidatorHarness` is for RPC/integration/perf and network-gated checks.
+//! - If behavior can be covered in BPF, keep it in BPF and trim in-process duplicates.
+
 use std::collections::BTreeMap;
 
 use five::{
@@ -10,6 +16,8 @@ pub mod compile;
 pub mod fixtures;
 pub mod perf;
 pub mod validator;
+pub mod addresses;
+pub mod instruction_builders;
 
 #[derive(Clone, Debug)]
 pub struct AccountSeed {
@@ -193,7 +201,7 @@ impl RuntimeHarness {
 
         let program_id = self.program_id;
         let result = self.with_account_infos(&account_names, |accounts| {
-            deploy(&program_id, accounts, bytecode, &[], permissions, 0, None)
+            deploy(&program_id, accounts, bytecode, &[], permissions, 0)
         });
 
         match result {
@@ -203,6 +211,29 @@ impl RuntimeHarness {
     }
 
     pub fn execute_script(
+        &mut self,
+        script_name: &str,
+        vm_state_name: &str,
+        extra_account_names: &[&str],
+        payload: &[u8],
+    ) -> TxResult {
+        let mut account_names = vec![script_name, vm_state_name];
+        let canonical_extras = self.canonicalize_execute_extras(extra_account_names);
+        let extra_refs: Vec<&str> = canonical_extras.iter().map(|s| s.as_str()).collect();
+        account_names.extend_from_slice(&extra_refs);
+
+        let program_id = self.program_id;
+        let result = self.with_account_infos(&account_names, |accounts| {
+            execute(&program_id, accounts, payload)
+        });
+
+        match result {
+            Ok(()) => TxResult::ok(),
+            Err(e) => TxResult::err(e),
+        }
+    }
+
+    pub fn execute_script_raw(
         &mut self,
         script_name: &str,
         vm_state_name: &str,
@@ -221,6 +252,74 @@ impl RuntimeHarness {
             Ok(()) => TxResult::ok(),
             Err(e) => TxResult::err(e),
         }
+    }
+
+    fn canonicalize_execute_extras(&self, extra_account_names: &[&str]) -> Vec<String> {
+        // Canonical execute account ordering is:
+        // [business extras..., payer, fee_vault, system_program].
+        let mut extras: Vec<String> = Vec::with_capacity(extra_account_names.len() + 3);
+
+        for name in extra_account_names {
+            if *name == "fee_vault" || *name == "system_program" {
+                continue;
+            }
+            extras.push((*name).to_string());
+        }
+
+        let payer_candidate = self
+            .index_by_name
+            .get("payer")
+            .and_then(|idx| {
+                let acc = &self.accounts[*idx];
+                if acc.is_signer && acc.is_writable {
+                    Some("payer".to_string())
+                } else {
+                    None
+                }
+            })
+            .or_else(|| {
+                self.index_by_name.get("owner").and_then(|idx| {
+                    let acc = &self.accounts[*idx];
+                    if acc.is_signer && acc.is_writable {
+                        Some("owner".to_string())
+                    } else {
+                        None
+                    }
+                })
+            })
+            .or_else(|| {
+                self.index_by_name
+                    .iter()
+                    .filter_map(|(name, idx)| {
+                        let acc = &self.accounts[*idx];
+                        if acc.is_signer && acc.is_writable {
+                            Some((name.clone(), acc.lamports))
+                        } else {
+                            None
+                        }
+                    })
+                    .max_by(|(name_a, lamports_a), (name_b, lamports_b)| {
+                        lamports_a
+                            .cmp(lamports_b)
+                            .then_with(|| name_b.cmp(name_a))
+                    })
+                    .map(|(name, _)| name)
+            });
+
+        if let Some(payer_name) = payer_candidate {
+            // Keep original business account ordering stable so typed account
+            // indices in execute payload remain deterministic.
+            // Append payer in the canonical fee tail slot even if it duplicates
+            // an earlier business account.
+            extras.push(payer_name);
+        }
+        if self.index_by_name.contains_key("fee_vault") {
+            extras.push("fee_vault".to_string());
+        }
+        if self.index_by_name.contains_key("system_program") {
+            extras.push("system_program".to_string());
+        }
+        extras
     }
 
     pub fn fetch_account(&self, name: &str) -> AccountSnapshot {
@@ -306,14 +405,31 @@ impl RuntimeHarness {
             return deploy_result;
         }
 
-        // For fixture-driven execution, pass all non-core accounts after script/vm.
+        // For fixture-driven execution, maintain canonical execute ordering:
+        // custom extras first, then payer, fee_vault, system_program tail.
         let mut extras: Vec<String> = self
             .index_by_name
             .keys()
-            .filter(|k| k.as_str() != script_name && k.as_str() != vm_state_name)
+            .filter(|k| {
+                let name = k.as_str();
+                name != script_name
+                    && name != vm_state_name
+                    && name != owner_name
+                    && name != "fee_vault"
+                    && name != "system_program"
+            })
             .map(|k| k.to_string())
             .collect();
         extras.sort_unstable();
+        if self.index_by_name.contains_key(owner_name) {
+            extras.push(owner_name.to_string());
+        }
+        if self.index_by_name.contains_key("fee_vault") {
+            extras.push("fee_vault".to_string());
+        }
+        if self.index_by_name.contains_key("system_program") {
+            extras.push("system_program".to_string());
+        }
         let extra_refs: Vec<&str> = extras.iter().map(|s| s.as_str()).collect();
 
         let execute_result = self.execute_script(

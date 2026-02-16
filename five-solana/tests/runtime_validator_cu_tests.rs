@@ -3,9 +3,11 @@ mod harness;
 use std::path::PathBuf;
 
 use harness::validator::{
-    run_external_burst_non_cpi, run_external_interface_mapping_non_cpi, run_external_non_cpi,
-    run_fixture_scenario, Network, ScenarioRunResult, ValidatorHarness,
+    build_execute_instruction_with_extras, run_external_burst_non_cpi,
+    run_external_interface_mapping_non_cpi, run_external_non_cpi, run_fixture_scenario, Network,
+    RuntimeAccount, ScenarioRunResult, ValidatorHarness,
 };
+use solana_sdk::{pubkey::Pubkey, signature::{Keypair, Signer}, system_program};
 
 // Env contract:
 // - FIVE_CU_NETWORK=localnet|devnet
@@ -58,6 +60,85 @@ fn print_summary_line(result: &ScenarioRunResult) {
         result.total_units,
         result.step_results.len()
     );
+}
+
+#[test]
+#[ignore = "requires running validator or devnet config"]
+fn validator_canonical_account_shape() {
+    let harness = ValidatorHarness::from_env().unwrap_or_else(|e| panic!("validator harness init failed: {}", e));
+    let (vm_state, _bump) =
+        Pubkey::find_program_address(&[b"vm_state"], &harness.program_id);
+    let (fee_vault, _fee_bump) =
+        Pubkey::find_program_address(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &harness.program_id);
+
+    let mut accounts = std::collections::BTreeMap::<String, RuntimeAccount>::new();
+    let payer = harness.payer.pubkey();
+    accounts.insert(
+        "script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: Some(Keypair::new()),
+            owner: harness.program_id,
+            lamports: 1,
+            data_len: 0,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: vm_state,
+            signer: None,
+            owner: harness.program_id,
+            lamports: 1,
+            data_len: 0,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "payer".to_string(),
+        RuntimeAccount {
+            pubkey: payer,
+            signer: None,
+            owner: system_program::id(),
+            lamports: 1,
+            data_len: 0,
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "fee_vault".to_string(),
+        RuntimeAccount {
+            pubkey: fee_vault,
+            signer: None,
+            owner: harness.program_id,
+            lamports: 1,
+            data_len: 0,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let ix = build_execute_instruction_with_extras(
+        harness.program_id,
+        &accounts,
+        "script",
+        "vm_state",
+        &[],
+        vec![],
+    );
+    assert_eq!(ix.accounts.len(), 5, "execute must use canonical fee-tail length");
+    assert_eq!(ix.accounts[1].pubkey, vm_state, "vm_state remains fixed at account index 1");
+    assert!(ix.accounts[2].is_signer, "payer must be signer in canonical execute tail");
+    assert_eq!(ix.accounts[3].pubkey, fee_vault, "fee vault must be canonical tail account");
+    assert_eq!(ix.accounts[4].pubkey, system_program::id(), "system program must be final tail account");
 }
 
 #[test]

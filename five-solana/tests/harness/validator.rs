@@ -27,6 +27,7 @@ use solana_sdk::{
 use solana_transaction_status::UiTransactionEncoding;
 use solana_transaction_status::option_serializer::OptionSerializer;
 
+use super::addresses::{canonical_execute_fee_header, fee_vault_pda, fee_vault_shard0_pda};
 use super::compile::{load_or_compile_bytecode, maybe_write_generated_v};
 use super::fixtures::{canonical_execute_payload, TypedParam};
 
@@ -319,7 +320,11 @@ impl ValidatorHarness {
         // Canonical PDA already exists and is initialized.
         if let Ok(existing) = self.rpc.get_account(&vm_state) {
             if existing.owner == self.program_id && existing.data.len() >= FIVEVMState::LEN {
-                return Ok(vm_state);
+                if let Ok(state) = FIVEVMState::from_account_data(&existing.data) {
+                    if state.is_initialized() {
+                        return Ok(vm_state);
+                    }
+                }
             }
         }
 
@@ -340,10 +345,7 @@ impl ValidatorHarness {
     }
 
     pub fn ensure_fee_vault_shard(&self, vm_state_pubkey: Pubkey, shard_index: u8) -> Result<Pubkey, String> {
-        let (fee_vault, bump) = Pubkey::find_program_address(
-            &[b"\xFFfive_vm_fee_vault_v1", &[shard_index]],
-            &self.program_id,
-        );
+        let (fee_vault, bump) = fee_vault_pda(&self.program_id, shard_index);
         let init_ix = Instruction {
             program_id: self.program_id,
             accounts: vec![
@@ -603,15 +605,7 @@ pub fn build_deploy_instruction(
     metadata: &[u8],
 ) -> Instruction {
     let fee_shard_index = cu_fee_shard_index();
-    let (fee_vault_pubkey, fee_vault_bump) = Pubkey::find_program_address(
-        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
-        &program_id,
-    );
-    let encoded_bump = if fee_shard_index == five::instructions::fees::FEE_BYPASS_SHARD_INDEX {
-        0
-    } else {
-        fee_vault_bump
-    };
+    let (fee_vault_pubkey, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
     let mut data = Vec::with_capacity(10 + metadata.len() + bytecode.len());
     data.push(DEPLOY_INSTRUCTION);
     data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
@@ -620,7 +614,6 @@ pub fn build_deploy_instruction(
     data.extend_from_slice(metadata);
     data.extend_from_slice(bytecode);
     data.push(fee_shard_index);
-    data.push(encoded_bump);
 
     Instruction {
         program_id,
@@ -644,10 +637,7 @@ fn build_init_large_instruction(
     expected_size: usize,
     chunk: &[u8],
 ) -> Instruction {
-    let (fee_vault_pubkey, _fee_vault_bump) = Pubkey::find_program_address(
-        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
-        &program_id,
-    );
+    let (fee_vault_pubkey, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
     let mut data = Vec::with_capacity(1 + 4 + chunk.len());
     data.push(4);
     data.extend_from_slice(&(expected_size as u32).to_le_bytes());
@@ -674,10 +664,7 @@ fn build_append_instruction(
     vm_state_name: &str,
     chunk: &[u8],
 ) -> Instruction {
-    let (fee_vault_pubkey, _fee_vault_bump) = Pubkey::find_program_address(
-        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
-        &program_id,
-    );
+    let (fee_vault_pubkey, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
     let mut data = Vec::with_capacity(1 + chunk.len());
     data.push(5);
     data.extend_from_slice(chunk);
@@ -850,21 +837,10 @@ pub fn build_execute_instruction_with_extras(
     payload: Vec<u8>,
 ) -> Instruction {
     let fee_shard_index = cu_fee_shard_index();
-    let (fee_vault_pubkey, fee_vault_bump) = Pubkey::find_program_address(
-        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
-        &program_id,
-    );
-    let encoded_bump = if fee_shard_index == five::instructions::fees::FEE_BYPASS_SHARD_INDEX {
-        0
-    } else {
-        fee_vault_bump
-    };
+    let (fee_vault_pubkey, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
     let mut data = Vec::with_capacity(1 + payload.len());
     data.push(EXECUTE_INSTRUCTION);
-    data.push(0xff);
-    data.push(0x53);
-    data.push(fee_shard_index);
-    data.push(encoded_bump);
+    data.extend_from_slice(&canonical_execute_fee_header(fee_shard_index));
     data.extend_from_slice(&payload);
 
     let mut metas = vec![
@@ -890,6 +866,11 @@ pub fn build_execute_instruction_with_extras(
                 .iter()
                 .filter_map(|name| accounts.get(name))
                 .find(|a| a.is_signer && a.is_writable)
+        })
+        .or_else(|| {
+            accounts
+                .get("owner")
+                .filter(|a| a.is_signer && a.is_writable)
         })
         .or_else(|| accounts.values().find(|a| a.is_signer && a.is_writable))
         .expect("missing signer+writable payer account for execute");
@@ -938,10 +919,7 @@ pub fn setup_accounts_for_fixture(
     vm_state_pubkey: Pubkey,
 ) -> Result<BTreeMap<String, RuntimeAccount>, String> {
     let mut out = BTreeMap::<String, RuntimeAccount>::new();
-    let (fee_vault_pubkey, _fee_vault_bump) = Pubkey::find_program_address(
-        &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
-        &h.program_id,
-    );
+    let (fee_vault_pubkey, _fee_vault_bump) = fee_vault_shard0_pda(&h.program_id);
 
     out.insert(
         fixture.authority.name.clone(),

@@ -2,10 +2,12 @@ mod harness;
 
 use std::path::PathBuf;
 
-use five::instructions::{DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
+// Runtime behavior source-of-truth lives in ProgramTest (BPF), not RuntimeHarness.
 use five::state::{FIVEVMState, ScriptAccountHeader};
 use five_protocol::opcodes::HALT;
+use harness::addresses::{fee_vault_shard0_pda, vm_state_pda};
 use harness::fixtures::canonical_execute_payload;
+use harness::instruction_builders::{canonical_deploy_instruction, canonical_execute_instruction};
 use harness::script_with_header;
 use solana_program_test::ProgramTest;
 use solana_sdk::{
@@ -24,17 +26,6 @@ fn bpf_program_id() -> Pubkey {
     read_keypair_file(bpf_dir.join("five-keypair.json"))
         .expect("missing target/deploy/five-keypair.json; run cargo build-sbf first")
         .pubkey()
-}
-
-fn deploy_data(bytecode: &[u8], permissions: u8, metadata: &[u8]) -> Vec<u8> {
-    let mut data = Vec::with_capacity(10 + metadata.len() + bytecode.len());
-    data.push(DEPLOY_INSTRUCTION);
-    data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
-    data.push(permissions);
-    data.extend_from_slice(&(metadata.len() as u32).to_le_bytes());
-    data.extend_from_slice(metadata);
-    data.extend_from_slice(bytecode);
-    data
 }
 
 async fn read_lamports(
@@ -116,9 +107,8 @@ async fn deploy_and_execute_fees_are_paid_to_fee_vault() {
 
     let owner = Keypair::new();
     let authority = Keypair::new();
-    let (vm_state, vm_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
-    let (fee_vault, _fee_vault_bump) =
-        Pubkey::find_program_address(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &program_id);
+    let (vm_state, vm_bump) = vm_state_pda(&program_id);
+    let (fee_vault, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
     let script = Keypair::new();
 
     let deploy_fee_lamports = 500u32;
@@ -199,17 +189,16 @@ async fn deploy_and_execute_fees_are_paid_to_fee_vault() {
     let owner_before_deploy = read_lamports(&mut ctx, owner.pubkey(), "owner before deploy").await;
     let vault_before_deploy = read_lamports(&mut ctx, fee_vault, "fee vault before deploy").await;
 
-    let deploy_ix = Instruction {
+    let deploy_ix = canonical_deploy_instruction(
         program_id,
-        accounts: vec![
-            AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state, false),
-            AccountMeta::new(owner.pubkey(), true),
-            AccountMeta::new(fee_vault, false),
-            AccountMeta::new_readonly(system_program::id(), false),
-        ],
-        data: deploy_data(&bytecode, 0, &[]),
-    };
+        script.pubkey(),
+        vm_state,
+        owner.pubkey(),
+        &bytecode,
+        0,
+        &[],
+        None,
+    );
 
     let deploy_tx = Transaction::new_signed_with_payer(
         &[deploy_ix],
@@ -236,21 +225,14 @@ async fn deploy_and_execute_fees_are_paid_to_fee_vault() {
     );
 
     let payload = canonical_execute_payload(0, &[]);
-    let mut execute_data = Vec::with_capacity(1 + payload.len());
-    execute_data.push(EXECUTE_INSTRUCTION);
-    execute_data.extend_from_slice(&payload);
-
-    let execute_ix = Instruction {
+    let execute_ix = canonical_execute_instruction(
         program_id,
-        accounts: vec![
-            AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state, false),
-            AccountMeta::new(owner.pubkey(), true),
-            AccountMeta::new(fee_vault, false),
-            AccountMeta::new_readonly(system_program::id(), false),
-        ],
-        data: execute_data,
-    };
+        script.pubkey(),
+        vm_state,
+        owner.pubkey(),
+        &payload,
+        None,
+    );
 
     let owner_before_execute = owner_after_deploy;
     let vault_before_execute = vault_after_deploy;
@@ -293,9 +275,8 @@ async fn deploy_fails_when_owner_cannot_pay_deploy_fee() {
 
     let owner = Keypair::new();
     let authority = Keypair::new();
-    let (vm_state, vm_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
-    let (fee_vault, _fee_vault_bump) =
-        Pubkey::find_program_address(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &program_id);
+    let (vm_state, vm_bump) = vm_state_pda(&program_id);
+    let (fee_vault, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
     let script = Keypair::new();
 
     let deploy_fee_lamports = 5_000u32;
@@ -362,7 +343,7 @@ async fn deploy_fails_when_owner_cannot_pay_deploy_fee() {
         &authority,
         vm_bump,
         deploy_fee_lamports,
-        0,
+        1,
     )
     .await;
 
@@ -375,17 +356,16 @@ async fn deploy_fails_when_owner_cannot_pay_deploy_fee() {
     let owner_before = read_lamports(&mut ctx, owner.pubkey(), "owner before deploy").await;
     let vault_before = read_lamports(&mut ctx, fee_vault, "fee vault before deploy").await;
 
-    let deploy_ix = Instruction {
+    let deploy_ix = canonical_deploy_instruction(
         program_id,
-        accounts: vec![
-            AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state, false),
-            AccountMeta::new(owner.pubkey(), true),
-            AccountMeta::new(fee_vault, false),
-            AccountMeta::new_readonly(system_program::id(), false),
-        ],
-        data: deploy_data(&bytecode, 0, &[]),
-    };
+        script.pubkey(),
+        vm_state,
+        owner.pubkey(),
+        &bytecode,
+        0,
+        &[],
+        None,
+    );
 
     let deploy_tx = Transaction::new_signed_with_payer(
         &[deploy_ix],
@@ -417,9 +397,8 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
 
     let owner = Keypair::new();
     let authority = Keypair::new();
-    let (vm_state, vm_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
-    let (fee_vault, _fee_vault_bump) =
-        Pubkey::find_program_address(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &program_id);
+    let (vm_state, vm_bump) = vm_state_pda(&program_id);
+    let (fee_vault, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
     let script = Keypair::new();
 
     let execute_fee_lamports = 5_000u32;
@@ -485,7 +464,7 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
         vm_state,
         &authority,
         vm_bump,
-        0,
+        1,
         execute_fee_lamports,
     )
     .await;
@@ -496,17 +475,16 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
         .await
         .expect("latest blockhash for deploy");
 
-    let deploy_ix = Instruction {
+    let deploy_ix = canonical_deploy_instruction(
         program_id,
-        accounts: vec![
-            AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state, false),
-            AccountMeta::new(owner.pubkey(), true),
-            AccountMeta::new(fee_vault, false),
-            AccountMeta::new_readonly(system_program::id(), false),
-        ],
-        data: deploy_data(&bytecode, 0, &[]),
-    };
+        script.pubkey(),
+        vm_state,
+        owner.pubkey(),
+        &bytecode,
+        0,
+        &[],
+        None,
+    );
     let deploy_tx = Transaction::new_signed_with_payer(
         &[deploy_ix],
         Some(&ctx.payer.pubkey()),
@@ -522,21 +500,14 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
     let vault_before = read_lamports(&mut ctx, fee_vault, "fee vault before execute").await;
 
     let payload = canonical_execute_payload(0, &[]);
-    let mut execute_data = Vec::with_capacity(1 + payload.len());
-    execute_data.push(EXECUTE_INSTRUCTION);
-    execute_data.extend_from_slice(&payload);
-
-    let execute_ix = Instruction {
+    let execute_ix = canonical_execute_instruction(
         program_id,
-        accounts: vec![
-            AccountMeta::new(script.pubkey(), false),
-            AccountMeta::new(vm_state, false),
-            AccountMeta::new(owner.pubkey(), true),
-            AccountMeta::new(fee_vault, false),
-            AccountMeta::new_readonly(system_program::id(), false),
-        ],
-        data: execute_data,
-    };
+        script.pubkey(),
+        vm_state,
+        owner.pubkey(),
+        &payload,
+        None,
+    );
 
     ctx.last_blockhash = ctx
         .banks_client
