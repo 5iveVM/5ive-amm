@@ -1977,6 +1977,17 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Pending external selector/runtime support for non-transfer public functions"]
 async fn external_token_all_public_non_cpi_bpf_compute_units() {
+    if std::env::var("FIVE_ENABLE_EXPERIMENTAL_EXTERNAL_ALL_PUBLIC")
+        .ok()
+        .as_deref()
+        != Some("1")
+    {
+        eprintln!(
+            "SKIP external_token_all_public_non_cpi_bpf_compute_units: set FIVE_ENABLE_EXPERIMENTAL_EXTERNAL_ALL_PUBLIC=1 to run experimental selector path"
+        );
+        return;
+    }
+
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let full_call_count = TOKEN_ALL_PUBLIC_CALLS.len() + TOKEN_ALL_PUBLIC_POST_CALLS.len();
 
@@ -3183,7 +3194,7 @@ async fn run_external_token_all_public_profile(
         vec![execute_ix],
         collect_signers(
             &accounts,
-            &["user1", "user2", "user3"],
+            &["payer", "user1", "user2", "user3"],
         ),
         Some(1_400_000),
     )
