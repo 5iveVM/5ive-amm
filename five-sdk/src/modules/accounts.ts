@@ -3,6 +3,7 @@ import { ScriptMetadataParser } from "../metadata/index.js";
 import { normalizeAbiFunctions } from "../utils/abi.js";
 import { loadWasmVM } from "../wasm/instance.js";
 import { SolanaPublicKeyUtils } from "../crypto/index.js";
+import { getAccountInfoWithRetry } from "../utils/transaction.js";
 
 export async function fetchAccountAndDeserialize(
   accountAddress: string,
@@ -59,10 +60,12 @@ export async function fetchAccountAndDeserialize(
       };
     }
 
-    const accountInfo = await connection.getAccountInfo(
-      accountPubkey,
-      "confirmed",
-    );
+    const accountInfo = await getAccountInfoWithRetry(connection, accountPubkey, {
+      commitment: "finalized",
+      retries: 2,
+      delayMs: 1000,
+      debug: options.debug,
+    });
 
     if (!accountInfo) {
       return {

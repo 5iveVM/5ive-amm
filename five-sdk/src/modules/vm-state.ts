@@ -1,5 +1,6 @@
 import { PDAUtils, Base58Utils } from "../crypto/index.js";
 import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
+import { getAccountInfoWithRetry } from "../utils/transaction.js";
 
 export async function getVMState(connection: any, fiveVMProgramId?: string): Promise<{
   authority: string;
@@ -25,7 +26,11 @@ export async function getVMState(connection: any, fiveVMProgramId?: string): Pro
         pubkey = new PublicKey(vmStatePDA.address);
       } catch { }
 
-      const info = await connection.getAccountInfo(pubkey);
+      const info = await getAccountInfoWithRetry(connection, pubkey, {
+        commitment: "finalized",
+        retries: 2,
+        delayMs: 1000,
+      });
       if (!info) throw new Error("VM State account not found");
       accountData = new Uint8Array(info.data);
     } else if (typeof connection.getAccountData === 'function') {

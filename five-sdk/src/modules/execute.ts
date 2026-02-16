@@ -16,6 +16,10 @@ import { calculateExecuteFee } from "./fees.js";
 import { loadWasmVM } from "../wasm/instance.js";
 import { BytecodeCompiler } from "../compiler/BytecodeCompiler.js";
 import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
+import {
+  confirmTransactionRobust,
+  getAccountInfoWithRetry,
+} from "../utils/transaction.js";
 
 const DEFAULT_FEE_VAULT_SHARD_COUNT = 10;
 const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
@@ -44,7 +48,11 @@ async function readVMStateShardCount(
   if (!connection) return DEFAULT_FEE_VAULT_SHARD_COUNT;
   try {
     const { PublicKey } = await import("@solana/web3.js");
-    const info = await connection.getAccountInfo(new PublicKey(vmStateAddress), "confirmed");
+    const info = await getAccountInfoWithRetry(connection, new PublicKey(vmStateAddress), {
+      commitment: "finalized",
+      retries: 2,
+      delayMs: 1000,
+    });
     if (!info) return DEFAULT_FEE_VAULT_SHARD_COUNT;
     const data = new Uint8Array(info.data);
     if (data.length <= 50) return DEFAULT_FEE_VAULT_SHARD_COUNT;
@@ -690,19 +698,15 @@ export async function executeOnSolana(
     );
     lastSignature = signature;
 
-    let confirmation;
-    try {
-      confirmation = await connection.confirmTransaction(
-        {
-          signature,
-          blockhash,
-          lastValidBlockHeight: (
-            await connection.getLatestBlockhash("confirmed")
-          ).lastValidBlockHeight,
-        },
-        "confirmed",
-      );
-    } catch (confirmError) {
+    const latestBlockhash = await connection.getLatestBlockhash("confirmed");
+    const confirmation = await confirmTransactionRobust(connection, signature, {
+      commitment: "confirmed",
+      timeoutMs: 120000,
+      debug: options.debug,
+      blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    });
+    if (!confirmation.success) {
       try {
         const txDetails = await connection.getTransaction(signature, {
           commitment: "confirmed",
@@ -729,10 +733,10 @@ export async function executeOnSolana(
           }
         }
       } catch (getTransactionError) {}
-      throw confirmError;
+      throw new Error(confirmation.error || "Execution confirmation failed");
     }
 
-    if (confirmation.value.err) {
+    if (confirmation.err) {
       let logs: string[] = [];
       let computeUnitsUsed: number | undefined;
       try {
@@ -747,7 +751,7 @@ export async function executeOnSolana(
       } catch { }
 
       const errorMessage = `Execution transaction failed: ${JSON.stringify(
-        confirmation.value.err,
+        confirmation.err,
       )}`;
       return {
         success: false,

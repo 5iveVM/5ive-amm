@@ -8,7 +8,12 @@ import {
 import { PDAUtils, RentCalculator } from "../crypto/index.js";
 import { validator, Validators } from "../validation/index.js";
 import { calculateDeployFee } from "./fees.js";
-import { pollForConfirmation } from "../utils/transaction.js";
+import {
+  confirmTransactionRobust,
+  getAccountInfoWithRetry,
+  pollForConfirmation,
+  SDK_COMMITMENTS,
+} from "../utils/transaction.js";
 import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 
 interface ExportMetadataInterfaceInput {
@@ -36,7 +41,11 @@ async function readVMStateFeeConfig(
   }
   try {
     const { PublicKey } = await import("@solana/web3.js");
-    const info = await connection.getAccountInfo(new PublicKey(vmStateAddress), "confirmed");
+    const info = await getAccountInfoWithRetry(connection, new PublicKey(vmStateAddress), {
+      commitment: SDK_COMMITMENTS.READ,
+      retries: 2,
+      delayMs: 700,
+    });
     if (!info) {
       return { shardCount: DEFAULT_FEE_VAULT_SHARD_COUNT };
     }
@@ -104,7 +113,14 @@ async function initProgramFeeVaultShards(
       preflightCommitment: "confirmed",
       maxRetries: options.maxRetries || 3,
     });
-    await connection.confirmTransaction(sig, "confirmed");
+    const shardConfirm = await confirmTransactionRobust(connection, sig, {
+      commitment: "finalized",
+      timeoutMs: 120000,
+      debug: options.debug,
+    });
+    if (!shardConfirm.success) {
+      throw new Error(`Fee vault shard init failed: ${shardConfirm.error || "unconfirmed"}`);
+    }
     signatures.push(sig);
     if (options.debug) {
       console.log(`[FiveSDK] Initialized fee vault shard ${shardIndex}: ${vault.address}`);
@@ -315,7 +331,7 @@ export async function createDeploymentTransaction(
   }
 
   // 1. Initialize canonical VM State if missing
-  const vmStateInfo = await connection.getAccountInfo(vmStatePubkey);
+  const vmStateInfo = await connection.getAccountInfo(vmStatePubkey, "finalized");
   if (!vmStateInfo) {
     tx.add(
       new TransactionInstruction({
@@ -828,7 +844,14 @@ export async function deployLargeProgramToSolana(
       },
     );
 
-    await connection.confirmTransaction(initSignature, "finalized");
+    const initConfirm = await confirmTransactionRobust(connection, initSignature, {
+      commitment: "finalized",
+      timeoutMs: 120000,
+      debug: options.debug,
+    });
+    if (!initConfirm.success) {
+      throw new Error(`Initialization confirmation failed: ${initConfirm.error || "unconfirmed"}`);
+    }
     transactionIds.push(initSignature);
 
     if (options.debug) {
@@ -856,21 +879,12 @@ export async function deployLargeProgramToSolana(
       }
 
       // Calculate additional rent needed for this chunk
-      let currentInfo = await connection.getAccountInfo(
+      const currentInfo = await getAccountInfoWithRetry(
+        connection,
         scriptKeypair.publicKey,
-        "finalized",
+        { commitment: "finalized", retries: 2, delayMs: 1000, debug: options.debug },
       );
-
-      // Retry logic for account info if null (eventual consistency)
-      if (!currentInfo) {
-        if (options.debug) console.log(`[FiveSDK] Account info null, retrying...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        currentInfo = await connection.getAccountInfo(
-          scriptKeypair.publicKey,
-          "finalized",
-        );
-        if (!currentInfo) throw new Error("Script account not found after initialization");
-      }
+      if (!currentInfo) throw new Error("Script account not found after initialization");
       const newSize = currentInfo.data.length + chunk.length;
       const newRentRequired =
         await connection.getMinimumBalanceForRentExemption(newSize);
@@ -959,7 +973,14 @@ export async function deployLargeProgramToSolana(
         },
       );
 
-      await connection.confirmTransaction(appendSignature, "confirmed");
+      const appendConfirm = await confirmTransactionRobust(connection, appendSignature, {
+        commitment: "finalized",
+        timeoutMs: 120000,
+        debug: options.debug,
+      });
+      if (!appendConfirm.success) {
+        throw new Error(`Append confirmation failed: ${appendConfirm.error || "unconfirmed"}`);
+      }
       transactionIds.push(appendSignature);
 
       if (options.debug) {
@@ -970,9 +991,15 @@ export async function deployLargeProgramToSolana(
     }
 
     // Final verification
-    const finalInfo = await connection.getAccountInfo(
-      scriptKeypair.publicKey,
-    );
+    let finalInfo = await getAccountInfoWithRetry(connection, scriptKeypair.publicKey, {
+      commitment: "finalized",
+      retries: 2,
+      delayMs: 1000,
+      debug: options.debug,
+    });
+    if (!finalInfo) {
+      throw new Error("Script account not found during final verification");
+    }
     const expectedSize = SCRIPT_HEADER_SIZE + bytecode.length;
 
     if (options.debug) {
@@ -1365,7 +1392,7 @@ export async function deployLargeProgramOptimizedToSolana(
         const appendConfirmation = await pollForConfirmation(
           connection,
           appendSignature,
-          "confirmed",
+          "finalized",
           120000,
           options.debug
         );
@@ -1430,7 +1457,7 @@ export async function deployLargeProgramOptimizedToSolana(
     const finalizeConfirmation = await pollForConfirmation(
       connection,
       finalizeSignature,
-      "confirmed",
+      "finalized",
       120000, // 120 second timeout
       options.debug
     );
@@ -1607,7 +1634,7 @@ async function ensureCanonicalVmStateAccount(
   }
 
   const vmStatePubkey = new PublicKey(canonical.address);
-  const existing = await connection.getAccountInfo(vmStatePubkey);
+  const existing = await connection.getAccountInfo(vmStatePubkey, "finalized");
   if (existing) {
     if (existing.owner.toBase58() !== programId.toBase58()) {
       throw new Error(

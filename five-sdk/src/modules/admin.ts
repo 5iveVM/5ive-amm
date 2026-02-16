@@ -1,5 +1,6 @@
 import { validator } from "../validation/index.js";
 import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
+import { confirmTransactionRobust } from "../utils/transaction.js";
 import bs58 from "bs58";
 
 const VM_STATE_SEED = Buffer.from("vm_state", "utf8");
@@ -322,9 +323,12 @@ export async function initializeVmStateOnSolana(
     preflightCommitment: "confirmed",
     maxRetries: options.maxRetries || 3,
   });
-  const confirmation = await connection.confirmTransaction(signature, "confirmed");
-  if (confirmation?.value?.err) {
-    return { success: false, transactionId: signature, vmStateAccount: generated.vmStateAccount, error: JSON.stringify(confirmation.value.err) };
+  const confirmation = await confirmTransactionRobust(connection, signature, {
+    commitment: "finalized",
+    timeoutMs: 120000,
+  });
+  if (!confirmation.success) {
+    return { success: false, transactionId: signature, vmStateAccount: generated.vmStateAccount, error: confirmation.error || "confirmation failed" };
   }
   return { success: true, transactionId: signature, vmStateAccount: generated.vmStateAccount };
 }
@@ -370,9 +374,12 @@ export async function setFeesOnSolana(
     preflightCommitment: "confirmed",
     maxRetries: options.maxRetries || 3,
   });
-  const confirmation = await connection.confirmTransaction(signature, "confirmed");
-  if (confirmation?.value?.err) {
-    return { success: false, transactionId: signature, vmStateAccount: generated.vmStateAccount, error: JSON.stringify(confirmation.value.err) };
+  const confirmation = await confirmTransactionRobust(connection, signature, {
+    commitment: "finalized",
+    timeoutMs: 120000,
+  });
+  if (!confirmation.success) {
+    return { success: false, transactionId: signature, vmStateAccount: generated.vmStateAccount, error: confirmation.error || "confirmation failed" };
   }
   return { success: true, transactionId: signature, vmStateAccount: generated.vmStateAccount };
 }
@@ -418,14 +425,17 @@ export async function initFeeVaultOnSolana(
     preflightCommitment: "confirmed",
     maxRetries: options.maxRetries || 3,
   });
-  const confirmation = await connection.confirmTransaction(signature, "confirmed");
-  if (confirmation?.value?.err) {
+  const confirmation = await confirmTransactionRobust(connection, signature, {
+    commitment: "finalized",
+    timeoutMs: 120000,
+  });
+  if (!confirmation.success) {
     return {
       success: false,
       transactionId: signature,
       vmStateAccount: generated.vmStateAccount,
       feeVaultAccount: generated.feeVaultAccount,
-      error: JSON.stringify(confirmation.value.err),
+      error: confirmation.error || "confirmation failed",
     };
   }
   return {
@@ -483,14 +493,17 @@ export async function withdrawScriptFeesOnSolana(
     preflightCommitment: "confirmed",
     maxRetries: options.maxRetries || 3,
   });
-  const confirmation = await connection.confirmTransaction(signature, "confirmed");
-  if (confirmation?.value?.err) {
+  const confirmation = await confirmTransactionRobust(connection, signature, {
+    commitment: "finalized",
+    timeoutMs: 120000,
+  });
+  if (!confirmation.success) {
     return {
       success: false,
       transactionId: signature,
       vmStateAccount: generated.vmStateAccount,
       feeVaultAccount: generated.feeVaultAccount,
-      error: JSON.stringify(confirmation.value.err),
+      error: confirmation.error || "confirmation failed",
     };
   }
   return {

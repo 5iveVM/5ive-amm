@@ -2521,14 +2521,21 @@ export class FiveSDK {
                     preflightCommitment: "confirmed",
                     maxRetries: options.maxRetries || 3,
                 });
-                await connection.confirmTransaction(appendSignature, "confirmed");
+                await connection.confirmTransaction(appendSignature, "finalized");
                 transactionIds.push(appendSignature);
                 if (options.debug) {
                     console.log(`[FiveSDK] ✅ Chunk ${i + 1} appended: ${appendSignature}`);
                 }
             }
             // Final verification
-            const finalInfo = await connection.getAccountInfo(scriptKeypair.publicKey);
+            let finalInfo = await connection.getAccountInfo(scriptKeypair.publicKey, "finalized");
+            for (let attempt = 0; !finalInfo && attempt < 2; attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                finalInfo = await connection.getAccountInfo(scriptKeypair.publicKey, "finalized");
+            }
+            if (!finalInfo) {
+                throw new Error("Script account not found during final verification");
+            }
             const expectedSize = SCRIPT_HEADER_SIZE + bytecode.length;
             if (options.debug) {
                 console.log(`[FiveSDK] 🔍 Final verification:`);
