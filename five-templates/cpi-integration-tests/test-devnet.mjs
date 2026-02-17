@@ -49,10 +49,34 @@ const info = (msg) => console.log(`ℹ️  ${msg}`);
 const warn = (msg) => console.log(`⚠️  ${msg}`);
 const header = (msg) => console.log(`\n${'='.repeat(80)}\n${msg}\n${'='.repeat(80)}`);
 
-function normalizeAbiForFiveProgram(abi) {
+function extractFunctionParamAttributes(source) {
+    const attrsByFunction = {};
+    const functionRegex = /pub\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([\s\S]*?)\)\s*(?:->\s*[^{]+)?\s*\{/g;
+    let fnMatch;
+    while ((fnMatch = functionRegex.exec(source)) !== null) {
+        const fnName = fnMatch[1];
+        const rawParams = fnMatch[2].trim();
+        const paramAttrs = {};
+        if (rawParams.length > 0) {
+            const paramList = rawParams.split(',').map((p) => p.trim()).filter(Boolean);
+            for (const rawParam of paramList) {
+                const colonIdx = rawParam.indexOf(':');
+                if (colonIdx === -1) continue;
+                const paramName = rawParam.slice(0, colonIdx).trim();
+                const attrMatches = [...rawParam.matchAll(/@([a-zA-Z_][a-zA-Z0-9_]*)/g)];
+                paramAttrs[paramName] = attrMatches.map((m) => m[1]);
+            }
+        }
+        attrsByFunction[fnName] = paramAttrs;
+    }
+    return attrsByFunction;
+}
+
+function normalizeAbiForFiveProgram(abi, source) {
     if (!abi || !Array.isArray(abi.functions)) {
         return abi;
     }
+    const attrsByFunction = extractFunctionParamAttributes(source);
     return {
         ...abi,
         functions: abi.functions.map((fn) => ({
@@ -60,11 +84,15 @@ function normalizeAbiForFiveProgram(abi) {
             parameters: (fn.parameters || []).map((p) => ({
                 ...p,
                 is_account: p.is_account ?? p.isAccount ?? false,
+                isAccount: p.isAccount ?? p.is_account ?? false,
                 type: (() => {
                     const raw = p.type || p.param_type;
                     if (raw === 'Account') return 'account';
                     return raw;
-                })()
+                })(),
+                attributes: Array.isArray(p.attributes) && p.attributes.length > 0
+                    ? [...p.attributes]
+                    : [...(attrsByFunction[fn.name]?.[p.name] || [])]
             }))
         }))
     };
@@ -229,7 +257,7 @@ async function testSPLTokenMint(connection, payerKeypair) {
 
         const compilation = await FiveSDK.compile(source);
         const bytecode = compilation?.bytecode;
-        const runtimeAbi = normalizeAbiForFiveProgram(compilation?.abi);
+        const runtimeAbi = normalizeAbiForFiveProgram(compilation?.abi, source);
         if (!bytecode || !runtimeAbi) {
             throw new Error(`compile failed: ${compilation?.error || 'missing bytecode/abi'}`);
         }
@@ -340,7 +368,7 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
 
         const compilation = await FiveSDK.compile(source);
         const bytecode = compilation?.bytecode;
-        const runtimeAbi = normalizeAbiForFiveProgram(compilation?.abi);
+        const runtimeAbi = normalizeAbiForFiveProgram(compilation?.abi, source);
         if (!bytecode || !runtimeAbi) {
             throw new Error(`compile failed: ${compilation?.error || 'missing bytecode/abi'}`);
         }

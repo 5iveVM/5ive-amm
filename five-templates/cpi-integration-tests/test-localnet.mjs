@@ -38,35 +38,54 @@ const PAYER_KEYPAIR_PATH = process.env.FIVE_KEYPAIR_PATH || process.env.PAYER_KE
 let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
 let VM_STATE_PDA = new PublicKey(process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
 
-const SPL_TOKEN_MINT_ABI = {
-    functions: [
-        {
-            name: 'mint_tokens',
-            index: 1,
-            parameters: [
-                { name: 'mint', type: 'account', is_account: true, attributes: ['mut'] },
-                { name: 'to', type: 'account', is_account: true, attributes: ['mut'] },
-                { name: 'authority', type: 'account', is_account: true, attributes: ['signer'] },
-                { name: 'token_program', type: 'account', is_account: true, attributes: [] }
-            ]
+function extractFunctionParamAttributes(source) {
+    const attrsByFunction = {};
+    const functionRegex = /pub\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([\s\S]*?)\)\s*(?:->\s*[^{]+)?\s*\{/g;
+    let fnMatch;
+    while ((fnMatch = functionRegex.exec(source)) !== null) {
+        const fnName = fnMatch[1];
+        const rawParams = fnMatch[2].trim();
+        const paramAttrs = {};
+        if (rawParams.length > 0) {
+            const paramList = rawParams.split(',').map((p) => p.trim()).filter(Boolean);
+            for (const rawParam of paramList) {
+                const colonIdx = rawParam.indexOf(':');
+                if (colonIdx === -1) continue;
+                const paramName = rawParam.slice(0, colonIdx).trim();
+                const attrMatches = [...rawParam.matchAll(/@([a-zA-Z_][a-zA-Z0-9_]*)/g)];
+                paramAttrs[paramName] = attrMatches.map((m) => m[1]);
+            }
         }
-    ]
-};
+        attrsByFunction[fnName] = paramAttrs;
+    }
+    return attrsByFunction;
+}
 
-const PDA_BURN_ABI = {
-    functions: [
-        {
-            name: 'burn_from_pda',
-            index: 1,
-            parameters: [
-                { name: 'pda_authority', type: 'account', is_account: true, attributes: ['signer'] },
-                { name: 'token_account', type: 'account', is_account: true, attributes: ['mut'] },
-                { name: 'mint', type: 'account', is_account: true, attributes: ['mut'] },
-                { name: 'token_program', type: 'account', is_account: true, attributes: [] }
-            ]
-        }
-    ]
-};
+function buildRuntimeAbi(abi, source) {
+    if (!abi || !Array.isArray(abi.functions)) {
+        return abi;
+    }
+    const attrsByFunction = extractFunctionParamAttributes(source);
+    return {
+        ...abi,
+        functions: abi.functions.map((fn) => ({
+            ...fn,
+            parameters: (fn.parameters || []).map((p) => ({
+                ...p,
+                is_account: p.is_account ?? p.isAccount ?? false,
+                isAccount: p.isAccount ?? p.is_account ?? false,
+                type: (() => {
+                    const raw = p.type || p.param_type;
+                    if (raw === 'Account') return 'account';
+                    return raw;
+                })(),
+                attributes: Array.isArray(p.attributes) && p.attributes.length > 0
+                    ? [...p.attributes]
+                    : [...(attrsByFunction[fn.name]?.[p.name] || [])]
+            }))
+        }))
+    };
+}
 
 const log = (msg) => console.log(msg);
 const success = (msg) => console.log(`✅ ${msg}`);
@@ -289,8 +308,12 @@ async function testSPLTokenMint(connection, payerKeypair) {
 
         const compilation = await FiveSDK.compile(source);
         const bytecode = compilation?.bytecode;
+        const runtimeAbi = buildRuntimeAbi(compilation?.abi, source);
         if (!bytecode) {
             throw new Error(`Compile failed: ${compilation?.error || 'missing bytecode'}`);
+        }
+        if (!runtimeAbi) {
+            throw new Error('Compile failed: missing ABI');
         }
         success('Contract compiled');
 
@@ -301,7 +324,7 @@ async function testSPLTokenMint(connection, payerKeypair) {
 
         // Initialize FiveProgram with ABI
         info('Building mint instruction with FiveProgram API...');
-        const program = FiveProgram.fromABI(scriptAccount.toBase58(), SPL_TOKEN_MINT_ABI, {
+        const program = FiveProgram.fromABI(scriptAccount.toBase58(), runtimeAbi, {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
             vmStateAccount: VM_STATE_PDA.toBase58(),
             feeReceiverAccount: payerKeypair.publicKey.toBase58(),
@@ -416,8 +439,12 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
 
         const compilation = await FiveSDK.compile(source);
         const bytecode = compilation?.bytecode;
+        const runtimeAbi = buildRuntimeAbi(compilation?.abi, source);
         if (!bytecode) {
             throw new Error(`Compile failed: ${compilation?.error || 'missing bytecode'}`);
+        }
+        if (!runtimeAbi) {
+            throw new Error('Compile failed: missing ABI');
         }
         success('Contract compiled');
 
@@ -428,7 +455,7 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
 
         // Initialize FiveProgram with ABI
         info('Building burn instruction with FiveProgram API...');
-        const program = FiveProgram.fromABI(scriptAccount.toBase58(), PDA_BURN_ABI, {
+        const program = FiveProgram.fromABI(scriptAccount.toBase58(), runtimeAbi, {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
             vmStateAccount: VM_STATE_PDA.toBase58(),
             feeReceiverAccount: payerKeypair.publicKey.toBase58(),
