@@ -803,7 +803,8 @@ mod tests {
             Token::RightBracket,
             Token::Identifier("vault".to_string()),
             Token::Colon,
-            Token::Type("Account".to_string()),
+            // In the current tokenizer contract, built-in type words are emitted as identifiers.
+            Token::Identifier("Account".to_string()),
             Token::Eof,
         ];
 

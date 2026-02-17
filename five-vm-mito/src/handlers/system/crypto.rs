@@ -138,18 +138,18 @@ macro_rules! impl_hash_syscall {
                 _ => return Err(VMErrorCode::TypeMismatch),
             };
 
-            let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
-
             #[cfg(target_os = "solana")]
             unsafe {
+                let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
                 $syscall(vals_ptr, val_len, result_ptr);
             }
             #[cfg(not(target_os = "solana"))]
             {
+                let (_vals_ptr, _val_len) = parse_data_array(ctx, data_ref)?;
                 debug_log!(
                     "HASH SYSCALL MOCK vals_ptr={} val_len={}",
-                    vals_ptr as usize,
-                    val_len
+                    _vals_ptr as usize,
+                    _val_len
                 );
                 unsafe { *result_ptr = 0; } // Zero mock
             }

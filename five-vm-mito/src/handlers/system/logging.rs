@@ -24,8 +24,9 @@ pub fn handle_syscall_log(ctx: &mut ExecutionManager) -> CompactResult<()> {
     }
     #[cfg(not(target_os = "solana"))]
     {
-        if let Ok(s) = core::str::from_utf8(bytes) {
-             debug_log!("SOL_LOG: {}", s);
+        let _ = bytes;
+        if let Ok(_s) = core::str::from_utf8(bytes) {
+             debug_log!("SOL_LOG: {}", _s);
         } else {
              debug_log!("SOL_LOG (bytes len): {}", bytes.len());
         }
@@ -51,6 +52,7 @@ pub fn handle_syscall_log_64(ctx: &mut ExecutionManager) -> CompactResult<()> {
     }
     #[cfg(not(target_os = "solana"))]
     {
+        let _ = (arg1, arg2, arg3, arg4, arg5);
         debug_log!("SOL_LOG_64: {}, {}, {}, {}, {}", arg1, arg2, arg3, arg4, arg5);
     }
 
@@ -88,6 +90,7 @@ pub fn handle_syscall_log_pubkey(ctx: &mut ExecutionManager) -> CompactResult<()
     }
     #[cfg(not(target_os = "solana"))]
     {
+        let _ = pubkey;
         debug_log!("SOL_LOG_PUBKEY");
     }
 
@@ -129,6 +132,7 @@ pub fn handle_syscall_log_data(ctx: &mut ExecutionManager) -> CompactResult<()> 
     }
     #[cfg(not(target_os = "solana"))]
     {
+        let _ = count;
         debug_log!("SOL_LOG_DATA: count={}", count);
     }
 

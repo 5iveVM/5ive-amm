@@ -571,7 +571,7 @@ mod tests {
         let (vm_key, vm_bump) = canonical_vm_key(&program_id);
         let owner_key = Pubkey::from([14u8; 32]);
         let system_owner = Pubkey::default();
-        let (fee_vault_key, fee_vault_bump) =
+        let (fee_vault_key, _fee_vault_bump) =
             crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
 
         let bytecode = minimal_valid_bytecode();
@@ -652,7 +652,7 @@ mod tests {
         let (vm_key, vm_bump) = canonical_vm_key(&program_id);
         let owner_key = Pubkey::from([34u8; 32]);
         let admin_key = Pubkey::from([35u8; 32]);
-        let (fee_vault_key, fee_vault_bump) =
+        let (fee_vault_key, _fee_vault_bump) =
             crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
 
         let bytecode = minimal_valid_bytecode();

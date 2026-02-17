@@ -455,6 +455,11 @@ impl ASTGenerator {
                 emitter.emit_opcode(ARRAY_INDEX);
                 Ok(())
             }
+            AstNode::Cast { value, .. } => {
+                // Cast is currently compile-time type information for custom account types.
+                // Runtime value is unchanged, so emit the underlying value expression.
+                self.generate_ast_node(emitter, value)
+            }
 
             AstNode::InstructionDefinition {
                 name: _name,

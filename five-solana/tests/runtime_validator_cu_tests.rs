@@ -1,3 +1,5 @@
+#![cfg(feature = "validator-harness")]
+
 mod harness;
 
 use std::path::PathBuf;

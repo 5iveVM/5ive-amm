@@ -224,8 +224,6 @@ fn make_location_range() -> Range {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_placeholder() {
         // Placeholder test - AST compilation tested in integration tests

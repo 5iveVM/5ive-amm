@@ -5,6 +5,37 @@ use crate::parser::{DslParser, types};
 use crate::tokenizer::{Token};
 use five_vm_mito::error::VMError;
 
+fn is_reserved_function_name_token(token: &Token) -> bool {
+    matches!(
+        token,
+        Token::Init
+            | Token::Fn
+            | Token::Let
+            | Token::If
+            | Token::Return
+            | Token::For
+            | Token::While
+            | Token::Match
+            | Token::Pub
+            | Token::Mut
+            | Token::Account
+            | Token::Interface
+            | Token::Enum
+            | Token::True
+            | Token::False
+            | Token::Break
+            | Token::Continue
+            | Token::Use
+            | Token::Import
+            | Token::When
+            | Token::Event
+            | Token::Emit
+            | Token::Require
+            | Token::Error
+            | Token::As
+    )
+}
+
 pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<AstNode, VMError> {
     eprintln!("DEBUG_PARSER: parse_instruction_definition entry");
     // Check for 'pub' keyword to determine visibility
@@ -40,18 +71,17 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
             parser.advance();
             n
         }
-        // Check for reserved keywords being used as function names
-        Token::Init | Token::Fn | Token::Let | Token::If | Token::Return
-        | Token::For | Token::While | Token::Match | Token::Pub | Token::Mut
-        | Token::Account | Token::Interface | Token::Enum
-        | Token::True | Token::False | Token::Break | Token::Continue
-        | Token::Use | Token::Import | Token::When | Token::Event | Token::Emit
-        | Token::Require | Token::Error | Token::As => {
-            let keyword = format!("{:?}", parser.current_token).to_lowercase();
-            return Err(parser.parse_error(&format!(
-                "non-reserved identifier (found reserved keyword '{}')",
-                keyword
-            )));
+        token if is_reserved_function_name_token(token) => {
+            use heapless::String as HString;
+            let mut expected = HString::<32>::new();
+            let _ = expected.push_str("reserved keyword function name");
+            let mut found = HString::<32>::new();
+            let _ = found.push_str(&parser.token_to_string(token));
+            return Err(VMError::ParseError {
+                expected,
+                found,
+                position: parser.position,
+            });
         }
         _ => return Err(parser.parse_error("instruction/function name identifier")),
     };

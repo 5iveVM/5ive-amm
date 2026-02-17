@@ -113,34 +113,32 @@ fn find_similar_type(input: &str) -> Option<&'static str> {
 
 /// Calculate similarity between two strings (Levenshtein-based)
 fn calculate_similarity(a: &str, b: &str) -> f32 {
-    let len_a = a.len();
-    let len_b = b.len();
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let len_a = a_chars.len();
+    let len_b = b_chars.len();
     let max_len = len_a.max(len_b);
 
     if max_len == 0 {
         return 1.0;
     }
 
-    // Simple Levenshtein calculation
-    let mut prev = vec![0; len_b + 1];
-    let mut curr = vec![0; len_b + 1];
+    // Standard Levenshtein dynamic programming.
+    let mut prev: Vec<usize> = (0..=len_b).collect();
+    let mut curr = vec![0usize; len_b + 1];
 
-    for i in 0..=len_a {
+    for i in 1..=len_a {
         curr[0] = i;
-        for j in 0..=len_b {
-            if i == 0 {
-                curr[j] = j;
-            } else {
-                let cost = if a.chars().nth(i - 1) == b.chars().nth(j - 1) { 0 } else { 1 };
-                curr[j] = (prev[j] + 1)           // deletion
-                    .min(curr[j - 1] + 1)         // insertion
-                    .min(prev[j - 1] + cost);     // substitution
-            }
+        for j in 1..=len_b {
+            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            curr[j] = (prev[j] + 1)
+                .min(curr[j - 1] + 1)
+                .min(prev[j - 1] + cost);
         }
-        prev = curr.clone();
+        core::mem::swap(&mut prev, &mut curr);
     }
 
-    let distance = curr[len_b];
+    let distance = prev[len_b];
     1.0 - (distance as f32 / max_len as f32)
 }
 

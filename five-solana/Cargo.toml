@@ -50,6 +50,10 @@ debug-logs = ["pinocchio-log", "five-vm-mito/debug-logs", "five-vm-mito/trace-ex
 test-sbf = []
 # Runtime fee-path bypass for CU attribution (bench/testing only).
 cu-bypass-fees = []
+# Compile validator RPC harness and validator-gated tests.
+validator-harness = []
+# Compile legacy in-process RuntimeHarness helpers.
+legacy-runtime-harness = []
 # Production builds with minimal dependencies
 production = ["five-vm-mito/unchecked-execution"]
 

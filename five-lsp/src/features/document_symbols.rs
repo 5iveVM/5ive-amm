@@ -5,7 +5,7 @@
 
 use crate::bridge::CompilerBridge;
 use five_dsl_compiler::ast::AstNode;
-use lsp_types::{DocumentSymbol, SymbolKind, Range, Position};
+use lsp_types::{DocumentSymbol, Position, Range, SymbolKind};
 
 /// Get document symbols for outline view
 ///
@@ -64,16 +64,14 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
                     Some("fn".to_string())
                 };
 
-                symbols.push(DocumentSymbol {
-                    name: name.clone(),
+                symbols.push(make_symbol(
+                    name.clone(),
                     detail,
-                    kind: SymbolKind::FUNCTION,
-                    deprecated: None,
-                    range: location.clone(),
-                    selection_range: location,
-                    children: None,
-                    tags: None,
-                });
+                    SymbolKind::FUNCTION,
+                    location.clone(),
+                    location,
+                    None,
+                ));
             }
         }
 
@@ -92,28 +90,24 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
                         Some("field".to_string())
                     };
 
-                    children.push(DocumentSymbol {
-                        name: field.name.clone(),
+                    children.push(make_symbol(
+                        field.name.clone(),
                         detail,
-                        kind: SymbolKind::FIELD,
-                        deprecated: None,
-                        range: field_location.clone(),
-                        selection_range: field_location,
-                        children: None,
-                        tags: None,
-                    });
+                        SymbolKind::FIELD,
+                        field_location.clone(),
+                        field_location,
+                        None,
+                    ));
                 }
 
-                symbols.push(DocumentSymbol {
-                    name: name.clone(),
-                    detail: Some("account".to_string()),
-                    kind: SymbolKind::STRUCT,
-                    deprecated: None,
-                    range: location.clone(),
-                    selection_range: location,
-                    children: if children.is_empty() { None } else { Some(children) },
-                    tags: None,
-                });
+                symbols.push(make_symbol(
+                    name.clone(),
+                    Some("account".to_string()),
+                    SymbolKind::STRUCT,
+                    location.clone(),
+                    location,
+                    if children.is_empty() { None } else { Some(children) },
+                ));
             }
         }
 
@@ -126,28 +120,24 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
                 // Add event fields as nested symbols
                 for field in fields {
                     let field_location = make_location_range();
-                    children.push(DocumentSymbol {
-                        name: field.name.clone(),
-                        detail: Some("property".to_string()),
-                        kind: SymbolKind::PROPERTY,
-                        deprecated: None,
-                        range: field_location.clone(),
-                        selection_range: field_location,
-                        children: None,
-                        tags: None,
-                    });
+                    children.push(make_symbol(
+                        field.name.clone(),
+                        Some("property".to_string()),
+                        SymbolKind::PROPERTY,
+                        field_location.clone(),
+                        field_location,
+                        None,
+                    ));
                 }
 
-                symbols.push(DocumentSymbol {
-                    name: name.clone(),
-                    detail: Some("event".to_string()),
-                    kind: SymbolKind::EVENT,
-                    deprecated: None,
-                    range: location.clone(),
-                    selection_range: location,
-                    children: if children.is_empty() { None } else { Some(children) },
-                    tags: None,
-                });
+                symbols.push(make_symbol(
+                    name.clone(),
+                    Some("event".to_string()),
+                    SymbolKind::EVENT,
+                    location.clone(),
+                    location,
+                    if children.is_empty() { None } else { Some(children) },
+                ));
             }
         }
 
@@ -166,16 +156,14 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
                     Some("field".to_string())
                 };
 
-                symbols.push(DocumentSymbol {
-                    name: name.clone(),
+                symbols.push(make_symbol(
+                    name.clone(),
                     detail,
-                    kind: SymbolKind::VARIABLE,
-                    deprecated: None,
-                    range: location.clone(),
-                    selection_range: location,
-                    children: None,
-                    tags: None,
-                });
+                    SymbolKind::VARIABLE,
+                    location.clone(),
+                    location,
+                    None,
+                ));
             }
         }
 
@@ -189,34 +177,51 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
                 for func in functions {
                     if let AstNode::InterfaceFunction { name: func_name, .. } = func {
                         let func_location = make_location_range();
-                        children.push(DocumentSymbol {
-                            name: func_name.clone(),
-                            detail: Some("method".to_string()),
-                            kind: SymbolKind::METHOD,
-                            deprecated: None,
-                            range: func_location.clone(),
-                            selection_range: func_location,
-                            children: None,
-                            tags: None,
-                        });
+                        children.push(make_symbol(
+                            func_name.clone(),
+                            Some("method".to_string()),
+                            SymbolKind::METHOD,
+                            func_location.clone(),
+                            func_location,
+                            None,
+                        ));
                     }
                 }
 
-                symbols.push(DocumentSymbol {
-                    name: name.clone(),
-                    detail: Some("interface".to_string()),
-                    kind: SymbolKind::INTERFACE,
-                    deprecated: None,
-                    range: location.clone(),
-                    selection_range: location,
-                    children: if children.is_empty() { None } else { Some(children) },
-                    tags: None,
-                });
+                symbols.push(make_symbol(
+                    name.clone(),
+                    Some("interface".to_string()),
+                    SymbolKind::INTERFACE,
+                    location.clone(),
+                    location,
+                    if children.is_empty() { None } else { Some(children) },
+                ));
             }
         }
     }
 
     symbols
+}
+
+fn make_symbol(
+    name: String,
+    detail: Option<String>,
+    kind: SymbolKind,
+    range: Range,
+    selection_range: Range,
+    children: Option<Vec<DocumentSymbol>>,
+) -> DocumentSymbol {
+    #[allow(deprecated)]
+    DocumentSymbol {
+        name,
+        detail,
+        kind,
+        range,
+        selection_range,
+        children,
+        deprecated: None,
+        tags: None,
+    }
 }
 
 /// Create a default location range (placeholder until SourceLocation is available)
@@ -235,8 +240,6 @@ fn make_location_range() -> Range {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_placeholder() {
         // Placeholder test - AST compilation tested in integration tests

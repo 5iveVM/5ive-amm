@@ -350,7 +350,7 @@ fn test_comprehensive_tokenizer() {
     assert!(tokens.contains(&Token::Percent));
 
     // Should contain new types and literals
-    assert!(tokens.contains(&Token::Type("u64".to_string())));
+    assert!(tokens.contains(&Token::Identifier("u64".to_string())));
     assert!(tokens.contains(&Token::Result));
     assert!(tokens.contains(&Token::Option));
     assert!(tokens.contains(&Token::Ok));

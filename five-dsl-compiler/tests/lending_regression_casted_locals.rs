@@ -1,16 +1,16 @@
-//! Regression test for Issue 3: Field Access On Casted Locals
+//! Regression test for cast semantics on locals
 //!
 //! Tests that:
-//! 1. Cast expressions parse without error (but cast info is lost)
-//! 2. Field access on casted locals fails (uses original type, not cast type)
-//! 3. Both read and write operations on casted locals are affected
-//! 4. Cast information is completely ignored by type system
+//! 1. Cast expressions preserve target-type semantics for local field access
+//! 2. Field access on casted locals resolves against the cast target type
+//! 3. Both read and write operations behave consistently
+//! 4. Casts still respect mutability/constraint rules
 
 use five_dsl_compiler::compiler::DslCompiler;
 
 #[test]
 fn test_cast_expression_parses_but_is_ignored() {
-    // Cast expressions parse syntactically but cast type is discarded semantically
+    // Cast expressions should parse and preserve cast target semantics.
     let dsl = r#"
 account MyAccount {
     balance: u64,
@@ -18,8 +18,7 @@ account MyAccount {
 
 pub test(acc: Account @mut) {
     let x = acc as MyAccount;
-    // At this point: x is still typed as Account in symbol table
-    // The "as MyAccount" part was parsed but discarded
+    let amount = x.balance;
 }
 
 pub main() {
@@ -28,16 +27,16 @@ pub main() {
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    // Should compile - cast syntax is accepted (even though it's ignored)
+    // Should compile with cast-aware field access.
     assert!(
         result.is_ok(),
-        "Cast expressions should parse without syntax errors"
+        "Cast expressions should preserve target-type semantics"
     );
 }
 
 #[test]
 fn test_field_access_on_casted_local_fails_for_custom_fields() {
-    // Field access on casted locals uses original type (Account), not cast type (MyAccount)
+    // Field access on casted locals should resolve custom fields.
     let dsl = r#"
 account MyAccount {
     balance: u64,
@@ -45,7 +44,7 @@ account MyAccount {
 
 pub test(acc: Account @mut) {
     let x = acc as MyAccount;
-    let amount = x.balance;  // ERROR: MyAccount field not found on Account
+    let amount = x.balance;
 }
 
 pub main() {
@@ -54,29 +53,24 @@ pub main() {
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    // Should fail - field access uses original type (Account), not cast type (MyAccount)
+    // Should succeed - cast target type should be used.
     assert!(
-        result.is_err(),
-        "Field access on casted local should fail (uses original type)"
+        result.is_ok(),
+        "Field access on casted local should use cast target type"
     );
-
-    // Error should be about undefined field
-    if let Err(_e) = result {
-        eprintln!("Field access on casted local fails - cast information lost");
-    }
 }
 
 #[test]
 fn test_field_write_on_casted_local_fails() {
-    // Field write on casted locals also fails (same issue as read)
+    // Field write on casted locals should also use cast target type.
     let dsl = r#"
 account MyAccount {
     balance: u64,
 }
 
 pub test(acc: Account @mut) {
-    let x = acc as MyAccount;
-    x.balance = 100;  // ERROR: MyAccount field not found on Account
+    let mut x = acc as MyAccount;
+    x.balance = 100;
 }
 
 pub main() {
@@ -85,16 +79,16 @@ pub main() {
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    // Should fail - field write also uses original type
+    // Should succeed for mutable account parameter.
     assert!(
-        result.is_err(),
-        "Field write on casted local should also fail"
+        result.is_ok(),
+        "Field write on casted local should use cast target type"
     );
 }
 
 #[test]
 fn test_cast_does_not_affect_account_constraints() {
-    // Cast expressions are completely ignored - they don't affect @mut constraints
+    // Cast expressions must not bypass @mut constraints.
     let dsl = r#"
 account MyAccount {
     balance: u64,
@@ -113,15 +107,13 @@ pub main() {
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    // Should fail - for multiple reasons:
-    // 1. Cast type information is lost (would use Account type)
-    // 2. Even if cast worked, original acc is not @mut
+    // Should fail due to mutability constraint.
     assert!(result.is_err(), "Mutation through non-mut account should fail");
 }
 
 #[test]
 fn test_multiple_casts_all_ignored() {
-    // Multiple cast expressions are all ignored
+    // Multiple cast expressions should preserve the most recent cast type.
     let dsl = r#"
 account VaultA {
     amount: u64,
@@ -134,7 +126,7 @@ account VaultB {
 pub test(acc: Account @mut) {
     let x = acc as VaultA;
     let y = x as VaultB;
-    // y is still typed as Account - both casts ignored
+    let b = y.balance;
 }
 
 pub main() {
@@ -143,8 +135,8 @@ pub main() {
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    // Should compile but casts are semantically ignored
-    assert!(result.is_ok(), "Multiple casts should parse");
+    // Should compile and preserve final cast type.
+    assert!(result.is_ok(), "Multiple casts should preserve target type");
 }
 
 #[test]
@@ -175,8 +167,7 @@ pub main() {
 
 #[test]
 fn test_cast_silently_fails_to_narrow_type() {
-    // Cast expressions appear to work (no syntax error) but silently fail to narrow type
-    // This creates a subtle bug where what you write (acc as MyAccount) != what compiler uses (Account)
+    // Cast expressions should narrow to the target account type for field access.
     let dsl = r#"
 account MyVault {
     total_locked: u64,
@@ -185,11 +176,7 @@ account MyVault {
 
 pub check_vault(vault: Account @mut) {
     let v = vault as MyVault;
-    // Developer expects: v is of type MyVault
-    // Compiler actually: v is of type Account
-    // This silent mismatch is the core of the issue
-
-    if v.total_locked > 0 {  // ERROR: undefined field
+    if v.total_locked > 0 {
         // ...
     }
 }
@@ -200,13 +187,9 @@ pub main() {
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    // Should fail - demonstrates the silent type inconsistency
+    // Should succeed - no silent cast/type mismatch.
     assert!(
-        result.is_err(),
-        "Type narrowing via cast silently fails to work"
+        result.is_ok(),
+        "Type narrowing via cast should work"
     );
-
-    if let Err(_e) = result {
-        eprintln!("Silent type narrowing failure - cast syntax accepted but semantically ignored");
-    }
 }

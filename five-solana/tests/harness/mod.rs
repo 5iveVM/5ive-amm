@@ -4,21 +4,26 @@
 //! - `ValidatorHarness` is for RPC/integration/perf and network-gated checks.
 //! - If behavior can be covered in BPF, keep it in BPF and trim in-process duplicates.
 
+#[cfg(feature = "legacy-runtime-harness")]
 use std::collections::BTreeMap;
 
+#[cfg(feature = "legacy-runtime-harness")]
 use five::{
     instructions::{deploy, execute},
     state::{FIVEVMState, ScriptAccountHeader},
 };
+#[cfg(feature = "legacy-runtime-harness")]
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
 pub mod compile;
 pub mod fixtures;
 pub mod perf;
+#[cfg(feature = "validator-harness")]
 pub mod validator;
 pub mod addresses;
 pub mod instruction_builders;
 
+#[cfg(feature = "legacy-runtime-harness")]
 #[derive(Clone, Debug)]
 pub struct AccountSeed {
     pub key: Pubkey,
@@ -30,6 +35,7 @@ pub struct AccountSeed {
     pub executable: bool,
 }
 
+#[cfg(feature = "legacy-runtime-harness")]
 #[derive(Clone, Debug)]
 pub struct AccountSnapshot {
     pub key: Pubkey,
@@ -41,6 +47,7 @@ pub struct AccountSnapshot {
     pub executable: bool,
 }
 
+#[cfg(feature = "legacy-runtime-harness")]
 #[derive(Clone, Debug)]
 pub struct TxResult {
     pub success: bool,
@@ -49,6 +56,7 @@ pub struct TxResult {
     pub compute_units: Option<u64>,
 }
 
+#[cfg(feature = "legacy-runtime-harness")]
 impl TxResult {
     pub fn ok() -> Self {
         Self {
@@ -69,12 +77,14 @@ impl TxResult {
     }
 }
 
+#[cfg(feature = "legacy-runtime-harness")]
 #[derive(Clone, Debug)]
 pub enum ExpectedOutcome {
     Success,
     ProgramError(ProgramError),
 }
 
+#[cfg(feature = "legacy-runtime-harness")]
 #[derive(Clone, Debug)]
 pub struct ScriptFixture {
     pub bytecode: Vec<u8>,
@@ -84,6 +94,7 @@ pub struct ScriptFixture {
     pub expectation: ExpectedOutcome,
 }
 
+#[cfg(feature = "legacy-runtime-harness")]
 #[derive(Clone, Debug)]
 struct HarnessAccount {
     key: Pubkey,
@@ -95,6 +106,7 @@ struct HarnessAccount {
     executable: bool,
 }
 
+#[cfg(feature = "legacy-runtime-harness")]
 #[derive(Debug)]
 pub struct RuntimeHarness {
     pub program_id: Pubkey,
@@ -103,6 +115,7 @@ pub struct RuntimeHarness {
     last_logs: Vec<String>,
 }
 
+#[cfg(feature = "legacy-runtime-harness")]
 impl RuntimeHarness {
     const MAX_ACCOUNT_DATA_LEN: usize = 10 * 1024 * 1024;
     const OFFCHAIN_DATA_HEADROOM: usize = 16 * 1024;
@@ -539,6 +552,7 @@ impl RuntimeHarness {
     }
 }
 
+#[cfg(feature = "legacy-runtime-harness")]
 pub fn unique_pubkey(seed: u8) -> Pubkey {
     let mut bytes = [0u8; 32];
     bytes[0] = seed;

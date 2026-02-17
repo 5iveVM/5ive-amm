@@ -141,6 +141,10 @@ impl ASTGenerator {
                     _ => Ok(left_type), // Assume same type as left operand
                 }
             }
+            AstNode::Cast { target_type, .. } => match target_type.as_ref() {
+                AstNode::Identifier(type_name) => Ok(type_name.clone()),
+                _ => Ok("unknown".to_string()),
+            },
             _ => Ok("unknown".to_string()),
         }
     }

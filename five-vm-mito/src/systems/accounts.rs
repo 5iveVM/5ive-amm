@@ -7,9 +7,9 @@ use pinocchio::{
     pubkey::Pubkey,
 };
 
-#[cfg(any(target_os = "solana", test))]
+#[cfg(target_os = "solana")]
 use pinocchio::instruction::{AccountMeta, Instruction, Seed};
-#[cfg(any(target_os = "solana", test))]
+#[cfg(target_os = "solana")]
 use pinocchio::program::invoke_signed;
 
 // System program ID constant

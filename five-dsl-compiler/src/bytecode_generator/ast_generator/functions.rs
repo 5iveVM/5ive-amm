@@ -598,6 +598,7 @@ impl ASTGenerator {
     /// `pubkey` parameters are serialized into instruction data.
     fn is_account_meta_type(type_node: &TypeNode) -> bool {
         matches!(type_node, TypeNode::Account)
+            || matches!(type_node, TypeNode::Named(name) if name.eq_ignore_ascii_case("account"))
     }
 
     /// Check if a field_type string represents an account type

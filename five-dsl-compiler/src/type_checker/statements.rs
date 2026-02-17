@@ -337,6 +337,26 @@ impl TypeCheckerContext {
                 self.symbol_table
                     .insert(name.clone(), (final_type.clone(), *is_mutable));
 
+                // Preserve writable-account aliasing for casts/bindings like:
+                // `let mut x = acc as MyAccount;` where `acc` is an @mut account parameter.
+                if *is_mutable {
+                    let source_ident = match value.as_ref() {
+                        AstNode::Identifier(src) => Some(src.as_str()),
+                        AstNode::Cast { value, .. } => match value.as_ref() {
+                            AstNode::Identifier(src) => Some(src.as_str()),
+                            _ => None,
+                        },
+                        _ => None,
+                    };
+                    if let (Some(source), Some(writable)) =
+                        (source_ident, self.current_writable_accounts.as_mut())
+                    {
+                        if writable.contains(source) {
+                            writable.insert(name.clone());
+                        }
+                    }
+                }
+
                 // Record definition for go-to-definition feature
                 self.record_definition(
                     name.clone(),

@@ -21,9 +21,6 @@ use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
 use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(feature = "debug-logs")]
 use heapless::String as HString;
-// Import all opcodes - using hierarchical match structure to prevent stack overflow.
-use five_protocol::opcodes::*;
-
 #[cfg(not(target_os = "solana"))]
 static LAST_COMPUTE_UNITS: AtomicU64 = AtomicU64::new(0);
 #[cfg(not(target_os = "solana"))]

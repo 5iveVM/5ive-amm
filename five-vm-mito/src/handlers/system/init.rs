@@ -158,6 +158,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // CRITICAL DEBUG: Log pointers to detect stale references
     let ptr_after = unsafe { _account_after.borrow_data_unchecked().as_ptr() as usize };
+    let _ = (ptr_before, ptr_after);
     debug_log!(
         "INIT_ACCOUNT_PTRS: idx={} ptr_before={} ptr_after={} changed={}",
         account_idx,
@@ -236,6 +237,7 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     
     // Log the owner for debugging
     let owner_bytes = owner.as_ref();
+    let _ = owner_bytes;
     debug_log!(
         "INIT_PDA_ACCOUNT: owner={} {} {} {}",
         owner_bytes[0], owner_bytes[1], owner_bytes[2], owner_bytes[3]

@@ -343,8 +343,8 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, vm_state_bump) = vm_state_pda(&program_id);
-    let (fee_vault_pubkey, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
+    let (vm_state_pubkey, _vm_state_bump) = vm_state_pda(&program_id);
+    let (_fee_vault_pubkey, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -618,7 +618,7 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -983,7 +983,7 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -1390,7 +1390,7 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -1701,7 +1701,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -2153,7 +2153,7 @@ async fn run_fixture_bpf_compute_units(
     } else {
         CU_EXECUTE_FEE_LAMPORTS
     };
-    let (vm_state_pubkey, vm_state_bump) = vm_state_pda(&program_id);
+    let (vm_state_pubkey, _vm_state_bump) = vm_state_pda(&program_id);
     let (fee_vault_pubkey, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
 
     accounts.insert(
@@ -2679,7 +2679,7 @@ async fn minimal_execute_floor_bpf_compute_units() {
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -3020,7 +3020,7 @@ async fn run_external_token_all_public_profile(
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {

@@ -32,11 +32,11 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
             if len < 32 { return Err(VMErrorCode::MemoryViolation); }
             offset
         }
-        ValueRef::ArrayRef(offset) => {
+        ValueRef::ArrayRef(_offset) => {
             // ArrayRef buffers are not supported for program ID writes in this syscall.
             debug_log!(
                 "SYSCALL_GET_RETURN_DATA: ArrayRef {} not supported for pid buffer",
-                offset
+                _offset
             );
             return Err(VMErrorCode::TypeMismatch); // Enforce TempRef for now
         }
@@ -63,11 +63,12 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
             syscalls::sol_get_return_data(data_ptr, length, pid_ptr)
         }
 
-        #[cfg(not(target_os = "solana"))]
-        {
-            // Mock
-            debug_log!(
-                "SOL_GET_RETURN_DATA: length={} pid_offset={} data_offset={}",
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (pid_offset, data_offset);
+        // Mock
+        debug_log!(
+            "SOL_GET_RETURN_DATA: length={} pid_offset={} data_offset={}",
                 length,
                 pid_offset,
                 data_offset
@@ -87,17 +88,18 @@ pub fn handle_syscall_set_return_data(ctx: &mut ExecutionManager) -> CompactResu
 
     // Pop data
     let data_ref = ctx.pop()?;
-    let (len, bytes) = ctx.extract_string_slice(&data_ref)?;
+    let (_len, bytes) = ctx.extract_string_slice(&data_ref)?;
 
     #[cfg(target_os = "solana")]
     unsafe {
-        syscalls::sol_set_return_data(bytes.as_ptr(), len as u64);
+        syscalls::sol_set_return_data(bytes.as_ptr(), _len as u64);
     }
     #[cfg(not(target_os = "solana"))]
     {
+        let _ = bytes;
         debug_log!(
             "SOL_SET_RETURN_DATA: len={} first_byte={}",
-            len,
+            _len,
             bytes.get(0).copied().unwrap_or(0)
         );
     }

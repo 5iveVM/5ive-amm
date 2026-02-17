@@ -2,8 +2,8 @@
 //!
 //! Tests that:
 //! 1. Reserved keywords like 'init' cannot be used as function names
-//! 2. Error message is currently generic and misleading
-//! 3. Error doesn't clearly indicate the keyword is reserved
+//! 2. Error message explicitly reports keyword reservation
+//! 3. The reserved-keyword diagnostic is distinguishable from generic parse failures
 //! 4. This affects all reserved keywords (fn, let, if, pub, init, etc.)
 //! 5. Some keywords like 'account' work in parameter contexts but not function names
 
@@ -26,10 +26,16 @@ pub main() {
     // Should fail - 'init' is reserved
     assert!(result.is_err(), "'init' is a reserved keyword");
 
-    if let Err(_e) = result {
-        // Current error message is generic: "expected instruction/function name identifier, found 'init'"
-        // This doesn't clearly communicate that 'init' is a reserved keyword
-        eprintln!("init as function name fails with generic parse error");
+    if let Err(e) = result {
+        let msg = format!("{:?}", e);
+        assert!(
+            msg.contains("reserved keyword"),
+            "expected reserved-keyword diagnostic, got: {msg}"
+        );
+        assert!(
+            msg.contains("'init'"),
+            "expected offending keyword in diagnostic, got: {msg}"
+        );
     }
 }
 
@@ -170,8 +176,7 @@ pub main() {
 
 #[test]
 fn test_error_message_quality() {
-    // This test documents the current error message quality
-    // The error message should clearly indicate the token is a reserved keyword
+    // Reserved keyword failures should produce targeted diagnostics.
     let dsl = r#"
 pub init() {
 }
@@ -182,26 +187,15 @@ pub main() {
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    if let Err(_e) = result {
-        // Current message is something like:
-        // "Parse error at position X: expected instruction/function name identifier, found 'init'"
-        //
-        // Issues with this message:
-        // 1. Doesn't say 'init' is a reserved keyword
-        // 2. Suggests the parser expected something different at that position
-        // 3. Doesn't guide user toward solution (use different name, or init_prefix)
-        // 4. Generic "expected identifier" applies to many situations
-        //
-        // Improved message should be:
-        // "Parse error: 'init' is a reserved keyword and cannot be used as function name"
-        eprintln!("Error message quality: currently misleading about keyword reservation");
-    }
+    let err = result.expect_err("reserved keyword must fail");
+    let msg = format!("{:?}", err);
+    assert!(msg.contains("reserved keyword"), "diagnostic should mention reserved keyword: {msg}");
+    assert!(msg.contains("'init'"), "diagnostic should include offending token: {msg}");
 }
 
 #[test]
 fn test_parser_error_applies_to_all_keywords() {
-    // The same generic parse error applies to ALL reserved keywords
-    // This is a pattern: any keyword triggers "expected identifier"
+    // Reserved-keyword diagnostics should be specific, not generic identifier failures.
     let dsl = r#"
 pub pub() { }
 pub main() { }
@@ -209,9 +203,12 @@ pub main() { }
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    // Even nested keywords fail with same generic error
-    assert!(result.is_err(), "All keywords should fail with generic error");
-    eprintln!("All reserved keywords produce same generic parse error");
+    assert!(result.is_err(), "All keywords should fail");
+    let msg = format!("{:?}", result.unwrap_err());
+    assert!(
+        msg.contains("reserved keyword"),
+        "all reserved keywords should report reserved-keyword diagnostic: {msg}"
+    );
 }
 
 #[test]
