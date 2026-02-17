@@ -220,8 +220,8 @@ describe('Five SDK Integration Tests', () => {
 
       const raw = Buffer.from(result.instruction.data, 'base64');
       expect(raw[0]).toBe(9);
-      expect(raw.readUInt32LE(5)).toBe(7);
-      expect(raw.readUInt32LE(9)).toBe(2);
+      expect(raw.readUInt32LE(4)).toBe(7);
+      expect(raw.readUInt32LE(8)).toBe(2);
     });
 
     it('falls back to numeric index 0 when function name cannot be resolved', async () => {
@@ -239,7 +239,7 @@ describe('Five SDK Integration Tests', () => {
       );
 
       const raw = Buffer.from(result.instruction.data, 'base64');
-      expect(raw.readUInt32LE(5)).toBe(0);
+      expect(raw.readUInt32LE(4)).toBe(0);
       expect(result.parameters.function).toBe('missing_function');
     });
 
