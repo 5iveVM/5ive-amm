@@ -2,7 +2,7 @@
   "program_name": "Module",
   "functions": [
     {
-      "name": "anchor_mint_to_user1",
+      "name": "mint_to_user1",
       "index": 0,
       "parameters": [
         {
@@ -35,7 +35,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_mint_to_user2",
+      "name": "mint_to_user2",
       "index": 1,
       "parameters": [
         {
@@ -68,7 +68,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_mint_to_user3",
+      "name": "mint_to_user3",
       "index": 2,
       "parameters": [
         {
@@ -101,7 +101,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_transfer_user2_to_user3",
+      "name": "transfer_user2_to_user3",
       "index": 3,
       "parameters": [
         {
@@ -134,97 +134,8 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_approve_user3_to_user2",
+      "name": "burn_user1",
       "index": 4,
-      "parameters": [
-        {
-          "name": "user3_token",
-          "param_type": "Account",
-          "is_account": true,
-          "attributes": [
-            "mut"
-          ]
-        },
-        {
-          "name": "user3",
-          "param_type": "Account",
-          "is_account": true,
-          "attributes": [
-            "signer"
-          ]
-        },
-        {
-          "name": "delegate",
-          "param_type": "pubkey",
-          "is_account": false,
-          "attributes": []
-        }
-      ],
-      "return_type": null,
-      "is_public": true,
-      "bytecode_offset": 0
-    },
-    {
-      "name": "anchor_transfer_from_user3_to_user1_by_user2",
-      "index": 5,
-      "parameters": [
-        {
-          "name": "user3_token",
-          "param_type": "Account",
-          "is_account": true,
-          "attributes": [
-            "mut"
-          ]
-        },
-        {
-          "name": "user1_token",
-          "param_type": "Account",
-          "is_account": true,
-          "attributes": [
-            "mut"
-          ]
-        },
-        {
-          "name": "user2",
-          "param_type": "Account",
-          "is_account": true,
-          "attributes": [
-            "signer"
-          ]
-        }
-      ],
-      "return_type": null,
-      "is_public": true,
-      "bytecode_offset": 0
-    },
-    {
-      "name": "anchor_revoke_user3",
-      "index": 6,
-      "parameters": [
-        {
-          "name": "user3_token",
-          "param_type": "Account",
-          "is_account": true,
-          "attributes": [
-            "mut"
-          ]
-        },
-        {
-          "name": "user3",
-          "param_type": "Account",
-          "is_account": true,
-          "attributes": [
-            "signer"
-          ]
-        }
-      ],
-      "return_type": null,
-      "is_public": true,
-      "bytecode_offset": 0
-    },
-    {
-      "name": "anchor_burn_user1",
-      "index": 7,
       "parameters": [
         {
           "name": "mint",
@@ -256,8 +167,8 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_freeze_user2",
-      "index": 8,
+      "name": "freeze_user2",
+      "index": 5,
       "parameters": [
         {
           "name": "mint",
@@ -289,8 +200,8 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_thaw_user2",
-      "index": 9,
+      "name": "thaw_user2",
+      "index": 6,
       "parameters": [
         {
           "name": "mint",

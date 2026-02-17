@@ -2,7 +2,7 @@
   "program_name": "Module",
   "functions": [
     {
-      "name": "anchor_mint_to_user1",
+      "name": "mint_to_user1",
       "index": 0,
       "parameters": [
         {
@@ -35,7 +35,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_mint_to_user2",
+      "name": "mint_to_user2",
       "index": 1,
       "parameters": [
         {
@@ -68,7 +68,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_mint_to_user3",
+      "name": "mint_to_user3",
       "index": 2,
       "parameters": [
         {
@@ -101,7 +101,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_transfer_user2_to_user3",
+      "name": "transfer_user2_to_user3",
       "index": 3,
       "parameters": [
         {
@@ -134,7 +134,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_approve_user3_to_user2",
+      "name": "approve_user3_to_user2",
       "index": 4,
       "parameters": [
         {
@@ -146,18 +146,18 @@
           ]
         },
         {
+          "name": "user2",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": []
+        },
+        {
           "name": "user3",
           "param_type": "Account",
           "is_account": true,
           "attributes": [
             "signer"
           ]
-        },
-        {
-          "name": "delegate",
-          "param_type": "pubkey",
-          "is_account": false,
-          "attributes": []
         }
       ],
       "return_type": null,
@@ -165,7 +165,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_transfer_from_user3_to_user1_by_user2",
+      "name": "transfer_from_user3_to_user1_by_user2",
       "index": 5,
       "parameters": [
         {
@@ -198,7 +198,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_revoke_user3",
+      "name": "revoke_user3",
       "index": 6,
       "parameters": [
         {
@@ -223,7 +223,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_burn_user1",
+      "name": "burn_user1",
       "index": 7,
       "parameters": [
         {
@@ -256,7 +256,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_freeze_user2",
+      "name": "freeze_user2",
       "index": 8,
       "parameters": [
         {
@@ -289,7 +289,7 @@
       "bytecode_offset": 0
     },
     {
-      "name": "anchor_thaw_user2",
+      "name": "thaw_user2",
       "index": 9,
       "parameters": [
         {
