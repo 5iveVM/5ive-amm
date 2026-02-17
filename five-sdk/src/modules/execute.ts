@@ -511,6 +511,7 @@ export async function generateExecuteInstruction(
     encodedParams,
     actualParamCount,
     feeShardIndex,
+    options.debug === true,
   );
 
   // Runtime requires strict tail: [payer, fee_vault, system_program].
@@ -865,6 +866,7 @@ function encodeExecuteInstruction(
   encodedParams: Uint8Array,
   paramCount: number,
   feeShardIndex: number,
+  debug: boolean = false,
 ): Uint8Array {
   const parts = [];
   parts.push(new Uint8Array([9]));
@@ -890,6 +892,20 @@ function encodeExecuteInstruction(
     result.set(part, resultOffset);
     resultOffset += part.length;
   }
+
+  if (debug) {
+    const payloadLen = encodedParams.length;
+    const previewLen = Math.min(24, result.length);
+    const previewHex = Buffer.from(result.subarray(0, previewLen)).toString("hex");
+    const legacyVarintLikely =
+      result.length >= 9 &&
+      // Legacy varint flow had no fee header and placed varint fields immediately after discriminator.
+      !(result[1] === EXECUTE_FEE_HEADER_A && result[2] === EXECUTE_FEE_HEADER_B);
+    console.log(
+      `[FiveSDK] Execute wire envelope: discr=${result[0]} fee_header=[${result[1]},${result[2]},${result[3]}] function_index_u32=${functionIndex} param_count_u32=${paramCount} payload_len=${payloadLen} total_len=${result.length} preview_hex=${previewHex}${legacyVarintLikely ? " legacy_varint_suspected=true" : ""}`,
+    );
+  }
+
   return result;
 }
 

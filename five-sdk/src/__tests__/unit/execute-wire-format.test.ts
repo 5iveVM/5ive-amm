@@ -71,6 +71,7 @@ describe('execute wire format', () => {
         abi,
         estimateFees: false,
         fiveVMProgramId: '11111111111111111111111111111111',
+        feeShardIndex: 0,
       },
     );
 
@@ -89,6 +90,7 @@ describe('execute wire format', () => {
     expect(raw.readUInt32LE(4)).toBe(1);
     expect(raw.readUInt32LE(8)).toBe(1);
     expect(Array.from(raw.subarray(12))).toEqual([0xaa, 0xbb]);
+    expect(raw[1] === 0xff && raw[2] === 0x53).toBe(true);
   });
 
   it('supports object-format ABI functions and coerces pubkey/account parameter values', async () => {
@@ -123,6 +125,7 @@ describe('execute wire format', () => {
       {
         abi,
         estimateFees: false,
+        feeShardIndex: 0,
       },
     );
 
@@ -231,5 +234,24 @@ describe('execute wire format', () => {
     expect(feeTail[1].isSigner).toBe(false);
     expect(feeTail[1].isWritable).toBe(true);
     expect(feeTail[1].pubkey).not.toBe(payer);
+  });
+
+  it('does not match legacy varint envelope layout', async () => {
+    const legacyLike = Buffer.from([9, 1, 1, 0xaa, 0xbb]);
+    // Canonical flow requires execute fee header bytes and fixed-width u32 fields.
+    expect(legacyLike.length).toBeLessThan(12);
+    expect(legacyLike[1]).not.toBe(0xff);
+    expect(legacyLike[2]).not.toBe(0x53);
+  });
+
+  it('fails fast when importing legacy source entrypoints', async () => {
+    const srcIndexUrl = new URL('../../index.js', import.meta.url).href;
+    const srcSdkUrl = new URL('../../FiveSDK.js', import.meta.url).href;
+    await expect(import(srcIndexUrl)).rejects.toThrow(
+      /Unsupported runtime import: `five-sdk\/src\/index\.js`/,
+    );
+    await expect(import(srcSdkUrl)).rejects.toThrow(
+      /Unsupported runtime import: `five-sdk\/src\/FiveSDK\.js`/,
+    );
   });
 });
