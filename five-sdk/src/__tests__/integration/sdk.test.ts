@@ -68,6 +68,74 @@ describe('Five SDK Integration Tests', () => {
       expect(result.success).toBe(true);
       expect(mockCompiler.compileFile).toHaveBeenCalledWith(filePath, { optimize: true });
     });
+
+    it('preserves account metadata fields in compiled fiveFile ABI parameters', async () => {
+      mockCompiler.compile.mockResolvedValue({
+        success: true,
+        bytecode: TestConstants.SAMPLE_BYTECODE,
+        abi: {
+          functions: [
+            {
+              name: 'initialize',
+              index: 0,
+              parameters: [
+                {
+                  name: 'counter',
+                  type: 'Counter',
+                  param_type: 'Counter',
+                  is_account: true,
+                  attributes: ['mut', 'init'],
+                  optional: false,
+                },
+                {
+                  name: 'owner',
+                  type: 'account',
+                  is_account: true,
+                  attributes: ['signer'],
+                },
+                {
+                  name: 'amount',
+                  type: 'u64',
+                  is_account: false,
+                  attributes: [],
+                  optional: true,
+                },
+              ],
+              visibility: 'public',
+            },
+          ],
+        },
+      });
+      mockCompiler.getFunctionNames.mockResolvedValue([
+        { name: 'initialize', function_index: 0 },
+      ]);
+
+      const result = await FiveSDK.compile('fn initialize() {}');
+      const params = result.fiveFile?.abi?.functions?.[0]?.parameters;
+
+      expect(params).toHaveLength(3);
+      expect(params[0]).toMatchObject({
+        name: 'counter',
+        type: 'Counter',
+        param_type: 'Counter',
+        is_account: true,
+        optional: false,
+      });
+      expect(params[0].attributes).toEqual(['mut', 'init']);
+      expect(params[1]).toMatchObject({
+        name: 'owner',
+        type: 'account',
+        is_account: true,
+      });
+      expect(params[1].attributes).toEqual(['signer']);
+      expect(params[2]).toMatchObject({
+        name: 'amount',
+        type: 'u64',
+        is_account: false,
+        optional: true,
+      });
+      expect(params[2].attributes).toEqual([]);
+    });
   });
 
   describe('Deployment Instruction Generation', () => {

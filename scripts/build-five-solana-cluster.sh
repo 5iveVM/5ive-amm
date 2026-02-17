@@ -28,12 +28,39 @@ if [[ "${CLUSTER}" != "localnet" && "${CLUSTER}" != "devnet" && "${CLUSTER}" != 
 fi
 
 cd "${ROOT_DIR}"
+ROOT_DEPLOY_DIR="${ROOT_DIR}/target/deploy"
+SOLANA_DEPLOY_DIR="${ROOT_DIR}/five-solana/target/deploy"
 
 echo "[build-five-solana-cluster] generating constants for ${CLUSTER}"
 node scripts/generate-vm-constants.mjs --cluster "${CLUSTER}"
 
 echo "[build-five-solana-cluster] building SBF artifact"
 cargo-build-sbf --manifest-path five-solana/Cargo.toml --no-default-features --features production --sbf-out-dir target/deploy
+
+if [[ -f "${SOLANA_DEPLOY_DIR}/five-keypair.json" && -f "${SOLANA_DEPLOY_DIR}/five.so" ]]; then
+  echo "[build-five-solana-cluster] syncing canonical deploy artifacts to target/deploy"
+  mkdir -p "${ROOT_DEPLOY_DIR}"
+  cp "${SOLANA_DEPLOY_DIR}/five-keypair.json" "${ROOT_DEPLOY_DIR}/five-keypair.json"
+  cp "${SOLANA_DEPLOY_DIR}/five.so" "${ROOT_DEPLOY_DIR}/five.so"
+fi
+
+if [[ ! -f "${ROOT_DEPLOY_DIR}/five-keypair.json" || ! -f "${ROOT_DEPLOY_DIR}/five.so" ]]; then
+  echo "[build-five-solana-cluster] missing expected output artifact(s) in target/deploy" >&2
+  exit 1
+fi
+
+EXPECTED_PROGRAM_ID="$(sed -nE 's/^pub const VM_PROGRAM_ID: &str = "([^"]+)";/\1/p' five-solana/src/generated_constants.rs | head -n1)"
+ACTUAL_PROGRAM_ID="$(solana-keygen pubkey "${ROOT_DEPLOY_DIR}/five-keypair.json")"
+if [[ -z "${EXPECTED_PROGRAM_ID}" || -z "${ACTUAL_PROGRAM_ID}" ]]; then
+  echo "[build-five-solana-cluster] failed to determine program IDs for parity verification" >&2
+  exit 1
+fi
+if [[ "${EXPECTED_PROGRAM_ID}" != "${ACTUAL_PROGRAM_ID}" ]]; then
+  echo "[build-five-solana-cluster] program ID parity mismatch after build" >&2
+  echo "  expected (generated_constants): ${EXPECTED_PROGRAM_ID}" >&2
+  echo "  actual (target/deploy/five-keypair.json): ${ACTUAL_PROGRAM_ID}" >&2
+  exit 1
+fi
 
 echo "[build-five-solana-cluster] summary"
 node -e '
@@ -57,5 +84,6 @@ for (const match of src.matchAll(/pub const HARDCODED_FEE_VAULT_(\d+): \[u8; 32\
   console.log(`  fee_vault[${idx}]: ` + bytesToBase58(match[2]));
 }
 '
+echo "  target_deploy_program_id: ${ACTUAL_PROGRAM_ID}"
 
 echo "[build-five-solana-cluster] done"

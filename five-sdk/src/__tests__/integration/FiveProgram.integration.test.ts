@@ -192,6 +192,57 @@ describe('FiveProgram Integration', () => {
       // Missing 'owner' account
       await expect(builder.instruction()).rejects.toThrow("Missing required account 'owner'");
     });
+
+    it('should preserve signer/writable inference from compile-shaped ABI attributes', async () => {
+      const compileShapedAbi: ScriptABI = {
+        name: 'Module',
+        functions: [
+          {
+            name: 'initialize',
+            index: 0,
+            parameters: [
+              {
+                name: 'counter',
+                type: 'Counter',
+                param_type: 'Counter',
+                is_account: true,
+                attributes: ['mut', 'init'],
+                optional: false,
+              },
+              {
+                name: 'owner',
+                type: 'account',
+                param_type: 'account',
+                is_account: true,
+                attributes: ['signer'],
+                optional: false,
+              },
+            ],
+            visibility: 'public',
+          },
+        ],
+      };
+
+      const program = FiveProgram.fromABI(COUNTER_SCRIPT, compileShapedAbi);
+      const instruction = await program
+        .function('initialize')
+        .accounts({
+          counter: COUNTER_ACCOUNT,
+          owner: OWNER_ACCOUNT,
+        })
+        .instruction();
+
+      const counterKey = instruction.keys.find((key) => key.pubkey === COUNTER_ACCOUNT);
+      const ownerKey = instruction.keys.find((key) => key.pubkey === OWNER_ACCOUNT);
+
+      expect(counterKey).toBeDefined();
+      expect(counterKey?.isWritable).toBe(true);
+      expect(counterKey?.isSigner).toBe(false);
+
+      expect(ownerKey).toBeDefined();
+      expect(ownerKey?.isSigner).toBe(true);
+      expect(ownerKey?.isWritable).toBe(true); // @init payer gets writable in metadata inference
+    });
   });
 
   describe('Error handling', () => {

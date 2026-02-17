@@ -1,0 +1,106 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "setup",
+      "index": 0,
+      "parameters": [],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "mint_tokens",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "mint",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "to",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "token_program",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64",
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "mint_variable_amount",
+      "index": 2,
+      "parameters": [
+        {
+          "name": "mint",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "to",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "amount",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64",
+      "is_public": true,
+      "bytecode_offset": 0
+    }
+  ],
+  "fields": [
+    {
+      "name": "total_minted",
+      "field_type": "u64",
+      "is_mutable": true,
+      "memory_offset": 0
+    },
+    {
+      "name": "last_mint_time",
+      "field_type": "u64",
+      "is_mutable": true,
+      "memory_offset": 0
+    }
+  ],
+  "version": "1.0"
+}

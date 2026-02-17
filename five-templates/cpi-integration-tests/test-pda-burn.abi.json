@@ -1,0 +1,73 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "setup",
+      "index": 0,
+      "parameters": [],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "burn_from_pda",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "token_account",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "mint",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "pda_authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": []
+        },
+        {
+          "name": "token_program",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64",
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "get_total_burned",
+      "index": 2,
+      "parameters": [],
+      "return_type": "u64",
+      "is_public": true,
+      "bytecode_offset": 0
+    }
+  ],
+  "fields": [
+    {
+      "name": "total_burned",
+      "field_type": "u64",
+      "is_mutable": true,
+      "memory_offset": 0
+    },
+    {
+      "name": "pda_derived",
+      "field_type": "pubkey",
+      "is_mutable": true,
+      "memory_offset": 0
+    }
+  ],
+  "version": "1.0"
+}

@@ -18,19 +18,36 @@ Optional strict prebuilt-artifact mode (fail instead of auto-build):
 - `target/deploy/five-keypair.json`
 - `target/deploy/five.so`
 
-2. Core workspace tests pass:
+2. Generated constants program ID must match deploy keypair pubkey:
+- `five-solana/src/generated_constants.rs` `VM_PROGRAM_ID`
+- `solana-keygen pubkey target/deploy/five-keypair.json`
+- If mismatched, run:
+  - `./scripts/build-five-solana-cluster.sh --cluster <localnet|devnet|mainnet>`
+
+3. Core workspace tests pass:
 - `cargo test --workspace --exclude five --quiet`
 
-3. BPF runtime CU suites pass:
+4. BPF runtime CU suites pass:
 - `cargo test -p five --test runtime_bpf_opcode_micro_cu_tests -- --nocapture`
 - `cargo test -p five --test runtime_bpf_cu_tests -- --nocapture`
 
-4. End-to-end smoke validation passes:
+5. End-to-end smoke validation passes:
 - `cargo test -p five --test runtime_template_fixture_tests -- --nocapture`
 
-5. Gate report generated:
+6. Gate report generated:
 - `target/mvp-gate/report.json`
 - `target/mvp-gate/report.md`
+
+## Preflight Parity Check
+
+Before running the full gate, verify artifacts/constants parity:
+
+```bash
+solana-keygen pubkey target/deploy/five-keypair.json
+rg -n 'pub const VM_PROGRAM_ID' five-solana/src/generated_constants.rs
+```
+
+The two program IDs must match. The gate now auto-repairs this drift unless `--no-build-sbf` is set.
 
 ## Non-Blocking / Informational
 

@@ -1,11 +1,17 @@
-interface SystemProgram @program("11111111111111111111111111111111") {
-    transfer @discriminator(2) (from: pubkey, to: pubkey, amount: u64);
+interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
+    burn @discriminator(8) (
+        token_account: Account,
+        mint: Account,
+        authority: Account,
+        amount: u64
+    );
 }
 
 pub burn_from_pda(
-    token_account: account @mut @signer,
+    pda_authority: account @signer,
+    token_account: account @mut,
     mint: account @mut,
-    pda_authority: account
+    token_program: account
 ) {
-    SystemProgram.transfer(token_account, mint, 1);
+    SPLToken.burn(token_account, mint, pda_authority, 1000);
 }

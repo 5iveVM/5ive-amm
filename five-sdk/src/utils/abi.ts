@@ -4,7 +4,11 @@ export interface NormalizedABIFunction {
   parameters: Array<{
     name: string;
     type: string;
+    param_type?: string;
     optional?: boolean;
+    is_account?: boolean;
+    isAccount?: boolean;
+    attributes?: string[];
   }>;
   returnType?: string;
   accounts?: any[];
@@ -37,8 +41,11 @@ export function normalizeAbiFunctions(abiFunctions: unknown): NormalizedABIFunct
         parameters: parameters.map((param: any, paramIdx: number) => ({
           name: param.name ?? `param${paramIdx}`,
           type: param.type ?? param.param_type ?? param.paramType ?? '',
+          param_type: param.param_type ?? param.paramType,
           optional: param.optional ?? false,
+          is_account: param.is_account ?? param.isAccount ?? false,
           isAccount: param.isAccount ?? param.is_account ?? false,
+          attributes: Array.isArray(param.attributes) ? [...param.attributes] : [],
         })),
         returnType: func.returnType ?? func.return_type,
         accounts: func.accounts ?? [],

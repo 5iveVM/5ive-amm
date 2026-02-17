@@ -1,0 +1,32 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "increment_remote",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "counter",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "user",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

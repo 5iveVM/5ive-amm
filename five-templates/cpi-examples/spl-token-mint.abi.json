@@ -1,0 +1,46 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "mint_tokens",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "mint",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "to",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "token_program",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

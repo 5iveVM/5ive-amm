@@ -12,14 +12,23 @@
 - Enforcement: `scripts/mvp-release-gate.sh` stage `SBF Artifact Build and Validation`.
 - Remediation: `./scripts/build-five-solana-cluster.sh --cluster <localnet|devnet|mainnet>`.
 
-2. Any failure in runtime CU suites.
+2. Generated constants program ID drift from deploy artifact keypair.
+- Impact: Deploy/execute paths fail in runtime suites with `invalid program argument` and follow-on `0x1e7a` signatures.
+- Detection:
+  - `solana-keygen pubkey target/deploy/five-keypair.json`
+  - `VM_PROGRAM_ID` in `five-solana/src/generated_constants.rs`
+  - Values differ.
+- Enforcement: `scripts/mvp-release-gate.sh` stage `SBF Artifact Build and Validation` parity preflight.
+- Remediation: `./scripts/build-five-solana-cluster.sh --cluster <localnet|devnet|mainnet>`.
+
+3. Any failure in runtime CU suites.
 - Impact: Full gate fails; performance/runtime correctness validation incomplete.
 - Detection:
   - `runtime_bpf_opcode_micro_cu_tests`
   - `runtime_bpf_cu_tests`
 - Enforcement: `scripts/mvp-release-gate.sh` stage `BPF Runtime CU Suites`.
 
-3. Any failure in end-to-end smoke fixture suite.
+4. Any failure in end-to-end smoke fixture suite.
 - Impact: Full gate fails; no validated end-to-end execution path.
 - Detection: `runtime_template_fixture_tests` failure.
 - Enforcement: `scripts/mvp-release-gate.sh` stage `E2E Smoke Validation`.

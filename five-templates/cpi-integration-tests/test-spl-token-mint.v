@@ -1,5 +1,10 @@
-interface SystemProgram @program("11111111111111111111111111111111") {
-    transfer @discriminator(2) (from: pubkey, to: pubkey, amount: u64);
+interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
+    mint_to @discriminator(7) (
+        mint: Account,
+        to: Account,
+        authority: Account,
+        amount: u64
+    );
 }
 
 mut total_minted: u64;
@@ -11,12 +16,13 @@ pub setup() {
 }
 
 pub mint_tokens(
-    mint: account @mut @signer,
+    mint: account @mut,
     to: account @mut,
-    authority: account @signer
+    authority: account @signer,
+    token_program: account
 ) -> u64 {
-    SystemProgram.transfer(mint, to, 1);
-    total_minted = total_minted + 1;
+    SPLToken.mint_to(mint, to, authority, 1000);
+    total_minted = total_minted + 1000;
     return total_minted;
 }
 

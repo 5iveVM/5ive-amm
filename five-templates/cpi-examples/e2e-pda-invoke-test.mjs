@@ -19,7 +19,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
-    Connection, Keypair, PublicKey, Transaction,
+    Connection, Keypair, PublicKey, Transaction, TransactionInstruction,
     SystemProgram, LAMPORTS_PER_SOL, sendAndConfirmTransaction
 } from '@solana/web3.js';
 import { FiveSDK, FiveProgram } from '../../five-sdk/dist/index.js';
@@ -126,6 +126,72 @@ async function sendInstruction(connection, instructionData, signers) {
     }
 }
 
+async function deployBytecodeToFiveVM(connection, payer, bytecode) {
+    const scriptKeypair = Keypair.generate();
+    const SCRIPT_HEADER_SIZE = 64;
+    const finalScriptSize = SCRIPT_HEADER_SIZE + bytecode.length;
+    const rentRequired = await connection.getMinimumBalanceForRentExemption(finalScriptSize);
+    const initialLamports = rentRequired + 0.01 * LAMPORTS_PER_SOL;
+    const feeSeedPrefix = Buffer.from([0xff, ...Buffer.from('five_vm_fee_vault_v1')]);
+    const feeVault = PublicKey.findProgramAddressSync([feeSeedPrefix, Buffer.from([0])], FIVE_PROGRAM_ID)[0];
+
+    const confirmTx = async (signature, label) => {
+        const latestBlockhash = await connection.getLatestBlockhash();
+        const confirmation = await connection.confirmTransaction({ signature, ...latestBlockhash }, 'confirmed');
+        if (confirmation.value.err) {
+            throw new Error(`${label} failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+    };
+
+    const lenBuf = Buffer.alloc(4);
+    lenBuf.writeUInt32LE(bytecode.length, 0);
+    const initTx = new Transaction().add(
+        SystemProgram.createAccount({
+            fromPubkey: payer.publicKey,
+            newAccountPubkey: scriptKeypair.publicKey,
+            lamports: initialLamports,
+            space: finalScriptSize,
+            programId: FIVE_PROGRAM_ID,
+        }),
+        new TransactionInstruction({
+            keys: [
+                { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
+                { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+                { pubkey: VM_STATE_PDA, isSigner: false, isWritable: true },
+                { pubkey: feeVault, isSigner: false, isWritable: true },
+                { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+            ],
+            programId: FIVE_PROGRAM_ID,
+            data: Buffer.concat([Buffer.from([4]), lenBuf]),
+        })
+    );
+
+    const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
+    await confirmTx(initSig, 'Script init');
+
+    const CHUNK_SIZE = 380;
+    for (let i = 0; i < bytecode.length; i += CHUNK_SIZE) {
+        const chunk = bytecode.slice(i, Math.min(i + CHUNK_SIZE, bytecode.length));
+        const appendTx = new Transaction().add(
+            new TransactionInstruction({
+                keys: [
+                    { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
+                    { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+                    { pubkey: VM_STATE_PDA, isSigner: false, isWritable: true },
+                    { pubkey: feeVault, isSigner: false, isWritable: true },
+                    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+                ],
+                programId: FIVE_PROGRAM_ID,
+                data: Buffer.concat([Buffer.from([5]), Buffer.from(chunk)]),
+            })
+        );
+        const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
+        await confirmTx(appendSig, `Append chunk ${Math.floor(i / CHUNK_SIZE) + 1}`);
+    }
+
+    return scriptKeypair.publicKey;
+}
+
 // ============================================================================
 // CONTRACT ABI
 // ============================================================================
@@ -136,9 +202,10 @@ const PDA_BURN_ABI = {
             "name": "burn_from_pda",
             "index": 0,
             "parameters": [
+                { "name": "pda_authority", "type": "account", "is_account": true, "attributes": ["signer"] },
                 { "name": "token_account", "type": "account", "is_account": true, "attributes": ["mut"] },
                 { "name": "mint", "type": "account", "is_account": true, "attributes": ["mut"] },
-                { "name": "pda_authority", "type": "account", "is_account": true, "attributes": [] }
+                { "name": "token_program", "type": "account", "is_account": true, "attributes": [] }
             ]
         }
     ]
@@ -197,15 +264,7 @@ async function main() {
         }
         success('Contract compiled');
         info('Deploying compiled contract...');
-        const deployment = await FiveSDK.deployToSolana(bytecode, connection, payer, {
-            fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
-            vmStateAccount: VM_STATE_PDA.toBase58(),
-            debug: false,
-        });
-        if (!deployment.success || !deployment.programId) {
-            throw new Error(`deployToSolana failed: ${deployment.error || 'unknown error'}`);
-        }
-        scriptAccount = new PublicKey(deployment.programId);
+        scriptAccount = await deployBytecodeToFiveVM(connection, payer, bytecode);
         success(`Using script account: ${scriptAccount.toBase58()}`);
     } catch (e) {
         error(`Compilation failed: ${e.message}`);
@@ -242,7 +301,7 @@ async function main() {
             connection,
             payer,
             mint,
-            pdaAuth,
+            payer.publicKey,
             true
         );
         pdaTokenAccount = pdaAta.address;
@@ -285,16 +344,18 @@ async function main() {
         const burnIx = await program
             .function('burn_from_pda')
             .accounts({
+                pda_authority: payer.publicKey,
                 token_account: pdaTokenAccount,
                 mint: mint,
-                pda_authority: pdaAuth
+                token_program: TOKEN_PROGRAM_ID
             })
             .instruction();
 
         success('Instruction built');
+        info(`  - pda_authority: ${payer.publicKey.toBase58()}`);
         info(`  - token_account: ${pdaTokenAccount.toBase58()}`);
         info(`  - mint: ${mint.toBase58()}`);
-        info(`  - pda_authority: ${pdaAuth.toBase58()}`);
+        info(`  - token_program: ${TOKEN_PROGRAM_ID.toBase58()}`);
 
         // Send instruction
         info('Sending burn transaction...');

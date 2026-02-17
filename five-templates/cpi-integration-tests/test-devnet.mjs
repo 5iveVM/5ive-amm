@@ -49,6 +49,27 @@ const info = (msg) => console.log(`ℹ️  ${msg}`);
 const warn = (msg) => console.log(`⚠️  ${msg}`);
 const header = (msg) => console.log(`\n${'='.repeat(80)}\n${msg}\n${'='.repeat(80)}`);
 
+function normalizeAbiForFiveProgram(abi) {
+    if (!abi || !Array.isArray(abi.functions)) {
+        return abi;
+    }
+    return {
+        ...abi,
+        functions: abi.functions.map((fn) => ({
+            ...fn,
+            parameters: (fn.parameters || []).map((p) => ({
+                ...p,
+                is_account: p.is_account ?? p.isAccount ?? false,
+                type: (() => {
+                    const raw = p.type || p.param_type;
+                    if (raw === 'Account') return 'account';
+                    return raw;
+                })()
+            }))
+        }))
+    };
+}
+
 // ============================================================================
 // INSTRUCTION SENDER
 // ============================================================================
@@ -119,38 +140,6 @@ async function sendInstruction(connection, instructionData, signers) {
         return { success: false, error: e, logs };
     }
 }
-
-// ============================================================================
-// CONTRACT ABIs
-// ============================================================================
-
-const SPL_TOKEN_MINT_ABI = {
-    "functions": [
-        {
-            "name": "mint_tokens",
-            "index": 0,
-            "parameters": [
-                { "name": "mint", "type": "account", "is_account": true, "attributes": ["mut"] },
-                { "name": "to", "type": "account", "is_account": true, "attributes": ["mut"] },
-                { "name": "authority", "type": "account", "is_account": true, "attributes": ["signer"] }
-            ]
-        }
-    ]
-};
-
-const PDA_BURN_ABI = {
-    "functions": [
-        {
-            "name": "burn_from_pda",
-            "index": 0,
-            "parameters": [
-                { "name": "token_account", "type": "account", "is_account": true, "attributes": ["mut"] },
-                { "name": "mint", "type": "account", "is_account": true, "attributes": ["mut"] },
-                { "name": "pda_authority", "type": "account", "is_account": true, "attributes": [] }
-            ]
-        }
-    ]
-};
 
 // ============================================================================
 // SETUP
@@ -238,7 +227,12 @@ async function testSPLTokenMint(connection, payerKeypair) {
         const contractPath = path.join(__dirname, 'test-spl-token-mint.v');
         const source = fs.readFileSync(contractPath, 'utf-8');
 
-        const bytecode = await FiveSDK.compile(source);
+        const compilation = await FiveSDK.compile(source);
+        const bytecode = compilation?.bytecode;
+        const runtimeAbi = normalizeAbiForFiveProgram(compilation?.abi);
+        if (!bytecode || !runtimeAbi) {
+            throw new Error(`compile failed: ${compilation?.error || 'missing bytecode/abi'}`);
+        }
 
         const deployment = await FiveSDK.deployToSolana(bytecode, connection, payerKeypair, {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
@@ -252,7 +246,7 @@ async function testSPLTokenMint(connection, payerKeypair) {
         success(`Contract: ${scriptAccount.toBase58()}`);
 
         info('Building mint instruction...');
-        const program2 = FiveProgram.fromABI(scriptAccount.toBase58(), SPL_TOKEN_MINT_ABI, {
+        const program2 = FiveProgram.fromABI(scriptAccount.toBase58(), runtimeAbi, {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
             vmStateAccount: VM_STATE_PDA.toBase58(),
             feeReceiverAccount: payerKeypair.publicKey.toBase58(),
@@ -344,7 +338,12 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
         const contractPath = path.join(__dirname, 'test-pda-burn.v');
         const source = fs.readFileSync(contractPath, 'utf-8');
 
-        const bytecode = await FiveSDK.compile(source);
+        const compilation = await FiveSDK.compile(source);
+        const bytecode = compilation?.bytecode;
+        const runtimeAbi = normalizeAbiForFiveProgram(compilation?.abi);
+        if (!bytecode || !runtimeAbi) {
+            throw new Error(`compile failed: ${compilation?.error || 'missing bytecode/abi'}`);
+        }
 
         const deployment = await FiveSDK.deployToSolana(bytecode, connection, payerKeypair, {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
@@ -358,7 +357,7 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
         success(`Contract: ${scriptAccount.toBase58()}`);
 
         info('Building burn instruction...');
-        const program2 = FiveProgram.fromABI(scriptAccount.toBase58(), PDA_BURN_ABI, {
+        const program2 = FiveProgram.fromABI(scriptAccount.toBase58(), runtimeAbi, {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
             vmStateAccount: VM_STATE_PDA.toBase58(),
             feeReceiverAccount: payerKeypair.publicKey.toBase58(),

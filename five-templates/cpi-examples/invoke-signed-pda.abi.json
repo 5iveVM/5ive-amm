@@ -1,0 +1,44 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "burn_from_pda",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "token_account",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "mint",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "pda_authority",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": []
+        },
+        {
+          "name": "token_program",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

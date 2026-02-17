@@ -231,7 +231,11 @@ export class FiveSDK {
             parameters: func.parameters?.map((param) => ({
               name: param.name,
               type: param.type as any,
+              param_type: param.param_type as any,
               optional: param.optional ?? false,
+              is_account: param.is_account ?? param.isAccount ?? false,
+              isAccount: param.isAccount ?? param.is_account ?? false,
+              attributes: Array.isArray(param.attributes) ? [...param.attributes] : [],
             })) || [],
             returnType: func.returnType as any,
           }));

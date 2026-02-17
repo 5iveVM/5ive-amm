@@ -414,6 +414,7 @@ export interface FiveCompiledFile {
 
 export interface FiveFunction {
   name: string;
+  index?: number;
   parameters: FiveParameter[];
   returnType?: FiveType;
 }
@@ -421,6 +422,11 @@ export interface FiveFunction {
 export interface FiveParameter {
   name: string;
   type: FiveType;
+  param_type?: FiveType;
+  optional?: boolean;
+  is_account?: boolean;
+  isAccount?: boolean;
+  attributes?: string[];
 }
 
 export type FiveType = string; // Placeholder for now
