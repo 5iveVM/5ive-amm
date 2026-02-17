@@ -1,6 +1,6 @@
 // Localnet-stable anchor-style equivalent using System Program CPI transfer.
 interface SystemProgram @program("11111111111111111111111111111111") {
-    transfer @discriminator(2) (from: pubkey, to: pubkey, amount: u64);
+    transfer @discriminator([0x02, 0x00, 0x00, 0x00]) (from: Account, to: Account, amount: u64);
 }
 
 pub increment_remote(

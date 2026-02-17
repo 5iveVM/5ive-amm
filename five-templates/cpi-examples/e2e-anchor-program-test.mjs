@@ -211,22 +211,23 @@ async function main() {
     // ========================================================================
     header('STEP 2: Setup Test Accounts');
 
-    const user = Keypair.generate();
+    const user = payer;
     const counter = Keypair.generate();
 
-    // Fund user
+    success(`Using payer as user signer: ${user.publicKey.toBase58()}`);
+    // Pre-fund counter so downstream CPI transfer does not violate rent-exempt checks.
     try {
-        const fundTx = new Transaction().add(
+        const fundCounterTx = new Transaction().add(
             SystemProgram.transfer({
                 fromPubkey: payer.publicKey,
-                toPubkey: user.publicKey,
-                lamports: 0.1 * LAMPORTS_PER_SOL
+                toPubkey: counter.publicKey,
+                lamports: 0.01 * LAMPORTS_PER_SOL
             })
         );
-        await sendAndConfirmTransaction(connection, fundTx, [payer]);
-        success(`User funded: ${user.publicKey.toBase58()}`);
+        await sendAndConfirmTransaction(connection, fundCounterTx, [payer]);
+        success(`Counter pre-funded: ${counter.publicKey.toBase58()}`);
     } catch (e) {
-        warn(`Could not fund user: ${e.message}`);
+        warn(`Could not pre-fund counter: ${e.message}`);
     }
 
     // ========================================================================
@@ -260,7 +261,7 @@ async function main() {
 
         // Send instruction
         info('Sending increment transaction...');
-        const incrementRes = await sendInstruction(connection, incrementIx, [payer, user]);
+        const incrementRes = await sendInstruction(connection, incrementIx, [payer]);
 
         if (incrementRes.success) {
             success(`increment_remote CPI executed (sig: ${incrementRes.signature})`);
