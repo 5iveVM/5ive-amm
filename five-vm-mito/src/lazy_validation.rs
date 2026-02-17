@@ -25,9 +25,10 @@ impl LazyAccountValidator {
     /// Create new lazy validator for the given number of accounts
     #[inline]
     pub const fn new(account_count: usize) -> Self {
+        let clamped = if account_count > 64 { 64 } else { account_count };
         Self {
             touched_bitmap: Cell::new(0),
-            account_count: account_count as u8,
+            account_count: clamped as u8,
         }
     }
 
@@ -39,6 +40,9 @@ impl LazyAccountValidator {
     pub fn ensure_validated(&self, idx: u8, accounts: &[AccountInfo]) -> CompactResult<()> {
         // Bounds check
         if idx >= self.account_count {
+            return Err(VMErrorCode::InvalidAccountIndex);
+        }
+        if idx >= 64 {
             return Err(VMErrorCode::InvalidAccountIndex);
         }
 
@@ -173,6 +177,7 @@ impl ValidationStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::panic::{catch_unwind, AssertUnwindSafe};
 
     #[test]
     fn test_lazy_validator_creation() {
@@ -218,6 +223,53 @@ mod tests {
         // Invalid index
         assert!(!validator.is_validated(3));
         assert!(!validator.is_validated(255));
+    }
+
+    #[test]
+    fn ensure_validated_rejects_indices_above_bitmap_width_without_panic() {
+        use pinocchio::pubkey::Pubkey;
+
+        fn test_account(
+            key: &Pubkey,
+            lamports: u64,
+            data: Vec<u8>,
+            owner: &Pubkey,
+        ) -> pinocchio::account_info::AccountInfo {
+            let key_ref = Box::leak(Box::new(*key));
+            let owner_ref = Box::leak(Box::new(*owner));
+            let lamports_ref = Box::leak(Box::new(lamports));
+            let data_ref = Box::leak(data.into_boxed_slice());
+
+            pinocchio::account_info::AccountInfo::new(
+                key_ref,
+                false,
+                true,
+                lamports_ref,
+                data_ref,
+                owner_ref,
+                false,
+                0,
+            )
+        }
+
+        let owner = Pubkey::from([17u8; 32]);
+        let mut accounts = Vec::with_capacity(70);
+        for i in 0..70u8 {
+            accounts.push(test_account(
+                &Pubkey::from([i; 32]),
+                1,
+                vec![1u8; 1],
+                &owner,
+            ));
+        }
+
+        let validator = LazyAccountValidator::new(70);
+        let panicked = catch_unwind(AssertUnwindSafe(|| {
+            let err = validator.ensure_validated(64, &accounts).unwrap_err();
+            assert_eq!(err, VMErrorCode::InvalidAccountIndex);
+        }));
+
+        assert!(panicked.is_ok());
     }
 
     #[test]

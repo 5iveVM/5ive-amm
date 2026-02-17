@@ -517,11 +517,6 @@ fn resolve_external_function_target(
         }
     }
 
-    // 3) Legacy fallback: selector as absolute bytecode offset.
-    if (selector as usize) < external_bytecode.len() {
-        return Ok((selector as usize, None));
-    }
-
     Err(VMErrorCode::InvalidInstructionPointer)
 }
 
@@ -860,7 +855,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let call_args = materialize_call_args(ctx, param_count)?;
 
     // Build external account remap: external account slots are bound from account args in call order.
-    let (remap, bound_account_count, scalar_arg_count) =
+    let (computed_remap, bound_account_count, scalar_arg_count) =
         build_external_account_remap(ctx, &call_args, param_count)?;
 
     // Validate that provided account args satisfy external function constraints.
@@ -869,7 +864,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
             ctx,
             required_account_count,
             &constraints,
-            &remap,
+            &computed_remap,
             bound_account_count,
         )?;
     }
@@ -877,7 +872,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let script_ptr = ctx.script().as_ptr() as usize;
     let script_len = ctx.script().len() as u32;
     let current_context = ctx.current_context;
-    let remap = ctx.external_account_remap();
+    let remap_for_callee = computed_remap;
     prepare_callee_frame(
         ctx,
         param_count,
@@ -885,7 +880,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         caller_len,
         return_address,
         current_context,
-        remap,
+        remap_for_callee,
         script_ptr,
         script_len,
     )?;
@@ -894,7 +889,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     ctx.allocate_params(scalar_arg_count.saturating_add(1))?;
     write_scalar_params(ctx, &call_args, param_count);
 
-    ctx.set_external_account_remap(remap);
+    ctx.set_external_account_remap(remap_for_callee);
 
     debug_log!(
         "MitoVM: CALL_EXTERNAL about to switch_to_external_bytecode - current IP: {}, new offset: {}",
@@ -1112,8 +1107,14 @@ fn handle_call_native(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{external_selector, parse_function_constraints, resolve_external_function_target};
+    use super::{
+        external_selector, handle_call_external, parse_function_constraints,
+        resolve_external_function_target,
+    };
+    use crate::{context::ExecutionContext, error::VMErrorCode, stack::StackStorage, MAX_PARAMETERS};
     use five_protocol::{BytecodeBuilder, FEATURE_FUNCTION_CONSTRAINTS, FEATURE_FUNCTION_NAMES};
+    use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
+    use five_protocol::ValueRef;
 
     #[test]
     fn parse_constraints_returns_default_when_feature_not_set() {
@@ -1230,5 +1231,109 @@ mod tests {
 
         assert_eq!(function_index, Some(0));
         assert_eq!(offset, 40);
+    }
+
+    #[test]
+    fn resolve_external_target_rejects_legacy_absolute_offset_into_non_public_code() {
+        let mut script = build_external_script_with_names();
+        // Add trailing non-public code byte to target via legacy absolute selector fallback.
+        script.push(five_protocol::opcodes::HALT);
+
+        let selector = 41u16;
+        let err = resolve_external_function_target(&script, selector).unwrap_err();
+        assert_eq!(err, VMErrorCode::InvalidInstructionPointer);
+    }
+
+    fn create_account_info<'a>(
+        key: &'a Pubkey,
+        is_signer: bool,
+        is_writable: bool,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo {
+        AccountInfo::new(key, is_signer, is_writable, lamports, data, owner, false, 0)
+    }
+
+    fn minimal_external_bytecode() -> Vec<u8> {
+        let mut b = Vec::new();
+        let features = five_protocol::FEATURE_PUBLIC_ENTRY_TABLE;
+        b.extend_from_slice(b"5IVE");
+        b.extend_from_slice(&features.to_le_bytes());
+        b.push(1); // public function count
+        b.push(1); // total function count
+        // Public entry table payload: [count=1][rel_offset=0]
+        b.extend_from_slice(&(3u16).to_le_bytes());
+        b.push(1);
+        b.extend_from_slice(&(0u16).to_le_bytes());
+        b.push(five_protocol::opcodes::HALT);
+        b
+    }
+
+    fn wrap_script_account_data(bytecode: &[u8]) -> Vec<u8> {
+        let mut data = vec![0u8; 64 + bytecode.len()];
+        data[48..52].copy_from_slice(&(bytecode.len() as u32).to_le_bytes());
+        data[52..56].copy_from_slice(&0u32.to_le_bytes()); // metadata len
+        data[64..].copy_from_slice(bytecode);
+        data
+    }
+
+    #[test]
+    fn call_external_preserves_computed_account_remap() {
+        let program_id = Pubkey::from([51u8; 32]);
+        let caller_key = Pubkey::from([52u8; 32]);
+        let external_key = Pubkey::from([53u8; 32]);
+
+        let mut caller_lamports = 1;
+        let mut external_lamports = 1;
+        let mut caller_data = [];
+        let external_bytecode = minimal_external_bytecode();
+        let mut external_data = wrap_script_account_data(&external_bytecode);
+
+        let caller_account = create_account_info(
+            &caller_key,
+            false,
+            false,
+            &mut caller_lamports,
+            &mut caller_data,
+            &program_id,
+        );
+        let external_account = create_account_info(
+            &external_key,
+            false,
+            false, // external bytecode account must be read-only in CALL_EXTERNAL
+            &mut external_lamports,
+            external_data.as_mut_slice(),
+            &program_id,
+        );
+        let accounts = [caller_account, external_account];
+
+        // CALL_EXTERNAL payload: account_index=1, selector=0, param_count=1.
+        let call_site = [1u8, 0u8, 0u8, 1u8];
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &call_site,
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        let mut stale_remap = [u8::MAX; MAX_PARAMETERS + 1];
+        stale_remap[1] = 9;
+        ctx.set_external_account_remap(stale_remap);
+        ctx.push(ValueRef::AccountRef(0, 0)).expect("push arg");
+
+        handle_call_external(&mut ctx).expect("CALL_EXTERNAL should succeed");
+
+        // Regression: computed remap replaces stale remap for callee context.
+        assert_eq!(ctx.external_account_remap()[1], 0);
     }
 }

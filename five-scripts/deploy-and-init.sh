@@ -188,147 +188,24 @@ fi
 
 # Step 7: Initialize VM State account
 echo -e "\n${YELLOW}Step 7: Initializing FIVE VM state...${NC}"
-mkdir -p "$(dirname "$VM_STATE_KEYPAIR")"
-
-if [ ! -f "$VM_STATE_KEYPAIR" ]; then
-    echo -e "${BLUE}Generating VM state keypair at $VM_STATE_KEYPAIR${NC}"
-    solana-keygen new --no-bip39-passphrase --force --outfile "$VM_STATE_KEYPAIR" >/dev/null 2>&1
-    chmod 600 "$VM_STATE_KEYPAIR"
-else
-    echo -e "${BLUE}Reusing existing VM state keypair: $VM_STATE_KEYPAIR${NC}"
-fi
-
-VM_STATE_PUBKEY=$(solana-keygen pubkey "$VM_STATE_KEYPAIR")
-
 if ! command -v node >/dev/null 2>&1; then
     echo -e "${RED}❌ Node.js is required to initialize the VM state automatically${NC}"
     exit 1
 fi
 
-cat > /tmp/five-init-vm-state.js <<'EOF'
-const fs = require('fs');
-const path = require('path');
-
-const modulePaths = [
-  process.cwd(),
-  path.join(process.cwd(), 'node_modules'),
-  path.join(process.cwd(), 'five-cli', 'node_modules'),
-];
-
-const {
-  Connection,
-  Keypair,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
-} = require(require.resolve('@solana/web3.js', { paths: modulePaths }));
-
-async function main() {
-  const [rpcUrl, programIdRaw, payerPath, vmStatePath, vmStateSizeRaw] = process.argv.slice(2);
-  const programId = new PublicKey(programIdRaw);
-  const vmStateSize = parseInt(vmStateSizeRaw, 10);
-
-  const payer = Keypair.fromSecretKey(
-    Uint8Array.from(JSON.parse(fs.readFileSync(payerPath, 'utf8')))
-  );
-  const vmState = Keypair.fromSecretKey(
-    Uint8Array.from(JSON.parse(fs.readFileSync(vmStatePath, 'utf8')))
-  );
-
-  const connection = new Connection(rpcUrl, 'confirmed');
-  const rentExempt = await connection.getMinimumBalanceForRentExemption(vmStateSize);
-  const accountInfo = await connection.getAccountInfo(vmState.publicKey);
-
-  const tx = new Transaction();
-  const signers = [payer];
-
-  if (!accountInfo) {
-    tx.add(
-      SystemProgram.createAccount({
-        fromPubkey: payer.publicKey,
-        newAccountPubkey: vmState.publicKey,
-        lamports: rentExempt,
-        space: vmStateSize,
-        programId,
-      })
-    );
-    signers.push(vmState);
-    console.log(`📦 Created VM state account ${vmState.publicKey.toBase58()}`);
-  } else {
-    if (accountInfo.owner.toBase58() !== programId.toBase58()) {
-      throw new Error('Existing VM state account is not owned by the FIVE program');
-    }
-    if (accountInfo.data.length < vmStateSize) {
-      throw new Error('Existing VM state account is too small');
-    }
-    if (accountInfo.lamports < rentExempt) {
-      tx.add(
-        SystemProgram.transfer({
-          fromPubkey: payer.publicKey,
-          toPubkey: vmState.publicKey,
-          lamports: rentExempt - accountInfo.lamports,
-        })
-      );
-      console.log('🔄 Topped up VM state account to rent exemption');
-    }
-    if (accountInfo.data.length >= 56 && accountInfo.data[52] === 1 && tx.instructions.length === 0) {
-      console.log(`✅ VM state already initialized: ${vmState.publicKey.toBase58()}`);
-      console.log(`READY:${vmState.publicKey.toBase58()}`);
-      return;
-    }
-  }
-
-  tx.add(
-    new TransactionInstruction({
-      keys: [
-        { pubkey: vmState.publicKey, isSigner: false, isWritable: true },
-        { pubkey: payer.publicKey, isSigner: true, isWritable: false },
-      ],
-      programId,
-      data: Buffer.from([0]), // Initialize discriminator
-    })
-  );
-
-  const sig = await connection.sendTransaction(tx, signers, { skipPreflight: false });
-  await connection.confirmTransaction(sig, 'confirmed');
-  console.log(`✅ VM state initialized via tx: ${sig}`);
-  console.log(`READY:${vmState.publicKey.toBase58()}`);
-}
-
-main().catch((err) => {
-  console.error(`VM init error: ${err.message || err}`);
-  process.exit(1);
-});
-EOF
-
-VM_INIT_OUTPUT=""
-VM_INIT_STATUS=1
-for attempt in 1 2 3; do
-    set +e
-    VM_INIT_OUTPUT=$(node /tmp/five-init-vm-state.js "$RPC_URL" "$PROGRAM_ID" "$PAYER_KEYPAIR" "$VM_STATE_KEYPAIR" "$VM_STATE_SIZE" 2>&1)
-    VM_INIT_STATUS=$?
-    set -e
-    if [ $VM_INIT_STATUS -eq 0 ]; then
-        break
-    fi
-    if echo "$VM_INIT_OUTPUT" | grep -Eq "Program is not deployed|Unsupported program id"; then
-        echo -e "${YELLOW}⚠️  VM init failed (attempt $attempt). Retrying...${NC}"
-        sleep 2
-        continue
-    fi
-    break
-done
-rm -f /tmp/five-init-vm-state.js
+set +e
+VM_INIT_OUTPUT=$(FIVE_PROGRAM_ID="$PROGRAM_ID" node scripts/init-localnet-vm-state.mjs --network "$NETWORK" --rpc-url "$RPC_URL" --program-id "$PROGRAM_ID" 2>&1)
+VM_INIT_STATUS=$?
+set -e
 
 if [ $VM_INIT_STATUS -ne 0 ]; then
+    echo "$VM_INIT_OUTPUT"
     echo -e "${RED}❌ VM state initialization failed${NC}"
     exit 1
 fi
 
 echo "$VM_INIT_OUTPUT"
-VM_STATE_PDA=$(echo "$VM_INIT_OUTPUT" | awk -F'READY:' '/READY:/ {print $2}' | tail -n 1 | tr -d '[:space:]')
-
+VM_STATE_PDA=$(echo "$VM_INIT_OUTPUT" | awk -F'VM State PDA: ' '/VM State PDA:/ {print $2}' | tail -n 1 | tr -d '[:space:]')
 if [[ -n "${VM_STATE_PDA// }" ]]; then
     echo -e "${GREEN}✅ VM state ready: $VM_STATE_PDA${NC}"
 else
@@ -345,7 +222,6 @@ echo -e "${BLUE}Binary: $SO_FILE${NC}"
 if [ -n "${VM_STATE_PDA:-}" ]; then
     echo -e "${BLUE}VM State PDA: $VM_STATE_PDA${NC}"
 fi
-echo -e "${BLUE}VM State Keypair: $VM_STATE_KEYPAIR${NC}"
 echo ""
 echo "Next steps:"
 echo "1. Start/inspect Surfpool: FIVE_VALIDATOR=surfpool ./five-surfpool/surfpool instance status"

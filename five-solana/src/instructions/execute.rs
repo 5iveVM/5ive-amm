@@ -107,19 +107,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     // Run post-execution hook if permission is set
     if has_permission(header.permissions, PERMISSION_POST_BYTECODE) {
-        debug_log!("Running POST-BYTECODE hook");
-
-        // Allocate new optimized heap storage for retry
-        let mut storage_retry = StackStorage::new_on_heap();
-
-        if let Err(vm_error) = MitoVM::execute_direct(bytecode, vm_params, vm_accounts, program_id, &mut *storage_retry) {
-            #[cfg(feature = "debug-logs")]
-            debug_log!(
-                "MitoVM POST hook failed code={}",
-                VMErrorCode::from(vm_error.clone()).message()
-            );
-            return Err(vm_error.to_program_error());
-        }
+        debug_log!("POST-BYTECODE permission set; secondary full-bytecode replay disabled");
     }
 
     debug_log!("Script executed successfully");

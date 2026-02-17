@@ -1261,7 +1261,8 @@ impl<'a> ExecutionContext<'a> {
                     if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
                     let idx = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
                     offset += 4;
-                    self.frame.parameters[i + 1] = ValueRef::AccountRef(idx as u8, 0);
+                    let idx_u8 = u8::try_from(idx).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
+                    self.frame.parameters[i + 1] = ValueRef::AccountRef(idx_u8, 0);
                 }
                 _ => {
                     // Fallback to U64 if type unknown or generic (assuming 8 bytes)
@@ -1453,6 +1454,49 @@ mod tests {
         let result = ctx.parse_parameters();
         assert!(result.is_err(), "oversized string must be rejected");
         assert_eq!(result.unwrap_err(), VMErrorCode::OutOfMemory);
+    }
+
+    #[test]
+    fn parse_parameters_rejects_account_index_above_u8_max() {
+        let program_id = Pubkey::from([33u8; 32]);
+        let mut lamports = 0u64;
+        let mut data_buf: [u8; 0] = [];
+        let account = AccountInfo::new(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut data_buf,
+            &program_id,
+            true,
+            0,
+        );
+        let accounts = [account];
+        let mut storage = StackStorage::new();
+
+        let encoded_account_index: u32 = 300;
+        let mut instruction_data = vec![];
+        instruction_data.extend_from_slice(&0u32.to_le_bytes()); // function index
+        instruction_data.extend_from_slice(&1u32.to_le_bytes()); // param count
+        instruction_data.push(types::ACCOUNT);
+        instruction_data.extend_from_slice(&encoded_account_index.to_le_bytes());
+
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &instruction_data,
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        let err = ctx.parse_parameters().unwrap_err();
+        assert_eq!(err, VMErrorCode::InvalidAccountIndex);
     }
 
     #[test]

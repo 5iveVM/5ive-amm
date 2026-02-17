@@ -478,3 +478,122 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::handle_invoke_ops;
+    use crate::{context::ExecutionContext, stack::StackStorage};
+    use five_protocol::{opcodes::INVOKE_SIGNED, ValueRef};
+    use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
+    fn create_account_info<'a>(
+        key: &'a Pubkey,
+        is_signer: bool,
+        is_writable: bool,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo {
+        AccountInfo::new(key, is_signer, is_writable, lamports, data, owner, false, 0)
+    }
+
+    #[test]
+    fn invoke_signed_seed_tempref_path_does_not_panic_with_u8_bounded_ranges() {
+        let program_id = Pubkey::from([91u8; 32]);
+        let account_key = Pubkey::from([92u8; 32]);
+
+        let mut lamports = 1;
+        let mut account_data = [];
+        let account = create_account_info(
+            &account_key,
+            false,
+            false,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        // Stack push order is reverse of pops in INVOKE_SIGNED.
+        ctx.push(ValueRef::TempRef(250, 10)).unwrap(); // seed_value_ref (out of bounds)
+        ctx.push(ValueRef::U64(10)).unwrap(); // seed_len
+        ctx.push(ValueRef::U64(1)).unwrap(); // seeds_count
+        ctx.push(ValueRef::U64(0)).unwrap(); // program_id_ref (current program)
+        ctx.push(ValueRef::TempRef(0, 1)).unwrap(); // instruction_data_ref (valid)
+        ctx.push(ValueRef::U64(0)).unwrap(); // accounts_count
+
+        let panicked = catch_unwind(AssertUnwindSafe(|| {
+            let _ = handle_invoke_ops(INVOKE_SIGNED, &mut ctx);
+        }));
+
+        // TempRef offsets/sizes are u8 and temp buffer is 512 bytes, so this should not panic.
+        assert!(panicked.is_ok());
+    }
+
+    #[test]
+    fn invoke_signed_instruction_tempref_path_does_not_panic_with_u8_bounded_ranges() {
+        let program_id = Pubkey::from([93u8; 32]);
+        let account_key = Pubkey::from([94u8; 32]);
+
+        let mut lamports = 1;
+        let mut account_data = [];
+        let account = create_account_info(
+            &account_key,
+            false,
+            false,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.temp_buffer_mut()[0] = 7;
+
+        // Valid seed, then invalid instruction_data_ref range.
+        ctx.push(ValueRef::TempRef(0, 1)).unwrap(); // seed_value_ref
+        ctx.push(ValueRef::U64(1)).unwrap(); // seed_len
+        ctx.push(ValueRef::U64(1)).unwrap(); // seeds_count
+        ctx.push(ValueRef::U64(0)).unwrap(); // program_id_ref (current program)
+        ctx.push(ValueRef::TempRef(250, 10)).unwrap(); // instruction_data_ref (out of bounds)
+        ctx.push(ValueRef::U64(0)).unwrap(); // accounts_count
+
+        let panicked = catch_unwind(AssertUnwindSafe(|| {
+            let _ = handle_invoke_ops(INVOKE_SIGNED, &mut ctx);
+        }));
+
+        // TempRef offsets/sizes are u8 and temp buffer is 512 bytes, so this should not panic.
+        assert!(panicked.is_ok());
+    }
+}

@@ -136,7 +136,7 @@ async function deployProgram(programName = 'Token') {
         console.log(`  Rent required: ${rentRequired} lamports`);
         console.log(`  Initial funding: ${initialLamports} lamports (${(initialLamports / LAMPORTS_PER_SOL).toFixed(8)} SOL)`);
         // Fee vault account (hardcoded shard 0)
-        const FEE_VAULT_0 = new PublicKey('HXW6bZsdJW6Be5c51NNpNb9NcVxmHbUrF9oKkt4C1tEH');
+        const FEE_VAULT_0 = new PublicKey(process.env.FEE_VAULT_ACCOUNT || 'HXW6bZsdJW6Be5c51NNpNb9NcVxmHbUrF9oKkt4C1tEH');
 
         const initTx = new Transaction().add(
             ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),

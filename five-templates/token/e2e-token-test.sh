@@ -159,7 +159,7 @@ check_prerequisites() {
     #     exit 1
     # fi
 
-    export FIVE_PROGRAM_ID="6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k"
+    export FIVE_PROGRAM_ID="${FIVE_PROGRAM_ID:-6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k}"
 
     # Check Solana CLI
     print_step "Checking Solana CLI..."

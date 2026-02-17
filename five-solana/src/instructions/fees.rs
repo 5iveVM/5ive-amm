@@ -23,7 +23,8 @@ pub(crate) fn validate_fee_transfer_accounts(
     fee_vault_account: &AccountInfo,
     system_program: &AccountInfo,
 ) -> ProgramResult {
-    if system_program.key() == program_id {
+    let _ = program_id;
+    if system_program.key().as_ref() != &[0u8; 32] {
         return Err(ProgramError::InvalidArgument);
     }
     if !payer.is_signer() || !payer.is_writable() {
@@ -202,8 +203,8 @@ pub fn init_fee_vault(
     verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
     require_signer(payer)?;
-    // System program must be writable and not the Five program itself
-    if system_program.key() == program_id {
+    // Enforce canonical System Program identity.
+    if system_program.key().as_ref() != &[0u8; 32] {
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -475,5 +476,115 @@ mod tests {
         let result = transfer_fee(&program_id, &account, &account, 10, None);
         assert_eq!(result, Ok(()));
         assert_eq!(account.lamports(), 1_000);
+    }
+
+    #[test]
+    fn fee_validation_rejects_non_system_program_key() {
+        let program_id = Pubkey::from([21u8; 32]);
+        let payer_key = Pubkey::from([22u8; 32]);
+        let vault_key = Pubkey::from([23u8; 32]);
+        let fake_system_key = Pubkey::from([24u8; 32]);
+        let system_owner = Pubkey::default();
+
+        let mut payer_lamports = 1_000;
+        let mut vault_lamports = 0;
+        let mut system_lamports = 0;
+        let mut payer_data = [];
+        let mut vault_data = [];
+        let mut system_data = [];
+
+        let payer = create_account_info(
+            &payer_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_owner,
+        );
+        let fee_vault = create_account_info(
+            &vault_key,
+            false,
+            true,
+            &mut vault_lamports,
+            &mut vault_data,
+            &program_id,
+        );
+        let fake_system_program = create_account_info(
+            &fake_system_key,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_owner,
+        );
+
+        // Regression: only canonical System Program ID is accepted.
+        assert_eq!(
+            validate_fee_transfer_accounts(&program_id, &payer, &fee_vault, &fake_system_program),
+            Err(ProgramError::InvalidArgument)
+        );
+    }
+
+    #[test]
+    fn init_fee_vault_rejects_non_system_program_identity_when_idempotent() {
+        let program_id = Pubkey::from([31u8; 32]);
+        let (vm_key, vm_bump) = crate::common::derive_canonical_vm_state_pda(&program_id).unwrap();
+        let (fee_vault_key, fee_vault_bump) = crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
+        let payer_key = Pubkey::from([32u8; 32]);
+        let fake_system_key = Pubkey::from([33u8; 32]);
+        let authority_key = Pubkey::from([34u8; 32]);
+        let system_owner = Pubkey::default();
+
+        let mut vm_lamports = 1_000_000;
+        let mut payer_lamports = 1_000_000;
+        let mut vault_lamports = 1_000_000;
+        let mut fake_system_lamports = 1;
+        let mut vm_data = vec![0u8; FIVEVMState::LEN];
+        let mut payer_data = [];
+        let mut vault_data = [];
+        let mut fake_system_data = [];
+        {
+            let state = FIVEVMState::from_account_data_mut(vm_data.as_mut_slice()).unwrap();
+            state.initialize(authority_key, vm_bump);
+        }
+
+        let vm_state = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            vm_data.as_mut_slice(),
+            &program_id,
+        );
+        let payer = create_account_info(
+            &payer_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_owner,
+        );
+        let fee_vault = create_account_info(
+            &fee_vault_key,
+            false,
+            true,
+            &mut vault_lamports,
+            &mut vault_data,
+            &program_id,
+        );
+        let fake_system_program = create_account_info(
+            &fake_system_key,
+            false,
+            false,
+            &mut fake_system_lamports,
+            &mut fake_system_data,
+            &system_owner,
+        );
+        let accounts = [vm_state, payer, fee_vault, fake_system_program];
+
+        assert_eq!(
+            init_fee_vault(&program_id, &accounts, 0, fee_vault_bump),
+            Err(ProgramError::InvalidArgument)
+        );
     }
 }

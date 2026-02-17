@@ -31,6 +31,7 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
     let vm_state_account = &accounts[0];
     let authority = &accounts[1];
     verify_hardcoded_vm_state_account_with_bump(vm_state_account, program_id, bump)?;
+    require_signer(authority)?;
 
     // Check if the account is already owned by the program or needs to be created
     if vm_state_account.owner() == &Pubkey::default() {
@@ -85,8 +86,6 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
         // This allows legacy initialized state (stale stored bump) to pass into migration.
         verify_program_owned(vm_state_account, program_id)?;
     }
-
-    require_signer(authority)?;
 
     // Initialize VM state exactly once.
     // SAFETY: Account verified owned by program (either by check or creation), mutable borrow is safe.
@@ -561,6 +560,42 @@ mod tests {
         assert_eq!(
             initialize(&program_id, &accounts, vm_bump),
             Err(program_already_initialized_error())
+        );
+    }
+
+    #[test]
+    fn initialize_rejects_untrusted_first_initializer() {
+        let program_id = Pubkey::from([17u8; 32]);
+        let (vm_key, vm_bump) = canonical_vm_key(&program_id);
+        let attacker_key = Pubkey::from([18u8; 32]);
+        let system_owner = Pubkey::default();
+
+        let mut vm_lamports = 1_000_000;
+        let mut attacker_lamports = 1_000_000;
+        let mut vm_data = [0u8; FIVEVMState::LEN];
+        let mut attacker_data = [];
+
+        let vm_account = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let attacker = create_account_info(
+            &attacker_key,
+            true,
+            false,
+            &mut attacker_lamports,
+            &mut attacker_data,
+            &system_owner,
+        );
+        let accounts = [vm_account, attacker];
+
+        assert_eq!(
+            initialize(&program_id, &accounts, vm_bump),
+            Err(ProgramError::MissingRequiredSignature)
         );
     }
 
