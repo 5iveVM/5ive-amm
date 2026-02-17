@@ -149,6 +149,9 @@ async function sendInstruction(connection, instructionData, signers) {
     } catch (e) {
         let logs = [];
         if (e.signature) {
+            console.log(`❌ Failed signature: ${e.signature}`);
+        }
+        if (e.signature) {
             try {
                 const txDetails = await connection.getTransaction(e.signature, {
                     maxSupportedTransactionVersion: 0,
@@ -161,8 +164,16 @@ async function sendInstruction(connection, instructionData, signers) {
                 // Ignore
             }
         }
-        return { success: false, error: e, logs };
+        return { success: false, error: e, logs, signature: e.signature };
     }
+}
+
+function logInstructionEnvelope(label, instructionData) {
+    const base64 = instructionData.data || '';
+    const raw = Buffer.from(base64, 'base64');
+    const hex = raw.toString('hex');
+    info(`${label} data (base64): ${base64}`);
+    info(`${label} data (hex): ${hex}`);
 }
 
 async function deployBytecodeToFiveVM(connection, payer, bytecode) {
@@ -328,7 +339,7 @@ async function testSPLTokenMint(connection, payerKeypair) {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
             vmStateAccount: VM_STATE_PDA.toBase58(),
             feeReceiverAccount: payerKeypair.publicKey.toBase58(),
-            debug: false
+            debug: true
         });
 
         // Build instruction using fluent API
@@ -343,6 +354,7 @@ async function testSPLTokenMint(connection, payerKeypair) {
             .instruction();
 
         success('Instruction built');
+        logInstructionEnvelope('mint_tokens', mintIx);
 
         // Send instruction
         info('Sending mint transaction...');
@@ -459,7 +471,7 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
             vmStateAccount: VM_STATE_PDA.toBase58(),
             feeReceiverAccount: payerKeypair.publicKey.toBase58(),
-            debug: false
+            debug: true
         });
 
         // Build instruction using fluent API
@@ -474,6 +486,7 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
             .instruction();
 
         success('Instruction built');
+        logInstructionEnvelope('burn_from_pda', burnIx);
 
         // Send instruction
         info('Sending burn transaction...');
