@@ -40,7 +40,10 @@ const PAYER_KEYPAIR_PATH = process.env.FIVE_KEYPAIR_PATH || process.env.PAYER_KE
 let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '7JizMjzU3u8z3p5QuPNUE2r7YmA6Cks1V7attcujVQrd');
 let VM_STATE_PDA = new PublicKey(process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
 let TOKEN_SCRIPT_ACCOUNT = new PublicKey(process.env.TOKEN_SCRIPT_ACCOUNT || process.env.SCRIPT_ACCOUNT || 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
-const FEE_VAULT_ACCOUNT = new PublicKey(process.env.FEE_VAULT_ACCOUNT || 'HXW6bZsdJW6Be5c51NNpNb9NcVxmHbUrF9oKkt4C1tEH');
+const FEE_VAULT_SEED_PREFIX = Buffer.from([0xff, ...Buffer.from('five_vm_fee_vault_v1')]);
+const FEE_VAULT_ACCOUNT = process.env.FEE_VAULT_ACCOUNT
+    ? new PublicKey(process.env.FEE_VAULT_ACCOUNT)
+    : PublicKey.findProgramAddressSync([FEE_VAULT_SEED_PREFIX, Buffer.from([0])], FIVE_PROGRAM_ID)[0];
 
 // ============================================================================ 
 // LOGGING UTILITIES

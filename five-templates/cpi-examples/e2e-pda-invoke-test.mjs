@@ -24,7 +24,7 @@ import {
 } from '@solana/web3.js';
 import { FiveSDK, FiveProgram } from '../../five-sdk/dist/index.js';
 import {
-    TOKEN_PROGRAM_ID, createMint, createAccount,
+    TOKEN_PROGRAM_ID, createMint, getOrCreateAssociatedTokenAccount,
     mintTo, burn, getAccount
 } from '@solana/spl-token';
 
@@ -190,7 +190,11 @@ async function main() {
         const scriptPath = path.join(__dirname, 'invoke-signed-pda.v');
         info(`Compiling ${scriptPath}...`);
         const source = fs.readFileSync(scriptPath, 'utf-8');
-        const bytecode = await FiveSDK.compile(source);
+        const compilation = await FiveSDK.compile(source);
+        const bytecode = compilation?.bytecode;
+        if (!bytecode) {
+            throw new Error(`Compile failed: ${compilation?.error || 'missing bytecode'}`);
+        }
         success('Contract compiled');
         info('Deploying compiled contract...');
         const deployment = await FiveSDK.deployToSolana(bytecode, connection, payer, {
@@ -234,12 +238,14 @@ async function main() {
 
         // Create PDA-owned token account
         info('Creating PDA-owned token account...');
-        pdaTokenAccount = await createAccount(
+        const pdaAta = await getOrCreateAssociatedTokenAccount(
             connection,
             payer,
             mint,
-            pdaAuth  // owner is PDA
+            pdaAuth,
+            true
         );
+        pdaTokenAccount = pdaAta.address;
         success(`PDA token account created: ${pdaTokenAccount.toBase58()}`);
 
         // Mint tokens to PDA account

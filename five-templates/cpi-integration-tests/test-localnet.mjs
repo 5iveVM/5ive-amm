@@ -20,7 +20,7 @@ import {
     sendAndConfirmTransaction
 } from '@solana/web3.js';
 import {
-    TOKEN_PROGRAM_ID, createMint, createAccount,
+    TOKEN_PROGRAM_ID, createMint, createAccount, getOrCreateAssociatedTokenAccount,
     mintTo, burn, getMint, getAccount
 } from '@solana/spl-token';
 import { FiveProgram, FiveSDK } from '../../five-sdk/dist/index.js';
@@ -223,7 +223,11 @@ async function testSPLTokenMint(connection, payerKeypair) {
         const contractPath = path.join(__dirname, 'test-spl-token-mint.v');
         const source = fs.readFileSync(contractPath, 'utf-8');
 
-        const bytecode = await FiveSDK.compile(source);
+        const compilation = await FiveSDK.compile(source);
+        const bytecode = compilation?.bytecode;
+        if (!bytecode) {
+            throw new Error(`Compile failed: ${compilation?.error || 'missing bytecode'}`);
+        }
         success('Contract compiled');
 
         // Deploy contract
@@ -323,12 +327,14 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
         info('Creating PDA-owned token account...');
         // This would require special setup in production
         // For now, create account and transfer authority
-        const pdaTokenAccount = await createAccount(
+        const pdaAta = await getOrCreateAssociatedTokenAccount(
             connection,
             payerKeypair,
             mint,
-            pdaAuth  // owner is PDA
+            pdaAuth,
+            true
         );
+        const pdaTokenAccount = pdaAta.address;
         success(`PDA token account: ${pdaTokenAccount.toBase58()}`);
 
         // Mint tokens to PDA account
@@ -348,7 +354,11 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
         const contractPath = path.join(__dirname, 'test-pda-burn.v');
         const source = fs.readFileSync(contractPath, 'utf-8');
 
-        const bytecode = await FiveSDK.compile(source);
+        const compilation = await FiveSDK.compile(source);
+        const bytecode = compilation?.bytecode;
+        if (!bytecode) {
+            throw new Error(`Compile failed: ${compilation?.error || 'missing bytecode'}`);
+        }
         success('Contract compiled');
 
         // Deploy contract

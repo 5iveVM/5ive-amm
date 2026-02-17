@@ -194,7 +194,11 @@ async function main() {
         const scriptPath = path.join(__dirname, 'spl-token-mint.v');
         info(`Compiling ${scriptPath}...`);
         const source = fs.readFileSync(scriptPath, 'utf-8');
-        const bytecode = await FiveSDK.compile(source);
+        const compilation = await FiveSDK.compile(source);
+        const bytecode = compilation?.bytecode;
+        if (!bytecode) {
+            throw new Error(`Compile failed: ${compilation?.error || 'missing bytecode'}`);
+        }
         success('Contract compiled');
 
         info('Deploying compiled contract...');

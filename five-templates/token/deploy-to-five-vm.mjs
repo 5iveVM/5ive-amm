@@ -12,7 +12,10 @@ const __dirname = path.dirname(__filename);
 const RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
 const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || 'FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb');
 const VM_STATE_PDA = process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'GMQFFG9iy63CyUTq1pbXrAK9AcWYLbtcx5vm6KUT7CDY';
-const FEE_VAULT_0 = new PublicKey(process.env.FEE_VAULT_ACCOUNT || 'B9k6qgnMjEAJu9xd46eMK9TCVp7uBzrYQD7dQ2nizRfm');
+const FEE_VAULT_SEED_PREFIX = Buffer.from([0xff, ...Buffer.from('five_vm_fee_vault_v1')]);
+const FEE_VAULT_0 = process.env.FEE_VAULT_ACCOUNT
+  ? new PublicKey(process.env.FEE_VAULT_ACCOUNT)
+  : PublicKey.findProgramAddressSync([FEE_VAULT_SEED_PREFIX, Buffer.from([0])], FIVE_PROGRAM_ID)[0];
 
 async function deployProgram() {
   const connection = new Connection(RPC_URL, 'confirmed');

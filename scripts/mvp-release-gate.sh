@@ -178,8 +178,14 @@ run_e2e_smoke_validation() {
   ./five-scripts/deploy-and-init.sh localnet "${HOME}/.config/solana/id.json" prod 2>&1 | tee "${deploy_log}"
 
   local program_id vm_state_pda
-  program_id="$(grep -E 'Program ID:' "${deploy_log}" | tail -n1 | sed -E 's/.*Program ID:[[:space:]]*//' | tr -d '\r')"
-  vm_state_pda="$(grep -E 'VM State PDA:' "${deploy_log}" | tail -n1 | sed -E 's/.*VM State PDA:[[:space:]]*//' | tr -d '\r')"
+  program_id="$(grep -E '^PROGRAM_ID=' "${deploy_log}" | tail -n1 | sed -E 's/^PROGRAM_ID=//' | tr -d '\r')"
+  vm_state_pda="$(grep -E '^VM_STATE_PDA=' "${deploy_log}" | tail -n1 | sed -E 's/^VM_STATE_PDA=//' | tr -d '\r')"
+  if [[ -z "${program_id}" ]]; then
+    program_id="$(grep -E 'Program ID:' "${deploy_log}" | tail -n1 | sed -E 's/.*Program ID:[[:space:]]*//' | tr -d '\r')"
+  fi
+  if [[ -z "${vm_state_pda}" ]]; then
+    vm_state_pda="$(grep -E 'VM State PDA:' "${deploy_log}" | tail -n1 | sed -E 's/.*VM State PDA:[[:space:]]*//' | tr -d '\r')"
+  fi
   [[ -n "${program_id}" ]] || { echo "Failed to parse Program ID from deploy output"; return 1; }
   [[ -n "${vm_state_pda}" ]] || { echo "Failed to parse VM State PDA from deploy output"; return 1; }
 

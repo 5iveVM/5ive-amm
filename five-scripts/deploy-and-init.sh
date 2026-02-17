@@ -212,7 +212,20 @@ else
     echo -e "${YELLOW}⚠️  VM state initialization completed with unexpected output${NC}"
 fi
 
-# Step 8: Display summary
+echo -e "\n${YELLOW}Step 8: Initializing fee vault shards...${NC}"
+set +e
+FEE_VAULT_OUTPUT=$(FIVE_PROGRAM_ID="$PROGRAM_ID" FIVE_RPC_URL="$RPC_URL" node scripts/init-devnet-fee-vaults.mjs --network "$NETWORK" --rpc-url "$RPC_URL" --program-id "$PROGRAM_ID" --vm-state "$VM_STATE_PDA" 2>&1)
+FEE_VAULT_STATUS=$?
+set -e
+if [ $FEE_VAULT_STATUS -ne 0 ]; then
+    echo "$FEE_VAULT_OUTPUT"
+    echo -e "${RED}❌ Fee vault initialization failed${NC}"
+    exit 1
+fi
+echo "$FEE_VAULT_OUTPUT"
+echo -e "${GREEN}✅ Fee vault shards ready${NC}"
+
+# Step 9: Display summary
 echo ""
 echo -e "${GREEN}✨ FIVE Program Deployment Complete!${NC}"
 echo "========================================="
