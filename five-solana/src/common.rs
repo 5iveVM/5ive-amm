@@ -476,18 +476,19 @@ pub fn verify_hardcoded_fee_vault_account(
     program_id: &Pubkey,
     shard_index: u8,
 ) -> ProgramResult {
-    verify_program_matches_generated_constants(program_id)?;
+    if let Err(_err) = verify_program_matches_generated_constants(program_id) {
+        return Err(ProgramError::Custom(7851));
+    }
     #[cfg(not(test))]
-    let expected_key = get_hardcoded_fee_vault(shard_index)
-        .ok_or(ProgramError::InvalidInstructionData)?;
+    let expected_key = get_hardcoded_fee_vault(shard_index).ok_or(ProgramError::Custom(7852))?;
     #[cfg(test)]
     let expected_key = derive_fee_vault_pda(program_id, shard_index)?.0;
     if fee_vault_account.key() != &expected_key {
-        return Err(ProgramError::InvalidArgument);
+        return Err(ProgramError::Custom(7853));
     }
 
     if fee_vault_account.owner() != program_id {
-        return Err(ProgramError::IllegalOwner);
+        return Err(ProgramError::Custom(7854));
     }
     Ok(())
 }

@@ -27,7 +27,7 @@ export * from './modules/namespaces.js';
 
 // ==================== Program ID Resolution ====================
 
-export { ProgramIdResolver, FIVE_BAKED_PROGRAM_ID } from './config/ProgramIdResolver.js';
+export { ProgramIdResolver } from './config/ProgramIdResolver.js';
 
 // ==================== Constants ====================
 

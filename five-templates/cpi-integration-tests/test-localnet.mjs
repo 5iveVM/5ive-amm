@@ -23,7 +23,7 @@ import {
     TOKEN_PROGRAM_ID, createMint, createAccount,
     mintTo, burn, getMint, getAccount
 } from '@solana/spl-token';
-import { FiveProgram } from '../../five-sdk/dist/index.js';
+import { FiveProgram, FiveSDK } from '../../five-sdk/dist/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,11 +32,11 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION & LOGGING
 // ============================================================================
 
-const RPC_URL = 'http://127.0.0.1:8899';
-const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
+const RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
+const PAYER_KEYPAIR_PATH = process.env.FIVE_KEYPAIR_PATH || process.env.PAYER_KEYPAIR_PATH || (process.env.HOME + '/.config/solana/id.json');
 
-let FIVE_PROGRAM_ID = new PublicKey('9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
-let VM_STATE_PDA = new PublicKey('DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
+let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
+let VM_STATE_PDA = new PublicKey(process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
 
 // ============================================================================
 // CONTRACT ABIs
@@ -223,17 +223,20 @@ async function testSPLTokenMint(connection, payerKeypair) {
         const contractPath = path.join(__dirname, 'test-spl-token-mint.v');
         const source = fs.readFileSync(contractPath, 'utf-8');
 
-        const { FiveSDK } = await import('../../five-sdk/dist/index.js');
         const bytecode = await FiveSDK.compile(source);
         success('Contract compiled');
 
         // Deploy contract
         info('Deploying contract...');
-        const program = new FiveProgram(connection, FIVE_PROGRAM_ID, payerKeypair);
-        const deployment = await program.deployScript(bytecode, {
-            vmStateAccount: VM_STATE_PDA
+        const deployment = await FiveSDK.deployToSolana(bytecode, connection, payerKeypair, {
+            fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
+            vmStateAccount: VM_STATE_PDA.toBase58(),
+            debug: false,
         });
-        const scriptAccount = deployment.scriptAccount;
+        if (!deployment.success || !deployment.programId) {
+            throw new Error(`deployToSolana failed: ${deployment.error || 'unknown error'}`);
+        }
+        const scriptAccount = new PublicKey(deployment.programId);
         success(`Contract deployed: ${scriptAccount.toBase58()}`);
 
         // Initialize FiveProgram with ABI
@@ -345,17 +348,20 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
         const contractPath = path.join(__dirname, 'test-pda-burn.v');
         const source = fs.readFileSync(contractPath, 'utf-8');
 
-        const { FiveSDK } = await import('../../five-sdk/dist/index.js');
         const bytecode = await FiveSDK.compile(source);
         success('Contract compiled');
 
         // Deploy contract
         info('Deploying contract...');
-        const program = new FiveProgram(connection, FIVE_PROGRAM_ID, payerKeypair);
-        const deployment = await program.deployScript(bytecode, {
-            vmStateAccount: VM_STATE_PDA
+        const deployment = await FiveSDK.deployToSolana(bytecode, connection, payerKeypair, {
+            fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
+            vmStateAccount: VM_STATE_PDA.toBase58(),
+            debug: false,
         });
-        const scriptAccount = deployment.scriptAccount;
+        if (!deployment.success || !deployment.programId) {
+            throw new Error(`deployToSolana failed: ${deployment.error || 'unknown error'}`);
+        }
+        const scriptAccount = new PublicKey(deployment.programId);
         success(`Contract deployed: ${scriptAccount.toBase58()}`);
 
         // Initialize FiveProgram with ABI

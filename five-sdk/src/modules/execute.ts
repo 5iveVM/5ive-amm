@@ -511,7 +511,6 @@ export async function generateExecuteInstruction(
     encodedParams,
     actualParamCount,
     feeShardIndex,
-    feeVault.bump,
   );
 
   // Runtime requires strict tail: [payer, fee_vault, system_program].
@@ -866,7 +865,6 @@ function encodeExecuteInstruction(
   encodedParams: Uint8Array,
   paramCount: number,
   feeShardIndex: number,
-  feeVaultBump: number,
 ): Uint8Array {
   const parts = [];
   parts.push(new Uint8Array([9]));
@@ -875,7 +873,6 @@ function encodeExecuteInstruction(
       EXECUTE_FEE_HEADER_A,
       EXECUTE_FEE_HEADER_B,
       feeShardIndex & 0xff,
-      feeVaultBump & 0xff,
     ]),
   );
   // Function index as fixed u32
@@ -941,26 +938,36 @@ async function encodeParametersWithABI(
     return type === 'pubkey';
   };
 
-  const paramDefs = (functionDef.parameters || []);
+  const paramDefs = functionDef.parameters || [];
   const nonAccountParamDefs = paramDefs.filter((param: any) => !isAccountParam(param));
-  const fullParameterListProvided = parameters.length >= paramDefs.length;
+  const isFullParamList = parameters.length === paramDefs.length;
+  const isArgOnlyList = parameters.length === nonAccountParamDefs.length;
 
-  if (fullParameterListProvided && parameters.length !== paramDefs.length) {
+  if (!isFullParamList && !isArgOnlyList) {
     console.warn(
-      `[FiveSDK] Parameter validation warning: Function '${functionDef.name}' expects ${paramDefs.length} parameters, but received ${parameters.length}.`
+      `[FiveSDK] Parameter validation warning: Function '${functionDef.name}' expects ${paramDefs.length} total params (${nonAccountParamDefs.length} non-account), but received ${parameters.length}.`,
     );
   }
 
-  const paramValues: Record<string, any> = {};
-  let argCursor = 0;
-  for (let index = 0; index < paramDefs.length; index++) {
-    const param = paramDefs[index];
-    if (isAccountParam(param)) {
-      continue;
-    }
+  // Current VM/compiler contract encodes non-account parameters only.
+  // If callers pass full ABI params (accounts + args), normalize to args-only order.
+  if (isFullParamList) {
+    console.warn(
+      `[FiveSDK] Deprecation: full ABI parameter lists (including account params) are normalized to non-account execute args for '${functionDef.name}'. Pass args-only params to avoid this warning.`,
+    );
+  }
 
-    const sourceIndex = fullParameterListProvided ? index : argCursor;
-    if (sourceIndex >= parameters.length) {
+  const defsForEncoding = nonAccountParamDefs;
+  const paramValues: Record<string, any> = {};
+  const paramSourceIndexByName = new Map<string, number>(
+    paramDefs.map((param: any, index: number) => [param.name, index]),
+  );
+  for (let index = 0; index < defsForEncoding.length; index++) {
+    const param = defsForEncoding[index];
+    const sourceIndex = isFullParamList
+      ? (paramSourceIndexByName.get(param.name) ?? -1)
+      : index;
+    if (sourceIndex < 0 || sourceIndex >= parameters.length) {
       throw new Error(`Missing value for parameter: ${param.name}`);
     }
 
@@ -971,17 +978,16 @@ async function encodeParametersWithABI(
       }
     }
     paramValues[param.name] = value;
-    argCursor += 1;
   }
 
   const encoded = await BytecodeEncoder.encodeExecute(
     functionIndex,
-    nonAccountParamDefs,
+    defsForEncoding,
     paramValues,
     true,
     options,
   );
-  return { encoded, paramCount: nonAccountParamDefs.length };
+  return { encoded, paramCount: defsForEncoding.length };
 }
 
 function estimateComputeUnits(

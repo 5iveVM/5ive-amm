@@ -1,0 +1,26 @@
+{
+  "config": {
+    "programId": "FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb",
+    "script": "4huBnYKTJvWeUNDSoj8z9RVAAjkLtrh8UeqSpZ6KkhG4"
+  },
+  "accounts": {
+    "mint": "2giWjBw91mnuA2WEUxHveMKxJhE2tD5TvQhGdXwzRiHs",
+    "user1": "6rmxg1Ry1WEpNGvaMjce8bELeuyEFBqBRMpGycfWJaph",
+    "user2": "9Lx8izcmuHE7cmv2voxtBUY5YxApXKLbW1r4CyxGsB69",
+    "user3": "5BsG4ZEVyzgZrrSqWKgL3zEV4cUYTEXDqVUDZB1Tc3EX",
+    "user1Token": "GMxxgEEnGwmuBZm1o3qxbKCi3yjTWdtJTr4dytsAjLGM",
+    "user2Token": "9pdmv4UP4r81GbVwFdnE7pM9wQh32Erctr37M8KGY2GP",
+    "user3Token": "9pUxiV5MGyrYF45k5LQzovW78ewHMurcFgMgU2P1RTpg"
+  },
+  "results": {
+    "initMint": true,
+    "mintTo": true,
+    "transfer": true,
+    "approve": true,
+    "transferFrom": true,
+    "revoke": true,
+    "burn": true,
+    "freeze": true,
+    "disable": true
+  }
+}

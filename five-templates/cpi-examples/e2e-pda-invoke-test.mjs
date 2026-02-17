@@ -35,12 +35,14 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION
 // ============================================================================
 
-const RPC_URL = 'http://127.0.0.1:8899';
-const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
+const RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
+const PAYER_KEYPAIR_PATH = process.env.FIVE_KEYPAIR_PATH || process.env.PAYER_KEYPAIR_PATH || (process.env.HOME + '/.config/solana/id.json');
 
-let FIVE_PROGRAM_ID = new PublicKey('9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
-let VM_STATE_PDA = new PublicKey('DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
-let SCRIPT_ACCOUNT = new PublicKey('GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
+let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
+let VM_STATE_PDA = new PublicKey(process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
+if (process.env.RPC_URL || process.env.PAYER_KEYPAIR_PATH || process.env.FIVE_VM_PROGRAM_ID || process.env.FIVE_VM_STATE_PDA) {
+    console.warn('⚠️  Deprecated env vars detected; prefer FIVE_RPC_URL/FIVE_KEYPAIR_PATH/FIVE_PROGRAM_ID/VM_STATE_PDA');
+}
 
 // ============================================================================
 // LOGGING UTILITIES
@@ -182,6 +184,7 @@ async function main() {
     // STEP 1: Compile Contract
     // ========================================================================
     header('STEP 1: Compile Contract');
+    let scriptAccount;
 
     try {
         const scriptPath = path.join(__dirname, 'invoke-signed-pda.v');
@@ -189,7 +192,17 @@ async function main() {
         const source = fs.readFileSync(scriptPath, 'utf-8');
         const bytecode = await FiveSDK.compile(source);
         success('Contract compiled');
-        info(`Using script account: ${SCRIPT_ACCOUNT.toBase58()}`);
+        info('Deploying compiled contract...');
+        const deployment = await FiveSDK.deployToSolana(bytecode, connection, payer, {
+            fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
+            vmStateAccount: VM_STATE_PDA.toBase58(),
+            debug: false,
+        });
+        if (!deployment.success || !deployment.programId) {
+            throw new Error(`deployToSolana failed: ${deployment.error || 'unknown error'}`);
+        }
+        scriptAccount = new PublicKey(deployment.programId);
+        success(`Using script account: ${scriptAccount.toBase58()}`);
     } catch (e) {
         error(`Compilation failed: ${e.message}`);
         process.exit(1);
@@ -253,7 +266,7 @@ async function main() {
 
     try {
         // Initialize FiveProgram with ABI
-        const program = FiveProgram.fromABI(SCRIPT_ACCOUNT.toBase58(), PDA_BURN_ABI, {
+        const program = FiveProgram.fromABI(scriptAccount.toBase58(), PDA_BURN_ABI, {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
             vmStateAccount: VM_STATE_PDA.toBase58(),
             feeReceiverAccount: payer.publicKey.toBase58(),
@@ -321,7 +334,7 @@ async function main() {
         header('Test Summary');
         success('✅ INVOKE_SIGNED with PDA Authority CPI Example - E2E Test Passed');
         log(`\nKey Results:`);
-        log(`  • Contract: ${SCRIPT_ACCOUNT.toBase58()}`);
+        log(`  • Contract: ${scriptAccount.toBase58()}`);
         log(`  • Mint: ${mint.toBase58()}`);
         log(`  • PDA Authority: ${pdaAuth.toBase58()}`);
         log(`  • Token Account: ${pdaTokenAccount.toBase58()}`);

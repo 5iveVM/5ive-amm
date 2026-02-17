@@ -27,12 +27,12 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION
 // ============================================================================
 
-let RPC_URL = 'http://127.0.0.1:8899';
-const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
+let RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
+const PAYER_KEYPAIR_PATH = process.env.FIVE_KEYPAIR_PATH || process.env.PAYER_KEYPAIR_PATH || (process.env.HOME + '/.config/solana/id.json');
 
-let FIVE_PROGRAM_ID = new PublicKey('9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
-let VM_STATE_PDA = new PublicKey('DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
-let COUNTER_SCRIPT_ACCOUNT = new PublicKey('GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
+let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
+let VM_STATE_PDA = new PublicKey(process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
+let COUNTER_SCRIPT_ACCOUNT = new PublicKey(process.env.COUNTER_SCRIPT_ACCOUNT || process.env.SCRIPT_ACCOUNT || 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
 
 // ============================================================================
 // LOGGING UTILITIES
@@ -68,6 +68,9 @@ if (fs.existsSync(deploymentConfigPath)) {
         warn(`Failed to load deployment-config.json: ${configError.message}`);
     }
 }
+if (process.env.RPC_URL && !process.env.FIVE_RPC_URL) warn('Deprecated env RPC_URL detected; prefer FIVE_RPC_URL');
+if (process.env.FIVE_VM_PROGRAM_ID && !process.env.FIVE_PROGRAM_ID) warn('Deprecated env FIVE_VM_PROGRAM_ID detected; prefer FIVE_PROGRAM_ID');
+if (process.env.FIVE_VM_STATE_PDA && !process.env.VM_STATE_PDA) warn('Deprecated env FIVE_VM_STATE_PDA detected; prefer VM_STATE_PDA');
 
 // ============================================================================
 // LOAD COUNTER ABI

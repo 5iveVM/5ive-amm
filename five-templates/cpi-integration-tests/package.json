@@ -16,7 +16,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "five-sdk": "workspace:*",
+    "five-sdk": "file:../../five-sdk",
     "@solana/web3.js": "^1.95.0",
     "@solana/spl-token": "^0.4.0"
   }

@@ -33,13 +33,13 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION
 // ============================================================================ 
 
-let RPC_URL = 'http://127.0.0.1:8899';
-const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
+let RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
+const PAYER_KEYPAIR_PATH = process.env.FIVE_KEYPAIR_PATH || process.env.PAYER_KEYPAIR_PATH || (process.env.HOME + '/.config/solana/id.json');
 
 // Localnet deployment defaults
-let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || '7JizMjzU3u8z3p5QuPNUE2r7YmA6Cks1V7attcujVQrd');
-let VM_STATE_PDA = new PublicKey('DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
-let TOKEN_SCRIPT_ACCOUNT = new PublicKey('GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
+let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '7JizMjzU3u8z3p5QuPNUE2r7YmA6Cks1V7attcujVQrd');
+let VM_STATE_PDA = new PublicKey(process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
+let TOKEN_SCRIPT_ACCOUNT = new PublicKey(process.env.TOKEN_SCRIPT_ACCOUNT || process.env.SCRIPT_ACCOUNT || 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
 const FEE_VAULT_ACCOUNT = new PublicKey(process.env.FEE_VAULT_ACCOUNT || 'HXW6bZsdJW6Be5c51NNpNb9NcVxmHbUrF9oKkt4C1tEH');
 
 // ============================================================================ 
@@ -68,6 +68,9 @@ if (fs.existsSync(deploymentConfigPath)) {
         warn(`Failed to load deployment-config.json: ${e.message}`);
     }
 }
+if (process.env.RPC_URL && !process.env.FIVE_RPC_URL) warn('Deprecated env RPC_URL detected; prefer FIVE_RPC_URL');
+if (process.env.FIVE_VM_PROGRAM_ID && !process.env.FIVE_PROGRAM_ID) warn('Deprecated env FIVE_VM_PROGRAM_ID detected; prefer FIVE_PROGRAM_ID');
+if (process.env.FIVE_VM_STATE_PDA && !process.env.VM_STATE_PDA) warn('Deprecated env FIVE_VM_STATE_PDA detected; prefer VM_STATE_PDA');
 
 // ============================================================================
 // HELPER: Error Extraction
@@ -143,26 +146,45 @@ async function sendInstruction(connection, instructionData, signers, label = '')
         isWritable: k.isWritable
     }));
 
-    // Enforce execute tail expected by on-chain runtime:
-    // [...existing metas, payer, fee_vault, system_program]
-    const payerSigner = signers[0];
-    if (payerSigner?.publicKey) {
+    // Enforce execute tail expected by on-chain runtime, but avoid duplicating
+    // when the SDK has already appended canonical [payer, fee_vault, system_program].
+    const hasCanonicalTail = (() => {
+        if (keys.length < 3) return false;
+        const tailSystem = keys[keys.length - 1];
+        const tailVault = keys[keys.length - 2];
+        const tailPayer = keys[keys.length - 3];
+        return (
+            tailSystem.pubkey.toBase58() === SystemProgram.programId.toBase58() &&
+            !tailSystem.isSigner &&
+            !tailSystem.isWritable &&
+            !tailVault.isSigner &&
+            tailVault.isWritable &&
+            tailPayer.isSigner &&
+            tailPayer.isWritable
+        );
+    })();
+
+    if (!hasCanonicalTail) {
+        warn('Instruction missing canonical fee tail; applying legacy tail injection');
+        const payerSigner = signers[0];
+        if (payerSigner?.publicKey) {
+            keys.push({
+                pubkey: payerSigner.publicKey,
+                isSigner: true,
+                isWritable: true,
+            });
+        }
         keys.push({
-            pubkey: payerSigner.publicKey,
-            isSigner: true,
+            pubkey: FEE_VAULT_ACCOUNT,
+            isSigner: false,
             isWritable: true,
         });
+        keys.push({
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+        });
     }
-    keys.push({
-        pubkey: FEE_VAULT_ACCOUNT,
-        isSigner: false,
-        isWritable: true,
-    });
-    keys.push({
-        pubkey: SystemProgram.programId,
-        isSigner: false,
-        isWritable: false,
-    });
 
     const ix = {
         programId: new PublicKey(instructionData.programId),

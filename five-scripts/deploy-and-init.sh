@@ -222,6 +222,10 @@ echo -e "${BLUE}Binary: $SO_FILE${NC}"
 if [ -n "${VM_STATE_PDA:-}" ]; then
     echo -e "${BLUE}VM State PDA: $VM_STATE_PDA${NC}"
 fi
+echo "PROGRAM_ID=${PROGRAM_ID}"
+if [ -n "${VM_STATE_PDA:-}" ]; then
+  echo "VM_STATE_PDA=${VM_STATE_PDA}"
+fi
 echo ""
 echo "Next steps:"
 echo "1. Start/inspect Surfpool: FIVE_VALIDATOR=surfpool ./five-surfpool/surfpool instance status"

@@ -28,15 +28,14 @@ function loadKeypairFromPath(filePath: string): Keypair {
   return Keypair.fromSecretKey(Uint8Array.from(arr));
 }
 
-function encodeExecuteData(functionIndex: number, shardIndex: number, vaultBump: number): Buffer {
-  const out = Buffer.alloc(13);
+function encodeExecuteData(functionIndex: number, shardIndex: number, _vaultBump: number): Buffer {
+  const out = Buffer.alloc(12);
   out[0] = 9; // Execute discriminator
   out[1] = 0xff;
   out[2] = 0x53;
   out[3] = shardIndex & 0xff;
-  out[4] = vaultBump & 0xff;
-  out.writeUInt32LE(functionIndex >>> 0, 5);
-  out.writeUInt32LE(0, 9); // param count
+  out.writeUInt32LE(functionIndex >>> 0, 4);
+  out.writeUInt32LE(0, 8); // param count
   return out;
 }
 

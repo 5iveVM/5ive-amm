@@ -49,7 +49,7 @@ VERBOSE=false
 DEPLOY=false
 CLEAN=false
 SKIP_BUILD=false
-RPC_URL="http://127.0.0.1:8899"
+RPC_URL="${FIVE_RPC_URL:-http://127.0.0.1:8899}"
 SHOW_HELP=false
 
 # Counters & Status
@@ -323,6 +323,7 @@ run_e2e_test() {
 
     print_step "Running: $TEST_SCRIPT"
     print_info "RPC URL: $RPC_URL"
+    export FIVE_RPC_URL="$RPC_URL"
     print_separator
 
     if [ "$VERBOSE" = true ]; then

@@ -165,8 +165,49 @@ run_e2e_smoke_validation() {
     echo "Skipping E2E smoke by request (--skip-e2e-smoke)."
     return 0
   fi
+  local e2e_dir="${REPORT_DIR}/e2e"
+  mkdir -p "${e2e_dir}"
+  local deploy_log="${e2e_dir}/deploy-and-init.log"
 
-  cargo test -p five --test runtime_template_fixture_tests -- --nocapture
+  command -v solana >/dev/null 2>&1
+  command -v node >/dev/null 2>&1
+  solana cluster-version --url "http://127.0.0.1:8899" >/dev/null
+  solana-keygen pubkey "${HOME}/.config/solana/id.json" >/dev/null
+
+  echo "Deploying and initializing FIVE VM on localnet..."
+  ./five-scripts/deploy-and-init.sh localnet "${HOME}/.config/solana/id.json" prod 2>&1 | tee "${deploy_log}"
+
+  local program_id vm_state_pda
+  program_id="$(grep -E 'Program ID:' "${deploy_log}" | tail -n1 | sed -E 's/.*Program ID:[[:space:]]*//' | tr -d '\r')"
+  vm_state_pda="$(grep -E 'VM State PDA:' "${deploy_log}" | tail -n1 | sed -E 's/.*VM State PDA:[[:space:]]*//' | tr -d '\r')"
+  [[ -n "${program_id}" ]] || { echo "Failed to parse Program ID from deploy output"; return 1; }
+  [[ -n "${vm_state_pda}" ]] || { echo "Failed to parse VM State PDA from deploy output"; return 1; }
+
+  export FIVE_RPC_URL="http://127.0.0.1:8899"
+  export FIVE_PROGRAM_ID="${program_id}"
+  export VM_STATE_PDA="${vm_state_pda}"
+
+  solana program show "${FIVE_PROGRAM_ID}" --url "${FIVE_RPC_URL}" >/dev/null
+  solana account "${VM_STATE_PDA}" --url "${FIVE_RPC_URL}" --output json >/dev/null
+
+  local run_log
+  run_log="${e2e_dir}/token-e2e.log"
+  (cd five-templates/token && ./e2e-token-test.sh --deploy --verbose) 2>&1 | tee "${run_log}"
+
+  run_log="${e2e_dir}/counter-e2e.log"
+  (cd five-templates/counter && ./e2e-counter-test.sh --deploy --verbose) 2>&1 | tee "${run_log}"
+
+  run_log="${e2e_dir}/cpi-spl-token-mint.log"
+  (cd five-templates/cpi-examples && node e2e-spl-token-mint-test.mjs) 2>&1 | tee "${run_log}"
+
+  run_log="${e2e_dir}/cpi-pda-invoke.log"
+  (cd five-templates/cpi-examples && node e2e-pda-invoke-test.mjs) 2>&1 | tee "${run_log}"
+
+  run_log="${e2e_dir}/cpi-anchor-program.log"
+  (cd five-templates/cpi-examples && node e2e-anchor-program-test.mjs) 2>&1 | tee "${run_log}"
+
+  run_log="${e2e_dir}/cpi-integration-localnet.log"
+  (cd five-templates/cpi-integration-tests && node test-localnet.mjs) 2>&1 | tee "${run_log}"
 }
 
 emit_report() {

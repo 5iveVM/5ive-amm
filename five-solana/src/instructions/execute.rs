@@ -36,13 +36,15 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
 
-    verify_program_owned(script_account, program_id)?;
-    verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
-    verify_program_owned(vm_state_account, program_id)?;
+    verify_program_owned(script_account, program_id).map_err(|_| ProgramError::Custom(7801))?;
+    verify_hardcoded_vm_state_account(vm_state_account, program_id)
+        .map_err(|_| ProgramError::Custom(7802))?;
+    verify_program_owned(vm_state_account, program_id).map_err(|_| ProgramError::Custom(7803))?;
 
     // SAFETY: state account was verified program-owned and read-only here.
     let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
-    let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
+    let vm_state = FIVEVMState::from_account_data(&vm_state_data)
+        .map_err(|_| ProgramError::Custom(7804))?;
     if !vm_state.is_initialized() {
         return Err(error::program_not_initialized_error());
     }
@@ -57,16 +59,14 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         let payer = &accounts[last - 2];
         let system_program = &accounts[last];
 
-        verify_hardcoded_fee_vault_account(
-            fee_vault,
-            program_id,
-            fee_shard_index,
-        )?;
+        verify_hardcoded_fee_vault_account(fee_vault, program_id, fee_shard_index)?;
         if system_program.key().as_ref() != &[0u8; 32] {
-            return Err(ProgramError::InvalidArgument);
+            return Err(ProgramError::Custom(7806));
         }
-        validate_fee_transfer_accounts(program_id, payer, fee_vault, system_program)?;
-        transfer_fee(program_id, payer, fee_vault, fee, Some(system_program))?;
+        validate_fee_transfer_accounts(program_id, payer, fee_vault, system_program)
+            .map_err(|_| ProgramError::Custom(7807))?;
+        transfer_fee(program_id, payer, fee_vault, fee, Some(system_program))
+            .map_err(|_| ProgramError::Custom(7808))?;
     }
     // VM sees [vm_state, ...remaining execution accounts].
     let vm_accounts = &accounts[1..];
@@ -74,7 +74,8 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     // Parse script header from script account
     let script_data = unsafe { script_account.borrow_data_unchecked() };
 
-    let header = ScriptAccountHeader::from_account_data(&script_data)?;
+    let header = ScriptAccountHeader::from_account_data(&script_data)
+        .map_err(|_| ProgramError::Custom(7809))?;
 
     if header.upload_mode() && !header.upload_complete() {
         return Err(ProgramError::Custom(7001));

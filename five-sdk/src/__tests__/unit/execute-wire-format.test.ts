@@ -85,9 +85,10 @@ describe('execute wire format', () => {
     expect(raw[0]).toBe(9);
     expect(raw[1]).toBe(0xff);
     expect(raw[2]).toBe(0x53);
-    expect(raw.readUInt32LE(5)).toBe(1);
-    expect(raw.readUInt32LE(9)).toBe(1);
-    expect(Array.from(raw.subarray(13))).toEqual([0xaa, 0xbb]);
+    expect(raw[3]).toBe(0x00);
+    expect(raw.readUInt32LE(4)).toBe(1);
+    expect(raw.readUInt32LE(8)).toBe(1);
+    expect(Array.from(raw.subarray(12))).toEqual([0xaa, 0xbb]);
   });
 
   it('supports object-format ABI functions and coerces pubkey/account parameter values', async () => {
@@ -135,8 +136,9 @@ describe('execute wire format', () => {
     expect(raw[0]).toBe(9);
     expect(raw[1]).toBe(0xff);
     expect(raw[2]).toBe(0x53);
-    expect(raw.readUInt32LE(5)).toBe(7);
-    expect(raw.readUInt32LE(9)).toBe(1);
+    expect(raw[3]).toBe(0x00);
+    expect(raw.readUInt32LE(4)).toBe(7);
+    expect(raw.readUInt32LE(8)).toBe(1);
   });
 
   it('marks payer writable when function has @init + signer account', async () => {

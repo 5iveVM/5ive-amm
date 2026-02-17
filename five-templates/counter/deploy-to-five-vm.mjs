@@ -2,186 +2,99 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
-    Connection,
-    Keypair,
-    PublicKey,
-    Transaction,
-    TransactionInstruction,
-    SystemProgram,
-    LAMPORTS_PER_SOL
+  Connection, Keypair, PublicKey, Transaction, TransactionInstruction,
+  SystemProgram, LAMPORTS_PER_SOL, ComputeBudgetProgram
 } from '@solana/web3.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8899';
-const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || 'HzC7dhS3gbcTPoLmwSGFcTSnAqdDpdtERP5n5r9wyY4k');
+const RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
+const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || 'FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb');
+const VM_STATE_PDA = process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'GMQFFG9iy63CyUTq1pbXrAK9AcWYLbtcx5vm6KUT7CDY';
+const FEE_VAULT_0 = new PublicKey(process.env.FEE_VAULT_ACCOUNT || 'B9k6qgnMjEAJu9xd46eMK9TCVp7uBzrYQD7dQ2nizRfm');
 
-const GREEN = '\x1b[32m';
-const YELLOW = '\x1b[33m';
-const CYAN = '\x1b[36m';
-const RED = '\x1b[31m';
-const NC = '\x1b[0m';
+async function deployProgram() {
+  const connection = new Connection(RPC_URL, 'confirmed');
+  const payerKeyPath = process.env.FIVE_KEYPAIR_PATH || path.join(process.env.HOME, '.config/solana/id.json');
+  const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(payerKeyPath, 'utf-8'))));
 
-async function deployCounterProgram() {
-    console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}`);
-    console.log(`${CYAN}Counter Template - Five VM Deployment (Single-Chunk)${NC}`);
-    console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}\n`);
+  const artifactPath = process.env.FIVE_ARTIFACT_PATH || path.join(__dirname, 'build', 'five-counter-template.five');
+  const parsed = JSON.parse(fs.readFileSync(artifactPath, 'utf-8'));
+  const bytecode = new Uint8Array(Buffer.from(parsed.bytecode, 'base64'));
 
-    try {
-        const connection = new Connection(RPC_URL, 'confirmed');
-        const payerKeyPath = path.join(process.env.HOME, '.config/solana/id.json');
-        const payer = Keypair.fromSecretKey(
-            Uint8Array.from(JSON.parse(fs.readFileSync(payerKeyPath, 'utf-8')))
-        );
+  const balance = await connection.getBalance(payer.publicKey);
+  if (balance < 0.1 * LAMPORTS_PER_SOL) throw new Error('Insufficient balance');
 
-        console.log(`${CYAN}▶ Configuration${NC}`);
-        console.log(`  RPC URL: ${RPC_URL}`);
-        console.log(`  Payer: ${payer.publicKey.toBase58()}`);
-        console.log(`  Five Program: ${FIVE_PROGRAM_ID.toBase58()}\n`);
+  const vmStatePda = new PublicKey(VM_STATE_PDA);
+  const vmStateInfo = await connection.getAccountInfo(vmStatePda);
+  if (!vmStateInfo || !vmStateInfo.owner.equals(FIVE_PROGRAM_ID)) {
+    throw new Error('VM state missing or owned by wrong program');
+  }
 
-        const balance = await connection.getBalance(payer.publicKey);
-        if (balance < 0.1 * LAMPORTS_PER_SOL) {
-            console.log(`${RED}✗ Insufficient balance (need at least 0.1 SOL).${NC}`);
-            process.exit(1);
-        }
+  const confirmTx = async (signature, description) => {
+    const latestBlockhash = await connection.getLatestBlockhash();
+    const confirmation = await connection.confirmTransaction({ signature, ...latestBlockhash }, 'confirmed');
+    if (confirmation.value.err) throw new Error(`${description} failed: ${JSON.stringify(confirmation.value.err)}`);
+  };
 
-        const bytecodeFile = path.join(__dirname, 'build/five-counter-template.five');
-        if (!fs.existsSync(bytecodeFile)) {
-            console.log(`${RED}✗ File not found: ${bytecodeFile}${NC}`);
-            process.exit(1);
-        }
+  const scriptKeypair = Keypair.generate();
+  const SCRIPT_HEADER_SIZE = 64;
+  const finalScriptSize = SCRIPT_HEADER_SIZE + bytecode.length;
+  const rentRequired = await connection.getMinimumBalanceForRentExemption(finalScriptSize);
+  const initialLamports = rentRequired + 0.01 * LAMPORTS_PER_SOL;
 
-        const fiveFileContent = fs.readFileSync(bytecodeFile);
-        let bytecode;
-        try {
-            const fiveFile = JSON.parse(fiveFileContent.toString('utf-8'));
-            bytecode = new Uint8Array(Buffer.from(fiveFile.bytecode, 'base64'));
-        } catch (e) {
-            console.log(`${YELLOW}⚠ JSON parse failed, assuming raw binary...${NC}`);
-            bytecode = new Uint8Array(fiveFileContent);
-        }
+  const initTx = new Transaction().add(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: scriptKeypair.publicKey,
+      lamports: initialLamports,
+      space: finalScriptSize,
+      programId: FIVE_PROGRAM_ID,
+    }),
+    new TransactionInstruction({
+      keys: [
+        { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
+        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: vmStatePda, isSigner: false, isWritable: true },
+        { pubkey: FEE_VAULT_0, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      programId: FIVE_PROGRAM_ID,
+      data: Buffer.concat([Buffer.from([4]), Buffer.from(new Uint32Array([bytecode.length]).buffer)]),
+    })
+  );
 
-        console.log(`  Bytecode size: ${bytecode.length} bytes`);
+  const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
+  await confirmTx(initSig, 'Script Account Init');
 
-        // --- Deployment Logic (SINGLE-CHUNK) ---
+  const appendTx = new Transaction().add(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
+    new TransactionInstruction({
+      keys: [
+        { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
+        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: vmStatePda, isSigner: false, isWritable: true },
+        { pubkey: FEE_VAULT_0, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      programId: FIVE_PROGRAM_ID,
+      data: Buffer.concat([Buffer.from([5]), bytecode]),
+    })
+  );
+  const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
+  await confirmTx(appendSig, 'AppendBytecode');
 
-        // 1. Setup VM State Account
-        let vmStatePda;
-
-        if (process.env.VM_STATE_PDA) {
-            vmStatePda = new PublicKey(process.env.VM_STATE_PDA);
-            console.log(`${CYAN}▶ Using provided VM State Account: ${vmStatePda.toBase58()}${NC}`);
-        } else {
-            const vmStateKeypair = Keypair.generate();
-            const VM_STATE_SIZE = 56;
-            const vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SIZE);
-
-            console.log(`${CYAN}▶ Creating VM State Account...${NC}`);
-            const vmStateTx = new Transaction().add(
-                SystemProgram.createAccount({
-                    fromPubkey: payer.publicKey,
-                    newAccountPubkey: vmStateKeypair.publicKey,
-                    lamports: vmStateRent,
-                    space: VM_STATE_SIZE,
-                    programId: FIVE_PROGRAM_ID,
-                }),
-                new TransactionInstruction({
-                    keys: [
-                        { pubkey: vmStateKeypair.publicKey, isSigner: false, isWritable: true },
-                        { pubkey: payer.publicKey, isSigner: true, isWritable: false },
-                    ],
-                    programId: FIVE_PROGRAM_ID,
-                    data: Buffer.from([0]), // Initialize discriminator
-                })
-            );
-
-            const vmSig = await connection.sendTransaction(vmStateTx, [payer, vmStateKeypair], { skipPreflight: false });
-            await connection.confirmTransaction(vmSig, 'confirmed');
-            console.log(`  VM State: ${vmStateKeypair.publicKey.toBase58()} (${vmSig})`);
-            vmStatePda = vmStateKeypair.publicKey;
-        }
-
-        // Check VM State Owner
-        const vmStateInfo = await connection.getAccountInfo(vmStatePda);
-        if (!vmStateInfo) {
-            console.error(`${RED}Error: VM State account created but not found!${NC}`);
-            process.exit(1);
-        }
-        if (!vmStateInfo.owner.equals(FIVE_PROGRAM_ID)) {
-            console.error(`${RED}Error: VM State owned by ${vmStateInfo.owner.toBase58()}, expected ${FIVE_PROGRAM_ID.toBase58()}${NC}`);
-            process.exit(1);
-        }
-        console.log(`  VM State Owner Verified: ${vmStateInfo.owner.toBase58()}`);
-
-        // 2. Create Script Account & Deploy in Single Transaction
-        const scriptKeypair = Keypair.generate();
-        const SCRIPT_HEADER_SIZE = 64;
-        const totalSize = SCRIPT_HEADER_SIZE + bytecode.length;
-        const rentLamports = await connection.getMinimumBalanceForRentExemption(totalSize);
-
-        console.log(`${CYAN}▶ Deploying Counter Script (Single-Chunk)...${NC}`);
-        console.log(`  Total size: ${totalSize} bytes (header: ${SCRIPT_HEADER_SIZE}, bytecode: ${bytecode.length})`);
-        console.log(`  Rent required: ${rentLamports} lamports`);
-
-        const deployTx = new Transaction().add(
-            SystemProgram.createAccount({
-                fromPubkey: payer.publicKey,
-                newAccountPubkey: scriptKeypair.publicKey,
-                lamports: rentLamports,
-                space: totalSize,
-                programId: FIVE_PROGRAM_ID,
-            }),
-            new TransactionInstruction({
-                keys: [
-                    { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
-                    { pubkey: vmStatePda, isSigner: false, isWritable: true },
-                    { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-                    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-                ],
-                programId: FIVE_PROGRAM_ID,
-                data: Buffer.concat([
-                    Buffer.from([8]), // Deploy discriminator
-                    Buffer.from(new Uint32Array([bytecode.length]).buffer), // Bytecode length (u32 LE)
-                    Buffer.from([0]), // Permissions (0 = no special permissions)
-                    bytecode
-                ]),
-            })
-        );
-
-        const deploySig = await connection.sendTransaction(deployTx, [payer, scriptKeypair], { skipPreflight: false });
-        await connection.confirmTransaction(deploySig, 'confirmed');
-        console.log(`${GREEN}✓ Deployment successful: ${deploySig}${NC}`);
-        console.log(`  Script Account: ${scriptKeypair.publicKey.toBase58()}\n`);
-
-        const counterScriptAccount = scriptKeypair.publicKey.toBase58();
-        const vmStatePdaString = vmStatePda.toBase58();
-
-        console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}`);
-        console.log(`${GREEN}✓ Deployment Complete${NC}\n`);
-        console.log(`  Script Account: ${counterScriptAccount}`);
-        console.log(`  VM State: ${vmStatePdaString}\n`);
-
-        // Save config
-        const config = {
-            counterScriptAccount: counterScriptAccount,
-            fiveProgramId: FIVE_PROGRAM_ID.toBase58(),
-            vmStatePda: vmStatePdaString,
-            rpcUrl: RPC_URL,
-            timestamp: new Date().toISOString(),
-        };
-
-        fs.writeFileSync('deployment-config.json', JSON.stringify(config, null, 2));
-        console.log(`${GREEN}✓ Config saved to deployment-config.json${NC}\n`);
-
-        console.log(`${YELLOW}Next steps:${NC}`);
-        console.log(`  1. Run e2e-counter-test.mjs to test the counter program`);
-
-    } catch (error) {
-        console.error(`\n${RED}Error: ${error.message}${NC}`);
-        console.error(error);
-        process.exit(1);
-    }
+  const config = {
+    counterScriptAccount: scriptKeypair.publicKey.toBase58(),
+    fiveProgramId: FIVE_PROGRAM_ID.toBase58(),
+    vmStatePda: vmStatePda.toBase58(),
+    rpcUrl: RPC_URL,
+    timestamp: new Date().toISOString(),
+  };
+  fs.writeFileSync(path.join(__dirname, 'deployment-config.json'), JSON.stringify(config, null, 2));
+  console.log(`counterScriptAccount=${scriptKeypair.publicKey.toBase58()}`);
 }
 
-deployCounterProgram();
+deployProgram().catch((e) => { console.error(e.message || e); process.exit(1); });

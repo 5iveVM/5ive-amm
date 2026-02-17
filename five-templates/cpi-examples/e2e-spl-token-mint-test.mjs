@@ -35,12 +35,15 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION
 // ============================================================================
 
-const RPC_URL = 'http://127.0.0.1:8899';
-const PAYER_KEYPAIR_PATH = process.env.HOME + '/.config/solana/id.json';
+const RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
+const PAYER_KEYPAIR_PATH = process.env.FIVE_KEYPAIR_PATH || process.env.PAYER_KEYPAIR_PATH || (process.env.HOME + '/.config/solana/id.json');
 
 // Load from deployment config or use defaults
-let FIVE_PROGRAM_ID = new PublicKey('9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
-let VM_STATE_PDA = new PublicKey('DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
+let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
+let VM_STATE_PDA = new PublicKey(process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
+if (process.env.RPC_URL || process.env.PAYER_KEYPAIR_PATH || process.env.FIVE_VM_PROGRAM_ID || process.env.FIVE_VM_STATE_PDA) {
+    console.warn('⚠️  Deprecated env vars detected; prefer FIVE_RPC_URL/FIVE_KEYPAIR_PATH/FIVE_PROGRAM_ID/VM_STATE_PDA');
+}
 
 // ============================================================================
 // LOGGING UTILITIES
@@ -194,21 +197,16 @@ async function main() {
         const bytecode = await FiveSDK.compile(source);
         success('Contract compiled');
 
-        // Deploy contract
-        info('Deploying contract...');
-        const deployTx = new Transaction().add(
-            SystemProgram.createAccount({
-                fromPubkey: payer.publicKey,
-                newAccountPubkey: new Keypair().publicKey,
-                lamports: LAMPORTS_PER_SOL,
-                space: 10000,
-                programId: FIVE_PROGRAM_ID
-            })
-        );
-
-        // For this example, we'll use a pre-deployed account
-        // In production, use FiveProgram.fromABI() with a deployed contract
-        scriptAccount = new PublicKey('GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
+        info('Deploying compiled contract...');
+        const deployment = await FiveSDK.deployToSolana(bytecode, connection, payer, {
+            fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
+            vmStateAccount: VM_STATE_PDA.toBase58(),
+            debug: false,
+        });
+        if (!deployment.success || !deployment.programId) {
+            throw new Error(`deployToSolana failed: ${deployment.error || 'unknown error'}`);
+        }
+        scriptAccount = new PublicKey(deployment.programId);
         success(`Using script account: ${scriptAccount.toBase58()}`);
     } catch (e) {
         error(`Compilation/deployment failed: ${e.message}`);

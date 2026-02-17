@@ -1,16 +1,16 @@
 {
   "config": {
-    "rpcUrl": "https://api.devnet.solana.com",
-    "programId": "DpZXefRzpehuoUnX93f3K3pnVGptmLaPt56rrvbBL83s",
-    "vmStatePda": "1p5JMJ475unWyiCJuR96V4LewG1qbsS4J1Gzw6u6zGt",
-    "counterScriptAccount": "59ZqvZXJydHcv4EveDYBef7piF12pzhNhDrLx4x38YRR"
+    "rpcUrl": "http://127.0.0.1:8899",
+    "programId": "FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb",
+    "vmStatePda": "GMQFFG9iy63CyUTq1pbXrAK9AcWYLbtcx5vm6KUT7CDY",
+    "counterScriptAccount": "4w7yY4X5FpTVrQdqs7FtmGQ4LxJnctsRQxWDquGkE3Vc"
   },
   "accounts": {
-    "counter1": "DZ7HbcqezYs9wR1Xe9KcityYXSp8n3CEAgwTieGtbw9v",
-    "counter2": "AujjJqY4NVvSdKwpUmPCbbdmCgpZ2K6Zt28ShyTyGztU",
-    "user1": "FZdcLbCgeyXa1vbSXvH8i2GyLQoLGhkuYhDCRjNACFch",
-    "user2": "22aLnSyUSuDr6hwsYwzzY9Wh8btRY2dXhX3Gx4NJ2mUb",
-    "payer": "EMoPytP7RY3JhCLtNwvZowMzgNNRLTF7FHuERjQ2wHFt"
+    "counter1": "EsmER7ueUvZJtGhJ1D7zHFiNARvhn9jbvDvrYcKo4GmF",
+    "counter2": "85F7jkpSLH6cNrdUd2CkKfSevE1L618De86UXeSyqkRS",
+    "user1": "8KbvDbvUaXQzL3VeswWRLyxDGh1cDWYQn5K7LomyydsB",
+    "user2": "Ekhzkw3Q6iPTL9U3eudBhV4BHb1eeo4cMwYzwsKjmE3C",
+    "payer": "9Uu1SEs2hEWSfjXAh7JG7DuZK2exsgzMfiAPbJ8ufP9w"
   },
   "expected": {
     "counter1Count": 12,
@@ -20,7 +20,7 @@
     "totalTests": 13,
     "passed": 13,
     "failed": 0,
-    "totalComputeUnits": 75199,
+    "totalComputeUnits": 165785,
     "allPassed": true
   }
 }

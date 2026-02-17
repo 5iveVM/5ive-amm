@@ -2,305 +2,103 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
-    Connection,
-    Keypair,
-    PublicKey,
-    Transaction,
-    TransactionInstruction,
-    SystemProgram,
-    LAMPORTS_PER_SOL,
-    ComputeBudgetProgram
+  Connection, Keypair, PublicKey, Transaction, TransactionInstruction,
+  SystemProgram, LAMPORTS_PER_SOL, ComputeBudgetProgram
 } from '@solana/web3.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8899';
-const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || '3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1');
-const VM_STATE_PDA = process.env.VM_STATE_PDA || 'AJm3tpMgv9mXCWK2Sj9dZ2DxtUWXuQBXiK5HcYtHmKit';
+const RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
+const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || 'FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb');
+const VM_STATE_PDA = process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'GMQFFG9iy63CyUTq1pbXrAK9AcWYLbtcx5vm6KUT7CDY';
+const FEE_VAULT_0 = new PublicKey(process.env.FEE_VAULT_ACCOUNT || 'B9k6qgnMjEAJu9xd46eMK9TCVp7uBzrYQD7dQ2nizRfm');
 
-const GREEN = '\x1b[32m';
-const YELLOW = '\x1b[33m';
-const CYAN = '\x1b[36m';
-const RED = '\x1b[31m';
-const NC = '\x1b[0m';
+async function deployProgram() {
+  const connection = new Connection(RPC_URL, 'confirmed');
+  const payerKeyPath = process.env.FIVE_KEYPAIR_PATH || path.join(process.env.HOME, '.config/solana/id.json');
+  const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(payerKeyPath, 'utf-8'))));
 
-async function deployProgram(programName = 'Token') {
-    console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}`);
-    console.log(`${CYAN}${programName} Template - Five VM Deployment (Robust)${NC}`);
-    console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}\n`);
+  const artifactPath = process.env.FIVE_ARTIFACT_PATH || path.join(__dirname, 'build', 'five-token-template.five');
+  const parsed = JSON.parse(fs.readFileSync(artifactPath, 'utf-8'));
+  const bytecode = new Uint8Array(Buffer.from(parsed.bytecode, 'base64'));
 
-    try {
-        const connection = new Connection(RPC_URL, 'confirmed');
-        const payerKeyPath = path.join(process.env.HOME, '.config/solana/id.json');
-        const payer = Keypair.fromSecretKey(
-            Uint8Array.from(JSON.parse(fs.readFileSync(payerKeyPath, 'utf-8')))
-        );
+  const balance = await connection.getBalance(payer.publicKey);
+  if (balance < 0.1 * LAMPORTS_PER_SOL) throw new Error('Insufficient balance');
 
-        console.log(`${CYAN}▶ Configuration${NC}`);
-        console.log(`  RPC URL: ${RPC_URL}`);
-        console.log(`  Payer: ${payer.publicKey.toBase58()}`);
-        console.log(`  Five Program: ${FIVE_PROGRAM_ID.toBase58()}\n`);
+  const vmStatePda = new PublicKey(VM_STATE_PDA);
+  const vmStateInfo = await connection.getAccountInfo(vmStatePda);
+  if (!vmStateInfo || !vmStateInfo.owner.equals(FIVE_PROGRAM_ID)) {
+    throw new Error('VM state missing or owned by wrong program');
+  }
 
-        const balance = await connection.getBalance(payer.publicKey);
-        if (balance < 0.1 * LAMPORTS_PER_SOL) {
-            console.log(`${RED}✗ Insufficient balance (need at least 0.1 SOL).${NC}`);
-            process.exit(1);
-        }
+  const confirmTx = async (signature, description) => {
+    const latestBlockhash = await connection.getLatestBlockhash();
+    const confirmation = await connection.confirmTransaction({ signature, ...latestBlockhash }, 'confirmed');
+    if (confirmation.value.err) throw new Error(`${description} failed: ${JSON.stringify(confirmation.value.err)}`);
+  };
 
-        const artifactPathOverride = process.env.FIVE_ARTIFACT_PATH;
-        let artifactName = process.env.FIVE_ARTIFACT;
-        if (!artifactName) {
-            artifactName = programName.toLowerCase() === 'amm' ? 'five-amm-baseline.five' : 'five-token-baseline.five';
-        }
-        let bytecodeFile = artifactPathOverride
-            ? path.resolve(artifactPathOverride)
-            : path.join(__dirname, 'build', artifactName);
-        // If running from token dir but need amm, adjust path
-        if (!artifactPathOverride && programName.toLowerCase() === 'amm' && !fs.existsSync(bytecodeFile)) {
-            bytecodeFile = path.join(__dirname, '..', 'amm', 'build', artifactName);
-        }
-        if (!fs.existsSync(bytecodeFile)) {
-            console.log(`${RED}✗ File not found: ${bytecodeFile}${NC}`);
-            process.exit(1);
-        }
+  const scriptKeypair = Keypair.generate();
+  const SCRIPT_HEADER_SIZE = 64;
+  const finalScriptSize = SCRIPT_HEADER_SIZE + bytecode.length;
+  const rentRequired = await connection.getMinimumBalanceForRentExemption(finalScriptSize);
+  const initialLamports = rentRequired + 0.01 * LAMPORTS_PER_SOL;
 
-        const fiveFileContent = fs.readFileSync(bytecodeFile);
-        let bytecode;
-        try {
-            const fiveFile = JSON.parse(fiveFileContent.toString('utf-8'));
-            bytecode = new Uint8Array(Buffer.from(fiveFile.bytecode, 'base64'));
-        } catch (e) {
-            console.log(`${YELLOW}⚠ JSON parse failed, assuming raw binary...${NC}`);
-            bytecode = new Uint8Array(fiveFileContent);
-        }
+  const initTx = new Transaction().add(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: scriptKeypair.publicKey,
+      lamports: initialLamports,
+      space: finalScriptSize,
+      programId: FIVE_PROGRAM_ID,
+    }),
+    new TransactionInstruction({
+      keys: [
+        { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
+        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: vmStatePda, isSigner: false, isWritable: true },
+        { pubkey: FEE_VAULT_0, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      programId: FIVE_PROGRAM_ID,
+      data: Buffer.concat([Buffer.from([4]), Buffer.from(new Uint32Array([bytecode.length]).buffer)]),
+    })
+  );
 
-        console.log(`  Bytecode size: ${bytecode.length} bytes`);
+  const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
+  await confirmTx(initSig, 'Script Account Init');
 
-        // Helper for robust confirmation
-        const confirmTx = async (signature, description) => {
-            const latestBlockhash = await connection.getLatestBlockhash();
-            const confirmation = await connection.confirmTransaction(
-                { signature, ...latestBlockhash },
-                'confirmed'
-            );
-            if (confirmation.value.err) {
-                throw new Error(`${description} failed: ${JSON.stringify(confirmation.value.err)}`);
-            }
-            return signature;
-        };
+  const CHUNK_SIZE = 380;
+  for (let i = 0; i < bytecode.length; i += CHUNK_SIZE) {
+    const chunk = bytecode.slice(i, Math.min(i + CHUNK_SIZE, bytecode.length));
+    const appendTx = new Transaction().add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
+      new TransactionInstruction({
+        keys: [
+          { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
+          { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+          { pubkey: vmStatePda, isSigner: false, isWritable: true },
+          { pubkey: FEE_VAULT_0, isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        programId: FIVE_PROGRAM_ID,
+        data: Buffer.concat([Buffer.from([5]), chunk]),
+      })
+    );
+    const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
+    await confirmTx(appendSig, `Chunk ${Math.floor(i / CHUNK_SIZE) + 1} append`);
+  }
 
-        // --- Deployment Logic ---
-
-        // 1. Use hardcoded VM State Account
-        const vmStatePda = new PublicKey(VM_STATE_PDA);
-        console.log(`${CYAN}▶ Using hardcoded VM State Account: ${vmStatePda.toBase58()}${NC}`);
-
-        // Check if VM State exists
-        let vmStateInfo = await connection.getAccountInfo(vmStatePda);
-
-        if (!vmStateInfo) {
-            console.error(`${RED}Error: VM State account not found on-chain!${NC}`);
-            console.error(`  Expected: ${vmStatePda.toBase58()}`);
-            console.error(`  Initialize with: node scripts/init-localnet-vm-state.mjs${NC}`);
-            process.exit(1);
-        }
-
-        // Check VM State Owner
-        if (!vmStateInfo.owner.equals(FIVE_PROGRAM_ID)) {
-            console.error(`${RED}Error: VM State owned by ${vmStateInfo.owner.toBase58()}, expected ${FIVE_PROGRAM_ID.toBase58()}${NC}`);
-            process.exit(1);
-        }
-        console.log(`  VM State Owner Verified: ${vmStateInfo.owner.toBase58()}`);
-
-        // 2. Create Script Account & Init
-        const scriptKeypair = Keypair.generate();
-        const SCRIPT_HEADER_SIZE = 64;
-
-        // Calculate actual rent needed for final script size
-        const finalScriptSize = SCRIPT_HEADER_SIZE + bytecode.length;
-        const rentRequired = await connection.getMinimumBalanceForRentExemption(finalScriptSize);
-        // Add small buffer to handle reallocation overhead (bytecode is small, so buffer is small)
-        const REALLOCATION_BUFFER = 0.01 * LAMPORTS_PER_SOL;  // 0.01 SOL buffer
-        const initialLamports = rentRequired + REALLOCATION_BUFFER;
-
-        // Verify Five Program ownership will be set correctly
-        if (!FIVE_PROGRAM_ID) {
-            console.log(`${RED}✗ Five Program ID not set!${NC}`);
-            process.exit(1);
-        }
-        console.log(`  Script will be owned by: ${FIVE_PROGRAM_ID.toBase58()}`);
-
-        console.log(`${CYAN}▶ Creating Script Account...${NC}`);
-        console.log(`  Final size: ${finalScriptSize} bytes`);
-        console.log(`  Rent required: ${rentRequired} lamports`);
-        console.log(`  Initial funding: ${initialLamports} lamports (${(initialLamports / LAMPORTS_PER_SOL).toFixed(8)} SOL)`);
-        // Fee vault account (hardcoded shard 0)
-        const FEE_VAULT_0 = new PublicKey(process.env.FEE_VAULT_ACCOUNT || 'HXW6bZsdJW6Be5c51NNpNb9NcVxmHbUrF9oKkt4C1tEH');
-
-        const initTx = new Transaction().add(
-            ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
-            SystemProgram.createAccount({
-                fromPubkey: payer.publicKey,
-                newAccountPubkey: scriptKeypair.publicKey,
-                lamports: initialLamports,
-                space: finalScriptSize,  // Allocate full size upfront to avoid realloc issues
-                programId: FIVE_PROGRAM_ID,
-            }),
-            new TransactionInstruction({
-                keys: [
-                    { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
-                    { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-                    { pubkey: vmStatePda, isSigner: false, isWritable: true },
-                    { pubkey: FEE_VAULT_0, isSigner: false, isWritable: true },
-                    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-                ],
-                programId: FIVE_PROGRAM_ID,
-                data: Buffer.concat([
-                    Buffer.from([4]), // InitLargeProgram
-                    Buffer.from(new Uint32Array([bytecode.length]).buffer) // expected_size
-                ]),
-            })
-        );
-
-        const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
-        await confirmTx(initSig, 'Script Account Init');
-        console.log(`  Script Account: ${scriptKeypair.publicKey.toBase58()} (${initSig})`);
-
-        // Wait for account to be visible
-        await new Promise(r => setTimeout(r, 1000));
-
-        // 3. Append Chunks
-        const CHUNK_SIZE = 400;
-        const chunks = [];
-        for (let i = 0; i < bytecode.length; i += CHUNK_SIZE) {
-            chunks.push(bytecode.slice(i, Math.min(i + CHUNK_SIZE, bytecode.length)));
-        }
-
-        console.log(`${CYAN}▶ Appending ${chunks.length} chunks...${NC}`);
-
-        let currentSize = SCRIPT_HEADER_SIZE;
-
-        for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-
-            // Calculate size based on LOCAL tracking
-            const newSize = currentSize + chunk.length;
-
-            // Pre-funded, so no need to transfer additional rent
-            // const oldRent = ...
-
-            const appendTx = new Transaction();
-            appendTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }));
-            // appendTx.add(SystemProgram.transfer({...}));
-
-            appendTx.add(new TransactionInstruction({
-                keys: [
-                    { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
-                    { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-                    { pubkey: vmStatePda, isSigner: false, isWritable: true },
-                    { pubkey: FEE_VAULT_0, isSigner: false, isWritable: true },
-                    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-                ],
-                programId: FIVE_PROGRAM_ID,
-                data: Buffer.concat([
-                    Buffer.from([5]), // AppendBytecode
-                    chunk
-                ]),
-            }));
-
-            appendTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-            appendTx.feePayer = payer.publicKey;
-            const msg = appendTx.compileMessage();
-            console.log(`DEBUG: Chunk ${i} keys:`, msg.accountKeys.map(k => k.toBase58()));
-
-            const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
-            await confirmTx(appendSig, `Chunk ${i} append`);
-            process.stdout.write('.');
-
-            // Update current size for next iteration for ACCURATE rent calculation
-            currentSize = newSize;
-        }
-        console.log(`\n${GREEN}✓ All chunks appended.${NC}\n`);
-
-        // 4. Finalize the script upload (discriminator 7)
-        // This marks upload_complete = true, allowing Execute calls to succeed
-        console.log(`${CYAN}▶ Finalizing script upload...${NC}`);
-        const finalizeTx = new Transaction().add(
-            ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
-            new TransactionInstruction({
-                keys: [
-                    { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
-                    { pubkey: payer.publicKey, isSigner: true, isWritable: false },
-                    { pubkey: vmStatePda, isSigner: false, isWritable: true },
-                    { pubkey: FEE_VAULT_0, isSigner: false, isWritable: true },
-                    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-                ],
-                programId: FIVE_PROGRAM_ID,
-                data: Buffer.from([7]), // FinalizeScript discriminator
-            })
-        );
-
-        const finalizeSig = await connection.sendTransaction(finalizeTx, [payer], { skipPreflight: true });
-        await confirmTx(finalizeSig, 'Finalize Script');
-        console.log(`${GREEN}✓ Script finalized: ${finalizeSig}${NC}\n`);
-
-        const tokenScriptAccount = scriptKeypair.publicKey.toBase58();
-        const vmStatePdaString = vmStatePda.toBase58();
-
-        console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}`);
-        console.log(`${GREEN}✓ Deployment Complete${NC}\n`);
-        console.log(`  Script Account: ${tokenScriptAccount}`);
-        console.log(`  VM State: ${vmStatePdaString}\n`);
-
-        // Save config
-        const config = {
-            tokenScriptAccount: tokenScriptAccount,
-            fiveProgramId: FIVE_PROGRAM_ID.toBase58(),
-            vmStatePda: vmStatePdaString,
-            rpcUrl: RPC_URL,
-            timestamp: new Date().toISOString(),
-        };
-
-        fs.writeFileSync('deployment-config.json', JSON.stringify(config, null, 2));
-        console.log(`${GREEN}✓ Config saved to deployment-config.json${NC}\n`);
-
-        // Verify account ownership (post-deployment check)
-        console.log(`${CYAN}▶ Verifying account ownership...${NC}`);
-        const finalScriptInfo = await connection.getAccountInfo(new PublicKey(tokenScriptAccount));
-        const finalVmStateInfo = await connection.getAccountInfo(new PublicKey(vmStatePdaString));
-
-        if (finalScriptInfo && finalScriptInfo.owner.equals(FIVE_PROGRAM_ID)) {
-            console.log(`  ${GREEN}✓ Script account owner correct${NC}`);
-        } else {
-            console.log(`  ${RED}✗ Script account owner WRONG!${NC}`);
-            if (finalScriptInfo) {
-                console.log(`    Current: ${finalScriptInfo.owner.toBase58()}`);
-                console.log(`    Expected: ${FIVE_PROGRAM_ID.toBase58()}`);
-            }
-        }
-
-        if (finalVmStateInfo && finalVmStateInfo.owner.equals(FIVE_PROGRAM_ID)) {
-            console.log(`  ${GREEN}✓ VM state owner correct${NC}\n`);
-        } else {
-            console.log(`  ${RED}✗ VM state owner WRONG!${NC}`);
-            if (finalVmStateInfo) {
-                console.log(`    Current: ${finalVmStateInfo.owner.toBase58()}`);
-                console.log(`    Expected: ${FIVE_PROGRAM_ID.toBase58()}`);
-            }
-            console.log();
-        }
-
-        console.log(`${YELLOW}Next steps:${NC}`);
-        console.log(`  1. Run tests: npm run test:e2e`);
-        console.log(`  2. Debug ownership if needed: npm run test:debug-owner`);
-
-    } catch (error) {
-        console.error(`\n${RED}Error: ${error.message}${NC}`);
-        console.error(error);
-        process.exit(1);
-    }
+  const config = {
+    tokenScriptAccount: scriptKeypair.publicKey.toBase58(),
+    fiveProgramId: FIVE_PROGRAM_ID.toBase58(),
+    vmStatePda: vmStatePda.toBase58(),
+    rpcUrl: RPC_URL,
+    timestamp: new Date().toISOString(),
+  };
+  fs.writeFileSync(path.join(__dirname, 'deployment-config.json'), JSON.stringify(config, null, 2));
+  console.log(`tokenScriptAccount=${scriptKeypair.publicKey.toBase58()}`);
 }
 
-const programName = process.argv[2] || 'Token';
-deployProgram(programName);
+deployProgram().catch((e) => { console.error(e.message || e); process.exit(1); });

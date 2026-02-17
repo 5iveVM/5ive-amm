@@ -155,6 +155,14 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
         _account_after.data_len() as u32,
         if _account_after.is_writable() { 1u8 } else { 0u8 }
     );
+    if _account_after.data_len() != space as usize {
+        debug_log!(
+            "INIT_ACCOUNT SIZE MISMATCH: requested={} actual={}",
+            space,
+            _account_after.data_len() as u32
+        );
+        return Err(VMErrorCode::AccountDataEmpty);
+    }
 
     // CRITICAL DEBUG: Log pointers to detect stale references
     let ptr_after = unsafe { _account_after.borrow_data_unchecked().as_ptr() as usize };

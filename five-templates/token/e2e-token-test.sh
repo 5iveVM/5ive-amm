@@ -49,7 +49,7 @@ VERBOSE=false
 DEPLOY=false
 CLEAN=false
 SKIP_BUILD=false
-RPC_URL="http://127.0.0.1:8899"
+RPC_URL="${FIVE_RPC_URL:-http://127.0.0.1:8899}"
 SHOW_HELP=false
 
 # Counters & Status
@@ -159,7 +159,10 @@ check_prerequisites() {
     #     exit 1
     # fi
 
-    export FIVE_PROGRAM_ID="${FIVE_PROGRAM_ID:-6ndNfSrrGoFfTbS1sdJFybuJJyA6YQHtNgRdoXFREi8k}"
+    export FIVE_RPC_URL="$RPC_URL"
+    if [ -n "${RPC_URL:-}" ] && [ -z "${FIVE_RPC_URL:-}" ]; then
+        print_warning "Using legacy RPC_URL flow; prefer FIVE_RPC_URL"
+    fi
 
     # Check Solana CLI
     print_step "Checking Solana CLI..."
