@@ -1,13 +1,92 @@
 {
-  "generatedAt": "2026-02-18T02:52:48.568Z",
+  "generatedAt": "2026-02-18T14:51:34.654Z",
   "phase": "local-required",
   "summary": {
-    "pass": 10,
-    "fail": 9
+    "pass": 16,
+    "fail": 2,
+    "skip": 13
   },
   "allGreen": false,
   "results": [
     {
+      "project": "5ive-amm",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-amm",
+      "network": "localnet",
+      "step": "test",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-amm",
+      "network": "localnet",
+      "step": "test:onchain:local",
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+    },
+    {
+      "project": "5ive-cfd",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-cfd",
+      "network": "localnet",
+      "step": "test",
+      "status": "fail",
+      "blocker": "test failed"
+    },
+    {
+      "project": "5ive-cfd",
+      "network": "localnet",
+      "step": "test:onchain:local",
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+    },
+    {
+      "project": "5ive-cfd",
+      "network": "localnet",
+      "step": "client:run:local",
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+    },
+    {
+      "project": "5ive-esccrow",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-esccrow",
+      "network": "localnet",
+      "step": "test",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-esccrow",
+      "network": "localnet",
+      "step": "test:onchain:local",
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+    },
+    {
+      "project": "5ive-esccrow",
+      "network": "localnet",
+      "step": "client:run:local",
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+    },
+    {
+      "project": "5ive-lending",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass"
+    },
+    {
       "project": "5ive-lending",
       "network": "localnet",
       "step": "test",
@@ -17,74 +96,74 @@
       "project": "5ive-lending",
       "network": "localnet",
       "step": "test:onchain:local",
-      "status": "fail",
-      "blocker": "test:onchain:local failed"
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
     },
     {
       "project": "5ive-lending-2",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-lending-2",
+      "network": "localnet",
+      "step": "test",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-lending-2",
+      "network": "localnet",
+      "step": "test:onchain:local",
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+    },
+    {
+      "project": "5ive-lending-3",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-lending-3",
+      "network": "localnet",
+      "step": "test",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-lending-3",
+      "network": "localnet",
+      "step": "test:onchain:local",
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+    },
+    {
+      "project": "5ive-lending-4",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-lending-4",
+      "network": "localnet",
+      "step": "test",
+      "status": "pass"
+    },
+    {
+      "project": "5ive-lending-4",
+      "network": "localnet",
+      "step": "test:onchain:local",
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+    },
+    {
+      "project": "5ive-token",
       "network": "localnet",
       "step": "build",
       "status": "fail",
       "blocker": "build failed"
     },
     {
-      "project": "5ive-lending-2",
-      "network": "localnet",
-      "step": "test",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-2",
-      "network": "localnet",
-      "step": "test:onchain:local",
-      "status": "fail",
-      "blocker": "test:onchain:local failed"
-    },
-    {
-      "project": "5ive-lending-3",
-      "network": "localnet",
-      "step": "build",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-3",
-      "network": "localnet",
-      "step": "test",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-3",
-      "network": "localnet",
-      "step": "test:onchain:local",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-4",
-      "network": "localnet",
-      "step": "build",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-4",
-      "network": "localnet",
-      "step": "test",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-4",
-      "network": "localnet",
-      "step": "test:onchain:local",
-      "status": "fail",
-      "blocker": "test:onchain:local failed"
-    },
-    {
-      "project": "5ive-token",
-      "network": "localnet",
-      "step": "build",
-      "status": "fail",
-      "blocker": "build failed"
-    },
-    {
       "project": "5ive-token",
       "network": "localnet",
       "step": "test",
@@ -94,15 +173,15 @@
       "project": "5ive-token",
       "network": "localnet",
       "step": "test:onchain:local",
-      "status": "fail",
-      "blocker": "test:onchain:local failed"
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
     },
     {
       "project": "5ive-token",
       "network": "localnet",
       "step": "client:run:local",
-      "status": "fail",
-      "blocker": "client:run:local failed"
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
     },
     {
       "project": "5ive-token-2",
@@ -120,15 +199,15 @@
       "project": "5ive-token-2",
       "network": "localnet",
       "step": "test:onchain:local",
-      "status": "fail",
-      "blocker": "test:onchain:local failed"
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
     },
     {
       "project": "5ive-token-2",
       "network": "localnet",
       "step": "client:run:local",
-      "status": "fail",
-      "blocker": "client:run:local failed"
+      "status": "skip",
+      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
     }
   ]
 }

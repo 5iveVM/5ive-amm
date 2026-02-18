@@ -1,0 +1,13 @@
+{"project":"5ive-amm","network":"devnet","step":"test:onchain:devnet","status":"pass"}
+{"project":"5ive-cfd","network":"devnet","step":"test:onchain:devnet","status":"pass"}
+{"project":"5ive-cfd","network":"devnet","step":"client:run:devnet","status":"blocked","blocker":"client:run:devnet failed on devnet (inspect logs and funding/program-id/rpc)"}
+{"project":"5ive-esccrow","network":"devnet","step":"test:onchain:devnet","status":"pass"}
+{"project":"5ive-esccrow","network":"devnet","step":"client:run:devnet","status":"blocked","blocker":"client:run:devnet failed on devnet (inspect logs and funding/program-id/rpc)"}
+{"project":"5ive-lending","network":"devnet","step":"test:onchain:devnet","status":"pass"}
+{"project":"5ive-lending-2","network":"devnet","step":"test:onchain:devnet","status":"pass"}
+{"project":"5ive-lending-3","network":"devnet","step":"test:onchain:devnet","status":"pass"}
+{"project":"5ive-lending-4","network":"devnet","step":"test:onchain:devnet","status":"pass"}
+{"project":"5ive-token","network":"devnet","step":"test:onchain:devnet","status":"pass"}
+{"project":"5ive-token","network":"devnet","step":"client:run:devnet","status":"blocked","blocker":"client:run:devnet failed on devnet (inspect logs and funding/program-id/rpc)"}
+{"project":"5ive-token-2","network":"devnet","step":"test:onchain:devnet","status":"pass"}
+{"project":"5ive-token-2","network":"devnet","step":"client:run:devnet","status":"pass"}

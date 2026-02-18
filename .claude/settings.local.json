@@ -75,7 +75,9 @@
       "Bash(/tmp/test_debug3.sh)",
       "Bash(/tmp/test_debug4.sh:*)",
       "Bash(/tmp/test_debug4.sh)",
-      "Bash(/tmp/test_exact_lines.v)"
+      "Bash(/tmp/test_exact_lines.v)",
+      "Bash(npm run test:onchain:local:*)",
+      "Bash(npm run client:run:local:*)"
     ]
   }
 }
