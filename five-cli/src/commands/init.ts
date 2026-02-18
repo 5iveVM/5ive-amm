@@ -116,6 +116,11 @@ export const initCommand: CommandDefinition = {
       await generateClientScaffold(projectDir, templateToClientFunctions(options.template));
       spinner.succeed('Configuration files generated');
 
+      // Generate vendored stdlib scaffold (always, even with --no-examples)
+      spinner.start('Generating standard library scaffold...');
+      await generateStdlibScaffold(projectDir, options.template);
+      spinner.succeed('Standard library scaffold generated');
+
       // Generate agent playbooks (always, even with --no-examples)
       spinner.start('Generating AGENTS playbooks...');
       await generateAgentPlaybooks(projectDir);
@@ -406,6 +411,8 @@ optimization_level = "${config.optimizations.optimizationLevel}"
 [dependencies]
 # Add project dependencies here
 # example = { path = "../example" }
+# future: stdlib package source (vendored stdlib is generated under src/std in v1)
+# five-stdlib = { version = "0.1.0" }
 
 [build]
 # Custom build settings
@@ -419,9 +426,67 @@ network = "devnet"
 `;
 }
 
+async function generateStdlibScaffold(projectDir: string, _template: string): Promise<void> {
+  const stdDir = join(projectDir, 'src/std');
+  const interfacesDir = join(stdDir, 'interfaces');
+  await mkdir(stdDir, { recursive: true });
+  await mkdir(interfacesDir, { recursive: true });
+
+  const filesToCopy: Array<{ source: string; destination: string }> = [
+    { source: 'std/prelude.v', destination: join(stdDir, 'prelude.v') },
+    { source: 'std/builtins.v', destination: join(stdDir, 'builtins.v') },
+    {
+      source: 'std/interfaces/spl_token.v',
+      destination: join(interfacesDir, 'spl_token.v')
+    },
+    {
+      source: 'std/interfaces/system_program.v',
+      destination: join(interfacesDir, 'system_program.v')
+    },
+    { source: 'docs/STDLIB.md', destination: join(projectDir, 'docs/STDLIB.md') }
+  ];
+
+  for (const file of filesToCopy) {
+    const content = await loadStdlibAsset(file.source);
+    await writeFile(file.destination, content);
+  }
+}
+
+async function loadStdlibAsset(relativePath: string): Promise<string> {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const candidates = [
+    // Monorepo path when running from src or dist
+    resolve(__dirname, '../../../five-stdlib', relativePath),
+    // Fallback co-located path if packaged with CLI in the future
+    resolve(__dirname, '../stdlib', relativePath),
+    resolve(process.cwd(), 'five-stdlib', relativePath)
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      return await readFile(candidate, 'utf8');
+    } catch {
+      // try next
+    }
+  }
+
+  throw new Error(`Failed to load stdlib asset: ${relativePath}`);
+}
+
+function getStdlibPreludeBanner(): string {
+  return `// 5IVE vendored stdlib (v1)
+// Canonical explicit imports:
+// use std::builtins;
+// use std::interfaces::spl_token;
+// use std::interfaces::system_program;
+
+`;
+}
+
 function getTemplateMainFile(template: string): string {
   const templates: Record<string, string> = {
-    basic: `// Basic 5ive DSL program (valid-first starter)
+    basic: `${getStdlibPreludeBanner()}// Basic 5ive DSL program (valid-first starter)
 
 account Counter {
     value: u64;
@@ -449,7 +514,7 @@ pub get_value(counter: Counter) -> u64 {
 }
 `,
 
-    defi: `// DeFi Protocol on 5IVE VM
+    defi: `${getStdlibPreludeBanner()}// DeFi Protocol on 5IVE VM
 script DefiProtocol {
     init() {
         log("DeFi Protocol initialized");
@@ -508,7 +573,7 @@ instruction add_liquidity(amount_a: u64, amount_b: u64) -> u64 {
 }
 `,
 
-    nft: `// NFT Collection on 5IVE VM
+    nft: `${getStdlibPreludeBanner()}// NFT Collection on 5IVE VM
 script NFTCollection {
     init() {
         log("NFT Collection initialized");
@@ -571,7 +636,7 @@ event TransferEvent {
 }
 `,
 
-    game: `// Game Logic on 5IVE VM
+    game: `${getStdlibPreludeBanner()}// Game Logic on 5IVE VM
 script GameEngine {
     init() {
         log("Game Engine initialized");
@@ -652,7 +717,7 @@ event LevelUp {
 }
 `,
 
-    dao: `// DAO Governance on 5IVE VM
+    dao: `${getStdlibPreludeBanner()}// DAO Governance on 5IVE VM
 script DAOGovernance {
     init() {
         log("DAO Governance initialized");
@@ -1275,11 +1340,31 @@ npm run deploy
 ## Project Structure
 
 - \`src/\` - 5IVE VM source files (.v)
+- \`src/std/\` - Vendored standard library scaffold (prelude, builtins, common interfaces)
 - \`tests/\` - Test files (.v files with test_* functions)
 - \`client/\` - Node TypeScript client starter (FiveProgram + ABI)
 - \`build/\` - Compiled bytecode
 - \`docs/\` - Documentation
 - \`five.toml\` - Project configuration
+
+## Standard Library (Vendored v1)
+
+Projects initialized with \`5ive init\` include:
+
+1. \`src/std/prelude.v\`
+2. \`src/std/builtins.v\`
+3. \`src/std/interfaces/spl_token.v\`
+4. \`src/std/interfaces/system_program.v\`
+
+Use explicit imports in your modules:
+
+\`\`\`v
+use std::builtins;
+use std::interfaces::spl_token;
+use std::interfaces::system_program;
+\`\`\`
+
+See \`docs/STDLIB.md\` for migration notes to future dependency-based stdlib distribution.
 
 ## Multi-File Projects
 
