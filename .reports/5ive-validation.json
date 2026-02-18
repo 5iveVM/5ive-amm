@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-02-18T14:51:34.654Z",
+  "generatedAt": "2026-02-18T15:13:13.905Z",
   "phase": "local-required",
   "summary": {
-    "pass": 16,
-    "fail": 2,
+    "pass": 18,
+    "fail": 0,
     "skip": 13
   },
-  "allGreen": false,
+  "allGreen": true,
   "results": [
     {
       "project": "5ive-amm",
@@ -37,8 +37,7 @@
       "project": "5ive-cfd",
       "network": "localnet",
       "step": "test",
-      "status": "fail",
-      "blocker": "test failed"
+      "status": "pass"
     },
     {
       "project": "5ive-cfd",
@@ -160,8 +159,7 @@
       "project": "5ive-token",
       "network": "localnet",
       "step": "build",
-      "status": "fail",
-      "blocker": "build failed"
+      "status": "pass"
     },
     {
       "project": "5ive-token",
