@@ -1,0 +1,33 @@
+name: verify-5ive
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  verify-local:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install root dependencies (best-effort)
+        run: npm install || true
+      - name: Verify local matrix (required)
+        run: ./scripts/verify-5ive-projects.sh
+
+  verify-devnet:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install root dependencies (best-effort)
+        run: npm install || true
+      - name: Verify devnet matrix (tracked)
+        run: ./scripts/verify-5ive-devnet.sh
