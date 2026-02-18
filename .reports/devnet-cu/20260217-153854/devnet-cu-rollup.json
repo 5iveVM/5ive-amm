@@ -1,0 +1,644 @@
+{
+  "environment": {
+    "timestamp": "20260217-153854",
+    "rpcUrl": "https://api.devnet.solana.com",
+    "wallet": "9Uu1SEs2hEWSfjXAh7JG7DuZK2exsgzMfiAPbJ8ufP9w",
+    "vmProgramId": "3SzYVwBGUJRatFNQCTerZoReuqDHDFjM2wwCdsQ48Qu1",
+    "versions": {
+      "five": "1.0.26",
+      "node": "v24.10.0",
+      "npm": "11.6.1",
+      "cargo": "cargo 1.86.0-nightly (cecde95c1 2025-01-24)",
+      "solana": "solana-cli 3.1.8 (src:2717084a; feat:1620780344, client:Agave)"
+    }
+  },
+  "counts": {
+    "PASS": 11,
+    "FAIL": 9,
+    "PARTIAL": 1
+  },
+  "validator": {
+    "report_path": null,
+    "scenarios": [
+      {
+        "name": "token_full_e2e",
+        "deploy": 5800,
+        "execute": 76935,
+        "total": 82735,
+        "steps": 15
+      },
+      {
+        "name": "external_non_cpi",
+        "deploy": 12204,
+        "execute": 6782,
+        "total": 18986,
+        "steps": 1
+      },
+      {
+        "name": "external_interface_mapping_non_cpi",
+        "deploy": 12399,
+        "execute": 5441,
+        "total": 17840,
+        "steps": 1
+      },
+      {
+        "name": "external_burst_non_cpi",
+        "deploy": 13431,
+        "execute": 12710,
+        "total": 26141,
+        "steps": 1
+      },
+      {
+        "name": "memory_string_heavy",
+        "deploy": 5800,
+        "execute": 76916,
+        "total": 82716,
+        "steps": 15
+      }
+    ],
+    "steps": [
+      {
+        "step": "init_mint",
+        "signature": "3duqCLZkrdfXm9ZGjJ2v2U6htbmsr6iBtkBsUcmxuWsCvtnqXmFsbBooPrJ1pzMHMZa7miTFTLX42NN9tTzsVpZ7",
+        "units": 9810
+      },
+      {
+        "step": "init_token_account_user1",
+        "signature": "4pU84jvPzaXXYuJHQHkosfFZtFXgvSqLmQJNGPvV2SZe5oR4i2EUva1qYzNFhf3DdprvEym8auWaV1yW873Yinma",
+        "units": 8836
+      },
+      {
+        "step": "init_token_account_user2",
+        "signature": "5CoShCAcxVDachvU5wjCHG62PsnuoHHXJZoA8S99Cw3PJHEotqVkaZxUqkdapYQ87ftfenh7KSA32UibpXvLPcnb",
+        "units": 8836
+      },
+      {
+        "step": "init_token_account_user3",
+        "signature": "WhbJv4bAXBkufWmwEQ28WZGVKP2LLJRk3FwM8GaG9niU2xNHuo3WubTh4EbwDuzvMtLJPn1aRxGZK1UQVk2YXiw",
+        "units": 8836
+      },
+      {
+        "step": "mint_to_user1",
+        "signature": "34FvYamN3qJYyvo2WCYBDQgoYHrZDbM8HYLPtbgXusWMYwgiHDKiiXQV4oHSV4QZS9Jc4duZgVeD4hBwfYNvqrLk",
+        "units": 3675
+      },
+      {
+        "step": "mint_to_user2",
+        "signature": "2ysxmzCykBEygdBYFerqZNzkZENmU78TZj1XFRVnLGmEWX8MpWhjqVdnFu19YgcLMFSSCqkbA9UbA71imdLY9H4B",
+        "units": 3675
+      },
+      {
+        "step": "mint_to_user3",
+        "signature": "CY7Hv7T4cbAM3SnNXNRsDC6iDUUwSa6HCDvakaKDwsEsoBKjhQTVwZ8Xjra5bcNmZcZcGCG2RJ1pNavPdkfBf9E",
+        "units": 3675
+      },
+      {
+        "step": "transfer_user2_to_user3",
+        "signature": "5McGXTEq3WnUEBJRwqjwYkX781cyK3akLCC8sEYs6cmEoe5YmzBkvoL4FiRV7FUWSbCqURc7VeMMRqjftFVVg9of",
+        "units": 3810
+      },
+      {
+        "step": "approve_user3_to_user2",
+        "signature": "Z4xJaPf7WFg1zjcDxACer4fsm8RFLbG1vazW2WLzMuyzPvg2j8e8e6Do5AMt4WnSn2uwCaQ5wtmFrCR7V47f5db",
+        "units": 3625
+      },
+      {
+        "step": "transfer_from_user3_to_user1_by_user2",
+        "signature": "Zw7MJ9ZPvQba53ETMRj6sCyE8ND4nH7F7yAgLXPB4E4mCM6X8LmxLb4vHixHwkGRfHFK8h8dSMvx8pTFVPaBn6u",
+        "units": 5052
+      },
+      {
+        "step": "revoke_user3",
+        "signature": "4CDr5Kek62NmigmTZj6v6k8n9KdG4g7PrsWA6V5KYSkcQaFBB61wrSVRu5W9hksYLJTf61RtJ6p6VZx8cAqSrQyj",
+        "units": 3289
+      },
+      {
+        "step": "burn_user1",
+        "signature": "2X9jhYCTwAXsHfbinBgMi5pfW1RcR6cwJrrHZ1bATsHVMfbMWp4foQX7AEAgme8UrxKAT4RdTCF5YKBmHztkvrv4",
+        "units": 3767
+      },
+      {
+        "step": "freeze_user2",
+        "signature": "5gZcZR4FuHBRaWF1Dz64vLNUbwWMeW63ZjQE55Th62BLeZaqVJbnjFtn6tbHKcWTifvazRkCaJYJzdRmtqf4pDW1",
+        "units": 3429
+      },
+      {
+        "step": "thaw_user2",
+        "signature": "63TirJTGCj3AC1pCrLD7GxpXk3ZW3gXSJf4tAYcihd69ibtN7R39kM6v5MDYd4eH4AovbGyozPMFgnbJtLQ1ByEB",
+        "units": 3429
+      },
+      {
+        "step": "disable_mint",
+        "signature": "5twZfGt2xq9uwDgDNGxLsECTPRmQBhJP86EDzGhqjZ5wfhKQhAsztzmffMvD773NRjZ1CwdP9YazekWPzV3hGnPf",
+        "units": 3191
+      },
+      {
+        "step": "init_mint",
+        "signature": "4Lqbm26zeiwTmAtYphLj2CxHxbU7NVT9bRxFSpM3nppTLk8SSvBSp6EcbiJi7GqDudQyxnP5GmK4NiUueeCmaRPj",
+        "units": 9791
+      },
+      {
+        "step": "init_token_account_user1",
+        "signature": "4he4PUAqs8JmV8raGvX4KcZxa5mP5fPW71p9zajPzgnFyrbDmV9QLccNzuqJnN4kwUBJ1RYYHe9UXBcVDspugw6Q",
+        "units": 8849
+      },
+      {
+        "step": "init_token_account_user2",
+        "signature": "5Jp9ou3YFSA4hUFYpmtbUD5rMZ72Q21fmwUeFn4L5G35piE4r8qkHgoU3BcseSNf2AdsfRSLQZQ8cgLKZhGCgUck",
+        "units": 8836
+      },
+      {
+        "step": "init_token_account_user3",
+        "signature": "5Mh4wm8JEnd7DaG5bEYpezkXUZ9gfuHHYNZoup6582BsSDzSVzwpfJYPP1JMueR8mqWeU9Uc4JKaQwYDdTHu91zS",
+        "units": 8836
+      },
+      {
+        "step": "mint_to_user1",
+        "signature": "39T3JVtcNNHb6RF1rWnYL3ayjqw2gD88WC6ujK7RaBSkQwgiDCrRWj8StBY2dgC3bqw2MckTRzQ9URHXv4mMFeGw",
+        "units": 3675
+      },
+      {
+        "step": "mint_to_user2",
+        "signature": "irpuUsX1XSoLTQF9MdFf9tkhNdH2Z8rKA71oivQqBrnQSEMTihkxikXFCUWpwYcNHD4MFKFVUzNmF3mpzDP3pC5",
+        "units": 3675
+      },
+      {
+        "step": "mint_to_user3",
+        "signature": "2xjxEbBo1c8DeYMNdDBE2UArwtnxKbYf41L9NNtuTEk17hqgmKQuD3RUcRScRNHj4CwkPikV8YDgbgFk6hpzHjYb",
+        "units": 3675
+      },
+      {
+        "step": "init_mint",
+        "signature": "3TWU9gLaXyKZ1Rc6TC2KAnmHSNM6nXzF4KJwNSapcuqKRFC2gmurDRvoZ3AxD5KBAe4aaEK33dPAcF1fZMn1T4LV",
+        "units": 9791
+      },
+      {
+        "step": "init_token_account_user1",
+        "signature": "5uG8q1RmMNSi4dziXC9wvZ2tDw3P7B7KYuLQirpA4neNhurtwFptKS42tzUuPERNbQPkakXjTVDWFx1VVPQyYXMM",
+        "units": 8836
+      },
+      {
+        "step": "init_token_account_user2",
+        "signature": "63GrKqvceLwWmwmBKeTk183U1oXubTpysRA2hmkpc79uT8CR39ZoZh2vyicANLhi8L7kpZ1zRqELEaYXPJDRL5Q7",
+        "units": 8836
+      },
+      {
+        "step": "init_token_account_user3",
+        "signature": "3PFxvmuJQztei7AvQmSFvpiKQMJDfQS4bsEL1PFD2fJnAjasaRSSA8xMorzsdcJpfEb5nZR2k3JawP9wUFMbSfrL",
+        "units": 8836
+      },
+      {
+        "step": "mint_to_user1",
+        "signature": "ZHXMcuFNFMErPWW5WK1L3n8WqGbf8jxyu51mSt4JiNDwYrSnYDjf3Yg88YCxNz7GRHM422vKY6xYrauffFenxMq",
+        "units": 3675
+      },
+      {
+        "step": "mint_to_user2",
+        "signature": "3qDzEHpgDa93K1A82NMBq6vwREq5YKz3K8efETMwgu94jP2H5wsgTd4UJ3ymfFfffngbLaq5VxaG6TKqH9h1Fy9Z",
+        "units": 3675
+      },
+      {
+        "step": "mint_to_user3",
+        "signature": "4XeFmekBNkTTYYYJMc2YYyTzfdDpFCJGUXqg2JshBa8jXpM3VFCd3B9MQG6dAkdcAQc9ANLPin5CrN1e4hASAy5c",
+        "units": 3675
+      },
+      {
+        "step": "transfer_user2_to_user3",
+        "signature": "4zNuFwKoRLDQS4thFo2t6rujgHV6gtFHUHeqHWFe21wackMLPoyaMGv62cG5TSidpz2onvf4YjtQ85CHXXs6Kz1d",
+        "units": 3810
+      },
+      {
+        "step": "approve_user3_to_user2",
+        "signature": "53K8ttqSvv9WusGuPuU3N9Hm2dwbVBAtkgMt4GPc9AykfK8aRAMgszm4vZKiZrhkB5d4EbSMrQrspBwASx3znG4h",
+        "units": 3625
+      },
+      {
+        "step": "transfer_from_user3_to_user1_by_user2",
+        "signature": "2XkM8r8rURfgreGZJQV2BWyPRpqaCgLcobRGdrvpACfX8QnYiL1GBFDhKBbeTPsPZbdNwy84Z9FL4f8YPMeUZgk4",
+        "units": 5052
+      },
+      {
+        "step": "revoke_user3",
+        "signature": "2sQrjGcLjxhYsvzc7PTndhXwCCV9Qc5wsinUD2ydwdEBpxuD4Ti37ELbtf6WxAkcqGa7tDm9XJpw411j7Rpk3fro",
+        "units": 3289
+      },
+      {
+        "step": "burn_user1",
+        "signature": "3ETMJMqKoF2FLDoNnCnJs73jpKdp17CYFJjhsmrgHtZCefo4eNd59LHypvJup2LzFNNSNFKHoKLPgWwnURR1R9ja",
+        "units": 3767
+      },
+      {
+        "step": "freeze_user2",
+        "signature": "K9E7S699ups1kyGuqeYPnv7x71McjAn2hSnCoMGcB97yB1QV836ZszkX2ywoGn8RVyRwbxqCGx5tgT99VAj9W2v",
+        "units": 3429
+      },
+      {
+        "step": "thaw_user2",
+        "signature": "4EcVxFwVBkgFF9L6SJLvvkakH6dMQpJtJYErsXtfs4yZisddaMNtdKf4b5yDJSfAnNpSiBiuwoZLGhmerq6qkvKg",
+        "units": 3429
+      },
+      {
+        "step": "disable_mint",
+        "signature": "2L1FfbKuyJ2TjPdN6MpqNS85ibt7P6hNXn7FJN1zXfNbTjNHVgE5HapnkM2kDyfuwRaQ8vMmkZWfAs3C3Hyeaxye",
+        "units": 3191
+      }
+    ]
+  },
+  "runs": [
+    {
+      "key": "validator_cu_orchestrator",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 2,
+      "cwd": "/Users/ivmidable/Development/five-mono",
+      "command": "cargo test -p five --test runtime_validator_cu_tests validator_cu_orchestrator -- --nocapture",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/validator_cu_orchestrator.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "cpi_examples_spl_token",
+      "status": "FAIL",
+      "exit_code": 1,
+      "duration_sec": 1,
+      "cwd": "/Users/ivmidable/Development/five-mono/five-templates/cpi-examples",
+      "command": "npm run test:spl-token-mint",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/cpi_examples_spl_token.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": "Program/account ownership mismatch",
+      "scenario_lines": []
+    },
+    {
+      "key": "cpi_examples_pda_invoke",
+      "status": "FAIL",
+      "exit_code": 1,
+      "duration_sec": 0,
+      "cwd": "/Users/ivmidable/Development/five-mono/five-templates/cpi-examples",
+      "command": "npm run test:pda-invoke",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/cpi_examples_pda_invoke.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": "Program/account ownership mismatch",
+      "scenario_lines": []
+    },
+    {
+      "key": "cpi_examples_anchor_program",
+      "status": "FAIL",
+      "exit_code": 1,
+      "duration_sec": 1,
+      "cwd": "/Users/ivmidable/Development/five-mono/five-templates/cpi-examples",
+      "command": "npm run test:anchor-program",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/cpi_examples_anchor_program.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": "Program/account ownership mismatch",
+      "scenario_lines": []
+    },
+    {
+      "key": "cpi_integration_devnet",
+      "status": "FAIL",
+      "exit_code": 1,
+      "duration_sec": 1,
+      "cwd": "/Users/ivmidable/Development/five-mono/five-templates/cpi-integration-tests",
+      "command": "npm run test:devnet",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/cpi_integration_devnet.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": "Program/account ownership mismatch",
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_token_test",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 30,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-token",
+      "command": "npm test",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_token_test.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_token_client_run",
+      "status": "FAIL",
+      "exit_code": 2,
+      "duration_sec": 2,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-token",
+      "command": "npm run client:run",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_token_client_run.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": "Build/type-check failure",
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_token_client_token",
+      "status": "FAIL",
+      "exit_code": 2,
+      "duration_sec": 1,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-token",
+      "command": "npm run client:token",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_token_client_token.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": "Build/type-check failure",
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_token2_test",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 30,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-token-2",
+      "command": "npm test",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_token2_test.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_token2_client_run",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 4,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-token-2",
+      "command": "npm run client:run",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_token2_client_run.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_lending_test",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 30,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-lending",
+      "command": "npm test",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_lending_test.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_lending2_test",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 30,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-lending-2",
+      "command": "npm test",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_lending2_test.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_lending3_test",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 1,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-lending-3",
+      "command": "npm test",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_lending3_test.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_lending4_test",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 30,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-lending-4",
+      "command": "npm test",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_lending4_test.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_amm_test",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 31,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-amm",
+      "command": "npm test",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_amm_test.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_cfd_test",
+      "status": "FAIL",
+      "exit_code": 1,
+      "duration_sec": 0,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-cfd",
+      "command": "npm test",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_cfd_test.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": "Missing fixtures/accounts",
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_cfd_client_run",
+      "status": "FAIL",
+      "exit_code": 2,
+      "duration_sec": 5,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-cfd",
+      "command": "npm run client:run",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_cfd_client_run.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": "Build/type-check failure",
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_esccrow_test",
+      "status": "FAIL",
+      "exit_code": 1,
+      "duration_sec": 1,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-esccrow",
+      "command": "npm test",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_esccrow_test.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": "Missing fixtures/accounts",
+      "scenario_lines": []
+    },
+    {
+      "key": "p_5ive_esccrow_client_run",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 2,
+      "cwd": "/Users/ivmidable/Development/five-mono/5ive-esccrow",
+      "command": "npm run client:run",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/p_5ive_esccrow_client_run.log",
+      "signatures": [],
+      "cu_values": [],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "optional_mvp_release_gate",
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_sec": 51,
+      "cwd": "/Users/ivmidable/Development/five-mono",
+      "command": "bash scripts/mvp-release-gate.sh --cluster devnet --skip-e2e-smoke",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/optional_mvp_release_gate.log",
+      "signatures": [],
+      "cu_values": [
+        11760,
+        11499,
+        11748,
+        10579,
+        9528,
+        77583,
+        11512,
+        8567,
+        108241,
+        15897,
+        17461,
+        62504,
+        70227,
+        9706,
+        8857,
+        7175,
+        3537,
+        7172,
+        3656,
+        3484,
+        5337,
+        5546,
+        67123,
+        4862,
+        3176,
+        3623,
+        3331,
+        3332,
+        3086,
+        92904
+      ],
+      "error_class": null,
+      "scenario_lines": []
+    },
+    {
+      "key": "validator_cu_orchestrator_corrected",
+      "status": "PARTIAL",
+      "exit_code": 101,
+      "duration_sec": 319,
+      "cwd": "/Users/ivmidable/Development/five-mono",
+      "command": "cargo test -p five --features validator-harness --test runtime_validator_cu_tests validator_cu_orchestrator -- --ignored --nocapture",
+      "log": "/Users/ivmidable/Development/five-mono/.reports/devnet-cu/20260217-153854/logs/validator_cu_orchestrator_corrected.log",
+      "signatures": [
+        "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"
+      ],
+      "cu_values": [
+        9810,
+        8836,
+        3675,
+        3810,
+        3625,
+        5052,
+        3289,
+        3767,
+        3429,
+        3191,
+        9791,
+        8849
+      ],
+      "error_class": "InvalidInstructionData/encoding mismatch",
+      "scenario_lines": [
+        {
+          "name": "token_full_e2e",
+          "deploy": 5800,
+          "execute": 76935,
+          "total": 82735,
+          "steps": 15
+        },
+        {
+          "name": "external_non_cpi",
+          "deploy": 12204,
+          "execute": 6782,
+          "total": 18986,
+          "steps": 1
+        },
+        {
+          "name": "external_interface_mapping_non_cpi",
+          "deploy": 12399,
+          "execute": 5441,
+          "total": 17840,
+          "steps": 1
+        },
+        {
+          "name": "external_burst_non_cpi",
+          "deploy": 13431,
+          "execute": 12710,
+          "total": 26141,
+          "steps": 1
+        },
+        {
+          "name": "memory_string_heavy",
+          "deploy": 5800,
+          "execute": 76916,
+          "total": 82716,
+          "steps": 15
+        }
+      ]
+    }
+  ],
+  "cu_highlights": {
+    "max": 108241,
+    "min": 3086
+  }
+}

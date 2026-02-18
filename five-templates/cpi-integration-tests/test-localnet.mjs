@@ -24,6 +24,8 @@ import {
     mintTo, burn, getMint, getAccount
 } from '@solana/spl-token';
 import { FiveProgram, FiveSDK } from '../../five-sdk/dist/index.js';
+import { loadSdkValidatorConfig } from '../../scripts/lib/sdk-validator-config.mjs';
+import { emitStepEvent } from '../../scripts/lib/sdk-validator-reporter.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,11 +34,13 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION & LOGGING
 // ============================================================================
 
-const RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
-const PAYER_KEYPAIR_PATH = process.env.FIVE_KEYPAIR_PATH || process.env.PAYER_KEYPAIR_PATH || (process.env.HOME + '/.config/solana/id.json');
-
-let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '9MHGM73eszNUtmJS6ypDCESguxWhCBnkUPpTMyLGqURH');
-let VM_STATE_PDA = new PublicKey(process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
+const CFG = loadSdkValidatorConfig({
+    network: process.env.FIVE_NETWORK || 'localnet',
+});
+const RPC_URL = CFG.rpcUrl;
+const PAYER_KEYPAIR_PATH = CFG.keypairPath;
+const FIVE_PROGRAM_ID = new PublicKey(CFG.programId);
+const VM_STATE_PDA = CFG.vmStatePda ? new PublicKey(CFG.vmStatePda) : null;
 
 function extractFunctionParamAttributes(source) {
     const attrsByFunction = {};
@@ -98,7 +102,7 @@ const header = (msg) => console.log(`\n${'='.repeat(80)}\n${msg}\n${'='.repeat(8
 // INSTRUCTION SENDER (from token test)
 // ============================================================================
 
-async function sendInstruction(connection, instructionData, signers) {
+async function sendInstruction(connection, instructionData, signers, step = 'execute_instruction') {
     const keys = instructionData.keys.map(k => ({
         pubkey: new PublicKey(k.pubkey),
         isSigner: k.isSigner,
@@ -132,6 +136,14 @@ async function sendInstruction(connection, instructionData, signers) {
             if (txDetails?.meta?.err) {
                 console.log(`❌ Transaction Failed: ${JSON.stringify(txDetails.meta.err)}`);
                 logs.forEach(log => console.log(`  ${log}`));
+                emitStepEvent({
+                    step,
+                    status: 'FAIL',
+                    signature: sig,
+                    computeUnits: null,
+                    missingCuReason: 'transaction meta.err present',
+                    error: JSON.stringify(txDetails.meta.err),
+                });
                 return { success: false, error: txDetails.meta.err, logs, cu: -1, signature: sig };
             }
 
@@ -145,6 +157,13 @@ async function sendInstruction(connection, instructionData, signers) {
             console.log("   └─ (CU info unavailable)");
         }
 
+        emitStepEvent({
+            step,
+            status: 'PASS',
+            signature: sig,
+            computeUnits: Number.isFinite(Number(cu)) && Number(cu) >= 0 ? Number(cu) : null,
+            missingCuReason: Number.isFinite(Number(cu)) && Number(cu) >= 0 ? null : 'compute units unavailable in transaction metadata/logs',
+        });
         return { success: true, signature: sig, logs, cu };
     } catch (e) {
         let logs = [];
@@ -164,6 +183,14 @@ async function sendInstruction(connection, instructionData, signers) {
                 // Ignore
             }
         }
+        emitStepEvent({
+            step,
+            status: 'FAIL',
+            signature: e.signature || null,
+            computeUnits: null,
+            missingCuReason: 'transaction submission failed',
+            error: e.message || String(e),
+        });
         return { success: false, error: e, logs, signature: e.signature };
     }
 }

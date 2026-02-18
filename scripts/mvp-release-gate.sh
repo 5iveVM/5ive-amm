@@ -284,6 +284,37 @@ run_e2e_smoke_validation() {
     echo "Skipping E2E smoke by request (--skip-e2e-smoke)."
     return 0
   fi
+
+  if [[ "${CLUSTER}" == "devnet" ]]; then
+    local sdk_payer="${FIVE_KEYPAIR_PATH:-${FIVE_CU_PAYER_KEYPAIR:-${HOME}/.config/solana/id.json}}"
+    local sdk_program="${FIVE_PROGRAM_ID:-${FIVE_CU_PROGRAM_ID:-}}"
+    local sdk_scenarios="${FIVE_SCENARIOS:-${FIVE_CU_SCENARIOS:-token_full_e2e,cpi_spl_mint,cpi_pda_invoke,cpi_anchor_program,cpi_integration}}"
+
+    if [[ -z "${sdk_program}" ]]; then
+      echo "Missing FIVE_PROGRAM_ID (or FIVE_CU_PROGRAM_ID) for devnet E2E smoke." >&2
+      echo "Set it to your deployed devnet Five VM program ID and rerun." >&2
+      return 1
+    fi
+
+    if [[ ! -f "${sdk_payer}" ]]; then
+      echo "Missing keypair for devnet E2E smoke: ${sdk_payer}" >&2
+      return 1
+    fi
+
+    echo "Running SDK validator smoke scenarios on devnet: ${sdk_scenarios}"
+    "${ROOT_DIR}/scripts/run-sdk-validator-suites.sh" \
+      --network devnet \
+      --program-id "${sdk_program}" \
+      --keypair "${sdk_payer}" \
+      --scenarios "${sdk_scenarios}"
+    return 0
+  fi
+
+  if [[ "${CLUSTER}" != "localnet" ]]; then
+    echo "E2E smoke currently supports only localnet and devnet clusters (got ${CLUSTER})." >&2
+    return 1
+  fi
+
   local e2e_dir="${REPORT_DIR}/e2e"
   mkdir -p "${e2e_dir}"
   local deploy_log="${e2e_dir}/deploy-and-init.log"
@@ -332,35 +363,18 @@ run_e2e_smoke_validation() {
   export FIVE_RPC_URL="http://127.0.0.1:8899"
   export FIVE_PROGRAM_ID="${program_id}"
   export VM_STATE_PDA="${vm_state_pda}"
+  export FIVE_KEYPAIR_PATH="${HOME}/.config/solana/id.json"
 
   solana program show "${FIVE_PROGRAM_ID}" --url "${FIVE_RPC_URL}" >/dev/null
   solana account "${VM_STATE_PDA}" --url "${FIVE_RPC_URL}" --output json >/dev/null
 
-  local run_log
-  run_log="${e2e_dir}/token-e2e.log"
-  (cd five-templates/token && ./e2e-token-test.sh --deploy --verbose) 2>&1 | tee "${run_log}"
-
-  run_log="${e2e_dir}/counter-e2e.log"
-  (cd five-templates/counter && ./e2e-counter-test.sh --deploy --verbose) 2>&1 | tee "${run_log}"
-
-  run_log="${e2e_dir}/cpi-spl-token-mint.log"
-  (cd five-templates/cpi-examples && node e2e-spl-token-mint-test.mjs) 2>&1 | tee "${run_log}"
-
-  run_log="${e2e_dir}/cpi-pda-invoke.log"
-  (cd five-templates/cpi-examples && node e2e-pda-invoke-test.mjs) 2>&1 | tee "${run_log}"
-
-  run_log="${e2e_dir}/cpi-anchor-program.log"
-  {
-    echo "IGNORED: cpi-anchor-program-test is temporarily disabled in localnet MVP gate."
-    echo "Reason: known instability; tracked for follow-up re-enable."
-  } | tee "${run_log}"
-
-  run_log="${e2e_dir}/cpi-integration-localnet.log"
-  (cd five-templates/cpi-integration-tests && node test-localnet.mjs) 2>&1 | tee "${run_log}"
-  if rg -q "Test [12].*❌ FAIL|Total: [0-1]/2 passed|Some tests failed" "${run_log}"; then
-    echo "CPI integration localnet smoke reported failed subtests; see ${run_log}" >&2
-    return 1
-  fi
+  "${ROOT_DIR}/scripts/run-sdk-validator-suites.sh" \
+    --network localnet \
+    --program-id "${FIVE_PROGRAM_ID}" \
+    --vm-state "${VM_STATE_PDA}" \
+    --keypair "${FIVE_KEYPAIR_PATH}" \
+    --scenarios "${FIVE_SCENARIOS:-token_full_e2e,cpi_spl_mint,cpi_pda_invoke,cpi_anchor_program,cpi_integration}" \
+    --results-dir "${e2e_dir}"
 
   if [[ -n "${started_validator_pid}" ]]; then
     kill "${started_validator_pid}" >/dev/null 2>&1 || true

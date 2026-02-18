@@ -31,42 +31,34 @@ five-templates/<template>/runtime-fixtures/*.json
 
 The generic runtime test auto-discovers those fixtures and executes them through `five-solana` deploy/execute entrypoints.
 
-0.1 Validator-Backed CU Harness (Localnet + Devnet, Manual)
-Use this when you want CU measurements from a real validator while keeping the fast in-process harness unchanged.
+0.1 SDK Validator Suites (Localnet + Devnet, Canonical)
+Use this as the default user-facing validator path. It runs Node-based suites using `FiveSDK` + `FiveProgram` and emits reusable JSON/Markdown reports.
 
 Entry point:
 
 ```bash
-cargo test -p five --test runtime_validator_cu_tests -- --ignored --nocapture
+./scripts/run-sdk-validator-suites.sh \
+  --network localnet \
+  --program-id <five-vm-program-id> \
+  --vm-state <vm-state-pda> \
+  --keypair "$HOME/.config/solana/id.json"
 ```
 
-Required environment:
+Environment equivalents:
 
 ```bash
-export FIVE_CU_NETWORK=localnet   # localnet | devnet
-export FIVE_CU_PAYER_KEYPAIR="$HOME/.config/solana/id.json"
-export FIVE_CU_PROGRAM_ID="<predeployed-five-program-id>"
-```
-
-Optional environment:
-
-```bash
-export FIVE_CU_RPC_URL="http://127.0.0.1:8899"   # localnet default
-export FIVE_CU_SCENARIOS="token_full_e2e,external_non_cpi,external_interface_mapping_non_cpi,external_burst_non_cpi,memory_string_heavy,arithmetic_intensive"
-export FIVE_CU_RESULTS_FILE="/tmp/localnet-cu.json"
-```
-
-Devnet safety gate (manual opt-in required):
-
-```bash
-export FIVE_CU_NETWORK=devnet
-export FIVE_CU_DEVNET_OPT_IN=1
+export FIVE_NETWORK=localnet                 # localnet | devnet
+export FIVE_RPC_URL="http://127.0.0.1:8899" # defaults by network
+export FIVE_PROGRAM_ID="<predeployed-five-program-id>"
+export VM_STATE_PDA="<vm-state-pda>"
+export FIVE_KEYPAIR_PATH="$HOME/.config/solana/id.json"
+export FIVE_SCENARIOS="token_full_e2e,cpi_spl_mint,cpi_pda_invoke,cpi_anchor_program,cpi_integration"
 ```
 
 Notes:
-- Devnet mode uses a pre-deployed program ID and does not auto-deploy.
-- Every deploy/execute transaction is validated with confirmed `meta.err == null`.
-- CU results + signatures are written to `five-solana/tests/benchmarks/validator-runs/` unless `FIVE_CU_RESULTS_FILE` is set.
+- Per-step records include signature + CU, or explicit `missingCuReason`.
+- Reports are written to `target/sdk-validator-runs/<timestamp>/`.
+- Rust validator harness is retained for internal benchmarking only (non-canonical).
 
 1. Local Validator Setup
 Before running any tests, ensure you have a clean local Solana validator running.

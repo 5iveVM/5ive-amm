@@ -25,6 +25,8 @@ import {
     SystemProgram, SYSVAR_RENT_PUBKEY, LAMPORTS_PER_SOL, sendAndConfirmTransaction
 } from '@solana/web3.js';
 import { FiveSDK, FiveProgram } from '../../five-sdk/dist/index.js';
+import { loadSdkValidatorConfig } from '../../scripts/lib/sdk-validator-config.mjs';
+import { emitStepEvent } from '../../scripts/lib/sdk-validator-reporter.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,12 +35,13 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION
 // ============================================================================ 
 
-let RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
-const PAYER_KEYPAIR_PATH = process.env.FIVE_KEYPAIR_PATH || process.env.PAYER_KEYPAIR_PATH || (process.env.HOME + '/.config/solana/id.json');
-
-// Localnet deployment defaults
-let FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '7JizMjzU3u8z3p5QuPNUE2r7YmA6Cks1V7attcujVQrd');
-let VM_STATE_PDA = new PublicKey(process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'DRsZtpCF8Np1MsQixQPH4iQYTKhEkZMzNCTv15RCYys');
+const CFG = loadSdkValidatorConfig({
+    network: process.env.FIVE_NETWORK || 'localnet',
+});
+let RPC_URL = CFG.rpcUrl;
+const PAYER_KEYPAIR_PATH = CFG.keypairPath;
+let FIVE_PROGRAM_ID = new PublicKey(CFG.programId);
+let VM_STATE_PDA = CFG.vmStatePda ? new PublicKey(CFG.vmStatePda) : null;
 let TOKEN_SCRIPT_ACCOUNT = new PublicKey(process.env.TOKEN_SCRIPT_ACCOUNT || process.env.SCRIPT_ACCOUNT || 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
 const FEE_VAULT_SEED_PREFIX = Buffer.from([0xff, ...Buffer.from('five_vm_fee_vault_v1')]);
 const FEE_VAULT_ACCOUNT = process.env.FEE_VAULT_ACCOUNT
@@ -72,8 +75,6 @@ if (fs.existsSync(deploymentConfigPath)) {
     }
 }
 if (process.env.RPC_URL && !process.env.FIVE_RPC_URL) warn('Deprecated env RPC_URL detected; prefer FIVE_RPC_URL');
-if (process.env.FIVE_VM_PROGRAM_ID && !process.env.FIVE_PROGRAM_ID) warn('Deprecated env FIVE_VM_PROGRAM_ID detected; prefer FIVE_PROGRAM_ID');
-if (process.env.FIVE_VM_STATE_PDA && !process.env.VM_STATE_PDA) warn('Deprecated env FIVE_VM_STATE_PDA detected; prefer VM_STATE_PDA');
 
 // ============================================================================
 // HELPER: Error Extraction
@@ -235,6 +236,14 @@ async function sendInstruction(connection, instructionData, signers, label = '')
                 }
             });
 
+            emitStepEvent({
+                step: label || 'execute_instruction',
+                status: 'FAIL',
+                signature,
+                computeUnits: null,
+                missingCuReason: 'transaction meta.err present',
+                error: JSON.stringify(txDetails.meta.err),
+            });
             return {
                 success: false,
                 error: txDetails.meta.err,
@@ -250,6 +259,13 @@ async function sendInstruction(connection, instructionData, signers, label = '')
         console.log(`✓ ${label} succeeded`);
         console.log(`   Signature: ${signature}`);
         console.log(`   CU: ${cu}`);
+        emitStepEvent({
+            step: label || 'execute_instruction',
+            status: 'PASS',
+            signature,
+            computeUnits: Number.isFinite(Number(cu)) ? Number(cu) : null,
+            missingCuReason: Number.isFinite(Number(cu)) ? null : 'compute units unavailable in transaction metadata/logs',
+        });
 
         return {
             success: true,
@@ -288,6 +304,14 @@ async function sendInstruction(connection, instructionData, signers, label = '')
             }
         }
 
+        emitStepEvent({
+            step: label || 'execute_instruction',
+            status: 'FAIL',
+            signature,
+            computeUnits: null,
+            missingCuReason: 'transaction submission/simulation failed',
+            error: error.message || String(error),
+        });
         return {
             success: false,
             error: error.message,

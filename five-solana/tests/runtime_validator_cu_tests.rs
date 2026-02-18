@@ -1,4 +1,8 @@
 #![cfg(feature = "validator-harness")]
+// Internal benchmark-only harness.
+// Canonical user-facing validator tests are SDK-first and run via:
+//   scripts/run-sdk-validator-suites.sh
+// Keep this file for low-level VM benchmarking and parity investigation.
 
 mod harness;
 
