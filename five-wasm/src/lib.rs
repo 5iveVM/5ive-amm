@@ -3109,6 +3109,20 @@ impl WasmFiveCompiler {
             name: String,
             content: String,
         }
+
+        fn canonical_module_name(path: &std::path::Path) -> String {
+            let out = path
+                .with_extension("")
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().to_string())
+                .collect::<Vec<_>>()
+                .join("::");
+            if out.ends_with("::mod") {
+                out.trim_end_matches("::mod").to_string()
+            } else {
+                out
+            }
+        }
         
         // Create a source map for all modules to support rich error reporting
         let mut source_map = std::collections::HashMap::new();
@@ -3153,8 +3167,9 @@ impl WasmFiveCompiler {
                 }
             };
             let path = PathBuf::from(&module.name);
+            let module_name = canonical_module_name(&path);
             source_map.insert(path.clone(), module.content.clone());
-            module_sources.push((module.name.clone(), module.content.clone(), path));
+            module_sources.push((module_name, module.content.clone(), path));
         }
 
         let start_time = js_sys::Date::now();

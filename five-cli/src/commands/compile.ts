@@ -1,7 +1,7 @@
 // Compile command.
 
 import { readFile, writeFile, stat, mkdir } from 'fs/promises';
-import { join, dirname, extname, basename, isAbsolute, resolve } from 'path';
+import { join, dirname, extname, basename, isAbsolute, relative, resolve } from 'path';
 import { glob } from 'glob';
 import ora from 'ora';
 
@@ -698,11 +698,16 @@ async function compileMultiProject(
     : [absoluteEntry, ...allFiles];
 
   const mainSource = await readFile(absoluteEntry, 'utf8');
+  const moduleNameForFile = (file: string): string => {
+    const rel = relative(dirname(absoluteEntry), file);
+    const withoutExt = rel.replace(/\.v$/i, '');
+    return withoutExt.split(/[\\/]/).filter(Boolean).join('::');
+  };
   const modules = await Promise.all(
     sources
       .filter((f) => resolve(f) !== resolve(absoluteEntry))
       .map(async (file) => ({
-        name: basename(file, '.v'),
+        name: moduleNameForFile(file),
         source: await readFile(file, 'utf8')
       }))
   );

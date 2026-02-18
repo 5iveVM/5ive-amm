@@ -189,3 +189,82 @@ fn test_call_external_generation_via_auto_discovery() -> Result<(), Box<dyn std:
 
     Ok(())
 }
+
+#[test]
+fn test_bundled_stdlib_named_import_auto_discovery() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { use std::builtins::{now_seconds}; pub fn run() -> u64 { return now_seconds(); } }"
+            .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing)
+        .with_module_namespaces(false);
+
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_bundled_stdlib_module_qualified_auto_discovery() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { use std::builtins; pub fn run() -> u64 { return builtins::now_seconds(); } }"
+            .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_bundled_stdlib_full_qualified_auto_discovery() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { use std::builtins; pub fn run() -> u64 { return std::builtins::now_seconds(); } }"
+            .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+    assert!(bytecode.is_ok());
+    Ok(())
+}
+
+#[test]
+fn test_ambiguous_unqualified_call_fails() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { use alpha; use beta; pub fn run() -> u64 { return same(); } }".to_string(),
+    );
+    files.insert(
+        "alpha.v".to_string(),
+        "script alpha { pub fn same() -> u64 { return 1; } }".to_string(),
+    );
+    files.insert(
+        "beta.v".to_string(),
+        "script beta { pub fn same() -> u64 { return 2; } }".to_string(),
+    );
+
+    let (_dir, root_path, _entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let main_path = root_path.join("src/main.v").to_string_lossy().to_string();
+    let alpha_path = root_path.join("src/alpha.v").to_string_lossy().to_string();
+    let beta_path = root_path.join("src/beta.v").to_string_lossy().to_string();
+
+    let result = DslCompiler::compile_modules(vec![main_path.clone(), alpha_path, beta_path], &main_path, &config);
+    assert!(result.is_err());
+    Ok(())
+}

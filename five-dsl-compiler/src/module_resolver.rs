@@ -3,7 +3,13 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 // use five_vm_mito::error::VMError;
+use crate::ast::AstNode;
 use crate::error::ModuleResolutionError;
+use crate::parser::DslParser;
+use crate::stdlib_registry::{
+    bundled_stdlib_source, bundled_stdlib_virtual_path, is_stdlib_module,
+};
+use crate::tokenizer::DslTokenizer;
 
 /// Represents a single module in the project.
 #[derive(Debug, Clone)]
@@ -233,17 +239,18 @@ impl ModuleDiscoverer {
     /// Discover all modules starting from an entry point file
     pub fn discover_modules(&self, entry_point: &Path) -> Result<ModuleGraph, ModuleResolutionError> {
         let mut graph = ModuleGraph::new();
-        let mut visited = HashSet::new();
+        let mut visited_files = HashSet::new();
+        let mut warned_local_stdlib = false;
         let mut to_process = VecDeque::new();
 
         // Start with entry point
         to_process.push_back(entry_point.to_path_buf());
 
         while let Some(file_path) = to_process.pop_front() {
-            if visited.contains(&file_path) {
+            if visited_files.contains(&file_path) {
                 continue;
             }
-            visited.insert(file_path.clone());
+            visited_files.insert(file_path.clone());
 
             // Load and parse module
             let source_code = std::fs::read_to_string(&file_path)
@@ -254,7 +261,7 @@ impl ModuleDiscoverer {
 
             let module_path = self.file_path_to_module_path(&file_path)?;
 
-            // Extract dependencies from use statements
+            // Extract dependencies from use/import statements
             let dependencies = self.extract_dependencies(&source_code);
 
             let descriptor = ModuleDescriptor {
@@ -270,15 +277,55 @@ impl ModuleDiscoverer {
             // Queue local module dependencies for discovery
             for dep in dependencies {
                 // Only process local modules (not quoted strings)
-                if !dep.starts_with('"') {
-                    if let Ok(dep_path) = self.module_path_to_file_path(&dep) {
-                        if dep_path.exists() && !visited.contains(&dep_path) {
-                            to_process.push_back(dep_path);
+                if dep.starts_with('"') {
+                    continue;
+                }
+
+                if is_stdlib_module(&dep) {
+                    if graph.get_module(&dep).is_none() {
+                        if let Some(src) = bundled_stdlib_source(&dep) {
+                            let local_candidate = self.source_dir.join(dep.replace("::", "/")).with_extension("v");
+                            if local_candidate.exists() && !warned_local_stdlib {
+                                warned_local_stdlib = true;
+                                eprintln!(
+                                    "warning: local src/std modules are ignored; using bundled stdlib sources"
+                                );
+                            }
+                            let std_deps = self.extract_dependencies(src);
+                            graph.add_module(ModuleDescriptor {
+                                module_path: dep.clone(),
+                                file_path: bundled_stdlib_virtual_path(&dep),
+                                source_code: src.to_string(),
+                                dependencies: std_deps.clone(),
+                                is_entry_point: false,
+                            });
+                            for d in std_deps {
+                                if !d.starts_with('"') {
+                                    graph.add_dependency(dep.clone(), d);
+                                }
+                            }
+                        } else {
+                            return Err(ModuleResolutionError::ModuleNotFound {
+                                module_path: dep.clone(),
+                                searched_paths: vec![bundled_stdlib_virtual_path(&dep)],
+                            });
                         }
-                    } else {
-                        // Handle error from module_path_to_file_path
-                        return Err(ModuleResolutionError::InvalidModulePath(dep));
                     }
+                    continue;
+                }
+
+                if let Ok(dep_path) = self.module_path_to_file_path(&dep) {
+                    if dep_path.exists() && !visited_files.contains(&dep_path) {
+                        to_process.push_back(dep_path);
+                    } else if !dep_path.exists() {
+                        return Err(ModuleResolutionError::ModuleNotFound {
+                            module_path: dep.clone(),
+                            searched_paths: vec![dep_path],
+                        });
+                    }
+                } else {
+                    // Handle error from module_path_to_file_path
+                    return Err(ModuleResolutionError::InvalidModulePath(dep));
                 }
             }
         }
@@ -287,7 +334,7 @@ impl ModuleDiscoverer {
         for (module_path, descriptor) in graph.modules.clone() {
             for dep in &descriptor.dependencies {
                 // Convert local module paths to module names
-                if !dep.starts_with('"') {
+                if !dep.starts_with('"') && graph.modules.contains_key(dep) {
                     graph.add_dependency(module_path.clone(), dep.clone());
                 }
             }
@@ -336,68 +383,58 @@ impl ModuleDiscoverer {
         Ok(file_path)
     }
 
-    /// Extract use statement dependencies from source code
+    /// Extract use/import dependencies from source code.
     fn extract_dependencies(&self, source_code: &str) -> Vec<String> {
-        let mut dependencies = Vec::new();
+        let mut tokenizer = DslTokenizer::new(source_code);
+        let Ok(tokens) = tokenizer.tokenize() else {
+            return Vec::new();
+        };
 
-        // Search for use statements anywhere in the source, not just at line start
-        let mut remaining = source_code;
-        while let Some(pos) = remaining.find("use ") {
-            // Make sure "use" is preceded by whitespace or punctuation (not part of identifier)
-            if pos > 0 {
-                let prev_char = remaining.chars().nth(pos - 1).unwrap();
-                if prev_char.is_alphanumeric() || prev_char == '_' {
-                    // "use" is part of a larger identifier, skip it
-                    remaining = &remaining[pos + 4..];
-                    continue;
+        let Ok(ast) = DslParser::new(tokens).parse() else {
+            return Vec::new();
+        };
+
+        let mut out = Vec::new();
+        if let AstNode::Program { import_statements, .. } = ast {
+            for import in import_statements {
+                if let AstNode::ImportStatement {
+                    module_specifier,
+                    imported_items: _,
+                } = import
+                {
+                    match module_specifier {
+                        crate::ast::ModuleSpecifier::Local(name) => out.push(name),
+                        crate::ast::ModuleSpecifier::Nested(path) => out.push(path.join("::")),
+                        crate::ast::ModuleSpecifier::External(addr) => {
+                            out.push(format!("\"{}\"", addr))
+                        }
+                        crate::ast::ModuleSpecifier::Namespace(ns) => {
+                            out.push(format!("\"{}\"", ns.import_key()))
+                        }
+                    }
                 }
             }
-
-            // Extract the text after "use "
-            let after_use = &remaining[pos + 4..];
-
-            // Find the end of the use statement (semicolon)
-            if let Some(semicolon_pos) = after_use.find(';') {
-                let use_text = &after_use[..semicolon_pos];
-
-                // Parse: use identifier or use "string"
-                if let Some(import_target) = self.parse_use_statement(use_text) {
-                    dependencies.push(import_target);
-                }
-            }
-
-            // Move past this occurrence
-            remaining = &remaining[pos + 4..];
         }
-
-        dependencies
+        out
     }
+}
 
-    /// Parse a use statement and extract the import target
-    /// The input should be the text between "use " and ";" (no semicolon included)
-    fn parse_use_statement(&self, rest: &str) -> Option<String> {
-        let rest = rest.trim();
+pub fn canonical_module_name(path: &Path, source_root: &Path) -> Result<String, ModuleResolutionError> {
+    let relative = path
+        .strip_prefix(source_root)
+        .map_err(|e| ModuleResolutionError::InvalidModulePath(e.to_string()))?;
 
-        // Handle quoted strings: use "token"::{...}
-        if rest.starts_with('"') {
-            if let Some(end_quote) = rest[1..].find('"') {
-                let content = &rest[1..=end_quote];
-                return Some(format!("\"{}\"", content));
-            }
-        }
+    let name = relative
+        .with_extension("")
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().to_string())
+        .collect::<Vec<_>>()
+        .join("::");
 
-        // Handle unquoted identifiers: use types or use utils::helpers
-        if let Some(brace) = rest.find('{') {
-            let import_path = rest[..brace].trim();
-            if !import_path.is_empty() && import_path.chars().next().unwrap().is_alphabetic() {
-                return Some(import_path.to_string());
-            }
-        } else if !rest.is_empty() && rest.chars().next().unwrap().is_alphabetic() {
-            // Simple identifier or path like "lib" or "utils::helpers"
-            return Some(rest.to_string());
-        }
-
-        None
+    if name.ends_with("::mod") {
+        Ok(name.trim_end_matches("::mod").to_string())
+    } else {
+        Ok(name)
     }
 }
 

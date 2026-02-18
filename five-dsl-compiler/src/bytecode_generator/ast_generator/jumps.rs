@@ -155,19 +155,32 @@ impl ASTGenerator {
 
         // Patch function calls with correct addresses
         for patch in &self.function_patches {
-            let function_address = self
-                .function_positions
-                .get(&patch.function_name)
-                .ok_or_else(|| {
-                    eprintln!(
-                        "ERROR: Function '{}' not found for patching. Available functions: {:?}",
-                        patch.function_name,
-                        self.function_positions.keys().collect::<Vec<_>>()
-                    );
-                    VMError::InvalidScript
-                })?;
+            let function_address = if let Some(addr) = self.function_positions.get(&patch.function_name) {
+                *addr
+            } else {
+                let suffix = format!("::{}", patch.function_name);
+                let mut candidates: Vec<(&String, &usize)> = self
+                    .function_positions
+                    .iter()
+                    .filter(|(name, _)| {
+                        *name == &patch.function_name || name.ends_with(&suffix)
+                    })
+                    .collect();
+                candidates.sort_by(|a, b| a.0.cmp(b.0));
 
-            self.patch_function_address(emitter, patch.position, *function_address + base_offset)?;
+                if candidates.len() == 1 {
+                    *candidates[0].1
+                } else {
+                    eprintln!(
+                        "ERROR: Function '{}' not found or ambiguous for patching. Candidates: {:?}",
+                        patch.function_name,
+                        candidates.iter().map(|(k, _)| (*k).clone()).collect::<Vec<_>>()
+                    );
+                    return Err(VMError::InvalidScript);
+                }
+            };
+
+            self.patch_function_address(emitter, patch.position, function_address + base_offset)?;
         }
         Ok(())
     }

@@ -116,10 +116,10 @@ export const initCommand: CommandDefinition = {
       await generateClientScaffold(projectDir, templateToClientFunctions(options.template));
       spinner.succeed('Configuration files generated');
 
-      // Generate vendored stdlib scaffold (always, even with --no-examples)
-      spinner.start('Generating standard library scaffold...');
+      // Generate stdlib usage docs (compiler ships bundled stdlib in v1)
+      spinner.start('Generating standard library docs...');
       await generateStdlibScaffold(projectDir, options.template);
-      spinner.succeed('Standard library scaffold generated');
+      spinner.succeed('Standard library docs generated');
 
       // Generate agent playbooks (always, even with --no-examples)
       spinner.start('Generating AGENTS playbooks...');
@@ -411,7 +411,7 @@ optimization_level = "${config.optimizations.optimizationLevel}"
 [dependencies]
 # Add project dependencies here
 # example = { path = "../example" }
-# future: stdlib package source (vendored stdlib is generated under src/std in v1)
+# future: stdlib package source (v1 uses compiler-bundled stdlib)
 # five-stdlib = { version = "0.1.0" }
 
 [build]
@@ -427,29 +427,8 @@ network = "devnet"
 }
 
 async function generateStdlibScaffold(projectDir: string, _template: string): Promise<void> {
-  const stdDir = join(projectDir, 'src/std');
-  const interfacesDir = join(stdDir, 'interfaces');
-  await mkdir(stdDir, { recursive: true });
-  await mkdir(interfacesDir, { recursive: true });
-
-  const filesToCopy: Array<{ source: string; destination: string }> = [
-    { source: 'std/prelude.v', destination: join(stdDir, 'prelude.v') },
-    { source: 'std/builtins.v', destination: join(stdDir, 'builtins.v') },
-    {
-      source: 'std/interfaces/spl_token.v',
-      destination: join(interfacesDir, 'spl_token.v')
-    },
-    {
-      source: 'std/interfaces/system_program.v',
-      destination: join(interfacesDir, 'system_program.v')
-    },
-    { source: 'docs/STDLIB.md', destination: join(projectDir, 'docs/STDLIB.md') }
-  ];
-
-  for (const file of filesToCopy) {
-    const content = await loadStdlibAsset(file.source);
-    await writeFile(file.destination, content);
-  }
+  const content = await loadStdlibAsset('docs/STDLIB.md');
+  await writeFile(join(projectDir, 'docs/STDLIB.md'), content);
 }
 
 async function loadStdlibAsset(relativePath: string): Promise<string> {
@@ -475,7 +454,7 @@ async function loadStdlibAsset(relativePath: string): Promise<string> {
 }
 
 function getStdlibPreludeBanner(): string {
-  return `// 5IVE vendored stdlib (v1)
+  return `// 5IVE bundled stdlib (v1, compiler-provided)
 // Canonical explicit imports:
 // use std::builtins;
 // use std::interfaces::spl_token;
@@ -1340,21 +1319,15 @@ npm run deploy
 ## Project Structure
 
 - \`src/\` - 5IVE VM source files (.v)
-- \`src/std/\` - Vendored standard library scaffold (prelude, builtins, common interfaces)
 - \`tests/\` - Test files (.v files with test_* functions)
 - \`client/\` - Node TypeScript client starter (FiveProgram + ABI)
 - \`build/\` - Compiled bytecode
 - \`docs/\` - Documentation
 - \`five.toml\` - Project configuration
 
-## Standard Library (Vendored v1)
+## Standard Library (Bundled v1)
 
-Projects initialized with \`5ive init\` include:
-
-1. \`src/std/prelude.v\`
-2. \`src/std/builtins.v\`
-3. \`src/std/interfaces/spl_token.v\`
-4. \`src/std/interfaces/system_program.v\`
+Projects initialized with \`5ive init\` use compiler-bundled stdlib modules.
 
 Use explicit imports in your modules:
 
@@ -1364,7 +1337,7 @@ use std::interfaces::spl_token;
 use std::interfaces::system_program;
 \`\`\`
 
-See \`docs/STDLIB.md\` for migration notes to future dependency-based stdlib distribution.
+See \`docs/STDLIB.md\` for bundled stdlib module details.
 
 ## Multi-File Projects
 
