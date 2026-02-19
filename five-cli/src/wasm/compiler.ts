@@ -200,6 +200,8 @@ export class FiveCompilerWasm {
       }
 
       const metricsPayload = this.extractMetrics(result, metricsFormat);
+      const formattedErrors = this.extractFormattedErrors(result);
+      const diagnostics = this.extractDiagnostics(result);
 
       // Transform result format to match expected SDK interface
       if (result.success && result.bytecode) {
@@ -210,18 +212,20 @@ export class FiveCompilerWasm {
           metadata: result.metadata,
           metrics: metricsPayload,
           metricsReport: metricsPayload,
-          formattedErrorsTerminal: typeof result.format_all_terminal === "function" ? result.format_all_terminal() : (result.formatted_errors_terminal || undefined),
-          formattedErrorsJson: typeof result.format_all_json === "function" ? result.format_all_json() : (result.formatted_errors_json || undefined),
+          formattedErrorsTerminal: formattedErrors.terminal,
+          formattedErrorsJson: formattedErrors.json,
         };
       } else {
         return {
           success: false,
-          errors: result.compiler_errors || [],
+          errors: diagnostics,
+          warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+          diagnostics,
           metadata: result.metadata,
           metrics: metricsPayload,
           metricsReport: metricsPayload,
-          formattedErrorsTerminal: typeof result.format_all_terminal === "function" ? result.format_all_terminal() : (result.formatted_errors_terminal || undefined),
-          formattedErrorsJson: typeof result.format_all_json === "function" ? result.format_all_json() : (result.formatted_errors_json || undefined),
+          formattedErrorsTerminal: formattedErrors.terminal,
+          formattedErrorsJson: formattedErrors.json,
         };
       }
     } catch (error) {
@@ -377,62 +381,8 @@ export class FiveCompilerWasm {
 
       const compilationTime = Date.now() - startTime;
       const metricsPayload = this.extractMetrics(result, metricsFormat);
-
-      // Use WASM-provided formatting methods to get structured error information
-      let convertedErrors: any[] = [];
-
-      if (result.compiler_errors && result.compiler_errors.length > 0) {
-        try {
-          // Try to get JSON formatted errors from WASM
-          const jsonErrors = result.format_all_json
-            ? result.format_all_json()
-            : null;
-          if (jsonErrors) {
-            const parsedErrors = JSON.parse(jsonErrors);
-            convertedErrors = parsedErrors.map((error: any) => ({
-              type: "enhanced",
-              ...error,
-              // Ensure proper structure for CLI display
-              code: error.code || "E0000",
-              severity: error.severity || "error",
-              category: error.category || "compilation",
-              message: error.message || "Unknown error",
-            }));
-          } else {
-            // Fallback: create basic errors from the result
-            convertedErrors = [
-              {
-                type: "enhanced",
-                code: "E0004",
-                severity: "error",
-                category: "compilation",
-                message: "InvalidScript",
-                description: "The script contains syntax or semantic errors",
-                location: undefined,
-                suggestions: [],
-              },
-            ];
-          }
-        } catch (parseError) {
-          this.logger.debug(
-            "Failed to parse JSON errors from WASM:",
-            parseError,
-          );
-          // Fallback to basic error
-          convertedErrors = [
-            {
-              type: "enhanced",
-              code: "E0004",
-              severity: "error",
-              category: "compilation",
-              message: "InvalidScript",
-              description: "Compilation failed with enhanced error system",
-              location: undefined,
-              suggestions: [],
-            },
-          ];
-        }
-      }
+      const diagnostics = this.extractDiagnostics(result);
+      const formattedErrors = this.extractFormattedErrors(result);
 
       // Extract ABI - get_abi() returns JSON string, parse it
       let abi = undefined;
@@ -449,9 +399,9 @@ export class FiveCompilerWasm {
         success: result.success,
         bytecode: result.bytecode ? new Uint8Array(result.bytecode) : undefined,
         abi: abi,
-        errors: convertedErrors,
-        warnings:
-          convertedErrors.filter((e: any) => e.severity === "warning") || [],
+        errors: diagnostics,
+        warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+        diagnostics,
         metrics: {
           compilationTime: result.compilation_time || compilationTime,
           bytecodeSize: result.bytecode_size || 0,
@@ -461,8 +411,8 @@ export class FiveCompilerWasm {
           functionCount: 0, // Would need analysis
         },
         metricsReport: metricsPayload,
-        formattedErrorsTerminal: typeof result.format_all_terminal === "function" ? result.format_all_terminal() : (result.formatted_errors_terminal || undefined),
-        formattedErrorsJson: typeof result.format_all_json === "function" ? result.format_all_json() : (result.formatted_errors_json || undefined),
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
 
       // Write output file if specified and compilation succeeded
@@ -712,6 +662,14 @@ export class FiveCompilerWasm {
    * Create a standardized compiler error
    */
   private createCompilerError(message: string, cause?: Error): CLIError {
+    if (
+      cause &&
+      typeof cause === "object" &&
+      (cause as any).code === "COMPILER_ERROR"
+    ) {
+      return cause as CLIError;
+    }
+
     const error = new Error(message) as CLIError;
     error.name = "CompilerError";
     error.code = "COMPILER_ERROR";
@@ -719,13 +677,226 @@ export class FiveCompilerWasm {
     error.exitCode = 1;
 
     if (cause) {
+      const inheritedDetails =
+        cause && typeof (cause as any).details === "object"
+          ? (cause as any).details
+          : undefined;
       error.details = {
+        ...(inheritedDetails || {}),
         cause: cause.message,
         stack: cause.stack,
       };
     }
 
     return error;
+  }
+
+  private isNonEmptyString(value: unknown): value is string {
+    return typeof value === "string" && value.trim().length > 0;
+  }
+
+  private toOptionalNumber(value: unknown): number | undefined {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    return undefined;
+  }
+
+  private extractFormattedErrors(result: any): {
+    terminal?: string;
+    json?: string;
+  } {
+    const safeCall = (methodName: string): string | undefined => {
+      if (!result || typeof result !== "object") {
+        return undefined;
+      }
+      const fn = (result as any)[methodName];
+      if (typeof fn !== "function") {
+        return undefined;
+      }
+      try {
+        const value = fn.call(result);
+        return this.isNonEmptyString(value) ? value : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+
+    const readProp = (name: string): string | undefined => {
+      if (!result || typeof result !== "object") {
+        return undefined;
+      }
+      const value = (result as any)[name];
+      return this.isNonEmptyString(value) ? value : undefined;
+    };
+
+    const terminal =
+      safeCall("get_formatted_errors_terminal") ||
+      readProp("formattedErrorsTerminal") ||
+      readProp("formatted_errors_terminal") ||
+      safeCall("format_all_terminal");
+
+    const json =
+      safeCall("format_all_json") ||
+      safeCall("get_formatted_errors_json") ||
+      readProp("formattedErrorsJson") ||
+      readProp("formatted_errors_json");
+
+    return { terminal, json };
+  }
+
+  private normalizeDiagnosticSuggestion(suggestion: any):
+    | { message: string; explanation?: string; confidence?: number; codeSuggestion?: string }
+    | undefined {
+    if (typeof suggestion === "string") {
+      return { message: suggestion };
+    }
+
+    if (!suggestion || typeof suggestion !== "object") {
+      return undefined;
+    }
+
+    const message = this.isNonEmptyString(suggestion.message)
+      ? suggestion.message
+      : this.isNonEmptyString(suggestion.explanation)
+        ? suggestion.explanation
+        : undefined;
+    if (!message) {
+      return undefined;
+    }
+
+    return {
+      message,
+      explanation: this.isNonEmptyString(suggestion.explanation)
+        ? suggestion.explanation
+        : undefined,
+      confidence: this.toOptionalNumber(suggestion.confidence),
+      codeSuggestion: this.isNonEmptyString(suggestion.code_suggestion)
+        ? suggestion.code_suggestion
+        : this.isNonEmptyString(suggestion.codeSuggestion)
+          ? suggestion.codeSuggestion
+          : undefined,
+    };
+  }
+
+  private normalizeDiagnostic(error: any): any {
+    let parsedFromFormatter: any;
+    if (error && typeof error?.format_json === "function") {
+      try {
+        const parsed = JSON.parse(error.format_json());
+        if (parsed && typeof parsed === "object") {
+          parsedFromFormatter = parsed;
+        }
+      } catch {
+        // Ignore formatter parsing issues and continue with direct field access.
+      }
+    }
+
+    const merged = {
+      ...(parsedFromFormatter || {}),
+      ...(error && typeof error === "object" ? error : {}),
+    };
+
+    const location =
+      merged.location && typeof merged.location === "object"
+        ? merged.location
+        : undefined;
+    const line = this.toOptionalNumber(merged.line) ?? this.toOptionalNumber(location?.line);
+    const column =
+      this.toOptionalNumber(merged.column) ?? this.toOptionalNumber(location?.column);
+    const file =
+      this.isNonEmptyString(merged.sourceLocation)
+        ? merged.sourceLocation
+        : this.isNonEmptyString(location?.file)
+          ? location.file
+          : undefined;
+
+    const rawSuggestions = Array.isArray(merged.suggestions)
+      ? merged.suggestions
+      : [];
+    const suggestions = rawSuggestions
+      .map((item: any) => this.normalizeDiagnosticSuggestion(item))
+      .filter(Boolean);
+
+    const rendered = this.isNonEmptyString(merged.rendered)
+      ? merged.rendered
+      : typeof merged.format_terminal === "function"
+        ? merged.format_terminal()
+        : undefined;
+
+    return {
+      type: this.isNonEmptyString(merged.type) ? merged.type : "enhanced",
+      code: this.isNonEmptyString(merged.code) ? merged.code : "E0000",
+      severity: this.isNonEmptyString(merged.severity) ? merged.severity : "error",
+      category: this.isNonEmptyString(merged.category)
+        ? merged.category
+        : "compilation",
+      message: this.isNonEmptyString(merged.message)
+        ? merged.message
+        : this.isNonEmptyString(merged.description)
+          ? merged.description
+          : "Unknown compiler error",
+      description: this.isNonEmptyString(merged.description)
+        ? merged.description
+        : undefined,
+      line,
+      column,
+      sourceLocation: file,
+      location,
+      suggestion: suggestions[0]?.message,
+      suggestions,
+      sourceLine: this.isNonEmptyString(merged.sourceLine)
+        ? merged.sourceLine
+        : this.isNonEmptyString(merged.source_line)
+          ? merged.source_line
+          : undefined,
+      sourceSnippet: this.isNonEmptyString(merged.sourceSnippet)
+        ? merged.sourceSnippet
+        : this.isNonEmptyString(merged.source_snippet)
+          ? merged.source_snippet
+          : undefined,
+      rendered: this.isNonEmptyString(rendered) ? rendered : undefined,
+      raw: error,
+    };
+  }
+
+  private extractDiagnostics(result: any): any[] {
+    const formatted = this.extractFormattedErrors(result);
+
+    if (formatted.json) {
+      try {
+        const parsed = JSON.parse(formatted.json);
+        const parsedErrors = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed?.errors)
+            ? parsed.errors
+            : [];
+
+        if (parsedErrors.length > 0) {
+          return parsedErrors.map((item: any) => this.normalizeDiagnostic(item));
+        }
+      } catch (parseError) {
+        this.logger.debug("Failed to parse formatted JSON diagnostics:", parseError);
+      }
+    }
+
+    if (Array.isArray(result?.compiler_errors)) {
+      return result.compiler_errors.map((item: any) =>
+        this.normalizeDiagnostic(item),
+      );
+    }
+
+    if (Array.isArray(result?.errors)) {
+      return result.errors.map((item: any) => this.normalizeDiagnostic(item));
+    }
+
+    return [];
   }
 
   private extractAbi(result: any): any | undefined {
@@ -856,6 +1027,8 @@ export class FiveCompilerWasm {
       const result = this.compiler.compileMultiWithDiscovery(entryPoint, compilationOptions);
 
       const metricsPayload = this.extractMetrics(result, metricsFormat);
+      const diagnostics = this.extractDiagnostics(result);
+      const formattedErrors = this.extractFormattedErrors(result);
 
       if (result.success && result.bytecode) {
         // Extract ABI - get_abi() returns JSON string, parse it
@@ -876,13 +1049,17 @@ export class FiveCompilerWasm {
           metadata: result.metadata,
           metrics: metricsPayload,
           metricsReport: metricsPayload,
+          formattedErrorsTerminal: formattedErrors.terminal,
+          formattedErrorsJson: formattedErrors.json,
         };
       } else {
         return {
           success: false,
-          errors: result.compiler_errors || [],
-          formattedErrorsTerminal: typeof result.format_all_terminal === "function" ? result.format_all_terminal() : (result as any).formatted_errors_terminal,
-          formattedErrorsJson: typeof result.format_all_json === "function" ? result.format_all_json() : (result as any).formatted_errors_json,
+          errors: diagnostics,
+          warnings: diagnostics.filter((diag: any) => diag.severity === "warning"),
+          diagnostics,
+          formattedErrorsTerminal: formattedErrors.terminal,
+          formattedErrorsJson: formattedErrors.json,
           metadata: result.metadata,
           metrics: metricsPayload,
           metricsReport: metricsPayload,

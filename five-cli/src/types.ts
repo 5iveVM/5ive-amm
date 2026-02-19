@@ -72,6 +72,7 @@ export interface CompilationResult {
   metadata?: CompilationMetadata;
   errors?: CompilationError[];
   warnings?: CompilationWarning[];
+  diagnostics?: CompilationError[];
   disassembly?: string[];
   metrics?: CompilationMetrics;
   metricsReport?: CompilationMetricsReport;
@@ -91,12 +92,27 @@ export interface CompilationMetadata {
 }
 
 export interface CompilationError {
-  type: 'syntax' | 'semantic' | 'type' | 'runtime';
+  type: 'syntax' | 'semantic' | 'type' | 'runtime' | 'enhanced' | string;
   message: string;
   line?: number;
   column?: number;
   sourceLocation?: string;
   suggestion?: string;
+  code?: string;
+  severity?: string;
+  category?: string;
+  description?: string;
+  location?: any;
+  suggestions?: Array<string | {
+    message: string;
+    explanation?: string;
+    confidence?: number;
+    codeSuggestion?: string;
+  }>;
+  sourceLine?: string;
+  sourceSnippet?: string;
+  rendered?: string;
+  raw?: any;
 }
 
 export interface CompilationWarning {

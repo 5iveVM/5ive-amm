@@ -1892,8 +1892,14 @@ impl WasmCompilerError {
             "suggestions": self.suggestions.iter().map(|s| serde_json::json!({
                 "message": s.message,
                 "explanation": s.explanation,
-                "confidence": s.confidence
+                "confidence": s.confidence,
+                "code_suggestion": s.code_suggestion
             })).collect::<Vec<_>>()
+            ,
+            "source_line": self.source_line,
+            "source_snippet": self.source_snippet,
+            "line": self.line,
+            "column": self.column
         });
         json_obj.to_string()
     }
@@ -2487,6 +2493,10 @@ impl WasmCompilationResult {
     /// Get all errors formatted as terminal output
     #[wasm_bindgen]
     pub fn format_all_terminal(&self) -> String {
+        if !self.formatted_errors_terminal.trim().is_empty() {
+            return self.formatted_errors_terminal.clone();
+        }
+
         self.compiler_errors
             .iter()
             .map(|e| e.format_terminal())
@@ -2497,6 +2507,14 @@ impl WasmCompilationResult {
     /// Get all errors as JSON array
     #[wasm_bindgen]
     pub fn format_all_json(&self) -> String {
+        if !self.formatted_errors_json.trim().is_empty() {
+            // Keep backward compatibility: if formatter output is malformed for multi-error cases,
+            // fall back to serializing compiler_errors below.
+            if serde_json::from_str::<serde_json::Value>(&self.formatted_errors_json).is_ok() {
+                return self.formatted_errors_json.clone();
+            }
+        }
+
         let json_errors: Vec<_> = self
             .compiler_errors
             .iter()

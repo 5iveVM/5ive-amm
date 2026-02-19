@@ -231,14 +231,9 @@ async function compileProject(
 
   if (!result.success) {
     console.log(uiError('build failed'));
-    if ((result as any).formattedErrorsTerminal) {
-      console.log((result as any).formattedErrorsTerminal);
-    } else if (result.errors) {
-      for (const err of result.errors) {
-        console.error(`  Error: ${err.message || String(err)}`);
-      }
-    }
-    throw new Error('Project build failed');
+    printCompilationDiagnostics(result);
+    const primaryError = extractPrimaryErrorMessage(result);
+    throw new Error(primaryError ? `Project build failed: ${primaryError}` : 'Project build failed');
   }
 
   const sourceText = await readFile(entryPointAbs, 'utf8');
@@ -375,11 +370,7 @@ async function compileFiles(
         }
       } else {
         console.log(uiError(`${inputFile} failed`));
-        if ((result as any).formattedErrorsTerminal) {
-          console.log((result as any).formattedErrorsTerminal);
-        } else if (result.errors) {
-          result.errors.forEach((error: any) => console.error(`  Error: ${error.message || String(error)}`));
-        }
+        printCompilationDiagnostics(result);
       }
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -618,4 +609,69 @@ function displayBytecodeAnalysis(analysis: any): void {
     console.log(`  Functions: ${analysis.summary.has_function_calls ? 'Yes' : 'No'}`);
     console.log(`  Jumps: ${analysis.summary.has_jumps ? 'Yes' : 'No'}`);
   }
+}
+
+function printCompilationDiagnostics(result: any): void {
+  if (!result) {
+    return;
+  }
+
+  const terminal = typeof result.formattedErrorsTerminal === 'string'
+    ? result.formattedErrorsTerminal.trim()
+    : '';
+  if (terminal) {
+    console.log(terminal);
+    return;
+  }
+
+  const diagnostics = Array.isArray(result.errors) ? result.errors : [];
+  if (diagnostics.length === 0) {
+    return;
+  }
+
+  for (const diagnostic of diagnostics) {
+    const code = diagnostic?.code ? `[${diagnostic.code}] ` : '';
+    const location = diagnostic?.location
+      ? `${diagnostic.location.file ?? 'input.v'}:${diagnostic.location.line ?? '?'}:${diagnostic.location.column ?? '?'}`
+      : diagnostic?.line
+        ? `line ${diagnostic.line}:${diagnostic.column ?? '?'}`
+        : undefined;
+    const message = diagnostic?.message || String(diagnostic);
+
+    if (location) {
+      console.error(`  Error ${code}${message} (${location})`);
+    } else {
+      console.error(`  Error ${code}${message}`);
+    }
+
+    const suggestion = Array.isArray(diagnostic?.suggestions) && diagnostic.suggestions.length > 0
+      ? diagnostic.suggestions[0]
+      : diagnostic?.suggestion;
+    if (suggestion) {
+      const suggestionText = typeof suggestion === 'string' ? suggestion : suggestion.message;
+      if (suggestionText) {
+        console.error(`    hint: ${suggestionText}`);
+      }
+    }
+  }
+}
+
+function extractPrimaryErrorMessage(result: any): string | undefined {
+  if (!result) {
+    return undefined;
+  }
+
+  const firstError = Array.isArray(result.errors) && result.errors.length > 0
+    ? result.errors[0]
+    : undefined;
+  if (firstError) {
+    return firstError.message || String(firstError);
+  }
+
+  if (typeof result.formattedErrorsTerminal === 'string') {
+    const firstLine = result.formattedErrorsTerminal.split('\n').find((line: string) => line.trim().length > 0);
+    return firstLine?.trim();
+  }
+
+  return undefined;
 }

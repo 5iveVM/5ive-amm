@@ -42,8 +42,11 @@ interface WasmCompiler {
     bytecode?: Uint8Array;
     abi?: any;
     errors?: any[];
+    diagnostics?: any[];
     metadata?: any;
     disassembly?: string[];
+    formattedErrorsTerminal?: string;
+    formattedErrorsJson?: string;
   }>;
 
   getCompilerInfo(): { version: string; features: string[] };
@@ -66,6 +69,7 @@ interface WasmCompiler {
     bytecode?: Uint8Array;
     abi?: any;
     errors?: any[];
+    diagnostics?: any[];
     metadata?: any;
     disassembly?: string[];
     metricsReport?: any;
@@ -176,7 +180,9 @@ export class BytecodeCompiler {
           metricsReport: (result as any).metricsReport,
         };
       } else {
-        const errors = this.transformErrors(result.errors || []);
+        const errors = this.transformErrors(
+          (result as any).diagnostics || result.errors || [],
+        );
 
         if (this.debug) {
           console.log(
@@ -192,13 +198,29 @@ export class BytecodeCompiler {
         return {
           success: false,
           errors,
+          diagnostics: errors,
+          formattedErrorsTerminal: (result as any).formattedErrorsTerminal,
+          formattedErrorsJson: (result as any).formattedErrorsJson,
           metricsReport: (result as any).metricsReport,
         };
       }
     } catch (error) {
+      if (error instanceof CompilationSDKError) {
+        throw error;
+      }
+
+      const inheritedDetails =
+        error && typeof error === "object" && (error as any).details
+          ? (error as any).details
+          : undefined;
+
       throw new CompilationSDKError(
         `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        { source: sourceContent.substring(0, 200), options },
+        {
+          ...(inheritedDetails || {}),
+          source: sourceContent.substring(0, 200),
+          options,
+        },
       );
     }
   }
@@ -259,15 +281,35 @@ export class BytecodeCompiler {
         };
       }
 
+      const errors = this.transformErrors(
+        (result as any).diagnostics || (result as any).errors || [],
+      );
+
       return {
         success: false,
-        errors: this.transformErrors((result as any).errors || []),
+        errors,
+        diagnostics: errors,
+        formattedErrorsTerminal: (result as any).formattedErrorsTerminal,
+        formattedErrorsJson: (result as any).formattedErrorsJson,
         metricsReport: (result as any).metricsReport,
       };
     } catch (error) {
+      if (error instanceof CompilationSDKError) {
+        throw error;
+      }
+
+      const inheritedDetails =
+        error && typeof error === "object" && (error as any).details
+          ? (error as any).details
+          : undefined;
+
       throw new CompilationSDKError(
         `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        { entryPoint, options },
+        {
+          ...(inheritedDetails || {}),
+          entryPoint,
+          options,
+        },
       );
     }
   }
@@ -419,13 +461,50 @@ export class BytecodeCompiler {
    * Transform compiler errors to SDK format
    */
   private transformErrors(errors: any[]): CompilationError[] {
-    return errors.map((error) => ({
-      type: 'compiler',
-      message: error.message || error.toString(),
-      line: error.line,
-      column: error.column,
-      severity: error.severity || "error",
-    }));
+    return errors.map((error) => {
+      const normalized = typeof error === "string" ? { message: error } : (error || {});
+      const location = normalized.location || {};
+      const lineValue = normalized.line ?? location.line;
+      const columnValue = normalized.column ?? location.column;
+
+      const line =
+        typeof lineValue === "number"
+          ? lineValue
+          : typeof lineValue === "string"
+            ? Number(lineValue)
+            : undefined;
+      const column =
+        typeof columnValue === "number"
+          ? columnValue
+          : typeof columnValue === "string"
+            ? Number(columnValue)
+            : undefined;
+
+      return {
+        type: normalized.type || "compiler",
+        message: normalized.message || String(error),
+        line: Number.isFinite(line as number) ? (line as number) : undefined,
+        column: Number.isFinite(column as number) ? (column as number) : undefined,
+        severity: normalized.severity || "error",
+        code: normalized.code,
+        category: normalized.category,
+        description: normalized.description,
+        location: normalized.location,
+        sourceLocation: normalized.sourceLocation || location.file,
+        suggestion:
+          normalized.suggestion ||
+          (Array.isArray(normalized.suggestions) && normalized.suggestions.length > 0
+            ? typeof normalized.suggestions[0] === "string"
+              ? normalized.suggestions[0]
+              : normalized.suggestions[0]?.message
+            : undefined),
+        suggestions: normalized.suggestions,
+        sourceLine: normalized.sourceLine || normalized.source_line,
+        sourceSnippet: normalized.sourceSnippet || normalized.source_snippet,
+        rendered: normalized.rendered,
+        raw: normalized.raw || error,
+      };
+    });
   }
 
   /**

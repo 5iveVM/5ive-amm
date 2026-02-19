@@ -105,12 +105,15 @@ export interface CompilationResult {
   metadata?: CompilationMetadata;
   errors?: CompilationError[];
   warnings?: CompilationWarning[];
+  diagnostics?: CompilationError[];
   disassembly?: string[];
   metrics?: CompilationMetrics;
   metricsReport?: CompilationMetricsReport;
   fiveFile?: FiveCompiledFile;
   publicFunctionNames?: string[];
   functionNames?: string[] | FunctionNameEntry[];
+  formattedErrorsTerminal?: string;
+  formattedErrorsJson?: string;
 }
 
 export interface CompilationMetadata {
@@ -142,7 +145,16 @@ export interface CompilationError {
   category?: string;
   description?: string;
   location?: any;
-  suggestions?: string[];
+  suggestions?: Array<string | {
+    message: string;
+    explanation?: string;
+    confidence?: number;
+    codeSuggestion?: string;
+  }>;
+  sourceLine?: string;
+  sourceSnippet?: string;
+  rendered?: string;
+  raw?: any;
 }
 
 export interface CompilationWarning {

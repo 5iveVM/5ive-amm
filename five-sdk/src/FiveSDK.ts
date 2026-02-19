@@ -273,9 +273,22 @@ export class FiveSDK {
 
       return result;
     } catch (error) {
+      if (error instanceof FiveSDKError) {
+        throw error;
+      }
+
+      const inheritedDetails =
+        error && typeof error === "object" && (error as any).details
+          ? (error as any).details
+          : undefined;
+
       throw new FiveSDKError(
         `Compilation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
         "COMPILATION_ERROR",
+        {
+          ...(inheritedDetails || {}),
+          cause: error instanceof Error ? error.message : String(error),
+        },
       );
     }
   }

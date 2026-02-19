@@ -1,7 +1,13 @@
 import { readFile, writeFile } from "fs/promises";
 import { CompilationOptions, CompilationResult } from "../../types.js";
 import { CompilationContext } from "./types.js";
-import { createCompilerError, extractMetrics, extractAbi } from "./utils.js";
+import {
+  createCompilerError,
+  extractMetrics,
+  extractAbi,
+  extractFormattedErrors,
+  extractDiagnostics,
+} from "./utils.js";
 
 export async function compile(
   ctx: CompilationContext,
@@ -72,6 +78,8 @@ export async function compile(
     }
 
     const metricsPayload = extractMetrics(result, metricsFormat);
+    const formattedErrors = extractFormattedErrors(result);
+    const diagnostics = extractDiagnostics(result, ctx.logger);
 
     if (result.success && result.bytecode) {
       return {
@@ -81,25 +89,37 @@ export async function compile(
         metadata: result.metadata,
         metrics: metricsPayload,
         metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
     } else {
       return {
         success: false,
-        errors: result.compiler_errors || [],
+        errors: diagnostics,
+        warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+        diagnostics,
         metadata: result.metadata,
         metrics: metricsPayload,
         metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
     }
   } catch (error) {
-    if (options && (options as any).debug) { // Check if debug option is available, though not strictly in CompilationOptions type used here as any
-       // Actually 'options' is any in signature
+    if (
+      error &&
+      typeof error === "object" &&
+      (error as any).code === "COMPILER_ERROR"
+    ) {
+      throw error;
     }
-    // Logic from original code had specialized try/catch for WASM error inside compileFile
-    // but here in compile it just throws
+
     throw createCompilerError(
       `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
       error as Error,
+      {
+        phase: "compile",
+      },
     );
   }
 }
@@ -223,64 +243,18 @@ export async function compileFile(
 
     const compilationTime = Date.now() - startTime;
     const metricsPayload = extractMetrics(result, metricsFormat);
-
-    let convertedErrors: any[] = [];
-    if (result.compiler_errors && result.compiler_errors.length > 0) {
-      try {
-        const jsonErrors = result.format_all_json
-          ? result.format_all_json()
-          : null;
-        if (jsonErrors) {
-          const parsedErrors = JSON.parse(jsonErrors);
-          convertedErrors = parsedErrors.map((error: any) => ({
-            type: "enhanced",
-            ...error,
-            code: error.code || "E0000",
-            severity: error.severity || "error",
-            category: error.category || "compilation",
-            message: error.message || "Unknown error",
-          }));
-        } else {
-          convertedErrors = [
-            {
-              type: "enhanced",
-              code: "E0004",
-              severity: "error",
-              category: "compilation",
-              message: "InvalidScript",
-              description: "The script contains syntax or semantic errors",
-              location: undefined,
-              suggestions: [],
-            },
-          ];
-        }
-      } catch (parseError) {
-        ctx.logger.debug(
-          "Failed to parse JSON errors from WASM:",
-          parseError,
-        );
-        convertedErrors = [
-          {
-            type: "enhanced",
-            code: "E0004",
-            severity: "error",
-            category: "compilation",
-            message: "InvalidScript",
-            description: "Compilation failed with enhanced error system",
-            location: undefined,
-            suggestions: [],
-          },
-        ];
-      }
-    }
+    const formattedErrors = extractFormattedErrors(result);
+    const diagnostics = extractDiagnostics(result, ctx.logger);
 
     const compilationResult: CompilationResult = {
       success: result.success,
       bytecode: result.bytecode ? new Uint8Array(result.bytecode) : undefined,
       abi: result.abi || undefined,
-      errors: convertedErrors,
-      warnings:
-        convertedErrors.filter((e: any) => e.severity === "warning") || [],
+      errors: diagnostics,
+      warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+      diagnostics,
+      formattedErrorsTerminal: formattedErrors.terminal,
+      formattedErrorsJson: formattedErrors.json,
       metrics: {
         compilationTime: result.compilation_time || compilationTime,
         bytecodeSize: result.bytecode_size || 0,
@@ -365,6 +339,8 @@ export async function compileWithDiscovery(
     const result = ctx.compiler.compileMultiWithDiscovery(entryPoint, compilationOptions);
 
     const metricsPayload = extractMetrics(result, metricsFormat);
+    const formattedErrors = extractFormattedErrors(result);
+    const diagnostics = extractDiagnostics(result, ctx.logger);
 
     if (result.success && result.bytecode) {
       return {
@@ -374,20 +350,38 @@ export async function compileWithDiscovery(
         metadata: result.metadata,
         metrics: metricsPayload,
         metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
     } else {
       return {
         success: false,
-        errors: result.compiler_errors || [],
+        errors: diagnostics,
+        warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+        diagnostics,
         metadata: result.metadata,
         metrics: metricsPayload,
         metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
     }
   } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      (error as any).code === "COMPILER_ERROR"
+    ) {
+      throw error;
+    }
+
     throw createCompilerError(
       `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      error as Error
+      error as Error,
+      {
+        phase: "compileWithDiscovery",
+        entryPoint,
+      },
     );
   }
 }
