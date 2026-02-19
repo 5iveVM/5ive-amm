@@ -838,7 +838,7 @@ fn handle_build(
     .or_else(|| {
         config.modules.get("main").and_then(|v| v.first().cloned())
     })
-    .ok_or("Could not determine entry point. Please specify [build] entry_point or [modules] main in five.toml")?;
+    .ok_or("Could not determine entry point. Please specify project.entry_point or build.entry_point in five.toml")?;
 
     let entry_point = path.join(&entry_point_str);
     if !entry_point.exists() {

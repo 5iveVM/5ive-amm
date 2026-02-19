@@ -29,7 +29,7 @@ cd my-program
 ### 2) Compile to a `.five` artifact (recommended)
 
 ```bash
-5ive compile src/main.v -o build/main.five
+5ive build
 ```
 
 The `.five` artifact contains bytecode and ABI and is the best default for deployment and SDK integration.
@@ -108,7 +108,7 @@ If none are set, on-chain commands fail fast with a program ID setup error.
 ### Compile diagnostics and machine-readable metrics
 
 ```bash
-5ive compile src/main.v \
+5ive build \
   --analyze \
   --metrics-output build/compile-metrics.json \
   --metrics-format json \
@@ -191,7 +191,7 @@ If none are set, on-chain commands fail fast with a program ID setup error.
 ### Command-specific help
 
 ```bash
-5ive compile --help
+5ive build --help
 5ive execute --help
 5ive config --help
 ```

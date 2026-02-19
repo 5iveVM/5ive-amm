@@ -9,8 +9,6 @@ build_dir = "build"
 target = "vm"
 entry_point = "src/token.v"
 
-multi_file_mode = false
-
 [optimizations]
 enable_compression = true
 enable_constraint_optimization = true

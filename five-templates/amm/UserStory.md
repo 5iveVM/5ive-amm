@@ -12,14 +12,14 @@ Create a production-ready, modular AMM (Automated Market Maker) template that de
     - `remove_liquidity`: Users burn LP tokens, receive A and B.
 3.  **Modular Architecture**:
     - Split logic into clear modules: `amm_core.v`, `amm_swap.v`, `amm_math.v`, `amm_types.v`.
-    - Use `multi_file_mode = true` in `five.toml`.
+    - Set `project.entry_point` in `five.toml` and rely on compiler import discovery.
     - Avoid explicit imports in sub-modules to prevent linker errors.
     - Use `account` keyword (no `pub`) for struct definitions.
 
 ## Project Structure
 ```
 five-templates/amm/
-├── five.toml                 # Config with multi_file_mode = true
+├── five.toml                 # Config with entry_point-based discovery
 ├── src/
 │   ├── main.v                # Entry point (imports only)
 │   ├── amm_types.v           # Account structs (Pool, LP Token)

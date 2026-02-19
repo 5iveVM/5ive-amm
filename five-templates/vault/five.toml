@@ -1,19 +1,18 @@
 # Five Vault Template
 # A native SOL vault example
 
-[package]
+[project]
 name = "five-vault-template"
 version = "0.1.0"
-authors = ["Five Org"]
-edition = "2024"
+description = "A native SOL vault example"
+source_dir = "src"
+build_dir = "build"
+target = "vm"
+entry_point = "src/main.v"
 
 [build]
-target = "vm"
-entry_point = "./src/main.v"
-source_dir = "./src"
+output_artifact_name = "five-vault-template"
 
-# Multi-file compilation support
-multi_file_mode = false
 
 [optimizations]
 enable_compression = true

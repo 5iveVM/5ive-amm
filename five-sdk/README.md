@@ -13,7 +13,7 @@ npm install @5ive-tech/sdk @solana/web3.js
 ### 1) Compile to `.five`
 
 ```bash
-5ive compile src/main.v -o build/my-program.five
+5ive build
 ```
 
 ### 1b) Compile directly with SDK (optional)
