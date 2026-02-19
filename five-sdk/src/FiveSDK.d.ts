@@ -70,12 +70,9 @@ export declare class FiveSDK {
         debug?: boolean;
     }): Promise<CompilationResult>;
     /**
-     * Compile multiple modules (entry + dependencies)
+     * Compile a project via five.toml entry-point discovery
      */
-    static compileModules(mainSource: FiveScriptSource, modules: Array<{
-        name: string;
-        source: string;
-    }>, options?: CompilationOptions & {
+    static compileProject(projectPath?: string, options?: CompilationOptions & {
         debug?: boolean;
     }): Promise<CompilationResult>;
     /**

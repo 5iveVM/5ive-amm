@@ -21,7 +21,6 @@ export interface ProjectConfig {
   keypairPath?: string;
   optimizations?: ProjectOptimizations;
   dependencies?: ProjectDependency[];
-  multiFileMode?: boolean;
   wasm?: {
     loader?: 'auto' | 'node' | 'bundler';
     modulePaths?: string[];

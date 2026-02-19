@@ -34,7 +34,6 @@ export async function loadProjectConfig(
   const build = parsed.build ?? {};
   const optimizations = parsed.optimizations ?? {};
   const deploy = parsed.deploy ?? {};
-  const modules = parsed.modules ?? {};
 
   const name = project.name ?? 'five-project';
   const target = (project.target ?? 'vm') as CompilationTarget;
@@ -54,14 +53,12 @@ export async function loadProjectConfig(
     programId: deploy.program_id,
     namespaceManager: deploy.namespace_manager ?? deploy.namespace_manager_script,
     keypairPath: deploy.keypair_path,
-    multiFileMode: build.multi_file_mode ?? false,
     optimizations: {
       enableCompression: optimizations.enable_compression ?? true,
       enableConstraintOptimization: optimizations.enable_constraint_optimization ?? true,
       optimizationLevel: 'production'
     },
-    dependencies: [],
-    modules: modules as Record<string, string[]>
+    dependencies: []
   };
 
   return { config, configPath, rootDir };

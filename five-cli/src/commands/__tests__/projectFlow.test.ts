@@ -42,7 +42,7 @@ jest.mock('five-sdk', () => ({
       bytecode: new Uint8Array(),
       metadata: {}
     }),
-    compileModules: jest.fn().mockResolvedValue({
+    compileProject: jest.fn().mockResolvedValue({
       success: true,
       fiveFile: {},
       bytecode: new Uint8Array(),
@@ -124,7 +124,7 @@ const logger = {
 };
 
 // Helper to create a sample project structure with five.toml and a stub .v file
-async function createProject({ target = 'vm', multi = false }: { target?: string; multi?: boolean } = {}) {
+async function createProject({ target = 'vm' }: { target?: string } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'five-cli-project-'));
   await mkdir(join(root, 'src'), { recursive: true });
   await mkdir(join(root, 'build'), { recursive: true });
@@ -142,7 +142,6 @@ entry_point = "src/main.v"
 
 [build]
 output_artifact_name = "demo"
-multi_file_mode = ${multi}
 
 [deploy]
 cluster = "devnet"
@@ -155,12 +154,6 @@ keypair_path = "~/.config/solana/id.json"
     join(root, 'src', 'main.v'),
     `pub main() -> u64 { return 1; }`
   );
-  if (multi) {
-    await writeFile(
-      join(root, 'src', 'helper.v'),
-      `pub helper() -> u64 { return 2; }`
-    );
-  }
   return root;
 }
 
@@ -212,38 +205,9 @@ describe('project-aware commands', () => {
     const root = await createProject();
     const ctx = createContext();
 
-    const compileSpy = jest
-      .spyOn(compileCommand, 'handler')
-      .mockResolvedValue(undefined as any);
-
     await buildCommand.handler([], { project: root }, ctx as any);
 
-    expect(compileSpy).toHaveBeenCalledTimes(1);
-    const [, optionsArg] = compileSpy.mock.calls[0];
-    expect(optionsArg.project).toContain('five.toml');
-    expect(optionsArg.includeMetrics).toBe(true);
-
-    compileSpy.mockRestore();
-  });
-
-  it('compile handler uses multi-file path when multi_file_mode is true', async () => {
-    const root = await createProject({ multi: true });
-    const ctx = createContext();
-
-    const compileModulesMock = FiveSDK.compileModules as jest.Mock;
-    compileModulesMock.mockResolvedValue({
-      success: true,
-      bytecode: new Uint8Array(),
-      fiveFile: {},
-      metadata: {}
-    });
-
-    await compileCommand.handler([], { project: root }, ctx as any);
-
-    expect(compileModulesMock).toHaveBeenCalledTimes(1);
-    const [mainSrc, modules] = compileModulesMock.mock.calls[0];
-    expect(typeof mainSrc).toBe('string');
-    expect(Array.isArray(modules)).toBe(true);
-    expect(modules.length).toBeGreaterThanOrEqual(1);
+    expect((FiveSDK.compileProject as jest.Mock)).toHaveBeenCalledTimes(1);
+    expect((FiveSDK.compileProject as jest.Mock).mock.calls[0][0]).toContain('five.toml');
   });
 });

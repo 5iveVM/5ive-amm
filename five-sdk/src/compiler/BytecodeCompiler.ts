@@ -58,9 +58,8 @@ interface WasmCompiler {
 
   getFunctionNames?(bytecode: Uint8Array): Promise<string>;
 
-  compile_multi?(
-    mainSource: string,
-    modules: Array<{ name: string; source: string }>,
+  compileWithDiscovery?(
+    entryPoint: string,
     options?: any,
   ): Promise<{
     success: boolean;
@@ -69,6 +68,9 @@ interface WasmCompiler {
     errors?: any[];
     metadata?: any;
     disassembly?: string[];
+    metricsReport?: any;
+    formattedErrorsTerminal?: string;
+    formattedErrorsJson?: string;
   }>;
 }
 
@@ -201,12 +203,8 @@ export class BytecodeCompiler {
     }
   }
 
-  /**
-   * Compile multiple modules (entry + dependencies)
-   */
-  async compileModules(
-    mainSource: FiveScriptSource,
-    modules: Array<{ name: string; source: string }>,
+  async compileWithDiscovery(
+    entryPoint: string,
     options: CompilationOptions = {},
   ): Promise<CompilationResult> {
     const startTime = Date.now();
@@ -216,67 +214,60 @@ export class BytecodeCompiler {
         await this.loadWasmCompiler();
       }
 
-      if (!this.wasmCompiler?.compile_multi) {
-        throw new CompilationSDKError("Multi-file compilation is not supported in this build");
+      if (!this.wasmCompiler?.compileWithDiscovery) {
+        throw new CompilationSDKError("Compiler discovery API is not supported in this build");
       }
 
-      const compilerOptions = {
-        optimize: options.optimize || false,
-        target: options.target || "vm",
-        debug: options.debug || false,
-        maxSize: options.maxSize || 1048576,
-        optimizationLevel: options.optimizationLevel || "production",
-        includeMetrics: options.includeMetrics || options.metricsOutput !== undefined,
-        metricsFormat: options.metricsFormat || "json",
-        errorFormat: options.errorFormat || "terminal",
-        comprehensiveMetrics: options.comprehensiveMetrics || false,
-      };
-
-      const result = await this.wasmCompiler.compile_multi(
-        mainSource.content,
-        modules,
-        compilerOptions,
-      );
-
+      const result = await this.wasmCompiler.compileWithDiscovery(entryPoint, options);
       const compilationTime = Date.now() - startTime;
 
       if (result.success && result.bytecode) {
         const compilerInfo = await this.getCompilerInfo();
+        let abiData = result.abi as any;
+        if (!abiData) {
+          abiData = await this.generateABI(typeof entryPoint === 'string' ? await readFile(entryPoint, 'utf8') : entryPoint);
+        }
+
+        const normalizedFunctions = normalizeAbiFunctions(
+          (abiData as any)?.functions ?? abiData,
+        );
+        const normalizedAbi = {
+          ...(abiData as any),
+          functions: normalizedFunctions,
+        };
 
         return {
           success: true,
           bytecode: result.bytecode,
-          abi: result.abi,
+          abi: normalizedAbi,
           disassembly: result.disassembly || [],
           metadata: {
-            sourceFile: mainSource.filename || 'main.v',
+            sourceFile: entryPoint,
             timestamp: new Date().toISOString(),
-            compilerVersion: compilerInfo.version || '1.0.0',
-            target: (options.target || 'vm') as CompilationTarget,
+            compilerVersion: compilerInfo.version || "1.0.0",
+            target: (options.target || "vm") as CompilationTarget,
             optimizations: [],
-            originalSize: mainSource.content.length,
+            originalSize: 0,
             compressedSize: result.bytecode.length,
             compressionRatio: 1.0,
-            sourceSize: mainSource.content.length,
+            sourceSize: 0,
             bytecodeSize: result.bytecode.length,
-            functions: [],
+            functions: this.extractFunctions(normalizedAbi),
             compilationTime,
           },
           metricsReport: (result as any).metricsReport,
         };
-      } else {
-        const errors = this.transformErrors((result as any).errors || (result as any).compiler_errors || []);
-
-        return {
-          success: false,
-          errors,
-          metricsReport: (result as any).metricsReport,
-        };
       }
+
+      return {
+        success: false,
+        errors: this.transformErrors((result as any).errors || []),
+        metricsReport: (result as any).metricsReport,
+      };
     } catch (error) {
       throw new CompilationSDKError(
         `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        { options },
+        { entryPoint, options },
       );
     }
   }

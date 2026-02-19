@@ -277,8 +277,6 @@ export interface ProjectConfig {
   keypairPath?: string;
   optimizations: ProjectOptimizations;
   dependencies: ProjectDependency[];
-  multiFileMode?: boolean;
-  modules?: Record<string, string[]>;
 }
 
 export interface ProjectOptimizations {

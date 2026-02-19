@@ -27,7 +27,6 @@ export function parseProjectConfig(parsedToml: Record<string, any>): ProjectConf
         rpcUrl: deploy.rpc_url,
         programId: deploy.program_id,
         keypairPath: deploy.keypair_path,
-        multiFileMode: build.multi_file_mode ?? false,
         optimizations: {
             enableCompression: optimizations.enable_compression ?? true,
             enableConstraintOptimization: optimizations.enable_constraint_optimization ?? true,

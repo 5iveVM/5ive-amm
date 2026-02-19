@@ -247,12 +247,12 @@ async function generatePackageJson(
     author: options.author || '',
     license: options.license,
     scripts: {
-      build: '5ive compile src/**/*.v',
+      build: '5ive build',
       test: '5ive test',
       deploy: '5ive deploy',
-      'build:release': '5ive compile src/**/*.v -O 3',
-      'build:debug': '5ive compile src/**/*.v --debug',
-      'watch': '5ive compile src/**/*.v --watch',
+      'build:release': '5ive build -O 3',
+      'build:debug': '5ive build --debug',
+      'watch': '5ive build --watch',
       'client:build': 'npm --prefix client install && npm --prefix client run build',
       'client:run': 'npm --prefix client install && npm --prefix client run run'
     },
@@ -1344,10 +1344,7 @@ See \`docs/STDLIB.md\` for bundled stdlib module details.
 If your project uses multiple modules with \`use\` or \`import\` statements, 5IVE CLI automatically handles:
 
 \`\`\`bash
-# Automatic discovery of imported modules
-5ive compile src/main.v --auto-discover
-
-# Or use the build command which respects five.toml configuration
+# Build from five.toml entry_point using compiler-owned discovery
 5ive build
 \`\`\`
 
