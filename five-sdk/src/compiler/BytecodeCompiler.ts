@@ -120,6 +120,7 @@ export class BytecodeCompiler {
         debug: options.debug || false,
         maxSize: options.maxSize || 1048576, // 1MB default
         optimizationLevel: options.optimizationLevel || "production", // Default to Production
+        sourceFile: sourceFilename,
         // Pass through metrics options
         metricsFormat: (options as any).metricsFormat,
         metricsOutput: (options as any).metricsOutput,
@@ -240,7 +241,10 @@ export class BytecodeCompiler {
         throw new CompilationSDKError("Compiler discovery API is not supported in this build");
       }
 
-      const result = await this.wasmCompiler.compileWithDiscovery(entryPoint, options);
+      const result = await this.wasmCompiler.compileWithDiscovery(entryPoint, {
+        ...options,
+        sourceFile: entryPoint,
+      });
       const compilationTime = Date.now() - startTime;
 
       if (result.success && result.bytecode) {
@@ -327,7 +331,16 @@ export class BytecodeCompiler {
 
     try {
       const source = await readFile(filePath, "utf-8");
-      return this.compile(source, options);
+      return this.compile(
+        {
+          filename: filePath,
+          content: source,
+        },
+        {
+          ...options,
+          sourceFile: filePath,
+        },
+      );
     } catch (error) {
       throw new CompilationSDKError(
         `Failed to read file ${filePath}: ${error instanceof Error ? error.message : "Unknown error"}`,

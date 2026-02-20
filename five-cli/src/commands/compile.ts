@@ -318,7 +318,13 @@ async function validateFiles(
   for (const inputFile of inputFiles) {
     try {
       const sourceCode = await readFile(inputFile, 'utf8');
-      const result = await FiveSDK.compile(sourceCode, { debug: false });
+      const result = await FiveSDK.compile(
+        {
+          filename: inputFile,
+          content: sourceCode
+        },
+        { debug: false }
+      );
 
       if (result.success) {
         console.log(uiSuccess(`${inputFile} - valid syntax`));
@@ -428,7 +434,8 @@ async function compileSingleFile(
     errorFormat: options.errorFormat || 'terminal',
     comprehensiveMetrics: Boolean(options.comprehensiveMetrics),
     metricsOutput: options.metricsOutput,
-    flatNamespace: Boolean(options.flatNamespace)
+    flatNamespace: Boolean(options.flatNamespace),
+    sourceFile: inputFile
   };
 
   const { FiveCompilerWasm } = await import('../wasm/compiler.js');
@@ -616,44 +623,84 @@ function printCompilationDiagnostics(result: any): void {
     return;
   }
 
+  const diagnostics = Array.isArray(result.errors) ? result.errors : [];
+  if (diagnostics.length > 0) {
+    for (const diagnostic of diagnostics) {
+      const severity = (diagnostic?.severity || 'error').toString().toLowerCase();
+      const code = diagnostic?.code ? `[${diagnostic.code}] ` : '';
+      const category = diagnostic?.category ? ` (${diagnostic.category})` : '';
+      const message = diagnostic?.message || String(diagnostic);
+      const header = `${severity}${code}${category}: ${message}`;
+      console.error(`  ${header}`);
+
+      const file = diagnostic?.location?.file || diagnostic?.sourceLocation;
+      const line = diagnostic?.location?.line ?? diagnostic?.line;
+      const column = diagnostic?.location?.column ?? diagnostic?.column;
+      if (file || line || column) {
+        const atFile = file || 'input.v';
+        const atLine = line ?? '?';
+        const atColumn = column ?? '?';
+        console.error(`    at ${atFile}:${atLine}:${atColumn}`);
+      }
+
+      if (typeof diagnostic?.description === 'string' && diagnostic.description.trim().length > 0) {
+        console.error(`    note: ${diagnostic.description}`);
+      }
+
+      if (typeof diagnostic?.sourceSnippet === 'string' && diagnostic.sourceSnippet.trim().length > 0) {
+        const snippet = diagnostic.sourceSnippet.trimEnd().split('\n');
+        for (const snippetLine of snippet) {
+          console.error(`    ${snippetLine}`);
+        }
+      } else if (typeof diagnostic?.sourceLine === 'string' && diagnostic.sourceLine.trim().length > 0) {
+        console.error(`    source: ${diagnostic.sourceLine.trim()}`);
+      }
+
+      const suggestions = collectDiagnosticSuggestions(diagnostic);
+      for (const suggestion of suggestions) {
+        console.error(`    help: ${suggestion}`);
+      }
+    }
+    return;
+  }
+
   const terminal = typeof result.formattedErrorsTerminal === 'string'
     ? result.formattedErrorsTerminal.trim()
     : '';
   if (terminal) {
     console.log(terminal);
-    return;
   }
+}
 
-  const diagnostics = Array.isArray(result.errors) ? result.errors : [];
-  if (diagnostics.length === 0) {
-    return;
-  }
+function collectDiagnosticSuggestions(diagnostic: any): string[] {
+  const suggestions = new Set<string>();
 
-  for (const diagnostic of diagnostics) {
-    const code = diagnostic?.code ? `[${diagnostic.code}] ` : '';
-    const location = diagnostic?.location
-      ? `${diagnostic.location.file ?? 'input.v'}:${diagnostic.location.line ?? '?'}:${diagnostic.location.column ?? '?'}`
-      : diagnostic?.line
-        ? `line ${diagnostic.line}:${diagnostic.column ?? '?'}`
-        : undefined;
-    const message = diagnostic?.message || String(diagnostic);
-
-    if (location) {
-      console.error(`  Error ${code}${message} (${location})`);
-    } else {
-      console.error(`  Error ${code}${message}`);
-    }
-
-    const suggestion = Array.isArray(diagnostic?.suggestions) && diagnostic.suggestions.length > 0
-      ? diagnostic.suggestions[0]
-      : diagnostic?.suggestion;
-    if (suggestion) {
-      const suggestionText = typeof suggestion === 'string' ? suggestion : suggestion.message;
-      if (suggestionText) {
-        console.error(`    hint: ${suggestionText}`);
+  if (Array.isArray(diagnostic?.suggestions)) {
+    for (const entry of diagnostic.suggestions) {
+      const text = typeof entry === 'string' ? entry : entry?.message;
+      if (typeof text === 'string' && text.trim().length > 0) {
+        suggestions.add(text.trim());
       }
     }
   }
+
+  if (typeof diagnostic?.suggestion === 'string' && diagnostic.suggestion.trim().length > 0) {
+    suggestions.add(diagnostic.suggestion.trim());
+  }
+
+  const code = typeof diagnostic?.code === 'string' ? diagnostic.code : '';
+  if (suggestions.size === 0) {
+    if (code === 'E2000') {
+      suggestions.add('Declare the variable before use with `let <name> = ...`.');
+      suggestions.add('Check for spelling differences between parameter/field names and usages.');
+    } else if (code === 'E0002') {
+      suggestions.add('Check for missing closing `}`, `)`, or an incomplete function signature.');
+    } else if (code === 'E0001' || code === 'E0004') {
+      suggestions.add('Check for missing punctuation (`;`, `{`, `}`) near the reported statement.');
+    }
+  }
+
+  return Array.from(suggestions);
 }
 
 function extractPrimaryErrorMessage(result: any): string | undefined {

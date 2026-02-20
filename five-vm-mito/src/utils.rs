@@ -184,7 +184,9 @@ impl ErrorUtils {
             VMError::InvalidSeedArray(_) => "Invalid seed array",
             VMError::ImmutableField => "Attempt to modify an immutable field",
             VMError::UndefinedField => "Attempt to access an undefined field",
-            VMError::UndefinedIdentifier => "Attempt to access an undefined identifier",
+            VMError::UndefinedIdentifier | VMError::UndefinedIdentifierWithContext { .. } => {
+                "Attempt to access an undefined identifier"
+            }
             VMError::InvalidParameterCount => "Invalid parameter count",
             VMError::IndexOutOfBounds => "Index out of bounds",
             VMError::OutOfMemory => "Out of memory",

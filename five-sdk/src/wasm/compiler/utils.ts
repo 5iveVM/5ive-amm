@@ -124,6 +124,39 @@ function pickSuggestions(
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function buildFallbackSuggestions(code: string): NormalizedCompilationSuggestion[] {
+  switch (code) {
+    case "E2000":
+      return [
+        {
+          message: "Declare the variable before use with `let <name> = ...`.",
+          confidence: 0.8,
+        },
+        {
+          message: "Check for spelling differences between parameter/field names and usages.",
+          confidence: 0.7,
+        },
+      ];
+    case "E0002":
+      return [
+        {
+          message: "Check for missing closing `}`, `)`, or an incomplete function signature.",
+          confidence: 0.75,
+        },
+      ];
+    case "E0001":
+    case "E0004":
+      return [
+        {
+          message: "Check for missing punctuation (`;`, `{`, `}`) near the reported statement.",
+          confidence: 0.7,
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
 export function createCompilerError(
   message: string,
   cause?: Error,
@@ -206,7 +239,9 @@ export function normalizeDiagnostic(error: any): NormalizedCompilationDiagnostic
   const file =
     toOptionalString(merged.sourceLocation) ??
     toOptionalString(location?.file);
-  const suggestionList = pickSuggestions(merged.suggestions);
+  const code = toOptionalString(merged.code) || "E0000";
+  const suggestionList =
+    pickSuggestions(merged.suggestions) || buildFallbackSuggestions(code);
   const rendered = toOptionalString(merged.rendered) ||
     (typeof merged.format_terminal === "function"
       ? toOptionalString(merged.format_terminal())
@@ -214,7 +249,7 @@ export function normalizeDiagnostic(error: any): NormalizedCompilationDiagnostic
 
   return {
     type: toOptionalString(merged.type) || "enhanced",
-    code: toOptionalString(merged.code) || "E0000",
+    code,
     severity: toOptionalString(merged.severity) || "error",
     category: toOptionalString(merged.category) || "compilation",
     message:

@@ -2742,7 +2742,8 @@ impl WasmFiveCompiler {
         let (bytecode, disassembly, success, errors, abi) = {
             use five_dsl_compiler::compiler::pipeline::CompilationPipeline;
             
-            let mut pipeline = CompilationPipeline::new(source, None);
+            let mut pipeline =
+                CompilationPipeline::new(source, options.source_file.as_deref());
             
             // Execute pipeline stages manually
             let result = (|| -> Result<(Box<Vec<u8>>, Vec<String>, Option<five_dsl_compiler::bytecode_generator::types::FIVEABI>), five_dsl_compiler::error::CompilerError> {

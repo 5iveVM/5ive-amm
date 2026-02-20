@@ -362,7 +362,7 @@ impl ASTGenerator {
             .local_symbol_table
             .get(index_name)
             .map(|f| f.offset)
-            .ok_or(VMError::UndefinedIdentifier)?;
+            .ok_or_else(|| VMError::undefined_identifier(index_name, None))?;
 
         let start_label = self.new_label();
         let end_label = self.new_label();

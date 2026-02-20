@@ -154,7 +154,8 @@ export class FiveCompilerWasm {
           .with_comprehensive_metrics(comprehensiveMetrics)
           .with_metrics_format(metricsFormat)
           .with_error_format(errorFormat)
-          .with_module_namespaces(!Boolean(options?.flatNamespace));
+          .with_module_namespaces(!Boolean(options?.flatNamespace))
+          .with_source_file(options?.sourceFile || "input.v");
 
         // Execute compilation
         result = this.compiler.compile(source, compilationOptions);
@@ -785,6 +786,39 @@ export class FiveCompilerWasm {
     };
   }
 
+  private buildFallbackSuggestions(code: string): Array<{ message: string; confidence?: number }> {
+    switch (code) {
+      case "E2000":
+        return [
+          {
+            message: "Declare the variable before use with `let <name> = ...`.",
+            confidence: 0.8,
+          },
+          {
+            message: "Check for spelling differences between parameter/field names and usages.",
+            confidence: 0.7,
+          },
+        ];
+      case "E0002":
+        return [
+          {
+            message: "Check for missing closing `}`, `)`, or an incomplete function signature.",
+            confidence: 0.75,
+          },
+        ];
+      case "E0001":
+      case "E0004":
+        return [
+          {
+            message: "Check for missing punctuation (`;`, `{`, `}`) near the reported statement.",
+            confidence: 0.7,
+          },
+        ];
+      default:
+        return [];
+    }
+  }
+
   private normalizeDiagnostic(error: any): any {
     let parsedFromFormatter: any;
     if (error && typeof error?.format_json === "function") {
@@ -817,12 +851,17 @@ export class FiveCompilerWasm {
           ? location.file
           : undefined;
 
+    const code = this.isNonEmptyString(merged.code) ? merged.code : "E0000";
     const rawSuggestions = Array.isArray(merged.suggestions)
       ? merged.suggestions
       : [];
     const suggestions = rawSuggestions
       .map((item: any) => this.normalizeDiagnosticSuggestion(item))
-      .filter(Boolean);
+      .filter(Boolean) as Array<{ message: string; explanation?: string; confidence?: number; codeSuggestion?: string }>;
+
+    if (suggestions.length === 0) {
+      suggestions.push(...this.buildFallbackSuggestions(code));
+    }
 
     const rendered = this.isNonEmptyString(merged.rendered)
       ? merged.rendered
@@ -832,7 +871,7 @@ export class FiveCompilerWasm {
 
     return {
       type: this.isNonEmptyString(merged.type) ? merged.type : "enhanced",
-      code: this.isNonEmptyString(merged.code) ? merged.code : "E0000",
+      code,
       severity: this.isNonEmptyString(merged.severity) ? merged.severity : "error",
       category: this.isNonEmptyString(merged.category)
         ? merged.category

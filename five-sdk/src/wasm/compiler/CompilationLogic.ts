@@ -43,7 +43,8 @@ export async function compile(
       .with_metrics(includeMetrics)
       .with_comprehensive_metrics(comprehensiveMetrics)
       .with_metrics_format(metricsFormat)
-      .with_error_format(errorFormat);
+      .with_error_format(errorFormat)
+      .with_source_file(options?.sourceFile || "input.v");
 
     result = ctx.compiler.compile(source, compilationOptions);
 
@@ -334,7 +335,8 @@ export async function compileWithDiscovery(
       .with_metrics(includeMetrics)
       .with_comprehensive_metrics(comprehensiveMetrics)
       .with_metrics_format(metricsFormat)
-      .with_error_format(errorFormat);
+      .with_error_format(errorFormat)
+      .with_source_file(entryPoint);
 
     const result = ctx.compiler.compileMultiWithDiscovery(entryPoint, compilationOptions);
 

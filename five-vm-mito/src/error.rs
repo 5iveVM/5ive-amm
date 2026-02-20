@@ -410,6 +410,11 @@ pub enum VMError {
     },
     UndefinedField,
     UndefinedIdentifier,
+    /// Undefined identifier with additional source context and optional nearest match.
+    UndefinedIdentifierWithContext {
+        identifier: Str64,
+        did_you_mean: Option<Str64>,
+    },
     /// Invalid parameter count (legacy - specific version below)
     InvalidParameterCount,
     IndexOutOfBounds,
@@ -491,7 +496,9 @@ impl VMError {
             VMError::InvalidSeedArray(_) => ProgramError::InvalidArgument,
             VMError::ImmutableField => ProgramError::Custom(9010),
             VMError::UndefinedField => ProgramError::Custom(9011),
-            VMError::UndefinedIdentifier => ProgramError::InvalidInstructionData,
+            VMError::UndefinedIdentifier | VMError::UndefinedIdentifierWithContext { .. } => {
+                ProgramError::InvalidInstructionData
+            }
             VMError::InvalidParameterCount => ProgramError::Custom(9014),
             VMError::IndexOutOfBounds => ProgramError::InvalidInstructionData,
             VMError::OutOfMemory => ProgramError::Custom(9012),
@@ -557,7 +564,9 @@ impl From<VMError> for VMErrorCode {
             VMError::ImmutableField => VMErrorCode::ImmutableField,
             VMError::FunctionVisibilityViolation { .. } => VMErrorCode::FunctionVisibilityViolation,
             VMError::UndefinedField => VMErrorCode::UndefinedField,
-            VMError::UndefinedIdentifier => VMErrorCode::UndefinedIdentifier,
+            VMError::UndefinedIdentifier | VMError::UndefinedIdentifierWithContext { .. } => {
+                VMErrorCode::UndefinedIdentifier
+            }
             VMError::InvalidParameterCount => VMErrorCode::InvalidParameterCount,
             VMError::IndexOutOfBounds => VMErrorCode::IndexOutOfBounds,
             VMError::OutOfMemory => VMErrorCode::OutOfMemory,
@@ -841,6 +850,20 @@ impl std::fmt::Display for VMError {
             VMError::ImmutableField => msg("Attempt to modify an immutable field"),
             VMError::UndefinedField => msg("Attempt to access an undefined field"),
             VMError::UndefinedIdentifier => msg("Attempt to access an undefined identifier"),
+            VMError::UndefinedIdentifierWithContext {
+                identifier,
+                did_you_mean,
+            } => {
+                if let Some(candidate) = did_you_mean {
+                    write!(
+                        f,
+                        "Cannot find value '{}' in this scope (did you mean '{}'?)",
+                        identifier, candidate
+                    )
+                } else {
+                    write!(f, "Cannot find value '{}' in this scope", identifier)
+                }
+            }
             VMError::InvalidParameterCount => msg("Invalid parameter count"),
             VMError::IndexOutOfBounds => msg("Index out of bounds"),
             VMError::OutOfMemory => msg("Out of memory"),
@@ -1036,5 +1059,22 @@ impl VMError {
         let _ = op.push_str(operation);
 
         Self::stack_operation_error(op, required, available, ip, stack_state)
+    }
+
+    /// Create an undefined identifier error with optional nearest-match context.
+    pub fn undefined_identifier(identifier: &str, did_you_mean: Option<&str>) -> Self {
+        let mut identifier_buf = Str64::new();
+        let _ = identifier_buf.push_str(identifier);
+
+        let did_you_mean_buf = did_you_mean.map(|candidate| {
+            let mut candidate_buf = Str64::new();
+            let _ = candidate_buf.push_str(candidate);
+            candidate_buf
+        });
+
+        Self::UndefinedIdentifierWithContext {
+            identifier: identifier_buf,
+            did_you_mean: did_you_mean_buf,
+        }
     }
 }

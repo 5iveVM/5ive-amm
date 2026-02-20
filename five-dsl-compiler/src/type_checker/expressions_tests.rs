@@ -21,7 +21,10 @@ fn test_check_literal_bool() {
 fn test_check_identifier_not_found() {
     let mut checker = TypeCheckerContext::new();
     let node = AstNode::Identifier("x".to_string());
-    assert!(matches!(checker.check_expression(&node), Err(VMError::UndefinedIdentifier)));
+    assert!(matches!(
+        checker.check_expression(&node),
+        Err(VMError::UndefinedIdentifier | VMError::UndefinedIdentifierWithContext { .. })
+    ));
 }
 
 #[test]

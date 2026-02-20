@@ -473,7 +473,7 @@ impl ASTGenerator {
                         "AST Generator: ERROR - Object '{}' not found in any symbol table",
                         account_name
                     );
-                    return Err(VMError::UndefinedIdentifier); // Object not found anywhere
+                    return Err(VMError::undefined_identifier(account_name, None)); // Object not found anywhere
                 }
             }
         } else {

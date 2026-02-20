@@ -31,7 +31,7 @@ impl TypeCheckerContext {
                                 },
                                 name
                             );
-                            return Err(VMError::UndefinedIdentifier);
+                            return Err(self.undefined_identifier_error(name));
                         }
                         Ok(())
                     }
@@ -193,7 +193,7 @@ impl TypeCheckerContext {
                     }
                 }
                 Some(_) => Err(VMError::TypeMismatch),
-                None => Err(VMError::UndefinedIdentifier),
+                None => Err(self.undefined_identifier_error(enum_name)),
             },
             AstNode::ErrorPropagation { expression } => {
                 // Type check the inner expression (should return Result type)
