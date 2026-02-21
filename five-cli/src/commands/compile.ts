@@ -213,10 +213,13 @@ async function compileProject(
   };
 
   const sdkAny = FiveSDK as any;
-  const entryPointAbs = resolve(projectContext.rootDir, cfg.entryPoint || '');
-  const result: any = typeof sdkAny.compileProject === 'function'
-    ? await sdkAny.compileProject(projectContext.configPath, compilationOptions)
-    : await sdkAny.compileWithDiscovery(entryPointAbs, compilationOptions);
+  const entryPointRel = cfg.entryPoint || 'src/main.v';
+  const entryPointAbs = resolve(projectContext.rootDir, entryPointRel);
+  const result: any = typeof sdkAny.compileWithDiscovery === 'function'
+    ? await withWorkingDirectory(projectContext.rootDir, () =>
+        sdkAny.compileWithDiscovery(entryPointRel, compilationOptions)
+      )
+    : await sdkAny.compileProject(projectContext.configPath, compilationOptions);
 
   if (options.metricsOutput && result.metricsReport?.exported) {
     const metricsPath = isAbsolute(options.metricsOutput)
@@ -412,6 +415,7 @@ async function compileSingleFile(
 ): Promise<any> {
   const { logger } = context;
   const sourceCode = await readFile(inputFile, 'utf8');
+  const entryPoint = isAbsolute(inputFile) ? inputFile : resolve(process.cwd(), inputFile);
 
   const outputFile =
     options.output ||
@@ -435,14 +439,31 @@ async function compileSingleFile(
     comprehensiveMetrics: Boolean(options.comprehensiveMetrics),
     metricsOutput: options.metricsOutput,
     flatNamespace: Boolean(options.flatNamespace),
-    sourceFile: inputFile
+    sourceFile: entryPoint
   };
 
-  const { FiveCompilerWasm } = await import('../wasm/compiler.js');
-  const wasmCompiler = new FiveCompilerWasm(logger);
-  await wasmCompiler.initialize();
-
-  const result: any = await wasmCompiler.compile(sourceCode, compilationOptions);
+  const sdkAny = FiveSDK as any;
+  let result: any;
+  if (typeof sdkAny.compileWithDiscovery === 'function') {
+    const compileRoot = dirname(entryPoint);
+    const entryFile = basename(entryPoint);
+    result = await withWorkingDirectory(compileRoot, () =>
+      sdkAny.compileWithDiscovery(entryFile, compilationOptions)
+    );
+  } else {
+    if (hasImportStatements(sourceCode)) {
+      throw new Error(
+        'Import resolution requires discovery-capable compile path. Please upgrade @5ive-tech/sdk.'
+      );
+    }
+    result = await FiveSDK.compile(
+      {
+        filename: inputFile,
+        content: sourceCode
+      },
+      compilationOptions
+    );
+  }
 
   if (result.success && !result.fiveFile && result.bytecode) {
     const bytecodeBytes = result.bytecode instanceof Uint8Array
@@ -537,6 +558,20 @@ async function compileSingleFile(
     metricsReport: result.metricsReport,
     formattedErrorsTerminal: result.formattedErrorsTerminal
   };
+}
+
+function hasImportStatements(sourceCode: string): boolean {
+  return /^\s*(use|import)\b/m.test(sourceCode);
+}
+
+async function withWorkingDirectory<T>(cwd: string, run: () => Promise<T>): Promise<T> {
+  const previous = process.cwd();
+  process.chdir(cwd);
+  try {
+    return await run();
+  } finally {
+    process.chdir(previous);
+  }
 }
 
 async function watchAndCompile(

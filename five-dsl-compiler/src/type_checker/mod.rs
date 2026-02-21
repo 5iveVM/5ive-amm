@@ -48,15 +48,42 @@ impl types::TypeCheckerContext {
                 self.imported_external_interfaces.clear();
                 for import_stmt in import_statements {
                     if let AstNode::ImportStatement {
-                        module_specifier:
-                            crate::ast::ModuleSpecifier::External(_)
-                            | crate::ast::ModuleSpecifier::Namespace(_),
-                        imported_items: Some(items),
+                        module_specifier,
+                        imported_items,
                     } = import_stmt
                     {
-                        for item in items {
-                            if let crate::ast::ImportItem::Interface(name) = item {
-                                self.imported_external_interfaces.insert(name.clone());
+                        if let Some(items) = imported_items {
+                            for item in items {
+                                if let crate::ast::ImportItem::Interface(name) = item {
+                                    self.imported_external_interfaces.insert(name.clone());
+                                }
+                            }
+                        }
+
+                        // Bundled stdlib interface modules import known interface names.
+                        // This keeps `use std::interfaces::spl_token;` and
+                        // `use std::interfaces::system_program;` usable in all compile paths.
+                        if imported_items.is_none() {
+                            match module_specifier {
+                                crate::ast::ModuleSpecifier::Nested(path)
+                                    if path.len() == 3
+                                        && path[0] == "std"
+                                        && path[1] == "interfaces"
+                                        && path[2] == "spl_token" =>
+                                {
+                                    self.imported_external_interfaces
+                                        .insert("SPLToken".to_string());
+                                }
+                                crate::ast::ModuleSpecifier::Nested(path)
+                                    if path.len() == 3
+                                        && path[0] == "std"
+                                        && path[1] == "interfaces"
+                                        && path[2] == "system_program" =>
+                                {
+                                    self.imported_external_interfaces
+                                        .insert("SystemProgram".to_string());
+                                }
+                                _ => {}
                             }
                         }
                     }

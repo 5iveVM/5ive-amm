@@ -174,6 +174,14 @@ If none are set, on-chain commands fail fast with a program ID setup error.
 
 ## Troubleshooting
 
+### Global `5ive` is stale vs monorepo source
+
+```bash
+# Run local CLI dist directly from this repository
+node ./dist/index.js --version
+node ./dist/index.js init my-program
+```
+
 ### `Program ID required` or `owner/program mismatch`
 
 ```bash

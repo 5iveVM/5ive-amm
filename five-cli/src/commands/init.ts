@@ -1,7 +1,7 @@
 // Init command.
 
 import { writeFile, mkdir, access, readFile } from 'fs/promises';
-import { join, resolve, dirname } from 'path';
+import { join, resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import ora from 'ora';
@@ -97,7 +97,8 @@ export const initCommand: CommandDefinition = {
     try {
       // Determine project directory
       const projectDir = args[0] || process.cwd();
-      const projectName = options.name || (args[0] ? args[0] : 'five-project');
+      const inferredName = basename(resolve(projectDir)) || 'five-project';
+      const projectName = options.name || inferredName;
       
       logger.info(`Initializing 5IVE VM project: ${projectName}`);
       
@@ -222,6 +223,7 @@ async function generateProjectConfig(
     description: options.description || `A 5IVE VM project`,
     sourceDir: 'src',
     buildDir: 'build',
+    entryPoint: 'src/main.v',
     target: options.target as CompilationTarget,
     optimizations: {
       enableCompression: true,
@@ -401,6 +403,7 @@ version = "${config.version}"
 description = "${config.description}"
 source_dir = "${config.sourceDir}"
 build_dir = "${config.buildDir}"
+entry_point = "${config.entryPoint || 'src/main.v'}"
 target = "${config.target}"
 
 [optimizations]
@@ -1338,6 +1341,14 @@ use std::interfaces::system_program;
 \`\`\`
 
 See \`docs/STDLIB.md\` for bundled stdlib module details.
+
+### Local Development CLI Note
+
+If your globally installed \`5ive\` binary behaves differently from this repo source, run the local CLI directly:
+
+\`\`\`bash
+node ./five-cli/dist/index.js init my-project
+\`\`\`
 
 ## Multi-File Projects
 

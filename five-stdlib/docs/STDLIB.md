@@ -25,7 +25,24 @@ use std::builtins;
 let now = builtins::now_seconds();
 ```
 
+Documented import forms:
+
+1. `use std::builtins::{now_seconds};` then call `now_seconds()`
+2. `use std::builtins;` then call `builtins::now_seconds()`
+3. `use std::interfaces::spl_token;` to load the SPL Token interface module
+4. `use std::interfaces::system_program;` to load the System Program interface module
+
+Use these forms as canonical stdlib module paths.
+
 ## Migration path
 
 Current mode is bundled/inlined stdlib.
 Future mode may support external dependency linkage.
+
+## Troubleshooting
+
+If your globally installed `5ive` binary behaves differently from the local monorepo code, run the local CLI dist directly:
+
+```bash
+node ./five-cli/dist/index.js <command>
+```
