@@ -521,6 +521,29 @@ impl ASTGenerator {
                 // Generate function body
                 self.generate_ast_node(emitter, body)?;
 
+                // Auto-lower @close(to=recipient) attribute to CLOSE_ACCOUNT at function epilogue.
+                for param in parameters {
+                    for attr in &param.attributes {
+                        if attr.name != "close" {
+                            continue;
+                        }
+                        let Some(crate::ast::AstNode::Identifier(target_name)) = attr.args.first() else {
+                            return Err(VMError::InvalidInstruction);
+                        };
+
+                        let source_idx = self
+                            .resolve_account_param_by_name(&param.name)
+                            .ok_or(VMError::InvalidScript)?;
+                        let destination_idx = self
+                            .resolve_account_param_by_name(target_name)
+                            .ok_or(VMError::InvalidScript)?;
+
+                        emitter.emit_const_u8(source_idx)?;
+                        emitter.emit_const_u8(destination_idx)?;
+                        emitter.emit_opcode(CLOSE_ACCOUNT);
+                    }
+                }
+
                 // Ensure function returns if flow reaches end
                 // This prevents falling through into data sections or other functions
                 emitter.emit_opcode(RETURN);

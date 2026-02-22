@@ -97,30 +97,16 @@ export class BytecodeCompiler {
             throw new CompilationSDKError(`Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`, { source: source.substring(0, 200), options });
         }
     }
-    /**
-     * Compile multiple modules (entry + dependencies)
-     */
-    async compileModules(mainSource, modules, options = {}) {
+    async compileWithDiscovery(entryPoint, options = {}) {
         const startTime = Date.now();
         try {
             if (!this.wasmCompiler) {
                 await this.loadWasmCompiler();
             }
-            if (!this.wasmCompiler?.compile_multi) {
-                throw new CompilationSDKError("Multi-file compilation is not supported in this build");
+            if (!this.wasmCompiler?.compileWithDiscovery) {
+                throw new CompilationSDKError("Compiler discovery API is not supported in this build");
             }
-            const compilerOptions = {
-                optimize: options.optimize || false,
-                target: options.target || "vm",
-                debug: options.debug || false,
-                maxSize: options.maxSize || 1048576,
-                optimizationLevel: options.optimizationLevel || "production",
-                includeMetrics: options.includeMetrics || options.metricsOutput !== undefined,
-                metricsFormat: options.metricsFormat || "json",
-                errorFormat: options.errorFormat || "terminal",
-                comprehensiveMetrics: options.comprehensiveMetrics || false,
-            };
-            const result = await this.wasmCompiler.compile_multi(mainSource, modules, compilerOptions);
+            const result = await this.wasmCompiler.compileWithDiscovery(entryPoint, options);
             const compilationTime = Date.now() - startTime;
             if (result.success && result.bytecode) {
                 return {
@@ -129,25 +115,24 @@ export class BytecodeCompiler {
                     abi: result.abi,
                     disassembly: result.disassembly || [],
                     metadata: {
-                        sourceSize: mainSource.length,
+                        sourceFile: entryPoint,
+                        sourceSize: 0,
                         bytecodeSize: result.bytecode.length,
-                        functions: [],
+                        functions: this.extractFunctions(result.abi || { functions: [] }),
                         compilationTime,
                     },
                     metricsReport: result.metricsReport,
                 };
             }
-            else {
-                const errors = this.transformErrors(result.errors || result.compiler_errors || []);
-                return {
-                    success: false,
-                    errors,
-                    metricsReport: result.metricsReport,
-                };
-            }
+            const errors = this.transformErrors(result.errors || []);
+            return {
+                success: false,
+                errors,
+                metricsReport: result.metricsReport,
+            };
         }
         catch (error) {
-            throw new CompilationSDKError(`Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`, { options });
+            throw new CompilationSDKError(`Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`, { entryPoint, options });
         }
     }
     /**

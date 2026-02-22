@@ -3,6 +3,15 @@
  */
 
 import {
+  dirname,
+  isAbsolute,
+  join,
+  resolve,
+} from "path";
+import {
+  readFile,
+} from "fs/promises";
+import {
   FiveSDKConfig,
   FiveScriptSource,
   FiveBytecode,
@@ -38,6 +47,8 @@ import * as Accounts from "./modules/accounts.js";
 import * as StateDiff from "./modules/state-diff.js";
 import * as Namespaces from "./modules/namespaces.js";
 import * as Admin from "./modules/admin.js";
+import { parseToml } from "./project/toml.js";
+import { parseProjectConfig } from "./project/config.js";
 
 /**
  * Main Five SDK class - entry point for all Five VM interactions
@@ -262,23 +273,70 @@ export class FiveSDK {
 
       return result;
     } catch (error) {
+      if (error instanceof FiveSDKError) {
+        throw error;
+      }
+
+      const inheritedDetails =
+        error && typeof error === "object" && (error as any).details
+          ? (error as any).details
+          : undefined;
+
       throw new FiveSDKError(
         `Compilation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
         "COMPILATION_ERROR",
+        {
+          ...(inheritedDetails || {}),
+          cause: error instanceof Error ? error.message : String(error),
+        },
       );
     }
   }
 
-  static async compileModules(
-    mainSource: FiveScriptSource | string,
-    modules: Array<{ name: string; source: string }>,
+  static async compileProject(
+    projectPath: string = process.cwd(),
     options: CompilationOptions & { debug?: boolean } = {},
   ): Promise<CompilationResult> {
-    const mainSourceObj = typeof mainSource === 'string' ? { content: mainSource, filename: 'main.v' } : mainSource;
     Validators.options(options);
     await this.initializeComponents(options.debug);
-    if (!this.compiler) throw new FiveSDKError("Compiler not initialized", "COMPILER_ERROR");
-    return this.compiler.compileModules(mainSourceObj, modules, options);
+    if (!this.compiler) {
+      throw new FiveSDKError("Compiler not initialized", "COMPILER_ERROR");
+    }
+
+    const normalizedProjectPath = isAbsolute(projectPath)
+      ? projectPath
+      : resolve(process.cwd(), projectPath);
+    const configPath = normalizedProjectPath.endsWith(".toml")
+      ? normalizedProjectPath
+      : join(normalizedProjectPath, "five.toml");
+    const rootDir = dirname(configPath);
+
+    const rawToml = await readFile(configPath, "utf8");
+    const parsed = parseToml(rawToml);
+    const projectConfig = parseProjectConfig(parsed);
+
+    if (!projectConfig.entryPoint) {
+      throw new FiveSDKError(
+        `Missing required project.entry_point in ${configPath}`,
+        "PROJECT_CONFIG_ERROR",
+      );
+    }
+
+    const entryPoint = isAbsolute(projectConfig.entryPoint)
+      ? projectConfig.entryPoint
+      : resolve(rootDir, projectConfig.entryPoint);
+
+    return this.compiler.compileWithDiscovery(entryPoint, {
+      ...options,
+      target: options.target || projectConfig.target || "vm",
+      optimizationLevel:
+        options.optimizationLevel ||
+        projectConfig.optimizations?.optimizationLevel ||
+        "production",
+      includeMetrics: options.includeMetrics,
+      metricsFormat: options.metricsFormat || "json",
+      errorFormat: options.errorFormat || "terminal",
+    });
   }
 
   static async compileWithDiscovery(

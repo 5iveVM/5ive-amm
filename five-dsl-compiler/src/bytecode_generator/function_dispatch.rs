@@ -762,10 +762,20 @@ impl FunctionDispatcher {
                 else {
                     continue;
                 };
-                let (address, _namespace_seed) = match module_specifier {
-                    crate::ast::ModuleSpecifier::External(address) => (address.clone(), None),
+                let (address, _namespace_seed, local_module_alias, local_module_path, is_external_import) = match module_specifier {
+                    crate::ast::ModuleSpecifier::External(address) => {
+                        (address.clone(), None, None, None, true)
+                    }
                     crate::ast::ModuleSpecifier::Namespace(ns) => {
-                        (ns.import_key().to_string(), Some(ns.pda_seed_bytes()))
+                        (ns.import_key().to_string(), Some(ns.pda_seed_bytes()), None, None, true)
+                    }
+                    crate::ast::ModuleSpecifier::Local(name) => {
+                        (name.clone(), None, Some(name.clone()), Some(name.clone()), false)
+                    }
+                    crate::ast::ModuleSpecifier::Nested(path) if !path.is_empty() => {
+                        let full = path.join("::");
+                        let alias = path[path.len() - 1].clone();
+                        (full.clone(), None, Some(alias), Some(full), false)
                     }
                     _ => continue,
                 };
@@ -780,15 +790,31 @@ impl FunctionDispatcher {
                         let (is_interface, item_name, interface_selectors, _) =
                             Self::resolve_import_item(item, exports)?;
                         if is_interface {
-                            let allow_any = interface_selectors.is_empty();
-                            ast_generator.register_external_import(
-                                item_name,
-                                external_import_index,
-                                allow_any,
-                                interface_selectors,
-                            );
+                            if let Some(alias) = &local_module_alias {
+                                ast_generator.register_module_interface_alias(
+                                    alias.clone(),
+                                    item_name.clone(),
+                                );
+                            }
+                            if let Some(full) = &local_module_path {
+                                ast_generator.register_module_interface_alias(
+                                    full.clone(),
+                                    item_name.clone(),
+                                );
+                            }
+                            if is_external_import {
+                                let allow_any = interface_selectors.is_empty();
+                                ast_generator.register_external_import(
+                                    item_name,
+                                    external_import_index,
+                                    allow_any,
+                                    interface_selectors,
+                                );
+                            }
                         } else {
-                            selectors.insert(item_name.clone(), Self::external_selector(&item_name));
+                            if is_external_import {
+                                selectors.insert(item_name.clone(), Self::external_selector(&item_name));
+                            }
                         }
                     }
                     if selectors.is_empty() {
@@ -796,22 +822,37 @@ impl FunctionDispatcher {
                     }
                 }
 
-                let mut keys = Vec::new();
-                if Self::is_valid_identifier(&address) {
-                    keys.push(address.clone());
-                }
-                keys.push(format!("ext{}", external_import_index));
+                if is_external_import {
+                    let mut keys = Vec::new();
+                    if Self::is_valid_identifier(&address) {
+                        keys.push(address.clone());
+                    }
+                    keys.push(format!("ext{}", external_import_index));
 
-                for key in keys {
-                    ast_generator.register_external_import(
-                        key,
-                        external_import_index,
-                        allow_any_function,
-                        selectors.clone(),
-                    );
+                    for key in keys {
+                        ast_generator.register_external_import(
+                            key,
+                            external_import_index,
+                            allow_any_function,
+                            selectors.clone(),
+                        );
+                    }
                 }
 
-                external_import_index = external_import_index.saturating_add(1);
+                if let (Some(alias), Some(full_path)) = (&local_module_alias, &local_module_path) {
+                    if let Some(interface_name) =
+                        ast_generator.find_interface_for_module_alias(alias)
+                    {
+                        ast_generator
+                            .register_module_interface_alias(alias.clone(), interface_name.clone());
+                        ast_generator
+                            .register_module_interface_alias(full_path.clone(), interface_name);
+                    }
+                }
+
+                if is_external_import {
+                    external_import_index = external_import_index.saturating_add(1);
+                }
             }
 
             // Generate init block first if present

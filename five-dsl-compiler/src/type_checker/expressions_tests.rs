@@ -21,7 +21,10 @@ fn test_check_literal_bool() {
 fn test_check_identifier_not_found() {
     let mut checker = TypeCheckerContext::new();
     let node = AstNode::Identifier("x".to_string());
-    assert!(matches!(checker.check_expression(&node), Err(VMError::UndefinedIdentifier)));
+    assert!(matches!(
+        checker.check_expression(&node),
+        Err(VMError::UndefinedIdentifier | VMError::UndefinedIdentifierWithContext { .. })
+    ));
 }
 
 #[test]
@@ -237,4 +240,30 @@ fn test_infer_pubkey_constructor_rejects_non_zero_numeric() {
     };
 
     assert!(matches!(checker.infer_type(&node), Err(VMError::TypeMismatch)));
+}
+
+#[test]
+fn test_infer_close_account_type() {
+    let mut checker = TypeCheckerContext::new();
+    checker.symbol_table.insert(
+        "vault".to_string(),
+        (TypeNode::Account, true),
+    );
+    checker.symbol_table.insert(
+        "maker".to_string(),
+        (TypeNode::Account, true),
+    );
+
+    let node = AstNode::FunctionCall {
+        name: "close_account".to_string(),
+        args: vec![
+            AstNode::Identifier("vault".to_string()),
+            AstNode::Identifier("maker".to_string()),
+        ],
+    };
+
+    let ty = checker
+        .infer_type(&node)
+        .expect("close_account should type-check");
+    assert_eq!(ty, TypeNode::Primitive("void".to_string()));
 }

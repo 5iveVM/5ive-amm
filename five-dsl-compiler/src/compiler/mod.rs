@@ -335,7 +335,17 @@ impl DslCompiler {
             entry_descriptor.file_path.to_str(),
         );
 
-        let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
+        let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
+        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::TYPE_MISMATCH,
+                ErrorSeverity::Error,
+                ErrorCategory::Type,
+                format!("Interface preprocessing failed: {}", e),
+            )
+        })?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
 
         pipeline.finalize_metrics(&bytecode);
 
@@ -350,6 +360,7 @@ impl DslCompiler {
     ) -> Result<Vec<u8>, CompilerError> {
         use crate::bytecode_generator::ModuleMerger;
         use crate::error::{ErrorCategory, ErrorCode, ErrorSeverity};
+        use crate::module_resolver::canonical_module_name;
         use crate::type_checker::ModuleScope;
 
         let mut merger = ModuleMerger::new()
@@ -357,25 +368,29 @@ impl DslCompiler {
 
         // Build ModuleScope for cross-module type resolution
         let entry_path = std::path::Path::new(entry_point);
-        let main_module_name = entry_path.file_stem()
-            .unwrap_or_else(|| std::ffi::OsStr::new("main"))
-            .to_string_lossy()
-            .to_string();
+        let source_root = entry_path.parent().unwrap_or(std::path::Path::new(""));
+        let main_module_name = canonical_module_name(entry_path, source_root).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::INVALID_MODULE_PATH,
+                ErrorSeverity::Error,
+                ErrorCategory::Semantic,
+                format!("Invalid entry point module path: {}", e),
+            )
+        })?;
         
         let mut module_scope = ModuleScope::new(main_module_name.clone());
 
         // First pass: Parse all modules and populate ModuleScope
         for file_path in &module_files {
             let path = std::path::Path::new(file_path);
-            let module_name = path.file_stem()
-                .ok_or_else(|| CompilerError::new(
+            let module_name = canonical_module_name(path, source_root).map_err(|e| {
+                CompilerError::new(
                     ErrorCode::INVALID_MODULE_PATH,
                     ErrorSeverity::Error,
                     ErrorCategory::Semantic,
-                    format!("Invalid module file path (no file stem): {}", file_path),
-                ))?
-                .to_string_lossy()
-                .to_string();
+                    format!("Invalid module file path ({}): {}", file_path, e),
+                )
+            })?;
 
             if module_name != main_module_name {
                 module_scope.add_module(module_name.clone());
@@ -404,15 +419,14 @@ impl DslCompiler {
 
             // Simple heuristics for module naming: filename without extension
             let path = std::path::Path::new(&file_path);
-            let module_name = path.file_stem()
-                .ok_or_else(|| CompilerError::new(
+            let module_name = canonical_module_name(path, source_root).map_err(|e| {
+                CompilerError::new(
                     ErrorCode::INVALID_MODULE_PATH,
                     ErrorSeverity::Error,
                     ErrorCategory::Semantic,
-                    format!("Invalid module file path (no file stem): {}", file_path),
-                ))?
-                .to_string_lossy()
-                .to_string();
+                    format!("Invalid module file path ({}): {}", file_path, e),
+                )
+            })?;
 
             // Populate scope from AST
             Self::populate_module_scope_from_ast(&ast, &module_name, &mut module_scope)?;
@@ -453,7 +467,17 @@ impl DslCompiler {
         let mut pipeline = CompilationPipeline::new(&entry_source, Some(entry_point));
 
         // Note: pipeline.type_check() is skipped because we did it manually with module_scope above
-        let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
+        let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
+        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::TYPE_MISMATCH,
+                ErrorSeverity::Error,
+                ErrorCategory::Type,
+                format!("Interface preprocessing failed: {}", e),
+            )
+        })?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
 
         pipeline.finalize_metrics(&bytecode);
 
@@ -695,7 +719,17 @@ impl DslCompiler {
             entry_descriptor.file_path.to_str(),
         );
 
-        let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
+        let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
+        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::TYPE_MISMATCH,
+                ErrorSeverity::Error,
+                ErrorCategory::Type,
+                format!("Interface preprocessing failed: {}", e),
+            )
+        })?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
         let abi = pipeline.generate_abi(&merged_ast, config)?;
 
         pipeline.finalize_metrics(&bytecode);
@@ -713,6 +747,7 @@ impl DslCompiler {
     ) -> Result<FiveFile, CompilerError> {
         use crate::bytecode_generator::ModuleMerger;
         use crate::error::{ErrorCategory, ErrorCode, ErrorSeverity};
+        use crate::module_resolver::canonical_module_name;
         use crate::type_checker::ModuleScope;
 
         let mut merger = ModuleMerger::new()
@@ -720,25 +755,29 @@ impl DslCompiler {
 
         // Build ModuleScope for cross-module type resolution
         let entry_path = std::path::Path::new(entry_point);
-        let main_module_name = entry_path.file_stem()
-            .unwrap_or_else(|| std::ffi::OsStr::new("main"))
-            .to_string_lossy()
-            .to_string();
+        let source_root = entry_path.parent().unwrap_or(std::path::Path::new(""));
+        let main_module_name = canonical_module_name(entry_path, source_root).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::INVALID_MODULE_PATH,
+                ErrorSeverity::Error,
+                ErrorCategory::Semantic,
+                format!("Invalid entry point module path: {}", e),
+            )
+        })?;
         
         let mut module_scope = ModuleScope::new(main_module_name.clone());
 
         // First pass: Parse all modules and populate ModuleScope
         for file_path in &module_files {
             let path = std::path::Path::new(file_path);
-            let module_name = path.file_stem()
-                .ok_or_else(|| CompilerError::new(
+            let module_name = canonical_module_name(path, source_root).map_err(|e| {
+                CompilerError::new(
                     ErrorCode::INVALID_MODULE_PATH,
                     ErrorSeverity::Error,
                     ErrorCategory::Semantic,
-                    format!("Invalid module file path (no file stem): {}", file_path),
-                ))?
-                .to_string_lossy()
-                .to_string();
+                    format!("Invalid module file path ({}): {}", file_path, e),
+                )
+            })?;
 
             if module_name != main_module_name {
                 module_scope.add_module(module_name.clone());
@@ -769,15 +808,14 @@ impl DslCompiler {
 
             // Simple heuristics for module naming: filename without extension
             let path = std::path::Path::new(&file_path);
-            let module_name = path.file_stem()
-                .ok_or_else(|| CompilerError::new(
+            let module_name = canonical_module_name(path, source_root).map_err(|e| {
+                CompilerError::new(
                     ErrorCode::INVALID_MODULE_PATH,
                     ErrorSeverity::Error,
                     ErrorCategory::Semantic,
-                    format!("Invalid module file path (no file stem): {}", file_path),
-                ))?
-                .to_string_lossy()
-                .to_string();
+                    format!("Invalid module file path ({}): {}", file_path, e),
+                )
+            })?;
 
             // Populate scope from AST
             Self::populate_module_scope_from_ast(&ast, &module_name, &mut module_scope)?;
@@ -818,7 +856,17 @@ impl DslCompiler {
         let mut pipeline = CompilationPipeline::new(&entry_source, Some(entry_point));
 
         // Note: pipeline.type_check() is skipped because we did it manually with module_scope above
-        let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
+        let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
+        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::TYPE_MISMATCH,
+                ErrorSeverity::Error,
+                ErrorCategory::Type,
+                format!("Interface preprocessing failed: {}", e),
+            )
+        })?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
         let abi = pipeline.generate_abi(&merged_ast, config)?;
 
         pipeline.finalize_metrics(&bytecode);

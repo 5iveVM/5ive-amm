@@ -189,3 +189,247 @@ fn test_call_external_generation_via_auto_discovery() -> Result<(), Box<dyn std:
 
     Ok(())
 }
+
+#[test]
+fn test_bundled_stdlib_named_import_auto_discovery() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { use std::builtins::{now_seconds}; pub fn run() -> u64 { return now_seconds(); } }"
+            .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing)
+        .with_module_namespaces(false);
+
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_bundled_stdlib_module_qualified_auto_discovery() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { use std::builtins; pub fn run() -> u64 { return builtins::now_seconds(); } }"
+            .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_bundled_stdlib_full_qualified_auto_discovery() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { use std::builtins; pub fn run() -> u64 { return std::builtins::now_seconds(); } }"
+            .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+    assert!(bytecode.is_ok());
+    Ok(())
+}
+
+#[test]
+fn test_ambiguous_unqualified_call_fails() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { use alpha; use beta; pub fn run() -> u64 { return same(); } }".to_string(),
+    );
+    files.insert(
+        "alpha.v".to_string(),
+        "script alpha { pub fn same() -> u64 { return 1; } }".to_string(),
+    );
+    files.insert(
+        "beta.v".to_string(),
+        "script beta { pub fn same() -> u64 { return 2; } }".to_string(),
+    );
+
+    let (_dir, root_path, _entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let main_path = root_path.join("src/main.v").to_string_lossy().to_string();
+    let alpha_path = root_path.join("src/alpha.v").to_string_lossy().to_string();
+    let beta_path = root_path.join("src/beta.v").to_string_lossy().to_string();
+
+    let result = DslCompiler::compile_modules(vec![main_path.clone(), alpha_path, beta_path], &main_path, &config);
+    assert!(result.is_err());
+    Ok(())
+}
+
+#[test]
+fn test_bundled_stdlib_extended_builtin_wrappers_compile() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use std::builtins;
+            pub fn run(a: u64, b: u64, c: u64) {
+                builtins::log_message(a);
+                builtins::log_words(a, b, c, 0, 0);
+                builtins::memory_copy(a, b, c);
+                builtins::memory_compare(a, b, c);
+                builtins::return_data_set(a);
+                builtins::remaining_cu();
+            }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_bundled_stdlib_spl_token_extended_interface_compile() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use std::interfaces::spl_token;
+            pub fn run(
+                source: Account,
+                destination: Account,
+                mint: Account,
+                authority: Account,
+                delegate: Account
+            ) {
+                spl_token::transfer(source, destination, authority, 1);
+                spl_token::approve(source, delegate, authority, 1);
+                spl_token::revoke(source, authority);
+                spl_token::mint_to(mint, destination, authority, 1);
+                spl_token::burn(source, mint, authority, 1);
+                spl_token::close_account(source, destination, authority);
+            }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_bundled_stdlib_system_program_extended_interface_compile() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use std::interfaces::system_program;
+            pub fn run(
+                payer: Account,
+                new_account: Account,
+                base: Account,
+                owner: Account
+            ) {
+                system_program::transfer(payer, new_account, 1);
+                system_program::assign(new_account, owner);
+                system_program::create_account(payer, new_account, 1, 8, owner);
+                system_program::create_account_with_seed(payer, new_account, base, 0, 1, 8, owner);
+            }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_bundled_stdlib_legacy_object_style_interface_call_fails() {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use std::interfaces::spl_token;
+            pub fn run(
+                source: Account,
+                destination: Account,
+                authority: Account
+            ) {
+                SPLToken.transfer(source, destination, authority, 1);
+            }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files).unwrap();
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let err = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)
+        .expect_err("legacy object-style interface calls must fail");
+    let err_text = err.to_string();
+    assert!(
+        err_text.contains("Undefined")
+            || err_text.contains("undefined")
+            || err_text.contains("Cannot find value")
+            || err_text.contains("cannot find value"),
+        "unexpected error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_builtins_unqualified_call_without_import_fails() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { pub fn run() -> u64 { return now_seconds(); } }".to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+    assert!(result.is_err());
+    Ok(())
+}
+
+#[test]
+fn test_builtins_module_qualified_call_without_import_fails() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { pub fn run() -> u64 { return builtins::now_seconds(); } }".to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+    assert!(result.is_err());
+    Ok(())
+}
+
+#[test]
+fn test_builtins_fully_qualified_call_without_import_fails() -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main { pub fn run() -> u64 { return std::builtins::now_seconds(); } }".to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+    assert!(result.is_err());
+    Ok(())
+}

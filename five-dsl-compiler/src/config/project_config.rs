@@ -40,8 +40,6 @@ pub struct BuildConfig {
     #[serde(default)]
     pub target_compute_units: Option<usize>,
     #[serde(default)]
-    pub multi_file_mode: Option<bool>,
-    #[serde(default)]
     pub output_artifact_name: Option<String>,
 }
 
@@ -90,10 +88,6 @@ impl ProjectConfig {
             .map_err(|_| VMError::InvalidOperation)
     }
 
-    pub fn is_multi_file_mode(&self) -> bool {
-        self.build.multi_file_mode.unwrap_or(false)
-    }
-
     pub fn get_entry_point(&self) -> Option<PathBuf> {
         self.project
             .entry_point
@@ -129,8 +123,8 @@ impl ProjectConfig {
     }
 
     pub fn validate(&self) -> Result<(), VMError> {
-        // If multi-file mode is enabled, entry point must be specified
-        if self.is_multi_file_mode() && self.get_entry_point().is_none() {
+        // Compiler-owned multi-file flow always compiles from entry point.
+        if self.get_entry_point().is_none() {
             return Err(VMError::InvalidOperation);
         }
 
@@ -158,7 +152,6 @@ impl Default for ProjectConfig {
             build: BuildConfig {
                 max_bytecode_size: Some(1_048_576),
                 target_compute_units: Some(200_000),
-                multi_file_mode: Some(false),
                 output_artifact_name: Some("five-project".to_string()),
             },
             optimizations: None,
@@ -190,6 +183,7 @@ mod tests {
 name = "test-project"
 version = "0.1.0"
 source_dir = "src"
+entry_point = "src/main.v"
 
 [build]
 max_bytecode_size = 1048576
@@ -200,11 +194,10 @@ max_bytecode_size = 1048576
 
         assert_eq!(config.project.name, "test-project");
         assert_eq!(config.project.version, "0.1.0");
-        assert!(!config.is_multi_file_mode());
     }
 
     #[test]
-    fn test_load_multi_file_config() {
+    fn test_load_entry_point_config() {
         let content = r#"
 [project]
 name = "multi-file-project"
@@ -213,13 +206,12 @@ source_dir = "src"
 entry_point = "src/main.v"
 
 [build]
-multi_file_mode = true
+max_bytecode_size = 1048576
 "#;
 
         let (_temp, path) = create_test_config(content);
         let config = ProjectConfig::load(&path).unwrap();
 
-        assert!(config.is_multi_file_mode());
         assert_eq!(
             config.get_entry_point(),
             Some(PathBuf::from("src/main.v"))
@@ -227,7 +219,7 @@ multi_file_mode = true
     }
 
     #[test]
-    fn test_validate_multi_file_without_entry_point() {
+    fn test_validate_without_entry_point_fails() {
         let content = r#"
 [project]
 name = "invalid-project"
@@ -235,7 +227,7 @@ version = "0.1.0"
 source_dir = "src"
 
 [build]
-multi_file_mode = true
+max_bytecode_size = 1048576
 "#;
 
         let (_temp, path) = create_test_config(content);
@@ -261,6 +253,7 @@ multi_file_mode = true
 name = "opt-project"
 version = "0.1.0"
 source_dir = "src"
+entry_point = "src/main.v"
 
 [build]
 max_bytecode_size = 1048576

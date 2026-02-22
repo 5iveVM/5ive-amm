@@ -2,8 +2,10 @@
 name = "namespace-manager"
 version = "0.1.0"
 description = "5NS namespace registration and subprogram binding manager"
+source_dir = "src"
+build_dir = "build"
+target = "vm"
+entry_point = "src/main.v"
 
 [build]
-entry = "src/main.v"
-output = "build/namespace_manager.five"
-
+output_artifact_name = "namespace_manager"

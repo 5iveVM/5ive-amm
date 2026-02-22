@@ -561,6 +561,69 @@ mod account_system_tests {
                 "CREATE_ACCOUNT needs proper account and owner setup"
             );
         }
+
+        #[test]
+        fn test_close_account_happy_path() {
+            let source_key = TestUtils::create_test_pubkey(70);
+            let destination_key = TestUtils::create_test_pubkey(71);
+            let program_owner = Pubkey::default();
+
+            let (_source_account, source_info) = TestUtils::create_writable_account_info(
+                &source_key,
+                2_500,
+                vec![9u8; 16],
+                &program_owner,
+            );
+            let (_destination_account, destination_info) = TestUtils::create_writable_account_info(
+                &destination_key,
+                100,
+                vec![1u8; 8],
+                &program_owner,
+            );
+
+            let bytecode = test_bytecode![
+                push_u64!(0),
+                push_u64!(1),
+                opcodes![CLOSE_ACCOUNT],
+            ];
+
+            let accounts = [source_info, destination_info];
+            let result = TestUtils::execute_with_real_accounts(&bytecode, &accounts);
+            assert!(result.is_ok(), "CLOSE_ACCOUNT should succeed");
+            assert_eq!(accounts[0].lamports(), 0);
+            assert_eq!(accounts[1].lamports(), 2_600);
+        }
+
+        #[test]
+        fn test_close_account_rejects_non_program_owned_source() {
+            let source_key = TestUtils::create_test_pubkey(72);
+            let destination_key = TestUtils::create_test_pubkey(73);
+            let non_program_owner = TestUtils::create_test_pubkey(99);
+            let program_owner = Pubkey::default();
+
+            let (_source_account, source_info) = TestUtils::create_writable_account_info(
+                &source_key,
+                2_500,
+                vec![9u8; 16],
+                &non_program_owner,
+            );
+            let (_destination_account, destination_info) = TestUtils::create_writable_account_info(
+                &destination_key,
+                100,
+                vec![1u8; 8],
+                &program_owner,
+            );
+
+            let bytecode = test_bytecode![
+                push_u64!(0),
+                push_u64!(1),
+                opcodes![CLOSE_ACCOUNT],
+            ];
+
+            let accounts = [source_info, destination_info];
+            let result = TestUtils::execute_with_real_accounts(&bytecode, &accounts);
+            assert!(result.is_err());
+        }
     }
 
     /// Test account error conditions

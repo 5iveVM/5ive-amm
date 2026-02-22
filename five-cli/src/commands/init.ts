@@ -1,7 +1,7 @@
 // Init command.
 
 import { writeFile, mkdir, access, readFile } from 'fs/promises';
-import { join, resolve, dirname } from 'path';
+import { join, resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import ora from 'ora';
@@ -97,7 +97,8 @@ export const initCommand: CommandDefinition = {
     try {
       // Determine project directory
       const projectDir = args[0] || process.cwd();
-      const projectName = options.name || (args[0] ? args[0] : 'five-project');
+      const inferredName = basename(resolve(projectDir)) || 'five-project';
+      const projectName = options.name || inferredName;
       
       logger.info(`Initializing 5IVE VM project: ${projectName}`);
       
@@ -115,6 +116,11 @@ export const initCommand: CommandDefinition = {
       await generatePackageJson(projectDir, projectName, options);
       await generateClientScaffold(projectDir, templateToClientFunctions(options.template));
       spinner.succeed('Configuration files generated');
+
+      // Generate stdlib usage docs (compiler ships bundled stdlib in v1)
+      spinner.start('Generating standard library docs...');
+      await generateStdlibScaffold(projectDir, options.template);
+      spinner.succeed('Standard library docs generated');
 
       // Generate agent playbooks (always, even with --no-examples)
       spinner.start('Generating AGENTS playbooks...');
@@ -217,6 +223,7 @@ async function generateProjectConfig(
     description: options.description || `A 5IVE VM project`,
     sourceDir: 'src',
     buildDir: 'build',
+    entryPoint: 'src/main.v',
     target: options.target as CompilationTarget,
     optimizations: {
       enableCompression: true,
@@ -242,12 +249,12 @@ async function generatePackageJson(
     author: options.author || '',
     license: options.license,
     scripts: {
-      build: '5ive compile src/**/*.v',
+      build: '5ive build',
       test: '5ive test',
       deploy: '5ive deploy',
-      'build:release': '5ive compile src/**/*.v -O 3',
-      'build:debug': '5ive compile src/**/*.v --debug',
-      'watch': '5ive compile src/**/*.v --watch',
+      'build:release': '5ive build -O 3',
+      'build:debug': '5ive build --debug',
+      'watch': '5ive build --watch',
       'client:build': 'npm --prefix client install && npm --prefix client run build',
       'client:run': 'npm --prefix client install && npm --prefix client run run'
     },
@@ -396,6 +403,7 @@ version = "${config.version}"
 description = "${config.description}"
 source_dir = "${config.sourceDir}"
 build_dir = "${config.buildDir}"
+entry_point = "${config.entryPoint || 'src/main.v'}"
 target = "${config.target}"
 
 [optimizations]
@@ -406,6 +414,8 @@ optimization_level = "${config.optimizations.optimizationLevel}"
 [dependencies]
 # Add project dependencies here
 # example = { path = "../example" }
+# future: stdlib package source (v1 uses compiler-bundled stdlib)
+# five-stdlib = { version = "0.1.0" }
 
 [build]
 # Custom build settings
@@ -419,9 +429,52 @@ network = "devnet"
 `;
 }
 
+async function generateStdlibScaffold(projectDir: string, _template: string): Promise<void> {
+  const content = await loadStdlibAsset('docs/STDLIB.md');
+  await writeFile(join(projectDir, 'docs/STDLIB.md'), content);
+}
+
+async function loadStdlibAsset(relativePath: string): Promise<string> {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const candidates = [
+    // Monorepo path when running from src or dist
+    resolve(__dirname, '../../../five-stdlib', relativePath),
+    // Bundled CLI asset path (works in packaged npm tarball)
+    resolve(__dirname, '../../assets/stdlib', relativePath),
+    resolve(__dirname, '../assets/stdlib', relativePath),
+    // Fallback co-located path if packaged with CLI in the future
+    resolve(__dirname, '../stdlib', relativePath),
+    resolve(process.cwd(), 'five-stdlib', relativePath)
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      return await readFile(candidate, 'utf8');
+    } catch {
+      // try next
+    }
+  }
+
+  throw new Error(`Failed to load stdlib asset: ${relativePath}`);
+}
+
+function getStdlibPreludeBanner(): string {
+  return `// 5IVE bundled stdlib (v1, compiler-provided)
+// Canonical explicit imports:
+// use std::builtins;
+// use std::interfaces::spl_token;
+// use std::interfaces::system_program;
+// Call interface methods via module aliases:
+// spl_token::transfer(...);
+// system_program::transfer(...);
+
+`;
+}
+
 function getTemplateMainFile(template: string): string {
   const templates: Record<string, string> = {
-    basic: `// Basic 5ive DSL program (valid-first starter)
+    basic: `${getStdlibPreludeBanner()}// Basic 5ive DSL program (valid-first starter)
 
 account Counter {
     value: u64;
@@ -449,7 +502,7 @@ pub get_value(counter: Counter) -> u64 {
 }
 `,
 
-    defi: `// DeFi Protocol on 5IVE VM
+    defi: `${getStdlibPreludeBanner()}// DeFi Protocol on 5IVE VM
 script DefiProtocol {
     init() {
         log("DeFi Protocol initialized");
@@ -508,7 +561,7 @@ instruction add_liquidity(amount_a: u64, amount_b: u64) -> u64 {
 }
 `,
 
-    nft: `// NFT Collection on 5IVE VM
+    nft: `${getStdlibPreludeBanner()}// NFT Collection on 5IVE VM
 script NFTCollection {
     init() {
         log("NFT Collection initialized");
@@ -571,7 +624,7 @@ event TransferEvent {
 }
 `,
 
-    game: `// Game Logic on 5IVE VM
+    game: `${getStdlibPreludeBanner()}// Game Logic on 5IVE VM
 script GameEngine {
     init() {
         log("Game Engine initialized");
@@ -652,7 +705,7 @@ event LevelUp {
 }
 `,
 
-    dao: `// DAO Governance on 5IVE VM
+    dao: `${getStdlibPreludeBanner()}// DAO Governance on 5IVE VM
 script DAOGovernance {
     init() {
         log("DAO Governance initialized");
@@ -1281,15 +1334,42 @@ npm run deploy
 - \`docs/\` - Documentation
 - \`five.toml\` - Project configuration
 
+## Standard Library (Bundled v1)
+
+Projects initialized with \`5ive init\` use compiler-bundled stdlib modules.
+
+Use explicit imports in your modules:
+
+\`\`\`v
+use std::builtins;
+use std::interfaces::spl_token;
+use std::interfaces::system_program;
+
+pub transfer_tokens(
+  source: account @mut,
+  destination: account @mut,
+  authority: account @signer
+) {
+  spl_token::transfer(source, destination, authority, 1);
+}
+\`\`\`
+
+See \`docs/STDLIB.md\` for bundled stdlib module details.
+
+### Local Development CLI Note
+
+If your globally installed \`5ive\` binary behaves differently from this repo source, run the local CLI directly:
+
+\`\`\`bash
+node ./five-cli/dist/index.js init my-project
+\`\`\`
+
 ## Multi-File Projects
 
 If your project uses multiple modules with \`use\` or \`import\` statements, 5IVE CLI automatically handles:
 
 \`\`\`bash
-# Automatic discovery of imported modules
-5ive compile src/main.v --auto-discover
-
-# Or use the build command which respects five.toml configuration
+# Build from five.toml entry_point using compiler-owned discovery
 5ive build
 \`\`\`
 

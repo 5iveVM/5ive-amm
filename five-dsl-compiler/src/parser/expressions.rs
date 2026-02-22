@@ -424,36 +424,40 @@ impl DslParser {
                 let name = name.clone();
                 self.advance();
 
-                // Check for enum variant access: Identifier::Variant
-                if matches!(self.current_token, Token::DoubleColon) {
+                // Parse optional namespaced path: a::b::c
+                let mut segments = vec![name];
+                while matches!(self.current_token, Token::DoubleColon) {
                     self.advance(); // consume '::'
-                    let variant_name = match &self.current_token {
+                    let next = match &self.current_token {
                         Token::Identifier(variant) => variant.clone(),
-                        _ => return Err(self.parse_error("enum variant name identifier")),
+                        _ => return Err(self.parse_error("identifier after '::'")),
                     };
-                    self.advance(); // consume variant identifier
-
-                    // Check if this is a namespaced function call: Module::Function(...)
-                    if matches!(self.current_token, Token::LeftParen) {
-                        let (args, _) = self.parse_list(
-                            TokenKind::LeftParen,
-                            TokenKind::RightParen,
-                            TokenKind::Comma,
-                            true,
-                            |s| s.parse_argument_expr(),
-                        )?;
-                        
-                        let full_name = format!("{}::{}", name, variant_name);
-                        Ok(AstNode::FunctionCall { name: full_name, args })
-                    } else {
-                        Ok(AstNode::EnumVariantAccess {
-                            enum_name: name,
-                            variant_name,
-                        })
-                    }
+                    segments.push(next);
+                    self.advance(); // consume identifier
                 }
+
+                // Namespaced function call: path::fn(...)
+                if segments.len() > 1 && matches!(self.current_token, Token::LeftParen) {
+                    let (args, _) = self.parse_list(
+                        TokenKind::LeftParen,
+                        TokenKind::RightParen,
+                        TokenKind::Comma,
+                        true,
+                        |s| s.parse_argument_expr(),
+                    )?;
+                    Ok(AstNode::FunctionCall {
+                        name: segments.join("::"),
+                        args,
+                    })
+                // Preserve enum variant access for two-segment non-call paths.
+                } else if segments.len() == 2 {
+                    Ok(AstNode::EnumVariantAccess {
+                        enum_name: segments[0].clone(),
+                        variant_name: segments[1].clone(),
+                    })
                 // Check if this is a function call
-                else if matches!(self.current_token, Token::LeftParen) {
+                } else if matches!(self.current_token, Token::LeftParen) {
+                    let name = segments[0].clone();
                     let (args, _trailing) = self.parse_list(
                         TokenKind::LeftParen,
                         TokenKind::RightParen,
@@ -470,7 +474,7 @@ impl DslParser {
                     }
                     Ok(AstNode::FunctionCall { name, args })
                 } else {
-                    Ok(AstNode::Identifier(name))
+                    Ok(AstNode::Identifier(segments.join("::")))
                 }
             }
             // Older tokenizer variants can emit `pubkey` as Token::Type in expression position.

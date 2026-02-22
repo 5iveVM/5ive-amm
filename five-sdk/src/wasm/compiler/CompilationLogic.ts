@@ -1,7 +1,13 @@
 import { readFile, writeFile } from "fs/promises";
 import { CompilationOptions, CompilationResult } from "../../types.js";
 import { CompilationContext } from "./types.js";
-import { createCompilerError, extractMetrics, extractAbi } from "./utils.js";
+import {
+  createCompilerError,
+  extractMetrics,
+  extractAbi,
+  extractFormattedErrors,
+  extractDiagnostics,
+} from "./utils.js";
 
 export async function compile(
   ctx: CompilationContext,
@@ -37,7 +43,8 @@ export async function compile(
       .with_metrics(includeMetrics)
       .with_comprehensive_metrics(comprehensiveMetrics)
       .with_metrics_format(metricsFormat)
-      .with_error_format(errorFormat);
+      .with_error_format(errorFormat)
+      .with_source_file(options?.sourceFile || "input.v");
 
     result = ctx.compiler.compile(source, compilationOptions);
 
@@ -72,6 +79,8 @@ export async function compile(
     }
 
     const metricsPayload = extractMetrics(result, metricsFormat);
+    const formattedErrors = extractFormattedErrors(result);
+    const diagnostics = extractDiagnostics(result, ctx.logger);
 
     if (result.success && result.bytecode) {
       return {
@@ -81,97 +90,38 @@ export async function compile(
         metadata: result.metadata,
         metrics: metricsPayload,
         metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
     } else {
       return {
         success: false,
-        errors: result.compiler_errors || [],
+        errors: diagnostics,
+        warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+        diagnostics,
         metadata: result.metadata,
         metrics: metricsPayload,
         metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
     }
   } catch (error) {
-    if (options && (options as any).debug) { // Check if debug option is available, though not strictly in CompilationOptions type used here as any
-       // Actually 'options' is any in signature
+    if (
+      error &&
+      typeof error === "object" &&
+      (error as any).code === "COMPILER_ERROR"
+    ) {
+      throw error;
     }
-    // Logic from original code had specialized try/catch for WASM error inside compileFile
-    // but here in compile it just throws
+
     throw createCompilerError(
       `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
       error as Error,
+      {
+        phase: "compile",
+      },
     );
-  }
-}
-
-export async function compileModules(
-  ctx: CompilationContext,
-  mainSource: string,
-  modules: Array<{ name: string; source: string }>,
-  options?: any,
-): Promise<any> {
-  if (!ctx.compiler) {
-    throw createCompilerError("Compiler not initialized");
-  }
-
-  const startTime = Date.now();
-
-  try {
-    let WasmCompilationOptions = ctx.WasmCompilationOptions;
-    if (!WasmCompilationOptions && ctx.wasmModuleRef) {
-      WasmCompilationOptions = ctx.wasmModuleRef.WasmCompilationOptions;
-    }
-
-    const metricsFormat = options?.metricsFormat || "json";
-    const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput);
-    const errorFormat = options?.errorFormat || "terminal";
-    const comprehensiveMetrics = options?.comprehensiveMetrics || false;
-
-    const compilationOptions = new WasmCompilationOptions()
-      .with_mode(options?.target || "deployment")
-      .with_optimization_level(options?.optimizationLevel || "production")
-      .with_v2_preview(true)
-      .with_constraint_cache(false)
-      .with_enhanced_errors(true)
-      .with_metrics(includeMetrics)
-      .with_comprehensive_metrics(comprehensiveMetrics)
-      .with_metrics_format(metricsFormat)
-      .with_error_format(errorFormat);
-
-    const result = ctx.compiler.compile_multi(
-      mainSource,
-      modules,
-      compilationOptions,
-    );
-
-    const metricsPayload = extractMetrics(result, metricsFormat);
-
-    if (result.success && result.bytecode) {
-      return {
-        success: true,
-        bytecode: result.bytecode,
-        abi: extractAbi(result, ctx.logger),
-        metadata: result.metadata,
-        metrics: metricsPayload,
-        metricsReport: metricsPayload,
-      };
-    } else {
-      return {
-        success: false,
-        errors: result.compiler_errors || [],
-        metadata: result.metadata,
-        metrics: metricsPayload,
-        metricsReport: metricsPayload,
-      };
-    }
-  } catch (error) {
-    throw createCompilerError(
-      `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      error as Error,
-    );
-  } finally {
-    const compilationTime = Date.now() - startTime;
-    ctx.logger.debug(`Multi-file compilation completed in ${compilationTime}ms`);
   }
 }
 
@@ -294,64 +244,18 @@ export async function compileFile(
 
     const compilationTime = Date.now() - startTime;
     const metricsPayload = extractMetrics(result, metricsFormat);
-
-    let convertedErrors: any[] = [];
-    if (result.compiler_errors && result.compiler_errors.length > 0) {
-      try {
-        const jsonErrors = result.format_all_json
-          ? result.format_all_json()
-          : null;
-        if (jsonErrors) {
-          const parsedErrors = JSON.parse(jsonErrors);
-          convertedErrors = parsedErrors.map((error: any) => ({
-            type: "enhanced",
-            ...error,
-            code: error.code || "E0000",
-            severity: error.severity || "error",
-            category: error.category || "compilation",
-            message: error.message || "Unknown error",
-          }));
-        } else {
-          convertedErrors = [
-            {
-              type: "enhanced",
-              code: "E0004",
-              severity: "error",
-              category: "compilation",
-              message: "InvalidScript",
-              description: "The script contains syntax or semantic errors",
-              location: undefined,
-              suggestions: [],
-            },
-          ];
-        }
-      } catch (parseError) {
-        ctx.logger.debug(
-          "Failed to parse JSON errors from WASM:",
-          parseError,
-        );
-        convertedErrors = [
-          {
-            type: "enhanced",
-            code: "E0004",
-            severity: "error",
-            category: "compilation",
-            message: "InvalidScript",
-            description: "Compilation failed with enhanced error system",
-            location: undefined,
-            suggestions: [],
-          },
-        ];
-      }
-    }
+    const formattedErrors = extractFormattedErrors(result);
+    const diagnostics = extractDiagnostics(result, ctx.logger);
 
     const compilationResult: CompilationResult = {
       success: result.success,
       bytecode: result.bytecode ? new Uint8Array(result.bytecode) : undefined,
       abi: result.abi || undefined,
-      errors: convertedErrors,
-      warnings:
-        convertedErrors.filter((e: any) => e.severity === "warning") || [],
+      errors: diagnostics,
+      warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+      diagnostics,
+      formattedErrorsTerminal: formattedErrors.terminal,
+      formattedErrorsJson: formattedErrors.json,
       metrics: {
         compilationTime: result.compilation_time || compilationTime,
         bytecodeSize: result.bytecode_size || 0,
@@ -431,11 +335,14 @@ export async function compileWithDiscovery(
       .with_metrics(includeMetrics)
       .with_comprehensive_metrics(comprehensiveMetrics)
       .with_metrics_format(metricsFormat)
-      .with_error_format(errorFormat);
+      .with_error_format(errorFormat)
+      .with_source_file(entryPoint);
 
     const result = ctx.compiler.compileMultiWithDiscovery(entryPoint, compilationOptions);
 
     const metricsPayload = extractMetrics(result, metricsFormat);
+    const formattedErrors = extractFormattedErrors(result);
+    const diagnostics = extractDiagnostics(result, ctx.logger);
 
     if (result.success && result.bytecode) {
       return {
@@ -445,82 +352,38 @@ export async function compileWithDiscovery(
         metadata: result.metadata,
         metrics: metricsPayload,
         metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
     } else {
       return {
         success: false,
-        errors: result.compiler_errors || [],
+        errors: diagnostics,
+        warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+        diagnostics,
         metadata: result.metadata,
         metrics: metricsPayload,
         metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
     }
   } catch (error) {
-    throw createCompilerError(
-      `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      error as Error
-    );
-  }
-}
-
-export async function compileModulesExplicit(
-  ctx: CompilationContext,
-  moduleFiles: string[],
-  entryPoint: string,
-  options?: any
-): Promise<any> {
-  if (!ctx.compiler) {
-    throw createCompilerError("Compiler not initialized");
-  }
-
-  try {
-    let WasmCompilationOptions = ctx.WasmCompilationOptions;
-    if (!WasmCompilationOptions && ctx.wasmModuleRef) {
-      WasmCompilationOptions = ctx.wasmModuleRef.WasmCompilationOptions;
+    if (
+      error &&
+      typeof error === "object" &&
+      (error as any).code === "COMPILER_ERROR"
+    ) {
+      throw error;
     }
 
-    const metricsFormat = options?.metricsFormat || "json";
-    const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput);
-    const errorFormat = options?.errorFormat || "terminal";
-    const comprehensiveMetrics = options?.comprehensiveMetrics || false;
-
-    const compilationOptions = new WasmCompilationOptions()
-      .with_mode(options?.target || "deployment")
-      .with_optimization_level(options?.optimizationLevel || "production")
-      .with_v2_preview(true)
-      .with_constraint_cache(false)
-      .with_enhanced_errors(true)
-      .with_metrics(includeMetrics)
-      .with_comprehensive_metrics(comprehensiveMetrics)
-      .with_metrics_format(metricsFormat)
-      .with_error_format(errorFormat);
-
-    const result = ctx.compiler.compileModules(moduleFiles, entryPoint, compilationOptions);
-
-    const metricsPayload = extractMetrics(result, metricsFormat);
-
-    if (result.success && result.bytecode) {
-      return {
-        success: true,
-        bytecode: result.bytecode,
-        abi: result.abi,
-        metadata: result.metadata,
-        metrics: metricsPayload,
-        metricsReport: metricsPayload,
-      };
-    } else {
-      return {
-        success: false,
-        errors: result.compiler_errors || [],
-        metadata: result.metadata,
-        metrics: metricsPayload,
-        metricsReport: metricsPayload,
-      };
-    }
-  } catch (error) {
     throw createCompilerError(
       `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      error as Error
+      error as Error,
+      {
+        phase: "compileWithDiscovery",
+        entryPoint,
+      },
     );
   }
 }

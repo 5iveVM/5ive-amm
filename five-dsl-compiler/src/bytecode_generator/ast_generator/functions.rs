@@ -158,10 +158,37 @@ impl ASTGenerator {
         name: &str,
         args: &[AstNode],
     ) -> Result<(), VMError> {
+        // Module-qualified interface call:
+        //   alias::method(...)
+        //   full::module::path::method(...)
+        if let Some((module_name, method_name)) = Self::parse_qualified_name(name) {
+            let interface_name = self
+                .module_interface_aliases
+                .get(module_name)
+                .cloned()
+                .or_else(|| {
+                    module_name
+                        .rsplit("::")
+                        .next()
+                        .and_then(|last| self.module_interface_aliases.get(last).cloned())
+                });
+
+            if let Some(interface_name) = interface_name {
+                if let Some(interface_info) = self.interface_registry.get(&interface_name) {
+                    if let Some(interface_method) = interface_info.methods.get(method_name) {
+                        let info = interface_info.clone();
+                        let method_info = interface_method.clone();
+                        return self.emit_interface_invoke(emitter, &info, &method_info, args);
+                    }
+                }
+                return Err(VMError::InvalidOperation);
+            }
+        }
+
         // Most built-ins consume pre-generated arguments.
         // A few have custom argument lowering and must not pre-generate here.
         let has_custom_arg_lowering =
-            matches!(name, "derive_pda" | "invoke_signed" | "transfer_lamports");
+            matches!(name, "derive_pda" | "invoke_signed" | "transfer_lamports" | "close_account");
 
         if !has_custom_arg_lowering {
             for arg in args {
@@ -303,6 +330,17 @@ impl ASTGenerator {
                 emitter.emit_const_u8(to_idx)?;
                 self.generate_ast_node(emitter, &args[2])?;
                 emitter.emit_opcode(TRANSFER);
+            }
+            "close_account" => {
+                // close_account(source: account, destination: account)
+                if args.len() != 2 {
+                    return Err(VMError::InvalidParameterCount);
+                }
+                let source_idx = self.resolve_account_argument(&args[0])?;
+                let destination_idx = self.resolve_account_argument(&args[1])?;
+                emitter.emit_const_u8(source_idx)?;
+                emitter.emit_const_u8(destination_idx)?;
+                emitter.emit_opcode(CLOSE_ACCOUNT);
             }
             "pubkey" => {
                 // Compatibility constructor: pubkey(x).
@@ -648,7 +686,7 @@ impl ASTGenerator {
         }
     }
 
-    fn resolve_account_param_by_name(&self, name: &str) -> Option<u8> {
+    pub(super) fn resolve_account_param_by_name(&self, name: &str) -> Option<u8> {
         let params = self.current_function_parameters.as_ref()?;
         let registry = self.account_system.as_ref().map(|s| s.get_account_registry());
 

@@ -19,7 +19,7 @@ Create a simple, engaging "Fair Launch" token template using a bonding curve. Th
 ## Project Structure
 ```
 five-templates/launchpad/
-├── five.toml                 # Config with multi_file_mode = true
+├── five.toml                 # Config with entry_point-based discovery
 ├── src/
 │   ├── main.v                # Entry point
 │   ├── launchpad_types.v     # Structs (Curve, Mint)

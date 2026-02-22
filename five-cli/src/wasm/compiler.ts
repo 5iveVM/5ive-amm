@@ -14,6 +14,7 @@ import { ConfigManager } from "../config/ConfigManager.js";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
+const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 // Real Five VM WASM imports
 let WasmFiveCompiler: any;
@@ -154,7 +155,8 @@ export class FiveCompilerWasm {
           .with_comprehensive_metrics(comprehensiveMetrics)
           .with_metrics_format(metricsFormat)
           .with_error_format(errorFormat)
-          .with_module_namespaces(!Boolean(options?.flatNamespace));
+          .with_module_namespaces(!Boolean(options?.flatNamespace))
+          .with_source_file(options?.sourceFile || "input.v");
 
         // Execute compilation
         result = this.compiler.compile(source, compilationOptions);
@@ -200,6 +202,8 @@ export class FiveCompilerWasm {
       }
 
       const metricsPayload = this.extractMetrics(result, metricsFormat);
+      const formattedErrors = this.extractFormattedErrors(result);
+      const diagnostics = this.extractDiagnostics(result);
 
       // Transform result format to match expected SDK interface
       if (result.success && result.bytecode) {
@@ -210,18 +214,20 @@ export class FiveCompilerWasm {
           metadata: result.metadata,
           metrics: metricsPayload,
           metricsReport: metricsPayload,
-          formattedErrorsTerminal: typeof result.format_all_terminal === "function" ? result.format_all_terminal() : (result.formatted_errors_terminal || undefined),
-          formattedErrorsJson: typeof result.format_all_json === "function" ? result.format_all_json() : (result.formatted_errors_json || undefined),
+          formattedErrorsTerminal: formattedErrors.terminal,
+          formattedErrorsJson: formattedErrors.json,
         };
       } else {
         return {
           success: false,
-          errors: result.compiler_errors || [],
+          errors: diagnostics,
+          warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+          diagnostics,
           metadata: result.metadata,
           metrics: metricsPayload,
           metricsReport: metricsPayload,
-          formattedErrorsTerminal: typeof result.format_all_terminal === "function" ? result.format_all_terminal() : (result.formatted_errors_terminal || undefined),
-          formattedErrorsJson: typeof result.format_all_json === "function" ? result.format_all_json() : (result.formatted_errors_json || undefined),
+          formattedErrorsTerminal: formattedErrors.terminal,
+          formattedErrorsJson: formattedErrors.json,
         };
       }
     } catch (error) {
@@ -229,90 +235,6 @@ export class FiveCompilerWasm {
         `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
         error as Error,
       );
-    }
-  }
-
-  /**
-   * Compile multiple modules (main + dependencies)
-   */
-  async compileModules(
-    mainSource: string,
-    modules: Array<{ name: string; source: string }>,
-    options?: any,
-    mainFileName: string = "input.v",
-  ): Promise<any> {
-    if (!this.initialized || !this.compiler) {
-      throw this.createCompilerError("Compiler not initialized");
-    }
-
-    const startTime = Date.now();
-
-    try {
-      if (!WasmCompilationOptions && wasmModuleRef) {
-        WasmCompilationOptions = wasmModuleRef.WasmCompilationOptions;
-      }
-
-      const metricsFormat = options?.metricsFormat || "json";
-      const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput);
-      const errorFormat = options?.errorFormat || "terminal";
-      const comprehensiveMetrics = options?.comprehensiveMetrics || false;
-
-      const compilationOptions = new WasmCompilationOptions()
-        .with_mode(options?.target || "deployment")
-        .with_optimization_level(options?.optimizationLevel || "production")
-        .with_v2_preview(true)
-        .with_constraint_cache(false)
-        .with_enhanced_errors(true)
-        .with_metrics(includeMetrics)
-        .with_comprehensive_metrics(comprehensiveMetrics)
-        .with_metrics_format(metricsFormat)
-        .with_error_format(errorFormat)
-        .with_module_namespaces(!Boolean(options?.flatNamespace))
-        .with_source_file(mainFileName);
-
-      // Map JS module structure (source) to Rust module structure (content)
-      const rustModules = modules.map(m => ({
-        name: m.name,
-        // Rust deserializer expects 'content' field
-        content: m.source
-      }));
-
-      const result = this.compiler.compile_multi(
-        mainSource,
-        rustModules,
-        compilationOptions,
-      );
-
-      const metricsPayload = this.extractMetrics(result, metricsFormat);
-
-      if (result.success && result.bytecode) {
-        return {
-          success: true,
-          bytecode: result.bytecode,
-          abi: this.extractAbi(result),
-          metadata: result.metadata,
-          metrics: metricsPayload,
-          metricsReport: metricsPayload,
-        };
-      } else {
-        return {
-          success: false,
-          errors: result.compiler_errors || [],
-          formattedErrorsTerminal: typeof result.format_all_terminal === "function" ? result.format_all_terminal() : (result as any).formatted_errors_terminal,
-          formattedErrorsJson: typeof result.format_all_json === "function" ? result.format_all_json() : (result as any).formatted_errors_json,
-          metadata: result.metadata,
-          metrics: metricsPayload,
-          metricsReport: metricsPayload,
-        };
-      }
-    } catch (error) {
-      throw this.createCompilerError(
-        `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        error as Error,
-      );
-    } finally {
-      const compilationTime = Date.now() - startTime;
-      this.logger.debug(`Multi-file compilation completed in ${compilationTime}ms`);
     }
   }
 
@@ -461,62 +383,8 @@ export class FiveCompilerWasm {
 
       const compilationTime = Date.now() - startTime;
       const metricsPayload = this.extractMetrics(result, metricsFormat);
-
-      // Use WASM-provided formatting methods to get structured error information
-      let convertedErrors: any[] = [];
-
-      if (result.compiler_errors && result.compiler_errors.length > 0) {
-        try {
-          // Try to get JSON formatted errors from WASM
-          const jsonErrors = result.format_all_json
-            ? result.format_all_json()
-            : null;
-          if (jsonErrors) {
-            const parsedErrors = JSON.parse(jsonErrors);
-            convertedErrors = parsedErrors.map((error: any) => ({
-              type: "enhanced",
-              ...error,
-              // Ensure proper structure for CLI display
-              code: error.code || "E0000",
-              severity: error.severity || "error",
-              category: error.category || "compilation",
-              message: error.message || "Unknown error",
-            }));
-          } else {
-            // Fallback: create basic errors from the result
-            convertedErrors = [
-              {
-                type: "enhanced",
-                code: "E0004",
-                severity: "error",
-                category: "compilation",
-                message: "InvalidScript",
-                description: "The script contains syntax or semantic errors",
-                location: undefined,
-                suggestions: [],
-              },
-            ];
-          }
-        } catch (parseError) {
-          this.logger.debug(
-            "Failed to parse JSON errors from WASM:",
-            parseError,
-          );
-          // Fallback to basic error
-          convertedErrors = [
-            {
-              type: "enhanced",
-              code: "E0004",
-              severity: "error",
-              category: "compilation",
-              message: "InvalidScript",
-              description: "Compilation failed with enhanced error system",
-              location: undefined,
-              suggestions: [],
-            },
-          ];
-        }
-      }
+      const diagnostics = this.extractDiagnostics(result);
+      const formattedErrors = this.extractFormattedErrors(result);
 
       // Extract ABI - get_abi() returns JSON string, parse it
       let abi = undefined;
@@ -533,9 +401,9 @@ export class FiveCompilerWasm {
         success: result.success,
         bytecode: result.bytecode ? new Uint8Array(result.bytecode) : undefined,
         abi: abi,
-        errors: convertedErrors,
-        warnings:
-          convertedErrors.filter((e: any) => e.severity === "warning") || [],
+        errors: diagnostics,
+        warnings: diagnostics.filter((diag) => diag.severity === "warning"),
+        diagnostics,
         metrics: {
           compilationTime: result.compilation_time || compilationTime,
           bytecodeSize: result.bytecode_size || 0,
@@ -545,8 +413,8 @@ export class FiveCompilerWasm {
           functionCount: 0, // Would need analysis
         },
         metricsReport: metricsPayload,
-        formattedErrorsTerminal: typeof result.format_all_terminal === "function" ? result.format_all_terminal() : (result.formatted_errors_terminal || undefined),
-        formattedErrorsJson: typeof result.format_all_json === "function" ? result.format_all_json() : (result.formatted_errors_json || undefined),
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
       };
 
       // Write output file if specified and compilation succeeded
@@ -796,6 +664,14 @@ export class FiveCompilerWasm {
    * Create a standardized compiler error
    */
   private createCompilerError(message: string, cause?: Error): CLIError {
+    if (
+      cause &&
+      typeof cause === "object" &&
+      (cause as any).code === "COMPILER_ERROR"
+    ) {
+      return cause as CLIError;
+    }
+
     const error = new Error(message) as CLIError;
     error.name = "CompilerError";
     error.code = "COMPILER_ERROR";
@@ -803,13 +679,264 @@ export class FiveCompilerWasm {
     error.exitCode = 1;
 
     if (cause) {
+      const inheritedDetails =
+        cause && typeof (cause as any).details === "object"
+          ? (cause as any).details
+          : undefined;
       error.details = {
+        ...(inheritedDetails || {}),
         cause: cause.message,
         stack: cause.stack,
       };
     }
 
     return error;
+  }
+
+  private isNonEmptyString(value: unknown): value is string {
+    return typeof value === "string" && value.trim().length > 0;
+  }
+
+  private toOptionalNumber(value: unknown): number | undefined {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    return undefined;
+  }
+
+  private extractFormattedErrors(result: any): {
+    terminal?: string;
+    json?: string;
+  } {
+    const safeCall = (methodName: string): string | undefined => {
+      if (!result || typeof result !== "object") {
+        return undefined;
+      }
+      const fn = (result as any)[methodName];
+      if (typeof fn !== "function") {
+        return undefined;
+      }
+      try {
+        const value = fn.call(result);
+        return this.isNonEmptyString(value) ? value : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+
+    const readProp = (name: string): string | undefined => {
+      if (!result || typeof result !== "object") {
+        return undefined;
+      }
+      const value = (result as any)[name];
+      return this.isNonEmptyString(value) ? value : undefined;
+    };
+
+    const terminal =
+      safeCall("get_formatted_errors_terminal") ||
+      readProp("formattedErrorsTerminal") ||
+      readProp("formatted_errors_terminal") ||
+      safeCall("format_all_terminal");
+
+    const json =
+      safeCall("format_all_json") ||
+      safeCall("get_formatted_errors_json") ||
+      readProp("formattedErrorsJson") ||
+      readProp("formatted_errors_json");
+
+    return { terminal, json };
+  }
+
+  private normalizeDiagnosticSuggestion(suggestion: any):
+    | { message: string; explanation?: string; confidence?: number; codeSuggestion?: string }
+    | undefined {
+    if (typeof suggestion === "string") {
+      return { message: suggestion };
+    }
+
+    if (!suggestion || typeof suggestion !== "object") {
+      return undefined;
+    }
+
+    const message = this.isNonEmptyString(suggestion.message)
+      ? suggestion.message
+      : this.isNonEmptyString(suggestion.explanation)
+        ? suggestion.explanation
+        : undefined;
+    if (!message) {
+      return undefined;
+    }
+
+    return {
+      message,
+      explanation: this.isNonEmptyString(suggestion.explanation)
+        ? suggestion.explanation
+        : undefined,
+      confidence: this.toOptionalNumber(suggestion.confidence),
+      codeSuggestion: this.isNonEmptyString(suggestion.code_suggestion)
+        ? suggestion.code_suggestion
+        : this.isNonEmptyString(suggestion.codeSuggestion)
+          ? suggestion.codeSuggestion
+          : undefined,
+    };
+  }
+
+  private buildFallbackSuggestions(code: string): Array<{ message: string; confidence?: number }> {
+    switch (code) {
+      case "E2000":
+        return [
+          {
+            message: "Declare the variable before use with `let <name> = ...`.",
+            confidence: 0.8,
+          },
+          {
+            message: "Check for spelling differences between parameter/field names and usages.",
+            confidence: 0.7,
+          },
+        ];
+      case "E0002":
+        return [
+          {
+            message: "Check for missing closing `}`, `)`, or an incomplete function signature.",
+            confidence: 0.75,
+          },
+        ];
+      case "E0001":
+      case "E0004":
+        return [
+          {
+            message: "Check for missing punctuation (`;`, `{`, `}`) near the reported statement.",
+            confidence: 0.7,
+          },
+        ];
+      default:
+        return [];
+    }
+  }
+
+  private normalizeDiagnostic(error: any): any {
+    let parsedFromFormatter: any;
+    if (error && typeof error?.format_json === "function") {
+      try {
+        const parsed = JSON.parse(error.format_json());
+        if (parsed && typeof parsed === "object") {
+          parsedFromFormatter = parsed;
+        }
+      } catch {
+        // Ignore formatter parsing issues and continue with direct field access.
+      }
+    }
+
+    const merged = {
+      ...(parsedFromFormatter || {}),
+      ...(error && typeof error === "object" ? error : {}),
+    };
+
+    const location =
+      merged.location && typeof merged.location === "object"
+        ? merged.location
+        : undefined;
+    const line = this.toOptionalNumber(merged.line) ?? this.toOptionalNumber(location?.line);
+    const column =
+      this.toOptionalNumber(merged.column) ?? this.toOptionalNumber(location?.column);
+    const file =
+      this.isNonEmptyString(merged.sourceLocation)
+        ? merged.sourceLocation
+        : this.isNonEmptyString(location?.file)
+          ? location.file
+          : undefined;
+
+    const code = this.isNonEmptyString(merged.code) ? merged.code : "E0000";
+    const rawSuggestions = Array.isArray(merged.suggestions)
+      ? merged.suggestions
+      : [];
+    const suggestions = rawSuggestions
+      .map((item: any) => this.normalizeDiagnosticSuggestion(item))
+      .filter(Boolean) as Array<{ message: string; explanation?: string; confidence?: number; codeSuggestion?: string }>;
+
+    if (suggestions.length === 0) {
+      suggestions.push(...this.buildFallbackSuggestions(code));
+    }
+
+    const rendered = this.isNonEmptyString(merged.rendered)
+      ? merged.rendered
+      : typeof merged.format_terminal === "function"
+        ? merged.format_terminal()
+        : undefined;
+
+    return {
+      type: this.isNonEmptyString(merged.type) ? merged.type : "enhanced",
+      code,
+      severity: this.isNonEmptyString(merged.severity) ? merged.severity : "error",
+      category: this.isNonEmptyString(merged.category)
+        ? merged.category
+        : "compilation",
+      message: this.isNonEmptyString(merged.message)
+        ? merged.message
+        : this.isNonEmptyString(merged.description)
+          ? merged.description
+          : "Unknown compiler error",
+      description: this.isNonEmptyString(merged.description)
+        ? merged.description
+        : undefined,
+      line,
+      column,
+      sourceLocation: file,
+      location,
+      suggestion: suggestions[0]?.message,
+      suggestions,
+      sourceLine: this.isNonEmptyString(merged.sourceLine)
+        ? merged.sourceLine
+        : this.isNonEmptyString(merged.source_line)
+          ? merged.source_line
+          : undefined,
+      sourceSnippet: this.isNonEmptyString(merged.sourceSnippet)
+        ? merged.sourceSnippet
+        : this.isNonEmptyString(merged.source_snippet)
+          ? merged.source_snippet
+          : undefined,
+      rendered: this.isNonEmptyString(rendered) ? rendered : undefined,
+      raw: error,
+    };
+  }
+
+  private extractDiagnostics(result: any): any[] {
+    const formatted = this.extractFormattedErrors(result);
+
+    if (formatted.json) {
+      try {
+        const parsed = JSON.parse(formatted.json);
+        const parsedErrors = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed?.errors)
+            ? parsed.errors
+            : [];
+
+        if (parsedErrors.length > 0) {
+          return parsedErrors.map((item: any) => this.normalizeDiagnostic(item));
+        }
+      } catch (parseError) {
+        this.logger.debug("Failed to parse formatted JSON diagnostics:", parseError);
+      }
+    }
+
+    if (Array.isArray(result?.compiler_errors)) {
+      return result.compiler_errors.map((item: any) =>
+        this.normalizeDiagnostic(item),
+      );
+    }
+
+    if (Array.isArray(result?.errors)) {
+      return result.errors.map((item: any) => this.normalizeDiagnostic(item));
+    }
+
+    return [];
   }
 
   private extractAbi(result: any): any | undefined {
@@ -920,59 +1047,27 @@ export class FiveCompilerWasm {
         WasmCompilationOptions = wasmModuleRef.WasmCompilationOptions;
       }
 
-      const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput);
-      const errorFormat = options?.errorFormat || "terminal";
-      const comprehensiveMetrics = options?.comprehensiveMetrics || false;
+      const compilationOptions = this.createDiscoveryCompilationOptions(entryPoint, options, metricsFormat);
+      let result = this.compiler.compileMultiWithDiscovery(entryPoint, compilationOptions);
 
-      const compilationOptions = new WasmCompilationOptions()
-        .with_mode(options?.target || "deployment")
-        .with_optimization_level(options?.optimizationLevel || "production")
-        .with_v2_preview(true)
-        .with_constraint_cache(false)
-        .with_enhanced_errors(true)
-        .with_metrics(includeMetrics)
-        .with_comprehensive_metrics(comprehensiveMetrics)
-        .with_metrics_format(metricsFormat)
-        .with_error_format(errorFormat)
-        .with_module_namespaces(!Boolean(options?.flatNamespace))
-        .with_source_file(entryPoint);
-
-      const result = this.compiler.compileMultiWithDiscovery(entryPoint, compilationOptions);
-
-      const metricsPayload = this.extractMetrics(result, metricsFormat);
-
-      if (result.success && result.bytecode) {
-        // Extract ABI - get_abi() returns JSON string, parse it
-        let abi = undefined;
-        try {
-          const abiJson = result.get_abi();
-          if (abiJson) {
-            abi = JSON.parse(abiJson);
-          }
-        } catch (e) {
-          this.logger.debug('Failed to parse ABI from get_abi():', e);
-        }
-
-        return {
-          success: true,
-          bytecode: result.bytecode,
-          abi: abi,
-          metadata: result.metadata,
-          metrics: metricsPayload,
-          metricsReport: metricsPayload,
-        };
-      } else {
-        return {
-          success: false,
-          errors: result.compiler_errors || [],
-          formattedErrorsTerminal: typeof result.format_all_terminal === "function" ? result.format_all_terminal() : (result as any).formatted_errors_terminal,
-          formattedErrorsJson: typeof result.format_all_json === "function" ? result.format_all_json() : (result as any).formatted_errors_json,
-          metadata: result.metadata,
-          metrics: metricsPayload,
-          metricsReport: metricsPayload,
-        };
+      if (!result.success && this.isDiscoveryFsFailure(result)) {
+        result = await this.compileWithLocalModuleMap(entryPoint, options, compilationOptions);
       }
+
+      return this.toCompilationOutput(result, metricsFormat);
     } catch (error) {
+      if (this.isDiscoveryFsFailure(error)) {
+        try {
+          const compilationOptions = this.createDiscoveryCompilationOptions(entryPoint, options, metricsFormat);
+          const fallbackResult = await this.compileWithLocalModuleMap(entryPoint, options, compilationOptions);
+          return this.toCompilationOutput(fallbackResult, metricsFormat);
+        } catch (fallbackError) {
+          throw this.createCompilerError(
+            `Compilation error: ${fallbackError instanceof Error ? fallbackError.message : "Unknown error"}`,
+            fallbackError as Error
+          );
+        }
+      }
       throw this.createCompilerError(
         `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
         error as Error
@@ -980,82 +1075,301 @@ export class FiveCompilerWasm {
     }
   }
 
-  /**
-   * Compile multi-file project with explicit module list (paths)
-   */
-  async compileModulesExplicit(
-    moduleFiles: string[],
-    entryPoint: string,
-    options?: any
-  ): Promise<any> {
-    if (!this.initialized || !this.compiler) {
-      throw this.createCompilerError("Compiler not initialized");
+  private createDiscoveryCompilationOptions(entryPoint: string, options: any, metricsFormat: string): any {
+    const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput);
+    const errorFormat = options?.errorFormat || "terminal";
+    const comprehensiveMetrics = options?.comprehensiveMetrics || false;
+
+    return new WasmCompilationOptions()
+      .with_mode(options?.target || "deployment")
+      .with_optimization_level(options?.optimizationLevel || "production")
+      .with_v2_preview(true)
+      .with_constraint_cache(false)
+      .with_enhanced_errors(true)
+      .with_metrics(includeMetrics)
+      .with_comprehensive_metrics(comprehensiveMetrics)
+      .with_metrics_format(metricsFormat)
+      .with_error_format(errorFormat)
+      .with_module_namespaces(!Boolean(options?.flatNamespace))
+      .with_source_file(entryPoint);
+  }
+
+  private toCompilationOutput(result: any, metricsFormat: string): any {
+    const metricsPayload = this.extractMetrics(result, metricsFormat);
+    const diagnostics = this.extractDiagnostics(result);
+    const formattedErrors = this.extractFormattedErrors(result);
+
+    if (result.success && result.bytecode) {
+      // Extract ABI - get_abi() returns JSON string, parse it
+      let abi = undefined;
+      try {
+        const abiJson = result.get_abi();
+        if (abiJson) {
+          abi = JSON.parse(abiJson);
+        }
+      } catch (e) {
+        this.logger.debug('Failed to parse ABI from get_abi():', e);
+      }
+
+      return {
+        success: true,
+        bytecode: result.bytecode,
+        abi: abi,
+        metadata: result.metadata,
+        metrics: metricsPayload,
+        metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
+      };
     }
 
-    const startTime = Date.now();
-    const metricsFormat = options?.metricsFormat || "json";
+    return {
+      success: false,
+      errors: diagnostics,
+      warnings: diagnostics.filter((diag: any) => diag.severity === "warning"),
+      diagnostics,
+      formattedErrorsTerminal: formattedErrors.terminal,
+      formattedErrorsJson: formattedErrors.json,
+      metadata: result.metadata,
+      metrics: metricsPayload,
+      metricsReport: metricsPayload,
+    };
+  }
 
-    try {
-      if (!WasmCompilationOptions && wasmModuleRef) {
-        WasmCompilationOptions = wasmModuleRef.WasmCompilationOptions;
-      }
+  private isDiscoveryFsFailure(errorOrResult: any): boolean {
+    const messages: string[] = [];
 
-      const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput);
-      const errorFormat = options?.errorFormat || "terminal";
-      const comprehensiveMetrics = options?.comprehensiveMetrics || false;
+    if (!errorOrResult) {
+      return false;
+    }
 
-      const compilationOptions = new WasmCompilationOptions()
-        .with_mode(options?.target || "deployment")
-        .with_optimization_level(options?.optimizationLevel || "production")
-        .with_v2_preview(true)
-        .with_constraint_cache(false)
-        .with_enhanced_errors(true)
-        .with_metrics(includeMetrics)
-        .with_comprehensive_metrics(comprehensiveMetrics)
-        .with_metrics_format(metricsFormat)
-        .with_error_format(errorFormat)
-        .with_module_namespaces(!Boolean(options?.flatNamespace))
-        .with_source_file(entryPoint);
+    if (typeof errorOrResult?.message === "string") {
+      messages.push(errorOrResult.message);
+    }
 
-      const result = this.compiler.compileModules(moduleFiles, entryPoint, compilationOptions);
-
-      const metricsPayload = this.extractMetrics(result, metricsFormat);
-
-      if (result.success && result.bytecode) {
-        // Extract ABI - get_abi() returns JSON string, parse it
-        let abi = undefined;
-        try {
-          const abiJson = result.get_abi();
-          if (abiJson) {
-            abi = JSON.parse(abiJson);
-          }
-        } catch (e) {
-          this.logger.debug('Failed to parse ABI from get_abi():', e);
+    if (Array.isArray(errorOrResult?.errors)) {
+      for (const err of errorOrResult.errors) {
+        if (typeof err?.message === "string") {
+          messages.push(err.message);
         }
-
-        return {
-          success: true,
-          bytecode: result.bytecode,
-          abi: abi,
-          metadata: result.metadata,
-          metrics: metricsPayload,
-          metricsReport: metricsPayload,
-        };
-      } else {
-        return {
-          success: false,
-          errors: result.compiler_errors || [],
-          metadata: result.metadata,
-          metrics: metricsPayload,
-          metricsReport: metricsPayload,
-        };
       }
-    } catch (error) {
-      throw this.createCompilerError(
-        `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        error as Error
+    }
+
+    if (Array.isArray(errorOrResult?.diagnostics)) {
+      for (const diag of errorOrResult.diagnostics) {
+        if (typeof diag?.message === "string") {
+          messages.push(diag.message);
+        }
+      }
+    }
+
+    if (Array.isArray(errorOrResult?.compiler_errors)) {
+      for (const err of errorOrResult.compiler_errors) {
+        if (typeof err?.message === "string") {
+          messages.push(err.message);
+        }
+      }
+    }
+
+    const formattedTerminal = errorOrResult?.formatted_errors_terminal || errorOrResult?.formattedErrorsTerminal;
+    if (typeof formattedTerminal === "string") {
+      messages.push(formattedTerminal);
+    }
+
+    const formattedJson = errorOrResult?.formatted_errors_json || errorOrResult?.formattedErrorsJson;
+    if (typeof formattedJson === "string") {
+      messages.push(formattedJson);
+    }
+
+    if (typeof errorOrResult?.toString === "function") {
+      const value = String(errorOrResult);
+      if (value && value !== "[object Object]") {
+        messages.push(value);
+      }
+    }
+
+    return messages.some((msg) =>
+      msg.includes("Module discovery failed") &&
+      msg.includes("Module") &&
+      msg.includes("not found")
+    );
+  }
+
+  private extractModuleImports(source: string): string[] {
+    const sanitizedSource = this.stripComments(source);
+    const imports = new Set<string>();
+    const importPattern = /^\s*(?:use|import)\s+([^;\n]+)\s*;/gm;
+    let match: RegExpExecArray | null;
+
+    while ((match = importPattern.exec(sanitizedSource)) !== null) {
+      let pathExpr = (match[1] || "").trim();
+      if (!pathExpr || pathExpr.startsWith('"') || pathExpr.startsWith("'")) {
+        continue;
+      }
+
+      if (pathExpr.includes(" as ")) {
+        pathExpr = pathExpr.split(" as ")[0].trim();
+      }
+
+      const braceIndex = pathExpr.indexOf("::{");
+      if (braceIndex >= 0) {
+        pathExpr = pathExpr.slice(0, braceIndex).trim();
+      }
+
+      if (!pathExpr) {
+        continue;
+      }
+
+      imports.add(pathExpr);
+    }
+
+    return [...imports];
+  }
+
+  private extractModuleCallQualifiers(source: string): string[] {
+    const sanitizedSource = this.stripComments(source);
+    const qualifiers = new Set<string>();
+    const callPattern = /\b([A-Za-z_][A-Za-z0-9_:]*)::[A-Za-z_][A-Za-z0-9_]*\s*\(/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = callPattern.exec(sanitizedSource)) !== null) {
+      const fullPath = match[1];
+      const qualifier = fullPath.includes("::")
+        ? fullPath
+        : fullPath;
+      qualifiers.add(qualifier);
+    }
+
+    return [...qualifiers];
+  }
+
+  private stripComments(source: string): string {
+    const withoutBlock = source.replace(/\/\*[\s\S]*?\*\//g, " ");
+    return withoutBlock.replace(/\/\/.*$/gm, "");
+  }
+
+  private toImportAlias(modulePath: string): string {
+    const parts = modulePath.split("::").filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : modulePath;
+  }
+
+  private unresolvedAliasGuidance(source: string): { alias: string; suggestedImport?: string } | null {
+    const imports = this.extractModuleImports(source);
+    const importedAliases = new Set(imports.map((p) => this.toImportAlias(p)));
+    const qualifiers = this.extractModuleCallQualifiers(source);
+
+    for (const qualifier of qualifiers) {
+      // Fully qualified calls are valid without import.
+      if (qualifier.includes("::")) {
+        continue;
+      }
+
+      if (importedAliases.has(qualifier)) {
+        continue;
+      }
+
+      // Prefer std interface guidance for known aliases.
+      const stdCandidates = [
+        `std::interfaces::${qualifier}`,
+        `std::${qualifier}`,
+      ];
+      for (const candidate of stdCandidates) {
+        if (this.resolveStdlibModuleFile(candidate)) {
+          return { alias: qualifier, suggestedImport: candidate };
+        }
+      }
+
+      return { alias: qualifier };
+    }
+
+    return null;
+  }
+
+  private resolveLocalModuleFile(baseDir: string, modulePath: string): string | null {
+    const relPath = modulePath.replace(/::/g, "/");
+    const direct = resolve(baseDir, `${relPath}.v`);
+    if (existsSync(direct)) {
+      return direct;
+    }
+    const modFile = resolve(baseDir, relPath, "mod.v");
+    if (existsSync(modFile)) {
+      return modFile;
+    }
+    return null;
+  }
+
+  private resolveStdlibModuleFile(modulePath: string): string | null {
+    if (!modulePath.startsWith("std::")) {
+      return null;
+    }
+
+    const relPath = modulePath.replace(/^std::/, "").replace(/::/g, "/");
+    const candidates = [
+      resolve(moduleDir, "../../../assets/stdlib/std", `${relPath}.v`),
+      resolve(moduleDir, "../../assets/stdlib/std", `${relPath}.v`),
+      resolve(moduleDir, "../../../five-stdlib/std", `${relPath}.v`),
+      resolve(process.cwd(), "five-stdlib/std", `${relPath}.v`)
+    ];
+
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private async compileWithLocalModuleMap(entryPoint: string, _options: any, compilationOptions: any): Promise<any> {
+    const entryPointAbs = resolve(entryPoint);
+    const sourceDir = dirname(entryPointAbs);
+    const mainSource = await readFile(entryPointAbs, "utf8");
+
+    const unresolvedAlias = this.unresolvedAliasGuidance(mainSource);
+    if (unresolvedAlias) {
+      if (unresolvedAlias.suggestedImport) {
+        throw new Error(
+          `Unresolved module alias '${unresolvedAlias.alias}'. Missing import: use ${unresolvedAlias.suggestedImport};`
+        );
+      }
+      throw new Error(
+        `Unresolved module alias '${unresolvedAlias.alias}'. Add a matching use <module path>; import.`
       );
     }
+
+    const modules: Array<{ name: string; content: string }> = [];
+    const visited = new Set<string>();
+
+    const visitModule = async (modulePath: string): Promise<void> => {
+      if (visited.has(modulePath)) {
+        return;
+      }
+
+      const moduleFile = modulePath.startsWith("std::")
+        ? this.resolveStdlibModuleFile(modulePath)
+        : this.resolveLocalModuleFile(sourceDir, modulePath);
+      if (!moduleFile) {
+        return;
+      }
+
+      visited.add(modulePath);
+      const moduleContent = await readFile(moduleFile, "utf8");
+      modules.push({
+        name: `${modulePath.replace(/::/g, "/")}.v`,
+        content: moduleContent,
+      });
+
+      for (const dep of this.extractModuleImports(moduleContent)) {
+        await visitModule(dep);
+      }
+    };
+
+    for (const dep of this.extractModuleImports(mainSource)) {
+      await visitModule(dep);
+    }
+
+    const fallbackResult = this.compiler.compile_multi(mainSource, modules, compilationOptions);
+    return fallbackResult;
   }
 
   private extractMetrics(

@@ -14,6 +14,7 @@ pub mod interface_registry;
 pub mod metrics;
 pub mod module_resolver;
 pub mod parser;
+pub mod stdlib_registry;
 pub mod workspace_resolver;
 #[cfg(feature = "security-audit")]
 pub mod security_rules;

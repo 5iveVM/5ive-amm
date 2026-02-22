@@ -177,6 +177,7 @@ pub const GET_KEY: u8 = 0x57;
 pub const GET_OWNER: u8 = 0x58;
 pub const TRANSFER: u8 = 0x59;
 pub const TRANSFER_SIGNED: u8 = 0x5A;
+pub const CLOSE_ACCOUNT: u8 = 0x5B;
 
 // ===== ALL ARRAY & STRING OPERATIONS (0x60-0x6F) =====
 // 🎯 LOGICAL GROUPING: All array, string, and literal operations consolidated
@@ -1365,6 +1366,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::None,
         stack_effect: -3,
         compute_cost: 8,
+    },
+    OpcodeInfo {
+        opcode: CLOSE_ACCOUNT,
+        name: "CLOSE_ACCOUNT",
+        arg_type: ArgType::None,
+        stack_effect: -2,
+        compute_cost: 10,
     },
     // Constraint operations
     OpcodeInfo {

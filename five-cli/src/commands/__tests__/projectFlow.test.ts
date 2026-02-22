@@ -42,7 +42,13 @@ jest.mock('five-sdk', () => ({
       bytecode: new Uint8Array(),
       metadata: {}
     }),
-    compileModules: jest.fn().mockResolvedValue({
+    compileProject: jest.fn().mockResolvedValue({
+      success: true,
+      fiveFile: {},
+      bytecode: new Uint8Array(),
+      metadata: {}
+    }),
+    compileWithDiscovery: jest.fn().mockResolvedValue({
       success: true,
       fiveFile: {},
       bytecode: new Uint8Array(),
@@ -107,7 +113,11 @@ jest.mock('../../utils/FiveFileManager.js', () => ({
   }
 }));
 
-import { FiveSDK } from '@5ive-tech/sdk';
+jest.mock('../../wasm/compiler.js', () => ({
+  FiveCompilerWasm: require('../../__tests__/mocks/wasm-compiler').FiveCompilerWasm
+}));
+
+import { FiveCompilerWasm } from '../../__tests__/mocks/wasm-compiler';
 import { loadProjectConfig } from '../../project/ProjectLoader.js';
 import { compileCommand } from '../compile.js';
 import { deployCommand } from '../deploy.js';
@@ -124,7 +134,7 @@ const logger = {
 };
 
 // Helper to create a sample project structure with five.toml and a stub .v file
-async function createProject({ target = 'vm', multi = false }: { target?: string; multi?: boolean } = {}) {
+async function createProject({ target = 'vm' }: { target?: string } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'five-cli-project-'));
   await mkdir(join(root, 'src'), { recursive: true });
   await mkdir(join(root, 'build'), { recursive: true });
@@ -142,7 +152,6 @@ entry_point = "src/main.v"
 
 [build]
 output_artifact_name = "demo"
-multi_file_mode = ${multi}
 
 [deploy]
 cluster = "devnet"
@@ -155,12 +164,6 @@ keypair_path = "~/.config/solana/id.json"
     join(root, 'src', 'main.v'),
     `pub main() -> u64 { return 1; }`
   );
-  if (multi) {
-    await writeFile(
-      join(root, 'src', 'helper.v'),
-      `pub helper() -> u64 { return 2; }`
-    );
-  }
   return root;
 }
 
@@ -211,39 +214,49 @@ describe('project-aware commands', () => {
   it('build handler loads project config and delegates to compile', async () => {
     const root = await createProject();
     const ctx = createContext();
-
-    const compileSpy = jest
-      .spyOn(compileCommand, 'handler')
-      .mockResolvedValue(undefined as any);
+    const discoverySpy = jest.spyOn(FiveCompilerWasm.prototype, 'compileWithDiscovery');
 
     await buildCommand.handler([], { project: root }, ctx as any);
 
-    expect(compileSpy).toHaveBeenCalledTimes(1);
-    const [, optionsArg] = compileSpy.mock.calls[0];
-    expect(optionsArg.project).toContain('five.toml');
-    expect(optionsArg.includeMetrics).toBe(true);
-
-    compileSpy.mockRestore();
+    expect(discoverySpy).toHaveBeenCalledTimes(1);
+    expect(discoverySpy.mock.calls[0][0]).toMatch(/src\/main\.v$/);
+    discoverySpy.mockRestore();
   });
 
-  it('compile handler uses multi-file path when multi_file_mode is true', async () => {
-    const root = await createProject({ multi: true });
+  it('compile handler uses discovery path for explicit input files', async () => {
+    const root = await createProject();
     const ctx = createContext();
+    const inputPath = join(root, 'src', 'main.v');
+    const discoverySpy = jest.spyOn(FiveCompilerWasm.prototype, 'compileWithDiscovery');
 
-    const compileModulesMock = FiveSDK.compileModules as jest.Mock;
-    compileModulesMock.mockResolvedValue({
-      success: true,
-      bytecode: new Uint8Array(),
-      fiveFile: {},
-      metadata: {}
-    });
+    await compileCommand.handler([inputPath], { project: root }, ctx as any);
 
-    await compileCommand.handler([], { project: root }, ctx as any);
+    expect(discoverySpy).toHaveBeenCalledTimes(1);
+    expect(discoverySpy.mock.calls[0][0]).toMatch(/src\/main\.v$/);
+    discoverySpy.mockRestore();
+  });
 
-    expect(compileModulesMock).toHaveBeenCalledTimes(1);
-    const [mainSrc, modules] = compileModulesMock.mock.calls[0];
-    expect(typeof mainSrc).toBe('string');
-    expect(Array.isArray(modules)).toBe(true);
-    expect(modules.length).toBeGreaterThanOrEqual(1);
+  it('compile handler reports import-resolution requirement when discovery API is unavailable', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'five-cli-import-fallback-'));
+    const sourcePath = join(root, 'imports.v');
+    await writeFile(
+      sourcePath,
+      `use std::interfaces::spl_token;\n\npub run(source: account @mut, destination: account @mut, authority: account @signer, amount: u64) {\n  SPLToken.transfer(source, destination, authority, amount);\n}\n`
+    );
+    const ctx = createContext();
+    const discoverySpy = jest
+      .spyOn(FiveCompilerWasm.prototype, 'compileWithDiscovery')
+      .mockRejectedValue(new Error('compileMultiWithDiscovery is unavailable'));
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`exit:${code ?? 'undefined'}`);
+    }) as never);
+    try {
+      await expect(
+        compileCommand.handler([sourcePath], {}, ctx as any)
+      ).rejects.toThrow(/exit:1/);
+    } finally {
+      discoverySpy.mockRestore();
+      exitSpy.mockRestore();
+    }
   });
 });

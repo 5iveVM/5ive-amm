@@ -2,6 +2,7 @@
 
 use crate::ast::{StructField, TypeNode, SourceLocation};
 use crate::type_checker::ModuleScope;
+use five_vm_mito::error::VMError;
 use std::collections::{HashMap, HashSet};
 
 /// Information about where a symbol is defined
@@ -58,6 +59,10 @@ pub struct TypeCheckerContext {
     pub(crate) current_module: Option<String>,
     /// Imported external interface namespace symbols from use/import statements.
     pub(crate) imported_external_interfaces: HashSet<String>,
+    /// Canonical module alias/full-path -> interface name mapping used for module-qualified CPI calls.
+    pub(crate) interface_module_aliases: HashMap<String, String>,
+    /// Canonical imported module alias -> full module path (for diagnostics/suggestions).
+    pub(crate) imported_module_aliases: HashMap<String, String>,
 }
 
 impl Default for TypeCheckerContext {
@@ -79,6 +84,8 @@ impl TypeCheckerContext {
             module_scope: None,
             current_module: None,
             imported_external_interfaces: HashSet::new(),
+            interface_module_aliases: HashMap::new(),
+            imported_module_aliases: HashMap::new(),
         }
     }
 
@@ -176,4 +183,87 @@ impl TypeCheckerContext {
     pub fn get_module_scope_mut(&mut self) -> Option<&mut ModuleScope> {
         self.module_scope.as_mut()
     }
+
+    /// Build a rich undefined-identifier VM error with nearest-match context.
+    pub(crate) fn undefined_identifier_error(&self, name: &str) -> VMError {
+        let candidate = self.closest_identifier_candidate(name);
+        VMError::undefined_identifier(name, candidate.as_deref())
+    }
+
+    fn closest_identifier_candidate(&self, target: &str) -> Option<String> {
+        if target.is_empty() {
+            return None;
+        }
+
+        let mut best: Option<(usize, usize, String)> = None;
+        let max_distance = if target.len() <= 4 { 1 } else { 2 };
+
+        for candidate in self
+            .symbol_table
+            .keys()
+            .map(String::as_str)
+            .chain(self.interface_registry.keys().map(String::as_str))
+            .chain(self.imported_external_interfaces.iter().map(String::as_str))
+            .chain(self.interface_module_aliases.keys().map(String::as_str))
+            .chain(self.imported_module_aliases.keys().map(String::as_str))
+            .chain(self.function_return_types.keys().map(String::as_str))
+        {
+            if candidate == target {
+                continue;
+            }
+
+            let distance = levenshtein_distance(target, candidate);
+            if distance > max_distance {
+                continue;
+            }
+
+            let len_delta = target.len().abs_diff(candidate.len());
+            match &best {
+                Some((best_distance, best_len_delta, best_name)) => {
+                    if distance < *best_distance
+                        || (distance == *best_distance
+                            && (len_delta < *best_len_delta
+                                || (len_delta == *best_len_delta
+                                    && candidate < best_name.as_str())))
+                    {
+                        best = Some((distance, len_delta, candidate.to_string()));
+                    }
+                }
+                None => {
+                    best = Some((distance, len_delta, candidate.to_string()));
+                }
+            }
+        }
+
+        best.map(|(_, _, name)| name)
+    }
+}
+
+fn levenshtein_distance(a: &str, b: &str) -> usize {
+    if a == b {
+        return 0;
+    }
+    if a.is_empty() {
+        return b.chars().count();
+    }
+    if b.is_empty() {
+        return a.chars().count();
+    }
+
+    let b_chars: Vec<char> = b.chars().collect();
+    let mut prev_row: Vec<usize> = (0..=b_chars.len()).collect();
+    let mut curr_row = vec![0; b_chars.len() + 1];
+
+    for (i, a_char) in a.chars().enumerate() {
+        curr_row[0] = i + 1;
+        for (j, b_char) in b_chars.iter().enumerate() {
+            let substitution_cost = if a_char == *b_char { 0 } else { 1 };
+            curr_row[j + 1] = (prev_row[j + 1] + 1)
+                .min(curr_row[j] + 1)
+                .min(prev_row[j] + substitution_cost);
+        }
+        prev_row.clone_from(&curr_row);
+    }
+
+    prev_row[b_chars.len()]
 }

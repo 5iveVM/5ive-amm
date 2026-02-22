@@ -304,7 +304,7 @@ impl TypeCheckerContext {
                     && !self.interface_registry.contains_key(name)
                     && !self.imported_external_interfaces.contains(name)
                 {
-                    return Err(VMError::UndefinedIdentifier);
+                    return Err(self.undefined_identifier_error(name));
                 }
                 Ok(())
             }

@@ -472,6 +472,30 @@ impl SuggestionRule for UndefinedVariableRule {
         let mut suggestions = Vec::new();
 
         if let Some(identifier) = &error.context.identifier {
+            if let Some(candidate) = error.context.get_data("did_you_mean") {
+                let suggestion = Suggestion::new(
+                    format!("Did you mean `{}`?", candidate),
+                    0.95,
+                )
+                .with_explanation(
+                    format!(
+                        "The identifier `{}` is not in scope, but `{}` is available.",
+                        identifier, candidate
+                    ),
+                )
+                .with_type(SuggestionType::Replacement);
+
+                if let Some(location) = &error.location {
+                    suggestions.push(suggestion.with_code_fix(CodeFix::replacement(
+                        format!("Replace `{}` with `{}`", identifier, candidate),
+                        candidate.clone(),
+                        location.clone(),
+                    )));
+                } else {
+                    suggestions.push(suggestion);
+                }
+            }
+
             suggestions.push(
                 Suggestion::new(
                     format!("Did you forget to declare variable `{}`?", identifier),
@@ -488,6 +512,26 @@ impl SuggestionRule for UndefinedVariableRule {
                         .with_type(SuggestionType::General),
                 );
             }
+        } else {
+            suggestions.push(
+                Suggestion::new(
+                    "Declare the variable before use with `let <name> = ...`".to_string(),
+                    0.75,
+                )
+                .with_explanation(
+                    "Identifiers must be declared in the current scope before they can be used."
+                        .to_string(),
+                )
+                .with_type(SuggestionType::Missing),
+            );
+            suggestions.push(
+                Suggestion::new(
+                    "Check for spelling differences between parameter/field names and usages"
+                        .to_string(),
+                    0.65,
+                )
+                .with_type(SuggestionType::General),
+            );
         }
 
         suggestions

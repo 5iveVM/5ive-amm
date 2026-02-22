@@ -42,8 +42,11 @@ interface WasmCompiler {
     bytecode?: Uint8Array;
     abi?: any;
     errors?: any[];
+    diagnostics?: any[];
     metadata?: any;
     disassembly?: string[];
+    formattedErrorsTerminal?: string;
+    formattedErrorsJson?: string;
   }>;
 
   getCompilerInfo(): { version: string; features: string[] };
@@ -58,17 +61,20 @@ interface WasmCompiler {
 
   getFunctionNames?(bytecode: Uint8Array): Promise<string>;
 
-  compile_multi?(
-    mainSource: string,
-    modules: Array<{ name: string; source: string }>,
+  compileWithDiscovery?(
+    entryPoint: string,
     options?: any,
   ): Promise<{
     success: boolean;
     bytecode?: Uint8Array;
     abi?: any;
     errors?: any[];
+    diagnostics?: any[];
     metadata?: any;
     disassembly?: string[];
+    metricsReport?: any;
+    formattedErrorsTerminal?: string;
+    formattedErrorsJson?: string;
   }>;
 }
 
@@ -114,6 +120,7 @@ export class BytecodeCompiler {
         debug: options.debug || false,
         maxSize: options.maxSize || 1048576, // 1MB default
         optimizationLevel: options.optimizationLevel || "production", // Default to Production
+        sourceFile: sourceFilename,
         // Pass through metrics options
         metricsFormat: (options as any).metricsFormat,
         metricsOutput: (options as any).metricsOutput,
@@ -174,7 +181,9 @@ export class BytecodeCompiler {
           metricsReport: (result as any).metricsReport,
         };
       } else {
-        const errors = this.transformErrors(result.errors || []);
+        const errors = this.transformErrors(
+          (result as any).diagnostics || result.errors || [],
+        );
 
         if (this.debug) {
           console.log(
@@ -190,23 +199,35 @@ export class BytecodeCompiler {
         return {
           success: false,
           errors,
+          diagnostics: errors,
+          formattedErrorsTerminal: (result as any).formattedErrorsTerminal,
+          formattedErrorsJson: (result as any).formattedErrorsJson,
           metricsReport: (result as any).metricsReport,
         };
       }
     } catch (error) {
+      if (error instanceof CompilationSDKError) {
+        throw error;
+      }
+
+      const inheritedDetails =
+        error && typeof error === "object" && (error as any).details
+          ? (error as any).details
+          : undefined;
+
       throw new CompilationSDKError(
         `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        { source: sourceContent.substring(0, 200), options },
+        {
+          ...(inheritedDetails || {}),
+          source: sourceContent.substring(0, 200),
+          options,
+        },
       );
     }
   }
 
-  /**
-   * Compile multiple modules (entry + dependencies)
-   */
-  async compileModules(
-    mainSource: FiveScriptSource,
-    modules: Array<{ name: string; source: string }>,
+  async compileWithDiscovery(
+    entryPoint: string,
     options: CompilationOptions = {},
   ): Promise<CompilationResult> {
     const startTime = Date.now();
@@ -216,67 +237,83 @@ export class BytecodeCompiler {
         await this.loadWasmCompiler();
       }
 
-      if (!this.wasmCompiler?.compile_multi) {
-        throw new CompilationSDKError("Multi-file compilation is not supported in this build");
+      if (!this.wasmCompiler?.compileWithDiscovery) {
+        throw new CompilationSDKError("Compiler discovery API is not supported in this build");
       }
 
-      const compilerOptions = {
-        optimize: options.optimize || false,
-        target: options.target || "vm",
-        debug: options.debug || false,
-        maxSize: options.maxSize || 1048576,
-        optimizationLevel: options.optimizationLevel || "production",
-        includeMetrics: options.includeMetrics || options.metricsOutput !== undefined,
-        metricsFormat: options.metricsFormat || "json",
-        errorFormat: options.errorFormat || "terminal",
-        comprehensiveMetrics: options.comprehensiveMetrics || false,
-      };
-
-      const result = await this.wasmCompiler.compile_multi(
-        mainSource.content,
-        modules,
-        compilerOptions,
-      );
-
+      const result = await this.wasmCompiler.compileWithDiscovery(entryPoint, {
+        ...options,
+        sourceFile: entryPoint,
+      });
       const compilationTime = Date.now() - startTime;
 
       if (result.success && result.bytecode) {
         const compilerInfo = await this.getCompilerInfo();
+        let abiData = result.abi as any;
+        if (!abiData) {
+          abiData = await this.generateABI(typeof entryPoint === 'string' ? await readFile(entryPoint, 'utf8') : entryPoint);
+        }
+
+        const normalizedFunctions = normalizeAbiFunctions(
+          (abiData as any)?.functions ?? abiData,
+        );
+        const normalizedAbi = {
+          ...(abiData as any),
+          functions: normalizedFunctions,
+        };
 
         return {
           success: true,
           bytecode: result.bytecode,
-          abi: result.abi,
+          abi: normalizedAbi,
           disassembly: result.disassembly || [],
           metadata: {
-            sourceFile: mainSource.filename || 'main.v',
+            sourceFile: entryPoint,
             timestamp: new Date().toISOString(),
-            compilerVersion: compilerInfo.version || '1.0.0',
-            target: (options.target || 'vm') as CompilationTarget,
+            compilerVersion: compilerInfo.version || "1.0.0",
+            target: (options.target || "vm") as CompilationTarget,
             optimizations: [],
-            originalSize: mainSource.content.length,
+            originalSize: 0,
             compressedSize: result.bytecode.length,
             compressionRatio: 1.0,
-            sourceSize: mainSource.content.length,
+            sourceSize: 0,
             bytecodeSize: result.bytecode.length,
-            functions: [],
+            functions: this.extractFunctions(normalizedAbi),
             compilationTime,
           },
           metricsReport: (result as any).metricsReport,
         };
-      } else {
-        const errors = this.transformErrors((result as any).errors || (result as any).compiler_errors || []);
-
-        return {
-          success: false,
-          errors,
-          metricsReport: (result as any).metricsReport,
-        };
       }
+
+      const errors = this.transformErrors(
+        (result as any).diagnostics || (result as any).errors || [],
+      );
+
+      return {
+        success: false,
+        errors,
+        diagnostics: errors,
+        formattedErrorsTerminal: (result as any).formattedErrorsTerminal,
+        formattedErrorsJson: (result as any).formattedErrorsJson,
+        metricsReport: (result as any).metricsReport,
+      };
     } catch (error) {
+      if (error instanceof CompilationSDKError) {
+        throw error;
+      }
+
+      const inheritedDetails =
+        error && typeof error === "object" && (error as any).details
+          ? (error as any).details
+          : undefined;
+
       throw new CompilationSDKError(
         `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        { options },
+        {
+          ...(inheritedDetails || {}),
+          entryPoint,
+          options,
+        },
       );
     }
   }
@@ -294,7 +331,16 @@ export class BytecodeCompiler {
 
     try {
       const source = await readFile(filePath, "utf-8");
-      return this.compile(source, options);
+      return this.compile(
+        {
+          filename: filePath,
+          content: source,
+        },
+        {
+          ...options,
+          sourceFile: filePath,
+        },
+      );
     } catch (error) {
       throw new CompilationSDKError(
         `Failed to read file ${filePath}: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -428,13 +474,50 @@ export class BytecodeCompiler {
    * Transform compiler errors to SDK format
    */
   private transformErrors(errors: any[]): CompilationError[] {
-    return errors.map((error) => ({
-      type: 'compiler',
-      message: error.message || error.toString(),
-      line: error.line,
-      column: error.column,
-      severity: error.severity || "error",
-    }));
+    return errors.map((error) => {
+      const normalized = typeof error === "string" ? { message: error } : (error || {});
+      const location = normalized.location || {};
+      const lineValue = normalized.line ?? location.line;
+      const columnValue = normalized.column ?? location.column;
+
+      const line =
+        typeof lineValue === "number"
+          ? lineValue
+          : typeof lineValue === "string"
+            ? Number(lineValue)
+            : undefined;
+      const column =
+        typeof columnValue === "number"
+          ? columnValue
+          : typeof columnValue === "string"
+            ? Number(columnValue)
+            : undefined;
+
+      return {
+        type: normalized.type || "compiler",
+        message: normalized.message || String(error),
+        line: Number.isFinite(line as number) ? (line as number) : undefined,
+        column: Number.isFinite(column as number) ? (column as number) : undefined,
+        severity: normalized.severity || "error",
+        code: normalized.code,
+        category: normalized.category,
+        description: normalized.description,
+        location: normalized.location,
+        sourceLocation: normalized.sourceLocation || location.file,
+        suggestion:
+          normalized.suggestion ||
+          (Array.isArray(normalized.suggestions) && normalized.suggestions.length > 0
+            ? typeof normalized.suggestions[0] === "string"
+              ? normalized.suggestions[0]
+              : normalized.suggestions[0]?.message
+            : undefined),
+        suggestions: normalized.suggestions,
+        sourceLine: normalized.sourceLine || normalized.source_line,
+        sourceSnippet: normalized.sourceSnippet || normalized.source_snippet,
+        rendered: normalized.rendered,
+        raw: normalized.raw || error,
+      };
+    });
   }
 
   /**

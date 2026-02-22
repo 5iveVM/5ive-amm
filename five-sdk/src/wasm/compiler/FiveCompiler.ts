@@ -145,24 +145,12 @@ export class FiveCompiler {
     return CompilationLogic.compile(this.getContext(), source, options);
   }
 
-  async compileModules(
-    mainSource: string,
-    modules: Array<{ name: string; source: string }>,
-    options?: any,
-  ): Promise<any> {
-    return CompilationLogic.compileModules(this.getContext(), mainSource, modules, options);
-  }
-
   async compileFile(options: CompilationOptions): Promise<CompilationResult> {
     return CompilationLogic.compileFile(this.getContext(), options);
   }
 
   async compileWithDiscovery(entryPoint: string, options?: any): Promise<any> {
     return CompilationLogic.compileWithDiscovery(this.getContext(), entryPoint, options);
-  }
-
-  async compileModulesExplicit(moduleFiles: string[], entryPoint: string, options?: any): Promise<any> {
-    return CompilationLogic.compileModulesExplicit(this.getContext(), moduleFiles, entryPoint, options);
   }
 
   // --- ABI & Extraction ---

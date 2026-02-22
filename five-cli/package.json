@@ -1,6 +1,6 @@
 {
   "name": "@5ive-tech/cli",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "description": "High-performance CLI for Five VM development with WebAssembly integration",
   "type": "module",
   "main": "dist/index.js",
@@ -12,12 +12,13 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "npm run sync:wasm && npm run build:js",
-    "build:release": "npm run sync:wasm:rebuild && npm run build:js",
+    "build": "npm run sync:wasm && npm run sync:local-sdk && npm run build:js",
+    "build:release": "npm run sync:wasm:rebuild && npm run sync:local-sdk && npm run build:js",
     "build:wasm": "npm run sync:wasm",
     "build:vm-wasm": "npm run sync:wasm",
     "sync:wasm": "bash ../scripts/sync-wasm-assets.sh",
     "sync:wasm:rebuild": "bash ../scripts/sync-wasm-assets.sh --rebuild",
+    "sync:local-sdk": "bash ../scripts/sync-local-sdk.sh",
     "verify:wasm": "bash ../scripts/verify-wasm-sync.sh",
     "build:js": "node ./node_modules/typescript/bin/tsc && npm run copy:wasm-assets",
     "build:js:dev": "node ./node_modules/typescript/bin/tsc --watch",

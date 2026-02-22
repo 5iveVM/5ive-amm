@@ -33,6 +33,11 @@ Use this checklist during execution. Do not skip gates.
 - `let mut` for reassignment
 5. No stubs:
 - no fake clock, fake rate, fake auth bypass
+6. Stdlib/module imports:
+- use `use <module path>;`
+- call methods as `module_alias::method(...)`
+- full path calls are allowed
+- do not use legacy object style like `SPLToken.transfer(...)`
 
 ## C) Compile Gate
 
@@ -47,6 +52,8 @@ Use this checklist during execution. Do not skip gates.
 - wrong signer type (`pubkey @signer`)
 - `pubkey(0)` usage (replace with `0`)
 - CPI account type/mutability mismatch
+- unresolved module alias errors (add the missing `use <module>;` import)
+- legacy interface object calls (rewrite to `module_alias::method(...)`)
 3. Re-run compile until clean.
 4. Capture artifact path and byte size changes.
 
@@ -75,6 +82,8 @@ Use this checklist during execution. Do not skip gates.
 - invalid state transition
 - zero/invalid amount or boundary values
 - CPI account mismatch or missing account (if CPI is used)
+- legacy object-style interface call fails with migration guidance
+- alias call without import fails with missing-import guidance
 5. Record pass/fail evidence.
 
 ## F) Security Gate

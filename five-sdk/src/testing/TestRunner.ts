@@ -352,9 +352,16 @@ export class FiveTestRunner {
       }
     }
 
+    const moduleNameForFile = (file: string): string =>
+      file
+        .replace(/\.v$/i, '')
+        .split(/[\\/]/)
+        .filter(Boolean)
+        .join('::');
+
     for (const [file, testCases] of byFile.entries()) {
       suites.push({
-        name: basename(file, '.v'),
+        name: moduleNameForFile(file),
         description: `Tests from ${file}`,
         testCases
       });

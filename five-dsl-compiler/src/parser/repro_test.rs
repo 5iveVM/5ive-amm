@@ -34,3 +34,37 @@
             panic!("Expected InstructionDefinition");
         }
     }
+
+    #[test]
+    fn test_parse_close_attribute_with_to_argument() {
+        let source = "
+            instruction close_test(
+                vault: Account @mut @close(to=recipient),
+                recipient: Account @mut
+            ) {}
+        ";
+        let mut tokenizer = crate::tokenizer::DslTokenizer::new(source);
+        let tokens = tokenizer.tokenize().unwrap();
+        let mut parser = DslParser::new(tokens);
+
+        while parser.current_token.kind() != crate::tokenizer::TokenKind::Instruction {
+            parser.advance();
+        }
+
+        let node = parser.parse_instruction_definition().unwrap();
+        if let AstNode::InstructionDefinition { parameters, .. } = node {
+            let vault = &parameters[0];
+            let close_attr = vault
+                .attributes
+                .iter()
+                .find(|a| a.name == "close")
+                .expect("close attribute missing");
+            assert_eq!(close_attr.args.len(), 1);
+            match &close_attr.args[0] {
+                AstNode::Identifier(name) => assert_eq!(name, "recipient"),
+                _ => panic!("close target should be identifier"),
+            }
+        } else {
+            panic!("Expected InstructionDefinition");
+        }
+    }

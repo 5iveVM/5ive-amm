@@ -8,6 +8,120 @@ use sha2::Digest;
 use std::collections::{HashMap, HashSet};
 
 impl TypeCheckerContext {
+    fn is_account_param_type(&self, type_node: &TypeNode) -> bool {
+        match type_node {
+            TypeNode::Account => true,
+            TypeNode::Named(name) => {
+                name == "Account" || name == "account" || self.account_definitions.contains_key(name)
+            }
+            _ => false,
+        }
+    }
+
+    fn contains_close_call_for_source(node: &AstNode, source_name: &str) -> bool {
+        match node {
+            AstNode::FunctionCall { name, args } => {
+                if name == "close_account" {
+                    if let Some(AstNode::Identifier(first_arg)) = args.first() {
+                        if first_arg == source_name {
+                            return true;
+                        }
+                    }
+                }
+                args.iter()
+                    .any(|arg| Self::contains_close_call_for_source(arg, source_name))
+            }
+            AstNode::Block { statements, .. } => statements
+                .iter()
+                .any(|stmt| Self::contains_close_call_for_source(stmt, source_name)),
+            AstNode::IfStatement {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                Self::contains_close_call_for_source(condition, source_name)
+                    || Self::contains_close_call_for_source(then_branch, source_name)
+                    || else_branch
+                        .as_ref()
+                        .map(|n| Self::contains_close_call_for_source(n, source_name))
+                        .unwrap_or(false)
+            }
+            AstNode::ForLoop {
+                init,
+                condition,
+                update,
+                body,
+            } => {
+                init.as_ref()
+                    .map(|n| Self::contains_close_call_for_source(n, source_name))
+                    .unwrap_or(false)
+                    || condition
+                        .as_ref()
+                        .map(|n| Self::contains_close_call_for_source(n, source_name))
+                        .unwrap_or(false)
+                    || update
+                        .as_ref()
+                        .map(|n| Self::contains_close_call_for_source(n, source_name))
+                        .unwrap_or(false)
+                    || Self::contains_close_call_for_source(body, source_name)
+            }
+            AstNode::ForInLoop { iterable, body, .. } => {
+                Self::contains_close_call_for_source(iterable, source_name)
+                    || Self::contains_close_call_for_source(body, source_name)
+            }
+            AstNode::ForOfLoop { iterable, body, .. } => {
+                Self::contains_close_call_for_source(iterable, source_name)
+                    || Self::contains_close_call_for_source(body, source_name)
+            }
+            AstNode::WhileLoop { condition, body } => {
+                Self::contains_close_call_for_source(condition, source_name)
+                    || Self::contains_close_call_for_source(body, source_name)
+            }
+            AstNode::DoWhileLoop { body, condition } => {
+                Self::contains_close_call_for_source(body, source_name)
+                    || Self::contains_close_call_for_source(condition, source_name)
+            }
+            AstNode::SwitchStatement {
+                discriminant,
+                cases,
+                default_case,
+            } => {
+                Self::contains_close_call_for_source(discriminant, source_name)
+                    || cases.iter().any(|case| {
+                        Self::contains_close_call_for_source(&case.pattern, source_name)
+                            || case
+                                .body
+                                .iter()
+                                .any(|stmt| Self::contains_close_call_for_source(stmt, source_name))
+                    })
+                    || default_case
+                        .as_ref()
+                        .map(|n| Self::contains_close_call_for_source(n, source_name))
+                        .unwrap_or(false)
+            }
+            AstNode::ReturnStatement { value } => value
+                .as_ref()
+                .map(|n| Self::contains_close_call_for_source(n, source_name))
+                .unwrap_or(false),
+            AstNode::RequireStatement { condition } => {
+                Self::contains_close_call_for_source(condition, source_name)
+            }
+            AstNode::MatchExpression { expression, arms } => {
+                Self::contains_close_call_for_source(expression, source_name)
+                    || arms.iter().any(|arm| {
+                        Self::contains_close_call_for_source(&arm.pattern, source_name)
+                            || arm
+                                .guard
+                                .as_ref()
+                                .map(|g| Self::contains_close_call_for_source(g, source_name))
+                                .unwrap_or(false)
+                            || Self::contains_close_call_for_source(&arm.body, source_name)
+                    })
+            }
+            _ => false,
+        }
+    }
+
     /// Process interface definitions and populate the registry
     pub fn process_interface_definitions(
         &mut self,
@@ -235,7 +349,10 @@ impl TypeCheckerContext {
             };
             
             // Implicit mutability: @init implies mutable, or explicit @mut
-            let is_mutable = param.is_init || param.attributes.iter().any(|a| a.name == "mut");
+            let has_close = param.attributes.iter().any(|a| a.name == "close");
+            let is_mutable = param.is_init
+                || param.attributes.iter().any(|a| a.name == "mut")
+                || has_close;
 
             self.symbol_table
                 .insert(param.name.clone(), (param_type.clone(), is_mutable));
@@ -311,8 +428,39 @@ impl TypeCheckerContext {
                              }
                         }
                     }
+                    "close" => {
+                        if !is_account_param {
+                            return Err(VMError::TypeMismatch);
+                        }
+                        if attr.args.len() != 1 {
+                            return Err(VMError::InvalidInstruction);
+                        }
+                        let target_name = match &attr.args[0] {
+                            AstNode::Identifier(name) => name,
+                            _ => return Err(VMError::InvalidInstruction),
+                        };
+                        let Some(target_param) = parameters.iter().find(|p| p.name == *target_name) else {
+                            return Err(VMError::InvalidScript);
+                        };
+                        if !self.is_account_param_type(&target_param.param_type) {
+                            return Err(VMError::TypeMismatch);
+                        }
+                        let target_mutable = target_param.is_init
+                            || target_param.attributes.iter().any(|a| a.name == "mut");
+                        if !target_mutable {
+                            return Err(VMError::ConstraintViolation);
+                        }
+                    }
                     _ => {}
                 }
+            }
+        }
+
+        // Enforce: @close(source) cannot coexist with explicit close_account(source, ...)
+        for param in parameters {
+            let has_close_attr = param.attributes.iter().any(|a| a.name == "close");
+            if has_close_attr && Self::contains_close_call_for_source(body, &param.name) {
+                return Err(VMError::InvalidInstruction);
             }
         }
 

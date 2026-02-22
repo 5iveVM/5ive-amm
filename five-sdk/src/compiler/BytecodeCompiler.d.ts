@@ -27,12 +27,9 @@ export declare class BytecodeCompiler {
      */
     compile(source: FiveScriptSource, options?: CompilationOptions): Promise<CompilationResult>;
     /**
-     * Compile multiple modules (entry + dependencies)
+     * Compile a project entry point with compiler-owned module discovery
      */
-    compileModules(mainSource: FiveScriptSource, modules: Array<{
-        name: string;
-        source: string;
-    }>, options?: CompilationOptions): Promise<CompilationResult>;
+    compileWithDiscovery(entryPoint: string, options?: CompilationOptions): Promise<CompilationResult>;
     /**
      * Compile script from file path
      */

@@ -9,8 +9,6 @@ build_dir = "build"
 target = "vm"
 entry_point = "src/main.v"
 
-multi_file_mode = true
-
 [optimizations]
 enable_compression = true
 enable_constraint_optimization = true
@@ -20,13 +18,6 @@ optimization_level = 2
 max_bytecode_size = 2097152
 target_compute_units = 500000
 output_artifact_name = "five-orderbook-template"
-
-modules = [
-    "src/types/orderbook_types.v",
-    "src/orderbook/orderbook_core.v",
-    "src/orderbook/orderbook_match.v",
-    "src/main.v"
-]
 
 [deploy]
 cluster = "devnet"

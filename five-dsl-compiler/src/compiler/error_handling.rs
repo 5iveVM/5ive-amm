@@ -1,6 +1,6 @@
 // Compiler error handling.
 
-use crate::error::types::{ErrorBuilder, ErrorSeverity};
+use crate::error::types::{ErrorBuilder, ErrorContext, ErrorSeverity};
 use crate::error::{integration, CompilerError, ErrorCategory, ErrorCode, SourceLocation};
 use crate::metrics::MetricsCollector;
 use five_vm_mito::error::VMError;
@@ -117,10 +117,25 @@ pub fn convert_vm_error_to_compiler_error(
             return error;
         }
         VMError::UnexpectedToken => (ErrorCode::UNEXPECTED_TOKEN, "unexpected token".to_string()),
-        VMError::UnexpectedEndOfInput => (
-            ErrorCode::UNEXPECTED_EOF,
-            "unexpected end of file".to_string(),
-        ),
+        VMError::UnexpectedEndOfInput => {
+            let eof_offset = source.chars().count();
+            let (line, column) = position_to_line_col(eof_offset, source);
+            let location = SourceLocation::new(line as u32, column as u32, eof_offset)
+                .with_file(file_path.clone());
+
+            return ErrorBuilder::new(
+                ErrorCode::UNEXPECTED_EOF,
+                "unexpected end of file".to_string(),
+            )
+            .severity(ErrorSeverity::Error)
+            .category(category)
+            .description(
+                "The parser reached the end of the file before the statement or block was complete."
+                    .to_string(),
+            )
+            .location(location)
+            .build();
+        }
         VMError::InvalidScript => (
             ErrorCode::INVALID_SYNTAX,
             "invalid script syntax - check for syntax errors in accounts, functions, or statements".to_string(),
@@ -134,6 +149,34 @@ pub fn convert_vm_error_to_compiler_error(
             "stack error during compilation".to_string(),
         ),
         // Semantic errors
+        VMError::UndefinedIdentifierWithContext {
+            identifier,
+            did_you_mean,
+        } => {
+            let identifier_text = identifier.to_string();
+            let location = find_identifier_location(source, &identifier_text, &file_path);
+            let mut context = ErrorContext::new().with_identifier(identifier_text.clone());
+            if let Some(candidate) = did_you_mean {
+                context = context.add_data("did_you_mean".to_string(), candidate.to_string());
+            }
+
+            let mut builder = ErrorBuilder::new(
+                ErrorCode::UNDEFINED_VARIABLE,
+                format!("cannot find value `{}` in this scope", identifier_text),
+            )
+            .severity(ErrorSeverity::Error)
+            .category(category)
+            .description(
+                "This identifier is not declared in the current scope.".to_string(),
+            )
+            .context(context);
+
+            if let Some(loc) = location {
+                builder = builder.location(loc);
+            }
+
+            return builder.build();
+        }
         VMError::UndefinedIdentifier => (
             ErrorCode::UNDEFINED_VARIABLE,
             "undefined variable or identifier".to_string(),
@@ -208,6 +251,41 @@ pub fn position_to_line_col(position: usize, source: &str) -> (usize, usize) {
     (line, col)
 }
 
+fn find_identifier_location(source: &str, identifier: &str, file_path: &PathBuf) -> Option<SourceLocation> {
+    if identifier.is_empty() {
+        return None;
+    }
+
+    let mut start_index = 0usize;
+    while start_index <= source.len() {
+        let relative = source[start_index..].find(identifier)?;
+        let absolute = start_index + relative;
+        let end = absolute + identifier.len();
+
+        let prev = source[..absolute].chars().next_back();
+        let next = source[end..].chars().next();
+        let starts_at_boundary = prev.map(|c| !is_identifier_char(c)).unwrap_or(true);
+        let ends_at_boundary = next.map(|c| !is_identifier_char(c)).unwrap_or(true);
+
+        if starts_at_boundary && ends_at_boundary {
+            let (line, column) = position_to_line_col(absolute, source);
+            return Some(
+                SourceLocation::new(line as u32, column as u32, absolute)
+                    .with_file(file_path.clone())
+                    .with_length(identifier.chars().count()),
+            );
+        }
+
+        start_index = end;
+    }
+
+    None
+}
+
+fn is_identifier_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,6 +325,28 @@ mod tests {
         );
 
         assert!(compiler_error.to_string().contains("undefined variable"));
+    }
+
+    #[test]
+    fn test_convert_vm_error_undefined_identifier_with_context() {
+        let source = "let amount: u64 = 1;\nreturn ammount;";
+        let vm_error = VMError::undefined_identifier("ammount", Some("amount"));
+
+        let compiler_error = convert_vm_error_to_compiler_error(
+            vm_error,
+            ErrorCategory::Type,
+            "type checking",
+            source,
+            Some("test.v"),
+        );
+
+        assert_eq!(compiler_error.code, ErrorCode::UNDEFINED_VARIABLE);
+        assert_eq!(compiler_error.context.identifier.as_deref(), Some("ammount"));
+        assert_eq!(
+            compiler_error.context.get_data("did_you_mean").map(String::as_str),
+            Some("amount")
+        );
+        assert!(compiler_error.location.is_some());
     }
 
     #[test]

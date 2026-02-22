@@ -17,7 +17,7 @@ Create a simple yet secure "Vault" template where users can deposit and withdraw
 ## Project Structure
 ```
 five-templates/vault/
-├── five.toml                 # Config with multi_file_mode = true
+├── five.toml                 # Config with entry_point-based discovery
 ├── src/
 │   ├── main.v                # Entry point
 │   ├── vault_types.v         # Vault and User structs

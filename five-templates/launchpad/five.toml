@@ -11,20 +11,9 @@ edition = "2024"
 target = "vm"
 entry_point = "src/main.v"
 
-# Multi-file compilation support
-multi_file_mode = true
 
 [optimizations]
 enable_compression = true
 enable_constraint_optimization = true
 optimization_level = 2
 
-[modules]
-main = [
-    "src/launchpad_types.v",
-    "src/bonding_curve.v",
-    "src/token_mint.v",
-    "src/token_transfer.v",
-    "src/launchpad_core.v",
-    "src/main.v"
-]

@@ -28,7 +28,6 @@ target = "vm"
 
 [build]
 output_artifact_name = "demo-artifact"
-multi_file_mode = true
 `
     );
 
@@ -40,7 +39,6 @@ multi_file_mode = true
     expect(loaded.config.entryPoint).toBe('src/main.v');
     expect(loaded.config.buildDir).toBe('build');
     expect(loaded.config.outputArtifactName).toBe('demo-artifact');
-    expect(loaded.config.multiFileMode).toBe(true);
   });
 
   it('writes and reads manifest in .five/build.json', async () => {

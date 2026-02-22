@@ -65,14 +65,14 @@ export const buildCommand: CommandDefinition = {
       );
     }
 
-    // Delegate to compile command with project-aware options.
+    // Delegate to compile command. Project-mode compile now routes through
+    // FiveSDK.compileProject (compiler-owned module discovery).
     const compileOptions = {
       ...options,
       project: projectContext.configPath,
       target: options.target ?? projectContext.config.target,
-      // Respect --no-metrics but default to metrics enabled for builds
-      includeMetrics: options.metrics ?? options.metrics !== false,
-      comprehensiveMetrics: options.comprehensiveMetrics ?? false
+      includeMetrics: options.metrics !== false,
+      comprehensiveMetrics: Boolean(options.comprehensiveMetrics)
     };
 
     await compileCommand.handler([], compileOptions, context);

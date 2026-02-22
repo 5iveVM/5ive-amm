@@ -18,11 +18,8 @@ impl TypeCheckerContext {
                         Ok(())
                     }
                     _ => {
-                        // Check if identifier exists in symbol table or interface registry
-                        if !self.symbol_table.contains_key(name)
-                            && !self.interface_registry.contains_key(name)
-                            && !self.imported_external_interfaces.contains(name)
-                        {
+                        // Identifiers in expression position must be in scope variables/fields.
+                        if !self.symbol_table.contains_key(name) {
                             eprintln!(
                                 "Undefined identifier{}: '{}' is not in scope",
                                 match &self.current_function {
@@ -31,7 +28,7 @@ impl TypeCheckerContext {
                                 },
                                 name
                             );
-                            return Err(VMError::UndefinedIdentifier);
+                            return Err(self.undefined_identifier_error(name));
                         }
                         Ok(())
                     }
@@ -42,6 +39,29 @@ impl TypeCheckerContext {
                 method,
                 args,
             } => {
+                // Legacy object-style interface call (e.g. SPLToken.transfer(...))
+                // is intentionally unsupported. Interfaces are module-qualified:
+                // use std::interfaces::spl_token; spl_token::transfer(...)
+                if let AstNode::Identifier(interface_name) = object.as_ref() {
+                    if self.interface_registry.contains_key(interface_name) {
+                        let suggestion = self
+                            .interface_module_aliases
+                            .iter()
+                            .find_map(|(ns, iface)| {
+                                if iface == interface_name && !ns.contains("::") {
+                                    Some(format!("{}::{}", ns, method))
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_else(|| format!("module_alias::{}", method));
+                        return Err(VMError::undefined_identifier(
+                            interface_name,
+                            Some(&suggestion),
+                        ));
+                    }
+                }
+
                 self.check_types(object)?;
                 for arg in args {
                     self.check_types(arg)?;
@@ -193,7 +213,7 @@ impl TypeCheckerContext {
                     }
                 }
                 Some(_) => Err(VMError::TypeMismatch),
-                None => Err(VMError::UndefinedIdentifier),
+                None => Err(self.undefined_identifier_error(enum_name)),
             },
             AstNode::ErrorPropagation { expression } => {
                 // Type check the inner expression (should return Result type)
@@ -250,47 +270,6 @@ impl TypeCheckerContext {
         method: &str,
         args: &[AstNode],
     ) -> Result<TypeNode, VMError> {
-        // Check if this is an interface method call first
-        if let AstNode::Identifier(interface_name) = object {
-            if self.imported_external_interfaces.contains(interface_name) {
-                // Imported external interface calls execute remotely through CALL_EXTERNAL.
-                // Stage-1 behavior intentionally avoids reconstructing callee typing rules.
-                for arg in args {
-                    self.infer_type(arg)?;
-                }
-                return Ok(TypeNode::Primitive("unit".to_string()));
-            }
-
-            if let Some(interface_info) = self.interface_registry.get(interface_name) {
-                // This is an interface method call - validate it
-                if let Some(interface_method) = interface_info.methods.get(method) {
-                    // Clone the interface method to avoid borrow checker issues
-                    let method_params = interface_method.parameters.clone();
-                    let method_return_type = interface_method.return_type.clone();
-
-                    // Validate argument count
-                    if args.len() != method_params.len() {
-                        return Err(VMError::InvalidOperation);
-                    }
-
-                    // Type check all arguments against interface method parameters
-                    for (i, arg) in args.iter().enumerate() {
-                        let arg_type = self.infer_type(arg)?;
-                        if !self.types_are_compatible(&arg_type, &method_params[i]) {
-                            return Err(VMError::TypeMismatch);
-                        }
-                    }
-
-                    // Return the interface method's return type or unit
-                    return Ok(
-                        method_return_type.unwrap_or(TypeNode::Primitive("unit".to_string()))
-                    );
-                } else {
-                    return Err(VMError::InvalidOperation); // Method not found in interface
-                }
-            }
-        }
-
         let object_type = self.infer_type(object)?;
 
         // Type check all arguments
@@ -422,6 +401,51 @@ impl TypeCheckerContext {
         name: &str,
         args: &[AstNode],
     ) -> Result<TypeNode, VMError> {
+        // Module-qualified interface call:
+        //   alias::method(...)
+        //   full::module::path::method(...)
+        if let Some((module_ns, method_name)) = Self::parse_module_qualified_call(name) {
+            let interface_name = self
+                .interface_module_aliases
+                .get(module_ns)
+                .cloned()
+                .or_else(|| {
+                    module_ns
+                        .rsplit("::")
+                        .next()
+                        .and_then(|last| self.interface_module_aliases.get(last).cloned())
+                });
+
+            if let Some(interface_name) = interface_name {
+                let Some(interface_info) = self.interface_registry.get(&interface_name) else {
+                    return Err(self.undefined_identifier_error(&interface_name));
+                };
+                let Some(interface_method) = interface_info.methods.get(method_name) else {
+                    return Err(VMError::InvalidOperation);
+                };
+
+                let method_params = interface_method.parameters.clone();
+                let method_return_type = interface_method.return_type.clone();
+
+                if args.len() != method_params.len() {
+                    return Err(VMError::InvalidOperation);
+                }
+
+                for (i, arg) in args.iter().enumerate() {
+                    let arg_type = self.infer_type(arg)?;
+                    if !self.types_are_compatible(&arg_type, &method_params[i]) {
+                        return Err(VMError::TypeMismatch);
+                    }
+                }
+
+                return Ok(
+                    method_return_type.unwrap_or(TypeNode::Primitive("unit".to_string()))
+                );
+            }
+
+            return Err(self.undefined_identifier_error(module_ns));
+        }
+
         // Type check all arguments first
         for arg in args {
             self.infer_type(arg)?;
@@ -563,14 +587,19 @@ impl TypeCheckerContext {
                         .clone()
                         .unwrap_or(TypeNode::Primitive("void".to_string())))
                 } else {
-                    // TEMP: For namespaced calls (Module::Function), default to u64 if unknown.
-                    // This allows compiling amm_core.v without full Import Resolution implemented.
-                    if name.contains("::") {
-                        return Ok(TypeNode::Primitive("u64".to_string()));
-                    }
                     Ok(TypeNode::Primitive("void".to_string()))
                 }
             }
         }
+    }
+
+    fn parse_module_qualified_call(name: &str) -> Option<(&str, &str)> {
+        let idx = name.rfind("::")?;
+        let module_ns = &name[..idx];
+        let method = &name[idx + 2..];
+        if module_ns.is_empty() || method.is_empty() {
+            return None;
+        }
+        Some((module_ns, method))
     }
 }

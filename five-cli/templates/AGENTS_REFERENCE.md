@@ -21,6 +21,30 @@ Use with `./AGENTS.md` and `./AGENTS_CHECKLIST.md`.
 
 ## 3) Compiler-Critical Syntax
 
+### Quickstart skeleton (recommended starting point)
+
+```v
+script main {
+    use std::builtins;
+    use std::interfaces::spl_token;
+
+    pub fn run(
+        source: Account,
+        destination: Account,
+        authority: Account
+    ) -> u64 {
+        spl_token::transfer(source, destination, authority, 1);
+        return builtins::now_seconds();
+    }
+}
+```
+
+Import/call contract:
+1. `use <module path>;`
+2. call using module alias: `<last_segment>::<method>(...)`
+3. full path calls are also valid: `<full::module::path>::<method>(...)`
+4. do not use legacy object style like `SPLToken.transfer(...)`
+
 ### Account declarations
 
 ```v
@@ -88,10 +112,10 @@ Rules:
 
 ## 4) Built-ins and Units
 
-Compiler-aligned signatures:
-1. `get_clock() -> u64`
-2. `derive_pda(seed1, seed2, ...) -> (pubkey, u8)`
-3. `derive_pda(seed1, seed2, ..., bump: u8) -> pubkey`
+Use stdlib wrappers via module import:
+1. `use std::builtins;`
+2. call `builtins::now_seconds()`, `builtins::abort_now()`, `builtins::panic_now(...)`, `builtins::hash_sha256(...)`, etc.
+3. full path form is valid: `std::builtins::now_seconds()`
 
 Recommended unit standards:
 1. time in seconds
@@ -104,9 +128,11 @@ Recommended unit standards:
 2. Anchor CPI: use `@anchor` and do not add manual discriminator.
 3. Non-anchor CPI: use single-byte `@discriminator(N)`.
 4. Interface account params use `Account`, not `pubkey`.
-5. Invoke interface methods with dot notation: `Iface.method(...)`.
-6. Pass account params directly in CPI calls, not `.key`.
-7. CPI-writable accounts must be `account @mut` in caller signature.
+5. Invoke interface methods with module qualification: `module_alias::method(...)`.
+6. Full-path form is valid: `std::interfaces::spl_token::transfer(...)`.
+7. Legacy object style is invalid: `SPLToken.transfer(...)`.
+8. Pass account params directly in CPI calls, not `.key`.
+9. CPI-writable accounts must be `account @mut` in caller signature.
 
 ## 6) Build and Test Commands
 
@@ -142,6 +168,7 @@ When compiler errors are unclear, use this fixed loop:
 4. Recompile immediately after each small fix.
 5. If still failing, isolate one instruction block, fix it, then merge back.
 6. Do not downgrade to a simplified contract unless the user requests it.
+7. For `Unresolved module alias 'x'`, add `use <module path ending in x>;`.
 
 ## 9) five.toml and Program ID Resolution
 

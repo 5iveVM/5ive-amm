@@ -59,7 +59,7 @@ export class FiveCLI {
 ${section('Quick Start')}
 
 ${commandExample('5ive init my-project', 'Create a new 5IVE project')}
-${commandExample('5ive compile script.v', 'Compile 5ive source to bytecode')}
+${commandExample('5ive build', 'Compile project from five.toml entry_point')}
 ${commandExample('5ive execute script.v --local', 'Local WASM execution')}
 ${commandExample('5ive deploy build/script.five --target mainnet', 'Deploy to Solana mainnet')}
 ${commandExample('5ive help <command>', 'Get help for specific command')}

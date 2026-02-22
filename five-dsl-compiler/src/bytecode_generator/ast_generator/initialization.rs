@@ -44,6 +44,7 @@ impl ASTGenerator {
             precomputed_allocations: None,
             // External imports for CALL_EXTERNAL generation
             external_imports: HashMap::new(),
+            module_interface_aliases: HashMap::new(),
         }
     }
 
@@ -88,6 +89,7 @@ impl ASTGenerator {
         self.interface_registry.clear();
         self.name_deduplication = super::super::types::NameDeduplication::new();
         self.external_imports.clear();
+        self.module_interface_aliases.clear();
         // Reset resource tracking
         self.reset_resource_tracking();
     }
@@ -131,6 +133,58 @@ impl ASTGenerator {
                 functions,
             },
         );
+    }
+
+    pub fn register_module_interface_alias(
+        &mut self,
+        module_namespace: String,
+        interface_name: String,
+    ) {
+        self.module_interface_aliases
+            .insert(module_namespace, interface_name);
+    }
+
+    pub fn find_interface_for_module_alias(&self, alias: &str) -> Option<String> {
+        let mut matches: Vec<String> = self
+            .interface_registry
+            .keys()
+            .filter(|name| {
+                let snake = Self::to_snake_case(name);
+                snake == alias || name.as_str() == alias
+            })
+            .cloned()
+            .collect();
+
+        if matches.len() == 1 {
+            return matches.pop();
+        }
+        None
+    }
+
+    fn to_snake_case(name: &str) -> String {
+        let mut out = String::new();
+        let chars: Vec<char> = name.chars().collect();
+        for (i, ch) in chars.iter().enumerate() {
+            let ch = *ch;
+            if ch.is_uppercase() {
+                let prev = if i > 0 { Some(chars[i - 1]) } else { None };
+                let next = chars.get(i + 1).copied();
+                let needs_sep = (i != 0
+                    && prev.map(|p| p.is_lowercase() || p.is_ascii_digit()).unwrap_or(false))
+                    || (i != 0
+                        && prev.map(|p| p.is_uppercase()).unwrap_or(false)
+                        && next.map(|n| n.is_lowercase()).unwrap_or(false));
+                if needs_sep {
+                    out.push('_');
+                }
+                for lower in ch.to_lowercase() {
+                    out.push(lower);
+                }
+            } else {
+                out.push(ch);
+            }
+        }
+        out
     }
 
     /// Check if a module is registered as external import

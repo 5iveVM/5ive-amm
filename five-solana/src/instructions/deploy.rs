@@ -23,6 +23,12 @@ use super::{
 /// Minimum deployment instruction length:
 /// discriminator + u32 bytecode length + permissions byte + u32 metadata length.
 pub const MIN_DEPLOY_LEN: usize = 10;
+const CLOSED_MARKER: [u8; 4] = *b"CLSD";
+
+#[inline]
+fn is_closed_tombstone(data: &[u8]) -> bool {
+    data.len() >= CLOSED_MARKER.len() && data[..CLOSED_MARKER.len()] == CLOSED_MARKER
+}
 
 /// Initialize the VM state account
 pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> ProgramResult {
@@ -188,6 +194,9 @@ pub fn deploy(
     // Upgrades must use explicit upload/append/finalize flow with owner checks.
     {
         let script_data = unsafe { script_account.borrow_data_unchecked() };
+        if is_closed_tombstone(script_data) {
+            return Err(ProgramError::Custom(7007));
+        }
         if ScriptAccountHeader::is_valid(script_data) {
             return Err(ProgramError::Custom(7007));
         }
@@ -281,6 +290,9 @@ pub fn init_large_program(
 
     // SAFETY: The script account is owned by this program; we only read its data.
     let script_data = unsafe { script_account.borrow_data_unchecked() };
+    if is_closed_tombstone(&script_data) {
+        return Err(ProgramError::Custom(7007));
+    }
     if ScriptAccountHeader::is_valid(&script_data) {
         return Err(ProgramError::Custom(7007));
     }
