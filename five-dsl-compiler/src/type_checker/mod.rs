@@ -44,47 +44,40 @@ impl types::TypeCheckerContext {
                 constraints_block,
                 ..
             } => {
-                // Capture imported external interface namespaces for method-call validation.
+                // Capture imported interface module aliases for module-qualified CPI validation.
                 self.imported_external_interfaces.clear();
+                self.interface_module_aliases.clear();
+                self.imported_module_aliases.clear();
+                let mut pending_module_aliases: Vec<(String, String)> = Vec::new();
                 for import_stmt in import_statements {
                     if let AstNode::ImportStatement {
                         module_specifier,
                         imported_items,
                     } = import_stmt
                     {
+                        let Some((full_module_path, alias)) =
+                            Self::module_path_and_alias(module_specifier)
+                        else {
+                            continue;
+                        };
+
+                        self.imported_module_aliases
+                            .insert(alias.clone(), full_module_path.clone());
+                        self.imported_module_aliases
+                            .insert(full_module_path.clone(), full_module_path.clone());
+
                         if let Some(items) = imported_items {
                             for item in items {
                                 if let crate::ast::ImportItem::Interface(name) = item {
                                     self.imported_external_interfaces.insert(name.clone());
+                                    self.interface_module_aliases
+                                        .insert(alias.clone(), name.clone());
+                                    self.interface_module_aliases
+                                        .insert(full_module_path.clone(), name.clone());
                                 }
                             }
-                        }
-
-                        // Bundled stdlib interface modules import known interface names.
-                        // This keeps `use std::interfaces::spl_token;` and
-                        // `use std::interfaces::system_program;` usable in all compile paths.
-                        if imported_items.is_none() {
-                            match module_specifier {
-                                crate::ast::ModuleSpecifier::Nested(path)
-                                    if path.len() == 3
-                                        && path[0] == "std"
-                                        && path[1] == "interfaces"
-                                        && path[2] == "spl_token" =>
-                                {
-                                    self.imported_external_interfaces
-                                        .insert("SPLToken".to_string());
-                                }
-                                crate::ast::ModuleSpecifier::Nested(path)
-                                    if path.len() == 3
-                                        && path[0] == "std"
-                                        && path[1] == "interfaces"
-                                        && path[2] == "system_program" =>
-                                {
-                                    self.imported_external_interfaces
-                                        .insert("SystemProgram".to_string());
-                                }
-                                _ => {}
-                            }
+                        } else {
+                            pending_module_aliases.push((alias, full_module_path));
                         }
                     }
                 }
@@ -104,6 +97,19 @@ impl types::TypeCheckerContext {
 
                 // Process interface definitions (now account definitions are available)
                 self.process_interface_definitions(interface_definitions)?;
+
+                // Resolve implicit `use module;` interface mappings using convention:
+                // module alias/full path -> interface with matching snake_case name.
+                for (alias, full_path) in pending_module_aliases {
+                    if let Some(interface_name) = self.find_interface_for_module_alias(&alias) {
+                        self.imported_external_interfaces
+                            .insert(interface_name.clone());
+                        self.interface_module_aliases
+                            .insert(alias.clone(), interface_name.clone());
+                        self.interface_module_aliases
+                            .insert(full_path, interface_name);
+                    }
+                }
 
                 // Pre-register function return types for user-defined functions
                 for instruction_def in instruction_definitions {
@@ -296,5 +302,60 @@ impl types::TypeCheckerContext {
                 Err(VMError::InvalidScript)
             }
         }
+    }
+
+    fn module_path_and_alias(
+        module_specifier: &crate::ast::ModuleSpecifier,
+    ) -> Option<(String, String)> {
+        match module_specifier {
+            crate::ast::ModuleSpecifier::Local(name) => Some((name.clone(), name.clone())),
+            crate::ast::ModuleSpecifier::Nested(path) if !path.is_empty() => {
+                Some((path.join("::"), path[path.len() - 1].clone()))
+            }
+            _ => None,
+        }
+    }
+
+    fn find_interface_for_module_alias(&self, alias: &str) -> Option<String> {
+        let mut matches: Vec<String> = self
+            .interface_registry
+            .keys()
+            .filter(|name| {
+                let snake = Self::to_snake_case(name);
+                snake == alias || name.as_str() == alias
+            })
+            .cloned()
+            .collect();
+
+        if matches.len() == 1 {
+            return matches.pop();
+        }
+        None
+    }
+
+    fn to_snake_case(name: &str) -> String {
+        let mut out = String::new();
+        let chars: Vec<char> = name.chars().collect();
+        for (i, ch) in chars.iter().enumerate() {
+            let ch = *ch;
+            if ch.is_uppercase() {
+                let prev = if i > 0 { Some(chars[i - 1]) } else { None };
+                let next = chars.get(i + 1).copied();
+                let needs_sep = i != 0
+                    && prev.map(|p| p.is_lowercase() || p.is_ascii_digit()).unwrap_or(false)
+                        || (i != 0
+                            && prev.map(|p| p.is_uppercase()).unwrap_or(false)
+                            && next.map(|n| n.is_lowercase()).unwrap_or(false));
+                if needs_sep {
+                    out.push('_');
+                }
+                for lower in ch.to_lowercase() {
+                    out.push(lower);
+                }
+            } else {
+                out.push(ch);
+            }
+        }
+        out
     }
 }

@@ -309,12 +309,12 @@ fn test_bundled_stdlib_spl_token_extended_interface_compile() -> Result<(), Box<
                 authority: Account,
                 delegate: Account
             ) {
-                SPLToken.transfer(source, destination, authority, 1);
-                SPLToken.approve(source, delegate, authority, 1);
-                SPLToken.revoke(source, authority);
-                SPLToken.mint_to(mint, destination, authority, 1);
-                SPLToken.burn(source, mint, authority, 1);
-                SPLToken.close_account(source, destination, authority);
+                spl_token::transfer(source, destination, authority, 1);
+                spl_token::approve(source, delegate, authority, 1);
+                spl_token::revoke(source, authority);
+                spl_token::mint_to(mint, destination, authority, 1);
+                spl_token::burn(source, mint, authority, 1);
+                spl_token::close_account(source, destination, authority);
             }
         }"
         .to_string(),
@@ -340,10 +340,10 @@ fn test_bundled_stdlib_system_program_extended_interface_compile() -> Result<(),
                 base: Account,
                 owner: Account
             ) {
-                SystemProgram.transfer(payer, new_account, 1);
-                SystemProgram.assign(new_account, owner);
-                SystemProgram.create_account(payer, new_account, 1, 8, owner);
-                SystemProgram.create_account_with_seed(payer, new_account, base, 0, 1, 8, owner);
+                system_program::transfer(payer, new_account, 1);
+                system_program::assign(new_account, owner);
+                system_program::create_account(payer, new_account, 1, 8, owner);
+                system_program::create_account_with_seed(payer, new_account, base, 0, 1, 8, owner);
             }
         }"
         .to_string(),
@@ -354,6 +354,39 @@ fn test_bundled_stdlib_system_program_extended_interface_compile() -> Result<(),
     let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
     assert!(!bytecode.is_empty());
     Ok(())
+}
+
+#[test]
+fn test_bundled_stdlib_legacy_object_style_interface_call_fails() {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use std::interfaces::spl_token;
+            pub fn run(
+                source: Account,
+                destination: Account,
+                authority: Account
+            ) {
+                SPLToken.transfer(source, destination, authority, 1);
+            }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files).unwrap();
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let err = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)
+        .expect_err("legacy object-style interface calls must fail");
+    let err_text = err.to_string();
+    assert!(
+        err_text.contains("Undefined")
+            || err_text.contains("undefined")
+            || err_text.contains("Cannot find value")
+            || err_text.contains("cannot find value"),
+        "unexpected error: {}",
+        err
+    );
 }
 
 #[test]

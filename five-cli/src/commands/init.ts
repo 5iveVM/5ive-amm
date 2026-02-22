@@ -440,6 +440,9 @@ async function loadStdlibAsset(relativePath: string): Promise<string> {
   const candidates = [
     // Monorepo path when running from src or dist
     resolve(__dirname, '../../../five-stdlib', relativePath),
+    // Bundled CLI asset path (works in packaged npm tarball)
+    resolve(__dirname, '../../assets/stdlib', relativePath),
+    resolve(__dirname, '../assets/stdlib', relativePath),
     // Fallback co-located path if packaged with CLI in the future
     resolve(__dirname, '../stdlib', relativePath),
     resolve(process.cwd(), 'five-stdlib', relativePath)
@@ -462,6 +465,9 @@ function getStdlibPreludeBanner(): string {
 // use std::builtins;
 // use std::interfaces::spl_token;
 // use std::interfaces::system_program;
+// Call interface methods via module aliases:
+// spl_token::transfer(...);
+// system_program::transfer(...);
 
 `;
 }
@@ -1338,6 +1344,14 @@ Use explicit imports in your modules:
 use std::builtins;
 use std::interfaces::spl_token;
 use std::interfaces::system_program;
+
+pub transfer_tokens(
+  source: account @mut,
+  destination: account @mut,
+  authority: account @signer
+) {
+  spl_token::transfer(source, destination, authority, 1);
+}
 \`\`\`
 
 See \`docs/STDLIB.md\` for bundled stdlib module details.

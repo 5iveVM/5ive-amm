@@ -230,7 +230,7 @@ describe('project-aware commands', () => {
     await compileCommand.handler([inputPath], { project: root }, ctx as any);
 
     expect((FiveSDK.compileWithDiscovery as jest.Mock)).toHaveBeenCalledTimes(1);
-    expect((FiveSDK.compileWithDiscovery as jest.Mock).mock.calls[0][0]).toBe('main.v');
+    expect((FiveSDK.compileWithDiscovery as jest.Mock).mock.calls[0][0]).toBe('src/main.v');
   });
 
   it('compile handler reports import-resolution requirement when discovery API is unavailable', async () => {
@@ -241,7 +241,6 @@ describe('project-aware commands', () => {
       `use std::interfaces::spl_token;\n\npub run(source: account @mut, destination: account @mut, authority: account @signer, amount: u64) {\n  SPLToken.transfer(source, destination, authority, amount);\n}\n`
     );
     const ctx = createContext();
-
     const sdkAny = FiveSDK as any;
     const original = sdkAny.compileWithDiscovery;
     const exitSpy = jest.spyOn(process, 'exit').mockImplementation(((code?: number) => {
@@ -249,7 +248,6 @@ describe('project-aware commands', () => {
     }) as never);
     try {
       delete sdkAny.compileWithDiscovery;
-
       await expect(
         compileCommand.handler([sourcePath], {}, ctx as any)
       ).rejects.toThrow(/exit:1/);

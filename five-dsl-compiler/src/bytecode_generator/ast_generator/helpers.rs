@@ -139,7 +139,7 @@ impl ASTGenerator {
     /// Returns Some((module_name, function_name)) if the name contains "::"
     /// Returns None for unqualified function names
     pub(super) fn parse_qualified_name(name: &str) -> Option<(&str, &str)> {
-        if let Some(idx) = name.find("::") {
+        if let Some(idx) = name.rfind("::") {
             let module_name = &name[..idx];
             let func_name = &name[idx + 2..];
             if !module_name.is_empty() && !func_name.is_empty() {

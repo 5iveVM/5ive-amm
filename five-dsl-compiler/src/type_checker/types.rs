@@ -59,6 +59,10 @@ pub struct TypeCheckerContext {
     pub(crate) current_module: Option<String>,
     /// Imported external interface namespace symbols from use/import statements.
     pub(crate) imported_external_interfaces: HashSet<String>,
+    /// Canonical module alias/full-path -> interface name mapping used for module-qualified CPI calls.
+    pub(crate) interface_module_aliases: HashMap<String, String>,
+    /// Canonical imported module alias -> full module path (for diagnostics/suggestions).
+    pub(crate) imported_module_aliases: HashMap<String, String>,
 }
 
 impl Default for TypeCheckerContext {
@@ -80,6 +84,8 @@ impl TypeCheckerContext {
             module_scope: None,
             current_module: None,
             imported_external_interfaces: HashSet::new(),
+            interface_module_aliases: HashMap::new(),
+            imported_module_aliases: HashMap::new(),
         }
     }
 
@@ -198,6 +204,8 @@ impl TypeCheckerContext {
             .map(String::as_str)
             .chain(self.interface_registry.keys().map(String::as_str))
             .chain(self.imported_external_interfaces.iter().map(String::as_str))
+            .chain(self.interface_module_aliases.keys().map(String::as_str))
+            .chain(self.imported_module_aliases.keys().map(String::as_str))
             .chain(self.function_return_types.keys().map(String::as_str))
         {
             if candidate == target {

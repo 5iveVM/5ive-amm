@@ -1,7 +1,7 @@
 // Compile command.
 
 import { readFile, writeFile, stat, mkdir } from 'fs/promises';
-import { join, dirname, extname, basename, isAbsolute, resolve } from 'path';
+import { join, dirname, extname, basename, isAbsolute, resolve, relative } from 'path';
 import { glob } from 'glob';
 
 import { CommandDefinition, CommandContext, ProjectConfig } from '../types.js';
@@ -212,9 +212,9 @@ async function compileProject(
     flatNamespace: Boolean(options.flatNamespace)
   };
 
-  const sdkAny = FiveSDK as any;
   const entryPointRel = cfg.entryPoint || 'src/main.v';
   const entryPointAbs = resolve(projectContext.rootDir, entryPointRel);
+  const sdkAny = FiveSDK as any;
   const result: any = typeof sdkAny.compileWithDiscovery === 'function'
     ? await withWorkingDirectory(projectContext.rootDir, () =>
         sdkAny.compileWithDiscovery(entryPointRel, compilationOptions)
@@ -430,6 +430,7 @@ async function compileSingleFile(
   await mkdir(dirname(outputFile), { recursive: true });
 
   const compilationOptions: any = {
+    target: options.target || projectContext?.config.target || 'vm',
     optimize: parseOptimizationLevel(options.optimize),
     debug: Boolean(options.debug),
     optimizationLevel: 'production',
@@ -445,8 +446,10 @@ async function compileSingleFile(
   const sdkAny = FiveSDK as any;
   let result: any;
   if (typeof sdkAny.compileWithDiscovery === 'function') {
-    const compileRoot = dirname(entryPoint);
-    const entryFile = basename(entryPoint);
+    const compileRoot = projectContext?.rootDir ?? dirname(entryPoint);
+    const entryFile = projectContext
+      ? relative(projectContext.rootDir, entryPoint)
+      : basename(entryPoint);
     result = await withWorkingDirectory(compileRoot, () =>
       sdkAny.compileWithDiscovery(entryFile, compilationOptions)
     );

@@ -335,7 +335,17 @@ impl DslCompiler {
             entry_descriptor.file_path.to_str(),
         );
 
-        let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
+        let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
+        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::TYPE_MISMATCH,
+                ErrorSeverity::Error,
+                ErrorCategory::Type,
+                format!("Interface preprocessing failed: {}", e),
+            )
+        })?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
 
         pipeline.finalize_metrics(&bytecode);
 
@@ -457,7 +467,17 @@ impl DslCompiler {
         let mut pipeline = CompilationPipeline::new(&entry_source, Some(entry_point));
 
         // Note: pipeline.type_check() is skipped because we did it manually with module_scope above
-        let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
+        let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
+        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::TYPE_MISMATCH,
+                ErrorSeverity::Error,
+                ErrorCategory::Type,
+                format!("Interface preprocessing failed: {}", e),
+            )
+        })?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
 
         pipeline.finalize_metrics(&bytecode);
 
@@ -699,7 +719,17 @@ impl DslCompiler {
             entry_descriptor.file_path.to_str(),
         );
 
-        let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
+        let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
+        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::TYPE_MISMATCH,
+                ErrorSeverity::Error,
+                ErrorCategory::Type,
+                format!("Interface preprocessing failed: {}", e),
+            )
+        })?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
         let abi = pipeline.generate_abi(&merged_ast, config)?;
 
         pipeline.finalize_metrics(&bytecode);
@@ -826,7 +856,17 @@ impl DslCompiler {
         let mut pipeline = CompilationPipeline::new(&entry_source, Some(entry_point));
 
         // Note: pipeline.type_check() is skipped because we did it manually with module_scope above
-        let bytecode = pipeline.generate_bytecode(&merged_ast, config)?;
+        let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
+        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
+            CompilerError::new(
+                ErrorCode::TYPE_MISMATCH,
+                ErrorSeverity::Error,
+                ErrorCategory::Type,
+                format!("Interface preprocessing failed: {}", e),
+            )
+        })?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
         let abi = pipeline.generate_abi(&merged_ast, config)?;
 
         pipeline.finalize_metrics(&bytecode);
