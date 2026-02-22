@@ -1196,11 +1196,12 @@ export class FiveCompilerWasm {
   }
 
   private extractModuleImports(source: string): string[] {
+    const sanitizedSource = this.stripComments(source);
     const imports = new Set<string>();
     const importPattern = /^\s*(?:use|import)\s+([^;\n]+)\s*;/gm;
     let match: RegExpExecArray | null;
 
-    while ((match = importPattern.exec(source)) !== null) {
+    while ((match = importPattern.exec(sanitizedSource)) !== null) {
       let pathExpr = (match[1] || "").trim();
       if (!pathExpr || pathExpr.startsWith('"') || pathExpr.startsWith("'")) {
         continue;
@@ -1223,6 +1224,65 @@ export class FiveCompilerWasm {
     }
 
     return [...imports];
+  }
+
+  private extractModuleCallQualifiers(source: string): string[] {
+    const sanitizedSource = this.stripComments(source);
+    const qualifiers = new Set<string>();
+    const callPattern = /\b([A-Za-z_][A-Za-z0-9_:]*)::[A-Za-z_][A-Za-z0-9_]*\s*\(/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = callPattern.exec(sanitizedSource)) !== null) {
+      const fullPath = match[1];
+      const qualifier = fullPath.includes("::")
+        ? fullPath
+        : fullPath;
+      qualifiers.add(qualifier);
+    }
+
+    return [...qualifiers];
+  }
+
+  private stripComments(source: string): string {
+    const withoutBlock = source.replace(/\/\*[\s\S]*?\*\//g, " ");
+    return withoutBlock.replace(/\/\/.*$/gm, "");
+  }
+
+  private toImportAlias(modulePath: string): string {
+    const parts = modulePath.split("::").filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : modulePath;
+  }
+
+  private unresolvedAliasGuidance(source: string): { alias: string; suggestedImport?: string } | null {
+    const imports = this.extractModuleImports(source);
+    const importedAliases = new Set(imports.map((p) => this.toImportAlias(p)));
+    const qualifiers = this.extractModuleCallQualifiers(source);
+
+    for (const qualifier of qualifiers) {
+      // Fully qualified calls are valid without import.
+      if (qualifier.includes("::")) {
+        continue;
+      }
+
+      if (importedAliases.has(qualifier)) {
+        continue;
+      }
+
+      // Prefer std interface guidance for known aliases.
+      const stdCandidates = [
+        `std::interfaces::${qualifier}`,
+        `std::${qualifier}`,
+      ];
+      for (const candidate of stdCandidates) {
+        if (this.resolveStdlibModuleFile(candidate)) {
+          return { alias: qualifier, suggestedImport: candidate };
+        }
+      }
+
+      return { alias: qualifier };
+    }
+
+    return null;
   }
 
   private resolveLocalModuleFile(baseDir: string, modulePath: string): string | null {
@@ -1264,6 +1324,18 @@ export class FiveCompilerWasm {
     const entryPointAbs = resolve(entryPoint);
     const sourceDir = dirname(entryPointAbs);
     const mainSource = await readFile(entryPointAbs, "utf8");
+
+    const unresolvedAlias = this.unresolvedAliasGuidance(mainSource);
+    if (unresolvedAlias) {
+      if (unresolvedAlias.suggestedImport) {
+        throw new Error(
+          `Unresolved module alias '${unresolvedAlias.alias}'. Missing import: use ${unresolvedAlias.suggestedImport};`
+        );
+      }
+      throw new Error(
+        `Unresolved module alias '${unresolvedAlias.alias}'. Add a matching use <module path>; import.`
+      );
+    }
 
     const modules: Array<{ name: string; content: string }> = [];
     const visited = new Set<string>();
