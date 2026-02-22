@@ -14,6 +14,7 @@ import { ConfigManager } from "../config/ConfigManager.js";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
+const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 // Real Five VM WASM imports
 let WasmFiveCompiler: any;
@@ -1046,70 +1047,257 @@ export class FiveCompilerWasm {
         WasmCompilationOptions = wasmModuleRef.WasmCompilationOptions;
       }
 
-      const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput);
-      const errorFormat = options?.errorFormat || "terminal";
-      const comprehensiveMetrics = options?.comprehensiveMetrics || false;
+      const compilationOptions = this.createDiscoveryCompilationOptions(entryPoint, options, metricsFormat);
+      let result = this.compiler.compileMultiWithDiscovery(entryPoint, compilationOptions);
 
-      const compilationOptions = new WasmCompilationOptions()
-        .with_mode(options?.target || "deployment")
-        .with_optimization_level(options?.optimizationLevel || "production")
-        .with_v2_preview(true)
-        .with_constraint_cache(false)
-        .with_enhanced_errors(true)
-        .with_metrics(includeMetrics)
-        .with_comprehensive_metrics(comprehensiveMetrics)
-        .with_metrics_format(metricsFormat)
-        .with_error_format(errorFormat)
-        .with_module_namespaces(!Boolean(options?.flatNamespace))
-        .with_source_file(entryPoint);
-
-      const result = this.compiler.compileMultiWithDiscovery(entryPoint, compilationOptions);
-
-      const metricsPayload = this.extractMetrics(result, metricsFormat);
-      const diagnostics = this.extractDiagnostics(result);
-      const formattedErrors = this.extractFormattedErrors(result);
-
-      if (result.success && result.bytecode) {
-        // Extract ABI - get_abi() returns JSON string, parse it
-        let abi = undefined;
-        try {
-          const abiJson = result.get_abi();
-          if (abiJson) {
-            abi = JSON.parse(abiJson);
-          }
-        } catch (e) {
-          this.logger.debug('Failed to parse ABI from get_abi():', e);
-        }
-
-        return {
-          success: true,
-          bytecode: result.bytecode,
-          abi: abi,
-          metadata: result.metadata,
-          metrics: metricsPayload,
-          metricsReport: metricsPayload,
-          formattedErrorsTerminal: formattedErrors.terminal,
-          formattedErrorsJson: formattedErrors.json,
-        };
-      } else {
-        return {
-          success: false,
-          errors: diagnostics,
-          warnings: diagnostics.filter((diag: any) => diag.severity === "warning"),
-          diagnostics,
-          formattedErrorsTerminal: formattedErrors.terminal,
-          formattedErrorsJson: formattedErrors.json,
-          metadata: result.metadata,
-          metrics: metricsPayload,
-          metricsReport: metricsPayload,
-        };
+      if (!result.success && this.isDiscoveryFsFailure(result)) {
+        result = await this.compileWithLocalModuleMap(entryPoint, options, compilationOptions);
       }
+
+      return this.toCompilationOutput(result, metricsFormat);
     } catch (error) {
+      if (this.isDiscoveryFsFailure(error)) {
+        try {
+          const compilationOptions = this.createDiscoveryCompilationOptions(entryPoint, options, metricsFormat);
+          const fallbackResult = await this.compileWithLocalModuleMap(entryPoint, options, compilationOptions);
+          return this.toCompilationOutput(fallbackResult, metricsFormat);
+        } catch (fallbackError) {
+          throw this.createCompilerError(
+            `Compilation error: ${fallbackError instanceof Error ? fallbackError.message : "Unknown error"}`,
+            fallbackError as Error
+          );
+        }
+      }
       throw this.createCompilerError(
         `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
         error as Error
       );
     }
+  }
+
+  private createDiscoveryCompilationOptions(entryPoint: string, options: any, metricsFormat: string): any {
+    const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput);
+    const errorFormat = options?.errorFormat || "terminal";
+    const comprehensiveMetrics = options?.comprehensiveMetrics || false;
+
+    return new WasmCompilationOptions()
+      .with_mode(options?.target || "deployment")
+      .with_optimization_level(options?.optimizationLevel || "production")
+      .with_v2_preview(true)
+      .with_constraint_cache(false)
+      .with_enhanced_errors(true)
+      .with_metrics(includeMetrics)
+      .with_comprehensive_metrics(comprehensiveMetrics)
+      .with_metrics_format(metricsFormat)
+      .with_error_format(errorFormat)
+      .with_module_namespaces(!Boolean(options?.flatNamespace))
+      .with_source_file(entryPoint);
+  }
+
+  private toCompilationOutput(result: any, metricsFormat: string): any {
+    const metricsPayload = this.extractMetrics(result, metricsFormat);
+    const diagnostics = this.extractDiagnostics(result);
+    const formattedErrors = this.extractFormattedErrors(result);
+
+    if (result.success && result.bytecode) {
+      // Extract ABI - get_abi() returns JSON string, parse it
+      let abi = undefined;
+      try {
+        const abiJson = result.get_abi();
+        if (abiJson) {
+          abi = JSON.parse(abiJson);
+        }
+      } catch (e) {
+        this.logger.debug('Failed to parse ABI from get_abi():', e);
+      }
+
+      return {
+        success: true,
+        bytecode: result.bytecode,
+        abi: abi,
+        metadata: result.metadata,
+        metrics: metricsPayload,
+        metricsReport: metricsPayload,
+        formattedErrorsTerminal: formattedErrors.terminal,
+        formattedErrorsJson: formattedErrors.json,
+      };
+    }
+
+    return {
+      success: false,
+      errors: diagnostics,
+      warnings: diagnostics.filter((diag: any) => diag.severity === "warning"),
+      diagnostics,
+      formattedErrorsTerminal: formattedErrors.terminal,
+      formattedErrorsJson: formattedErrors.json,
+      metadata: result.metadata,
+      metrics: metricsPayload,
+      metricsReport: metricsPayload,
+    };
+  }
+
+  private isDiscoveryFsFailure(errorOrResult: any): boolean {
+    const messages: string[] = [];
+
+    if (!errorOrResult) {
+      return false;
+    }
+
+    if (typeof errorOrResult?.message === "string") {
+      messages.push(errorOrResult.message);
+    }
+
+    if (Array.isArray(errorOrResult?.errors)) {
+      for (const err of errorOrResult.errors) {
+        if (typeof err?.message === "string") {
+          messages.push(err.message);
+        }
+      }
+    }
+
+    if (Array.isArray(errorOrResult?.diagnostics)) {
+      for (const diag of errorOrResult.diagnostics) {
+        if (typeof diag?.message === "string") {
+          messages.push(diag.message);
+        }
+      }
+    }
+
+    if (Array.isArray(errorOrResult?.compiler_errors)) {
+      for (const err of errorOrResult.compiler_errors) {
+        if (typeof err?.message === "string") {
+          messages.push(err.message);
+        }
+      }
+    }
+
+    const formattedTerminal = errorOrResult?.formatted_errors_terminal || errorOrResult?.formattedErrorsTerminal;
+    if (typeof formattedTerminal === "string") {
+      messages.push(formattedTerminal);
+    }
+
+    const formattedJson = errorOrResult?.formatted_errors_json || errorOrResult?.formattedErrorsJson;
+    if (typeof formattedJson === "string") {
+      messages.push(formattedJson);
+    }
+
+    if (typeof errorOrResult?.toString === "function") {
+      const value = String(errorOrResult);
+      if (value && value !== "[object Object]") {
+        messages.push(value);
+      }
+    }
+
+    return messages.some((msg) =>
+      msg.includes("Module discovery failed") &&
+      msg.includes("Module") &&
+      msg.includes("not found")
+    );
+  }
+
+  private extractModuleImports(source: string): string[] {
+    const imports = new Set<string>();
+    const importPattern = /^\s*(?:use|import)\s+([^;\n]+)\s*;/gm;
+    let match: RegExpExecArray | null;
+
+    while ((match = importPattern.exec(source)) !== null) {
+      let pathExpr = (match[1] || "").trim();
+      if (!pathExpr || pathExpr.startsWith('"') || pathExpr.startsWith("'")) {
+        continue;
+      }
+
+      if (pathExpr.includes(" as ")) {
+        pathExpr = pathExpr.split(" as ")[0].trim();
+      }
+
+      const braceIndex = pathExpr.indexOf("::{");
+      if (braceIndex >= 0) {
+        pathExpr = pathExpr.slice(0, braceIndex).trim();
+      }
+
+      if (!pathExpr) {
+        continue;
+      }
+
+      imports.add(pathExpr);
+    }
+
+    return [...imports];
+  }
+
+  private resolveLocalModuleFile(baseDir: string, modulePath: string): string | null {
+    const relPath = modulePath.replace(/::/g, "/");
+    const direct = resolve(baseDir, `${relPath}.v`);
+    if (existsSync(direct)) {
+      return direct;
+    }
+    const modFile = resolve(baseDir, relPath, "mod.v");
+    if (existsSync(modFile)) {
+      return modFile;
+    }
+    return null;
+  }
+
+  private resolveStdlibModuleFile(modulePath: string): string | null {
+    if (!modulePath.startsWith("std::")) {
+      return null;
+    }
+
+    const relPath = modulePath.replace(/^std::/, "").replace(/::/g, "/");
+    const candidates = [
+      resolve(moduleDir, "../../../assets/stdlib/std", `${relPath}.v`),
+      resolve(moduleDir, "../../assets/stdlib/std", `${relPath}.v`),
+      resolve(moduleDir, "../../../five-stdlib/std", `${relPath}.v`),
+      resolve(process.cwd(), "five-stdlib/std", `${relPath}.v`)
+    ];
+
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private async compileWithLocalModuleMap(entryPoint: string, _options: any, compilationOptions: any): Promise<any> {
+    const entryPointAbs = resolve(entryPoint);
+    const sourceDir = dirname(entryPointAbs);
+    const mainSource = await readFile(entryPointAbs, "utf8");
+
+    const modules: Array<{ name: string; content: string }> = [];
+    const visited = new Set<string>();
+
+    const visitModule = async (modulePath: string): Promise<void> => {
+      if (visited.has(modulePath)) {
+        return;
+      }
+
+      const moduleFile = modulePath.startsWith("std::")
+        ? this.resolveStdlibModuleFile(modulePath)
+        : this.resolveLocalModuleFile(sourceDir, modulePath);
+      if (!moduleFile) {
+        return;
+      }
+
+      visited.add(modulePath);
+      const moduleContent = await readFile(moduleFile, "utf8");
+      modules.push({
+        name: `${modulePath.replace(/::/g, "/")}.v`,
+        content: moduleContent,
+      });
+
+      for (const dep of this.extractModuleImports(moduleContent)) {
+        await visitModule(dep);
+      }
+    };
+
+    for (const dep of this.extractModuleImports(mainSource)) {
+      await visitModule(dep);
+    }
+
+    const fallbackResult = this.compiler.compile_multi(mainSource, modules, compilationOptions);
+    return fallbackResult;
   }
 
   private extractMetrics(

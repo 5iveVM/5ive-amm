@@ -113,7 +113,11 @@ jest.mock('../../utils/FiveFileManager.js', () => ({
   }
 }));
 
-import { FiveSDK } from '@5ive-tech/sdk';
+jest.mock('../../wasm/compiler.js', () => ({
+  FiveCompilerWasm: require('../../__tests__/mocks/wasm-compiler').FiveCompilerWasm
+}));
+
+import { FiveCompilerWasm } from '../../__tests__/mocks/wasm-compiler';
 import { loadProjectConfig } from '../../project/ProjectLoader.js';
 import { compileCommand } from '../compile.js';
 import { deployCommand } from '../deploy.js';
@@ -174,11 +178,6 @@ function createContext() {
 }
 
 describe('project-aware commands', () => {
-  beforeEach(() => {
-    (FiveSDK.compileProject as jest.Mock).mockClear();
-    (FiveSDK.compileWithDiscovery as jest.Mock).mockClear();
-  });
-
   it('loads project config from cwd and applies defaults', async () => {
     const root = await createProject();
     const loaded = await loadProjectConfig(undefined, root);
@@ -215,22 +214,26 @@ describe('project-aware commands', () => {
   it('build handler loads project config and delegates to compile', async () => {
     const root = await createProject();
     const ctx = createContext();
+    const discoverySpy = jest.spyOn(FiveCompilerWasm.prototype, 'compileWithDiscovery');
 
     await buildCommand.handler([], { project: root }, ctx as any);
 
-    expect((FiveSDK.compileWithDiscovery as jest.Mock)).toHaveBeenCalledTimes(1);
-    expect((FiveSDK.compileWithDiscovery as jest.Mock).mock.calls[0][0]).toBe('src/main.v');
+    expect(discoverySpy).toHaveBeenCalledTimes(1);
+    expect(discoverySpy.mock.calls[0][0]).toMatch(/src\/main\.v$/);
+    discoverySpy.mockRestore();
   });
 
   it('compile handler uses discovery path for explicit input files', async () => {
     const root = await createProject();
     const ctx = createContext();
     const inputPath = join(root, 'src', 'main.v');
+    const discoverySpy = jest.spyOn(FiveCompilerWasm.prototype, 'compileWithDiscovery');
 
     await compileCommand.handler([inputPath], { project: root }, ctx as any);
 
-    expect((FiveSDK.compileWithDiscovery as jest.Mock)).toHaveBeenCalledTimes(1);
-    expect((FiveSDK.compileWithDiscovery as jest.Mock).mock.calls[0][0]).toBe('src/main.v');
+    expect(discoverySpy).toHaveBeenCalledTimes(1);
+    expect(discoverySpy.mock.calls[0][0]).toMatch(/src\/main\.v$/);
+    discoverySpy.mockRestore();
   });
 
   it('compile handler reports import-resolution requirement when discovery API is unavailable', async () => {
@@ -241,18 +244,18 @@ describe('project-aware commands', () => {
       `use std::interfaces::spl_token;\n\npub run(source: account @mut, destination: account @mut, authority: account @signer, amount: u64) {\n  SPLToken.transfer(source, destination, authority, amount);\n}\n`
     );
     const ctx = createContext();
-    const sdkAny = FiveSDK as any;
-    const original = sdkAny.compileWithDiscovery;
+    const discoverySpy = jest
+      .spyOn(FiveCompilerWasm.prototype, 'compileWithDiscovery')
+      .mockRejectedValue(new Error('compileMultiWithDiscovery is unavailable'));
     const exitSpy = jest.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new Error(`exit:${code ?? 'undefined'}`);
     }) as never);
     try {
-      delete sdkAny.compileWithDiscovery;
       await expect(
         compileCommand.handler([sourcePath], {}, ctx as any)
       ).rejects.toThrow(/exit:1/);
     } finally {
-      sdkAny.compileWithDiscovery = original;
+      discoverySpy.mockRestore();
       exitSpy.mockRestore();
     }
   });

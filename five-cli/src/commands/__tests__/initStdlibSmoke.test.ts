@@ -26,14 +26,6 @@ function resolveRepoRoot(cliDist: string): string {
   return dirname(dirname(dirname(cliDist)));
 }
 
-function syncLocalSdk(repoRoot: string): boolean {
-  const result = spawnSync('bash', ['scripts/sync-local-sdk.sh'], {
-    encoding: 'utf8',
-    cwd: repoRoot
-  });
-  return result.status === 0;
-}
-
 const localCliDist = resolveLocalCliDist();
 const repoRoot = localCliDist ? resolveRepoRoot(localCliDist) : null;
 const hasWorkingLocalCli = (() => {
@@ -46,8 +38,7 @@ const hasWorkingLocalCli = (() => {
   }).status;
   return status === 0;
 })();
-const hasSyncedLocalSdk = hasWorkingLocalCli && repoRoot ? syncLocalSdk(repoRoot) : false;
-const maybeIt = hasWorkingLocalCli && hasSyncedLocalSdk ? it : it.skip;
+const maybeIt = hasWorkingLocalCli ? it : it.skip;
 
 describe('init + stdlib smoke', () => {
   maybeIt('init/build/compile works with bundled stdlib interfaces', () => {

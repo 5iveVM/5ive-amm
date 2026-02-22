@@ -1,13 +1,14 @@
 // Compile command.
 
 import { readFile, writeFile, stat, mkdir } from 'fs/promises';
-import { join, dirname, extname, basename, isAbsolute, resolve, relative } from 'path';
+import { join, dirname, extname, basename, isAbsolute, resolve } from 'path';
 import { glob } from 'glob';
 
 import { CommandDefinition, CommandContext, ProjectConfig } from '../types.js';
 import { FiveSDK, TypeGenerator } from '@5ive-tech/sdk';
 import { computeHash, loadProjectConfig, writeBuildManifest, LoadedProjectConfig } from '../project/ProjectLoader.js';
 import { success as uiSuccess, error as uiError, section } from '../utils/cli-ui.js';
+import { FiveCompilerWasm } from '../wasm/compiler.js';
 
 export const compileCommand: CommandDefinition = {
   name: 'compile',
@@ -214,12 +215,26 @@ async function compileProject(
 
   const entryPointRel = cfg.entryPoint || 'src/main.v';
   const entryPointAbs = resolve(projectContext.rootDir, entryPointRel);
-  const sdkAny = FiveSDK as any;
-  const result: any = typeof sdkAny.compileWithDiscovery === 'function'
-    ? await withWorkingDirectory(projectContext.rootDir, () =>
-        sdkAny.compileWithDiscovery(entryPointRel, compilationOptions)
-      )
-    : await sdkAny.compileProject(projectContext.configPath, compilationOptions);
+  const compiler = await getCliWasmCompiler(context);
+  let result: any;
+
+  try {
+    result = await compiler.compileWithDiscovery(entryPointAbs, compilationOptions);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!isDiscoveryUnsupported(message)) {
+      throw error;
+    }
+
+    const entrySource = await readFile(entryPointAbs, 'utf8');
+    if (hasImportStatements(entrySource)) {
+      throw new Error(
+        'Import resolution requires discovery-capable compile path. Please rebuild wasm assets (npm run sync:wasm:rebuild).'
+      );
+    }
+
+    result = await compiler.compile(entrySource, compilationOptions);
+  }
 
   if (options.metricsOutput && result.metricsReport?.exported) {
     const metricsPath = isAbsolute(options.metricsOutput)
@@ -443,29 +458,22 @@ async function compileSingleFile(
     sourceFile: entryPoint
   };
 
-  const sdkAny = FiveSDK as any;
+  const compiler = await getCliWasmCompiler(context);
   let result: any;
-  if (typeof sdkAny.compileWithDiscovery === 'function') {
-    const compileRoot = projectContext?.rootDir ?? dirname(entryPoint);
-    const entryFile = projectContext
-      ? relative(projectContext.rootDir, entryPoint)
-      : basename(entryPoint);
-    result = await withWorkingDirectory(compileRoot, () =>
-      sdkAny.compileWithDiscovery(entryFile, compilationOptions)
-    );
-  } else {
+  try {
+    result = await compiler.compileWithDiscovery(entryPoint, compilationOptions);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!isDiscoveryUnsupported(message)) {
+      throw error;
+    }
+
     if (hasImportStatements(sourceCode)) {
       throw new Error(
-        'Import resolution requires discovery-capable compile path. Please upgrade @5ive-tech/sdk.'
+        'Import resolution requires discovery-capable compile path. Please rebuild wasm assets (npm run sync:wasm:rebuild).'
       );
     }
-    result = await FiveSDK.compile(
-      {
-        filename: inputFile,
-        content: sourceCode
-      },
-      compilationOptions
-    );
+    result = await compiler.compile(sourceCode, compilationOptions);
   }
 
   if (result.success && !result.fiveFile && result.bytecode) {
@@ -561,6 +569,23 @@ async function compileSingleFile(
     metricsReport: result.metricsReport,
     formattedErrorsTerminal: result.formattedErrorsTerminal
   };
+}
+
+let cachedCompiler: FiveCompilerWasm | null = null;
+
+async function getCliWasmCompiler(context: CommandContext): Promise<FiveCompilerWasm> {
+  if (cachedCompiler) {
+    return cachedCompiler;
+  }
+
+  const compiler = new FiveCompilerWasm(context.logger);
+  await compiler.initialize();
+  cachedCompiler = compiler;
+  return compiler;
+}
+
+function isDiscoveryUnsupported(message: string): boolean {
+  return /compileMultiWithDiscovery|discovery/i.test(message);
 }
 
 function hasImportStatements(sourceCode: string): boolean {
