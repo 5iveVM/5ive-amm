@@ -79,6 +79,10 @@ pub log_key(key: u64) {
     log_pubkey(key);
 }
 
+pub close_account_now(source: account, destination: account) {
+    close_account(source, destination);
+}
+
 pub memory_copy(dst: u64, src: u64, len: u64) {
     memcpy(dst, src, len);
 }

@@ -188,7 +188,7 @@ impl types::TypeCheckerContext {
                             let mut is_mutable = param.is_init;
                             if !is_mutable {
                                 // Check for explicit @mut attribute
-                                is_mutable = param.attributes.iter().any(|attr| attr.name == "mut");
+                                is_mutable = param.attributes.iter().any(|attr| attr.name == "mut" || attr.name == "close");
                             }
 
                             let param_type = if param.param_type.is_account_type() {

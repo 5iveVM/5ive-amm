@@ -19,6 +19,8 @@ use pinocchio::instruction::{AccountMeta, Instruction};
 #[cfg(target_os = "solana")]
 use pinocchio::program::invoke_signed;
 
+const CLOSED_MARKER: [u8; 4] = *b"CLSD";
+
 /// Execute Solana account operations including creation, metadata access, and lamport management.
 /// Handles the 0x50-0x5F opcode range.
 #[inline(always)]
@@ -236,6 +238,58 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
                 from_idx,
                 to_idx,
                 amount
+            );
+        }
+        CLOSE_ACCOUNT => {
+            // Stack contract: [source_idx, destination_idx]
+            let destination_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+            let source_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+
+            if source_idx == destination_idx {
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+
+            let source = ctx.get_account(source_idx)?;
+            let destination = ctx.get_account(destination_idx)?;
+
+            if !source.is_writable() || !destination.is_writable() {
+                return Err(VMErrorCode::AccountNotWritable);
+            }
+            if *source.owner() != ctx.program_id {
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+            if source.executable() {
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+
+            let source_lamports = source.lamports();
+            if source_lamports == 0 {
+                // Idempotent no-op for already-drained accounts.
+                return Ok(());
+            }
+
+            let new_destination_lamports = destination
+                .lamports()
+                .checked_add(source_lamports)
+                .ok_or(VMErrorCode::ArithmeticOverflow)?;
+
+            unsafe {
+                *source.borrow_mut_lamports_unchecked() = 0;
+                *destination.borrow_mut_lamports_unchecked() = new_destination_lamports;
+            }
+
+            // Tombstone account data to make closed script/data accounts unusable.
+            let source_data = unsafe { source.borrow_mut_data_unchecked() };
+            source_data.fill(0);
+            if source_data.len() >= CLOSED_MARKER.len() {
+                source_data[..CLOSED_MARKER.len()].copy_from_slice(&CLOSED_MARKER);
+            }
+
+            debug_log!(
+                "MitoVM: CLOSE_ACCOUNT source {} -> destination {} amount {}",
+                source_idx,
+                destination_idx,
+                source_lamports
             );
         }
         _ => return Err(VMErrorCode::InvalidInstruction.into()),
