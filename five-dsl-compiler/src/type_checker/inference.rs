@@ -69,7 +69,11 @@ impl TypeCheckerContext {
                 } else if let Some(type_node) = self.symbol_table.get(name) {
                     Ok(type_node.0.clone())
                 } else {
-                    Err(self.undefined_identifier_error(name))
+                    if let Some(replacement) = self.legacy_init_alias_replacement(name) {
+                        Err(VMError::undefined_identifier(name, Some(&replacement)))
+                    } else {
+                        Err(self.undefined_identifier_error(name))
+                    }
                 }
             }
             AstNode::TupleLiteral { elements } => {
@@ -333,14 +337,33 @@ impl TypeCheckerContext {
                                 }
                             } else {
                                 eprintln!("DEBUG: Field '{}' not found in account fields for '{}'", field, name);
-                                Err(VMError::UndefinedField)
+                                if let Some(replacement) =
+                                    Self::legacy_account_metadata_replacement(field)
+                                {
+                                    Err(VMError::undefined_identifier(field, Some(&replacement)))
+                                } else {
+                                    Err(VMError::UndefinedField)
+                                }
                             }
                         } else {
                             eprintln!("DEBUG: No account definition found for '{}'", name);
+                            if let Some(replacement) =
+                                Self::legacy_account_metadata_replacement(field)
+                            {
+                                Err(VMError::undefined_identifier(field, Some(&replacement)))
+                            } else {
+                                Err(VMError::UndefinedField)
+                            }
+                        }
+                    }
+                    TypeNode::Account => {
+                        if let Some(replacement) = Self::legacy_account_metadata_replacement(field)
+                        {
+                            Err(VMError::undefined_identifier(field, Some(&replacement)))
+                        } else {
                             Err(VMError::UndefinedField)
                         }
                     }
-                    TypeNode::Account => Err(VMError::UndefinedField),
                     _ => Err(VMError::TypeMismatch),
                 }
             }

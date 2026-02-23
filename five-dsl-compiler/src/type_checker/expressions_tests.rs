@@ -262,6 +262,47 @@ fn test_check_account_ctx_bump_requires_seeded_init_context() {
 }
 
 #[test]
+fn test_legacy_metadata_field_access_provides_ctx_hint() {
+    let mut checker = TypeCheckerContext::new();
+    checker.symbol_table.insert("payer".to_string(), (TypeNode::Account, false));
+
+    let expr = AstNode::FieldAccess {
+        object: Box::new(AstNode::Identifier("payer".to_string())),
+        field: "lamports".to_string(),
+    };
+
+    match checker.check_expression(&expr) {
+        Err(VMError::UndefinedIdentifierWithContext { identifier, did_you_mean }) => {
+            assert_eq!(identifier.as_str(), "lamports");
+            assert_eq!(
+                did_you_mean.as_ref().map(|s| s.as_str()),
+                Some("ctx.lamports")
+            );
+        }
+        other => panic!("expected UndefinedIdentifierWithContext, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_legacy_init_alias_identifier_provides_ctx_hint() {
+    let mut checker = TypeCheckerContext::new();
+    checker.init_bump_accounts.insert("vault".to_string());
+
+    let expr = AstNode::Identifier("vault_bump".to_string());
+
+    match checker.check_expression(&expr) {
+        Err(VMError::UndefinedIdentifierWithContext { identifier, did_you_mean }) => {
+            assert_eq!(identifier.as_str(), "vault_bump");
+            assert_eq!(
+                did_you_mean.as_ref().map(|s| s.as_str()),
+                Some("vault.ctx.bump")
+            );
+        }
+        other => panic!("expected UndefinedIdentifierWithContext, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_infer_pubkey_zero_constructor_type() {
     let mut checker = TypeCheckerContext::new();
     let node = AstNode::FunctionCall {

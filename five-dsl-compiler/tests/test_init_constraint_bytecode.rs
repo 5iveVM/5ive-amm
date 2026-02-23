@@ -301,6 +301,35 @@ fn test_init_with_seeded_auto_bump_legacy_alias_is_removed() {
         "Expected undefined identifier failure for removed bump alias, got: {:?}",
         err
     );
+    assert_eq!(
+        err.context.get_data("did_you_mean").map(String::as_str),
+        Some("vault.ctx.bump"),
+        "Expected migration hint for legacy bump alias"
+    );
+}
+
+#[test]
+fn test_init_with_legacy_space_alias_reports_ctx_hint() {
+    let source = r#"
+        account State {
+            value: u64
+        }
+
+        pub initialize(
+            payer: account @signer,
+            state: State @mut @init(payer=payer)
+        ) {
+            let s: u64 = state_space;
+            let _x: u64 = s;
+        }
+    "#;
+
+    let err = DslCompiler::compile_dsl(source).expect_err("legacy state_space should fail");
+    assert_eq!(
+        err.context.get_data("did_you_mean").map(String::as_str),
+        Some("state.ctx.space"),
+        "Expected migration hint for legacy space alias"
+    );
 }
 
 #[test]
@@ -378,9 +407,33 @@ fn test_legacy_account_metadata_field_access_is_removed() {
 
     let err = DslCompiler::compile_dsl(source).expect_err("legacy payer.lamports should fail");
     assert!(
-        err.message.contains("Undefined") || err.message.contains("field"),
-        "Expected undefined field failure for removed metadata surface, got: {:?}",
+        err.message.contains("cannot find value") || err.message.contains("Undefined"),
+        "Expected undefined identifier failure for removed metadata surface, got: {:?}",
         err
+    );
+    assert_eq!(
+        err.context.get_data("did_you_mean").map(String::as_str),
+        Some("ctx.lamports"),
+        "Expected migration hint for legacy metadata field access"
+    );
+}
+
+#[test]
+fn test_unknown_account_field_has_no_ctx_migration_hint() {
+    let source = r#"
+        pub inspect(
+            payer: account @signer
+        ) {
+            let v: u64 = payer.xyz;
+            let _x: u64 = v;
+        }
+    "#;
+
+    let err = DslCompiler::compile_dsl(source).expect_err("unknown field should fail");
+    assert!(
+        err.context.get_data("did_you_mean").is_none(),
+        "unexpected migration hint for unrelated unknown field: {:?}",
+        err.context.get_data("did_you_mean")
     );
 }
 

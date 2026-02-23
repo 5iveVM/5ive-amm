@@ -156,8 +156,13 @@ pub fn convert_vm_error_to_compiler_error(
             let identifier_text = identifier.to_string();
             let location = find_identifier_location(source, &identifier_text, &file_path);
             let mut context = ErrorContext::new().with_identifier(identifier_text.clone());
+            let mut description = "This identifier is not declared in the current scope.".to_string();
             if let Some(candidate) = did_you_mean {
+                let candidate_str = candidate.to_string();
                 context = context.add_data("did_you_mean".to_string(), candidate.to_string());
+                if candidate_str.contains(".ctx.") || candidate_str.starts_with("ctx.") {
+                    description.push_str(" Account metadata moved under `account.ctx.*`.");
+                }
             }
 
             let mut builder = ErrorBuilder::new(
@@ -166,9 +171,7 @@ pub fn convert_vm_error_to_compiler_error(
             )
             .severity(ErrorSeverity::Error)
             .category(category)
-            .description(
-                "This identifier is not declared in the current scope.".to_string(),
-            )
+            .description(description)
             .context(context);
 
             if let Some(loc) = location {
@@ -347,6 +350,31 @@ mod tests {
             Some("amount")
         );
         assert!(compiler_error.location.is_some());
+    }
+
+    #[test]
+    fn test_convert_vm_error_undefined_identifier_with_ctx_migration_note() {
+        let source = "return payer.key;";
+        let vm_error = VMError::undefined_identifier("key", Some("ctx.key"));
+
+        let compiler_error = convert_vm_error_to_compiler_error(
+            vm_error,
+            ErrorCategory::Type,
+            "type checking",
+            source,
+            Some("test.v"),
+        );
+
+        assert_eq!(
+            compiler_error.context.get_data("did_you_mean").map(String::as_str),
+            Some("ctx.key")
+        );
+        let description = compiler_error.description.unwrap_or_default();
+        assert!(
+            description.contains("account.ctx.*"),
+            "expected migration note in description, got: {}",
+            description
+        );
     }
 
     #[test]

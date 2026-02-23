@@ -6,6 +6,27 @@ use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
 impl TypeCheckerContext {
+    pub(crate) fn legacy_account_metadata_replacement(field: &str) -> Option<String> {
+        match field {
+            "key" | "lamports" | "owner" | "data" => Some(format!("ctx.{}", field)),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn legacy_init_alias_replacement(&self, ident: &str) -> Option<String> {
+        if let Some(account_name) = ident.strip_suffix("_bump") {
+            if self.init_bump_accounts.contains(account_name) {
+                return Some(format!("{}.ctx.bump", account_name));
+            }
+        }
+        if let Some(account_name) = ident.strip_suffix("_space") {
+            if self.init_space_accounts.contains(account_name) {
+                return Some(format!("{}.ctx.space", account_name));
+            }
+        }
+        None
+    }
+
     fn resolve_account_ctx_field_type(
         &self,
         account_expr: &AstNode,
@@ -56,6 +77,9 @@ impl TypeCheckerContext {
                     _ => {
                         // Identifiers in expression position must be in scope variables/fields.
                         if !self.symbol_table.contains_key(name) {
+                            if let Some(replacement) = self.legacy_init_alias_replacement(name) {
+                                return Err(VMError::undefined_identifier(name, Some(&replacement)));
+                            }
                             eprintln!(
                                 "Undefined identifier{}: '{}' is not in scope",
                                 match &self.current_function {
@@ -228,14 +252,33 @@ impl TypeCheckerContext {
                             if account_fields.iter().any(|f| f.name == *field) {
                                 Ok(())
                             } else {
-                                Err(VMError::UndefinedField)
+                                if let Some(replacement) =
+                                    Self::legacy_account_metadata_replacement(field)
+                                {
+                                    Err(VMError::undefined_identifier(field, Some(&replacement)))
+                                } else {
+                                    Err(VMError::UndefinedField)
+                                }
                             }
                         } else {
                             eprintln!("DEBUG: No account definition found for '{}'", name);
+                            if let Some(replacement) =
+                                Self::legacy_account_metadata_replacement(field)
+                            {
+                                Err(VMError::undefined_identifier(field, Some(&replacement)))
+                            } else {
+                                Err(VMError::UndefinedField)
+                            }
+                        }
+                    }
+                    TypeNode::Account => {
+                        if let Some(replacement) = Self::legacy_account_metadata_replacement(field)
+                        {
+                            Err(VMError::undefined_identifier(field, Some(&replacement)))
+                        } else {
                             Err(VMError::UndefinedField)
                         }
                     }
-                    TypeNode::Account => Err(VMError::UndefinedField),
                     _ => Err(VMError::TypeMismatch),
                 }
             }
