@@ -207,12 +207,8 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
         };
         parser.advance();
 
-        // Patch bump in init_config if present and seeds exist
-        if let Some(config) = &mut init_config {
-            if config.seeds.is_some() {
-                config.bump = Some(format!("{}_bump", param_name));
-            }
-        }
+        // Keep explicit bump when provided. If bump is omitted for seeded @init,
+        // leave it as None so codegen can derive canonical bump via FIND_PDA.
 
         // Check for optional marker: param?
         let is_optional = if matches!(parser.current_token, Token::Question) {
@@ -281,16 +277,9 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
                         }
                         parser.advance(); // consume ']'
 
-                        // Auto-generate bump variable name
-                        let bump_var = if !seeds.is_empty() {
-                            Some(format!("{}_bump", param_name))
-                        } else {
-                            None
-                        };
-
                         init_config = Some(crate::ast::InitConfig {
                             seeds: if seeds.is_empty() { None } else { Some(seeds) },
-                            bump: bump_var,
+                            bump: None,
                             space: explicit_space,
                             payer: payer_name,
                         });

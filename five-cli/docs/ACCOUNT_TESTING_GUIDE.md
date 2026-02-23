@@ -121,7 +121,7 @@ pub authorize_user(
     new_user: pubkey
 ) -> bool {
     // @signer constraint: transaction must be signed by 'admin'
-    require(admin.key == state.admin);
+    require(admin.ctx.key == state.admin);
 
     state.authorized_count = state.authorized_count + 1;
     return true;
@@ -138,13 +138,13 @@ const fixture = new AccountTestFixture()
     })
     .build();
 
-// Local test: Checks admin.key == state.admin
+// Local test: Checks admin.ctx.key == state.admin
 // On-chain: Solana validates @signer constraint
 ```
 
 **Key Points**:
 - `@signer` account MUST sign the transaction
-- Access pubkey via `account.key`
+- Access pubkey via `account.ctx.key`
 - Use `require()` to validate permissions
 - Multiple signers allowed in one transaction
 
@@ -168,7 +168,7 @@ pub create_vault(
     // payer pays for account creation
 
     state.created_vaults = state.created_vaults + 1;
-    return vault.key;
+    return vault.ctx.key;
 }
 ```
 
@@ -259,10 +259,11 @@ pub create_user_vault(
     state: VaultState @mut
 ) -> pubkey {
     let (expected_vault, bump) = derive_pda(user, "vault", seed);
-    require(vault.key == expected_vault);
+    require(vault.ctx.key == expected_vault);
+    require(vault.ctx.bump == bump);
 
-    state.vault_bump = Some(bump);
-    return vault.key;
+    state.vault_bump = Some(vault.ctx.bump);
+    return vault.ctx.key;
 }
 ```
 
@@ -629,7 +630,7 @@ const fixture = new AccountTestFixture()
 **Problem**: Account state doesn't satisfy validation
 ```v
 pub transfer(authority: account @signer, ...) {
-    require(authority.key == state.admin);  // Fails
+    require(authority.ctx.key == state.admin);  // Fails
 }
 ```
 **Solution**: Set state with correct pubkey

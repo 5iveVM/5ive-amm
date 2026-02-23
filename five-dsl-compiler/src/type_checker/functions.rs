@@ -266,8 +266,12 @@ impl TypeCheckerContext {
         let original_symbol_table = self.symbol_table.clone();
         let previous_writable = self.current_writable_accounts.clone();
         let previous_function = self.current_function.clone();
+        let previous_init_bump_accounts = self.init_bump_accounts.clone();
+        let previous_init_space_accounts = self.init_space_accounts.clone();
         // Keep global fields, but parameters can shadow them
         self.current_function = Some(name.to_string());
+        self.init_bump_accounts.clear();
+        self.init_space_accounts.clear();
 
         // Check parameter types are valid and add to symbol table
         // Also capture which account parameters are marked @mut
@@ -356,6 +360,13 @@ impl TypeCheckerContext {
 
             self.symbol_table
                 .insert(param.name.clone(), (param_type.clone(), is_mutable));
+
+            if let Some(init_config) = &param.init_config {
+                if init_config.seeds.is_some() {
+                    self.init_bump_accounts.insert(param.name.clone());
+                }
+                self.init_space_accounts.insert(param.name.clone());
+            }
 
             // Record definition for go-to-definition feature
             self.record_definition(
@@ -484,6 +495,8 @@ impl TypeCheckerContext {
         self.current_writable_accounts = previous_writable;
         // Restore function name
         self.current_function = previous_function;
+        self.init_bump_accounts = previous_init_bump_accounts;
+        self.init_space_accounts = previous_init_space_accounts;
 
         Ok(())
     }

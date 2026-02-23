@@ -220,6 +220,48 @@ fn test_check_struct_literal() {
 }
 
 #[test]
+fn test_check_account_ctx_core_fields() {
+    let mut checker = TypeCheckerContext::new();
+    checker.symbol_table.insert("vault".to_string(), (TypeNode::Account, false));
+
+    let lamports_expr = AstNode::FieldAccess {
+        object: Box::new(AstNode::FieldAccess {
+            object: Box::new(AstNode::Identifier("vault".to_string())),
+            field: "ctx".to_string(),
+        }),
+        field: "lamports".to_string(),
+    };
+    assert!(checker.check_expression(&lamports_expr).is_ok());
+    assert_eq!(
+        checker.infer_type(&lamports_expr).expect("infer lamports"),
+        TypeNode::Primitive("u64".to_string())
+    );
+}
+
+#[test]
+fn test_check_account_ctx_bump_requires_seeded_init_context() {
+    let mut checker = TypeCheckerContext::new();
+    checker.symbol_table.insert("vault".to_string(), (TypeNode::Account, false));
+
+    let bump_expr = AstNode::FieldAccess {
+        object: Box::new(AstNode::FieldAccess {
+            object: Box::new(AstNode::Identifier("vault".to_string())),
+            field: "ctx".to_string(),
+        }),
+        field: "bump".to_string(),
+    };
+
+    assert!(matches!(checker.check_expression(&bump_expr), Err(VMError::UndefinedField)));
+
+    checker.init_bump_accounts.insert("vault".to_string());
+    assert!(checker.check_expression(&bump_expr).is_ok());
+    assert_eq!(
+        checker.infer_type(&bump_expr).expect("infer bump"),
+        TypeNode::Primitive("u8".to_string())
+    );
+}
+
+#[test]
 fn test_infer_pubkey_zero_constructor_type() {
     let mut checker = TypeCheckerContext::new();
     let node = AstNode::FunctionCall {

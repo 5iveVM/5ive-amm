@@ -140,16 +140,13 @@ pub main() {
 }
 
 #[test]
-fn test_cast_with_builtin_account_properties_works() {
-    // Built-in account properties (lamports, owner, key, data) should still work
-    // because they're available on any Account type
+fn test_cast_with_account_ctx_properties_works() {
     let dsl = r#"
 pub test(acc: Account @mut) {
     let x = acc as SomeAccount;
-    let l = x.lamports;  // Should work - built-in property
-    let o = x.owner;     // Should work - built-in property
-    let k = x.key;       // Should work - built-in property
-    // x.data is also built-in but less commonly used
+    let l = x.ctx.lamports;
+    let o = x.ctx.owner;
+    let k = x.ctx.key;
 }
 
 pub main() {
@@ -158,10 +155,10 @@ pub main() {
 
     let result = DslCompiler::compile_dsl(dsl);
 
-    // Should succeed - built-in properties work regardless of cast
+    // Should succeed - ctx properties work regardless of cast
     assert!(
         result.is_ok(),
-        "Built-in account properties should work on casted accounts"
+        "account.ctx properties should work on casted accounts"
     );
 }
 

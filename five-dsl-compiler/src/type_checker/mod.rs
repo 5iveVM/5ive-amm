@@ -129,6 +129,10 @@ impl types::TypeCheckerContext {
                 for instruction_def in instruction_definitions {
                     // Temporarily store the current symbol table
                     let original_symbol_table = self.symbol_table.clone();
+                    let original_init_bump_accounts = self.init_bump_accounts.clone();
+                    let original_init_space_accounts = self.init_space_accounts.clone();
+                    self.init_bump_accounts.clear();
+                    self.init_space_accounts.clear();
 
                     // Check parameter types are valid and add to symbol table for this instruction
                     if let AstNode::InstructionDefinition { parameters, .. } = instruction_def {
@@ -198,6 +202,12 @@ impl types::TypeCheckerContext {
                             };
                             self.symbol_table
                                 .insert(param.name.clone(), (param_type.clone(), is_mutable));
+                            if let Some(init_config) = &param.init_config {
+                                if init_config.seeds.is_some() {
+                                    self.init_bump_accounts.insert(param.name.clone());
+                                }
+                                self.init_space_accounts.insert(param.name.clone());
+                            }
                             all_instruction_params.insert(param.name.clone(), (param_type, is_mutable));
                             // Aggregate all parameters
                         }
@@ -210,6 +220,8 @@ impl types::TypeCheckerContext {
 
                     // Restore original symbol table for the next instruction
                     self.symbol_table = original_symbol_table;
+                    self.init_bump_accounts = original_init_bump_accounts;
+                    self.init_space_accounts = original_init_space_accounts;
                 }
 
                 // Check event definitions

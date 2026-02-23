@@ -6,6 +6,42 @@ use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
 impl TypeCheckerContext {
+    fn resolve_account_ctx_field_type(
+        &self,
+        account_expr: &AstNode,
+        field: &str,
+    ) -> Result<TypeNode, VMError> {
+        let account_name = if let AstNode::Identifier(name) = account_expr {
+            name
+        } else {
+            return Err(VMError::TypeMismatch);
+        };
+
+        match field {
+            "lamports" => Ok(TypeNode::Primitive("u64".to_string())),
+            "owner" | "key" => Ok(TypeNode::Primitive("pubkey".to_string())),
+            "data" => Ok(TypeNode::Array {
+                element_type: Box::new(TypeNode::Primitive("u8".to_string())),
+                size: None,
+            }),
+            "bump" => {
+                if self.init_bump_accounts.contains(account_name) {
+                    Ok(TypeNode::Primitive("u8".to_string()))
+                } else {
+                    Err(VMError::UndefinedField)
+                }
+            }
+            "space" => {
+                if self.init_space_accounts.contains(account_name) {
+                    Ok(TypeNode::Primitive("u64".to_string()))
+                } else {
+                    Err(VMError::UndefinedField)
+                }
+            }
+            _ => Err(VMError::UndefinedField),
+        }
+    }
+
     pub(crate) fn check_expression(&mut self, expr: &AstNode) -> Result<(), VMError> {
         match expr {
             AstNode::Literal(_) => Ok(()),
@@ -150,6 +186,21 @@ impl TypeCheckerContext {
                 }
             }
             AstNode::FieldAccess { object, field } => {
+                if field == "ctx" {
+                    let object_type = self.infer_type(object)?;
+                    return if matches!(object_type, TypeNode::Account | TypeNode::Named(_)) {
+                        Ok(())
+                    } else {
+                        Err(VMError::TypeMismatch)
+                    };
+                }
+                if let AstNode::FieldAccess { object: account_expr, field: ctx_field } = object.as_ref() {
+                    if ctx_field == "ctx" {
+                        return self
+                            .resolve_account_ctx_field_type(account_expr, field)
+                            .map(|_| ());
+                    }
+                }
                 let object_type = self.infer_type(object)?;
 
                 match object_type {
@@ -177,21 +228,14 @@ impl TypeCheckerContext {
                             if account_fields.iter().any(|f| f.name == *field) {
                                 Ok(())
                             } else {
-                                self.validate_builtin_account_property(field)?;
-                                Ok(())
+                                Err(VMError::UndefinedField)
                             }
                         } else {
                             eprintln!("DEBUG: No account definition found for '{}'", name);
-                            // Not a known account type - fallback to built-in properties
-                            self.validate_builtin_account_property(field)?;
-                            Ok(())
+                            Err(VMError::UndefinedField)
                         }
                     }
-                    TypeNode::Account => {
-                        // Built-in account properties are always valid
-                        self.validate_builtin_account_property(field)?;
-                        Ok(())
-                    }
+                    TypeNode::Account => Err(VMError::UndefinedField),
                     _ => Err(VMError::TypeMismatch),
                 }
             }

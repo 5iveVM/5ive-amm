@@ -221,6 +221,37 @@ fn test_parse_field_access() {
 }
 
 #[test]
+fn test_parse_nested_ctx_field_access() {
+    // vault.ctx.bump
+    let tokens = vec![
+        Token::Identifier("vault".to_string()),
+        Token::Dot,
+        Token::Identifier("ctx".to_string()),
+        Token::Dot,
+        Token::Identifier("bump".to_string()),
+        Token::Eof,
+    ];
+    let ast = parse_expr(tokens);
+
+    match ast {
+        AstNode::FieldAccess { object, field } => {
+            assert_eq!(field, "bump");
+            match *object {
+                AstNode::FieldAccess { object: inner_obj, field: inner_field } => {
+                    assert_eq!(inner_field, "ctx");
+                    match *inner_obj {
+                        AstNode::Identifier(name) => assert_eq!(name, "vault"),
+                        _ => panic!("Expected inner object identifier"),
+                    }
+                }
+                _ => panic!("Expected nested FieldAccess for ctx"),
+            }
+        }
+        _ => panic!("Expected nested FieldAccess"),
+    }
+}
+
+#[test]
 fn test_parse_array_access() {
     // arr[0]
     let tokens = vec![

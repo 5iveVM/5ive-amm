@@ -264,11 +264,11 @@ async function getTemplateContent(name: TemplateName): Promise<string> {
     case 'airdrop-merkle':
       return `account AirdropConfig { merkle_root: u64; total_claimed: u64; }\naccount ClaimRecord { claimer: pubkey; amount: u64; claimed: bool; }\ninit_airdrop(state: AirdropConfig @mut, r: u64) { state.merkle_root = r; state.total_claimed = 0; }\nclaim(state: ClaimRecord @mut, c: pubkey, a: u64, expected: u64, cfg_root: u64) { require(expected == cfg_root); require(!state.claimed); state.claimer = c; state.amount = a; state.claimed = true; }\n`;
     case 'system-lamports':
-      return `quote_transfer(from: account, to: account, amount: u64) -> (u64, u64) { require(amount > 0); require(from.lamports >= amount); let nf = from.lamports - amount; let nt = to.lamports + amount; return (nf, nt); }\ncheck_min_balance(acc: account, min: u64) -> bool { return acc.lamports >= min; }\ntopup_needed(acc: account, min: u64) -> u64 { if (acc.lamports >= min) { return 0; } return min - acc.lamports; }\n`;
+      return `quote_transfer(from: account, to: account, amount: u64) -> (u64, u64) { require(amount > 0); require(from.ctx.lamports >= amount); let nf = from.ctx.lamports - amount; let nt = to.ctx.lamports + amount; return (nf, nt); }\ncheck_min_balance(acc: account, min: u64) -> bool { return acc.ctx.lamports >= min; }\ntopup_needed(acc: account, min: u64) -> u64 { if (acc.ctx.lamports >= min) { return 0; } return min - acc.ctx.lamports; }\n`;
     case 'interface':
       return `interface ExampleProgram @program("11111111111111111111111111111111") { do_thing @discriminator(1) (arg: u64); }\ncall_example(target: account @signer, value: u64) { ExampleProgram.do_thing(value); }\n`;
     case 'spl-token':
-      return `interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") { initialize_mint @discriminator(0) (mint: pubkey, decimals: u8, authority: pubkey, freeze_authority: pubkey); mint_to @discriminator(7) (mint: pubkey, to: pubkey, authority: pubkey, amount: u64); }\ncreate_mint(payer: account @signer, mint: account @init, decimals: u8) -> pubkey { SPLToken.initialize_mint(mint, decimals, payer, payer); return mint; }\nmint_tokens(mint: account @mut, dest: account @mut, amount: u64) { SPLToken.mint_to(mint, dest, mint, amount); }\n`;
+      return `interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") { initialize_mint @discriminator(0) (mint: pubkey, decimals: u8, authority: pubkey, freeze_authority: pubkey); mint_to @discriminator(7) (mint: pubkey, to: pubkey, authority: pubkey, amount: u64); }\ncreate_mint(payer: account @signer, mint: account @init, decimals: u8) -> pubkey { SPLToken.initialize_mint(mint.ctx.key, decimals, payer.ctx.key, payer.ctx.key); return mint.ctx.key; }\nmint_tokens(mint: account @mut, dest: account @mut, amount: u64) { SPLToken.mint_to(mint.ctx.key, dest.ctx.key, mint.ctx.key, amount); }\n`;
     
   }
 }
@@ -298,7 +298,7 @@ account VaultState {
 // Initialize vault state (sets authority; vault_account provided during deposit/withdraw)
 init_vault(state: VaultState @mut, authority: account @signer) {
     state.balance = 0;
-    state.authorized_user = authority.key;
+    state.authorized_user = authority.ctx.key;
 }
 
 // Deposit lamports into the vault: transfer from payer to vault_account
@@ -316,7 +316,7 @@ deposit(state: VaultState @mut, payer: account @signer @mut, vault_account: acco
 // - vault_account: source of lamports (vault's account)
 // - recipient: destination account to receive lamports
 withdraw(state: VaultState @mut, authority: account @signer, vault_account: account @mut, recipient: account @mut, amount: u64) {
-    require(state.authorized_user == authority.key);
+    require(state.authorized_user == authority.ctx.key);
     require(state.balance >= amount);
     SystemProgram.transfer_lamports(vault_account, recipient, amount);
     state.balance = state.balance - amount;
@@ -335,7 +335,7 @@ account EscrowState {
 }
 
 init_escrow(state: EscrowState @mut, maker: account @signer, taker: pubkey, amount: u64) {
-    state.maker = maker.key;
+    state.maker = maker.ctx.key;
     state.taker = taker;
     state.amount = amount;
     state.is_funded = false;
@@ -343,7 +343,7 @@ init_escrow(state: EscrowState @mut, maker: account @signer, taker: pubkey, amou
 }
 
 fund_escrow(state: EscrowState @mut, maker: account @signer, amount: u64) {
-    require(state.maker == maker.key);
+    require(state.maker == maker.ctx.key);
     require(amount == state.amount);
     state.is_funded = true;
 }
@@ -351,13 +351,13 @@ fund_escrow(state: EscrowState @mut, maker: account @signer, amount: u64) {
 claim_escrow(state: EscrowState @mut, taker: account @signer) {
     require(state.is_funded);
     require(!state.is_settled);
-    require(state.taker == taker.key);
+    require(state.taker == taker.ctx.key);
     state.is_settled = true;
 }
 
 cancel_escrow(state: EscrowState @mut, maker: account @signer) {
     require(!state.is_settled);
-    require(state.maker == maker.key);
+    require(state.maker == maker.ctx.key);
     state.is_funded = false;
 }
 `;
