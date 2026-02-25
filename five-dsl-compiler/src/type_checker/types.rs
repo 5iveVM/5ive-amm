@@ -63,6 +63,10 @@ pub struct TypeCheckerContext {
     pub(crate) interface_module_aliases: HashMap<String, String>,
     /// Canonical imported module alias -> full module path (for diagnostics/suggestions).
     pub(crate) imported_module_aliases: HashMap<String, String>,
+    /// Account parameter names that have seeded @init and therefore expose `account.ctx.bump`.
+    pub(crate) init_bump_accounts: HashSet<String>,
+    /// Account parameter names that have @init and therefore expose `account.ctx.space`.
+    pub(crate) init_space_accounts: HashSet<String>,
 }
 
 impl Default for TypeCheckerContext {
@@ -86,6 +90,8 @@ impl TypeCheckerContext {
             imported_external_interfaces: HashSet::new(),
             interface_module_aliases: HashMap::new(),
             imported_module_aliases: HashMap::new(),
+            init_bump_accounts: HashSet::new(),
+            init_space_accounts: HashSet::new(),
         }
     }
 

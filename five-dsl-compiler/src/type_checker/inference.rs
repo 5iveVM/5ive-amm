@@ -7,6 +7,42 @@ use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
 impl TypeCheckerContext {
+    fn infer_account_ctx_field_type(
+        &self,
+        account_expr: &AstNode,
+        field: &str,
+    ) -> Result<TypeNode, VMError> {
+        let account_name = if let AstNode::Identifier(name) = account_expr {
+            name
+        } else {
+            return Err(VMError::TypeMismatch);
+        };
+
+        match field {
+            "lamports" => Ok(TypeNode::Primitive("u64".to_string())),
+            "owner" | "key" => Ok(TypeNode::Primitive("pubkey".to_string())),
+            "data" => Ok(TypeNode::Array {
+                element_type: Box::new(TypeNode::Primitive("u8".to_string())),
+                size: None,
+            }),
+            "bump" => {
+                if self.init_bump_accounts.contains(account_name) {
+                    Ok(TypeNode::Primitive("u8".to_string()))
+                } else {
+                    Err(VMError::UndefinedField)
+                }
+            }
+            "space" => {
+                if self.init_space_accounts.contains(account_name) {
+                    Ok(TypeNode::Primitive("u64".to_string()))
+                } else {
+                    Err(VMError::UndefinedField)
+                }
+            }
+            _ => Err(VMError::UndefinedField),
+        }
+    }
+
     pub(crate) fn infer_type(&mut self, node: &AstNode) -> Result<TypeNode, VMError> {
         match node {
             AstNode::Literal(value) => {
@@ -33,7 +69,11 @@ impl TypeCheckerContext {
                 } else if let Some(type_node) = self.symbol_table.get(name) {
                     Ok(type_node.0.clone())
                 } else {
-                    Err(self.undefined_identifier_error(name))
+                    if let Some(replacement) = self.legacy_init_alias_replacement(name) {
+                        Err(VMError::undefined_identifier(name, Some(&replacement)))
+                    } else {
+                        Err(self.undefined_identifier_error(name))
+                    }
                 }
             }
             AstNode::TupleLiteral { elements } => {
@@ -240,6 +280,19 @@ impl TypeCheckerContext {
                 }
             }
             AstNode::FieldAccess { object, field } => {
+                if field == "ctx" {
+                    let object_type = self.infer_type(object)?;
+                    return if matches!(object_type, TypeNode::Account | TypeNode::Named(_)) {
+                        Ok(TypeNode::Named("AccountCtx".to_string()))
+                    } else {
+                        Err(VMError::TypeMismatch)
+                    };
+                }
+                if let AstNode::FieldAccess { object: account_expr, field: ctx_field } = object.as_ref() {
+                    if ctx_field == "ctx" {
+                        return self.infer_account_ctx_field_type(account_expr, field);
+                    }
+                }
                 let object_type = self.infer_type(object)?;
 
                 match object_type {
@@ -284,48 +337,31 @@ impl TypeCheckerContext {
                                 }
                             } else {
                                 eprintln!("DEBUG: Field '{}' not found in account fields for '{}'", field, name);
-                                // Fallback to built-in properties for account types
-                                self.validate_builtin_account_property(field)?;
-                                match field.as_str() {
-                                    "lamports" => Ok(TypeNode::Primitive("u64".to_string())),
-                                    "owner" | "key" => {
-                                        Ok(TypeNode::Primitive("pubkey".to_string()))
-                                    }
-                                    "data" => Ok(TypeNode::Array {
-                                        element_type: Box::new(TypeNode::Primitive(
-                                            "u8".to_string(),
-                                        )),
-                                        size: None,
-                                    }),
-                                    _ => Err(VMError::UndefinedField),
+                                if let Some(replacement) =
+                                    Self::legacy_account_metadata_replacement(field)
+                                {
+                                    Err(VMError::undefined_identifier(field, Some(&replacement)))
+                                } else {
+                                    Err(VMError::UndefinedField)
                                 }
                             }
                         } else {
                             eprintln!("DEBUG: No account definition found for '{}'", name);
-                            // Fallback to built-in properties for account types
-                            self.validate_builtin_account_property(field)?;
-                            match field.as_str() {
-                                "lamports" => Ok(TypeNode::Primitive("u64".to_string())),
-                                "owner" | "key" => Ok(TypeNode::Primitive("pubkey".to_string())),
-                                "data" => Ok(TypeNode::Array {
-                                    element_type: Box::new(TypeNode::Primitive("u8".to_string())),
-                                    size: None,
-                                }),
-                                _ => Err(VMError::UndefinedField),
+                            if let Some(replacement) =
+                                Self::legacy_account_metadata_replacement(field)
+                            {
+                                Err(VMError::undefined_identifier(field, Some(&replacement)))
+                            } else {
+                                Err(VMError::UndefinedField)
                             }
                         }
                     }
                     TypeNode::Account => {
-                        // Built-in account type with built-in properties
-                        self.validate_builtin_account_property(field)?;
-                        match field.as_str() {
-                            "lamports" => Ok(TypeNode::Primitive("u64".to_string())),
-                            "owner" | "key" => Ok(TypeNode::Primitive("pubkey".to_string())),
-                            "data" => Ok(TypeNode::Array {
-                                element_type: Box::new(TypeNode::Primitive("u8".to_string())),
-                                size: None,
-                            }),
-                            _ => Err(VMError::UndefinedField),
+                        if let Some(replacement) = Self::legacy_account_metadata_replacement(field)
+                        {
+                            Err(VMError::undefined_identifier(field, Some(&replacement)))
+                        } else {
+                            Err(VMError::UndefinedField)
                         }
                     }
                     _ => Err(VMError::TypeMismatch),

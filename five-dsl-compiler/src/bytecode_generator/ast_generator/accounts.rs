@@ -10,6 +10,43 @@ use crate::ast::{AstNode, TypeNode};
 
 
 impl ASTGenerator {
+    pub(crate) fn init_ctx_bump_alias(account_name: &str) -> String {
+        format!("__ctx_bump_{}", account_name)
+    }
+
+    pub(crate) fn init_ctx_space_alias(account_name: &str) -> String {
+        format!("__ctx_space_{}", account_name)
+    }
+
+    fn bind_init_bump_alias<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        alias: &str,
+    ) {
+        // Internal alias used by `account.ctx.bump` lowering.
+        if self.local_symbol_table.contains_key(alias) || self.global_symbol_table.contains_key(alias) {
+            return;
+        }
+        let slot = self.add_local_field(alias.to_string(), "u8".to_string(), false, false);
+        emitter.emit_opcode(DUP);
+        self.emit_set_local(emitter, slot, &format!("@init bump alias '{}'", alias));
+    }
+
+    fn bind_init_space_alias<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        alias: &str,
+        space: u64,
+    ) -> Result<(), VMError> {
+        if self.local_symbol_table.contains_key(alias) || self.global_symbol_table.contains_key(alias) {
+            return Ok(());
+        }
+        let slot = self.add_local_field(alias.to_string(), "u64".to_string(), false, false);
+        emitter.emit_const_u64(space)?;
+        self.emit_set_local(emitter, slot, &format!("@init space alias '{}'", alias));
+        Ok(())
+    }
+
     /// Calculate field offset within an account structure
     /// Now properly integrates with AccountSystem registry for dynamic field resolution
     pub(super) fn calculate_account_field_offset(
@@ -149,12 +186,12 @@ impl ASTGenerator {
         emitter.emit_u8(account_index); // Account index in instruction context
 
         // Generate account creation logic based on whether seeds are present
-        // Check if we need to auto-calculate space
-        // This is done if space is None in init_config
+        // Auto-calculate space when omitted in @init(...).
+        // Space defaults to account layout byte size from AccountSystem (data-only).
         let space = if let Some(s) = init_config.space {
             s
         } else {
-            // Auto-calculate space: 8 bytes (discriminator) + account struct size
+            // Auto-calculate space from account struct layout size.
             // We need to resolve the account type from the parameter
             let type_name = Self::extract_account_type_name_static(&param.param_type, self);
             
@@ -189,6 +226,8 @@ impl ASTGenerator {
             
             calculated_size
         };
+        let space_alias = Self::init_ctx_space_alias(&param.name);
+        self.bind_init_space_alias(emitter, &space_alias, space)?;
 
         // Generate account creation logic based on whether seeds are present
         match &init_config.seeds {
@@ -199,10 +238,25 @@ impl ASTGenerator {
 
                 // 1. Push Bump (Bottom of stack frame for this op)
                 if let Some(bump_var) = &init_config.bump {
+                    // Explicit bump source: load caller-provided/parsed bump variable.
+                    // If unresolved, raise a targeted error to avoid opaque identifier failures.
+                    let bump_known = self.local_symbol_table.contains_key(bump_var)
+                        || self.global_symbol_table.contains_key(bump_var);
+                    if !bump_known {
+                        println!(
+                            "DSL Compiler ERROR: unresolved bump identifier '{}' for @init seeds",
+                            bump_var
+                        );
+                        println!(
+                            "  Fix: define '{}' before use, or omit bump=... to auto-derive canonical bump",
+                            bump_var
+                        );
+                        return Err(VMError::InvalidScript);
+                    }
                     // Generate code to load the bump variable
                     self.generate_ast_node(emitter, &AstNode::Identifier(bump_var.clone()))?;
                 } else {
-                    // Dynamic bump derivation: Calculate canonical bump using FIND_PDA
+                    // Auto bump fallback: derive canonical bump using FIND_PDA.
                     // We need to push seeds first for FIND_PDA
                     for seed in seeds {
                         self.generate_ast_node(emitter, seed)?;
@@ -226,6 +280,10 @@ impl ASTGenerator {
                     emitter.emit_opcode(SWAP); // Stack: [bump, pda_pubkey]
                     emitter.emit_opcode(DROP); // Stack: [bump]
                 }
+
+                // Publish bump in an easy-to-discover local alias for this account.
+                let bump_alias = Self::init_ctx_bump_alias(&param.name);
+                self.bind_init_bump_alias(emitter, &bump_alias);
 
                 // 2. Push Seeds
                 for seed in seeds {

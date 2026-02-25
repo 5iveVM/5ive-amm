@@ -207,3 +207,254 @@ fn test_bytecode_size_increased_with_check_signer() {
         CHECK_SIGNER
     );
 }
+
+fn bytecode_contains_u64_literal(bytecode: &[u8], target: u64) -> bool {
+    let needle = target.to_le_bytes();
+    bytecode.windows(needle.len()).any(|win| win == needle)
+}
+
+#[test]
+fn test_init_with_explicit_bump_is_honored() {
+    let source = r#"
+        account Vault {
+            amount: u64
+        }
+
+        pub initialize(
+            payer: account @signer,
+            user_bump: u8,
+            vault: Vault @mut @init(payer=payer, seeds=["vault"], bump=user_bump)
+        ) {
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("Should compile with explicit bump");
+    assert!(
+        !bytecode.windows(1).any(|w| w[0] == FIND_PDA),
+        "Explicit bump path should not require FIND_PDA derivation"
+    );
+}
+
+#[test]
+fn test_init_with_seeded_auto_bump_derives_canonical_bump() {
+    let source = r#"
+        account Vault {
+            amount: u64
+        }
+
+        pub initialize(
+            payer: account @signer,
+            vault: Vault @mut @init(payer=payer, seeds=["vault"])
+        ) {
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("Should compile with auto bump derivation");
+    assert!(
+        bytecode.windows(1).any(|w| w[0] == FIND_PDA),
+        "Auto bump path should emit FIND_PDA"
+    );
+}
+
+#[test]
+fn test_init_with_seeded_auto_bump_exposes_account_ctx_bump() {
+    let source = r#"
+        account Vault {
+            amount: u64
+        }
+
+        pub initialize(
+            payer: account @signer,
+            vault: Vault @mut @init(payer=payer, seeds=["vault"])
+        ) {
+            let seen_bump: u8 = vault.ctx.bump;
+            let _x: u8 = seen_bump;
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("Should compile and expose vault.ctx.bump");
+    assert!(
+        bytecode.windows(1).any(|w| w[0] == FIND_PDA),
+        "Auto bump path should still emit FIND_PDA"
+    );
+}
+
+#[test]
+fn test_init_with_seeded_auto_bump_legacy_alias_is_removed() {
+    let source = r#"
+        account Vault {
+            amount: u64
+        }
+
+        pub initialize(
+            payer: account @signer,
+            vault: Vault @mut @init(payer=payer, seeds=["vault"])
+        ) {
+            let seen_bump: u8 = vault_bump;
+            let _x: u8 = seen_bump;
+        }
+    "#;
+
+    let err = DslCompiler::compile_dsl(source).expect_err("legacy vault_bump should fail");
+    assert!(
+        err.message.contains("cannot find value") || err.message.contains("Undefined"),
+        "Expected undefined identifier failure for removed bump alias, got: {:?}",
+        err
+    );
+    assert_eq!(
+        err.context.get_data("did_you_mean").map(String::as_str),
+        Some("vault.ctx.bump"),
+        "Expected migration hint for legacy bump alias"
+    );
+}
+
+#[test]
+fn test_init_with_legacy_space_alias_reports_ctx_hint() {
+    let source = r#"
+        account State {
+            value: u64
+        }
+
+        pub initialize(
+            payer: account @signer,
+            state: State @mut @init(payer=payer)
+        ) {
+            let s: u64 = state_space;
+            let _x: u64 = s;
+        }
+    "#;
+
+    let err = DslCompiler::compile_dsl(source).expect_err("legacy state_space should fail");
+    assert_eq!(
+        err.context.get_data("did_you_mean").map(String::as_str),
+        Some("state.ctx.space"),
+        "Expected migration hint for legacy space alias"
+    );
+}
+
+#[test]
+fn test_init_auto_space_uses_account_layout_size() {
+    let source = r#"
+        account MyAccount {
+            amount: u64,
+            owner: pubkey
+        }
+
+        pub initialize(
+            payer: account @signer,
+            state: MyAccount @mut @init(payer=payer)
+        ) {
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("Should compile with auto space");
+    // Layout is 8 (u64) + 32 (pubkey) = 40 bytes.
+    assert!(
+        bytecode_contains_u64_literal(&bytecode, 40),
+        "Auto space should include account layout size (40 bytes)"
+    );
+}
+
+#[test]
+fn test_init_explicit_space_overrides_auto_layout_size() {
+    let source = r#"
+        account MyAccount {
+            amount: u64,
+            owner: pubkey
+        }
+
+        pub initialize(
+            payer: account @signer,
+            state: MyAccount @mut @init(payer=payer, space=1234)
+        ) {
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("Should compile with explicit space");
+    assert!(
+        bytecode_contains_u64_literal(&bytecode, 1234),
+        "Explicit space should be emitted in bytecode"
+    );
+}
+
+#[test]
+fn test_account_ctx_lamports_lowers_to_get_lamports() {
+    let source = r#"
+        pub inspect(
+            payer: account @signer
+        ) {
+            let bal: u64 = payer.ctx.lamports;
+            let _x: u64 = bal;
+        }
+    "#;
+    let bytecode = DslCompiler::compile_dsl(source).expect("Should compile account.ctx.lamports");
+    assert!(
+        bytecode.windows(1).any(|w| w[0] == GET_LAMPORTS),
+        "account.ctx.lamports should lower to GET_LAMPORTS"
+    );
+}
+
+#[test]
+fn test_legacy_account_metadata_field_access_is_removed() {
+    let source = r#"
+        pub inspect(
+            payer: account @signer
+        ) {
+            let bal: u64 = payer.lamports;
+            let _x: u64 = bal;
+        }
+    "#;
+
+    let err = DslCompiler::compile_dsl(source).expect_err("legacy payer.lamports should fail");
+    assert!(
+        err.message.contains("cannot find value") || err.message.contains("Undefined"),
+        "Expected undefined identifier failure for removed metadata surface, got: {:?}",
+        err
+    );
+    assert_eq!(
+        err.context.get_data("did_you_mean").map(String::as_str),
+        Some("ctx.lamports"),
+        "Expected migration hint for legacy metadata field access"
+    );
+}
+
+#[test]
+fn test_unknown_account_field_has_no_ctx_migration_hint() {
+    let source = r#"
+        pub inspect(
+            payer: account @signer
+        ) {
+            let v: u64 = payer.xyz;
+            let _x: u64 = v;
+        }
+    "#;
+
+    let err = DslCompiler::compile_dsl(source).expect_err("unknown field should fail");
+    assert!(
+        err.context.get_data("did_you_mean").is_none(),
+        "unexpected migration hint for unrelated unknown field: {:?}",
+        err.context.get_data("did_you_mean")
+    );
+}
+
+#[test]
+fn test_account_ctx_space_available_for_init_account() {
+    let source = r#"
+        account State {
+            value: u64
+        }
+
+        pub initialize(
+            payer: account @signer,
+            state: State @mut @init(payer=payer)
+        ) {
+            let s: u64 = state.ctx.space;
+            let _y: u64 = s;
+        }
+    "#;
+    let bytecode = DslCompiler::compile_dsl(source).expect("Should compile state.ctx.space");
+    assert!(
+        bytecode_contains_u64_literal(&bytecode, 8),
+        "state.ctx.space should resolve and include layout size literal (State = 8 bytes)"
+    );
+}

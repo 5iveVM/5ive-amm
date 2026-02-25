@@ -359,6 +359,32 @@ Error [UNDEFINED_FUNCTION]: Function 'swap' not found in scope
 
 For multi-module projects, errors include module context:
 
+## Account Runtime Context
+
+Five supports a predictable per-account runtime introspection surface:
+
+- `account.ctx.lamports`
+- `account.ctx.owner`
+- `account.ctx.key`
+- `account.ctx.data`
+- `account.ctx.bump` (seeded `@init` accounts in current call context)
+- `account.ctx.space` (`@init` accounts in current call context)
+
+Example:
+
+```five
+pub initialize(
+  payer: account @signer,
+  vault: Vault @mut @init(payer=payer, seeds=["vault"])
+) {
+  require(payer.ctx.lamports > 0);
+  let b: u8 = vault.ctx.bump;
+  let s: u64 = vault.ctx.space;
+}
+```
+
+`account.ctx.*` is read-only in v1.
+
 ```
 Error [VISIBILITY_ERROR]: Function 'types::private_helper' is private
   at src/logic/swap.v:5:10

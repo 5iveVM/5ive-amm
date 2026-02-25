@@ -276,6 +276,11 @@ impl ASTGenerator {
         field: &String,
         value: &AstNode,
     ) -> Result<(), VMError> {
+        if let AstNode::FieldAccess { field: ctx_field, .. } = object {
+            if ctx_field == "ctx" {
+                return Err(VMError::ImmutableField);
+            }
+        }
         // Resolve account object and field
         if let AstNode::Identifier(account_name) = object {
             if let Some(field_info) = self.local_symbol_table.get(account_name) {
@@ -286,7 +291,6 @@ impl ASTGenerator {
 
                 // If this field name is a built-in account property name AND it's not a user-defined field
                 // of this custom account type, then disallow assignment.
-                let mut allow_builtin_lamports_assignment = false;
                 if let Some(account_system) = &self.account_system {
                     if account_system.is_builtin_account_property(field) {
                         // Check registry for a user-defined field with the same name on this account type (namespace-aware)
@@ -305,13 +309,9 @@ impl ASTGenerator {
                             .and_then(|t| t.fields.get(field))
                             .is_some();
                         if !is_custom_field {
-                            if field == "lamports" && field_info.is_mutable {
-                                allow_builtin_lamports_assignment = true;
-                            } else {
                             #[cfg(debug_assertions)]
                             println!("AST Generator: ERROR - Cannot assign to built-in account property '{}.{}'", account_name, field);
                             return Err(VMError::ImmutableField);
-                            }
                         }
                     }
                 }
@@ -372,13 +372,6 @@ impl ASTGenerator {
                 // Fallback: generate the value expression normally if we didn't handle the RHS specially
                 if !value_emitted {
                     self.generate_ast_node(emitter, value)?;
-                }
-
-                // Built-in writable property path.
-                if allow_builtin_lamports_assignment {
-                    emitter.emit_opcode(SET_LAMPORTS);
-                    emitter.emit_u8(account_offset);
-                    return Ok(());
                 }
 
                 // Handle custom account fields using AccountSystem

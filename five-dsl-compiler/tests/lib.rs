@@ -2257,7 +2257,7 @@ fn test_lamports_field_access_parsing() {
     let source = r#"
         script lamports_check {
             check_balance(@mut vault: Account) {
-                require(vault.lamports > 0);
+                require(vault.ctx.lamports > 0);
             }
         }
     "#;

@@ -43,13 +43,15 @@ Always run this sequence:
 
 1. Every account field ends with `;`.
 2. Use `account @signer` for auth params (not `pubkey @signer`).
-3. Use `.key` on `account` values for comparisons/assignments.
-4. Functions returning values must declare `-> ReturnType`.
-5. Use `0` for pubkey zero-init/revocation values. Do not use `pubkey(0)`.
-6. `string<N>` is production-safe.
-7. `require()` supports `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`, `&&`, `||`.
-8. Locals are immutable by default. Use `let mut` if reassigning.
-9. No mock timestamps/rates/auth bypasses in production logic.
+3. Use `account.ctx.key` for account pubkey access (legacy `account.key` is removed).
+4. Use `account.ctx.lamports|owner|data` for runtime account metadata (legacy direct access is removed).
+5. For seeded `@init`, use `account.ctx.bump` (legacy `<account>_bump` alias is removed).
+6. Functions returning values must declare `-> ReturnType`.
+7. Use `0` for pubkey zero-init/revocation values. Do not use `pubkey(0)`.
+8. `string<N>` is production-safe.
+9. `require()` supports `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`, `&&`, `||`.
+10. Locals are immutable by default. Use `let mut` if reassigning.
+11. No mock timestamps/rates/auth bypasses in production logic.
 
 ## 6) Stdlib and Import Contract (Mandatory)
 

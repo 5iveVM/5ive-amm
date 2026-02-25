@@ -119,3 +119,20 @@ fn test_check_while_loop() {
     };
     assert!(checker.check_statement(&node).is_ok());
 }
+
+#[test]
+fn test_field_assignment_to_account_ctx_is_read_only() {
+    let mut checker = TypeCheckerContext::new();
+    checker.symbol_table.insert("vault".to_string(), (TypeNode::Account, true));
+
+    let node = AstNode::FieldAssignment {
+        object: Box::new(AstNode::FieldAccess {
+            object: Box::new(AstNode::Identifier("vault".to_string())),
+            field: "ctx".to_string(),
+        }),
+        field: "lamports".to_string(),
+        value: Box::new(AstNode::Literal(Value::U64(1))),
+    };
+
+    assert!(matches!(checker.check_statement(&node), Err(VMError::ImmutableField)));
+}

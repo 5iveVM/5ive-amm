@@ -467,7 +467,7 @@ pub struct StructField {
 pub struct InitConfig {
     pub seeds: Option<Vec<AstNode>>, // PDA seeds like ["vault", user.key, 42]
     pub bump: Option<String>,        // Auto-generated bump variable name
-    pub space: Option<u64>,          // Account size in bytes (auto-calculated)
+    pub space: Option<u64>,          // Account size in bytes (defaults to account layout size)
     pub payer: Option<String>,       // Explicit payer account name for rent
 }
 

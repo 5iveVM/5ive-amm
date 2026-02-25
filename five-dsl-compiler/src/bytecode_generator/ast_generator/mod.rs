@@ -342,6 +342,39 @@ impl ASTGenerator {
             }
 
             AstNode::FieldAccess { object, field } => {
+                if let AstNode::FieldAccess {
+                    object: account_expr,
+                    field: ctx_field,
+                } = object.as_ref()
+                {
+                    if ctx_field == "ctx" {
+                        let AstNode::Identifier(account_name) = account_expr.as_ref() else {
+                            return Err(VMError::InvalidScript);
+                        };
+                        match field.as_str() {
+                            "lamports" | "owner" | "key" | "data" => {
+                                if let Some(account_system) = &self.account_system {
+                                    return account_system.generate_builtin_account_property_access(
+                                        emitter,
+                                        account_name,
+                                        field,
+                                        &self.local_symbol_table,
+                                    );
+                                }
+                                return Err(VMError::InvalidScript);
+                            }
+                            "bump" => {
+                                let alias = Self::init_ctx_bump_alias(account_name);
+                                return self.generate_ast_node(emitter, &AstNode::Identifier(alias));
+                            }
+                            "space" => {
+                                let alias = Self::init_ctx_space_alias(account_name);
+                                return self.generate_ast_node(emitter, &AstNode::Identifier(alias));
+                            }
+                            _ => return Err(VMError::UndefinedField),
+                        }
+                    }
+                }
                 if let AstNode::Identifier(account_name) = object.as_ref() {
                     #[cfg(debug_assertions)]
                     println!(
@@ -388,24 +421,8 @@ impl ASTGenerator {
                             }
                         }
 
-                        // Check if this is a built-in account property
-                        // BUT only if it is NOT a user-defined field (shadowing support)
                         if !field_found_in_registry {
-                            if let Some(account_system) = &self.account_system {
-                                if account_system.is_builtin_account_property(field) {
-                                    #[cfg(debug_assertions)]
-                                    println!(
-                                        "AST Generator: Using built-in property access for '{}.{}'",
-                                        account_name, field
-                                    );
-                                    return account_system.generate_builtin_account_property_access(
-                                        emitter,
-                                        account_name,
-                                        field,
-                                        &self.local_symbol_table,
-                                    );
-                                }
-                            }
+                            return Err(VMError::UndefinedField);
                         }
 
                         // Calculate field offset within account using the account type
