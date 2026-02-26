@@ -65,14 +65,14 @@ pub update_authority(
     authority: account @signer,
     next_authority: pubkey
 ) {
-    require(state.authority == authority.key);
+    require(state.authority == authority.ctx.key);
     state.authority = next_authority;
 }
 ```
 
 Rules:
 1. signer params are `account @signer`
-2. use `.key` when comparing or assigning pubkeys from account params
+2. use `.ctx.key` when comparing or assigning pubkeys from account params
 
 ### Zero pubkey sentinel
 
@@ -90,7 +90,7 @@ pub initialize(
     state: Vault @mut @init(payer=creator, space=128) @signer,
     creator: account @mut @signer
 ) {
-    state.authority = creator.key;
+    state.authority = creator.ctx.key;
     state.balance = 0;
     state.status = 1;
 }
@@ -114,7 +114,12 @@ Rules:
 
 Use stdlib wrappers via module import:
 1. `use std::builtins;`
-2. call `builtins::now_seconds()`, `builtins::abort_now()`, `builtins::panic_now(...)`, `builtins::hash_sha256(...)`, etc.
+2. call `builtins::now_seconds()`, `builtins::abort_now()`, `builtins::panic_now(...)`, and crypto wrappers:
+- `builtins::hash_sha256_into(input, out32)`
+- `builtins::hash_keccak256_into(input, out32)`
+- `builtins::hash_blake3_into(input, out32)`
+- `builtins::bytes_concat(left, right)`
+- `builtins::verify_ed25519_instruction(instruction_sysvar, expected_pubkey, message, signature)`
 3. full path form is valid: `std::builtins::now_seconds()`
 
 Recommended unit standards:
@@ -131,7 +136,7 @@ Recommended unit standards:
 5. Invoke interface methods with module qualification: `module_alias::method(...)`.
 6. Full-path form is valid: `std::interfaces::spl_token::transfer(...)`.
 7. Legacy object style is invalid: `SPLToken.transfer(...)`.
-8. Pass account params directly in CPI calls, not `.key`.
+8. Pass account params directly in CPI calls, not `.ctx.key`.
 9. CPI-writable accounts must be `account @mut` in caller signature.
 
 ## 6) Build and Test Commands
@@ -163,7 +168,7 @@ When compiler errors are unclear, use this fixed loop:
 3. Check parser-critical items first:
 - account field semicolons
 - init attribute order
-- signer type and `.key` usage
+- signer type and `.ctx.key` usage
 - `let` vs `let mut`
 4. Recompile immediately after each small fix.
 5. If still failing, isolate one instruction block, fix it, then merge back.

@@ -129,6 +129,10 @@ impl ASTGenerator {
                     "require" => Ok("void".to_string()),
                     "string_length" => Ok("u8".to_string()),
                     "string_concat" => Ok("string".to_string()),
+                    "bytes_concat" => Ok("string".to_string()),
+                    "verify_ed25519_instruction" | "__verify_ed25519_instruction" => {
+                        Ok("bool".to_string())
+                    }
                     "Some" => Ok("Option".to_string()), // Generic, but at least not unknown
                     _ => Ok("unknown".to_string()), // Custom functions have unknown return types
                 }

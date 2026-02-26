@@ -247,6 +247,30 @@ mod array_access_tests {
             }
         }
     }
+
+    #[test]
+    fn test_array_concat_operation() {
+        // Build [1,2] and [3,4], then concatenate -> [1,2,3,4]
+        let bytecode = build_bytecode(&[
+            0x18, 0x01, // PUSH_U8(1)
+            0x18, 0x02, // PUSH_U8(2)
+            0x61, 0x02, // PUSH_ARRAY_LITERAL(2)
+            0x18, 0x03, // PUSH_U8(3)
+            0x18, 0x04, // PUSH_U8(4)
+            0x61, 0x02, // PUSH_ARRAY_LITERAL(2)
+            0x68, // ARRAY_CONCAT
+            0x63, // ARRAY_LENGTH
+            0x07, // RETURN_VALUE
+        ]);
+
+        let result = execute_test(&bytecode, &[], &[]);
+        match result {
+            Ok(Some(Value::U8(len))) => assert_eq!(len, 4, "concatenated array length"),
+            Ok(Some(Value::U64(len))) => assert_eq!(len, 4, "concatenated array length"),
+            Ok(value) => panic!("unexpected ARRAY_CONCAT result: {:?}", value),
+            Err(e) => panic!("ARRAY_CONCAT failed: {:?}", e),
+        }
+    }
 }
 
 #[cfg(test)]

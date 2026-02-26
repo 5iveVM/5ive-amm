@@ -5,14 +5,21 @@
 //! cryptographic operations and compute unit management.
 
 use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
+use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
 
 // Syscall IDs (must match five-vm-mito/src/handlers/syscalls.rs)
 const SYSCALL_REMAINING_COMPUTE_UNITS: u8 = 50;
 const SYSCALL_SHA256: u8 = 80;
 const SYSCALL_KECCAK256: u8 = 81;
+const SYSCALL_BLAKE3: u8 = 82;
 const SYSCALL_POSEIDON: u8 = 83;
 const SYSCALL_SECP256K1_RECOVER: u8 = 84;
+const SYSCALL_VERIFY_ED25519_INSTRUCTION: u8 = 92;
+const ED25519_PROGRAM_ID_BYTES: [u8; 32] = [
+    0x03, 0x7d, 0x46, 0xd6, 0x7c, 0x93, 0xfb, 0xbe, 0x12, 0xf9, 0x42, 0x8f, 0x83, 0x8d, 0x40,
+    0xff, 0x05, 0x70, 0x74, 0x49, 0x27, 0xf4, 0x8a, 0x64, 0xfc, 0xca, 0x70, 0x44, 0x80, 0x00,
+    0x00, 0x00,
+];
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + 256);
@@ -34,6 +41,12 @@ fn execute(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
     MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
+fn execute_with_accounts(build: impl FnOnce(&mut Vec<u8>), accounts: &[AccountInfo]) -> VmResult<Option<Value>> {
+    let script = build_script(build);
+    let mut storage = StackStorage::new();
+    MitoVM::execute_direct(&script, &[], accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+}
+
 fn push_string_buffer(script: &mut Vec<u8>, length: u32) {
     script.push(PUSH_STRING);
     script.extend_from_slice(&(length as u32).to_le_bytes());
@@ -41,6 +54,12 @@ fn push_string_buffer(script: &mut Vec<u8>, length: u32) {
     for _ in 0..length {
         script.push(0);
     }
+}
+
+fn push_string_bytes(script: &mut Vec<u8>, bytes: &[u8]) {
+    script.push(PUSH_STRING);
+    script.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+    script.extend_from_slice(bytes);
 }
 
 fn push_u64_instr(script: &mut Vec<u8>, value: u64) {
@@ -112,6 +131,24 @@ fn test_syscall_keccak256() {
 }
 
 #[test]
+fn test_syscall_blake3() {
+    match execute(|script| {
+        push_string_buffer(script, 0); // Data
+        push_string_buffer(script, 32); // Result
+
+        script.push(CALL_NATIVE);
+        script.push(SYSCALL_BLAKE3);
+        script.push(PUSH_U8);
+        script.push(1);
+        script.push(RETURN_VALUE);
+    }) {
+        Ok(Some(Value::U8(1))) => println!("✅ SYSCALL_BLAKE3 executed successfully"),
+        Ok(result) => panic!("❌ Expected U8(1), got {:?}", result),
+        Err(e) => panic!("❌ Execution failed: {:?}", e),
+    }
+}
+
+#[test]
 fn test_syscall_poseidon() {
     match execute(|script| {
         // Stack: result, vals, endianness, parameters.
@@ -159,5 +196,78 @@ fn test_syscall_secp256k1_recover() {
         Ok(Some(Value::U8(1))) => println!("✅ SYSCALL_SECP256K1_RECOVER executed successfully"),
         Err(e) => panic!("❌ Execution failed: {:?}", e),
         _ => panic!("Unexpected result"),
+    }
+}
+
+#[test]
+fn test_syscall_verify_ed25519_instruction() {
+    let expected_pubkey = [11u8; 32];
+    let signature = [22u8; 64];
+    let message = [33u8; 32];
+
+    // Construct a minimal instructions-sysvar-style payload for one instruction.
+    let mut ed_data = vec![0u8; 144];
+    ed_data[0] = 1; // one signature
+    ed_data[1] = 0; // padding
+
+    // Offsets struct starts at byte 2.
+    ed_data[2..4].copy_from_slice(&48u16.to_le_bytes()); // signature_offset
+    ed_data[4..6].copy_from_slice(&u16::MAX.to_le_bytes()); // signature_instruction_index
+    ed_data[6..8].copy_from_slice(&16u16.to_le_bytes()); // public_key_offset
+    ed_data[8..10].copy_from_slice(&u16::MAX.to_le_bytes()); // public_key_instruction_index
+    ed_data[10..12].copy_from_slice(&112u16.to_le_bytes()); // message_data_offset
+    ed_data[12..14].copy_from_slice(&32u16.to_le_bytes()); // message_data_size
+    ed_data[14..16].copy_from_slice(&u16::MAX.to_le_bytes()); // message_instruction_index
+
+    ed_data[16..48].copy_from_slice(&expected_pubkey);
+    ed_data[48..112].copy_from_slice(&signature);
+    ed_data[112..144].copy_from_slice(&message);
+
+    let mut sysvar_payload = vec![];
+    sysvar_payload.extend_from_slice(&1u16.to_le_bytes()); // instruction_count
+    sysvar_payload.extend_from_slice(&4u16.to_le_bytes()); // first instruction offset
+    sysvar_payload.extend_from_slice(&0u16.to_le_bytes()); // account_count
+    sysvar_payload.extend_from_slice(&ED25519_PROGRAM_ID_BYTES); // program id
+    sysvar_payload.extend_from_slice(&(ed_data.len() as u16).to_le_bytes());
+    sysvar_payload.extend_from_slice(&ed_data);
+
+    let mut sysvar_lamports = 1u64;
+    let mut sysvar_data = sysvar_payload;
+    let sysvar_key = [42u8; 32];
+
+    let sysvar_account = AccountInfo::new(
+        &sysvar_key,
+        false,
+        false,
+        &mut sysvar_lamports,
+        &mut sysvar_data,
+        &FIVE_VM_PROGRAM_ID,
+        false,
+        0,
+    );
+    let accounts = [sysvar_account];
+
+    match execute_with_accounts(
+        |script| {
+            script.push(GET_ACCOUNT);
+            script.push(0); // instruction_sysvar account index
+
+            script.push(PUSH_PUBKEY);
+            script.extend_from_slice(&expected_pubkey);
+
+            push_string_bytes(script, &message);
+            push_string_bytes(script, &signature);
+
+            script.push(CALL_NATIVE);
+            script.push(SYSCALL_VERIFY_ED25519_INSTRUCTION);
+            script.push(RETURN_VALUE);
+        },
+        &accounts,
+    ) {
+        Ok(Some(Value::Bool(true))) => {
+            println!("✅ SYSCALL_VERIFY_ED25519_INSTRUCTION returned true");
+        }
+        Ok(result) => panic!("❌ Expected Bool(true), got {:?}", result),
+        Err(e) => panic!("❌ Execution failed: {:?}", e),
     }
 }

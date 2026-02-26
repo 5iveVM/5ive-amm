@@ -43,13 +43,14 @@ use five_protocol::{opcodes::*, ValueRef};
 #[inline(never)]
 pub fn handle_arrays(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
-        // Array creation and management (0x60-0x65)
+        // Array creation and management (0x60-0x65, 0x68)
         CREATE_ARRAY => handle_array_creation(opcode, ctx),
         PUSH_ARRAY_LITERAL => handle_array_literals(opcode, ctx),
         ARRAY_INDEX => handle_array_operations(opcode, ctx),
         ARRAY_LENGTH => handle_array_operations(opcode, ctx),
         ARRAY_SET => handle_array_operations(opcode, ctx),
         ARRAY_GET => handle_array_operations(opcode, ctx),
+        ARRAY_CONCAT => handle_array_concat(ctx),
 
         // String operations (0x66-0x67)
         PUSH_STRING_LITERAL => handle_string_operations(opcode, ctx),
@@ -61,6 +62,134 @@ pub fn handle_arrays(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             Err(VMErrorCode::InvalidInstruction)
         }
     }
+}
+
+fn extract_raw_bytes<'a>(
+    ctx: &'a mut ExecutionManager,
+    value_ref: &ValueRef,
+) -> CompactResult<(usize, [u8; 256])> {
+    let mut out = [0u8; 256];
+    match value_ref {
+        ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+            let (len, bytes) = ctx.extract_string_slice(value_ref)?;
+            let len = len as usize;
+            if len > out.len() {
+                return Err(VMErrorCode::OutOfMemory);
+            }
+            out[..len].copy_from_slice(bytes);
+            Ok((len, out))
+        }
+        ValueRef::TempRef(offset, len) => {
+            let start = *offset as usize;
+            let len = *len as usize;
+            let end = start.saturating_add(len);
+            let temp = ctx.temp_buffer();
+            if end > temp.len() || len > out.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            out[..len].copy_from_slice(&temp[start..end]);
+            Ok((len, out))
+        }
+        ValueRef::ArrayRef(id) => {
+            let start = *id as usize;
+            let temp = ctx.temp_buffer();
+            if start + 2 > temp.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+
+            let element_count = temp[start] as usize;
+            let element_type = temp[start + 1];
+            if element_count > out.len() {
+                return Err(VMErrorCode::OutOfMemory);
+            }
+
+            // Byte-array fast path used by push_raw_bytes (header type 0).
+            if element_type == 0 {
+                let data_start = start + 2;
+                let data_end = data_start.saturating_add(element_count);
+                if data_end > temp.len() {
+                    return Err(VMErrorCode::MemoryViolation);
+                }
+                out[..element_count].copy_from_slice(&temp[data_start..data_end]);
+                return Ok((element_count, out));
+            }
+
+            let mut cursor = start + 2;
+            for i in 0..element_count {
+                if cursor >= temp.len() {
+                    return Err(VMErrorCode::MemoryViolation);
+                }
+
+                match ValueRef::deserialize_from(&temp[cursor..]) {
+                    Ok(v) => {
+                        out[i] = ValueRefUtils::as_u8(v)?;
+                        cursor += v.serialized_size();
+                    }
+                    Err(_) => {
+                        let end = cursor.saturating_add(element_count);
+                        if end > temp.len() {
+                            return Err(VMErrorCode::MemoryViolation);
+                        }
+                        out[..element_count].copy_from_slice(&temp[cursor..end]);
+                        return Ok((element_count, out));
+                    }
+                }
+            }
+
+            Ok((element_count, out))
+        }
+        ValueRef::U64(0) => Ok((0, out)),
+        _ => Err(VMErrorCode::TypeMismatch),
+    }
+}
+
+fn push_raw_bytes(ctx: &mut ExecutionManager, bytes: &[u8]) -> CompactResult<()> {
+    if bytes.len() <= 62 {
+        let alloc_size = u8::try_from(bytes.len() + 2).map_err(|_| VMErrorCode::OutOfMemory)?;
+        let array_id = ctx.alloc_temp(alloc_size)?;
+        ctx.temp_buffer_mut()[array_id as usize] = bytes.len() as u8;
+        ctx.temp_buffer_mut()[array_id as usize + 1] = 0; // FIXED_SIZE byte array
+        ctx.temp_buffer_mut()[array_id as usize + 2..array_id as usize + 2 + bytes.len()]
+            .copy_from_slice(bytes);
+        ctx.push(ValueRef::ArrayRef(array_id))?;
+        return Ok(());
+    }
+
+    let heap_total = 4 + bytes.len() as u32;
+    let heap_id = ctx.heap_alloc(heap_total as usize)?;
+    ctx.get_heap_data_mut(heap_id, 4)?
+        .copy_from_slice(&(bytes.len() as u32).to_le_bytes());
+    ctx.get_heap_data_mut(heap_id + 4, bytes.len() as u32)?
+        .copy_from_slice(bytes);
+    ctx.push(ValueRef::HeapString(heap_id))?;
+    Ok(())
+}
+
+#[inline(always)]
+fn handle_array_concat(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    let right = ctx.pop()?;
+    let left = ctx.pop()?;
+
+    let (left_len, left_bytes) = extract_raw_bytes(ctx, &left)?;
+    let (right_len, right_bytes) = extract_raw_bytes(ctx, &right)?;
+
+    let total = left_len.saturating_add(right_len);
+    if total > 255 {
+        return Err(VMErrorCode::OutOfMemory);
+    }
+
+    let mut merged = [0u8; 255];
+    merged[..left_len].copy_from_slice(&left_bytes[..left_len]);
+    merged[left_len..total].copy_from_slice(&right_bytes[..right_len]);
+
+    push_raw_bytes(ctx, &merged[..total])?;
+    debug_log!(
+        "MitoVM: ARRAY_CONCAT left_len={} right_len={} total={}",
+        left_len,
+        right_len,
+        total
+    );
+    Ok(())
 }
 
 /// Handle array literal creation (PUSH_ARRAY_LITERAL)

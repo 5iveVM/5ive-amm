@@ -214,8 +214,13 @@ impl ASTGenerator {
                 if args.len() != 2 {
                     return Err(VMError::InvalidParameterCount);
                 }
-                // ARRAY_CONCAT removed - would need to use separate operations or implement differently
-                return Err(VMError::InvalidOperation); // Temporarily disabled
+                emitter.emit_opcode(ARRAY_CONCAT);
+            }
+            "bytes_concat" => {
+                if args.len() != 2 {
+                    return Err(VMError::InvalidParameterCount);
+                }
+                emitter.emit_opcode(ARRAY_CONCAT);
             }
             "Some" => {
                 // Option<T> constructor: Some(value) - wraps value in Some variant
@@ -396,10 +401,13 @@ impl ASTGenerator {
             "memcmp" => emit_syscall!(emitter, args, 73, args = 3),
 
             // Cryptography syscalls
-            "sha256" => emit_syscall!(emitter, args, 80, args = 1),
-            "keccak256" => emit_syscall!(emitter, args, 81, args = 1),
-            "blake3" => emit_syscall!(emitter, args, 82, args = 1),
+            "sha256" => emit_syscall!(emitter, args, 80, args = 2),
+            "keccak256" => emit_syscall!(emitter, args, 81, args = 2),
+            "blake3" => emit_syscall!(emitter, args, 82, args = 2),
             "secp256k1_recover" => emit_syscall!(emitter, args, 84, args = 4),
+            "verify_ed25519_instruction" | "__verify_ed25519_instruction" => {
+                emit_syscall!(emitter, args, 92, args = 4)
+            }
 
             _ => {
                 // Check for qualified function names like "math_lib::add"

@@ -10,6 +10,13 @@ use five_protocol::ValueRef;
 #[cfg(target_os = "solana")]
 use pinocchio::syscalls;
 
+// Base58: Ed25519SigVerify111111111111111111111111111
+const ED25519_PROGRAM_ID_BYTES: [u8; 32] = [
+    0x03, 0x7d, 0x46, 0xd6, 0x7c, 0x93, 0xfb, 0xbe, 0x12, 0xf9, 0x42, 0x8f, 0x83, 0x8d, 0x40,
+    0xff, 0x05, 0x70, 0x74, 0x49, 0x27, 0xf4, 0x8a, 0x64, 0xfc, 0xca, 0x70, 0x44, 0x80, 0x00,
+    0x00, 0x00,
+];
+
 /// Helper to parse data array (vals) for hash functions
 /// Returns pointer to array of slices and count
 fn parse_data_array(ctx: &mut ExecutionManager, data_ref: ValueRef) -> CompactResult<(*const u8, u64)> {
@@ -78,90 +85,221 @@ fn parse_data_array(ctx: &mut ExecutionManager, data_ref: ValueRef) -> CompactRe
     Ok((vec_ptr, 1))
 }
 
-macro_rules! impl_hash_syscall {
-    ($name:ident, $syscall:path, $log_name:expr) => {
-        #[inline(always)]
-        pub fn $name(ctx: &mut ExecutionManager) -> CompactResult<()> {
-            debug_log!($log_name);
-
-            // Pop result buffer, data array
-            // Stack: push data, push result. Pop: result, data.
-            let result_ref = ctx.pop()?;
-            let data_ref = ctx.pop()?;
-
-            // Result buffer
-            let result_ptr = match result_ref {
-                ValueRef::TempRef(offset, len) => {
-                    if len < 32 { return Err(VMErrorCode::MemoryViolation); } // Most hashes 32 bytes
-                    unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(offset as usize) }
-                }
-                ValueRef::ArrayRef(id) => {
-                     let temp_buf = ctx.temp_buffer();
-                     let start = id as usize;
-                     if start + 2 > temp_buf.len() {
-                         return Err(VMErrorCode::MemoryViolation);
-                     }
-                     let len = temp_buf[start];
-                     if len < 32 { return Err(VMErrorCode::MemoryViolation); }
-
-                     // Ensure buffer has enough space for 32 bytes
-                     if start + 2 + 32 > temp_buf.len() {
-                         return Err(VMErrorCode::MemoryViolation);
-                     }
-
-                     unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) }
-                }
-                ValueRef::StringRef(offset) => {
-                     let start = offset as usize;
-                     let temp_buf = ctx.temp_buffer();
-                     if start + 2 > temp_buf.len() {
-                         return Err(VMErrorCode::MemoryViolation);
-                     }
-                     let len = temp_buf[start];
-                     if len < 32 { return Err(VMErrorCode::MemoryViolation); }
-
-                     // Ensure buffer has enough space for 32 bytes
-                     if start + 2 + 32 > temp_buf.len() {
-                         return Err(VMErrorCode::MemoryViolation);
-                     }
-
-                     unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) }
-                }
-                ValueRef::HeapString(id) => {
-                     // Check length stored at id
-                     let len_bytes = ctx.get_heap_data(id, 4)?;
-                     let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
-                     if len < 32 { return Err(VMErrorCode::MemoryViolation); }
-
-                     ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr()
-                }
-                _ => return Err(VMErrorCode::TypeMismatch),
-            };
-
-            #[cfg(target_os = "solana")]
-            unsafe {
-                let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
-                $syscall(vals_ptr, val_len, result_ptr);
+#[inline(always)]
+fn resolve_hash_result_ptr(ctx: &mut ExecutionManager, result_ref: ValueRef) -> CompactResult<*mut u8> {
+    match result_ref {
+        ValueRef::TempRef(offset, len) => {
+            if len < 32 {
+                return Err(VMErrorCode::MemoryViolation);
             }
-            #[cfg(not(target_os = "solana"))]
-            {
-                let (_vals_ptr, _val_len) = parse_data_array(ctx, data_ref)?;
-                debug_log!(
-                    "HASH SYSCALL MOCK vals_ptr={} val_len={}",
-                    _vals_ptr as usize,
-                    _val_len
-                );
-                unsafe { *result_ptr = 0; } // Zero mock
-            }
-
-            Ok(())
+            Ok(unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(offset as usize) })
         }
-    };
+        ValueRef::ArrayRef(id) => {
+            let temp_buf = ctx.temp_buffer();
+            let start = id as usize;
+            if start + 2 > temp_buf.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            let len = temp_buf[start];
+            if len < 32 || start + 2 + 32 > temp_buf.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            Ok(unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) })
+        }
+        ValueRef::StringRef(offset) => {
+            let start = offset as usize;
+            let temp_buf = ctx.temp_buffer();
+            if start + 2 > temp_buf.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            let len = temp_buf[start];
+            if len < 32 || start + 2 + 32 > temp_buf.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            Ok(unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start + 2) })
+        }
+        ValueRef::HeapString(id) => {
+            let len_bytes = ctx.get_heap_data(id, 4)?;
+            let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
+            if len < 32 {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            Ok(ctx.get_heap_data_mut(id + 4, len)?.as_mut_ptr())
+        }
+        _ => Err(VMErrorCode::TypeMismatch),
+    }
 }
 
-impl_hash_syscall!(handle_syscall_sha256, syscalls::sol_sha256, "MitoVM: SYSCALL_SHA256");
-impl_hash_syscall!(handle_syscall_keccak256, syscalls::sol_keccak256, "MitoVM: SYSCALL_KECCAK256");
-// impl_hash_syscall!(handle_syscall_blake3, syscalls::sol_blake3, "MitoVM: SYSCALL_BLAKE3");
+#[inline(always)]
+fn copy_hash_input_bytes(
+    ctx: &mut ExecutionManager,
+    data_ref: &ValueRef,
+    out: &mut [u8],
+) -> CompactResult<usize> {
+    match data_ref {
+        ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+            let (len, bytes) = ctx.extract_string_slice(data_ref)?;
+            let len = len as usize;
+            if len > out.len() {
+                return Err(VMErrorCode::OutOfMemory);
+            }
+            out[..len].copy_from_slice(bytes);
+            Ok(len)
+        }
+        ValueRef::TempRef(offset, len) => {
+            let start = *offset as usize;
+            let len = *len as usize;
+            let end = start.saturating_add(len);
+            if end > ctx.temp_buffer().len() || len > out.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            out[..len].copy_from_slice(&ctx.temp_buffer()[start..end]);
+            Ok(len)
+        }
+        ValueRef::ArrayRef(id) => {
+            let start = *id as usize;
+            let temp = ctx.temp_buffer();
+            if start + 2 > temp.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+
+            let len = temp[start] as usize;
+            let element_type = temp[start + 1];
+            if len > out.len() {
+                return Err(VMErrorCode::OutOfMemory);
+            }
+
+            if element_type == 0 {
+                let data_start = start + 2;
+                let data_end = data_start.saturating_add(len);
+                if data_end > temp.len() {
+                    return Err(VMErrorCode::MemoryViolation);
+                }
+                out[..len].copy_from_slice(&temp[data_start..data_end]);
+                return Ok(len);
+            }
+
+            let mut cursor = start + 2;
+            for i in 0..len {
+                if cursor >= temp.len() {
+                    return Err(VMErrorCode::MemoryViolation);
+                }
+
+                match ValueRef::deserialize_from(&temp[cursor..]) {
+                    Ok(v) => {
+                        out[i] = match v {
+                            ValueRef::U8(n) => n,
+                            ValueRef::U64(n) if n <= u8::MAX as u64 => n as u8,
+                            ValueRef::I64(n) if (0..=u8::MAX as i64).contains(&n) => n as u8,
+                            _ => return Err(VMErrorCode::TypeMismatch),
+                        };
+                        cursor += v.serialized_size();
+                    }
+                    Err(_) => {
+                        let end = cursor.saturating_add(len);
+                        if end > temp.len() {
+                            return Err(VMErrorCode::MemoryViolation);
+                        }
+                        out[..len].copy_from_slice(&temp[cursor..end]);
+                        return Ok(len);
+                    }
+                }
+            }
+
+            Ok(len)
+        }
+        ValueRef::U64(0) => Ok(0),
+        _ => Err(VMErrorCode::TypeMismatch),
+    }
+}
+
+#[inline(always)]
+pub fn handle_syscall_sha256(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_SHA256");
+
+    let result_ref = ctx.pop()?;
+    let data_ref = ctx.pop()?;
+    let result_ptr = resolve_hash_result_ptr(ctx, result_ref)?;
+
+    #[cfg(target_os = "solana")]
+    unsafe {
+        let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+        syscalls::sol_sha256(vals_ptr, val_len, result_ptr);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        use solana_nostd_sha256::hashv;
+
+        let mut data_buf = [0u8; 1024];
+        let data_len = copy_hash_input_bytes(ctx, &data_ref, &mut data_buf)?;
+        let hash = hashv(&[&data_buf[..data_len]]);
+        unsafe {
+            core::ptr::copy_nonoverlapping(hash.as_ptr(), result_ptr, 32);
+        }
+    }
+
+    Ok(())
+}
+
+#[inline(always)]
+pub fn handle_syscall_keccak256(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_KECCAK256");
+
+    let result_ref = ctx.pop()?;
+    let data_ref = ctx.pop()?;
+    let result_ptr = resolve_hash_result_ptr(ctx, result_ref)?;
+
+    #[cfg(target_os = "solana")]
+    unsafe {
+        let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+        syscalls::sol_keccak256(vals_ptr, val_len, result_ptr);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        use tiny_keccak::{Hasher, Keccak};
+
+        let mut data_buf = [0u8; 1024];
+        let data_len = copy_hash_input_bytes(ctx, &data_ref, &mut data_buf)?;
+        let mut out = [0u8; 32];
+        let mut keccak = Keccak::v256();
+        keccak.update(&data_buf[..data_len]);
+        keccak.finalize(&mut out);
+        unsafe {
+            core::ptr::copy_nonoverlapping(out.as_ptr(), result_ptr, 32);
+        }
+    }
+
+    Ok(())
+}
+
+#[inline(always)]
+pub fn handle_syscall_blake3(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_BLAKE3");
+
+    let result_ref = ctx.pop()?;
+    let data_ref = ctx.pop()?;
+    let result_ptr = resolve_hash_result_ptr(ctx, result_ref)?;
+
+    #[cfg(target_os = "solana")]
+    unsafe {
+        let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
+        syscalls::sol_blake3(vals_ptr, val_len, result_ptr);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let mut data_buf = [0u8; 1024];
+        let data_len = copy_hash_input_bytes(ctx, &data_ref, &mut data_buf)?;
+        let out = blake3::hash(&data_buf[..data_len]);
+        unsafe {
+            core::ptr::copy_nonoverlapping(out.as_bytes().as_ptr(), result_ptr, 32);
+        }
+    }
+
+    Ok(())
+}
 
 // Poseidon has extra args
 #[inline(always)]
@@ -338,6 +476,221 @@ pub fn handle_syscall_secp256k1_recover(ctx: &mut ExecutionManager) -> CompactRe
          let _ = (recovery_id, hash_ptr, sig_ptr);
     }
 
+    Ok(())
+}
+
+#[inline(always)]
+fn read_u16_le(data: &[u8], offset: usize) -> CompactResult<u16> {
+    if offset + 2 > data.len() {
+        return Err(VMErrorCode::MemoryViolation);
+    }
+    Ok(u16::from_le_bytes([data[offset], data[offset + 1]]))
+}
+
+#[inline(always)]
+fn copy_bytes_for_verify(
+    ctx: &mut ExecutionManager,
+    value_ref: &ValueRef,
+    out: &mut [u8],
+) -> CompactResult<usize> {
+    match value_ref {
+        ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+            let (len, bytes) = ctx.extract_string_slice(value_ref)?;
+            let len = len as usize;
+            if len > out.len() {
+                return Err(VMErrorCode::OutOfMemory);
+            }
+            out[..len].copy_from_slice(bytes);
+            Ok(len)
+        }
+        ValueRef::TempRef(offset, len) => {
+            let start = *offset as usize;
+            let len = *len as usize;
+            let end = start.saturating_add(len);
+            if end > ctx.temp_buffer().len() || len > out.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            out[..len].copy_from_slice(&ctx.temp_buffer()[start..end]);
+            Ok(len)
+        }
+        ValueRef::ArrayRef(id) => {
+            let start = *id as usize;
+            let temp = ctx.temp_buffer();
+            if start + 2 > temp.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+
+            let len = temp[start] as usize;
+            let element_type = temp[start + 1];
+            if len > out.len() {
+                return Err(VMErrorCode::OutOfMemory);
+            }
+
+            if element_type == 0 {
+                let data_start = start + 2;
+                let data_end = data_start.saturating_add(len);
+                if data_end > temp.len() {
+                    return Err(VMErrorCode::MemoryViolation);
+                }
+                out[..len].copy_from_slice(&temp[data_start..data_end]);
+                return Ok(len);
+            }
+
+            let mut cursor = start + 2;
+            for i in 0..len {
+                if cursor >= temp.len() {
+                    return Err(VMErrorCode::MemoryViolation);
+                }
+
+                match ValueRef::deserialize_from(&temp[cursor..]) {
+                    Ok(v) => {
+                        out[i] = match v {
+                            ValueRef::U8(n) => n,
+                            ValueRef::U64(n) if n <= u8::MAX as u64 => n as u8,
+                            ValueRef::I64(n) if (0..=u8::MAX as i64).contains(&n) => n as u8,
+                            _ => return Err(VMErrorCode::TypeMismatch),
+                        };
+                        cursor += v.serialized_size();
+                    }
+                    Err(_) => {
+                        let end = cursor.saturating_add(len);
+                        if end > temp.len() {
+                            return Err(VMErrorCode::MemoryViolation);
+                        }
+                        out[..len].copy_from_slice(&temp[cursor..end]);
+                        return Ok(len);
+                    }
+                }
+            }
+
+            Ok(len)
+        }
+        ValueRef::U64(0) => Ok(0),
+        _ => Err(VMErrorCode::TypeMismatch),
+    }
+}
+
+#[inline(always)]
+pub fn handle_syscall_verify_ed25519_instruction(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    debug_log!("MitoVM: SYSCALL_VERIFY_ED25519_INSTRUCTION");
+
+    // Stack (push order): instruction_sysvar, expected_pubkey, message, signature.
+    // Pop reverse order:
+    let signature_ref = ctx.pop()?;
+    let message_ref = ctx.pop()?;
+    let expected_pubkey_ref = ctx.pop()?;
+    let instruction_sysvar_ref = ctx.pop()?;
+
+    let instruction_sysvar_idx = match instruction_sysvar_ref {
+        ValueRef::AccountRef(idx, _) => idx,
+        _ => return Err(VMErrorCode::TypeMismatch),
+    };
+
+    let expected_pubkey = ctx.extract_pubkey(&expected_pubkey_ref)?;
+
+    let mut message_buf = [0u8; 255];
+    let mut signature_buf = [0u8; 255];
+    let message_len = copy_bytes_for_verify(ctx, &message_ref, &mut message_buf)?;
+    let signature_len = copy_bytes_for_verify(ctx, &signature_ref, &mut signature_buf)?;
+
+    if signature_len != 64 {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+
+    let account = ctx.get_account_for_read(instruction_sysvar_idx)?;
+    let instruction_sysvar_data = unsafe { account.borrow_data_unchecked() };
+
+    // Instructions sysvar layout:
+    // [u16 instruction_count][u16 offset_0]...[instruction payloads]
+    let instruction_count = read_u16_le(instruction_sysvar_data, 0)? as usize;
+    if instruction_count == 0 {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+
+    let first_offset = read_u16_le(instruction_sysvar_data, 2)? as usize;
+    if first_offset >= instruction_sysvar_data.len() {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+
+    // Instruction payload layout:
+    // [u16 account_count][accounts...][program_id:32][u16 data_len][data...]
+    let account_count = read_u16_le(instruction_sysvar_data, first_offset)? as usize;
+    let mut cursor = first_offset + 2 + account_count.saturating_mul(34);
+    if cursor + 32 + 2 > instruction_sysvar_data.len() {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+
+    // For Ed25519 native verify instruction, no account metas are expected.
+    if account_count != 0 {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+
+    let program_id = &instruction_sysvar_data[cursor..cursor + 32];
+    if program_id != ED25519_PROGRAM_ID_BYTES.as_slice() {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+    cursor += 32;
+    let ix_data_len = read_u16_le(instruction_sysvar_data, cursor)? as usize;
+    cursor += 2;
+    if cursor + ix_data_len > instruction_sysvar_data.len() {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+    let ix_data = &instruction_sysvar_data[cursor..cursor + ix_data_len];
+
+    // Ed25519 instruction data layout:
+    // [u8 signature_count][u8 padding][14-byte offsets ...][payloads]
+    if ix_data.len() < 16 {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+    let signature_count = ix_data[0] as usize;
+    if signature_count != 1 {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+
+    let off = 2usize;
+    let signature_offset = read_u16_le(ix_data, off)? as usize;
+    let signature_instruction_index = read_u16_le(ix_data, off + 2)?;
+    let pubkey_offset = read_u16_le(ix_data, off + 4)? as usize;
+    let pubkey_instruction_index = read_u16_le(ix_data, off + 6)?;
+    let message_offset = read_u16_le(ix_data, off + 8)? as usize;
+    let message_size = read_u16_le(ix_data, off + 10)? as usize;
+    let message_instruction_index = read_u16_le(ix_data, off + 12)?;
+
+    if signature_instruction_index != u16::MAX
+        || pubkey_instruction_index != u16::MAX
+        || message_instruction_index != u16::MAX
+    {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+
+    if signature_offset + 64 > ix_data.len()
+        || pubkey_offset + 32 > ix_data.len()
+        || message_offset + message_size > ix_data.len()
+    {
+        ctx.push(ValueRef::Bool(false))?;
+        return Ok(());
+    }
+
+    let signed_pubkey = &ix_data[pubkey_offset..pubkey_offset + 32];
+    let signed_signature = &ix_data[signature_offset..signature_offset + 64];
+    let signed_message = &ix_data[message_offset..message_offset + message_size];
+
+    let valid = signed_pubkey == expected_pubkey.as_slice()
+        && signed_signature == &signature_buf[..64]
+        && message_size == message_len
+        && signed_message == &message_buf[..message_len];
+
+    ctx.push(ValueRef::Bool(valid))?;
     Ok(())
 }
 

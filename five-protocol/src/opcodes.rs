@@ -189,13 +189,14 @@ pub const ARRAY_INDEX: u8 = 0x62; // Array indexing operation: array[index]
 pub const ARRAY_LENGTH: u8 = 0x63; // Get array length
 pub const ARRAY_SET: u8 = 0x64; // Array element assignment
 pub const ARRAY_GET: u8 = 0x65; // Array element access
+pub const ARRAY_CONCAT: u8 = 0x68; // Concatenate two byte arrays/strings
 
 // String operations (strings are byte arrays)
 pub const PUSH_STRING_LITERAL: u8 = 0x66; // Push string literal to temp buffer
 pub const PUSH_STRING: u8 = 0x67; // PUSH_STRING length_u32 + string_data
 
 // Array utility operations
-// DUP_ADD moved to 0xE2 - slot 0x68 available
+// DUP_ADD moved to 0xE2; 0x68 now used by ARRAY_CONCAT
 
 // 0x69-0x6F available for additional array/string operations
 
@@ -1521,6 +1522,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     OpcodeInfo {
+        opcode: ARRAY_CONCAT,
+        name: "ARRAY_CONCAT",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
         opcode: PUSH_STRING_LITERAL,
         name: "PUSH_STRING_LITERAL",
         arg_type: ArgType::U8,
@@ -1817,6 +1825,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::None,
         stack_effect: -1,
         compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: ARRAY_CONCAT,
+        name: "ARRAY_CONCAT",
+        arg_type: ArgType::None,
+        stack_effect: -1,
+        compute_cost: 3,
     },
     // Constraint fused owner check
     OpcodeInfo {

@@ -64,6 +64,21 @@ Always run this sequence:
 3. Legacy object-style interface calls are invalid:
 - `SPLToken.transfer(...)` is a compile error
 4. Missing import for alias calls should be fixed by adding `use <module path>;`.
+
+## 6.1) Crypto Capability Contract (Mandatory)
+
+1. Hash builtins use explicit output buffers:
+- `sha256(input_bytes, out32)`
+- `keccak256(input_bytes, out32)`
+- `blake3(input_bytes, out32)`
+2. Preferred wrapper names (via `std::builtins`) are:
+- `hash_sha256_into(input, out)`
+- `hash_keccak256_into(input, out)`
+- `hash_blake3_into(input, out)`
+3. Byte preimage assembly should use `bytes_concat(left, right)` for deterministic composition.
+4. Ed25519 entropy/auth checks should use:
+- `verify_ed25519_instruction(instruction_sysvar, expected_pubkey, message, signature) -> bool`
+5. For production auth-sensitive randomness, no fallback path is allowed when Ed25519 verification fails.
 ## 7) Definition of Done
 
 Work is done only when all applicable items are true:

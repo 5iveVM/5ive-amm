@@ -15,16 +15,47 @@ pub panic_now(message: u64) {
     panic(message);
 }
 
-pub hash_sha256(input: u64) {
-    sha256(input);
+pub hash_sha256_into(input: u64, out: u64) {
+    sha256(input, out);
 }
 
-pub hash_keccak256(input: u64) {
-    keccak256(input);
+// Deprecated alias retained for one compatibility cycle.
+pub hash_sha256(input: u64, out: u64) {
+    sha256(input, out);
 }
 
-pub hash_blake3(input: u64) {
-    blake3(input);
+pub hash_keccak256_into(input: u64, out: u64) {
+    keccak256(input, out);
+}
+
+pub hash_keccak256(input: u64, out: u64) {
+    keccak256(input, out);
+}
+
+pub hash_blake3_into(input: u64, out: u64) {
+    blake3(input, out);
+}
+
+pub hash_blake3(input: u64, out: u64) {
+    blake3(input, out);
+}
+
+pub bytes_concat(left: u64, right: u64) -> string {
+    return string_concat(left, right);
+}
+
+pub verify_ed25519_instruction(
+    instruction_sysvar: account,
+    expected_pubkey: pubkey,
+    message: u64,
+    signature: u64
+) -> bool {
+    return __verify_ed25519_instruction(
+        instruction_sysvar,
+        expected_pubkey,
+        message,
+        signature
+    );
 }
 
 pub remaining_cu() {

@@ -26,7 +26,7 @@ Use this checklist during execution. Do not skip gates.
 - payer is `account @mut @signer`
 3. Auth and guards:
 - signer params are `account @signer`
-- verify owner/authority with `.key`
+- verify owner/authority with `.ctx.key`
 - include amount/range/state checks
 4. Local variables:
 - `let` for immutable
@@ -50,6 +50,7 @@ Use this checklist during execution. Do not skip gates.
 - wrong attribute stack order
 - immutable variable reassignment
 - wrong signer type (`pubkey @signer`)
+- stale key access (`account.key`) instead of `account.ctx.key`
 - `pubkey(0)` usage (replace with `0`)
 - CPI account type/mutability mismatch
 - unresolved module alias errors (add the missing `use <module>;` import)
@@ -141,7 +142,7 @@ Unless user asks for another format, output must contain:
 2. Attribute/init parse error:
 - enforce `Type @mut @init(...) @signer`.
 3. Signer/key access errors:
-- switch to `account @signer` and use `.key`.
+- switch to `account @signer` and use `.ctx.key`.
 4. CPI failures:
 - check interface discriminator/serializer/account types/mutability.
 5. Execution failed:

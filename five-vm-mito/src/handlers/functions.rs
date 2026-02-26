@@ -1086,7 +1086,7 @@ fn handle_call_native(ctx: &mut ExecutionManager) -> CompactResult<()> {
         // Cryptography syscalls
         SYSCALL_SHA256 => handle_syscall_sha256(ctx),
         SYSCALL_KECCAK256 => handle_syscall_keccak256(ctx),
-        // SYSCALL_BLAKE3 => handle_syscall_blake3(ctx),
+        SYSCALL_BLAKE3 => handle_syscall_blake3(ctx),
         SYSCALL_POSEIDON => handle_syscall_poseidon(ctx),
         SYSCALL_SECP256K1_RECOVER => handle_syscall_secp256k1_recover(ctx),
         SYSCALL_ALT_BN128_COMPRESSION => handle_syscall_alt_bn128_compression(ctx),
@@ -1096,6 +1096,7 @@ fn handle_call_native(ctx: &mut ExecutionManager) -> CompactResult<()> {
         SYSCALL_CURVE_MULTISCALAR_MUL => handle_syscall_curve_multiscalar_mul(ctx),
         SYSCALL_CURVE_PAIRING_MAP => handle_syscall_curve_pairing_map(ctx),
         SYSCALL_CURVE_VALIDATE_POINT => handle_syscall_curve_validate_point(ctx),
+        SYSCALL_VERIFY_ED25519_INSTRUCTION => handle_syscall_verify_ed25519_instruction(ctx),
 
         _ => {
             debug_log!("MitoVM: CALL_NATIVE invalid syscall_id={}", syscall_id);

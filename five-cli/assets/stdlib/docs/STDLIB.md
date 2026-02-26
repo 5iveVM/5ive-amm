@@ -45,6 +45,21 @@ Legacy interface object calls like `SPLToken.transfer(...)` are not supported.
 
 Use these forms as canonical stdlib module paths.
 
+## Builtins crypto support
+
+Bundled `std::builtins` supports explicit-output hash and verification flows:
+
+1. `sha256(input, out32)` and wrapper `hash_sha256_into(input, out32)`
+2. `keccak256(input, out32)` and wrapper `hash_keccak256_into(input, out32)`
+3. `blake3(input, out32)` and wrapper `hash_blake3_into(input, out32)`
+4. `bytes_concat(left, right)` for deterministic byte preimage construction
+5. `verify_ed25519_instruction(instruction_sysvar, expected_pubkey, message, signature) -> bool`
+
+Recommended practice:
+1. build preimages explicitly with `bytes_concat`
+2. hash into a fixed `[u8; 32]` output buffer
+3. gate entropy/auth-sensitive logic on `verify_ed25519_instruction(...) == true`
+
 ## Migration path
 
 Current mode is bundled/inlined stdlib.

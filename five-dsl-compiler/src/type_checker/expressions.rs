@@ -593,6 +593,43 @@ impl TypeCheckerContext {
                 }
                 Ok(TypeNode::Primitive("u64".to_string()))
             }
+            "string_concat" | "bytes_concat" => {
+                if args.len() != 2 {
+                    return Err(VMError::InvalidOperation);
+                }
+                self.infer_type(&args[0])?;
+                self.infer_type(&args[1])?;
+                Ok(TypeNode::Primitive("string".to_string()))
+            }
+            "sha256" | "keccak256" | "blake3" => {
+                // Low-level syscall ABI: hash(input_bytes, out_32_bytes) -> void.
+                if args.len() != 2 {
+                    return Err(VMError::InvalidOperation);
+                }
+                self.infer_type(&args[0])?;
+                self.infer_type(&args[1])?;
+                Ok(TypeNode::Primitive("void".to_string()))
+            }
+            "verify_ed25519_instruction" | "__verify_ed25519_instruction" => {
+                // verify_ed25519_instruction(instruction_sysvar, expected_pubkey, message, signature) -> bool
+                if args.len() != 4 {
+                    return Err(VMError::InvalidOperation);
+                }
+
+                let sysvar_ty = self.infer_type(&args[0])?;
+                if !matches!(sysvar_ty, TypeNode::Account | TypeNode::Named(_)) {
+                    return Err(VMError::TypeMismatch);
+                }
+
+                let expected_pubkey_ty = self.infer_type(&args[1])?;
+                if !matches!(expected_pubkey_ty, TypeNode::Primitive(ref t) if t == "pubkey") {
+                    return Err(VMError::TypeMismatch);
+                }
+
+                self.infer_type(&args[2])?;
+                self.infer_type(&args[3])?;
+                Ok(TypeNode::Primitive("bool".to_string()))
+            }
             "derive_pda" => {
                 // derive_pda supports multiple signatures:
                 // derive_pda(seed1, seed2, ...) -> (pubkey, u8) - Find PDA
@@ -621,13 +658,15 @@ impl TypeCheckerContext {
                 }
             }
             "invoke_signed" => {
-                // invoke_signed(instruction: Instruction, signers: [Signer]) -> void
-                if args.len() != 2 {
+                // invoke_signed(program_id, instruction_data, accounts, seeds) -> void
+                if args.len() != 4 {
                     return Err(VMError::InvalidOperation);
                 }
                 // Type check arguments but allow flexible types for now
                 self.infer_type(&args[0])?;
                 self.infer_type(&args[1])?;
+                self.infer_type(&args[2])?;
+                self.infer_type(&args[3])?;
                 Ok(TypeNode::Primitive("void".to_string()))
             }
             "transfer_lamports" => {

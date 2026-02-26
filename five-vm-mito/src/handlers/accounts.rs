@@ -107,6 +107,17 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             account_data[offset..offset + 8].copy_from_slice(&data_value.to_le_bytes());
             debug_log!("MitoVM: SAVE_ACCOUNT completed successfully");
         }
+        GET_ACCOUNT => {
+            let account_idx = ctx.fetch_byte()?;
+            // Validate account exists and is accessible in current context.
+            let _ = ctx.get_account(account_idx)?;
+            ctx.push(ValueRef::AccountRef(account_idx, 0))?;
+            debug_log!(
+                "MitoVM: GET_ACCOUNT account {} -> AccountRef({}, 0)",
+                account_idx,
+                account_idx
+            );
+        }
         GET_LAMPORTS => {
             let account_idx = ctx.fetch_byte()?;
             let account = ctx.get_account(account_idx)?;
