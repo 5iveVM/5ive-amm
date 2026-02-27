@@ -45,6 +45,9 @@ pub trait OpcodeEmitter {
     fn emit_const_u128(&mut self, value: u128) -> Result<(), VMError>;
     fn emit_const_pubkey(&mut self, value: &[u8; 32]) -> Result<(), VMError>;
     fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError>;
+    fn emit_const_bytes(&mut self, value: &[u8]) -> Result<(), VMError> {
+        self.emit_const_string(value)
+    }
     /// Intern a u16 constant in the constant pool and return its pool slot index.
     fn intern_u16_const(&mut self, value: u16) -> Result<u16, VMError>;
 }
@@ -201,6 +204,12 @@ impl OpcodeEmitter for super::DslBytecodeGenerator {
     fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError> {
         let idx = self.constant_pool.add_string(value)?;
         self.emit_pool_indexed(opcodes::PUSH_STRING, opcodes::PUSH_STRING_W, idx);
+        Ok(())
+    }
+
+    fn emit_const_bytes(&mut self, value: &[u8]) -> Result<(), VMError> {
+        let idx = self.constant_pool.add_string(value)?;
+        self.emit_pool_indexed(opcodes::PUSH_BYTES, opcodes::PUSH_BYTES_W, idx);
         Ok(())
     }
 
@@ -473,6 +482,7 @@ impl OpcodeAnalyzer {
                 | opcodes::PUSH_PUBKEY
                 | opcodes::PUSH_U128
                 | opcodes::PUSH_STRING
+                | opcodes::PUSH_BYTES
                 | opcodes::PUSH_U8_W
                 | opcodes::PUSH_U16_W
                 | opcodes::PUSH_U32_W
@@ -482,6 +492,7 @@ impl OpcodeAnalyzer {
                 | opcodes::PUSH_PUBKEY_W
                 | opcodes::PUSH_U128_W
                 | opcodes::PUSH_STRING_W
+                | opcodes::PUSH_BYTES_W
                 | opcodes::LOAD_FIELD
                 | opcodes::ADD
                 | opcodes::SUB

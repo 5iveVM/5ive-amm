@@ -7,7 +7,112 @@ use crate::FieldInfo;
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
+enum ByteArrayLiteralLowering {
+    NotApplicable,
+    Fast(Vec<u8>),
+    FallbackWarning(usize),
+}
+
+pub(super) fn fixed_u8_array_len(type_node: Option<&TypeNode>) -> Option<usize> {
+    match type_node {
+        Some(TypeNode::Array { element_type, size: Some(size) })
+            if matches!(element_type.as_ref(), TypeNode::Primitive(name) if name == "u8") =>
+        {
+            usize::try_from(*size).ok()
+        }
+        _ => None,
+    }
+}
+
+fn fixed_u8_array_len_from_type_str(type_name: &str) -> Option<usize> {
+    let inner = type_name
+        .strip_prefix("[u8;")?
+        .strip_suffix(']')?
+        .trim();
+    inner.parse::<usize>().ok()
+}
+
+fn classify_byte_array_literal(type_node: Option<&TypeNode>, value: &AstNode) -> ByteArrayLiteralLowering {
+    let expected_len = match fixed_u8_array_len(type_node) {
+        Some(len) => len,
+        None => return ByteArrayLiteralLowering::NotApplicable,
+    };
+
+    let elements = match value {
+        AstNode::ArrayLiteral { elements } => elements,
+        _ => return ByteArrayLiteralLowering::NotApplicable,
+    };
+
+    if elements.len() != expected_len {
+        return ByteArrayLiteralLowering::NotApplicable;
+    }
+
+    let mut bytes = Vec::with_capacity(elements.len());
+    for element in elements {
+        let AstNode::Literal(value) = element else {
+            return ByteArrayLiteralLowering::FallbackWarning(expected_len);
+        };
+
+        if let Some(byte) = value.as_u8() {
+            bytes.push(byte);
+            continue;
+        }
+
+        let maybe_byte = value
+            .as_u64()
+            .filter(|v| *v <= u8::MAX as u64)
+            .map(|v| v as u8)
+            .or_else(|| {
+                value
+                    .as_i64()
+                    .filter(|v| (0..=u8::MAX as i64).contains(v))
+                    .map(|v| v as u8)
+            });
+
+        match maybe_byte {
+            Some(byte) => bytes.push(byte),
+            None => return ByteArrayLiteralLowering::FallbackWarning(expected_len),
+        }
+    }
+
+    ByteArrayLiteralLowering::Fast(bytes)
+}
+
 impl ASTGenerator {
+    pub(super) fn emit_typed_byte_array_literal<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        value: &AstNode,
+        expected_len: Option<usize>,
+        context: &str,
+    ) -> Result<bool, VMError> {
+        let Some(expected_len) = expected_len else {
+            return Ok(false);
+        };
+
+        match classify_byte_array_literal(
+            Some(&TypeNode::Array {
+                element_type: Box::new(TypeNode::Primitive("u8".to_string())),
+                size: Some(expected_len as u64),
+            }),
+            value,
+        ) {
+            ByteArrayLiteralLowering::Fast(bytes) => {
+                emitter.emit_const_bytes(&bytes)?;
+                Ok(true)
+            }
+            ByteArrayLiteralLowering::FallbackWarning(expected_len) => {
+                eprintln!(
+                    "warning: {} falls back to generic `[u8; {}]` literal lowering; non-constant byte elements may still hit VM temp-buffer limits for large payloads",
+                    context,
+                    expected_len
+                );
+                Ok(false)
+            }
+            ByteArrayLiteralLowering::NotApplicable => Ok(false),
+        }
+    }
+
     pub(super) fn generate_let_statement<T: OpcodeEmitter>(
         &mut self,
         emitter: &mut T,
@@ -54,7 +159,14 @@ impl ASTGenerator {
 
         // Locals are stored in stack slots; no allocation pass is applied here.
         // Generate value first.
-        self.generate_ast_node(emitter, value)?;
+        if !self.emit_typed_byte_array_literal(
+            emitter,
+            value,
+            fixed_u8_array_len(type_annotation.as_deref()),
+            &format!("let `{}`", name),
+        )? {
+            self.generate_ast_node(emitter, value)?;
+        }
 
         // Generate local variable storage instruction with V2 optimization
         self.emit_set_local(
@@ -125,22 +237,32 @@ impl ASTGenerator {
         value: &AstNode,
     ) -> Result<(), VMError> {
         // Generate value expression
-        self.generate_ast_node(emitter, value)?;
-
         // Look up target in local symbol table
-        if let Some(field_info) = self.local_symbol_table.get(target) {
+        if let Some(field_info) = self.local_symbol_table.get(target).cloned() {
+            let field_offset = field_info.offset;
+            let field_type = field_info.field_type.clone();
+            let is_mutable = field_info.is_mutable;
             // Allow assignments to immutable fields in init blocks (constructor)
             let is_init_context = self
                 .current_function_context
                 .as_ref()
                 .is_some_and(|name| name == "__init");
-            if !field_info.is_mutable && !is_init_context {
+            if !is_mutable && !is_init_context {
                 return Err(VMError::InvalidScript); // Attempting to assign to immutable field
             }
 
+            if !self.emit_typed_byte_array_literal(
+                emitter,
+                value,
+                fixed_u8_array_len_from_type_str(&field_type),
+                &format!("assignment to `{}`", target),
+            )? {
+                self.generate_ast_node(emitter, value)?;
+            }
+
             // Optimization: use nibble immediate opcodes for indices 0-3
-            if field_info.offset <= 3 {
-                match field_info.offset {
+            if field_offset <= 3 {
+                match field_offset {
                     0 => {
                         emitter.emit_opcode(SET_LOCAL_0);
                     }
@@ -153,29 +275,41 @@ impl ASTGenerator {
                     3 => {
                         emitter.emit_opcode(SET_LOCAL_3);
                     }
-                    _ => unreachable!("Index checked to be 0-3, but got {}", field_info.offset),
+                    _ => unreachable!("Index checked to be 0-3, but got {}", field_offset),
                 }
             } else {
                 // Standard SET_LOCAL with index parameter
                 emitter.emit_opcode(SET_LOCAL);
-                emitter.emit_u8(field_info.offset as u8);
+                emitter.emit_u8(field_offset as u8);
             };
-        } else if let Some(field_info) = self.global_symbol_table.get(target) {
+        } else if let Some(field_info) = self.global_symbol_table.get(target).cloned() {
+            let field_offset = field_info.offset;
+            let field_type = field_info.field_type.clone();
+            let is_mutable = field_info.is_mutable;
             // It's a global script field, so we need to store it
             // Allow assignments to immutable fields in init blocks (constructor)
             let is_init_context = self
                 .current_function_context
                 .as_ref()
                 .is_some_and(|name| name == "__init");
-            if !field_info.is_mutable && !is_init_context {
+            if !is_mutable && !is_init_context {
                 return Err(VMError::InvalidScript); // Attempting to assign to immutable field
+            }
+
+            if !self.emit_typed_byte_array_literal(
+                emitter,
+                value,
+                fixed_u8_array_len_from_type_str(&field_type),
+                &format!("assignment to script field `{}`", target),
+            )? {
+                self.generate_ast_node(emitter, value)?;
             }
 
             // Protocol V3: STORE_FIELD account_index_u8, offset_u32
             // Script fields use account_index=0 (the script account itself)
             emitter.emit_opcode(STORE_FIELD);
             emitter.emit_u8(0); // Script account is always index 0
-            emitter.emit_u32(field_info.offset);
+            emitter.emit_u32(field_offset);
         } else {
             // Create new local variable (original fallback when no dispatcher)
             let field_info = FieldInfo {
@@ -318,9 +452,9 @@ impl ASTGenerator {
 
                 // If assigning an account parameter (RHS) into a pubkey-typed field, use the account's key implicitly
                 let mut value_emitted = false;
+                let mut target_field_type: Option<String> = None;
                 if let AstNode::Identifier(rhs_name) = value {
                     // Determine target field type (e.g., pubkey)
-                    let mut target_field_type: Option<String> = None;
                     if let Some(account_system) = &self.account_system {
                         let namespace_suffix = format!("::{}", account_type);
                         let account_type_info = account_system
@@ -353,7 +487,7 @@ impl ASTGenerator {
                                 false
                             };
                         if rhs_is_account_param {
-                            if let Some(t) = target_field_type {
+                            if let Some(ref t) = target_field_type {
                                 if t == "pubkey" {
                                     // Use GET_KEY on the RHS account parameter instead of pushing the account ref
                                     emitter.emit_opcode(GET_KEY);
@@ -371,7 +505,17 @@ impl ASTGenerator {
 
                 // Fallback: generate the value expression normally if we didn't handle the RHS specially
                 if !value_emitted {
-                    self.generate_ast_node(emitter, value)?;
+                    let expected_len = target_field_type
+                        .as_deref()
+                        .and_then(fixed_u8_array_len_from_type_str);
+                    if !self.emit_typed_byte_array_literal(
+                        emitter,
+                        value,
+                        expected_len,
+                        &format!("field assignment to `{}.{}`", account_name, field),
+                    )? {
+                        self.generate_ast_node(emitter, value)?;
+                    }
                 }
 
                 // Handle custom account fields using AccountSystem
@@ -443,7 +587,18 @@ impl ASTGenerator {
                     );
 
                     // This is a script field assignment - generate value first
-                    self.generate_ast_node(emitter, value)?;
+                    let expected_len = self
+                        .global_symbol_table
+                        .get(account_name)
+                        .and_then(|info| fixed_u8_array_len_from_type_str(&info.field_type));
+                    if !self.emit_typed_byte_array_literal(
+                        emitter,
+                        value,
+                        expected_len,
+                        &format!("field assignment to script field `{}`", account_name),
+                    )? {
+                        self.generate_ast_node(emitter, value)?;
+                    }
 
                     // Get script field info from global symbol table
                     if let Some(script_field_info) =

@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod deploy_verification_tests {
     use five::instructions::verify_bytecode_content;
+    use five_dsl_compiler::DslCompiler;
+    use five_dsl_compiler::bytecode_generator::disassembler::BytecodeInspector;
     use five_protocol::{
         bytecode, opcodes::*,
         test_fixtures::{
@@ -171,5 +173,33 @@ mod deploy_verification_tests {
         let truncated = operand_truncation();
         assert!(verify_bytecode_content(&truncated).is_err());
         assert!(!five_protocol::parser::parse_bytecode(&truncated).errors.is_empty());
+    }
+
+    #[test]
+    fn verifier_accepts_push_bytes_bytecode() {
+        let source = r#"
+pub probe() -> u64 {
+    let payload: [u8; 64] = [
+        0, 1, 2, 3, 4, 5, 6, 7,
+        8, 9, 10, 11, 12, 13, 14, 15,
+        16, 17, 18, 19, 20, 21, 22, 23,
+        24, 25, 26, 27, 28, 29, 30, 31,
+        32, 33, 34, 35, 36, 37, 38, 39,
+        40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55,
+        56, 57, 58, 59, 60, 61, 62, 63
+    ];
+    return 1;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compile typed byte literal");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(
+            inspector.contains_opcode(PUSH_BYTES) || inspector.contains_opcode(PUSH_BYTES_W),
+            "expected compiled bytecode to use PUSH_BYTES/PUSH_BYTES_W"
+        );
+        assert!(verify_bytecode_content(&bytecode).is_ok());
     }
 }

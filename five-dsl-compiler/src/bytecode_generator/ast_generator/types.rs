@@ -76,6 +76,9 @@ pub struct ASTGenerator {
     /// Current function return type for tuple return handling
     pub(super) current_function_return_type: Option<TypeNode>,
 
+    /// User-defined function parameter types for call-site lowering.
+    pub(super) function_parameter_types: HashMap<String, Vec<TypeNode>>,
+
     /// Jumps that need to be patched with correct offsets.
     pub(super) jump_patches: Vec<JumpPatch>,
     /// BR_EQ_U8 instructions that need to be patched with correct fixed-width offsets.

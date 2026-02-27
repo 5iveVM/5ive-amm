@@ -878,6 +878,8 @@ impl DslCompiler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bytecode_generator::disassembler::BytecodeInspector;
+    use five_protocol::opcodes;
 
     #[test]
     fn bytecode_matches_with_and_without_log() {
@@ -973,5 +975,123 @@ mod tests {
         assert!(!bytecode1.is_empty());
         assert!(!bytecode2.is_empty());
         assert!(!bytecode3.is_empty());
+    }
+
+    #[test]
+    fn typed_byte_array_literals_lower_to_push_bytes() {
+        let source = r#"
+pub probe() -> u64 {
+    let payload: [u8; 64] = [
+        0, 1, 2, 3, 4, 5, 6, 7,
+        8, 9, 10, 11, 12, 13, 14, 15,
+        16, 17, 18, 19, 20, 21, 22, 23,
+        24, 25, 26, 27, 28, 29, 30, 31,
+        32, 33, 34, 35, 36, 37, 38, 39,
+        40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55,
+        56, 57, 58, 59, 60, 61, 62, 63
+    ];
+    return 1;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(inspector.contains_opcode(opcodes::PUSH_BYTES));
+        assert!(!inspector.contains_opcode(opcodes::PUSH_ARRAY_LITERAL));
+    }
+
+    #[test]
+    fn generic_arrays_still_use_push_array_literal() {
+        let source = r#"
+pub probe() -> u64 {
+    let payload = [1, 2, 3];
+    return 1;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(inspector.contains_opcode(opcodes::PUSH_ARRAY_LITERAL));
+        assert!(!inspector.contains_opcode(opcodes::PUSH_BYTES));
+    }
+
+    #[test]
+    fn typed_byte_array_reassignment_uses_push_bytes() {
+        let source = r#"
+pub probe() -> u64 {
+    let mut payload: [u8; 4] = [1, 2, 3, 4];
+    payload = [5, 6, 7, 8];
+    return 1;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(inspector.contains_opcode(opcodes::PUSH_BYTES));
+        assert!(!inspector.contains_opcode(opcodes::PUSH_ARRAY_LITERAL));
+    }
+
+    #[test]
+    fn typed_byte_array_call_arguments_use_push_bytes() {
+        let source = r#"
+fn consume(payload: [u8; 64]) -> u64 {
+    return 7;
+}
+
+pub probe() -> u64 {
+    return consume([
+        0, 1, 2, 3, 4, 5, 6, 7,
+        8, 9, 10, 11, 12, 13, 14, 15,
+        16, 17, 18, 19, 20, 21, 22, 23,
+        24, 25, 26, 27, 28, 29, 30, 31,
+        32, 33, 34, 35, 36, 37, 38, 39,
+        40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55,
+        56, 57, 58, 59, 60, 61, 62, 63
+    ]);
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(inspector.contains_opcode(opcodes::PUSH_BYTES));
+        assert!(!inspector.contains_opcode(opcodes::PUSH_ARRAY_LITERAL));
+    }
+
+    #[test]
+    fn builtin_fixed_byte_array_arguments_use_push_bytes() {
+        let source = r#"
+pub probe(owner: account @signer, instruction_sysvar: account) -> u64 {
+    let ok = verify_ed25519_instruction(
+        instruction_sysvar,
+        owner.ctx.key,
+        [1, 2, 3, 4],
+        [
+            0, 1, 2, 3, 4, 5, 6, 7,
+            8, 9, 10, 11, 12, 13, 14, 15,
+            16, 17, 18, 19, 20, 21, 22, 23,
+            24, 25, 26, 27, 28, 29, 30, 31,
+            32, 33, 34, 35, 36, 37, 38, 39,
+            40, 41, 42, 43, 44, 45, 46, 47,
+            48, 49, 50, 51, 52, 53, 54, 55,
+            56, 57, 58, 59, 60, 61, 62, 63
+        ]
+    );
+    if ok {
+        return 1;
+    }
+    return 0;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(inspector.contains_opcode(opcodes::PUSH_BYTES));
     }
 }

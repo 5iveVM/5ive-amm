@@ -1563,6 +1563,7 @@ dependencies = [
  "blake3",
  "bs58 0.5.1",
  "bytemuck",
+ "ed25519-dalek",
  "five-dsl-compiler",
  "five-protocol",
  "five-vm-mito",

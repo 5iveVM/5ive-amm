@@ -245,6 +245,14 @@ impl FunctionDispatcher {
         // Phase 2: Process account definitions
         account_system.process_account_definitions(ast)?;
 
+        if let AstNode::Program {
+            instruction_definitions,
+            ..
+        } = ast
+        {
+            ast_generator.cache_function_parameter_types(instruction_definitions);
+        }
+
         // Phase 3: Generate function dispatch logic at beginning
         // RESTORED: Dispatch logic is required as MitoVM jumps to start_ip for all functions
         self.generate_function_dispatch_logic(emitter, ast, ast_generator, account_system)?;

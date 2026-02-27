@@ -1,5 +1,6 @@
 //! Function and method call generation.
 
+use super::assignments::fixed_u8_array_len;
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
@@ -11,6 +12,41 @@ use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    fn builtin_expected_arg_type(name: &str, arg_idx: usize) -> Option<TypeNode> {
+        match (name, arg_idx) {
+            ("sha256", 1) | ("keccak256", 1) | ("blake3", 1) => Some(TypeNode::Array {
+                element_type: Box::new(TypeNode::Primitive("u8".to_string())),
+                size: Some(32),
+            }),
+            ("verify_ed25519_instruction" | "__verify_ed25519_instruction", 3) => {
+                Some(TypeNode::Array {
+                    element_type: Box::new(TypeNode::Primitive("u8".to_string())),
+                    size: Some(64),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    fn emit_argument_with_expected_type<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        arg: &AstNode,
+        expected_type: Option<&TypeNode>,
+        context: &str,
+    ) -> Result<(), VMError> {
+        if !self.emit_typed_byte_array_literal(
+            emitter,
+            arg,
+            fixed_u8_array_len(expected_type),
+            context,
+        )? {
+            self.generate_ast_node(emitter, arg)?;
+        }
+
+        Ok(())
+    }
+
     fn try_emit_unqualified_external_call<T: OpcodeEmitter>(
         &self,
         emitter: &mut T,
@@ -75,8 +111,13 @@ impl ASTGenerator {
             if let Some(ext_import) = self.external_imports.get(import_name) {
                 let ext_import = ext_import.clone();
                 // Generate arguments first (CALL_EXTERNAL pops from stack).
-                for arg in args {
-                    self.generate_ast_node(emitter, arg)?;
+                for (arg_idx, arg) in args.iter().enumerate() {
+                    self.emit_argument_with_expected_type(
+                        emitter,
+                        arg,
+                        None,
+                        &format!("call argument {} for `{}`", arg_idx, method),
+                    )?;
                 }
 
                 let selector = if let Some(sel) = ext_import.functions.get(method) {
@@ -191,8 +232,21 @@ impl ASTGenerator {
             matches!(name, "derive_pda" | "invoke_signed" | "transfer_lamports" | "close_account");
 
         if !has_custom_arg_lowering {
-            for arg in args {
-                self.generate_ast_node(emitter, arg)?;
+            let user_defined_param_types = self.function_parameter_types.get(name).cloned();
+            for (arg_idx, arg) in args.iter().enumerate() {
+                let builtin_expected_type = Self::builtin_expected_arg_type(name, arg_idx);
+                let user_expected_type = user_defined_param_types
+                    .as_ref()
+                    .and_then(|types| types.get(arg_idx))
+                    .cloned();
+                let expected_type = builtin_expected_type.or(user_expected_type);
+
+                self.emit_argument_with_expected_type(
+                    emitter,
+                    arg,
+                    expected_type.as_ref(),
+                    &format!("call argument {} for `{}`", arg_idx, name),
+                )?;
             }
         }
 

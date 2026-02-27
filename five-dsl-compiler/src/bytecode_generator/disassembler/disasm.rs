@@ -202,6 +202,15 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
+            opcodes::PUSH_BYTES => {
+                if pc + 1 < bytes.len() {
+                    lines.push(format!("{:04X}: PUSH_BYTES idx={}", pc, bytes[pc + 1]));
+                    pc += 2;
+                } else {
+                    lines.push(format!("{:04X}: PUSH_BYTES <truncated>", pc));
+                    break;
+                }
+            }
             opcodes::PUSH_U8_W
             | opcodes::PUSH_U16_W
             | opcodes::PUSH_U32_W
@@ -210,7 +219,8 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             | opcodes::PUSH_BOOL_W
             | opcodes::PUSH_U128_W
             | opcodes::PUSH_PUBKEY_W
-            | opcodes::PUSH_STRING_W => {
+            | opcodes::PUSH_STRING_W
+            | opcodes::PUSH_BYTES_W => {
                 if pc + 2 < bytes.len() {
                     let idx = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
                     lines.push(format!("{:04X}: {} idx={}", pc, five_protocol::opcodes::opcode_name(op), idx));

@@ -51,6 +51,7 @@ pub fn handle_arrays(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
         ARRAY_SET => handle_array_operations(opcode, ctx),
         ARRAY_GET => handle_array_operations(opcode, ctx),
         ARRAY_CONCAT => handle_array_concat(ctx),
+        PUSH_BYTES | PUSH_BYTES_W => handle_bytes_operations(opcode, ctx),
 
         // String operations (0x66-0x67)
         PUSH_STRING_LITERAL => handle_string_operations(opcode, ctx),
@@ -162,6 +163,45 @@ fn push_raw_bytes(ctx: &mut ExecutionManager, bytes: &[u8]) -> CompactResult<()>
     ctx.get_heap_data_mut(heap_id + 4, bytes.len() as u32)?
         .copy_from_slice(bytes);
     ctx.push(ValueRef::HeapString(heap_id))?;
+    Ok(())
+}
+
+fn push_pool_bytes(ctx: &mut ExecutionManager, idx: u16) -> CompactResult<()> {
+    if !ctx.pool_enabled() {
+        return Err(VMErrorCode::InvalidInstruction);
+    }
+
+    let slot = ctx.read_pool_slot_u64(idx)?;
+    let bytes_offset = (slot & 0xFFFF_FFFF) as u32;
+    let bytes_length = (slot >> 32) as u32;
+    debug_log!(
+        "MitoVM: PUSH_BYTES (pool) len={} offset={}",
+        bytes_length,
+        bytes_offset
+    );
+
+    let (bytes_ptr, bytes_len) = {
+        let bytes = ctx.read_string_blob(bytes_offset, bytes_length)?;
+        (bytes.as_ptr(), bytes.len())
+    };
+    // SAFETY: pointer originates from immutable bytecode backing storage.
+    let bytes = unsafe { core::slice::from_raw_parts(bytes_ptr, bytes_len) };
+    push_raw_bytes(ctx, bytes)
+}
+
+#[inline(always)]
+fn handle_bytes_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+    match opcode {
+        PUSH_BYTES => {
+            let idx = ctx.fetch_byte()? as u16;
+            push_pool_bytes(ctx, idx)?;
+        }
+        PUSH_BYTES_W => {
+            let idx = ctx.fetch_u16()?;
+            push_pool_bytes(ctx, idx)?;
+        }
+        _ => return Err(VMErrorCode::InvalidInstruction),
+    }
     Ok(())
 }
 

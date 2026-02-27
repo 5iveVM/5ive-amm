@@ -24,6 +24,7 @@ impl ASTGenerator {
             current_function_context: None,
             current_function_parameters: None,
             current_function_return_type: None,
+            function_parameter_types: HashMap::new(),
             jump_patches: Vec::new(),
             br_eq_u8_patches: Vec::new(),
             function_patches: Vec::new(),
@@ -80,6 +81,7 @@ impl ASTGenerator {
         self.field_counter = 0;
         self.account_system = None;
         self.current_function_parameters = None;
+        self.function_parameter_types.clear();
         self.jump_patches.clear();
         self.br_eq_u8_patches.clear();
         self.function_patches.clear();
@@ -110,6 +112,29 @@ impl ASTGenerator {
         _dispatcher: super::super::function_dispatch::FunctionDispatcher,
     ) {
         // Function dispatcher removed per user request
+    }
+
+    pub(crate) fn cache_function_parameter_types(
+        &mut self,
+        instruction_definitions: &[AstNode],
+    ) {
+        self.function_parameter_types.clear();
+        for instruction_def in instruction_definitions {
+            if let AstNode::InstructionDefinition {
+                name,
+                parameters,
+                ..
+            } = instruction_def
+            {
+                self.function_parameter_types.insert(
+                    name.clone(),
+                    parameters
+                        .iter()
+                        .map(|param| param.param_type.clone())
+                        .collect(),
+                );
+            }
+        }
     }
 
     /// Register an external import for CALL_EXTERNAL generation

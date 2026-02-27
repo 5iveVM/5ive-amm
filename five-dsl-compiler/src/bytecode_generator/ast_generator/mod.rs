@@ -118,6 +118,13 @@ impl ASTGenerator {
                         });
                     }
                     _ => {
+                        // Account-typed function parameters must resolve to runtime account refs.
+                        if let Some(account_idx) = self.resolve_account_param_by_name(name) {
+                            emitter.emit_opcode(GET_ACCOUNT);
+                            emitter.emit_u8(account_idx);
+                            return Ok(());
+                        }
+
                         // Look up identifier in local symbol table first
                         if let Some(field_info) = self.local_symbol_table.get(name) {
                             if field_info.is_parameter {

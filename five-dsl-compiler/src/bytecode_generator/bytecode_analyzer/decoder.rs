@@ -125,7 +125,8 @@ fn decode_operands(
             | PUSH_BOOL
             | PUSH_PUBKEY
             | PUSH_U128
-            | PUSH_STRING => {
+            | PUSH_STRING
+            | PUSH_BYTES => {
                 if analyzer.position < analyzer.bytecode.len() {
                     let value = analyzer.bytecode[analyzer.position];
                     operands.push(OperandInfo {
@@ -147,7 +148,8 @@ fn decode_operands(
             | PUSH_BOOL_W
             | PUSH_PUBKEY_W
             | PUSH_U128_W
-            | PUSH_STRING_W => {
+            | PUSH_STRING_W
+            | PUSH_BYTES_W => {
                 if analyzer.position + 1 < analyzer.bytecode.len() {
                     let value = u16::from_le_bytes([
                         analyzer.bytecode[analyzer.position],

@@ -190,6 +190,8 @@ pub const ARRAY_LENGTH: u8 = 0x63; // Get array length
 pub const ARRAY_SET: u8 = 0x64; // Array element assignment
 pub const ARRAY_GET: u8 = 0x65; // Array element access
 pub const ARRAY_CONCAT: u8 = 0x68; // Concatenate two byte arrays/strings
+pub const PUSH_BYTES: u8 = 0x69; // Constant-pool-backed raw bytes literal (u8 pool index)
+pub const PUSH_BYTES_W: u8 = 0x6A; // Constant-pool-backed raw bytes literal (u16 pool index)
 
 // String operations (strings are byte arrays)
 pub const PUSH_STRING_LITERAL: u8 = 0x66; // Push string literal to temp buffer
@@ -198,7 +200,7 @@ pub const PUSH_STRING: u8 = 0x67; // PUSH_STRING length_u32 + string_data
 // Array utility operations
 // DUP_ADD moved to 0xE2; 0x68 now used by ARRAY_CONCAT
 
-// 0x69-0x6F available for additional array/string operations
+// 0x6B-0x6F available for additional array/string operations
 
 // ===== ALL CONSTRAINT OPERATIONS (0x70-0x7F) =====
 // 🎯 LOGICAL GROUPING: All validation and constraint checking consolidated (MOVED FROM 0x60)
@@ -1529,6 +1531,20 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 3,
     },
     OpcodeInfo {
+        opcode: PUSH_BYTES,
+        name: "PUSH_BYTES",
+        arg_type: ArgType::U8,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: PUSH_BYTES_W,
+        name: "PUSH_BYTES_W",
+        arg_type: ArgType::U16,
+        stack_effect: 1,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
         opcode: PUSH_STRING_LITERAL,
         name: "PUSH_STRING_LITERAL",
         arg_type: ArgType::U8,
@@ -1966,7 +1982,8 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
             | PUSH_BOOL
             | PUSH_PUBKEY
             | PUSH_U128
-            | PUSH_STRING => return Some(1),
+            | PUSH_STRING
+            | PUSH_BYTES => return Some(1),
             PUSH_U8_W
             | PUSH_U16_W
             | PUSH_U32_W
@@ -1975,7 +1992,8 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
             | PUSH_BOOL_W
             | PUSH_U128_W
             | PUSH_PUBKEY_W
-            | PUSH_STRING_W => return Some(2),
+            | PUSH_STRING_W
+            | PUSH_BYTES_W => return Some(2),
             _ => {}
         }
     }
@@ -1991,7 +2009,7 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
                 as usize;
             return Some(4 + len);
         }
-        PUSH_ARRAY_LITERAL | PUSH_STRING_LITERAL => {
+        PUSH_ARRAY_LITERAL | PUSH_STRING_LITERAL | PUSH_BYTES => {
             if remaining.is_empty() {
                 return None;
             }
@@ -2000,6 +2018,7 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
             // additional inline operand bytes.
             return Some(1);
         }
+        PUSH_BYTES_W => return Some(2),
         // CREATE_TUPLE has an immediate tuple size byte in bytecode format.
         CREATE_TUPLE => return Some(1),
         _ => {}

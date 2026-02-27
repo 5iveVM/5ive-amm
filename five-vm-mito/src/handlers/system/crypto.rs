@@ -6,6 +6,7 @@ use crate::{
     error::{CompactResult, VMErrorCode},
 };
 use five_protocol::ValueRef;
+use pinocchio::sysvars::instructions::Instructions as InstructionSysvar;
 
 #[cfg(target_os = "solana")]
 use pinocchio::syscalls;
@@ -570,7 +571,7 @@ fn copy_bytes_for_verify(
     }
 }
 
-#[inline(always)]
+#[inline(never)]
 pub fn handle_syscall_verify_ed25519_instruction(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_VERIFY_ED25519_INSTRUCTION");
 
@@ -588,10 +589,23 @@ pub fn handle_syscall_verify_ed25519_instruction(ctx: &mut ExecutionManager) -> 
 
     let expected_pubkey = ctx.extract_pubkey(&expected_pubkey_ref)?;
 
-    let mut message_buf = [0u8; 255];
-    let mut signature_buf = [0u8; 255];
-    let message_len = copy_bytes_for_verify(ctx, &message_ref, &mut message_buf)?;
-    let signature_len = copy_bytes_for_verify(ctx, &signature_ref, &mut signature_buf)?;
+    // SBF stack is 4KB per frame; keep bounded buffers for verification inputs.
+    let mut message_buf = [0u8; 1024];
+    let mut signature_buf = [0u8; 64];
+    let message_len = match copy_bytes_for_verify(ctx, &message_ref, &mut message_buf) {
+        Ok(v) => v,
+        Err(_) => {
+            ctx.push(ValueRef::Bool(false))?;
+            return Ok(());
+        }
+    };
+    let signature_len = match copy_bytes_for_verify(ctx, &signature_ref, &mut signature_buf) {
+        Ok(v) => v,
+        Err(_) => {
+            ctx.push(ValueRef::Bool(false))?;
+            return Ok(());
+        }
+    };
 
     if signature_len != 64 {
         ctx.push(ValueRef::Bool(false))?;
@@ -600,95 +614,101 @@ pub fn handle_syscall_verify_ed25519_instruction(ctx: &mut ExecutionManager) -> 
 
     let account = ctx.get_account_for_read(instruction_sysvar_idx)?;
     let instruction_sysvar_data = unsafe { account.borrow_data_unchecked() };
+    let instructions = unsafe { InstructionSysvar::new_unchecked(instruction_sysvar_data) };
 
-    // Instructions sysvar layout:
-    // [u16 instruction_count][u16 offset_0]...[instruction payloads]
-    let instruction_count = read_u16_le(instruction_sysvar_data, 0)? as usize;
+    let instruction_count = instructions.num_instructions() as usize;
     if instruction_count == 0 {
         ctx.push(ValueRef::Bool(false))?;
         return Ok(());
     }
 
-    let first_offset = read_u16_le(instruction_sysvar_data, 2)? as usize;
-    if first_offset >= instruction_sysvar_data.len() {
-        ctx.push(ValueRef::Bool(false))?;
-        return Ok(());
-    }
+    let mut valid = false;
+    for ix_index in 0..instruction_count {
+        let ix = match instructions.load_instruction_at(ix_index) {
+            Ok(ix) => ix,
+            Err(_) => continue,
+        };
 
-    // Instruction payload layout:
-    // [u16 account_count][accounts...][program_id:32][u16 data_len][data...]
-    let account_count = read_u16_le(instruction_sysvar_data, first_offset)? as usize;
-    let mut cursor = first_offset + 2 + account_count.saturating_mul(34);
-    if cursor + 32 + 2 > instruction_sysvar_data.len() {
-        ctx.push(ValueRef::Bool(false))?;
-        return Ok(());
-    }
+        // Only inspect ed25519 precompile instructions.
+        if ix.get_program_id() != &ED25519_PROGRAM_ID_BYTES {
+            continue;
+        }
 
-    // For Ed25519 native verify instruction, no account metas are expected.
-    if account_count != 0 {
-        ctx.push(ValueRef::Bool(false))?;
-        return Ok(());
-    }
+        // For Ed25519 native verify instruction, no account metas are expected.
+        let account_count = unsafe { u16::from_le_bytes(*(ix.raw as *const [u8; 2])) } as usize;
+        if account_count != 0 {
+            continue;
+        }
 
-    let program_id = &instruction_sysvar_data[cursor..cursor + 32];
-    if program_id != ED25519_PROGRAM_ID_BYTES.as_slice() {
-        ctx.push(ValueRef::Bool(false))?;
-        return Ok(());
-    }
-    cursor += 32;
-    let ix_data_len = read_u16_le(instruction_sysvar_data, cursor)? as usize;
-    cursor += 2;
-    if cursor + ix_data_len > instruction_sysvar_data.len() {
-        ctx.push(ValueRef::Bool(false))?;
-        return Ok(());
-    }
-    let ix_data = &instruction_sysvar_data[cursor..cursor + ix_data_len];
+        let ix_data = ix.get_instruction_data();
 
-    // Ed25519 instruction data layout:
-    // [u8 signature_count][u8 padding][14-byte offsets ...][payloads]
-    if ix_data.len() < 16 {
-        ctx.push(ValueRef::Bool(false))?;
-        return Ok(());
+        // Ed25519 instruction data layout:
+        // [u8 signature_count][u8 padding][14-byte offsets ...][payloads]
+        if ix_data.len() < 16 {
+            continue;
+        }
+        let signature_count = ix_data[0] as usize;
+        if signature_count != 1 {
+            continue;
+        }
+
+        let off = 2usize;
+        let signature_offset = match read_u16_le(ix_data, off) {
+            Ok(v) => v as usize,
+            Err(_) => continue,
+        };
+        let signature_instruction_index = match read_u16_le(ix_data, off + 2) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let pubkey_offset = match read_u16_le(ix_data, off + 4) {
+            Ok(v) => v as usize,
+            Err(_) => continue,
+        };
+        let pubkey_instruction_index = match read_u16_le(ix_data, off + 6) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let message_offset = match read_u16_le(ix_data, off + 8) {
+            Ok(v) => v as usize,
+            Err(_) => continue,
+        };
+        let message_size = match read_u16_le(ix_data, off + 10) {
+            Ok(v) => v as usize,
+            Err(_) => continue,
+        };
+        let message_instruction_index = match read_u16_le(ix_data, off + 12) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        if signature_instruction_index != u16::MAX
+            || pubkey_instruction_index != u16::MAX
+            || message_instruction_index != u16::MAX
+        {
+            continue;
+        }
+
+        if signature_offset + 64 > ix_data.len()
+            || pubkey_offset + 32 > ix_data.len()
+            || message_offset + message_size > ix_data.len()
+        {
+            continue;
+        }
+
+        let signed_pubkey = &ix_data[pubkey_offset..pubkey_offset + 32];
+        let signed_signature = &ix_data[signature_offset..signature_offset + 64];
+        let signed_message = &ix_data[message_offset..message_offset + message_size];
+
+        valid = signed_pubkey == expected_pubkey.as_slice()
+            && signed_signature == &signature_buf[..64]
+            && message_size == message_len
+            && signed_message == &message_buf[..message_len];
+
+        if valid {
+            break;
+        }
     }
-    let signature_count = ix_data[0] as usize;
-    if signature_count != 1 {
-        ctx.push(ValueRef::Bool(false))?;
-        return Ok(());
-    }
-
-    let off = 2usize;
-    let signature_offset = read_u16_le(ix_data, off)? as usize;
-    let signature_instruction_index = read_u16_le(ix_data, off + 2)?;
-    let pubkey_offset = read_u16_le(ix_data, off + 4)? as usize;
-    let pubkey_instruction_index = read_u16_le(ix_data, off + 6)?;
-    let message_offset = read_u16_le(ix_data, off + 8)? as usize;
-    let message_size = read_u16_le(ix_data, off + 10)? as usize;
-    let message_instruction_index = read_u16_le(ix_data, off + 12)?;
-
-    if signature_instruction_index != u16::MAX
-        || pubkey_instruction_index != u16::MAX
-        || message_instruction_index != u16::MAX
-    {
-        ctx.push(ValueRef::Bool(false))?;
-        return Ok(());
-    }
-
-    if signature_offset + 64 > ix_data.len()
-        || pubkey_offset + 32 > ix_data.len()
-        || message_offset + message_size > ix_data.len()
-    {
-        ctx.push(ValueRef::Bool(false))?;
-        return Ok(());
-    }
-
-    let signed_pubkey = &ix_data[pubkey_offset..pubkey_offset + 32];
-    let signed_signature = &ix_data[signature_offset..signature_offset + 64];
-    let signed_message = &ix_data[message_offset..message_offset + message_size];
-
-    let valid = signed_pubkey == expected_pubkey.as_slice()
-        && signed_signature == &signature_buf[..64]
-        && message_size == message_len
-        && signed_message == &message_buf[..message_len];
 
     ctx.push(ValueRef::Bool(valid))?;
     Ok(())

@@ -103,6 +103,10 @@ impl ASTGenerator {
         // Process interface definitions (populate interface registry)
         self.process_interface_definitions(interface_definitions)?;
 
+        // Cache user-defined function parameter types so call lowering can use
+        // expected argument types at call sites.
+        self.cache_function_parameter_types(instruction_definitions);
+
         // Process init block if present
         if let Some(init) = init_block {
             self.generate_ast_node(emitter, init)?;

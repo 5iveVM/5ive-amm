@@ -41,6 +41,7 @@ serde_json = "1.0"
 spl-token = "4.0.0"
 five-dsl-compiler = { path = "../five-dsl-compiler" }
 bs58 = "0.5"
+ed25519-dalek = "1.0.1"
 
 [features]
 default = []
