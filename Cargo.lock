@@ -1649,6 +1649,8 @@ dependencies = [
  "hex",
  "pinocchio 0.9.2",
  "pinocchio-log",
+ "serde",
+ "serde_json",
  "solana-nostd-sha256",
  "solana-program-runtime",
  "solana-sdk",

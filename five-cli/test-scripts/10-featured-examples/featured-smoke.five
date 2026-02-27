@@ -1,0 +1,43 @@
+{
+  "bytecode": "NUlWRQ90AAABAQMAAQYAIAAAAEMAAAAAAAAAAAAAAADcCgAmAAABLQBxAXACyQEAAAAAAscBIAAAAAFDASAAAAAHAA==",
+  "abi": {
+    "program_name": "Module",
+    "functions": [
+      {
+        "name": "create_featured_vault",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "vault",
+            "param_type": "FeaturedVault",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "authority",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "signer"
+            ]
+          },
+          {
+            "name": "amount",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          }
+        ],
+        "return_type": "u64",
+        "is_public": true,
+        "bytecode_offset": 0
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0",
+  "metadata": {}
+}

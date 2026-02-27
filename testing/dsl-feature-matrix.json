@@ -1,0 +1,470 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "01-language-basics",
+      "description": "Core syntax, locals, public functions, and dispatch",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ]
+    },
+    {
+      "id": "02-operators-expressions",
+      "description": "Arithmetic, boolean, comparison, and expression semantics",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ]
+    },
+    {
+      "id": "03-control-flow",
+      "description": "Conditionals and loop control",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ]
+    },
+    {
+      "id": "04-account-system",
+      "description": "Account constraints and stateful account mutation",
+      "required_layers": [
+        "compiler",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ]
+    },
+    {
+      "id": "05-blockchain-integration",
+      "description": "CPI, PDA, syscalls, and integration-oriented syntax",
+      "required_layers": [
+        "compiler",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet",
+        "validator_devnet_tracked"
+      ]
+    },
+    {
+      "id": "06-advanced-features",
+      "description": "Tuples, arrays, strings, generics, and multi-parameter flows",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ]
+    },
+    {
+      "id": "07-error-system",
+      "description": "Diagnostics-only syntax and recovery coverage",
+      "required_layers": [
+        "compiler",
+        "lsp"
+      ]
+    },
+    {
+      "id": "08-match-expressions",
+      "description": "Match expressions, Option, and Result flows",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ]
+    },
+    {
+      "id": "10-featured-examples",
+      "description": "Example templates and interface-oriented smoke coverage",
+      "required_layers": [
+        "compiler",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet",
+        "validator_devnet_tracked"
+      ]
+    },
+    {
+      "id": "11-token-examples",
+      "description": "Token-oriented example contracts and end-to-end flows",
+      "required_layers": [
+        "compiler",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet",
+        "validator_devnet_tracked"
+      ]
+    },
+    {
+      "id": "99-diagnostic",
+      "description": "Targeted compiler and LSP regression fixtures",
+      "required_layers": [
+        "compiler",
+        "lsp"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "basic_simple_add",
+      "category": "01-language-basics",
+      "source": "01-language-basics/simple-add.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": true,
+        "cli": true,
+        "wasm": true,
+        "lsp": true,
+        "solana_runtime": true,
+        "validator_localnet": true,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "test-params-comment",
+      "expected_result": 30,
+      "bytecode_assertions": {
+        "must_start_with_magic": true,
+        "min_length": 8
+      },
+      "runtime_mode": "generic",
+      "validator_mode": "localnet_generic",
+      "requires_accounts": false,
+      "requires_cpi": false
+    },
+    {
+      "id": "operators_basic_arithmetic",
+      "category": "02-operators-expressions",
+      "source": "02-operators-expressions/basic-arithmetic.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": true,
+        "cli": true,
+        "wasm": true,
+        "lsp": true,
+        "solana_runtime": true,
+        "validator_localnet": true,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "inline",
+      "params": [],
+      "expected_result": 53,
+      "runtime_mode": "generic",
+      "validator_mode": "localnet_generic",
+      "requires_accounts": false,
+      "requires_cpi": false
+    },
+    {
+      "id": "control_conditionals_if",
+      "category": "03-control-flow",
+      "source": "03-control-flow/conditionals-if.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": true,
+        "cli": true,
+        "wasm": true,
+        "lsp": true,
+        "solana_runtime": true,
+        "validator_localnet": true,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "test-params-comment",
+      "expected_result": 30,
+      "runtime_mode": "generic",
+      "validator_mode": "localnet_generic",
+      "requires_accounts": false,
+      "requires_cpi": false
+    },
+    {
+      "id": "account_state_modification",
+      "category": "04-account-system",
+      "source": "04-account-system/state-modification.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": false,
+        "cli": false,
+        "wasm": false,
+        "lsp": true,
+        "solana_runtime": true,
+        "validator_localnet": true,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "inline",
+      "params": [],
+      "runtime_mode": "template_fixture",
+      "runtime_fixture": "five-templates/token/runtime-fixtures/init_mint.json",
+      "validator_mode": "sdk_suite",
+      "validator_scenario": "token_full_e2e",
+      "requires_accounts": true,
+      "requires_cpi": false
+    },
+    {
+      "id": "blockchain_cpi_tuple",
+      "category": "05-blockchain-integration",
+      "source": "05-blockchain-integration/clock-access.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": false,
+        "cli": false,
+        "wasm": false,
+        "lsp": true,
+        "solana_runtime": true,
+        "validator_localnet": true,
+        "validator_devnet_tracked": true
+      },
+      "params_source": "inline",
+      "params": [],
+      "runtime_mode": "template_fixture",
+      "runtime_fixture": "five-templates/cpi-examples/runtime-fixtures/spl-token-mint-e2e.json",
+      "validator_mode": "sdk_suite",
+      "validator_scenario": "cpi_spl_mint",
+      "requires_accounts": true,
+      "requires_cpi": true
+    },
+    {
+      "id": "advanced_multiple_parameters",
+      "category": "06-advanced-features",
+      "source": "06-advanced-features/multiple-parameters.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": true,
+        "cli": true,
+        "wasm": true,
+        "lsp": true,
+        "solana_runtime": true,
+        "validator_localnet": true,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "test-params-comment",
+      "expected_result": 60,
+      "runtime_mode": "generic",
+      "validator_mode": "localnet_generic",
+      "requires_accounts": false,
+      "requires_cpi": false
+    },
+    {
+      "id": "error_correct_syntax",
+      "category": "07-error-system",
+      "source": "07-error-system/correct-syntax.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": false,
+        "cli": false,
+        "wasm": false,
+        "lsp": true,
+        "solana_runtime": false,
+        "validator_localnet": false,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "inline",
+      "params": [],
+      "runtime_mode": "none",
+      "validator_mode": "none",
+      "requires_accounts": false,
+      "requires_cpi": false
+    },
+    {
+      "id": "error_missing_closing_brace",
+      "category": "07-error-system",
+      "source": "07-error-system/missing-closing-brace.v",
+      "kind": "negative",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": false,
+        "cli": false,
+        "wasm": false,
+        "lsp": true,
+        "solana_runtime": false,
+        "validator_localnet": false,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "inline",
+      "params": [],
+      "expected_error_contains": "end of",
+      "runtime_mode": "none",
+      "validator_mode": "none",
+      "requires_accounts": false,
+      "requires_cpi": false
+    },
+    {
+      "id": "match_simple_result",
+      "category": "08-match-expressions",
+      "source": "08-match-expressions/boolean-match.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": true,
+        "cli": true,
+        "wasm": true,
+        "lsp": true,
+        "solana_runtime": false,
+        "validator_localnet": false,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "test-params-comment",
+      "expected_result": 1,
+      "runtime_mode": "generic",
+      "validator_mode": "localnet_generic",
+      "requires_accounts": false,
+      "requires_cpi": false
+    },
+    {
+      "id": "match_runtime_validator_bridge",
+      "category": "08-match-expressions",
+      "source": "08-match-expressions/boolean-match.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": false,
+        "vm": false,
+        "cli": false,
+        "wasm": false,
+        "lsp": false,
+        "solana_runtime": true,
+        "validator_localnet": true,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "inline",
+      "params": [],
+      "runtime_mode": "template_fixture",
+      "runtime_fixture": "five-templates/branching-bench/runtime-fixtures/branching.json",
+      "validator_mode": "sdk_suite",
+      "validator_scenario": "token_full_e2e",
+      "requires_accounts": true,
+      "requires_cpi": false
+    },
+    {
+      "id": "match_malformed_arms",
+      "category": "08-match-expressions",
+      "source": "08-match-expressions/malformed-match-arms.v",
+      "kind": "negative",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": false,
+        "cli": false,
+        "wasm": false,
+        "lsp": true,
+        "solana_runtime": false,
+        "validator_localnet": false,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "inline",
+      "params": [],
+      "expected_error_contains": "end of input",
+      "runtime_mode": "none",
+      "validator_mode": "none",
+      "requires_accounts": false,
+      "requires_cpi": false
+    },
+    {
+      "id": "featured_simple_interface",
+      "category": "10-featured-examples",
+      "source": "10-featured-examples/featured-smoke.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": false,
+        "cli": false,
+        "wasm": false,
+        "lsp": true,
+        "solana_runtime": true,
+        "validator_localnet": true,
+        "validator_devnet_tracked": true
+      },
+      "params_source": "inline",
+      "params": [],
+      "runtime_mode": "template_fixture",
+      "runtime_fixture": "five-templates/cpi-examples/runtime-fixtures/anchor-program-call-e2e.json",
+      "validator_mode": "sdk_suite",
+      "validator_scenario": "cpi_anchor_program",
+      "requires_accounts": true,
+      "requires_cpi": true
+    },
+    {
+      "id": "token_native_smoke",
+      "category": "11-token-examples",
+      "source": "11-token-examples/token-smoke.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": false,
+        "cli": false,
+        "wasm": false,
+        "lsp": true,
+        "solana_runtime": true,
+        "validator_localnet": true,
+        "validator_devnet_tracked": true
+      },
+      "params_source": "inline",
+      "params": [],
+      "runtime_mode": "template_fixture",
+      "runtime_fixture": "five-templates/token/runtime-fixtures/init_mint.json",
+      "validator_mode": "sdk_suite",
+      "validator_scenario": "token_full_e2e",
+      "requires_accounts": true,
+      "requires_cpi": false
+    },
+    {
+      "id": "diagnostic_simple_add",
+      "category": "99-diagnostic",
+      "source": "99-diagnostic/test-a-simple-add.v",
+      "kind": "positive",
+      "function": 0,
+      "layers": {
+        "compiler": true,
+        "vm": false,
+        "cli": false,
+        "wasm": false,
+        "lsp": true,
+        "solana_runtime": false,
+        "validator_localnet": false,
+        "validator_devnet_tracked": false
+      },
+      "params_source": "test-params-comment",
+      "expected_result": 30,
+      "runtime_mode": "none",
+      "validator_mode": "none",
+      "requires_accounts": false,
+      "requires_cpi": false
+    }
+  ]
+}
