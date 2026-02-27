@@ -6,7 +6,8 @@ use five::state::ScriptAccountHeader;
 use five_dsl_compiler::DslCompiler;
 use harness::fixtures::canonical_execute_payload;
 use harness::validator::{
-    build_deploy_instruction, build_execute_instruction_with_extras, RuntimeAccount, ValidatorHarness,
+    build_deploy_instruction, build_execute_instruction_with_extras, RuntimeAccount,
+    ValidatorHarness,
 };
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
@@ -20,10 +21,10 @@ const MEMO_PROGRAM_ID: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 
 fn build_memo_cpi_source() -> String {
     let memo_bytes = [
-        102u8, 105, 118, 101, 45, 99, 112, 105, 45, 112, 114, 111, 98, 101, 45, 102, 105, 120,
-        101, 100, 45, 98, 121, 116, 101, 115, 45, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45,
-        65, 66, 67, 68, 69, 70, 45, 71, 72, 73, 74, 75, 76, 45, 77, 78, 79, 80, 81, 82, 45, 83,
-        84, 85, 86, 87,
+        102u8, 105, 118, 101, 45, 99, 112, 105, 45, 112, 114, 111, 98, 101, 45, 102, 105, 120, 101,
+        100, 45, 98, 121, 116, 101, 115, 45, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 65, 66,
+        67, 68, 69, 70, 45, 71, 72, 73, 74, 75, 76, 45, 77, 78, 79, 80, 81, 82, 45, 83, 84, 85, 86,
+        87,
     ];
     let memo_literal = memo_bytes
         .iter()
@@ -50,9 +51,9 @@ pub cpi_memo(memo_program: account) -> u64 {{
 fn build_memo_signer_cpi_source() -> String {
     let memo_bytes = [
         102u8, 105, 118, 101, 45, 99, 112, 105, 45, 115, 105, 103, 110, 101, 114, 45, 112, 114,
-        111, 98, 101, 45, 102, 105, 120, 101, 100, 45, 98, 121, 116, 101, 115, 45, 48, 49, 50,
-        51, 52, 53, 54, 55, 56, 57, 45, 65, 66, 67, 68, 69, 70, 45, 71, 72, 73, 74, 75, 76, 45,
-        77, 78, 79, 80, 81,
+        111, 98, 101, 45, 102, 105, 120, 101, 100, 45, 98, 121, 116, 101, 115, 45, 48, 49, 50, 51,
+        52, 53, 54, 55, 56, 57, 45, 65, 66, 67, 68, 69, 70, 45, 71, 72, 73, 74, 75, 76, 45, 77, 78,
+        79, 80, 81,
     ];
     let memo_literal = memo_bytes
         .iter()
@@ -78,10 +79,10 @@ pub cpi_memo_with_signer(memo_program: account, authority: account) -> u64 {{
 
 fn build_memo_auto_pda_cpi_source() -> String {
     let memo_bytes = [
-        102u8, 105, 118, 101, 45, 99, 112, 105, 45, 97, 117, 116, 111, 45, 112, 100, 97, 45,
-        112, 114, 111, 98, 101, 45, 102, 105, 120, 101, 100, 45, 98, 121, 116, 101, 115, 45, 48,
-        49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 65, 66, 67, 68, 69, 70, 45, 71, 72, 73, 74, 75,
-        76, 45, 77, 78, 79, 80,
+        102u8, 105, 118, 101, 45, 99, 112, 105, 45, 97, 117, 116, 111, 45, 112, 100, 97, 45, 112,
+        114, 111, 98, 101, 45, 102, 105, 120, 101, 100, 45, 98, 121, 116, 101, 115, 45, 48, 49, 50,
+        51, 52, 53, 54, 55, 56, 57, 45, 65, 66, 67, 68, 69, 70, 45, 71, 72, 73, 74, 75, 76, 45, 77,
+        78, 79,
     ];
     let memo_literal = memo_bytes
         .iter()
@@ -128,7 +129,9 @@ fn deploy_with_chunk_fallback(
     if let Ok(ok) = direct {
         return (ok.signature, ok.units_consumed);
     }
-    let err = direct.err().unwrap_or_else(|| "direct deploy failed".to_string());
+    let err = direct
+        .err()
+        .unwrap_or_else(|| "direct deploy failed".to_string());
     if !err.contains("too large") {
         panic!("deploy tx: {}", err);
     }
@@ -161,7 +164,12 @@ fn deploy_with_chunk_fallback(
         data: init_data,
     };
     let init = h
-        .send_ixs("cpi_probe_init_large", vec![init_ix], vec![], Some(1_400_000))
+        .send_ixs(
+            "cpi_probe_init_large",
+            vec![init_ix],
+            vec![],
+            Some(1_400_000),
+        )
         .expect("init large deploy");
     total_cu = total_cu.saturating_add(init.units_consumed);
     last_sig = Some(init.signature);
@@ -200,15 +208,17 @@ fn deploy_with_chunk_fallback(
         data: vec![7u8],
     };
     let finalize = h
-        .send_ixs("cpi_probe_finalize", vec![finalize_ix], vec![], Some(1_400_000))
+        .send_ixs(
+            "cpi_probe_finalize",
+            vec![finalize_ix],
+            vec![],
+            Some(1_400_000),
+        )
         .expect("finalize deploy");
     total_cu = total_cu.saturating_add(finalize.units_consumed);
     last_sig = Some(finalize.signature);
 
-    (
-        last_sig.expect("chunked deploy signature"),
-        total_cu,
-    )
+    (last_sig.expect("chunked deploy signature"), total_cu)
 }
 
 fn run_cpi_probe(
@@ -220,17 +230,13 @@ fn run_cpi_probe(
         Ok(h) => h,
         Err(e) => {
             eprintln!("SKIP {}: {}", test_name, e);
-            return (
-                Signature::default(),
-                0,
-                Signature::default(),
-                0,
-            );
+            return (Signature::default(), 0, Signature::default(), 0);
         }
     };
 
     let vm_state = h.ensure_vm_state().expect("vm_state ready");
-    h.ensure_fee_vault_shard(vm_state, 0).expect("fee vault ready");
+    h.ensure_fee_vault_shard(vm_state, 0)
+        .expect("fee vault ready");
 
     let bytecode = DslCompiler::compile_dsl(source).expect("compile memo cpi probe dsl");
 
@@ -310,7 +316,12 @@ fn run_cpi_probe(
         .send_ixs(test_name, vec![execute_ix], vec![], None)
         .expect("execute cpi probe");
 
-    (deploy_signature, deploy_cu, execute.signature, execute.units_consumed)
+    (
+        deploy_signature,
+        deploy_cu,
+        execute.signature,
+        execute.units_consumed,
+    )
 }
 
 #[test]
@@ -328,10 +339,7 @@ fn validator_cpi_fixed_bytes_probe_onchain() {
 
     println!(
         "CPI_FIXED_BYTES_PROBE deploy_signature={} deploy_cu={} execute_signature={} execute_cu={}",
-        deploy_signature,
-        deploy_cu,
-        execute_signature,
-        execute_cu
+        deploy_signature, deploy_cu, execute_signature, execute_cu
     );
 }
 

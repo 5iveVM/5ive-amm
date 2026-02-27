@@ -24,8 +24,8 @@ use solana_sdk::{
     system_program,
     transaction::Transaction,
 };
-use solana_transaction_status::UiTransactionEncoding;
 use solana_transaction_status::option_serializer::OptionSerializer;
+use solana_transaction_status::UiTransactionEncoding;
 
 use super::addresses::{canonical_execute_fee_header, fee_vault_pda, fee_vault_shard0_pda};
 use super::compile::{load_or_compile_bytecode, maybe_write_generated_v};
@@ -230,13 +230,15 @@ impl ValidatorHarness {
             Network::Devnet => "https://api.devnet.solana.com".to_string(),
         });
 
-        let payer_path = std::env::var("FIVE_CU_PAYER_KEYPAIR")
-            .map_err(|_| "missing FIVE_CU_PAYER_KEYPAIR (path to payer keypair json)".to_string())?;
+        let payer_path = std::env::var("FIVE_CU_PAYER_KEYPAIR").map_err(|_| {
+            "missing FIVE_CU_PAYER_KEYPAIR (path to payer keypair json)".to_string()
+        })?;
         let payer = read_keypair_file(&payer_path)
             .map_err(|e| format!("failed reading payer keypair {}: {}", payer_path, e))?;
 
-        let program_id_raw = std::env::var("FIVE_CU_PROGRAM_ID")
-            .map_err(|_| "missing FIVE_CU_PROGRAM_ID (pre-deployed Five VM program id)".to_string())?;
+        let program_id_raw = std::env::var("FIVE_CU_PROGRAM_ID").map_err(|_| {
+            "missing FIVE_CU_PROGRAM_ID (pre-deployed Five VM program id)".to_string()
+        })?;
         let program_id = Pubkey::from_str(&program_id_raw)
             .map_err(|e| format!("invalid FIVE_CU_PROGRAM_ID `{}`: {}", program_id_raw, e))?;
 
@@ -344,7 +346,11 @@ impl ValidatorHarness {
         Ok(vm_state)
     }
 
-    pub fn ensure_fee_vault_shard(&self, vm_state_pubkey: Pubkey, shard_index: u8) -> Result<Pubkey, String> {
+    pub fn ensure_fee_vault_shard(
+        &self,
+        vm_state_pubkey: Pubkey,
+        shard_index: u8,
+    ) -> Result<Pubkey, String> {
         let (fee_vault, bump) = fee_vault_pda(&self.program_id, shard_index);
         let init_ix = Instruction {
             program_id: self.program_id,
@@ -489,7 +495,8 @@ impl ValidatorHarness {
             rpc_url: self.rpc_url.clone(),
             program_id: self.program_id.to_string(),
             commitment: "confirmed".to_string(),
-            commit_sha: std::env::var("FIVE_CU_COMMIT_SHA").unwrap_or_else(|_| "unknown".to_string()),
+            commit_sha: std::env::var("FIVE_CU_COMMIT_SHA")
+                .unwrap_or_else(|_| "unknown".to_string()),
             cu_mode: std::env::var("FIVE_CU_MODE").unwrap_or_else(|_| "parity".to_string()),
             started_unix_ms: started,
             completed_unix_ms: completed,
@@ -499,7 +506,11 @@ impl ValidatorHarness {
         let out_path = explicit_path.unwrap_or_else(|| {
             let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
             root.join("five-solana/tests/benchmarks/validator-runs")
-                .join(format!("{}-{}-cu.json", self.network.as_str(), now_unix_ms()))
+                .join(format!(
+                    "{}-{}-cu.json",
+                    self.network.as_str(),
+                    now_unix_ms()
+                ))
         });
 
         if let Some(parent) = out_path.parent() {
@@ -548,13 +559,9 @@ fn step_signers<'a>(
             if name == authority_name {
                 return Some(&h.payer);
             }
-            accounts.get(name).and_then(|a| {
-                if a.is_signer {
-                    a.signer.as_ref()
-                } else {
-                    None
-                }
-            })
+            accounts
+                .get(name)
+                .and_then(|a| if a.is_signer { a.signer.as_ref() } else { None })
         })
         .collect()
 }
@@ -577,7 +584,11 @@ pub fn load_fixture(path: &Path) -> RuntimeFixture {
         .unwrap_or_else(|e| panic!("failed parsing fixture {}: {}", path.display(), e))
 }
 
-pub fn resolve_bytecode_path(repo_root: &Path, fixture_path: &Path, configured_path: &str) -> PathBuf {
+pub fn resolve_bytecode_path(
+    repo_root: &Path,
+    fixture_path: &Path,
+    configured_path: &str,
+) -> PathBuf {
     let configured = PathBuf::from(configured_path);
     if configured.is_absolute() {
         return configured;
@@ -727,7 +738,9 @@ fn deploy_script_with_chunk_fallback(
         return Ok(ok);
     }
 
-    let err = direct.err().unwrap_or_else(|| "direct deploy failed".to_string());
+    let err = direct
+        .err()
+        .unwrap_or_else(|| "direct deploy failed".to_string());
     if !err.contains("too large") {
         return Err(err);
     }
@@ -854,7 +867,11 @@ pub fn build_execute_instruction_with_extras(
         metas.push(AccountMeta {
             pubkey: a.pubkey,
             is_signer: a.is_signer,
-            is_writable: if is_external_script { false } else { a.is_writable },
+            is_writable: if is_external_script {
+                false
+            } else {
+                a.is_writable
+            },
         });
     }
 
@@ -895,7 +912,10 @@ pub fn build_payload(accounts: &BTreeMap<String, RuntimeAccount>, step: &StepFix
                     .iter()
                     .position(|n| n == account)
                     .unwrap_or_else(|| {
-                        panic!("account `{}` missing from extras {:?}", account, step.extras)
+                        panic!(
+                            "account `{}` missing from extras {:?}",
+                            account, step.extras
+                        )
                     });
                 params.push(TypedParam::Account((idx as u8) + 1));
             }
@@ -1016,7 +1036,11 @@ pub fn setup_accounts_for_fixture(
                 h.rent_exempt(account.data_len.max(0))?
             };
 
-            let maybe_new = if account.pubkey.is_none() { Some(Keypair::new()) } else { None };
+            let maybe_new = if account.pubkey.is_none() {
+                Some(Keypair::new())
+            } else {
+                None
+            };
             let target_pubkey = maybe_new.as_ref().map(|kp| kp.pubkey()).unwrap_or(pubkey);
 
             if maybe_new.is_some() {
@@ -1028,8 +1052,14 @@ pub fn setup_accounts_for_fixture(
                     &owner,
                 );
                 let signer = maybe_new.as_ref().expect("checked");
-                h.send_ixs("create_fixture_account", vec![create_ix], vec![signer], None)?;
-                h.pending_signers.insert(account.name.clone(), signer.insecure_clone());
+                h.send_ixs(
+                    "create_fixture_account",
+                    vec![create_ix],
+                    vec![signer],
+                    None,
+                )?;
+                h.pending_signers
+                    .insert(account.name.clone(), signer.insecure_clone());
             }
 
             out.insert(
@@ -1097,7 +1127,11 @@ pub fn run_fixture_scenario(
         if cu_fee_bypass_enabled() {
             h.set_vm_fees(vm_state, 0, 0)?;
         } else {
-            h.set_vm_fees(vm_state, fees.deploy_fee_lamports, fees.execute_fee_lamports)?;
+            h.set_vm_fees(
+                vm_state,
+                fees.deploy_fee_lamports,
+                fees.execute_fee_lamports,
+            )?;
         }
     } else {
         h.set_vm_fees(vm_state, 0, 0)?;
@@ -1199,7 +1233,13 @@ pub fn run_external_non_cpi(
         "mint_to_user2",
         "mint_to_user3",
     ];
-    let setup = run_fixture_scenario(h, repo_root, &fixture, "external_non_cpi_setup", Some(&setup_steps))?;
+    let setup = run_fixture_scenario(
+        h,
+        repo_root,
+        &fixture,
+        "external_non_cpi_setup",
+        Some(&setup_steps),
+    )?;
 
     let token_script = setup
         .deploy_signature
@@ -1294,7 +1334,11 @@ pub fn run_external_non_cpi(
         }}
     "#
     );
-    maybe_write_generated_v(repo_root, "generated/validator-external-transfer-caller.v", &caller_source);
+    maybe_write_generated_v(
+        repo_root,
+        "generated/validator-external-transfer-caller.v",
+        &caller_source,
+    );
     let caller_bytecode = DslCompiler::compile_dsl(&caller_source)
         .map_err(|e| format!("caller compile failed: {}", e))?;
 
@@ -1377,7 +1421,9 @@ pub fn run_external_non_cpi(
     Ok(ScenarioRunResult {
         name: "external_non_cpi".to_string(),
         deploy_signature: Some(deploy_token.signature.to_string()),
-        deploy_units: deploy_token.units_consumed.saturating_add(deploy_caller.units_consumed),
+        deploy_units: deploy_token
+            .units_consumed
+            .saturating_add(deploy_caller.units_consumed),
         step_results: vec![StepRunResult {
             name: "external_transfer_non_cpi".to_string(),
             signature: execute.signature.to_string(),
@@ -1488,7 +1534,11 @@ pub fn run_external_burst_non_cpi(
         }}
     "#
     );
-    maybe_write_generated_v(repo_root, "generated/validator-external-burst-caller.v", &caller_source);
+    maybe_write_generated_v(
+        repo_root,
+        "generated/validator-external-burst-caller.v",
+        &caller_source,
+    );
     let caller_bytecode = DslCompiler::compile_dsl(&caller_source)
         .map_err(|e| format!("caller compile failed: {}", e))?;
 
@@ -1571,7 +1621,9 @@ pub fn run_external_burst_non_cpi(
     Ok(ScenarioRunResult {
         name: "external_burst_non_cpi".to_string(),
         deploy_signature: Some(deploy_token.signature.to_string()),
-        deploy_units: deploy_token.units_consumed.saturating_add(deploy_caller.units_consumed),
+        deploy_units: deploy_token
+            .units_consumed
+            .saturating_add(deploy_caller.units_consumed),
         step_results: vec![StepRunResult {
             name: "external_transfer_burst_non_cpi".to_string(),
             signature: execute.signature.to_string(),
@@ -1628,9 +1680,13 @@ pub fn run_external_interface_mapping_non_cpi(
         ) {
         }
     "#;
-    maybe_write_generated_v(repo_root, "generated/validator-interface-callee.v", callee_source);
-    let callee_bytecode =
-        DslCompiler::compile_dsl(callee_source).map_err(|e| format!("callee compile failed: {}", e))?;
+    maybe_write_generated_v(
+        repo_root,
+        "generated/validator-interface-callee.v",
+        callee_source,
+    );
+    let callee_bytecode = DslCompiler::compile_dsl(callee_source)
+        .map_err(|e| format!("callee compile failed: {}", e))?;
 
     let callee_metadata = encode_export_metadata_for_test(
         &["transfer_checked"],
@@ -1681,7 +1737,11 @@ pub fn run_external_interface_mapping_non_cpi(
     "#,
         bs58::encode(callee_pubkey.to_bytes()).into_string()
     );
-    maybe_write_generated_v(repo_root, "generated/validator-interface-caller.v", &caller_source);
+    maybe_write_generated_v(
+        repo_root,
+        "generated/validator-interface-caller.v",
+        &caller_source,
+    );
     let caller_bytecode = DslCompiler::compile_dsl(&caller_source)
         .map_err(|e| format!("caller compile failed via lockfile mapping: {}", e))?;
     drop(lock_guard);
@@ -1893,6 +1953,7 @@ fn scoped_lockfile_guard(repo_root: &Path, content: String) -> LockfileGuard {
         .unwrap_or_else(|_| repo_root.to_path_buf())
         .join("five.lock");
     let previous = fs::read(&path).ok();
-    fs::write(&path, content.as_bytes()).expect("failed to write temporary five.lock for validator test");
+    fs::write(&path, content.as_bytes())
+        .expect("failed to write temporary five.lock for validator test");
     LockfileGuard { path, previous }
 }

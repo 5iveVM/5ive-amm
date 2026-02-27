@@ -59,18 +59,19 @@ impl ASTGenerator {
 
             let account_index =
                 super::super::account_utils::account_index_from_param_index(index as u8);
-
-            for seed in &pda_config.seeds {
-                self.generate_ast_node(emitter, seed)?;
-            }
-            emitter.emit_const_u8(pda_config.seeds.len() as u8)?;
-            emitter.emit_opcode(PUSH_0);
-            emitter.emit_opcode(GET_KEY);
-            emitter.emit_u8(account_index);
-            emitter.emit_opcode(CHECK_PDA);
+            let bump_alias = Self::init_ctx_bump_alias(&param.name);
 
             if let Some(bump_var) = &pda_config.bump {
+                for seed in &pda_config.seeds {
+                    self.generate_ast_node(emitter, seed)?;
+                }
                 self.generate_ast_node(emitter, &AstNode::Identifier(bump_var.clone()))?;
+                emitter.emit_const_u8((pda_config.seeds.len() + 1) as u8)?;
+                emitter.emit_opcode(GET_KEY);
+                emitter.emit_u8(account_index);
+                emitter.emit_opcode(CHECK_PDA);
+                self.generate_ast_node(emitter, &AstNode::Identifier(bump_var.clone()))?;
+                self.bind_init_bump_alias(emitter, &bump_alias);
             } else {
                 for seed in &pda_config.seeds {
                     self.generate_ast_node(emitter, seed)?;
@@ -79,12 +80,13 @@ impl ASTGenerator {
                 emitter.emit_opcode(PUSH_0);
                 emitter.emit_opcode(FIND_PDA);
                 emitter.emit_opcode(UNPACK_TUPLE);
-                emitter.emit_opcode(SWAP);
+                self.bind_init_bump_alias(emitter, &bump_alias);
                 emitter.emit_opcode(DROP);
+                emitter.emit_opcode(GET_KEY);
+                emitter.emit_u8(account_index);
+                emitter.emit_opcode(EQ);
+                emitter.emit_opcode(REQUIRE);
             }
-
-            let bump_alias = Self::init_ctx_bump_alias(&param.name);
-            self.bind_init_bump_alias(emitter, &bump_alias);
         }
 
         Ok(())

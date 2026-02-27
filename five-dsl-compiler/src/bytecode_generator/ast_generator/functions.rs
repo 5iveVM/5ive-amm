@@ -111,6 +111,14 @@ impl ASTGenerator {
         emitter: &mut T,
         authority_param: &InstructionParameter,
     ) -> Result<(), VMError> {
+        let bump_alias = Self::init_ctx_bump_alias(&authority_param.name);
+        if self.local_symbol_table.contains_key(&bump_alias)
+            || self.global_symbol_table.contains_key(&bump_alias)
+        {
+            self.generate_ast_node(emitter, &AstNode::Identifier(bump_alias))?;
+            return Ok(());
+        }
+
         let pda_config = authority_param
             .pda_config
             .as_ref()
@@ -157,6 +165,7 @@ impl ASTGenerator {
         emitter: &mut T,
         interface_method: &InterfaceMethod,
         args: &[AstNode],
+        emit: bool,
     ) -> Result<u8, VMError> {
         let mut signer_group_count = 0u8;
 
@@ -175,7 +184,9 @@ impl ASTGenerator {
                 .ok_or(VMError::InvalidScript)?;
 
             if authority_param.pda_config.is_some() {
-                self.emit_pda_signer_group(emitter, &authority_param)?;
+                if emit {
+                    self.emit_pda_signer_group(emitter, &authority_param)?;
+                }
                 signer_group_count = signer_group_count
                     .checked_add(1)
                     .ok_or(VMError::InvalidOperation)?;
@@ -830,36 +841,45 @@ impl ASTGenerator {
         let (account_indices, data_arg_indices) =
             self.partition_interface_arguments(interface_method, args)?;
 
-        // Step 2: Emit program ID (bottom of stack)
-        let program_id_bytes = self.parse_program_id(&interface_info.program_id)?;
-        emitter.emit_const_pubkey(&program_id_bytes)?;
-
-        // Step 3: Serialize and emit instruction data (discriminator + data args)
-        // Now handling both literals and variables via dynamic opcode generation
-        self.emit_instruction_data_construction(
-            emitter,
-            interface_method,
-            &data_arg_indices,
-            args,
-        )?;
-
-        // Step 4: Emit account indices in REVERSE order
-        // VM pops them in reverse, so we emit reversed to reconstruct original order
-        for &account_idx in account_indices.iter().rev() {
-            emitter.emit_const_u8(account_idx)?;
-        }
-
-        // Step 5: Emit account count
-        emitter.emit_const_u8(account_indices.len() as u8)?;
-
-        // Step 6: Emit signer groups if any authority parameters resolve to PDAs
+        // Step 2: Determine whether this is a plain INVOKE or automatic signed CPI.
         let signer_group_count =
-            self.collect_interface_signer_groups(emitter, interface_method, args)?;
+            self.collect_interface_signer_groups(emitter, interface_method, args, false)?;
 
-        // Step 7: Emit final invoke opcode
         if signer_group_count == 0 {
+            // Plain INVOKE stack contract (bottom -> top):
+            //   program_id, instruction_data, account_indices..., accounts_count
+            let program_id_bytes = self.parse_program_id(&interface_info.program_id)?;
+            emitter.emit_const_pubkey(&program_id_bytes)?;
+            self.emit_instruction_data_construction(
+                emitter,
+                interface_method,
+                &data_arg_indices,
+                args,
+            )?;
+            for &account_idx in account_indices.iter().rev() {
+                emitter.emit_const_u8(account_idx)?;
+            }
+            emitter.emit_const_u8(account_indices.len() as u8)?;
             emitter.emit_opcode(INVOKE);
         } else {
+            // Grouped INVOKE_SIGNED stack contract (bottom -> top):
+            //   account_indices..., program_id, instruction_data, accounts_count, signer_groups
+            //
+            // The runtime pops signer_groups/count/data/program_id first and then consumes the
+            // remaining account indices, so the indices must stay below the call payload.
+            for &account_idx in &account_indices {
+                emitter.emit_const_u8(account_idx)?;
+            }
+            let program_id_bytes = self.parse_program_id(&interface_info.program_id)?;
+            emitter.emit_const_pubkey(&program_id_bytes)?;
+            self.emit_instruction_data_construction(
+                emitter,
+                interface_method,
+                &data_arg_indices,
+                args,
+            )?;
+            emitter.emit_const_u8(account_indices.len() as u8)?;
+            self.collect_interface_signer_groups(emitter, interface_method, args, true)?;
             emitter.emit_opcode(PUSH_ARRAY_LITERAL);
             emitter.emit_u8(signer_group_count);
             emitter.emit_opcode(INVOKE_SIGNED);

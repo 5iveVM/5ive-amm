@@ -1,9 +1,8 @@
+use five_dsl_compiler::DslCompiler;
 use std::{
-    fs,
-    io,
+    fs, io,
     path::{Path, PathBuf},
 };
-use five_dsl_compiler::DslCompiler;
 
 /// Load committed bytecode artifacts for runtime tests.
 ///
@@ -62,8 +61,16 @@ fn fallback_candidates(path: &Path) -> Vec<PathBuf> {
         out.push(sibling_bin);
 
         if let Some(parent) = path.parent() {
-            out.push(parent.join("build").join(format!("{}.bin", stem.to_string_lossy())));
-            out.push(parent.join("src").join(format!("{}.bin", stem.to_string_lossy())));
+            out.push(
+                parent
+                    .join("build")
+                    .join(format!("{}.bin", stem.to_string_lossy())),
+            );
+            out.push(
+                parent
+                    .join("src")
+                    .join(format!("{}.bin", stem.to_string_lossy())),
+            );
         }
     }
 
@@ -92,7 +99,10 @@ pub fn maybe_write_generated_v(repo_root: &Path, relative_path: &str, source: &s
     }
 
     match fs::write(&output_path, source) {
-        Ok(()) => println!("Generated Five source written to: {}", output_path.display()),
+        Ok(()) => println!(
+            "Generated Five source written to: {}",
+            output_path.display()
+        ),
         Err(e) => eprintln!(
             "Warning: could not write generated source to {}: {}",
             output_path.display(),

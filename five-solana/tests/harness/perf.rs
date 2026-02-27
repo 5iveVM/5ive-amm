@@ -110,7 +110,8 @@ pub fn compare_cu(baseline: &CuMetrics, current: &CuMetrics) -> Vec<Regression> 
 }
 
 pub fn assert_no_regression(test_name: &str, current: &CuMetrics) {
-    let commit = std::env::var("FIVE_BENCH_BASELINE_COMMIT").unwrap_or_else(|_| "local".to_string());
+    let commit =
+        std::env::var("FIVE_BENCH_BASELINE_COMMIT").unwrap_or_else(|_| "local".to_string());
     let root = repo_root();
     let baseline_path = baseline_file_path(&root, &commit);
     let allowlist_path = allowlist_file_path(&root, &commit);
@@ -141,9 +142,7 @@ pub fn assert_no_regression(test_name: &str, current: &CuMetrics) {
     }
 
     let allowlist = load_allowlist(&allowlist_path);
-    let allow = allowlist
-        .as_ref()
-        .and_then(|a| a.tests.get(test_name));
+    let allow = allowlist.as_ref().and_then(|a| a.tests.get(test_name));
 
     let mut blocked: Vec<&Regression> = Vec::new();
     for regression in &regressions {

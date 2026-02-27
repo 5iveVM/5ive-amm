@@ -8,7 +8,6 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
-    handlers::system::pda::process_seed_value,
 };
 use five_protocol::{opcodes::*, ValueRef};
 use pinocchio::{
@@ -18,12 +17,16 @@ use pinocchio::{
     program_error::ProgramError,
     pubkey::Pubkey,
 };
+#[cfg(target_os = "solana")]
+use pinocchio::pubkey::create_program_address;
 
 const MAX_CPI_DATA_LEN: usize = 255;
 const MAX_CPI_ACCOUNTS: usize = 16;
 const MAX_SIGNER_GROUPS: usize = 4;
 const MAX_SIGNER_SEEDS: usize = 8;
 const MAX_SIGNER_SEED_LEN: usize = 32;
+const GROUPED_SIGNER_WORKSPACE_CAPACITY: usize =
+    1 + MAX_SIGNER_GROUPS * (1 + MAX_SIGNER_SEEDS * (1 + MAX_SIGNER_SEED_LEN));
 
 fn parse_array_value_refs<const N: usize>(
     ctx: &ExecutionManager,
@@ -69,6 +72,257 @@ fn map_invoke_error(err: ProgramError) -> VMErrorCode {
     }
 }
 
+fn mark_matching_signer_meta(
+    account_metas: &mut [AccountMeta; MAX_CPI_ACCOUNTS],
+    invoke_accounts: &[&AccountInfo; MAX_CPI_ACCOUNTS + 1],
+    accounts_count: usize,
+    signer_pubkey: &Pubkey,
+) -> bool {
+    for i in 0..accounts_count {
+        if invoke_accounts[i].key() == signer_pubkey {
+            account_metas[i].is_signer = true;
+            return true;
+        }
+    }
+    false
+}
+
+fn derive_pda_from_seed_slices(seed_slices: &[&[u8]], program_id: &Pubkey) -> CompactResult<Pubkey> {
+    #[cfg(target_os = "solana")]
+    {
+        create_program_address(seed_slices, program_id).map_err(|_| VMErrorCode::PdaDerivationFailed)
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        crate::utils::derive_pda_offchain(seed_slices, program_id)
+    }
+}
+
+fn write_seed_value_into_slice(
+    ctx: &ExecutionManager,
+    seed_value: ValueRef,
+    out: &mut [u8; MAX_SIGNER_SEED_LEN],
+) -> CompactResult<usize> {
+    match seed_value {
+        ValueRef::U64(val) => {
+            out[..8].copy_from_slice(&val.to_le_bytes());
+            Ok(8)
+        }
+        ValueRef::U8(val) => {
+            out[0] = val;
+            Ok(1)
+        }
+        ValueRef::PubkeyRef(_) => {
+            let bytes = ctx.extract_pubkey(&seed_value)?;
+            out[..32].copy_from_slice(&bytes);
+            Ok(32)
+        }
+        ValueRef::AccountRef(account_idx, account_offset) => {
+            if account_offset != 0 {
+                return Err(VMErrorCode::TypeMismatch);
+            }
+            let account = ctx
+                .accounts()
+                .get(account_idx as usize)
+                .ok_or(VMErrorCode::InvalidAccountIndex)?;
+            out[..32].copy_from_slice(account.key().as_ref());
+            Ok(32)
+        }
+        ValueRef::TempRef(offset, len) => {
+            let start = offset as usize;
+            let end = start + len as usize;
+            if end > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            let copy_len = usize::from(len.min(MAX_SIGNER_SEED_LEN as u8));
+            out[..copy_len].copy_from_slice(&ctx.temp_buffer()[start..start + copy_len]);
+            Ok(copy_len)
+        }
+        ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+            let (len, bytes) = ctx.extract_string_slice(&seed_value)?;
+            let copy_len = (len as usize).min(MAX_SIGNER_SEED_LEN);
+            out[..copy_len].copy_from_slice(&bytes[..copy_len]);
+            Ok(copy_len)
+        }
+        ValueRef::ArrayRef(array_id) => {
+            let start = array_id as usize;
+            if start + 2 > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            let len = ctx.temp_buffer()[start] as usize;
+            let data_start = start + 2;
+            let data_end = data_start + len;
+            if data_end > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            let copy_len = len.min(MAX_SIGNER_SEED_LEN);
+            out[..copy_len].copy_from_slice(&ctx.temp_buffer()[data_start..data_start + copy_len]);
+            Ok(copy_len)
+        }
+        _ => Err(VMErrorCode::TypeMismatch),
+    }
+}
+
+#[inline(never)]
+fn derive_and_mark_workspace_group_signer(
+    ctx: &ExecutionManager,
+    workspace_base: u32,
+    group_offset: u16,
+    caller_program_id: &Pubkey,
+    account_metas: &mut [AccountMeta; MAX_CPI_ACCOUNTS],
+    invoke_accounts: &[&AccountInfo; MAX_CPI_ACCOUNTS + 1],
+    accounts_count: usize,
+) -> CompactResult<()> {
+    let mut seed_storage = [[0u8; MAX_SIGNER_SEED_LEN]; MAX_SIGNER_SEEDS];
+    let mut seed_lengths = [0usize; MAX_SIGNER_SEEDS];
+    let mut seed_slices: [&[u8]; MAX_SIGNER_SEEDS] = [&[]; MAX_SIGNER_SEEDS];
+    let group_start = workspace_base + u32::from(group_offset);
+    let seed_count = ctx.get_heap_data(group_start, 1)?[0] as usize;
+    let mut cursor = group_start + 1;
+
+    for seed_idx in 0..seed_count {
+        let seed_len = ctx.get_heap_data(cursor, 1)?[0] as usize;
+        cursor += 1;
+        let seed_bytes = ctx.get_heap_data(cursor, seed_len as u32)?;
+        seed_storage[seed_idx][..seed_len].copy_from_slice(seed_bytes);
+        seed_lengths[seed_idx] = seed_len;
+        cursor += seed_len as u32;
+    }
+    for seed_idx in 0..seed_count {
+        seed_slices[seed_idx] = &seed_storage[seed_idx][..seed_lengths[seed_idx]];
+    }
+
+    let signer_pubkey =
+        derive_pda_from_seed_slices(&seed_slices[..seed_count], caller_program_id)?;
+    if !mark_matching_signer_meta(account_metas, invoke_accounts, accounts_count, &signer_pubkey) {
+        return Err(VMErrorCode::ConstraintViolation);
+    }
+
+    Ok(())
+}
+
+#[inline(never)]
+fn materialize_grouped_signer_workspace(
+    ctx: &mut ExecutionManager,
+    signer_groups_ref: ValueRef,
+    group_offsets: &mut [u16; MAX_SIGNER_GROUPS],
+) -> CompactResult<(u32, usize)> {
+    let mut group_refs = [ValueRef::Bool(false); MAX_SIGNER_GROUPS];
+    let group_count = parse_array_value_refs(ctx, signer_groups_ref, &mut group_refs)?;
+    if group_count == 0 {
+        return Err(VMErrorCode::InvalidSeedArray);
+    }
+
+    let workspace_base = ctx.heap_alloc(GROUPED_SIGNER_WORKSPACE_CAPACITY)?;
+    ctx.get_heap_data_mut(workspace_base, 1)?[0] = group_count as u8;
+
+    let mut cursor = workspace_base + 1;
+    let mut inner_refs = [ValueRef::Bool(false); MAX_SIGNER_SEEDS];
+
+    for group_idx in 0..group_count {
+        let inner_count = parse_array_value_refs(ctx, group_refs[group_idx], &mut inner_refs)?;
+        if inner_count == 0 {
+            return Err(VMErrorCode::InvalidSeedArray);
+        }
+
+        group_offsets[group_idx] = (cursor - workspace_base) as u16;
+        ctx.get_heap_data_mut(cursor, 1)?[0] = inner_count as u8;
+        cursor += 1;
+
+        for seed_idx in 0..inner_count {
+            let mut seed_buf = [0u8; MAX_SIGNER_SEED_LEN];
+            let written = write_seed_value_into_slice(ctx, inner_refs[seed_idx], &mut seed_buf)?;
+            if written == 0 {
+                return Err(VMErrorCode::InvalidSeedArray);
+            }
+            ctx.get_heap_data_mut(cursor, 1)?[0] = written as u8;
+            cursor += 1;
+            ctx.get_heap_data_mut(cursor, written as u32)?
+                .copy_from_slice(&seed_buf[..written]);
+            cursor += written as u32;
+        }
+
+    }
+
+    Ok((workspace_base, group_count))
+}
+
+#[inline(never)]
+fn mark_grouped_signer_metas(
+    ctx: &ExecutionManager,
+    workspace_base: u32,
+    group_count: usize,
+    group_offsets: &[u16; MAX_SIGNER_GROUPS],
+    caller_program_id: &Pubkey,
+    account_metas: &mut [AccountMeta; MAX_CPI_ACCOUNTS],
+    invoke_accounts: &[&AccountInfo; MAX_CPI_ACCOUNTS + 1],
+    accounts_count: usize,
+ ) -> CompactResult<()> {
+    for group_idx in 0..group_count {
+        derive_and_mark_workspace_group_signer(
+            ctx,
+            workspace_base,
+            group_offsets[group_idx],
+            caller_program_id,
+            account_metas,
+            invoke_accounts,
+            accounts_count,
+        )?;
+    }
+    Ok(())
+}
+
+#[inline(never)]
+fn invoke_signed_with_grouped_workspace(
+    ctx: &ExecutionManager,
+    workspace_base: u32,
+    group_count: usize,
+    group_offsets: &[u16; MAX_SIGNER_GROUPS],
+    program_id: &Pubkey,
+    account_metas: &[AccountMeta; MAX_CPI_ACCOUNTS],
+    accounts_count: usize,
+    instruction_data: &[u8],
+    invoke_accounts: &[&AccountInfo; MAX_CPI_ACCOUNTS + 1],
+    invoke_account_len: usize,
+) -> CompactResult<()> {
+    let mut signer_seed_arrays: [[Seed; MAX_SIGNER_SEEDS]; MAX_SIGNER_GROUPS] =
+        core::array::from_fn(|_| core::array::from_fn(|_| Seed::from(&[0u8][..])));
+    let mut signers: [Signer; MAX_SIGNER_GROUPS] = core::array::from_fn(|_| Signer::from(&[]));
+
+    for group_idx in 0..group_count {
+        let group_start = workspace_base + u32::from(group_offsets[group_idx]);
+        let seed_count = ctx.get_heap_data(group_start, 1)?[0] as usize;
+        let mut cursor = group_start + 1;
+
+        for seed_idx in 0..seed_count {
+            let seed_len = ctx.get_heap_data(cursor, 1)?[0] as usize;
+            cursor += 1;
+            let seed_bytes = ctx.get_heap_data(cursor, seed_len as u32)?;
+            signer_seed_arrays[group_idx][seed_idx] = Seed::from(seed_bytes);
+            cursor += seed_len as u32;
+        }
+    }
+    for group_idx in 0..group_count {
+        let group_start = workspace_base + u32::from(group_offsets[group_idx]);
+        let seed_count = ctx.get_heap_data(group_start, 1)?[0] as usize;
+        signers[group_idx] = Signer::from(&signer_seed_arrays[group_idx][..seed_count]);
+    }
+
+    let instruction = Instruction {
+        program_id,
+        accounts: &account_metas[..accounts_count],
+        data: instruction_data,
+    };
+
+    invoke_signed_with_bounds::<{ MAX_CPI_ACCOUNTS + 1 }>(
+        &instruction,
+        &invoke_accounts[..invoke_account_len],
+        &signers[..group_count],
+    )
+    .map_err(map_invoke_error)
+}
+
+#[inline(never)]
 fn invoke_signed_grouped_from_array_ref(
     ctx: &mut ExecutionManager,
     signer_groups_ref: ValueRef,
@@ -80,12 +334,6 @@ fn invoke_signed_grouped_from_array_ref(
 
     if accounts_count as usize > MAX_CPI_ACCOUNTS {
         return Err(VMErrorCode::InvalidOperation);
-    }
-
-    let mut group_refs = [ValueRef::Bool(false); MAX_SIGNER_GROUPS];
-    let group_count = parse_array_value_refs(ctx, signer_groups_ref, &mut group_refs)?;
-    if group_count == 0 {
-        return Err(VMErrorCode::InvalidSeedArray);
     }
 
     let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
@@ -104,86 +352,65 @@ fn invoke_signed_grouped_from_array_ref(
         account_indices[(accounts_count as usize - 1) - i] = account_idx;
     }
 
-    let accounts_ref = ctx.accounts();
-    let mut account_metas: [AccountMeta; MAX_CPI_ACCOUNTS] =
-        core::array::from_fn(|_| AccountMeta {
-            pubkey: accounts_ref[0].key(),
-            is_signer: false,
-            is_writable: false,
-        });
-    let mut invoke_accounts: [&AccountInfo; MAX_CPI_ACCOUNTS + 1] =
-        [&accounts_ref[0]; MAX_CPI_ACCOUNTS + 1];
+    let mut group_offsets = [0u16; MAX_SIGNER_GROUPS];
+    let (workspace_base, group_count) =
+        materialize_grouped_signer_workspace(ctx, signer_groups_ref, &mut group_offsets)?;
 
-    for i in 0..accounts_count as usize {
-        let account_idx = account_indices[i];
-        invoke_accounts[i] = &accounts_ref[account_idx];
-        let account = invoke_accounts[i];
-        account_metas[i] = AccountMeta {
-            pubkey: account.key(),
-            is_signer: account.is_signer(),
-            is_writable: account.is_writable(),
-        };
-    }
-    let mut invoke_account_len = accounts_count as usize;
-    if let Some(program_account) = accounts_ref
-        .iter()
-        .find(|account| account.key() == &program_id)
-    {
-        invoke_accounts[invoke_account_len] = program_account;
-        invoke_account_len += 1;
-    }
+    let invoke_result = {
+        let accounts_ref = ctx.accounts();
+        let mut account_metas: [AccountMeta; MAX_CPI_ACCOUNTS] =
+            core::array::from_fn(|_| AccountMeta {
+                pubkey: accounts_ref[0].key(),
+                is_signer: false,
+                is_writable: false,
+            });
+        let mut invoke_accounts: [&AccountInfo; MAX_CPI_ACCOUNTS + 1] =
+            [&accounts_ref[0]; MAX_CPI_ACCOUNTS + 1];
 
-    let instruction = Instruction {
-        program_id: &program_id,
-        accounts: &account_metas[..accounts_count as usize],
-        data: &instruction_data_buf[..instruction_data_len],
+        for i in 0..accounts_count as usize {
+            let account_idx = account_indices[i];
+            invoke_accounts[i] = &accounts_ref[account_idx];
+            let account = invoke_accounts[i];
+            account_metas[i] = AccountMeta {
+                pubkey: account.key(),
+                is_signer: account.is_signer(),
+                is_writable: account.is_writable(),
+            };
+        }
+        let mut invoke_account_len = accounts_count as usize;
+        if let Some(program_account) = accounts_ref
+            .iter()
+            .find(|account| account.key() == &program_id)
+        {
+            invoke_accounts[invoke_account_len] = program_account;
+            invoke_account_len += 1;
+        }
+        mark_grouped_signer_metas(
+            ctx,
+            workspace_base,
+            group_count,
+            &group_offsets,
+            &ctx.program_id,
+            &mut account_metas,
+            &invoke_accounts,
+            accounts_count as usize,
+        )?;
+
+        invoke_signed_with_grouped_workspace(
+            ctx,
+            workspace_base,
+            group_count,
+            &group_offsets,
+            &program_id,
+            &account_metas,
+            accounts_count as usize,
+            &instruction_data_buf[..instruction_data_len],
+            &invoke_accounts,
+            invoke_account_len,
+        )
     };
 
-    let mut seed_storage = [[[0u8; MAX_SIGNER_SEED_LEN]; MAX_SIGNER_SEEDS]; MAX_SIGNER_GROUPS];
-    let mut seed_lengths = [[0usize; MAX_SIGNER_SEEDS]; MAX_SIGNER_GROUPS];
-    let mut seed_counts = [0usize; MAX_SIGNER_GROUPS];
-    let mut inner_refs = [ValueRef::Bool(false); MAX_SIGNER_SEEDS];
-
-    for group_idx in 0..group_count {
-        let inner_count = parse_array_value_refs(ctx, group_refs[group_idx], &mut inner_refs)?;
-        if inner_count == 0 {
-            return Err(VMErrorCode::InvalidSeedArray);
-        }
-        seed_counts[group_idx] = inner_count;
-        for seed_idx in 0..inner_count {
-            let written = process_seed_value(
-                inner_refs[seed_idx],
-                &mut seed_storage[group_idx],
-                seed_idx,
-                ctx,
-            )?;
-            seed_lengths[group_idx][seed_idx] = written;
-        }
-    }
-
-    let mut signer_seed_arrays: [[Seed; MAX_SIGNER_SEEDS]; MAX_SIGNER_GROUPS] =
-        core::array::from_fn(|_| core::array::from_fn(|_| Seed::from(&[0u8][..])));
-    let mut signers: [Signer; MAX_SIGNER_GROUPS] = core::array::from_fn(|_| Signer::from(&[]));
-
-    for group_idx in 0..group_count {
-        for seed_idx in 0..seed_counts[group_idx] {
-            let seed_slice =
-                &seed_storage[group_idx][seed_idx][..seed_lengths[group_idx][seed_idx]];
-            signer_seed_arrays[group_idx][seed_idx] = Seed::from(seed_slice);
-        }
-    }
-
-    for group_idx in 0..group_count {
-        signers[group_idx] = Signer::from(&signer_seed_arrays[group_idx][..seed_counts[group_idx]]);
-    }
-
-    invoke_signed_with_bounds::<{ MAX_CPI_ACCOUNTS + 1 }>(
-        &instruction,
-        &invoke_accounts[..invoke_account_len],
-        &signers[..group_count],
-    )
-    .map_err(map_invoke_error)?;
-
+    invoke_result?;
     let _ = ctx.refresh_account_pointers_after_cpi(&account_indices[..accounts_count as usize]);
     ctx.push(ValueRef::Bool(true))?;
     Ok(())
@@ -593,12 +820,6 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 };
             }
 
-            let instruction = Instruction {
-                program_id: &program_id,
-                accounts: &account_metas[..accounts_count as usize],
-                data: &instruction_data_buf[..instruction_data_len],
-            };
-
             // Create signer from seeds using stack arrays (no heap!)
             let mut seeds_refs: [Seed; MAX_SEEDS] =
                 core::array::from_fn(|_| Seed::from(&[0u8][..])); // Default empty seed
@@ -607,6 +828,31 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 let seed_slice = &seed_storage[i][..seed_lengths[i] as usize];
                 seeds_refs[i] = Seed::from(seed_slice);
             }
+            let mut derived_seed_lengths = [0usize; MAX_SIGNER_SEEDS];
+            for i in 0..seeds_count as usize {
+                derived_seed_lengths[i] = seed_lengths[i] as usize;
+            }
+            let mut derived_seed_slices: [&[u8]; MAX_SIGNER_SEEDS] = [&[]; MAX_SIGNER_SEEDS];
+            for i in 0..seeds_count as usize {
+                derived_seed_slices[i] = &seed_storage[i][..derived_seed_lengths[i]];
+            }
+            let signer_pubkey = derive_pda_from_seed_slices(
+                &derived_seed_slices[..seeds_count as usize],
+                &ctx.program_id,
+            )?;
+            if !mark_matching_signer_meta(
+                &mut account_metas,
+                &invoke_accounts,
+                accounts_count as usize,
+                &signer_pubkey,
+            ) {
+                return Err(VMErrorCode::ConstraintViolation);
+            }
+            let instruction = Instruction {
+                program_id: &program_id,
+                accounts: &account_metas[..accounts_count as usize],
+                data: &instruction_data_buf[..instruction_data_len],
+            };
             let signer = Signer::from(&seeds_refs[..seeds_count as usize]);
 
             // Execute the invoke_signed
@@ -852,5 +1098,47 @@ mod tests {
         let result = handle_invoke_ops(INVOKE_SIGNED, &mut ctx);
         assert_ne!(result, Err(crate::error::VMErrorCode::TypeMismatch));
         assert_ne!(result, Err(crate::error::VMErrorCode::InvalidSeedArray));
+    }
+
+    #[test]
+    fn invoke_signed_grouped_payload_fails_when_signer_meta_is_missing() {
+        let program_id = Pubkey::from([97u8; 32]);
+        let mut lamports = 1;
+        let mut account_data = [];
+        let account = create_account_info(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        let inner_group = store_array(&mut ctx, 0, &[ValueRef::AccountRef(0, 0)]);
+        let signer_groups_ref = store_array(&mut ctx, 16, &[inner_group]);
+        ctx.push(ValueRef::U64(0)).unwrap(); // program_id_ref
+        ctx.push(ValueRef::TempRef(32, 0)).unwrap(); // instruction_data_ref
+        ctx.push(ValueRef::U64(0)).unwrap(); // accounts_count
+        ctx.push(signer_groups_ref).unwrap(); // signer_groups_ref
+
+        let result = handle_invoke_ops(INVOKE_SIGNED, &mut ctx);
+        assert_eq!(result, Err(crate::error::VMErrorCode::ConstraintViolation));
     }
 }

@@ -1163,7 +1163,8 @@ pub mint_tokens(
         let inspector = BytecodeInspector::new(&bytecode);
 
         assert!(inspector.contains_opcode(opcodes::INVOKE_SIGNED));
-        assert!(inspector.contains_opcode(opcodes::CHECK_PDA));
+        assert_eq!(inspector.count_opcode(opcodes::FIND_PDA), 1);
+        assert!(inspector.contains_opcode(opcodes::REQUIRE));
     }
 
     #[test]

@@ -98,6 +98,14 @@ impl BytecodeInspector {
         self.bytes.contains(&opcode)
     }
 
+    /// Count raw opcode byte occurrences.
+    ///
+    /// This is primarily for regression tests that want to assert compiler
+    /// emission count for a specific opcode family.
+    pub fn count_opcode(&self, opcode: u8) -> usize {
+        self.bytes.iter().filter(|&&byte| byte == opcode).count()
+    }
+
     /// Return true if there is any CALL opcode present.
     pub fn contains_call(&self) -> bool {
         self.contains_opcode(opcodes::CALL)

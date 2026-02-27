@@ -15,13 +15,13 @@ use five::{
 #[cfg(feature = "legacy-runtime-harness")]
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
+pub mod addresses;
 pub mod compile;
 pub mod fixtures;
+pub mod instruction_builders;
 pub mod perf;
 #[cfg(feature = "validator-harness")]
 pub mod validator;
-pub mod addresses;
-pub mod instruction_builders;
 
 #[cfg(feature = "legacy-runtime-harness")]
 #[derive(Clone, Debug)]
@@ -155,7 +155,12 @@ impl RuntimeHarness {
         vm_state.execute_fee_lamports = 0;
     }
 
-    pub fn set_vm_fees(&mut self, vm_state_name: &str, deploy_fee_lamports: u32, execute_fee_lamports: u32) {
+    pub fn set_vm_fees(
+        &mut self,
+        vm_state_name: &str,
+        deploy_fee_lamports: u32,
+        execute_fee_lamports: u32,
+    ) {
         let vm_idx = self.idx(vm_state_name);
         let vm_state_data = &mut self.accounts[vm_idx].data;
         let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)
@@ -178,9 +183,11 @@ impl RuntimeHarness {
             account_names.push(admin);
         }
         if !self.index_by_name.contains_key("fee_vault") {
-            let (fee_vault, _bump) =
-                five_vm_mito::utils::find_program_address_offchain(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &self.program_id)
-                    .expect("derive fee_vault shard 0");
+            let (fee_vault, _bump) = five_vm_mito::utils::find_program_address_offchain(
+                &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+                &self.program_id,
+            )
+            .expect("derive fee_vault shard 0");
             self.add_account(
                 "fee_vault",
                 AccountSeed {
@@ -312,9 +319,7 @@ impl RuntimeHarness {
                         }
                     })
                     .max_by(|(name_a, lamports_a), (name_b, lamports_b)| {
-                        lamports_a
-                            .cmp(lamports_b)
-                            .then_with(|| name_b.cmp(name_a))
+                        lamports_a.cmp(lamports_b).then_with(|| name_b.cmp(name_a))
                     })
                     .map(|(name, _)| name)
             });
@@ -454,10 +459,18 @@ impl RuntimeHarness {
 
         match &fixture.expectation {
             ExpectedOutcome::Success => {
-                assert!(execute_result.success, "expected fixture execution success, got: {:?}", execute_result.error);
+                assert!(
+                    execute_result.success,
+                    "expected fixture execution success, got: {:?}",
+                    execute_result.error
+                );
             }
             ExpectedOutcome::ProgramError(expected) => {
-                assert_eq!(execute_result.error, Some(*expected), "fixture returned unexpected error");
+                assert_eq!(
+                    execute_result.error,
+                    Some(*expected),
+                    "fixture returned unexpected error"
+                );
             }
         }
 
@@ -561,8 +574,14 @@ pub fn unique_pubkey(seed: u8) -> Pubkey {
 
 pub fn script_with_header(public_count: u8, total_count: u8, body: &[u8]) -> Vec<u8> {
     let mut script = vec![
-        b'5', b'I', b'V', b'E',
-        0x00, 0x00, 0x00, 0x00,
+        b'5',
+        b'I',
+        b'V',
+        b'E',
+        0x00,
+        0x00,
+        0x00,
+        0x00,
         public_count,
         total_count,
     ];
