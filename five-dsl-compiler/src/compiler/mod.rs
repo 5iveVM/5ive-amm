@@ -1093,5 +1093,43 @@ pub probe(owner: account @signer, instruction_sysvar: account) -> u64 {
         let inspector = BytecodeInspector::new(&bytecode);
 
         assert!(inspector.contains_opcode(opcodes::PUSH_BYTES));
+        assert!(!inspector.contains_opcode(opcodes::PUSH_ARRAY_LITERAL));
+    }
+
+    #[test]
+    fn local_interface_method_calls_work_in_full_interface_pipeline() {
+        let source = r#"
+interface CryptoSink @program("11111111111111111111111111111111") @serializer(raw) {
+    submit @discriminator_bytes([]) (
+        sink: Account,
+        payload: [u8; 64]
+    );
+}
+
+pub send(sink: account) {
+    CryptoSink.submit(
+        sink,
+        [
+            0, 1, 2, 3, 4, 5, 6, 7,
+            8, 9, 10, 11, 12, 13, 14, 15,
+            16, 17, 18, 19, 20, 21, 22, 23,
+            24, 25, 26, 27, 28, 29, 30, 31,
+            32, 33, 34, 35, 36, 37, 38, 39,
+            40, 41, 42, 43, 44, 45, 46, 47,
+            48, 49, 50, 51, 52, 53, 54, 55,
+            56, 57, 58, 59, 60, 61, 62, 63
+        ]
+    );
+}
+"#;
+
+        let config = CompilationConfig::new(CompilationMode::Testing);
+        let (bytecode, _log) =
+            DslCompiler::compile_with_config_and_log(source, &config).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(inspector.contains_opcode(opcodes::PUSH_BYTES));
+        assert!(inspector.contains_opcode(opcodes::ARRAY_CONCAT));
+        assert!(inspector.contains_opcode(opcodes::INVOKE));
     }
 }

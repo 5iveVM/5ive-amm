@@ -1,6 +1,6 @@
 //! Function and method call generation.
 
-use super::assignments::fixed_u8_array_len;
+use super::assignments::{collect_byte_array_literal_bytes, fixed_u8_array_len};
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
@@ -26,6 +26,28 @@ impl ASTGenerator {
             }
             _ => None,
         }
+    }
+
+    fn builtin_allows_untyped_byte_literal(name: &str, arg_idx: usize) -> bool {
+        matches!(
+            (name, arg_idx),
+            ("sha256", 0)
+                | ("keccak256", 0)
+                | ("blake3", 0)
+                | ("verify_ed25519_instruction" | "__verify_ed25519_instruction", 2)
+        )
+    }
+
+    fn emit_untyped_byte_array_literal<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        arg: &AstNode,
+    ) -> Result<bool, VMError> {
+        let Some(bytes) = collect_byte_array_literal_bytes(arg) else {
+            return Ok(false);
+        };
+        emitter.emit_const_bytes(&bytes)?;
+        Ok(true)
     }
 
     fn emit_argument_with_expected_type<T: OpcodeEmitter>(
@@ -241,12 +263,16 @@ impl ASTGenerator {
                     .cloned();
                 let expected_type = builtin_expected_type.or(user_expected_type);
 
-                self.emit_argument_with_expected_type(
-                    emitter,
-                    arg,
-                    expected_type.as_ref(),
-                    &format!("call argument {} for `{}`", arg_idx, name),
-                )?;
+                if !(Self::builtin_allows_untyped_byte_literal(name, arg_idx)
+                    && self.emit_untyped_byte_array_literal(emitter, arg)?)
+                {
+                    self.emit_argument_with_expected_type(
+                        emitter,
+                        arg,
+                        expected_type.as_ref(),
+                        &format!("call argument {} for `{}`", arg_idx, name),
+                    )?;
+                }
             }
         }
 
@@ -813,21 +839,13 @@ impl ASTGenerator {
         data_arg_indices: &[usize],
         args: &[AstNode],
     ) -> Result<(), VMError> {
-        // PUSH_ARRAY_LITERAL expects the number of stack values, not final byte length.
-        let mut element_count = 0;
-
-        // 1. Emit discriminator bytes
         let discriminator_bytes = interface_method
             .discriminator_bytes
             .clone()
             .unwrap_or_else(|| vec![interface_method.discriminator]);
-        
-        for byte in discriminator_bytes {
-            emitter.emit_const_u8(byte)?;
-            element_count += 1;
-        }
+        emitter.emit_const_bytes(&discriminator_bytes)?;
 
-        // 2. Emit each data argument
+        // Append each argument as a serialized byte chunk.
         for &arg_idx in data_arg_indices {
             let param_type = if let Some(param) = interface_method.parameters.get(arg_idx) {
                 param
@@ -836,117 +854,97 @@ impl ASTGenerator {
             };
 
             let arg = &args[arg_idx];
-            let values_emitted = self.emit_argument_serialization(emitter, param_type, arg)?;
-            element_count += values_emitted;
+            self.emit_argument_serialization(emitter, param_type, arg)?;
+            emitter.emit_opcode(ARRAY_CONCAT);
         }
-
-        // 3. Create the array ref from the stack values
-        emitter.emit_opcode(PUSH_ARRAY_LITERAL);
-        // PUSH_ARRAY_LITERAL takes a u8 element count.
-        if element_count > 255 {
-             println!("DEBUG: Instruction element count too large ({}) for PUSH_ARRAY_LITERAL", element_count);
-             return Err(VMError::InvalidOperation);
-        }
-        emitter.emit_u8(element_count as u8);
 
         Ok(())
     }
 
-    /// Emit opcodes to serialize a single argument onto the stack as bytes (Little Endian).
-    /// Returns number of bytes emitted.
+    /// Emit a single serialized argument chunk as a bytes-like value on the stack.
+    /// The caller is responsible for concatenating it into the instruction payload.
     fn emit_argument_serialization<T: OpcodeEmitter>(
         &mut self,
         emitter: &mut T,
         param_type: &TypeNode,
         arg: &AstNode,
-    ) -> Result<usize, VMError> {
-        // Handle Literals efficiently if possible, otherwise use dynamic logic
-        match (param_type, arg) {
-            (TypeNode::Primitive(name), AstNode::Literal(val)) if name == "u8" => {
-                if let Value::U8(v) = val {
-                     emitter.emit_const_u8(*v)?;
-                    Ok(1) // one stack value
-                } else {
-                    Err(VMError::TypeMismatch)
+    ) -> Result<(), VMError> {
+        match param_type {
+            TypeNode::Array { element_type, .. }
+                if matches!(element_type.as_ref(), TypeNode::Primitive(name) if name == "u8") =>
+            {
+                if !self.emit_typed_byte_array_literal(
+                    emitter,
+                    arg,
+                    fixed_u8_array_len(Some(param_type)),
+                    "interface instruction data argument",
+                )? {
+                    self.generate_ast_node(emitter, arg)?;
                 }
+                Ok(())
             }
-             (TypeNode::Primitive(name), AstNode::Literal(val)) if name == "u64" => {
-                let v = val
-                    .as_u64()
-                    .or_else(|| val.as_i64().filter(|i| *i >= 0).map(|i| i as u64))
-                    .ok_or(VMError::TypeMismatch)?;
-                let bytes = v.to_le_bytes();
-                for b in bytes {
-                    emitter.emit_const_u8(b)?;
+            TypeNode::Primitive(name) if name == "u8" => {
+                if let AstNode::Literal(val) = arg {
+                    let byte = val
+                        .as_u8()
+                        .or_else(|| val.as_u64().filter(|v| *v <= u8::MAX as u64).map(|v| v as u8))
+                        .or_else(|| val.as_i64().filter(|v| (0..=u8::MAX as i64).contains(v)).map(|v| v as u8))
+                        .ok_or(VMError::TypeMismatch)?;
+                    emitter.emit_const_bytes(&[byte])?;
+                } else {
+                    self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+                    emitter.emit_u8(1);
                 }
-                Ok(8) // eight u8 stack values
-             }
-             // For variables (Identifiers) or other expressions
-             (TypeNode::Primitive(name), _) if name == "u8" => {
-                 // Generate code to put u8 value on stack
-                 self.generate_ast_node(emitter, arg)?;
-                 // Check if we need to mask? Assuming generated value is u64 but holding u8, or proper u8 type logic
-                 // Five VM usually works with Value enums. Value::U8 is a distinct type.
-                 // So we just leave it on stack.
-                 // PUSH_ARRAY_LITERAL expects Values.
-                 Ok(1) // one stack value
-             }
-             (TypeNode::Primitive(name), _) if name == "u64" => {
-                 // Generate code to put u64 value on stack
-                  if let AstNode::Literal(val) = arg {
-                        let v = val.as_i64()
-                            .map(|i| i as u64)
-                            .or(val.as_u64())
+                Ok(())
+            }
+            TypeNode::Primitive(name) if name == "u32" => {
+                if let AstNode::Literal(val) = arg {
+                    let word = val
+                        .as_u64()
+                        .or_else(|| val.as_i64().filter(|v| *v >= 0).map(|v| v as u64))
+                        .filter(|v| *v <= u32::MAX as u64)
+                        .ok_or(VMError::TypeMismatch)? as u32;
+                    emitter.emit_const_bytes(&word.to_le_bytes())?;
+                } else {
+                    self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+                    emitter.emit_u8(1);
+                }
+                Ok(())
+            }
+            TypeNode::Primitive(name) if name == "u64" || name == "i64" || name == "bool" || name == "pubkey" => {
+                if let AstNode::Literal(Value::Pubkey(pk)) = arg {
+                    emitter.emit_const_bytes(pk)?;
+                } else if let (TypeNode::Primitive(name), AstNode::Literal(val)) = (param_type, arg) {
+                    if name == "u64" {
+                        let word = val
+                            .as_u64()
+                            .or_else(|| val.as_i64().filter(|v| *v >= 0).map(|v| v as u64))
                             .ok_or(VMError::TypeMismatch)?;
-                        emitter.emit_const_u64(v)?;
+                        emitter.emit_const_bytes(&word.to_le_bytes())?;
+                    } else if name == "i64" {
+                        let word = val.as_i64().ok_or(VMError::TypeMismatch)?;
+                        emitter.emit_const_bytes(&word.to_le_bytes())?;
+                    } else if name == "bool" {
+                        let flag = matches!(val, Value::Bool(true));
+                        emitter.emit_const_bytes(&[u8::from(flag)])?;
                     } else {
                         self.generate_ast_node(emitter, arg)?;
+                        emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+                        emitter.emit_u8(1);
                     }
-                 
-                 // Split u64 into 8 LE bytes on stack using a temp local.
-                 let temp_idx = self.field_counter; 
-                 self.field_counter += 1;
-                 
-                 // Store value in temp
-                 self.emit_set_local(emitter, temp_idx, "__temp_u64_ser");
-                 for _ in 0..8 {
-                     self.emit_get_local(emitter, temp_idx, "__temp_u64_ser"); // Val
-                     emitter.emit_opcode(DUP); // Val, Val
-                     emitter.emit_const_u64(256)?; // Val, Val, 256
-                     emitter.emit_opcode(DIV); // Val, Quotient
-                     emitter.emit_opcode(DUP); // Val, Quotient, Quotient
-                     self.emit_set_local(emitter, temp_idx, "__temp_u64_ser"); // Val, Quotient (temp updated)
-                     emitter.emit_const_u64(256)?; // Val, Quotient, 256
-                     emitter.emit_opcode(MUL); // Val, Product
-                     emitter.emit_opcode(SUB); // Remainder (Byte as U64)
-                      
-                      // CRITICAL FIX: Cast U64 remainder to U8 so ArrayRef packing treats it as a byte
-                      emitter.emit_opcode(five_protocol::opcodes::CAST);
-                      emitter.emit_u8(five_protocol::types::U8);
-                      
-                      // Byte is left on stack as U8. Correct order (Little Endian: byte0 first).
-                 }
-                 
-                 Ok(8) // eight u8 stack values
-             }
-             (TypeNode::Primitive(name), AstNode::Literal(val)) if name == "pubkey" => {
-                 if let Value::Pubkey(pk) = val {
-                     emitter.emit_const_pubkey(pk)?;
-                    Ok(1) // one pubkey stack value
-                 } else {
-                     Err(VMError::TypeMismatch)
-                 }
-             }
-             (TypeNode::Primitive(name), _) if name == "pubkey" => {
-                 // Keep pubkey as a single stack value. INVOKE array packing expands PUBKEY
-                 // typed elements into 32 instruction-data bytes.
-                 self.generate_ast_node(emitter, arg)?;
-                 Ok(1) // one pubkey stack value
-             }
-             _ => {
-                 eprintln!("DEBUG: unsupported dynamic serialization for {:?}", param_type);
-                 Err(VMError::TypeMismatch)
-             }
+                } else {
+                    self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+                    emitter.emit_u8(1);
+                }
+                Ok(())
+            }
+            _ => {
+                eprintln!("DEBUG: unsupported CPI serialization for {:?}", param_type);
+                Err(VMError::TypeMismatch)
+            }
         }
     }
 }
@@ -992,6 +990,12 @@ mod tests {
         fn emit_const_u128(&mut self, value: u128) -> Result<(), VMError> { self.emit_bytes(&value.to_le_bytes()); Ok(()) }
         fn emit_const_pubkey(&mut self, value: &[u8; 32]) -> Result<(), VMError> { self.emit_bytes(value); Ok(()) }
         fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError> { self.emit_bytes(value); Ok(()) }
+        fn emit_const_bytes(&mut self, value: &[u8]) -> Result<(), VMError> {
+            self.emit_opcode(PUSH_BYTES);
+            self.emit_u8(value.len() as u8);
+            self.emit_bytes(value);
+            Ok(())
+        }
         fn intern_u16_const(&mut self, _value: u16) -> Result<u16, VMError> { Ok(0) }
     }
 
@@ -1132,5 +1136,59 @@ mod tests {
 
         assert_eq!(emitter.bytes[0], CALL_EXTERNAL);
         assert_eq!(emitter.bytes[1], 4); // token_bytecode parameter is the 4th account argument
+    }
+
+    #[test]
+    fn interface_fixed_byte_array_argument_uses_push_bytes_and_concat() {
+        let mut gen = ASTGenerator::new();
+        gen.current_function_parameters = Some(vec![InstructionParameter {
+            name: "authority".to_string(),
+            param_type: TypeNode::Account,
+            is_optional: false,
+            default_value: None,
+            attributes: vec![Attribute {
+                name: "signer".to_string(),
+                args: vec![],
+            }],
+            is_init: false,
+            init_config: None,
+        }]);
+
+        let method = InterfaceMethod {
+            discriminator: 9,
+            discriminator_bytes: None,
+            is_anchor: false,
+            parameters: vec![
+                TypeNode::Account,
+                TypeNode::Array {
+                    element_type: Box::new(TypeNode::Primitive("u8".to_string())),
+                    size: Some(64),
+                },
+            ],
+            return_type: None,
+        };
+        let interface = InterfaceInfo {
+            program_id: "11111111111111111111111111111111".to_string(),
+            serializer: crate::type_checker::InterfaceSerializer::Raw,
+            is_anchor: false,
+            methods: HashMap::new(),
+        };
+        let args = vec![
+            AstNode::Identifier("authority".to_string()),
+            AstNode::ArrayLiteral {
+                elements: (0..64)
+                    .map(|i| AstNode::Literal(Value::U64(i)))
+                    .collect(),
+            },
+        ];
+
+        let mut emitter = MockEmitter::new();
+        gen.emit_interface_invoke(&mut emitter, &interface, &method, &args)
+            .expect("interface invoke generation should succeed");
+
+        assert!(emitter.bytes.contains(&PUSH_BYTES));
+        assert!(emitter.bytes.contains(&ARRAY_CONCAT));
+        assert!(emitter.bytes.contains(&INVOKE));
+        assert!(!emitter.bytes.contains(&PUSH_ARRAY_LITERAL));
     }
 }

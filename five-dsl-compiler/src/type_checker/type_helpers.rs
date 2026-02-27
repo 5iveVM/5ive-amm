@@ -79,6 +79,9 @@ impl TypeNode {
     pub fn is_account_type(&self) -> bool {
         match self {
             TypeNode::Account => true,
+            TypeNode::Primitive(name) => {
+                name == type_names::ACCOUNT_LOWER || name == type_names::ACCOUNT_UPPER
+            }
             TypeNode::Named(name) => {
                 name == type_names::ACCOUNT_LOWER || name == type_names::ACCOUNT_UPPER
             }

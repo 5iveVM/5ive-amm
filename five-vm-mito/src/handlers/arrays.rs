@@ -116,14 +116,105 @@ fn extract_raw_bytes<'a>(
             }
 
             let mut cursor = start + 2;
-            for i in 0..element_count {
+            let mut write_offset = 0usize;
+            for _ in 0..element_count {
                 if cursor >= temp.len() {
                     return Err(VMErrorCode::MemoryViolation);
                 }
 
                 match ValueRef::deserialize_from(&temp[cursor..]) {
                     Ok(v) => {
-                        out[i] = ValueRefUtils::as_u8(v)?;
+                        match v {
+                            ValueRef::U8(byte) => {
+                                if write_offset + 1 > out.len() {
+                                    return Err(VMErrorCode::OutOfMemory);
+                                }
+                                out[write_offset] = byte;
+                                write_offset += 1;
+                            }
+                            ValueRef::Bool(flag) => {
+                                if write_offset + 1 > out.len() {
+                                    return Err(VMErrorCode::OutOfMemory);
+                                }
+                                out[write_offset] = u8::from(flag);
+                                write_offset += 1;
+                            }
+                            ValueRef::U64(word) => {
+                                if write_offset + 8 > out.len() {
+                                    return Err(VMErrorCode::OutOfMemory);
+                                }
+                                out[write_offset..write_offset + 8]
+                                    .copy_from_slice(&word.to_le_bytes());
+                                write_offset += 8;
+                            }
+                            ValueRef::I64(word) => {
+                                if write_offset + 8 > out.len() {
+                                    return Err(VMErrorCode::OutOfMemory);
+                                }
+                                out[write_offset..write_offset + 8]
+                                    .copy_from_slice(&word.to_le_bytes());
+                                write_offset += 8;
+                            }
+                            ValueRef::U128(word) => {
+                                if write_offset + 16 > out.len() {
+                                    return Err(VMErrorCode::OutOfMemory);
+                                }
+                                out[write_offset..write_offset + 16]
+                                    .copy_from_slice(&word.to_le_bytes());
+                                write_offset += 16;
+                            }
+                            ValueRef::PubkeyRef(_) => {
+                                let bytes = ctx.extract_pubkey(&v)?;
+                                if write_offset + bytes.len() > out.len() {
+                                    return Err(VMErrorCode::OutOfMemory);
+                                }
+                                out[write_offset..write_offset + bytes.len()]
+                                    .copy_from_slice(&bytes);
+                                write_offset += bytes.len();
+                            }
+                            ValueRef::AccountRef(account_idx, account_offset) => {
+                                if account_offset != 0 {
+                                    return Err(VMErrorCode::TypeMismatch);
+                                }
+                                let accounts = ctx.accounts();
+                                let account = accounts
+                                    .get(account_idx as usize)
+                                    .ok_or(VMErrorCode::InvalidAccountIndex)?;
+                                let bytes = account.key().as_ref();
+                                if write_offset + bytes.len() > out.len() {
+                                    return Err(VMErrorCode::OutOfMemory);
+                                }
+                                out[write_offset..write_offset + bytes.len()]
+                                    .copy_from_slice(bytes);
+                                write_offset += bytes.len();
+                            }
+                            ValueRef::TempRef(offset, len) => {
+                                let start = offset as usize;
+                                let len = len as usize;
+                                let end = start.saturating_add(len);
+                                let temp = ctx.temp_buffer();
+                                if end > temp.len() || write_offset + len > out.len() {
+                                    return Err(VMErrorCode::MemoryViolation);
+                                }
+                                out[write_offset..write_offset + len]
+                                    .copy_from_slice(&temp[start..end]);
+                                write_offset += len;
+                            }
+                            ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+                                let (len, bytes) = ctx.extract_string_slice(&v)?;
+                                let len = len as usize;
+                                if write_offset + len > out.len() {
+                                    return Err(VMErrorCode::OutOfMemory);
+                                }
+                                out[write_offset..write_offset + len]
+                                    .copy_from_slice(bytes);
+                                write_offset += len;
+                            }
+                            _ => {
+                                out[write_offset] = ValueRefUtils::as_u8(v)?;
+                                write_offset += 1;
+                            }
+                        }
                         cursor += v.serialized_size();
                     }
                     Err(_) => {
@@ -137,7 +228,7 @@ fn extract_raw_bytes<'a>(
                 }
             }
 
-            Ok((element_count, out))
+            Ok((write_offset, out))
         }
         ValueRef::U64(0) => Ok((0, out)),
         _ => Err(VMErrorCode::TypeMismatch),

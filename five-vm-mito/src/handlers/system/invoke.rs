@@ -13,26 +13,171 @@ use five_protocol::{opcodes::*, ValueRef};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{AccountMeta, Instruction, Seed, Signer},
-    program::{invoke, invoke_signed},
+    program::{invoke_with_bounds, invoke_signed_with_bounds},
     program_error::ProgramError,
     pubkey::Pubkey,
 };
 
 const MAX_CPI_DATA_LEN: usize = 255;
 
+fn append_serialized_value(
+    ctx: &ExecutionManager,
+    value_ref: ValueRef,
+    out: &mut [u8; MAX_CPI_DATA_LEN],
+    write_offset: &mut usize,
+) -> CompactResult<()> {
+    match value_ref {
+        ValueRef::U8(byte) => {
+            if *write_offset + 1 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset] = byte;
+            *write_offset += 1;
+        }
+        ValueRef::Bool(flag) => {
+            if *write_offset + 1 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset] = u8::from(flag);
+            *write_offset += 1;
+        }
+        ValueRef::U64(word) => {
+            if *write_offset + 8 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + 8].copy_from_slice(&word.to_le_bytes());
+            *write_offset += 8;
+        }
+        ValueRef::I64(word) => {
+            if *write_offset + 8 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + 8].copy_from_slice(&word.to_le_bytes());
+            *write_offset += 8;
+        }
+        ValueRef::U128(_) => return Err(VMErrorCode::TypeMismatch),
+        ValueRef::PubkeyRef(_) => {
+            let bytes = ctx.extract_pubkey(&value_ref)?;
+            if *write_offset + bytes.len() > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + bytes.len()].copy_from_slice(&bytes);
+            *write_offset += bytes.len();
+        }
+        ValueRef::AccountRef(account_idx, account_offset) => {
+            if account_offset != 0 {
+                return Err(VMErrorCode::TypeMismatch);
+            }
+            let account = ctx
+                .accounts()
+                .get(account_idx as usize)
+                .ok_or(VMErrorCode::InvalidAccountIndex)?;
+            let bytes = account.key().as_ref();
+            if *write_offset + bytes.len() > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + bytes.len()].copy_from_slice(bytes);
+            *write_offset += bytes.len();
+        }
+        ValueRef::TempRef(offset, len) => {
+            let start = offset as usize;
+            let len = len as usize;
+            let end = start + len;
+            if end > ctx.temp_buffer().len() || *write_offset + len > out.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            out[*write_offset..*write_offset + len].copy_from_slice(&ctx.temp_buffer()[start..end]);
+            *write_offset += len;
+        }
+        ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+            let (len, bytes) = ctx.extract_string_slice(&value_ref)?;
+            let len = len as usize;
+            if *write_offset + len > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + len].copy_from_slice(bytes);
+            *write_offset += len;
+        }
+        _ => return Err(VMErrorCode::TypeMismatch),
+    }
+
+    Ok(())
+}
+
+fn materialize_instruction_data(
+    ctx: &ExecutionManager,
+    data_ref: ValueRef,
+    instruction_data_owned: &mut [u8; MAX_CPI_DATA_LEN],
+) -> CompactResult<usize> {
+    match data_ref {
+        ValueRef::U64(amount) => {
+            let discriminator_bytes = 2u32.to_le_bytes();
+            let amount_bytes = amount.to_le_bytes();
+            instruction_data_owned[0..4].copy_from_slice(&discriminator_bytes);
+            instruction_data_owned[4..12].copy_from_slice(&amount_bytes);
+            Ok(12)
+        }
+        ValueRef::TempRef(offset, len) => {
+            let start = offset as usize;
+            let end = start + len as usize;
+            if end > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            if len as usize > MAX_CPI_DATA_LEN {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            instruction_data_owned[..len as usize].copy_from_slice(&ctx.temp_buffer()[start..end]);
+            Ok(len as usize)
+        }
+        ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+            let (len, bytes) = ctx.extract_string_slice(&data_ref)?;
+            let len = len as usize;
+            if len > MAX_CPI_DATA_LEN {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            instruction_data_owned[..len].copy_from_slice(bytes);
+            Ok(len)
+        }
+        ValueRef::ArrayRef(array_id) => {
+            let start = array_id as usize;
+            let temp = ctx.temp_buffer();
+            if start + 2 > temp.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+
+            let element_count = temp[start] as usize;
+            if element_count > MAX_CPI_DATA_LEN {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+
+            let mut offset = start + 2;
+            let mut write_offset = 0usize;
+
+            for _ in 0..element_count {
+                if offset >= temp.len() {
+                    return Err(VMErrorCode::MemoryViolation);
+                }
+
+                let value_ref =
+                    ValueRef::deserialize_from(&temp[offset..]).map_err(|_| VMErrorCode::TypeMismatch)?;
+                append_serialized_value(ctx, value_ref, instruction_data_owned, &mut write_offset)?;
+                offset += value_ref.serialized_size();
+            }
+
+            Ok(write_offset)
+        }
+        _ => Err(VMErrorCode::TypeMismatch),
+    }
+}
+
 /// Handle invoke operations for cross-program invocation
 #[inline(always)]
 pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
-    use crate::error_log;
     match opcode {
         INVOKE => {
-
             // Pop parameters from stack
             let count_val = ctx.pop()?;
-            let accounts_count = count_val.as_u8().ok_or_else(|| {
-                error_log!("INVOKE: accounts_count type mismatch. Got TypeID: {}", count_val.type_id() as u64);
-                VMErrorCode::TypeMismatch
-            })?;
+            let accounts_count = count_val.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
 
             // Validate account count
             const MAX_ACCOUNTS: usize = 16;
@@ -44,10 +189,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let mut account_indices: [usize; MAX_ACCOUNTS] = [0; MAX_ACCOUNTS];
             for i in 0..accounts_count {
                 let val = ctx.pop()?;
-                let idx = val.as_u8().ok_or_else(|| {
-                    error_log!("INVOKE: account_index[{}] type mismatch. Got TypeID: {}", i as u64, val.type_id() as u64);
-                    VMErrorCode::TypeMismatch
-                })?;
+                let idx = val.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
                 account_indices[(accounts_count - 1 - i) as usize] = idx as usize;
             }
 
@@ -56,188 +198,17 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let program_id_ref = ctx.pop()?;
 
             let mut instruction_data_owned = [0u8; MAX_CPI_DATA_LEN];
-            let instruction_data: &[u8];
-            match data_ref {
-                ValueRef::U64(amount) => {
-                    // ... (U64 case)
-                    let discriminator_bytes = 2u32.to_le_bytes();
-                    let amount_bytes = amount.to_le_bytes();
-                    instruction_data_owned[0..4].copy_from_slice(&discriminator_bytes);
-                    instruction_data_owned[4..12].copy_from_slice(&amount_bytes);
-                    instruction_data = &instruction_data_owned[..12];
-                }
-                ValueRef::TempRef(offset, len) => {
-                    let start = offset as usize;
-                    let end = start + len as usize;
-                    if end > ctx.temp_buffer().len() {
-                        return Err(VMErrorCode::MemoryViolation);
-                    }
-                    // Reject instruction data larger than VM CPI payload limit.
-                    if len as usize > MAX_CPI_DATA_LEN {
-                        return Err(VMErrorCode::InvalidOperation);
-                    }
-                    instruction_data = &ctx.temp_buffer()[start..end];
-                }
-                ValueRef::ArrayRef(array_id) => {
-                    let start = array_id as usize;
-                    let temp = ctx.temp_buffer();
-                    if start + 2 > temp.len() {
-                        return Err(VMErrorCode::MemoryViolation);
-                    }
+            let instruction_data_len =
+                materialize_instruction_data(ctx, data_ref, &mut instruction_data_owned)?;
+            let instruction_data = &instruction_data_owned[..instruction_data_len];
 
-                    let element_count = temp[start] as usize;
-                    if element_count > MAX_CPI_DATA_LEN {
-                        return Err(VMErrorCode::InvalidOperation);
-                    }
-
-                    let mut offset = start + 2;
-                    let mut write_offset = 0usize;
-
-                    for _i in 0..element_count {
-                        if offset >= temp.len() {
-                            return Err(VMErrorCode::MemoryViolation);
-                        }
-
-                        let type_id = temp[offset];
-
-                        if type_id == five_protocol::types::U8
-                            || type_id == five_protocol::types::BOOL
-                        {
-                            if offset + 1 >= temp.len() {
-                                return Err(VMErrorCode::MemoryViolation);
-                            }
-                            if write_offset + 1 > instruction_data_owned.len() {
-                                return Err(VMErrorCode::InvalidOperation);
-                            }
-                            instruction_data_owned[write_offset] = temp[offset + 1];
-                            write_offset += 1;
-                            offset += 2;
-                        } else if type_id == five_protocol::types::U64
-                            || type_id == five_protocol::types::I64
-                        {
-                            if offset + 8 >= temp.len() {
-                                return Err(VMErrorCode::MemoryViolation);
-                            }
-                            if write_offset + 8 > instruction_data_owned.len() {
-                                return Err(VMErrorCode::InvalidOperation);
-                            }
-                            instruction_data_owned[write_offset..write_offset + 8]
-                                .copy_from_slice(&temp[offset + 1..offset + 9]);
-                            write_offset += 8;
-                            offset += 9;
-                        } else if type_id == five_protocol::types::U32 {
-                            if offset + 4 >= temp.len() {
-                                return Err(VMErrorCode::MemoryViolation);
-                            }
-                            if write_offset + 4 > instruction_data_owned.len() {
-                                return Err(VMErrorCode::InvalidOperation);
-                            }
-                            instruction_data_owned[write_offset..write_offset + 4]
-                                .copy_from_slice(&temp[offset + 1..offset + 5]);
-                            write_offset += 4;
-                            offset += 5;
-                        } else if type_id == five_protocol::types::PUBKEY {
-                            // ValueRef::PubkeyRef(u16): [type_id][offset_lo][offset_hi]
-                            if offset + 2 >= temp.len() {
-                                return Err(VMErrorCode::MemoryViolation);
-                            }
-                            if write_offset + 32 > instruction_data_owned.len() {
-                                return Err(VMErrorCode::InvalidOperation);
-                            }
-
-                            let mut ref_bytes = [0u8; 2];
-                            ref_bytes.copy_from_slice(&temp[offset + 1..offset + 3]);
-                            let pk_ref = ValueRef::PubkeyRef(u16::from_le_bytes(ref_bytes));
-                            let pk_bytes = ctx.extract_pubkey(&pk_ref)?;
-                            instruction_data_owned[write_offset..write_offset + 32]
-                                .copy_from_slice(&pk_bytes);
-
-                            write_offset += 32;
-                            offset += 3;
-                        } else if type_id == five_protocol::types::ACCOUNT {
-                            // ValueRef::AccountRef(u8, u16): [type_id][account_idx][offset_lo][offset_hi]
-                            // For CPI data packing, AccountRef only supports offset=0 and resolves
-                            // to the account address (pubkey), not account data bytes.
-                            if offset + 3 >= temp.len() {
-                                return Err(VMErrorCode::MemoryViolation);
-                            }
-                            if write_offset + 32 > instruction_data_owned.len() {
-                                return Err(VMErrorCode::InvalidOperation);
-                            }
-
-                            let account_idx = temp[offset + 1] as usize;
-                            let mut off_bytes = [0u8; 2];
-                            off_bytes.copy_from_slice(&temp[offset + 2..offset + 4]);
-                            let account_offset = u16::from_le_bytes(off_bytes);
-                            if account_offset != 0 {
-                                return Err(VMErrorCode::TypeMismatch);
-                            }
-                            let accounts = ctx.accounts();
-                            if account_idx >= accounts.len() {
-                                return Err(VMErrorCode::InvalidAccountIndex);
-                            }
-
-                            instruction_data_owned[write_offset..write_offset + 32]
-                                .copy_from_slice(accounts[account_idx].key().as_ref());
-                            write_offset += 32;
-                            offset += 4;
-                        } else if type_id == 16 {
-                            // ValueRef::TempRef(u8, u8): [type_id][temp_offset][len]
-                            // Accept TempRef(len=32) as pubkey bytes.
-                            if offset + 2 >= temp.len() {
-                                return Err(VMErrorCode::MemoryViolation);
-                            }
-                            if write_offset + 32 > instruction_data_owned.len() {
-                                return Err(VMErrorCode::InvalidOperation);
-                            }
-
-                            let temp_offset = temp[offset + 1] as usize;
-                            let temp_len = temp[offset + 2] as usize;
-                            if temp_len != 32 {
-                                return Err(VMErrorCode::TypeMismatch);
-                            }
-
-                            let end = temp_offset + 32;
-                            if end > ctx.temp_buffer().len() {
-                                return Err(VMErrorCode::MemoryViolation);
-                            }
-                            instruction_data_owned[write_offset..write_offset + 32]
-                                .copy_from_slice(&ctx.temp_buffer()[temp_offset..end]);
-
-                            write_offset += 32;
-                            offset += 3;
-                        } else if type_id == five_protocol::types::U128 {
-                            error_log!("INVOKE: Data Element {} TypeID U128 not supported", _i as u64);
-                            return Err(VMErrorCode::TypeMismatch);
-                        } else {
-                            error_log!("INVOKE: Data Element {} Unknown TypeID: {}", _i as u64, type_id as u64);
-                            return Err(VMErrorCode::TypeMismatch);
-                        }
-                    }
-
-                    instruction_data = &instruction_data_owned[..write_offset];
-                }
-                _ => {
-                    error_log!("INVOKE: instruction_data type mismatch. Got TypeID: {}", data_ref.type_id() as u64);
-                    return Err(VMErrorCode::TypeMismatch);
-                }
-            };
-            
-            let program_id_bytes = ctx.extract_pubkey(&program_id_ref).inspect_err(|_e| {
-                 error_log!("INVOKE: extract_pubkey failed for TypeID: {}", program_id_ref.type_id() as u64);
-            })?;
+            let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
             let program_id = Pubkey::from(program_id_bytes);
 
             debug_log!(
                 "MitoVM: INVOKE instruction_data len: {}",
                 instruction_data.len() as u32
             );
-            
-            // FORCE LOGGING loop - Cleaned up for production
-            // error_log!("INVOKE Data Len: {}", instruction_len as u64);
-            // for (idx, byte) in instruction_data[..instruction_len].iter().enumerate() {
-            //     error_log!("Byte {}: {}", idx as u64, *byte as u64);
-            // }
 
             // Validate account indices
             let accounts = ctx.accounts();
@@ -276,15 +247,28 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 data: instruction_data, // Pinocchio requires slice here
             };
 
-            // Collect account infos for the invoke using stack array
-            let mut invoke_accounts: [&AccountInfo; MAX_ACCOUNTS] = [&accounts[0]; MAX_ACCOUNTS];
+            // Collect account infos for the invoke using stack array.
+            // Real Solana CPI requires the program account info to be supplied in addition
+            // to the instruction meta accounts.
+            let mut invoke_accounts: [&AccountInfo; MAX_ACCOUNTS + 1] =
+                [&accounts[0]; MAX_ACCOUNTS + 1];
             for i in 0..accounts_count as usize {
                 invoke_accounts[i] = &accounts[account_indices[i]];
+            }
+            let mut invoke_account_len = accounts_count as usize;
+            if let Some(program_account) =
+                accounts.iter().find(|account| account.key() == &program_id)
+            {
+                invoke_accounts[invoke_account_len] = program_account;
+                invoke_account_len += 1;
             }
 
             // Execute the invoke
             debug_log!("MitoVM: Executing invoke");
-            match invoke::<MAX_ACCOUNTS>(&instruction, &invoke_accounts) {
+            match invoke_with_bounds::<{ MAX_ACCOUNTS + 1 }>(
+                &instruction,
+                &invoke_accounts[..invoke_account_len],
+            ) {
                 Ok(()) => {
                     debug_log!("MitoVM: INVOKE completed successfully");
 
@@ -374,23 +358,9 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
             let program_id = Pubkey::from(program_id_bytes);
 
-            // Extract instruction data using stack buffer (no heap!)
             let mut instruction_data_buf: [u8; MAX_CPI_DATA_LEN] = [0u8; MAX_CPI_DATA_LEN];
-            let instruction_data_len: usize;
-
-            match instruction_data_ref {
-                ValueRef::TempRef(offset, len) => {
-                    if len as usize > instruction_data_buf.len() {
-                        return Err(VMErrorCode::InvalidOperation);
-                    }
-                    let start = offset as usize;
-                    let end = start + len as usize;
-                    instruction_data_buf[..len as usize]
-                        .copy_from_slice(&ctx.temp_buffer()[start..end]);
-                    instruction_data_len = len as usize;
-                }
-                _ => return Err(VMErrorCode::TypeMismatch),
-            };
+            let instruction_data_len =
+                materialize_instruction_data(ctx, instruction_data_ref, &mut instruction_data_buf)?;
 
             // Create AccountMetas and invoke_accounts array using stack arrays (no heap!)
             const MAX_ACCOUNTS: usize = 16; // Same limit as INVOKE
@@ -419,11 +389,19 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 });
 
             // Create invoke_accounts array after we have all indices
-            let mut invoke_accounts: [&AccountInfo; MAX_ACCOUNTS] =
-                [&accounts_ref[0]; MAX_ACCOUNTS];
+            let mut invoke_accounts: [&AccountInfo; MAX_ACCOUNTS + 1] =
+                [&accounts_ref[0]; MAX_ACCOUNTS + 1];
             for i in 0..accounts_count as usize {
                 let account_idx = account_indices[i];
                 invoke_accounts[i] = &accounts_ref[account_idx];
+            }
+            let mut invoke_account_len = accounts_count as usize;
+            if let Some(program_account) = accounts_ref
+                .iter()
+                .find(|account| account.key() == &program_id)
+            {
+                invoke_accounts[invoke_account_len] = program_account;
+                invoke_account_len += 1;
             }
 
             for i in 0..accounts_count as usize {
@@ -454,7 +432,11 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             // Execute the invoke_signed
             debug_log!("MitoVM: Executing invoke_signed");
 
-            invoke_signed::<MAX_ACCOUNTS>(&instruction, &invoke_accounts, &[signer]).map_err(
+            invoke_signed_with_bounds::<{ MAX_ACCOUNTS + 1 }>(
+                &instruction,
+                &invoke_accounts[..invoke_account_len],
+                &[signer],
+            ).map_err(
                 |e| {
                     debug_log!("MitoVM: INVOKE_SIGNED failed");
                     match e {

@@ -6,6 +6,60 @@ use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
 impl TypeCheckerContext {
+    pub(crate) fn argument_matches_expected_type(
+        &mut self,
+        arg: &AstNode,
+        expected_type: &TypeNode,
+    ) -> Result<bool, VMError> {
+        let arg_type = self.infer_type(arg)?;
+        if self.types_are_compatible(&arg_type, expected_type) {
+            return Ok(true);
+        }
+
+        if arg_type.is_account_type() && expected_type.is_account_type() {
+            return Ok(true);
+        }
+
+        if let (
+            AstNode::ArrayLiteral { elements },
+            TypeNode::Array {
+                element_type,
+                size: Some(expected_len),
+            },
+        ) = (arg, expected_type)
+        {
+            if elements.len() as u64 != *expected_len {
+                return Ok(false);
+            }
+
+            if let TypeNode::Primitive(element_name) = element_type.as_ref() {
+                if element_name == "u8" {
+                    let all_fit = elements.iter().all(|element| {
+                        matches!(element, AstNode::Literal(Value::U64(v)) if *v <= u8::MAX as u64)
+                    });
+                    if all_fit {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+
+        Ok(false)
+    }
+
+    fn infer_local_interface_method_call_type(
+        &mut self,
+        interface_name: &str,
+        method: &str,
+        args: &[AstNode],
+    ) -> Result<TypeNode, VMError> {
+        let Some(interface_info) = self.interface_registry.get(interface_name) else {
+            return Err(self.undefined_identifier_error(interface_name));
+        };
+        let interface_info = interface_info.clone();
+        self.validate_interface_method_call(&interface_info, method, args)
+    }
+
     pub(crate) fn legacy_account_metadata_replacement(field: &str) -> Option<String> {
         match field {
             "key" | "lamports" | "owner" | "data" => Some(format!("ctx.{}", field)),
@@ -99,11 +153,21 @@ impl TypeCheckerContext {
                 method,
                 args,
             } => {
-                // Legacy object-style interface call (e.g. SPLToken.transfer(...))
-                // is intentionally unsupported. Interfaces are module-qualified:
-                // use std::interfaces::spl_token; spl_token::transfer(...)
                 if let AstNode::Identifier(interface_name) = object.as_ref() {
                     if self.interface_registry.contains_key(interface_name) {
+                        if !self.imported_external_interfaces.contains(interface_name) {
+                            self.infer_local_interface_method_call_type(
+                                interface_name,
+                                method,
+                                args,
+                            )?;
+                            return Ok(());
+                        }
+
+                        // Legacy object-style imported interface call
+                        // (e.g. SPLToken.transfer(...)) is intentionally unsupported.
+                        // Imported interfaces are module-qualified:
+                        // use std::interfaces::spl_token; spl_token::transfer(...)
                         let suggestion = self
                             .interface_module_aliases
                             .iter()
@@ -357,6 +421,14 @@ impl TypeCheckerContext {
         method: &str,
         args: &[AstNode],
     ) -> Result<TypeNode, VMError> {
+        if let AstNode::Identifier(interface_name) = object {
+            if self.interface_registry.contains_key(interface_name)
+                && !self.imported_external_interfaces.contains(interface_name)
+            {
+                return self.infer_local_interface_method_call_type(interface_name, method, args);
+            }
+        }
+
         let object_type = self.infer_type(object)?;
 
         // Type check all arguments
@@ -519,8 +591,7 @@ impl TypeCheckerContext {
                 }
 
                 for (i, arg) in args.iter().enumerate() {
-                    let arg_type = self.infer_type(arg)?;
-                    if !self.types_are_compatible(&arg_type, &method_params[i]) {
+                    if !self.argument_matches_expected_type(arg, &method_params[i])? {
                         return Err(VMError::TypeMismatch);
                     }
                 }

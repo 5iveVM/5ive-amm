@@ -8,60 +8,71 @@ use harness::fixtures::canonical_execute_payload;
 use harness::validator::{
     build_deploy_instruction, build_execute_instruction_with_extras, RuntimeAccount, ValidatorHarness,
 };
-use ed25519_dalek::{Keypair as DalekKeypair, Signer as DalekSigner};
 use solana_sdk::{
-    ed25519_instruction::new_ed25519_instruction,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signature::{Signature, Signer},
     system_program,
-    sysvar,
 };
 use std::collections::BTreeMap;
 
-fn bytes_literal(bytes: &[u8]) -> String {
-    bytes
+const MEMO_PROGRAM_ID: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
+
+fn build_memo_cpi_source() -> String {
+    let memo_bytes = [
+        102u8, 105, 118, 101, 45, 99, 112, 105, 45, 112, 114, 111, 98, 101, 45, 102, 105, 120,
+        101, 100, 45, 98, 121, 116, 101, 115, 45, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 45,
+        65, 66, 67, 68, 69, 70, 45, 71, 72, 73, 74, 75, 76, 45, 77, 78, 79, 80, 81, 82, 45, 83,
+        84, 85, 86, 87,
+    ];
+    let memo_literal = memo_bytes
         .iter()
         .map(|b| b.to_string())
         .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn build_probe_source(message: &[u8], signature: &[u8], expect_valid: bool) -> String {
-    let message_literal = bytes_literal(message);
-    let signature_literal = bytes_literal(signature);
-    let branch = if expect_valid {
-        r#"
-    if ok {
-        return 1;
-    }
-    require(false);
-    return 0;
-"#
-    } else {
-        r#"
-    if ok {
-        require(false);
-    }
-    return 1;
-"#
-    };
+        .join(", ");
 
     format!(
         r#"
-pub crypto_probe(owner: account @signer, instruction_sysvar: account) -> u64 {{
-    let ok = verify_ed25519_instruction(
-        instruction_sysvar,
-        owner.ctx.key,
-        [{message_literal}],
-        [{signature_literal}]
-    );
-{branch}
+interface MemoProgram @program("{memo_program_id}") @serializer(raw) {{
+    write @discriminator_bytes([]) (memo: [u8; 64]);
+}}
+
+pub cpi_memo(memo_program: account) -> u64 {{
+    MemoProgram.write([{memo_literal}]);
+    return 1;
 }}
 "#,
-        message_literal = message_literal,
-        signature_literal = signature_literal,
-        branch = branch
+        memo_program_id = MEMO_PROGRAM_ID,
+        memo_literal = memo_literal
+    )
+}
+
+fn build_memo_signer_cpi_source() -> String {
+    let memo_bytes = [
+        102u8, 105, 118, 101, 45, 99, 112, 105, 45, 115, 105, 103, 110, 101, 114, 45, 112, 114,
+        111, 98, 101, 45, 102, 105, 120, 101, 100, 45, 98, 121, 116, 101, 115, 45, 48, 49, 50,
+        51, 52, 53, 54, 55, 56, 57, 45, 65, 66, 67, 68, 69, 70, 45, 71, 72, 73, 74, 75, 76, 45,
+        77, 78, 79, 80, 81,
+    ];
+    let memo_literal = memo_bytes
+        .iter()
+        .map(|b| b.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    format!(
+        r#"
+interface MemoProgram @program("{memo_program_id}") @serializer(raw) {{
+    write @discriminator_bytes([]) (authority: account, memo: [u8; 64]);
+}}
+
+pub cpi_memo_with_signer(memo_program: account, authority: account) -> u64 {{
+    MemoProgram.write(authority, [{memo_literal}]);
+    return 1;
+}}
+"#,
+        memo_program_id = MEMO_PROGRAM_ID,
+        memo_literal = memo_literal
     )
 }
 
@@ -71,7 +82,7 @@ fn deploy_with_chunk_fallback(
     bytecode: &[u8],
 ) -> (Signature, u64) {
     let direct = h.send_ixs(
-        "crypto_probe_deploy",
+        "cpi_probe_deploy",
         vec![build_deploy_instruction(
             h.program_id,
             accounts,
@@ -121,7 +132,7 @@ fn deploy_with_chunk_fallback(
         data: init_data,
     };
     let init = h
-        .send_ixs("crypto_probe_init_large", vec![init_ix], vec![], Some(1_400_000))
+        .send_ixs("cpi_probe_init_large", vec![init_ix], vec![], Some(1_400_000))
         .expect("init large deploy");
     total_cu = total_cu.saturating_add(init.units_consumed);
     last_sig = Some(init.signature);
@@ -144,7 +155,7 @@ fn deploy_with_chunk_fallback(
             data: append_data,
         };
         let append = h
-            .send_ixs("crypto_probe_append", vec![append_ix], vec![], Some(1_400_000))
+            .send_ixs("cpi_probe_append", vec![append_ix], vec![], Some(1_400_000))
             .expect("append deploy chunk");
         total_cu = total_cu.saturating_add(append.units_consumed);
         last_sig = Some(append.signature);
@@ -160,12 +171,7 @@ fn deploy_with_chunk_fallback(
         data: vec![7u8],
     };
     let finalize = h
-        .send_ixs(
-            "crypto_probe_finalize",
-            vec![finalize_ix],
-            vec![],
-            Some(1_400_000),
-        )
+        .send_ixs("cpi_probe_finalize", vec![finalize_ix], vec![], Some(1_400_000))
         .expect("finalize deploy");
     total_cu = total_cu.saturating_add(finalize.units_consumed);
     last_sig = Some(finalize.signature);
@@ -176,14 +182,28 @@ fn deploy_with_chunk_fallback(
     )
 }
 
-fn execute_crypto_probe(
-    h: &ValidatorHarness,
-    vm_state: Pubkey,
+fn run_cpi_probe(
+    test_name: &str,
     source: &str,
-    proof_ixs: Vec<Instruction>,
-    label: &str,
+    extras: &[String],
 ) -> (Signature, u64, Signature, u64) {
-    let bytecode = DslCompiler::compile_dsl(source).expect("compile probe dsl");
+    let h = match ValidatorHarness::from_env() {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("SKIP {}: {}", test_name, e);
+            return (
+                Signature::default(),
+                0,
+                Signature::default(),
+                0,
+            );
+        }
+    };
+
+    let vm_state = h.ensure_vm_state().expect("vm_state ready");
+    h.ensure_fee_vault_shard(vm_state, 0).expect("fee vault ready");
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("compile memo cpi probe dsl");
 
     let script = h
         .create_program_owned_account(
@@ -235,135 +255,75 @@ fn execute_crypto_probe(
         },
     );
     accounts.insert(
-        "instruction_sysvar".to_string(),
+        "memo_program".to_string(),
         RuntimeAccount {
-            pubkey: sysvar::instructions::id(),
+            pubkey: MEMO_PROGRAM_ID.parse().expect("memo program id"),
             signer: None,
-            owner: sysvar::id(),
+            owner: solana_sdk::bpf_loader::id(),
             lamports: 0,
             data_len: 0,
             is_signer: false,
             is_writable: false,
-            executable: false,
+            executable: true,
         },
     );
 
-    let (deploy_signature, deploy_cu) = deploy_with_chunk_fallback(h, &accounts, &bytecode);
-
+    let (deploy_signature, deploy_cu) = deploy_with_chunk_fallback(&h, &accounts, &bytecode);
     let execute_ix = build_execute_instruction_with_extras(
         h.program_id,
         &accounts,
         "script",
         "vm_state",
-        &["payer".to_string(), "instruction_sysvar".to_string()],
+        extras,
         canonical_execute_payload(0, &[]),
     );
+    let execute = h
+        .send_ixs(test_name, vec![execute_ix], vec![], None)
+        .expect("execute cpi probe");
 
-    let mut ixs = proof_ixs;
-    ixs.push(execute_ix);
-    let execute = h.send_ixs(label, ixs, vec![], None).expect("execute tx");
-
-    (
-        deploy_signature,
-        deploy_cu,
-        execute.signature,
-        execute.units_consumed,
-    )
+    (deploy_signature, deploy_cu, execute.signature, execute.units_consumed)
 }
 
 #[test]
 #[ignore = "requires running validator and pre-deployed program"]
-fn validator_crypto_probe_onchain() {
-    let h = match ValidatorHarness::from_env() {
-        Ok(h) => h,
-        Err(e) => {
-            eprintln!("SKIP validator_crypto_probe_onchain: {}", e);
-            return;
-        }
-    };
-
-    let (vm_state, vm_bump) = Pubkey::find_program_address(&[b"vm_state"], &h.program_id);
-    let vm_state_ready = h
-        .rpc
-        .get_account(&vm_state)
-        .ok()
-        .map(|acc| acc.owner == h.program_id && acc.data.len() > 80 && acc.data[80] != 0)
-        .unwrap_or(false);
-    if !vm_state_ready {
-        let init_vm_ix = Instruction {
-            program_id: h.program_id,
-            accounts: vec![
-                AccountMeta::new(vm_state, false),
-                AccountMeta::new_readonly(h.payer.pubkey(), true),
-                AccountMeta::new(h.payer.pubkey(), true),
-                AccountMeta::new_readonly(system_program::id(), false),
-            ],
-            data: vec![0u8, vm_bump],
-        };
-        let init_res = h.send_ixs("initialize_vm_state_direct", vec![init_vm_ix], vec![], None);
-        if let Err(err) = init_res {
-            if !err.contains("Custom(1023)") && !err.contains("already initialized") {
-                panic!("initialize vm_state: {}", err);
-            }
-        }
+fn validator_cpi_fixed_bytes_probe_onchain() {
+    let source = build_memo_cpi_source();
+    let (deploy_signature, deploy_cu, execute_signature, execute_cu) = run_cpi_probe(
+        "cpi_probe_execute",
+        &source,
+        &["memo_program".to_string(), "payer".to_string()],
+    );
+    if deploy_signature == Signature::default() {
+        return;
     }
-
-    let fee_shard_index = 0u8;
-    let (fee_vault, fee_bump) = Pubkey::find_program_address(
-        &[b"\xFFfive_vm_fee_vault_v1", &[fee_shard_index]],
-        &h.program_id,
-    );
-    if h.rpc.get_account(&fee_vault).is_err() {
-        let init_fee_vault_ix = Instruction {
-            program_id: h.program_id,
-            accounts: vec![
-                AccountMeta::new(vm_state, false),
-                AccountMeta::new(h.payer.pubkey(), true),
-                AccountMeta::new(fee_vault, false),
-                AccountMeta::new_readonly(system_program::id(), false),
-            ],
-            data: vec![11u8, fee_shard_index, fee_bump],
-        };
-        h.send_ixs(
-            "initialize_fee_vault_direct",
-            vec![init_fee_vault_ix],
-            vec![],
-            None,
-        )
-        .expect("initialize fee vault");
-    }
-
-    let message = b"five-crypto-probe-ed25519-msg-v1";
-    let dalek = DalekKeypair::from_bytes(&h.payer.to_bytes()).expect("payer keypair bytes");
-    let signature = dalek.sign(message).to_bytes();
-    let positive_source = build_probe_source(message, &signature, true);
-    let ed25519_ix = new_ed25519_instruction(&dalek, message);
-    let (deploy_signature, deploy_cu, execute_signature, execute_cu) = execute_crypto_probe(
-        &h,
-        vm_state,
-        &positive_source,
-        vec![ed25519_ix],
-        "crypto_probe_execute_valid",
-    );
-
-    let mut bad_signature = signature;
-    bad_signature[0] ^= 0x80;
-    let negative_source = build_probe_source(message, &bad_signature, false);
-    let (_, _, bad_execute_signature, bad_execute_cu) = execute_crypto_probe(
-        &h,
-        vm_state,
-        &negative_source,
-        vec![new_ed25519_instruction(&dalek, message)],
-        "crypto_probe_execute_invalid",
-    );
 
     println!(
-        "CRYPTO_PROBE valid_deploy_signature={} valid_deploy_cu={} valid_execute_signature={} valid_execute_cu={} invalid_execute_signature={} invalid_execute_cu={}",
+        "CPI_FIXED_BYTES_PROBE deploy_signature={} deploy_cu={} execute_signature={} execute_cu={}",
         deploy_signature,
         deploy_cu,
         execute_signature,
-        execute_cu,
-        bad_execute_signature,
-        bad_execute_cu
+        execute_cu
+    );
+}
+
+#[test]
+#[ignore = "requires running validator and pre-deployed program"]
+fn validator_cpi_fixed_bytes_with_signer_probe_onchain() {
+    let source = build_memo_signer_cpi_source();
+    let (deploy_signature, deploy_cu, execute_signature, execute_cu) = run_cpi_probe(
+        "cpi_probe_execute_signer",
+        &source,
+        &["memo_program".to_string(), "payer".to_string()],
+    );
+    if deploy_signature == Signature::default() {
+        return;
+    }
+
+    println!(
+        "CPI_FIXED_BYTES_SIGNER_PROBE deploy_signature={} deploy_cu={} execute_signature={} execute_cu={}",
+        deploy_signature,
+        deploy_cu,
+        execute_signature,
+        execute_cu
     );
 }

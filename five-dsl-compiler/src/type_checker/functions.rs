@@ -238,9 +238,8 @@ impl TypeCheckerContext {
 
             // Type check arguments
             for (i, arg) in args.iter().enumerate() {
-                let arg_type = self.infer_type(arg)?;
                 let expected_type = &method_info.parameters[i];
-                if !self.types_are_compatible(&arg_type, expected_type) {
+                if !self.argument_matches_expected_type(arg, expected_type)? {
                     return Err(VMError::TypeMismatch);
                 }
             }

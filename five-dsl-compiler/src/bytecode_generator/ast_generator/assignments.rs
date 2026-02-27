@@ -24,6 +24,43 @@ pub(super) fn fixed_u8_array_len(type_node: Option<&TypeNode>) -> Option<usize> 
     }
 }
 
+pub(super) fn collect_byte_array_literal_bytes(value: &AstNode) -> Option<Vec<u8>> {
+    let elements = match value {
+        AstNode::ArrayLiteral { elements } => elements,
+        _ => return None,
+    };
+
+    let mut bytes = Vec::with_capacity(elements.len());
+    for element in elements {
+        let AstNode::Literal(value) = element else {
+            return None;
+        };
+
+        if let Some(byte) = value.as_u8() {
+            bytes.push(byte);
+            continue;
+        }
+
+        let maybe_byte = value
+            .as_u64()
+            .filter(|v| *v <= u8::MAX as u64)
+            .map(|v| v as u8)
+            .or_else(|| {
+                value
+                    .as_i64()
+                    .filter(|v| (0..=u8::MAX as i64).contains(v))
+                    .map(|v| v as u8)
+            });
+
+        match maybe_byte {
+            Some(byte) => bytes.push(byte),
+            None => return None,
+        }
+    }
+
+    Some(bytes)
+}
+
 fn fixed_u8_array_len_from_type_str(type_name: &str) -> Option<usize> {
     let inner = type_name
         .strip_prefix("[u8;")?
@@ -47,35 +84,10 @@ fn classify_byte_array_literal(type_node: Option<&TypeNode>, value: &AstNode) ->
         return ByteArrayLiteralLowering::NotApplicable;
     }
 
-    let mut bytes = Vec::with_capacity(elements.len());
-    for element in elements {
-        let AstNode::Literal(value) = element else {
-            return ByteArrayLiteralLowering::FallbackWarning(expected_len);
-        };
-
-        if let Some(byte) = value.as_u8() {
-            bytes.push(byte);
-            continue;
-        }
-
-        let maybe_byte = value
-            .as_u64()
-            .filter(|v| *v <= u8::MAX as u64)
-            .map(|v| v as u8)
-            .or_else(|| {
-                value
-                    .as_i64()
-                    .filter(|v| (0..=u8::MAX as i64).contains(v))
-                    .map(|v| v as u8)
-            });
-
-        match maybe_byte {
-            Some(byte) => bytes.push(byte),
-            None => return ByteArrayLiteralLowering::FallbackWarning(expected_len),
-        }
+    match collect_byte_array_literal_bytes(value) {
+        Some(bytes) => ByteArrayLiteralLowering::Fast(bytes),
+        None => ByteArrayLiteralLowering::FallbackWarning(expected_len),
     }
-
-    ByteArrayLiteralLowering::Fast(bytes)
 }
 
 impl ASTGenerator {
