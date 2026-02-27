@@ -2,6 +2,9 @@
 // Standardized wrappers and signatures for common compiler built-ins.
 //
 // These wrappers keep call sites stable if builtin naming evolves.
+// `bytes_concat` returns a bytes-compatible string buffer suitable for further
+// concat/hash flows. `verify_ed25519_instruction` is the instruction-sysvar
+// verification path intended for auth-sensitive entropy/message validation.
 
 pub now_seconds() -> u64 {
     return get_clock();

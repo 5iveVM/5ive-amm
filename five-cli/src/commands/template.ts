@@ -15,7 +15,7 @@ type TemplateName = 'vault' | 'escrow' | 'amm' | 'token' | 'nft' | 'nft-globals'
 
 export const templateCommand: CommandDefinition = {
   name: 'template',
-  description: 'Generate Five DSL templates (vault, escrow, amm, token, nft, nft-globals). Note: nft-globals assumes metadata is set globally and only handles transfers.',
+  description: 'Generate Five DSL templates for common 5IVE and CPI patterns, including stdlib-based and interface-based examples.',
   aliases: ['tmpl', 'scaffold'],
 
   options: [
@@ -81,12 +81,12 @@ export const templateCommand: CommandDefinition = {
       description: 'Create token.v in ./templates',
     },
     {
-      command: 'five compile templates/token.v -o build/token.bin',
-      description: 'Compile to bytecode (.bin)',
+      command: 'five compile templates/token.v -o build/token.five',
+      description: 'Compile to bytecode (.five)',
     },
     {
-      command: 'five execute build/token.bin --local',
-      description: 'Local WASM execution (use -f to pick a function index)',
+      command: 'five execute build/token.five --local',
+      description: 'Local execution (use -f to pick a function index)',
     },
     // Quickstart flows (AMM)
     {
@@ -98,12 +98,12 @@ export const templateCommand: CommandDefinition = {
       description: 'Create amm.v in ./templates',
     },
     {
-      command: 'five compile templates/amm.v -o build/amm.bin',
+      command: 'five compile templates/amm.v -o build/amm.five',
       description: 'Compile AMM template',
     },
     {
-      command: 'five execute build/amm.bin --local',
-      description: 'Local WASM execution for AMM',
+      command: 'five execute build/amm.five --local',
+      description: 'Local execution for AMM',
     },
     // Quickstart flows (NFT)
     {
@@ -115,12 +115,12 @@ export const templateCommand: CommandDefinition = {
       description: 'Create nft.v in ./templates',
     },
     {
-      command: 'five compile templates/nft.v -o build/nft.bin',
+      command: 'five compile templates/nft.v -o build/nft.five',
       description: 'Compile NFT template',
     },
     {
-      command: 'five execute build/nft.bin --local',
-      description: 'Local WASM execution for NFT',
+      command: 'five execute build/nft.five --local',
+      description: 'Local execution for NFT',
     },
     // Deploy + on-chain execution (mainnet)
     {
@@ -128,7 +128,7 @@ export const templateCommand: CommandDefinition = {
       description: '—',
     },
     {
-      command: 'five deploy build/token.bin --target mainnet',
+      command: 'five deploy build/token.five --target mainnet',
       description: 'Deploy compiled bytecode to mainnet',
     },
     {
@@ -180,7 +180,7 @@ export const templateCommand: CommandDefinition = {
 
       console.log('\nNext steps:');
       console.log(`- Edit generated .v files to fit your use case`);
-      console.log(`- Compile: ${uiColors.info('five compile <file>.v')}`);
+      console.log(`- Compile: ${uiColors.info('five compile <file>.v -o build/<file>.five')}`);
       console.log(`- Execute locally: ${uiColors.info('five execute <file>.five --local')}`);
 
     } catch (err) {
@@ -266,9 +266,9 @@ async function getTemplateContent(name: TemplateName): Promise<string> {
     case 'system-lamports':
       return `quote_transfer(from: account, to: account, amount: u64) -> (u64, u64) { require(amount > 0); require(from.ctx.lamports >= amount); let nf = from.ctx.lamports - amount; let nt = to.ctx.lamports + amount; return (nf, nt); }\ncheck_min_balance(acc: account, min: u64) -> bool { return acc.ctx.lamports >= min; }\ntopup_needed(acc: account, min: u64) -> u64 { if (acc.ctx.lamports >= min) { return 0; } return min - acc.ctx.lamports; }\n`;
     case 'interface':
-      return `interface ExampleProgram @program("11111111111111111111111111111111") { do_thing @discriminator(1) (arg: u64); }\ncall_example(target: account @signer, value: u64) { ExampleProgram.do_thing(value); }\n`;
+      return `interface ExampleProgram @program("11111111111111111111111111111111") @serializer(raw) {\n    do_thing @discriminator_bytes([1]) (authority: account, value: u64);\n}\n\npub call_example(authority: account @signer, value: u64) {\n    ExampleProgram.do_thing(authority, value);\n}\n`;
     case 'spl-token':
-      return `interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") { initialize_mint @discriminator(0) (mint: pubkey, decimals: u8, authority: pubkey, freeze_authority: pubkey); mint_to @discriminator(7) (mint: pubkey, to: pubkey, authority: pubkey, amount: u64); }\ncreate_mint(payer: account @signer, mint: account @init, decimals: u8) -> pubkey { SPLToken.initialize_mint(mint.ctx.key, decimals, payer.ctx.key, payer.ctx.key); return mint.ctx.key; }\nmint_tokens(mint: account @mut, dest: account @mut, amount: u64) { SPLToken.mint_to(mint.ctx.key, dest.ctx.key, mint.ctx.key, amount); }\n`;
+      return `use std::interfaces::spl_token;\n\npub mint_tokens(mint: account @mut, destination: account @mut, authority: account @signer, amount: u64) {\n    require(amount > 0);\n    spl_token::mint_to(mint, destination, authority, amount);\n}\n\npub transfer_tokens(source: account @mut, destination: account @mut, authority: account @signer, amount: u64) {\n    require(amount > 0);\n    spl_token::transfer(source, destination, authority, amount);\n}\n`;
     
   }
 }
@@ -283,12 +283,7 @@ const COMMON_HEADER = `// Generated by five template
 const TEMPLATE_VAULT = `${COMMON_HEADER}
 // Vault template: lamport custody via System Program CPI
 
-// System Program interface for lamports transfer
-interface SystemProgram @program("11111111111111111111111111111112") {
-    create_account @discriminator(0) (from: pubkey, to: pubkey, lamports: u64, space: u64, owner: pubkey);
-    assign @discriminator(1) (account: pubkey, owner: pubkey);
-    transfer_lamports @discriminator(2) (from: pubkey, to: pubkey, lamports: u64);
-}
+use std::interfaces::system_program;
 
 account VaultState {
     balance: u64;
@@ -307,7 +302,7 @@ init_vault(state: VaultState @mut, authority: account @signer) {
 // Updates internal balance for accounting
 deposit(state: VaultState @mut, payer: account @signer @mut, vault_account: account @mut, amount: u64) {
     require(amount > 0);
-    SystemProgram.transfer_lamports(payer, vault_account, amount);
+    system_program::transfer(payer, vault_account, amount);
     state.balance = state.balance + amount;
 }
 
@@ -317,8 +312,9 @@ deposit(state: VaultState @mut, payer: account @signer @mut, vault_account: acco
 // - recipient: destination account to receive lamports
 withdraw(state: VaultState @mut, authority: account @signer, vault_account: account @mut, recipient: account @mut, amount: u64) {
     require(state.authorized_user == authority.ctx.key);
+    require(amount > 0);
     require(state.balance >= amount);
-    SystemProgram.transfer_lamports(vault_account, recipient, amount);
+    system_program::transfer(vault_account, recipient, amount);
     state.balance = state.balance - amount;
 }
 `;
@@ -427,21 +423,22 @@ account TokenAccount {
 }
 
 // Initialize mint state
-init_mint(state: Mint @mut, authority: pubkey, decimals: u8) {
-    state.authority = authority;
+init_mint(state: Mint @mut, authority: account @signer, decimals: u8) {
+    state.authority = authority.ctx.key;
     state.supply = 0;
     state.decimals = decimals;
 }
 
 // Initialize a token account
-init_account(state: TokenAccount @mut, owner: pubkey) {
-    state.owner_key = owner;
+init_account(state: TokenAccount @mut, owner: account @signer) {
+    state.owner_key = owner.ctx.key;
     state.bal = 0;
 }
 
 // Split flows to satisfy current validator constraints
-mint_increase_supply(state: Mint @mut, authority: pubkey, amount: u64) {
-    require(state.authority == authority);
+mint_increase_supply(state: Mint @mut, authority: account @signer, amount: u64) {
+    require(state.authority == authority.ctx.key);
+    require(amount > 0);
     state.supply = state.supply + amount;
 }
 
@@ -449,9 +446,10 @@ credit_account(state: TokenAccount @mut, amount: u64) {
     state.bal = state.bal + amount;
 }
 
-debit_account(state: TokenAccount @mut, signer: pubkey, amount: u64) {
-    require(state.owner_key == signer);
+debit_account(state: TokenAccount @mut, signer: account @signer, amount: u64) {
+    require(state.owner_key == signer.ctx.key);
     require(state.bal >= amount);
+    require(amount > 0);
     state.bal = state.bal - amount;
 }
 
@@ -460,15 +458,16 @@ credit_after_debit(state: TokenAccount @mut, amount: u64) {
 }
 
 // Burn reduces supply
-burn_supply(state: Mint @mut, authority: pubkey, amount: u64) {
-    require(state.authority == authority);
+burn_supply(state: Mint @mut, authority: account @signer, amount: u64) {
+    require(state.authority == authority.ctx.key);
     require(state.supply >= amount);
+    require(amount > 0);
     state.supply = state.supply - amount;
 }
 
 // Change mint authority
-set_mint_authority(state: Mint @mut, current: pubkey, new_auth: pubkey) {
-    require(state.authority == current);
+set_mint_authority(state: Mint @mut, current: account @signer, new_auth: pubkey) {
+    require(state.authority == current.ctx.key);
     state.authority = new_auth;
 }
 

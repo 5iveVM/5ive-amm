@@ -14,6 +14,9 @@ Use this checklist during execution. Do not skip gates.
 5. Decide execution mode:
 - online mode: use docs/examples as supplemental context
 - offline mode: rely on CLI help, `five.toml`, compile errors, ABI, and tx logs
+6. For Anchor ports:
+- inventory instructions, account constraints, PDA seeds, CPIs, and sysvar dependencies
+- define exact parity expectations before rewriting syntax
 
 ## B) Authoring Gate
 
@@ -37,7 +40,16 @@ Use this checklist during execution. Do not skip gates.
 - use `use <module path>;`
 - call methods as `module_alias::method(...)`
 - full path calls are allowed
-- do not use legacy object style like `SPLToken.transfer(...)`
+- use dot-call syntax only for interfaces declared in the same source file
+7. Crypto/auth-sensitive logic:
+- build byte preimages explicitly with `bytes_concat(...)`
+- hash into fixed `[u8; 32]` buffers
+- require Ed25519/sysvar verification before accepting authenticated entropy/messages
+- keep static signatures/messages as fixed `[u8; N]` literals when useful
+8. Anchor migration parity:
+- map every Anchor `require!()` to `require(...)`
+- preserve signer checks and counter/state semantics exactly
+- preserve instruction sysvar verification when present upstream
 
 ## C) Compile Gate
 
@@ -54,9 +66,10 @@ Use this checklist during execution. Do not skip gates.
 - `pubkey(0)` usage (replace with `0`)
 - CPI account type/mutability mismatch
 - unresolved module alias errors (add the missing `use <module>;` import)
-- legacy interface object calls (rewrite to `module_alias::method(...)`)
+- wrong call form for imported vs local interfaces
 3. Re-run compile until clean.
 4. Capture artifact path and byte size changes.
+5. For Anchor ports, compile after each instruction/helper migration instead of batching the whole rewrite blindly.
 
 ## D) One-Shot Recovery Gate (When Errors Persist)
 
@@ -85,7 +98,12 @@ Use this checklist during execution. Do not skip gates.
 - CPI account mismatch or missing account (if CPI is used)
 - legacy object-style interface call fails with migration guidance
 - alias call without import fails with missing-import guidance
-5. Record pass/fail evidence.
+5. For Anchor ports, add deterministic parity tests for:
+- canonical preimage bytes
+- hash output vectors
+- counter increments / no-increment-on-failure
+- sysvar/CPI proof failures
+6. Record pass/fail evidence.
 
 ## F) Security Gate
 
@@ -101,7 +119,12 @@ Use this checklist during execution. Do not skip gates.
 4. CPI safety (if used):
 - interface program IDs and discriminators validated
 - writable/signer account constraints enforced
-5. Security test evidence recorded.
+5. Crypto safety (if used):
+- Ed25519 verification is fail-closed
+- no placeholder entropy or fallback randomness paths remain
+6. Anchor parity (if porting):
+- no dropped instruction, helper, or guard without explicit user approval
+7. Security test evidence recorded.
 
 ## G) Deploy and Execute Gate (If In Scope)
 
@@ -145,5 +168,7 @@ Unless user asks for another format, output must contain:
 - switch to `account @signer` and use `.ctx.key`.
 4. CPI failures:
 - check interface discriminator/serializer/account types/mutability.
-5. Execution failed:
+5. Anchor port mismatch:
+- compare against upstream instruction semantics, byte layout, and auth path before changing the 5IVE code again.
+6. Execution failed:
 - inspect tx logs, guard conditions, and account ordering.

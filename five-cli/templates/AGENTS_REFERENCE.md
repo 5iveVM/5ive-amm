@@ -9,6 +9,7 @@ Use with `./AGENTS.md` and `./AGENTS_CHECKLIST.md`.
 2. Build artifact: `.five` (bytecode + ABI)
 3. CLI: `@5ive-tech/cli` commands `5ive` or `five`
 4. SDK: `@5ive-tech/sdk`
+5. Pinned monorepo compiler/runtime behavior is authoritative when installed CLI/docs drift.
 
 ## 2) Online and Offline Working Modes
 
@@ -24,18 +25,16 @@ Use with `./AGENTS.md` and `./AGENTS_CHECKLIST.md`.
 ### Quickstart skeleton (recommended starting point)
 
 ```v
-script main {
-    use std::builtins;
-    use std::interfaces::spl_token;
+use std::builtins;
+use std::interfaces::spl_token;
 
-    pub fn run(
-        source: Account,
-        destination: Account,
-        authority: Account
-    ) -> u64 {
-        spl_token::transfer(source, destination, authority, 1);
-        return builtins::now_seconds();
-    }
+pub run(
+    source: account @mut,
+    destination: account @mut,
+    authority: account @signer
+) -> u64 {
+    spl_token::transfer(source, destination, authority, 1);
+    return builtins::now_seconds();
 }
 ```
 
@@ -43,7 +42,8 @@ Import/call contract:
 1. `use <module path>;`
 2. call using module alias: `<last_segment>::<method>(...)`
 3. full path calls are also valid: `<full::module::path>::<method>(...)`
-4. do not use legacy object style like `SPLToken.transfer(...)`
+4. locally declared interfaces use dot-call syntax: `ExampleProgram.do_thing(...)`
+5. prefer lowercase authored source types like `account`; some generated ABI/std surfaces may still display `Account`
 
 ### Account declarations
 
@@ -73,6 +73,7 @@ pub update_authority(
 Rules:
 1. signer params are `account @signer`
 2. use `.ctx.key` when comparing or assigning pubkeys from account params
+3. use `.ctx.lamports`, `.ctx.owner`, `.ctx.data`, and `.ctx.bump` for runtime metadata and seeded init flows
 
 ### Zero pubkey sentinel
 
@@ -122,6 +123,12 @@ Use stdlib wrappers via module import:
 - `builtins::verify_ed25519_instruction(instruction_sysvar, expected_pubkey, message, signature)`
 3. full path form is valid: `std::builtins::now_seconds()`
 
+Current crypto guidance:
+1. Prefer direct full-width preimage assembly with `bytes_concat`.
+2. Hash into a fixed `[u8; 32]` output buffer.
+3. Large fixed `[u8; N]` literals are valid for static messages, signatures, and test vectors.
+4. Treat `verify_ed25519_instruction(...) == false` as a hard failure in auth-sensitive paths.
+
 Recommended unit standards:
 1. time in seconds
 2. USD price scale `1e6`
@@ -132,12 +139,36 @@ Recommended unit standards:
 1. Interface uses `@program("...")` with valid base58 program ID.
 2. Anchor CPI: use `@anchor` and do not add manual discriminator.
 3. Non-anchor CPI: use single-byte `@discriminator(N)`.
-4. Interface account params use `Account`, not `pubkey`.
+4. Interface account params should be account-like values, not raw pubkeys, when the callee expects account metas.
 5. Invoke interface methods with module qualification: `module_alias::method(...)`.
 6. Full-path form is valid: `std::interfaces::spl_token::transfer(...)`.
-7. Legacy object style is invalid: `SPLToken.transfer(...)`.
+7. Local interfaces declared in the same file use dot-call syntax: `ExampleProgram.do_thing(...)`.
 8. Pass account params directly in CPI calls, not `.ctx.key`.
 9. CPI-writable accounts must be `account @mut` in caller signature.
+10. Do not inject the callee program account into instruction metas unless the interface explicitly models it as a callee account; it still must be present in the CPI account-info slice.
+11. For raw-byte CPI payloads, use fixed `[u8; N]` literals or deterministic byte buffers and let the compiler lower them through the bytes path.
+
+## 5.1) Anchor-to-5IVE Porting Map
+
+Use this as the default migration map:
+
+| Anchor | 5IVE |
+|---|---|
+| `#[account]` state struct | `account Name { ... }` |
+| `Signer<'info>` | `account @signer` |
+| `.key()` | `.ctx.key` |
+| mutable account | `State @mut` |
+| `init` / payer / space constraints | `@init(payer=..., space=...)` |
+| `require!()` | `require(...)` |
+| instruction sysvar checks | explicit `instruction_sysvar: account` plus builtins |
+| PDA bump access | `account.ctx.bump` |
+| Anchor CPI | interface + `@program(...)` + serializer/discriminator |
+
+Porting checklist:
+1. List all Anchor instructions and port them one by one.
+2. Copy every auth/range/state guard before refactoring names or layout.
+3. Reproduce byte layouts exactly when hashing, signing, or verifying sysvar-backed proofs.
+4. Keep failure behavior intact unless the user explicitly approves an API/semantics change.
 
 ## 6) Build and Test Commands
 
@@ -150,6 +181,7 @@ Recommended unit standards:
 Discovery behavior:
 1. test functions can be named `pub test_*`
 2. `.v` tests and `.test.json` suites are supported by `5ive test`
+3. If the globally installed CLI behaves differently from the pinned monorepo compiler/runtime, treat the monorepo toolchain as the source of truth and record the mismatch explicitly.
 
 ## 7) Security Review Minimum
 
@@ -159,6 +191,11 @@ Before deploy, verify:
 3. math and units are consistent and bounded
 4. CPI interfaces and account mutability/signer expectations are correct
 5. negative tests cover auth, state, and boundary failures
+6. for Anchor ports, add parity tests for:
+- instruction auth/signer behavior
+- deterministic hash/preimage vectors
+- counter/state transition parity
+- CPI/sysvar proof semantics
 
 ## 8) Debugging Loop for Weak Error Messages
 

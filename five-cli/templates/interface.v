@@ -1,13 +1,13 @@
-// Generic interface template example
+// Generic local interface template example.
+// Use dot-call syntax for locally declared interfaces.
 
-// Declare an external program interface with discriminators
-interface ExampleProgram @program("11111111111111111111111111111111") {
-    do_thing @discriminator(1) (arg: u64);
+interface ExampleProgram @program("11111111111111111111111111111111") @serializer(raw) {
+    do_thing @discriminator_bytes([1]) (
+        authority: account,
+        value: u64
+    );
 }
 
-// Demonstrate calling into the interface
-call_example(target: account @signer, value: u64) {
-    // In interfaces, account parameters are passed as pubkeys (account.key)
-    ExampleProgram.do_thing(value);
+pub call_example(authority: account @signer, value: u64) {
+    ExampleProgram.do_thing(authority, value);
 }
-

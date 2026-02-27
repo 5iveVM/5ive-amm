@@ -2,6 +2,7 @@
 
 The compiler provides stdlib modules from a bundled source registry.
 Local `src/std` files are ignored in bundled mode.
+When bundled stdlib examples and installed CLI behavior diverge from the pinned monorepo toolchain, treat the pinned compiler/runtime as authoritative.
 
 ## Included modules
 
@@ -33,6 +34,10 @@ use std::builtins;
 let now = builtins::now_seconds();
 ```
 
+Authoring guidance:
+1. Prefer lowercase authored DSL types like `account`, `pubkey`, and `string<N>`.
+2. Some bundled stdlib sources or generated ABI artifacts may still display `Account`; that does not change the recommended authored source style.
+
 Documented import forms:
 
 1. `use std::builtins::{now_seconds};` then call `now_seconds()`
@@ -41,7 +46,8 @@ Documented import forms:
 4. `use std::interfaces::system_program;` then call `system_program::...`
 5. Full path calls are also supported, e.g. `std::interfaces::spl_token::transfer(...)`
 
-Legacy interface object calls like `SPLToken.transfer(...)` are not supported.
+Imported stdlib interfaces use module calls like `spl_token::transfer(...)`.
+Locally declared interfaces may use dot-call syntax like `ExampleProgram.do_thing(...)`.
 
 Use these forms as canonical stdlib module paths.
 
@@ -54,11 +60,21 @@ Bundled `std::builtins` supports explicit-output hash and verification flows:
 3. `blake3(input, out32)` and wrapper `hash_blake3_into(input, out32)`
 4. `bytes_concat(left, right)` for deterministic byte preimage construction
 5. `verify_ed25519_instruction(instruction_sysvar, expected_pubkey, message, signature) -> bool`
+6. Large fixed `[u8; N]` literals are supported and are suitable for static signatures, messages, and known vectors
 
 Recommended practice:
 1. build preimages explicitly with `bytes_concat`
 2. hash into a fixed `[u8; 32]` output buffer
 3. gate entropy/auth-sensitive logic on `verify_ed25519_instruction(...) == true`
+4. treat `bytes_concat(...)` output as a bytes-compatible buffer for further concat/hash calls
+
+## Anchor porting guidance
+
+When using bundled stdlib/interfaces to port Anchor programs:
+1. preserve upstream byte layouts exactly when hashing or verifying proofs
+2. keep signer/account parameters as account-like values for CPI, not raw pubkeys, when account metas are required
+3. use explicit `instruction_sysvar: account` inputs for Ed25519 instruction-sysvar verification
+4. do not replace upstream proof validation with counters or simplified placeholders
 
 ## Migration path
 

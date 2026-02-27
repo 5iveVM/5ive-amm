@@ -21,11 +21,11 @@ account TokenAccount {
 // Initialize mint state
 pub init_mint(
     state: Mint @mut,
-    authority: pubkey @signer,
+    authority: account @signer,
     freeze_authority: pubkey,
     decimals: u8
 ) {
-    state.authority = authority;
+    state.authority = authority.ctx.key;
     state.freeze_authority = freeze_authority;
     state.supply = 0;
     state.decimals = decimals;
@@ -34,10 +34,10 @@ pub init_mint(
 // Initialize a token account
 pub init_account(
     state: TokenAccount @mut,
-    owner: pubkey @signer,
+    owner: account @signer,
     mint: pubkey
 ) {
-    state.owner_key = owner;
+    state.owner_key = owner.ctx.key;
     state.mint = mint;
     state.bal = 0;
     state.is_frozen = false;
@@ -46,12 +46,12 @@ pub init_account(
 // Create an Associated Token Account (ATA) for an owner and mint
 pub create_associated_token_account(
     ata_account: TokenAccount @mut @init, // @init constraint creates the account
-    owner: pubkey @signer,
+    owner: account @signer,
     mint: pubkey
 ) {
     // In a real implementation, the ATA address would be derived here using PDA:
     // let (ata_address, bump_seed) = derive_pda([owner, mint], program_id);
-    // require(get_key(ata_account) == ata_address, "ATA address mismatch");
+    // require(ata_account.ctx.key == ata_address);
 
     // Initialize the newly created ATA
     init_account(ata_account, owner, mint);
@@ -64,9 +64,9 @@ pub mint_to(
     mint_authority: account @signer,
     amount: u64
 ) {
-    require(mint_state.authority == mint_authority, "Mint authority mismatch");
-    require(destination_account.mint == get_key(mint_state), "Destination account mint mismatch"); // Ensure destination is for this mint
-    require(!destination_account.is_frozen, "Destination account is frozen");
+    require(mint_state.authority == mint_authority.ctx.key);
+    require(!destination_account.is_frozen);
+    require(amount > 0);
 
     mint_state.supply = mint_state.supply + amount;
     destination_account.bal = destination_account.bal + amount;
@@ -76,14 +76,15 @@ pub mint_to(
 pub transfer(
     source_account: TokenAccount @mut,
     destination_account: TokenAccount @mut,
-    owner: pubkey @signer,
+    owner: account @signer,
     amount: u64
 ) {
-    require(source_account.owner_key == owner, "Source account owner mismatch");
-    require(source_account.bal >= amount, "Insufficient balance");
-    require(source_account.mint == destination_account.mint, "Mint mismatch between accounts");
-    require(!source_account.is_frozen, "Source account is frozen");
-    require(!destination_account.is_frozen, "Destination account is frozen");
+    require(source_account.owner_key == owner.ctx.key);
+    require(source_account.bal >= amount);
+    require(source_account.mint == destination_account.mint);
+    require(!source_account.is_frozen);
+    require(!destination_account.is_frozen);
+    require(amount > 0);
 
     source_account.bal = source_account.bal - amount;
     destination_account.bal = destination_account.bal + amount;
@@ -96,10 +97,10 @@ pub burn(
     owner: account @signer,
     amount: u64
 ) {
-    require(source_account.owner_key == owner, "Source account owner mismatch");
-    require(source_account.bal >= amount, "Insufficient balance to burn");
-    require(source_account.mint == get_key(mint_state), "Source account mint mismatch");
-    require(!source_account.is_frozen, "Source account is frozen");
+    require(source_account.owner_key == owner.ctx.key);
+    require(source_account.bal >= amount);
+    require(!source_account.is_frozen);
+    require(amount > 0);
 
     mint_state.supply = mint_state.supply - amount;
     source_account.bal = source_account.bal - amount;
@@ -111,8 +112,7 @@ pub freeze_account(
     account_to_freeze: TokenAccount @mut,
     freeze_authority: account @signer
 ) {
-    require(mint_state.freeze_authority == freeze_authority, "Freeze authority mismatch");
-    require(account_to_freeze.mint == get_key(mint_state), "Account mint mismatch");
+    require(mint_state.freeze_authority == freeze_authority.ctx.key);
     account_to_freeze.is_frozen = true;
 }
 
@@ -120,20 +120,19 @@ pub freeze_account(
 pub thaw_account(
     mint_state: Mint,
     account_to_thaw: TokenAccount @mut,
-    freeze_authority: pubkey @signer
+    freeze_authority: account @signer
 ) {
-    require(mint_state.freeze_authority == freeze_authority, "Freeze authority mismatch");
-    require(account_to_thaw.mint == get_key(mint_state), "Account mint mismatch");
+    require(mint_state.freeze_authority == freeze_authority.ctx.key);
     account_to_thaw.is_frozen = false;
 }
 
 // Close a token account and reclaim rent (owner must be signer)
 pub close_account(
     source_account: TokenAccount @mut,
-    owner: pubkey @signer
+    owner: account @signer
 ) {
-    require(source_account.owner_key == owner, "Account owner mismatch");
-    require(source_account.bal == 0, "Account must have zero balance to close");
+    require(source_account.owner_key == owner.ctx.key);
+    require(source_account.bal == 0);
     // In a real VM, this would involve transferring lamports back and marking account as closed/uninitialized
     // Set balance to 0 and conceptually "close" it.
     source_account.bal = 0;
@@ -142,20 +141,20 @@ pub close_account(
 // Change mint authority
 pub set_mint_authority(
     mint_state: Mint @mut,
-    current_authority: pubkey @signer,
+    current_authority: account @signer,
     new_authority: pubkey
 ) {
-    require(mint_state.authority == current_authority, "Current mint authority mismatch");
+    require(mint_state.authority == current_authority.ctx.key);
     mint_state.authority = new_authority;
 }
 
 // Change freeze authority
 pub set_freeze_authority(
     mint_state: Mint @mut,
-    current_freeze_authority: pubkey @signer,
+    current_freeze_authority: account @signer,
     new_freeze_authority: pubkey
 ) {
-    require(mint_state.freeze_authority == current_freeze_authority, "Current freeze authority mismatch");
+    require(mint_state.freeze_authority == current_freeze_authority.ctx.key);
     mint_state.freeze_authority = new_freeze_authority;
 }
 
