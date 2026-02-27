@@ -304,6 +304,7 @@ mod tests {
                     attributes: vec![],
                     is_init: false,
                     init_config: None,
+                    pda_config: None,
                 }],
                 return_type: Some(Box::new(TypeNode::Primitive("bool".to_string()))),
                 body: Box::new(AstNode::Block {
@@ -352,6 +353,7 @@ mod tests {
                         attributes: vec![crate::ast::Attribute { name: "signer".to_string(), args: vec![] }],
                         is_init: false,
                         init_config: None,
+                    pda_config: None,
                     },
                     InstructionParameter {
                         name: "amount".to_string(),
@@ -361,6 +363,7 @@ mod tests {
                         attributes: vec![],
                         is_init: false,
                         init_config: None,
+                    pda_config: None,
                     },
                 ],
                 return_type: None,

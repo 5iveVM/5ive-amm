@@ -147,6 +147,8 @@ Recommended unit standards:
 9. CPI-writable accounts must be `account @mut` in caller signature.
 10. Do not inject the callee program account into instruction metas unless the interface explicitly models it as a callee account; it still must be present in the CPI account-info slice.
 11. For raw-byte CPI payloads, use fixed `[u8; N]` literals or deterministic byte buffers and let the compiler lower them through the bytes path.
+12. Mark callee authority slots with `@authority` on interface account params.
+13. Declare caller PDA authorities once with `account @pda(seeds=[...])`; interface calls should then select signed CPI automatically with no signer-seed arrays at the call site.
 
 ## 5.1) Anchor-to-5IVE Porting Map
 

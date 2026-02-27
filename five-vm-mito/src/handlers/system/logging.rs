@@ -26,9 +26,9 @@ pub fn handle_syscall_log(ctx: &mut ExecutionManager) -> CompactResult<()> {
     {
         let _ = bytes;
         if let Ok(_s) = core::str::from_utf8(bytes) {
-             debug_log!("SOL_LOG: {}", _s);
+            debug_log!("SOL_LOG: {}", _s);
         } else {
-             debug_log!("SOL_LOG (bytes len): {}", bytes.len());
+            debug_log!("SOL_LOG (bytes len): {}", bytes.len());
         }
     }
 
@@ -53,7 +53,14 @@ pub fn handle_syscall_log_64(ctx: &mut ExecutionManager) -> CompactResult<()> {
     #[cfg(not(target_os = "solana"))]
     {
         let _ = (arg1, arg2, arg3, arg4, arg5);
-        debug_log!("SOL_LOG_64: {}, {}, {}, {}, {}", arg1, arg2, arg3, arg4, arg5);
+        debug_log!(
+            "SOL_LOG_64: {}, {}, {}, {}, {}",
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5
+        );
     }
 
     Ok(())
@@ -108,20 +115,24 @@ pub fn handle_syscall_log_data(ctx: &mut ExecutionManager) -> CompactResult<()> 
     let count = match data_ref {
         ValueRef::ArrayRef(id) => {
             let start = id as usize;
-            if start + 2 > ctx.temp_buffer().len() { return Err(VMErrorCode::MemoryViolation); }
+            if start + 2 > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
             let len = ctx.temp_buffer()[start];
             let data_start = start + 2;
             let data_end = data_start + len as usize;
 
-            if data_end > ctx.temp_buffer().len() { return Err(VMErrorCode::MemoryViolation); }
+            if data_end > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
 
             data_ptrs[0] = &ctx.temp_buffer()[data_start..data_end];
             1
         }
-        ValueRef::StringRef(_) | ValueRef::TempRef(_,_) => {
-             let (_len, bytes) = ctx.extract_string_slice(&data_ref)?;
-             data_ptrs[0] = bytes;
-             1
+        ValueRef::StringRef(_) | ValueRef::TempRef(_, _) => {
+            let (_len, bytes) = ctx.extract_string_slice(&data_ref)?;
+            data_ptrs[0] = bytes;
+            1
         }
         _ => return Err(VMErrorCode::TypeMismatch),
     };

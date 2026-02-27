@@ -1,10 +1,6 @@
 //! Compute unit syscall handlers
 
-use crate::{
-    context::ExecutionManager,
-    debug_log,
-    error::CompactResult,
-};
+use crate::{context::ExecutionManager, debug_log, error::CompactResult};
 use five_protocol::ValueRef;
 
 #[cfg(target_os = "solana")]

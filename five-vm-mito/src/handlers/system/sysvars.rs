@@ -111,7 +111,7 @@ pub fn handle_sysvar_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
         }
         GET_RENT => {
             debug_log!("MitoVM: GET_RENT operation");
-            
+
             let space = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
             let rent = get_rent_cached(ctx)?;
 
@@ -164,9 +164,18 @@ macro_rules! sysvar_syscall_placeholder {
     };
 }
 
-sysvar_syscall_placeholder!(handle_syscall_get_epoch_schedule_sysvar, "SYSCALL_GET_EPOCH_SCHEDULE_SYSVAR");
-sysvar_syscall_placeholder!(handle_syscall_get_epoch_rewards_sysvar, "SYSCALL_GET_EPOCH_REWARDS_SYSVAR");
+sysvar_syscall_placeholder!(
+    handle_syscall_get_epoch_schedule_sysvar,
+    "SYSCALL_GET_EPOCH_SCHEDULE_SYSVAR"
+);
+sysvar_syscall_placeholder!(
+    handle_syscall_get_epoch_rewards_sysvar,
+    "SYSCALL_GET_EPOCH_REWARDS_SYSVAR"
+);
 sysvar_syscall_placeholder!(handle_syscall_get_epoch_stake, "SYSCALL_GET_EPOCH_STAKE");
 sysvar_syscall_placeholder!(handle_syscall_get_fees_sysvar, "SYSCALL_GET_FEES_SYSVAR");
-sysvar_syscall_placeholder!(handle_syscall_get_last_restart_slot, "SYSCALL_GET_LAST_RESTART_SLOT");
+sysvar_syscall_placeholder!(
+    handle_syscall_get_last_restart_slot,
+    "SYSCALL_GET_LAST_RESTART_SLOT"
+);
 sysvar_syscall_placeholder!(handle_syscall_get_sysvar, "SYSCALL_GET_SYSVAR");

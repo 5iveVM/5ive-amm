@@ -32,7 +32,8 @@ pub fn convert_and_collect_error(
     error_collector: &mut integration::ErrorCollector,
     metrics: &mut MetricsCollector,
 ) -> CompilerError {
-    let compiler_error = convert_vm_error_to_compiler_error(vm_error, category, phase, source, filename);
+    let compiler_error =
+        convert_vm_error_to_compiler_error(vm_error, category, phase, source, filename);
 
     // Format error message before moving into collector
     let error_msg = format!("{}", compiler_error);
@@ -138,7 +139,8 @@ pub fn convert_vm_error_to_compiler_error(
         }
         VMError::InvalidScript => (
             ErrorCode::INVALID_SYNTAX,
-            "invalid script syntax - check for syntax errors in accounts, functions, or statements".to_string(),
+            "invalid script syntax - check for syntax errors in accounts, functions, or statements"
+                .to_string(),
         ),
         VMError::TypeMismatch => (
             ErrorCode::TYPE_MISMATCH,
@@ -156,7 +158,8 @@ pub fn convert_vm_error_to_compiler_error(
             let identifier_text = identifier.to_string();
             let location = find_identifier_location(source, &identifier_text, &file_path);
             let mut context = ErrorContext::new().with_identifier(identifier_text.clone());
-            let mut description = "This identifier is not declared in the current scope.".to_string();
+            let mut description =
+                "This identifier is not declared in the current scope.".to_string();
             if let Some(candidate) = did_you_mean {
                 let candidate_str = candidate.to_string();
                 context = context.add_data("did_you_mean".to_string(), candidate.to_string());
@@ -254,7 +257,11 @@ pub fn position_to_line_col(position: usize, source: &str) -> (usize, usize) {
     (line, col)
 }
 
-fn find_identifier_location(source: &str, identifier: &str, file_path: &PathBuf) -> Option<SourceLocation> {
+fn find_identifier_location(
+    source: &str,
+    identifier: &str,
+    file_path: &PathBuf,
+) -> Option<SourceLocation> {
     if identifier.is_empty() {
         return None;
     }
@@ -344,9 +351,15 @@ mod tests {
         );
 
         assert_eq!(compiler_error.code, ErrorCode::UNDEFINED_VARIABLE);
-        assert_eq!(compiler_error.context.identifier.as_deref(), Some("ammount"));
         assert_eq!(
-            compiler_error.context.get_data("did_you_mean").map(String::as_str),
+            compiler_error.context.identifier.as_deref(),
+            Some("ammount")
+        );
+        assert_eq!(
+            compiler_error
+                .context
+                .get_data("did_you_mean")
+                .map(String::as_str),
             Some("amount")
         );
         assert!(compiler_error.location.is_some());
@@ -366,7 +379,10 @@ mod tests {
         );
 
         assert_eq!(
-            compiler_error.context.get_data("did_you_mean").map(String::as_str),
+            compiler_error
+                .context
+                .get_data("did_you_mean")
+                .map(String::as_str),
             Some("ctx.key")
         );
         let description = compiler_error.description.unwrap_or_default();

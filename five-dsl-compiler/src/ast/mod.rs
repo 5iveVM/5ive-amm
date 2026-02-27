@@ -471,6 +471,13 @@ pub struct InitConfig {
     pub payer: Option<String>,       // Explicit payer account name for rent
 }
 
+/// PDA configuration for account parameters.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PdaConfig {
+    pub seeds: Vec<AstNode>,
+    pub bump: Option<String>,
+}
+
 /// Attribute definition for parameters and functions (e.g., @requires(x > 0))
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Attribute {
@@ -488,6 +495,7 @@ pub struct InstructionParameter {
     pub attributes: Vec<Attribute>, // Generalized attributes
     pub is_init: bool,           // True if @init constraint is applied
     pub init_config: Option<InitConfig>, // Configuration for account initialization
+    pub pda_config: Option<PdaConfig>, // Configuration for PDA validation / signer derivation
 }
 
 /// Event field assignment for emit statements

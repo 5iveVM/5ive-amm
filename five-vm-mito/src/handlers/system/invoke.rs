@@ -8,17 +8,186 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
+    handlers::system::pda::process_seed_value,
 };
 use five_protocol::{opcodes::*, ValueRef};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{AccountMeta, Instruction, Seed, Signer},
-    program::{invoke_with_bounds, invoke_signed_with_bounds},
+    program::{invoke_signed_with_bounds, invoke_with_bounds},
     program_error::ProgramError,
     pubkey::Pubkey,
 };
 
 const MAX_CPI_DATA_LEN: usize = 255;
+const MAX_CPI_ACCOUNTS: usize = 16;
+const MAX_SIGNER_GROUPS: usize = 4;
+const MAX_SIGNER_SEEDS: usize = 8;
+const MAX_SIGNER_SEED_LEN: usize = 32;
+
+fn parse_array_value_refs<const N: usize>(
+    ctx: &ExecutionManager,
+    array_ref: ValueRef,
+    out: &mut [ValueRef; N],
+) -> CompactResult<usize> {
+    let ValueRef::ArrayRef(array_id) = array_ref else {
+        return Err(VMErrorCode::TypeMismatch);
+    };
+
+    let start = array_id as usize;
+    let temp = ctx.temp_buffer();
+    if start + 2 > temp.len() {
+        return Err(VMErrorCode::MemoryViolation);
+    }
+
+    let element_count = temp[start] as usize;
+    if element_count > out.len() {
+        return Err(VMErrorCode::InvalidOperation);
+    }
+
+    let mut cursor = start + 2;
+    for slot in out.iter_mut().take(element_count) {
+        if cursor >= temp.len() {
+            return Err(VMErrorCode::MemoryViolation);
+        }
+        let value_ref =
+            ValueRef::deserialize_from(&temp[cursor..]).map_err(|_| VMErrorCode::TypeMismatch)?;
+        *slot = value_ref;
+        cursor += value_ref.serialized_size();
+    }
+
+    Ok(element_count)
+}
+
+fn map_invoke_error(err: ProgramError) -> VMErrorCode {
+    match err {
+        ProgramError::MissingRequiredSignature => VMErrorCode::AccountNotSigner,
+        ProgramError::NotEnoughAccountKeys => VMErrorCode::InvalidAccountIndex,
+        ProgramError::InvalidAccountData => VMErrorCode::AccountError,
+        ProgramError::Custom(1104) => VMErrorCode::ExternalAccountLamportSpend,
+        _ => VMErrorCode::InvokeError,
+    }
+}
+
+fn invoke_signed_grouped_from_array_ref(
+    ctx: &mut ExecutionManager,
+    signer_groups_ref: ValueRef,
+    accounts_count: u8,
+    instruction_data_ref: ValueRef,
+    program_id_ref: ValueRef,
+) -> CompactResult<()> {
+    debug_log!("MitoVM: INVOKE_SIGNED grouped signer payload");
+
+    if accounts_count as usize > MAX_CPI_ACCOUNTS {
+        return Err(VMErrorCode::InvalidOperation);
+    }
+
+    let mut group_refs = [ValueRef::Bool(false); MAX_SIGNER_GROUPS];
+    let group_count = parse_array_value_refs(ctx, signer_groups_ref, &mut group_refs)?;
+    if group_count == 0 {
+        return Err(VMErrorCode::InvalidSeedArray);
+    }
+
+    let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
+    let program_id = Pubkey::from(program_id_bytes);
+
+    let mut instruction_data_buf = [0u8; MAX_CPI_DATA_LEN];
+    let instruction_data_len =
+        materialize_instruction_data(ctx, instruction_data_ref, &mut instruction_data_buf)?;
+
+    let mut account_indices = [0usize; MAX_CPI_ACCOUNTS];
+    for i in 0..accounts_count as usize {
+        let account_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)? as usize;
+        if account_idx >= ctx.accounts().len() {
+            return Err(VMErrorCode::InvalidAccountIndex);
+        }
+        account_indices[(accounts_count as usize - 1) - i] = account_idx;
+    }
+
+    let accounts_ref = ctx.accounts();
+    let mut account_metas: [AccountMeta; MAX_CPI_ACCOUNTS] =
+        core::array::from_fn(|_| AccountMeta {
+            pubkey: accounts_ref[0].key(),
+            is_signer: false,
+            is_writable: false,
+        });
+    let mut invoke_accounts: [&AccountInfo; MAX_CPI_ACCOUNTS + 1] =
+        [&accounts_ref[0]; MAX_CPI_ACCOUNTS + 1];
+
+    for i in 0..accounts_count as usize {
+        let account_idx = account_indices[i];
+        invoke_accounts[i] = &accounts_ref[account_idx];
+        let account = invoke_accounts[i];
+        account_metas[i] = AccountMeta {
+            pubkey: account.key(),
+            is_signer: account.is_signer(),
+            is_writable: account.is_writable(),
+        };
+    }
+    let mut invoke_account_len = accounts_count as usize;
+    if let Some(program_account) = accounts_ref
+        .iter()
+        .find(|account| account.key() == &program_id)
+    {
+        invoke_accounts[invoke_account_len] = program_account;
+        invoke_account_len += 1;
+    }
+
+    let instruction = Instruction {
+        program_id: &program_id,
+        accounts: &account_metas[..accounts_count as usize],
+        data: &instruction_data_buf[..instruction_data_len],
+    };
+
+    let mut seed_storage = [[[0u8; MAX_SIGNER_SEED_LEN]; MAX_SIGNER_SEEDS]; MAX_SIGNER_GROUPS];
+    let mut seed_lengths = [[0usize; MAX_SIGNER_SEEDS]; MAX_SIGNER_GROUPS];
+    let mut seed_counts = [0usize; MAX_SIGNER_GROUPS];
+    let mut inner_refs = [ValueRef::Bool(false); MAX_SIGNER_SEEDS];
+
+    for group_idx in 0..group_count {
+        let inner_count = parse_array_value_refs(ctx, group_refs[group_idx], &mut inner_refs)?;
+        if inner_count == 0 {
+            return Err(VMErrorCode::InvalidSeedArray);
+        }
+        seed_counts[group_idx] = inner_count;
+        for seed_idx in 0..inner_count {
+            let written = process_seed_value(
+                inner_refs[seed_idx],
+                &mut seed_storage[group_idx],
+                seed_idx,
+                ctx,
+            )?;
+            seed_lengths[group_idx][seed_idx] = written;
+        }
+    }
+
+    let mut signer_seed_arrays: [[Seed; MAX_SIGNER_SEEDS]; MAX_SIGNER_GROUPS] =
+        core::array::from_fn(|_| core::array::from_fn(|_| Seed::from(&[0u8][..])));
+    let mut signers: [Signer; MAX_SIGNER_GROUPS] = core::array::from_fn(|_| Signer::from(&[]));
+
+    for group_idx in 0..group_count {
+        for seed_idx in 0..seed_counts[group_idx] {
+            let seed_slice =
+                &seed_storage[group_idx][seed_idx][..seed_lengths[group_idx][seed_idx]];
+            signer_seed_arrays[group_idx][seed_idx] = Seed::from(seed_slice);
+        }
+    }
+
+    for group_idx in 0..group_count {
+        signers[group_idx] = Signer::from(&signer_seed_arrays[group_idx][..seed_counts[group_idx]]);
+    }
+
+    invoke_signed_with_bounds::<{ MAX_CPI_ACCOUNTS + 1 }>(
+        &instruction,
+        &invoke_accounts[..invoke_account_len],
+        &signers[..group_count],
+    )
+    .map_err(map_invoke_error)?;
+
+    let _ = ctx.refresh_account_pointers_after_cpi(&account_indices[..accounts_count as usize]);
+    ctx.push(ValueRef::Bool(true))?;
+    Ok(())
+}
 
 fn append_serialized_value(
     ctx: &ExecutionManager,
@@ -158,8 +327,8 @@ fn materialize_instruction_data(
                     return Err(VMErrorCode::MemoryViolation);
                 }
 
-                let value_ref =
-                    ValueRef::deserialize_from(&temp[offset..]).map_err(|_| VMErrorCode::TypeMismatch)?;
+                let value_ref = ValueRef::deserialize_from(&temp[offset..])
+                    .map_err(|_| VMErrorCode::TypeMismatch)?;
                 append_serialized_value(ctx, value_ref, instruction_data_owned, &mut write_offset)?;
                 offset += value_ref.serialized_size();
             }
@@ -180,13 +349,12 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let accounts_count = count_val.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
 
             // Validate account count
-            const MAX_ACCOUNTS: usize = 16;
-            if accounts_count as usize > MAX_ACCOUNTS {
+            if accounts_count as usize > MAX_CPI_ACCOUNTS {
                 return Err(VMErrorCode::InvalidOperation);
             }
 
             // Pop account indices
-            let mut account_indices: [usize; MAX_ACCOUNTS] = [0; MAX_ACCOUNTS];
+            let mut account_indices: [usize; MAX_CPI_ACCOUNTS] = [0; MAX_CPI_ACCOUNTS];
             for i in 0..accounts_count {
                 let val = ctx.pop()?;
                 let idx = val.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
@@ -221,7 +389,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             }
 
             // Create account metas using stack array (no heap!)
-            let mut account_metas: [AccountMeta; MAX_ACCOUNTS] =
+            let mut account_metas: [AccountMeta; MAX_CPI_ACCOUNTS] =
                 core::array::from_fn(|_| AccountMeta {
                     pubkey: accounts[0].key(),
                     is_signer: false,
@@ -250,8 +418,8 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             // Collect account infos for the invoke using stack array.
             // Real Solana CPI requires the program account info to be supplied in addition
             // to the instruction meta accounts.
-            let mut invoke_accounts: [&AccountInfo; MAX_ACCOUNTS + 1] =
-                [&accounts[0]; MAX_ACCOUNTS + 1];
+            let mut invoke_accounts: [&AccountInfo; MAX_CPI_ACCOUNTS + 1] =
+                [&accounts[0]; MAX_CPI_ACCOUNTS + 1];
             for i in 0..accounts_count as usize {
                 invoke_accounts[i] = &accounts[account_indices[i]];
             }
@@ -265,7 +433,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 
             // Execute the invoke
             debug_log!("MitoVM: Executing invoke");
-            match invoke_with_bounds::<{ MAX_ACCOUNTS + 1 }>(
+            match invoke_with_bounds::<{ MAX_CPI_ACCOUNTS + 1 }>(
                 &instruction,
                 &invoke_accounts[..invoke_account_len],
             ) {
@@ -276,7 +444,9 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                     // When the Solana runtime executes invoke(), it may reallocate account data,
                     // rendering previously cached account info pointers stale.
                     // This call forces Pinocchio to recalculate data pointers for affected accounts.
-                    let _ = ctx.refresh_account_pointers_after_cpi(&account_indices[..accounts_count as usize]);
+                    let _ = ctx.refresh_account_pointers_after_cpi(
+                        &account_indices[..accounts_count as usize],
+                    );
 
                     ctx.push(ValueRef::Bool(true))?;
                 }
@@ -298,12 +468,23 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             const RESERVED_FEE_VAULT_NAMESPACE: &[u8] = b"\xFFfive_vm_fee_vault_v1";
             debug_log!("MitoVM: INVOKE_SIGNED operation");
 
-            // Pop core CPI arguments
-            let accounts_count = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
+            let signer_payload = ctx.pop()?;
+            if let ValueRef::ArrayRef(_) = signer_payload {
+                let accounts_count = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
+                let instruction_data_ref = ctx.pop()?;
+                let program_id_ref = ctx.pop()?;
+                return invoke_signed_grouped_from_array_ref(
+                    ctx,
+                    signer_payload,
+                    accounts_count,
+                    instruction_data_ref,
+                    program_id_ref,
+                );
+            }
+
+            let accounts_count = signer_payload.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
             let instruction_data_ref = ctx.pop()?;
             let program_id_ref = ctx.pop()?;
-
-            // Pop seed count
             let seeds_count = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
             debug_log!("MitoVM: INVOKE_SIGNED seeds_count: {}", seeds_count);
 
@@ -363,13 +544,12 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 materialize_instruction_data(ctx, instruction_data_ref, &mut instruction_data_buf)?;
 
             // Create AccountMetas and invoke_accounts array using stack arrays (no heap!)
-            const MAX_ACCOUNTS: usize = 16; // Same limit as INVOKE
-            if accounts_count as usize > MAX_ACCOUNTS {
+            if accounts_count as usize > MAX_CPI_ACCOUNTS {
                 return Err(VMErrorCode::InvalidOperation);
             }
 
             // Collect account indices first to avoid borrowing conflicts
-            let mut account_indices: [usize; MAX_ACCOUNTS] = [0; MAX_ACCOUNTS];
+            let mut account_indices: [usize; MAX_CPI_ACCOUNTS] = [0; MAX_CPI_ACCOUNTS];
             for i in 0..accounts_count as usize {
                 let account_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)? as usize;
                 if account_idx >= ctx.accounts().len() {
@@ -381,7 +561,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 
             // Initialize account_metas after we're done with ctx.pop()
             let accounts_ref = ctx.accounts();
-            let mut account_metas: [AccountMeta; MAX_ACCOUNTS] =
+            let mut account_metas: [AccountMeta; MAX_CPI_ACCOUNTS] =
                 core::array::from_fn(|_| AccountMeta {
                     pubkey: accounts_ref[0].key(),
                     is_signer: false,
@@ -389,8 +569,8 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 });
 
             // Create invoke_accounts array after we have all indices
-            let mut invoke_accounts: [&AccountInfo; MAX_ACCOUNTS + 1] =
-                [&accounts_ref[0]; MAX_ACCOUNTS + 1];
+            let mut invoke_accounts: [&AccountInfo; MAX_CPI_ACCOUNTS + 1] =
+                [&accounts_ref[0]; MAX_CPI_ACCOUNTS + 1];
             for i in 0..accounts_count as usize {
                 let account_idx = account_indices[i];
                 invoke_accounts[i] = &accounts_ref[account_idx];
@@ -432,24 +612,21 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             // Execute the invoke_signed
             debug_log!("MitoVM: Executing invoke_signed");
 
-            invoke_signed_with_bounds::<{ MAX_ACCOUNTS + 1 }>(
+            invoke_signed_with_bounds::<{ MAX_CPI_ACCOUNTS + 1 }>(
                 &instruction,
                 &invoke_accounts[..invoke_account_len],
                 &[signer],
-            ).map_err(
-                |e| {
-                    debug_log!("MitoVM: INVOKE_SIGNED failed");
-                    match e {
-                        ProgramError::MissingRequiredSignature => VMErrorCode::AccountNotSigner,
-                        _ => VMErrorCode::InvokeError,
-                    }
-                },
-            )?;
+            )
+            .map_err(|e| {
+                debug_log!("MitoVM: INVOKE_SIGNED failed");
+                map_invoke_error(e)
+            })?;
 
             debug_log!("MitoVM: INVOKE_SIGNED completed successfully");
 
             // CRITICAL FIX: Refresh account pointers after CPI (same as INVOKE)
-            let _ = ctx.refresh_account_pointers_after_cpi(&account_indices[..accounts_count as usize]);
+            let _ =
+                ctx.refresh_account_pointers_after_cpi(&account_indices[..accounts_count as usize]);
 
             ctx.push(ValueRef::Bool(true))?;
         }
@@ -478,6 +655,20 @@ mod tests {
         owner: &'a Pubkey,
     ) -> AccountInfo {
         AccountInfo::new(key, is_signer, is_writable, lamports, data, owner, false, 0)
+    }
+
+    fn store_array(ctx: &mut ExecutionContext, offset: u8, values: &[ValueRef]) -> ValueRef {
+        let mut cursor = offset as usize;
+        ctx.temp_buffer_mut()[cursor] = values.len() as u8;
+        ctx.temp_buffer_mut()[cursor + 1] = 1;
+        cursor += 2;
+        for value in values {
+            let written = value
+                .serialize_into(&mut ctx.temp_buffer_mut()[cursor..])
+                .expect("serialize value ref");
+            cursor += written;
+        }
+        ValueRef::ArrayRef(offset)
     }
 
     #[test]
@@ -577,5 +768,89 @@ mod tests {
 
         // TempRef offsets/sizes are u8 and temp buffer is 512 bytes, so this should not panic.
         assert!(panicked.is_ok());
+    }
+
+    #[test]
+    fn invoke_signed_grouped_payload_rejects_non_array_group_cleanly() {
+        let program_id = Pubkey::from([95u8; 32]);
+        let mut lamports = 1;
+        let mut account_data = [];
+        let account = create_account_info(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        let signer_groups_ref = store_array(&mut ctx, 0, &[ValueRef::Bool(true)]);
+        ctx.push(ValueRef::U64(0)).unwrap(); // program_id_ref
+        ctx.push(ValueRef::TempRef(10, 0)).unwrap(); // instruction_data_ref
+        ctx.push(ValueRef::U64(0)).unwrap(); // accounts_count
+        ctx.push(signer_groups_ref).unwrap(); // signer_groups_ref
+
+        let result = handle_invoke_ops(INVOKE_SIGNED, &mut ctx);
+        assert_eq!(result, Err(crate::error::VMErrorCode::TypeMismatch));
+    }
+
+    #[test]
+    fn invoke_signed_grouped_payload_accepts_accountref_seed_values() {
+        let program_id = Pubkey::from([96u8; 32]);
+        let mut lamports = 1;
+        let mut account_data = [];
+        let account = create_account_info(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        let inner_group = store_array(&mut ctx, 0, &[ValueRef::AccountRef(0, 0)]);
+        let signer_groups_ref = store_array(&mut ctx, 16, &[inner_group]);
+        ctx.push(ValueRef::U64(0)).unwrap(); // program_id_ref
+        ctx.push(ValueRef::TempRef(32, 0)).unwrap(); // instruction_data_ref
+        ctx.push(ValueRef::U64(0)).unwrap(); // accounts_count
+        ctx.push(signer_groups_ref).unwrap(); // signer_groups_ref
+
+        let result = handle_invoke_ops(INVOKE_SIGNED, &mut ctx);
+        assert_ne!(result, Err(crate::error::VMErrorCode::TypeMismatch));
+        assert_ne!(result, Err(crate::error::VMErrorCode::InvalidSeedArray));
     }
 }

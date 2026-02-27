@@ -2,12 +2,16 @@
 
 use super::type_helpers::type_names;
 use super::types::{InterfaceInfo, InterfaceMethod, InterfaceSerializer, TypeCheckerContext};
-use crate::ast::{AstNode, TypeNode};
+use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use five_vm_mito::error::VMError;
 use sha2::Digest;
 use std::collections::{HashMap, HashSet};
 
 impl TypeCheckerContext {
+    fn param_has_attribute(param: &InstructionParameter, attr_name: &str) -> bool {
+        param.attributes.iter().any(|attr| attr.name == attr_name)
+    }
+
     fn is_account_param_type(&self, type_node: &TypeNode) -> bool {
         match type_node {
             TypeNode::Account => true,
@@ -150,12 +154,13 @@ impl TypeCheckerContext {
                     } = function_def
                     {
                         let is_anchor = *is_interface_anchor || *is_method_anchor;
-
-                        // Convert InstructionParameter to TypeNode for storage
-                        let param_types: Vec<TypeNode> = parameters
-                            .iter()
-                            .map(|param| param.param_type.clone())
-                            .collect();
+                        for param in parameters {
+                            if Self::param_has_attribute(param, "authority")
+                                && !self.is_account_param_type(&param.param_type)
+                            {
+                                return Err(VMError::TypeMismatch);
+                            }
+                        }
 
                         let return_type_node = return_type.as_ref().map(|rt| (**rt).clone());
 
@@ -183,7 +188,7 @@ impl TypeCheckerContext {
                                 discriminator: discriminator_val,
                                 discriminator_bytes: discriminator_bytes_val,
                                 is_anchor,
-                                parameters: param_types,
+                                parameters: parameters.clone(),
                                 return_type: return_type_node,
                             },
                         );
@@ -238,9 +243,39 @@ impl TypeCheckerContext {
 
             // Type check arguments
             for (i, arg) in args.iter().enumerate() {
-                let expected_type = &method_info.parameters[i];
+                let expected_param = &method_info.parameters[i];
+                let expected_type = &expected_param.param_type;
                 if !self.argument_matches_expected_type(arg, expected_type)? {
                     return Err(VMError::TypeMismatch);
+                }
+
+                if Self::param_has_attribute(expected_param, "authority") {
+                    if !self.is_account_param_type(expected_type) {
+                        return Err(VMError::TypeMismatch);
+                    }
+
+                    let AstNode::Identifier(arg_name) = arg else {
+                        return Err(VMError::TypeMismatch);
+                    };
+
+                    let Some(current_params) = self.symbol_table.get(arg_name) else {
+                        return Err(VMError::InvalidScript);
+                    };
+
+                    if !current_params.0.is_account_type() {
+                        return Err(VMError::TypeMismatch);
+                    }
+
+                    let signable = self
+                        .current_function_parameters
+                        .as_ref()
+                        .and_then(|params| params.iter().find(|param| param.name == *arg_name))
+                        .map(|param| Self::param_has_attribute(param, "signer") || param.pda_config.is_some())
+                        .unwrap_or(false);
+
+                    if !signable {
+                        return Err(VMError::ConstraintViolation);
+                    }
                 }
             }
 
@@ -265,10 +300,12 @@ impl TypeCheckerContext {
         let original_symbol_table = self.symbol_table.clone();
         let previous_writable = self.current_writable_accounts.clone();
         let previous_function = self.current_function.clone();
+        let previous_function_parameters = self.current_function_parameters.clone();
         let previous_init_bump_accounts = self.init_bump_accounts.clone();
         let previous_init_space_accounts = self.init_space_accounts.clone();
         // Keep global fields, but parameters can shadow them
         self.current_function = Some(name.to_string());
+        self.current_function_parameters = Some(parameters.to_vec());
         self.init_bump_accounts.clear();
         self.init_space_accounts.clear();
 
@@ -344,6 +381,16 @@ impl TypeCheckerContext {
                 }
             }
 
+            if param.pda_config.is_some() {
+                if !self.is_account_param_type(&param.param_type) {
+                    return Err(VMError::TypeMismatch);
+                }
+                if Self::param_has_attribute(param, "signer") {
+                    return Err(VMError::InvalidInstruction);
+                }
+                self.init_bump_accounts.insert(param.name.clone());
+            }
+
             // For account parameters, store them as Account type so field access works
             let param_type = if param.param_type.is_account_type() {
                 TypeNode::Account
@@ -398,6 +445,9 @@ impl TypeCheckerContext {
                              eprintln!("@signer only allowed on accounts: {}", param.name);
                              return Err(VMError::TypeMismatch); // @signer only allowed on accounts
                           }
+                    }
+                    "authority" => {
+                        return Err(VMError::InvalidInstruction);
                     }
                     "has" => {
                         if !is_account_param {
@@ -494,6 +544,7 @@ impl TypeCheckerContext {
         self.current_writable_accounts = previous_writable;
         // Restore function name
         self.current_function = previous_function;
+        self.current_function_parameters = previous_function_parameters;
         self.init_bump_accounts = previous_init_bump_accounts;
         self.init_space_accounts = previous_init_space_accounts;
 

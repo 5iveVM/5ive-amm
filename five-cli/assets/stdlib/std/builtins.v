@@ -10,6 +10,10 @@ pub now_seconds() -> u64 {
     return get_clock();
 }
 
+pub load_account_u64_word(account_ref: account, offset: u64) -> u64 {
+    return load_account_u64(account_ref, offset);
+}
+
 pub abort_now() {
     abort();
 }

@@ -1,6 +1,6 @@
 // Type definitions for the type checker
 
-use crate::ast::{StructField, TypeNode, SourceLocation};
+use crate::ast::{InstructionParameter, StructField, TypeNode, SourceLocation};
 use crate::type_checker::ModuleScope;
 use five_vm_mito::error::VMError;
 use std::collections::{HashMap, HashSet};
@@ -19,7 +19,7 @@ pub struct InterfaceMethod {
     pub discriminator: u8,
     pub discriminator_bytes: Option<Vec<u8>>,
     pub is_anchor: bool,
-    pub parameters: Vec<TypeNode>,
+    pub parameters: Vec<InstructionParameter>,
     pub return_type: Option<TypeNode>,
 }
 
@@ -51,6 +51,8 @@ pub struct TypeCheckerContext {
     pub(crate) current_writable_accounts: Option<std::collections::HashSet<String>>,
     /// Current function name for diagnostics
     pub(crate) current_function: Option<String>,
+    /// Full current function parameter metadata for constraint-aware validation.
+    pub(crate) current_function_parameters: Option<Vec<InstructionParameter>>,
     /// Map of user-defined function return types for type inference
     pub(crate) function_return_types: HashMap<String, Option<TypeNode>>,
     /// Module scope for multi-module type checking (optional)
@@ -84,6 +86,7 @@ impl TypeCheckerContext {
             interface_registry: HashMap::new(),
             current_writable_accounts: None,
             current_function: None,
+            current_function_parameters: None,
             function_return_types: HashMap::new(),
             module_scope: None,
             current_module: None,

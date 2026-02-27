@@ -591,7 +591,7 @@ impl TypeCheckerContext {
                 }
 
                 for (i, arg) in args.iter().enumerate() {
-                    if !self.argument_matches_expected_type(arg, &method_params[i])? {
+                    if !self.argument_matches_expected_type(arg, &method_params[i].param_type)? {
                         return Err(VMError::TypeMismatch);
                     }
                 }
@@ -661,6 +661,21 @@ impl TypeCheckerContext {
                 // get_clock() -> u64 (Unix timestamp, matches Solana Clock)
                 if !args.is_empty() {
                     return Err(VMError::InvalidOperation);
+                }
+                Ok(TypeNode::Primitive("u64".to_string()))
+            }
+            "load_account_u64" => {
+                // load_account_u64(account, literal_offset) -> u64
+                if args.len() != 2 {
+                    return Err(VMError::InvalidOperation);
+                }
+                let account_ty = self.infer_type(&args[0])?;
+                if !matches!(account_ty, TypeNode::Account | TypeNode::Named(_)) {
+                    return Err(VMError::TypeMismatch);
+                }
+                let offset_ty = self.infer_type(&args[1])?;
+                if !matches!(offset_ty, TypeNode::Primitive(ref name) if matches!(name.as_str(), "u8" | "u16" | "u32" | "u64")) {
+                    return Err(VMError::TypeMismatch);
                 }
                 Ok(TypeNode::Primitive("u64".to_string()))
             }

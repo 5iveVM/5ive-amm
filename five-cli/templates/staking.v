@@ -14,7 +14,7 @@ account StakeAccount {
 }
 
 // Initialize pool
-init_pool(state: Pool @mut, reward_rate_per_slot: u64, scale: u64) {
+pub init_pool(state: Pool @mut, reward_rate_per_slot: u64, scale: u64) {
     state.reward_rate_per_slot = reward_rate_per_slot;
     state.last_update_slot = get_clock();
     state.acc_reward_per_share = 0;
@@ -22,28 +22,28 @@ init_pool(state: Pool @mut, reward_rate_per_slot: u64, scale: u64) {
 }
 
 // Update global accumulator (no total supply tracking for simplicity)
-accrue(state: Pool @mut, slots: u64) {
+pub accrue(state: Pool @mut, slots: u64) {
     // In a real pool, this would depend on total staked; here we just add scaled rate
     state.acc_reward_per_share = state.acc_reward_per_share + (state.reward_rate_per_slot * slots);
     state.last_update_slot = state.last_update_slot + slots;
 }
 
 // Initialize a staker
-init_staker(state: StakeAccount @mut, owner: pubkey) {
+pub init_staker(state: StakeAccount @mut, owner: pubkey) {
     state.owner_key = owner;
     state.amount = 0;
     state.reward_debt = 0;
 }
 
 // Stake more tokens (accounting only)
-stake(state: StakeAccount @mut, owner: pubkey, amount: u64, acc_reward_per_share: u64) {
+pub stake(state: StakeAccount @mut, owner: pubkey, amount: u64, acc_reward_per_share: u64) {
     require(state.owner_key == owner);
     state.reward_debt = state.reward_debt + (amount * acc_reward_per_share);
     state.amount = state.amount + amount;
 }
 
 // Unstake some tokens (accounting only)
-unstake(state: StakeAccount @mut, owner: pubkey, amount: u64, acc_reward_per_share: u64) {
+pub unstake(state: StakeAccount @mut, owner: pubkey, amount: u64, acc_reward_per_share: u64) {
     require(state.owner_key == owner);
     require(state.amount >= amount);
     state.amount = state.amount - amount;
@@ -52,14 +52,13 @@ unstake(state: StakeAccount @mut, owner: pubkey, amount: u64, acc_reward_per_sha
 }
 
 // Claim rewards based on external view of acc_reward_per_share
-claimable(state: StakeAccount, acc_reward_per_share: u64) -> u64 {
+pub claimable(state: StakeAccount, acc_reward_per_share: u64) -> u64 {
     let accrued = state.amount * acc_reward_per_share;
     if (accrued <= state.reward_debt) { return 0; }
     return accrued - state.reward_debt;
 }
 
 // After tokens sent, record the claim (accounting only)
-record_claim(state: StakeAccount @mut, claimed: u64) {
+pub record_claim(state: StakeAccount @mut, claimed: u64) {
     state.reward_debt = state.reward_debt + claimed;
 }
-

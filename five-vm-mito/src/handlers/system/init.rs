@@ -15,9 +15,9 @@ use crate::{
 use five_protocol::{opcodes::*, ValueRef};
 use heapless::Vec;
 #[cfg(target_os = "solana")]
-use pinocchio::pubkey::Pubkey;
-#[cfg(target_os = "solana")]
 use pinocchio::pubkey::create_program_address;
+#[cfg(target_os = "solana")]
+use pinocchio::pubkey::Pubkey;
 
 const MAX_ACCOUNT_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
 
@@ -65,7 +65,10 @@ pub fn handle_init_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
 /// The account must not already be initialized (checked by CHECK_UNINITIALIZED).
 fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Pop parameters from stack
-    let account_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+    let account_idx = ctx
+        .pop()?
+        .as_account_idx()
+        .ok_or(VMErrorCode::TypeMismatch)?;
     let space = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
     let payer_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
     let lamports = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
@@ -104,13 +107,19 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let _key_bytes = account.key();
     debug_log!(
         "INIT_ACCOUNT: target account key {} {} {} {} data_len_before={}",
-        _key_bytes[0], _key_bytes[1], _key_bytes[2], _key_bytes[3],
+        _key_bytes[0],
+        _key_bytes[1],
+        _key_bytes[2],
+        _key_bytes[3],
         account.data_len() as u32
     );
 
     debug_log!(
         "MitoVM: INIT_ACCOUNT target key: {} {} {} {}, data_len_before={}",
-        _key_bytes[0], _key_bytes[1], _key_bytes[2], _key_bytes[3],
+        _key_bytes[0],
+        _key_bytes[1],
+        _key_bytes[2],
+        _key_bytes[3],
         account.data_len() as u32
     );
 
@@ -132,7 +141,12 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // "ExternalAccountDataModified" errors.
     match ctx.create_account_with_payer(account_idx, payer_idx, space, lamports, &owner) {
         Ok(()) => {
-            debug_log!("INIT_ACCOUNT: SUCCESS with payer {} - created account {} with {} bytes", payer_idx, account_idx, space);
+            debug_log!(
+                "INIT_ACCOUNT: SUCCESS with payer {} - created account {} with {} bytes",
+                payer_idx,
+                account_idx,
+                space
+            );
         }
         Err(e) => {
             debug_log!("INIT_ACCOUNT: FAILED - account {}", account_idx);
@@ -140,20 +154,27 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
         }
     }
 
-
     // Log account info after creation
     let _account_after = ctx.get_account(account_idx)?;
     debug_log!(
         "INIT_ACCOUNT: after - data_len={} is_writable={}",
         _account_after.data_len() as u32,
-        if _account_after.is_writable() { 1u8 } else { 0u8 }
+        if _account_after.is_writable() {
+            1u8
+        } else {
+            0u8
+        }
     );
 
     debug_log!(
         "MitoVM: INIT_ACCOUNT completed for account {} - data_len_after={}, is_writable={}",
         account_idx,
         _account_after.data_len() as u32,
-        if _account_after.is_writable() { 1u8 } else { 0u8 }
+        if _account_after.is_writable() {
+            1u8
+        } else {
+            0u8
+        }
     );
     if _account_after.data_len() != space as usize {
         debug_log!(
@@ -195,7 +216,10 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     const RESERVED_FEE_VAULT_NAMESPACE: &[u8] = b"\xFFfive_vm_fee_vault_v1";
     // Pop basic parameters
-    let account_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+    let account_idx = ctx
+        .pop()?
+        .as_account_idx()
+        .ok_or(VMErrorCode::TypeMismatch)?;
     let space = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
     let payer_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
     let lamports = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
@@ -208,9 +232,17 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
         return Err(VMErrorCode::InvalidAccountIndex);
     }
 
-    debug_log!("INIT_PDA_ACCOUNT: Checking space. input={}, limit={}", space, MAX_ACCOUNT_SIZE);
+    debug_log!(
+        "INIT_PDA_ACCOUNT: Checking space. input={}, limit={}",
+        space,
+        MAX_ACCOUNT_SIZE
+    );
     if space > MAX_ACCOUNT_SIZE {
-        debug_log!("INIT_PDA_ACCOUNT: Space limit exceeded! {} > {}", space, MAX_ACCOUNT_SIZE);
+        debug_log!(
+            "INIT_PDA_ACCOUNT: Space limit exceeded! {} > {}",
+            space,
+            MAX_ACCOUNT_SIZE
+        );
         return Err(VMErrorCode::InvalidParameter);
     }
 
@@ -242,13 +274,16 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Extract owner pubkey
     let owner = extract_owner_pubkey(owner_ref, ctx)?;
-    
+
     // Log the owner for debugging
     let owner_bytes = owner.as_ref();
     let _ = owner_bytes;
     debug_log!(
         "INIT_PDA_ACCOUNT: owner={} {} {} {}",
-        owner_bytes[0], owner_bytes[1], owner_bytes[2], owner_bytes[3]
+        owner_bytes[0],
+        owner_bytes[1],
+        owner_bytes[2],
+        owner_bytes[3]
     );
 
     // Create PDA account via System Program CPI (runtime integration required)
@@ -273,33 +308,35 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     {
         // Construct full seeds list including bump for validation
         let binding = [bump];
-        let mut validation_seeds: Vec<&[u8], {MAX_SEEDS + 1}> = Vec::new();
+        let mut validation_seeds: Vec<&[u8], { MAX_SEEDS + 1 }> = Vec::new();
         for s in seed_refs.iter() {
-           validation_seeds.push(*s).unwrap();
+            validation_seeds.push(*s).unwrap();
         }
         validation_seeds.push(&binding).unwrap();
 
         let account = ctx.get_account(account_idx)?;
-        
+
         #[cfg(target_os = "solana")]
         {
-             let expected_pda = create_program_address(validation_seeds.as_slice(), &Pubkey::from(ctx.program_id))
-                 .map_err(|_| VMErrorCode::InvokeError)?;
-             
-             if account.key() != &expected_pda {
-                 debug_log!("INIT_PDA_ACCOUNT: Account address mismatch! Expected PDA but got different address");
-                 return Err(VMErrorCode::AccountError);
-             }
+            let expected_pda =
+                create_program_address(validation_seeds.as_slice(), &Pubkey::from(ctx.program_id))
+                    .map_err(|_| VMErrorCode::InvokeError)?;
+
+            if account.key() != &expected_pda {
+                debug_log!("INIT_PDA_ACCOUNT: Account address mismatch! Expected PDA but got different address");
+                return Err(VMErrorCode::AccountError);
+            }
         }
 
         #[cfg(not(target_os = "solana"))]
         {
-             let expected_pda = crate::utils::derive_pda_offchain(validation_seeds.as_slice(), &ctx.program_id)?;
+            let expected_pda =
+                crate::utils::derive_pda_offchain(validation_seeds.as_slice(), &ctx.program_id)?;
 
-             if account.key() != &expected_pda {
-                  debug_log!("INIT_PDA_ACCOUNT: Account address mismatch! Computed PDA does not match account key");
-                  return Err(VMErrorCode::AccountError);
-             }
+            if account.key() != &expected_pda {
+                debug_log!("INIT_PDA_ACCOUNT: Account address mismatch! Computed PDA does not match account key");
+                return Err(VMErrorCode::AccountError);
+            }
         }
     }
 
@@ -313,9 +350,9 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 mod tests {
     use super::extract_owner_pubkey;
     use crate::context::ExecutionManager;
+    use crate::error::VMErrorCode;
     use crate::stack::StackStorage;
     use crate::utils::value_ref_to_seed_bytes;
-    use crate::error::VMErrorCode;
     use five_protocol::ValueRef;
 
     fn create_test_context() -> ExecutionManager<'static> {
@@ -325,7 +362,9 @@ mod tests {
         use pinocchio::pubkey::Pubkey;
         let program_id = Pubkey::default();
         let storage = Box::leak(Box::new(StackStorage::new()));
-        ExecutionManager::new(script, accounts, program_id, input_data, 0, storage, 0, 0, 0, 0, 0, 0)
+        ExecutionManager::new(
+            script, accounts, program_id, input_data, 0, storage, 0, 0, 0, 0, 0, 0,
+        )
     }
 
     #[test]

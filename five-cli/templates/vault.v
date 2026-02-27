@@ -1,6 +1,12 @@
 // Vault template: lamport custody via System Program CPI
 
-use std::interfaces::system_program;
+interface SystemProgram @program("11111111111111111111111111111111") @serializer(raw) {
+    transfer @discriminator_bytes([2, 0, 0, 0]) (
+        source: account,
+        destination: account,
+        lamports: u64
+    );
+}
 
 account VaultState {
     balance: u64;
@@ -19,7 +25,7 @@ pub init_vault(state: VaultState @mut, authority: account @signer) {
 // Updates internal balance for accounting
 pub deposit(state: VaultState @mut, payer: account @signer @mut, vault_account: account @mut, amount: u64) {
     require(amount > 0);
-    system_program::transfer(payer, vault_account, amount);
+    SystemProgram.transfer(payer, vault_account, amount);
     state.balance = state.balance + amount;
 }
 
@@ -31,6 +37,6 @@ pub withdraw(state: VaultState @mut, authority: account @signer, vault_account: 
     require(state.authorized_user == authority.ctx.key);
     require(amount > 0);
     require(state.balance >= amount);
-    system_program::transfer(vault_account, recipient, amount);
+    SystemProgram.transfer(vault_account, recipient, amount);
     state.balance = state.balance - amount;
 }

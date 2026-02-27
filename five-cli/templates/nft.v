@@ -7,11 +7,11 @@
 account NFT {
     token_id: pubkey;
     owner_key: pubkey;
-    uri: string;
+    uri: string<128>;
 }
 
 // Initialize NFT fields
-mint_nft(state: NFT @mut, owner: pubkey, uri: string) {
+pub mint_nft(state: NFT @mut, owner: pubkey, uri: string<128>) {
     // For template simplicity, assign token_id deterministically
     state.token_id = owner;
     state.owner_key = owner;
@@ -19,17 +19,17 @@ mint_nft(state: NFT @mut, owner: pubkey, uri: string) {
 }
 
 // Transfer ownership
-transfer_nft(state: NFT @mut, from: pubkey, to: pubkey) {
+pub transfer_nft(state: NFT @mut, from: pubkey, to: pubkey) {
     require(state.owner_key == from);
     state.owner_key = to;
 }
 
 // Update token metadata URI
-set_uri(state: NFT @mut, owner: pubkey, new_uri: string) {
+pub set_uri(state: NFT @mut, owner: pubkey, new_uri: string<128>) {
     require(state.owner_key == owner);
     state.uri = new_uri;
 }
 
 // Read-only helpers
-get_uri(state: NFT) -> string { return state.uri; }
-get_owner(state: NFT) -> pubkey { return state.owner_key; }
+pub get_uri(state: NFT) -> string<128> { return state.uri; }
+pub get_owner(state: NFT) -> pubkey { return state.owner_key; }

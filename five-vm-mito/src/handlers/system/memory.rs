@@ -11,13 +11,21 @@ use five_protocol::ValueRef;
 use pinocchio::syscalls;
 
 /// Helper to get mutable pointer to a buffer defined by ValueRef
-fn get_mut_ptr(ctx: &mut ExecutionManager, reference: ValueRef, len: u64) -> CompactResult<*mut u8> {
+fn get_mut_ptr(
+    ctx: &mut ExecutionManager,
+    reference: ValueRef,
+    len: u64,
+) -> CompactResult<*mut u8> {
     match reference {
         ValueRef::TempRef(offset, size) => {
-            if (size as u64) < len { return Err(VMErrorCode::MemoryViolation); }
+            if (size as u64) < len {
+                return Err(VMErrorCode::MemoryViolation);
+            }
             let start = offset as usize;
             let end = start + len as usize;
-            if end > ctx.temp_buffer().len() { return Err(VMErrorCode::MemoryViolation); }
+            if end > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
             Ok(unsafe { ctx.temp_buffer_mut().as_mut_ptr().add(start) })
         }
         // Add HeapRef support if needed
@@ -27,24 +35,29 @@ fn get_mut_ptr(ctx: &mut ExecutionManager, reference: ValueRef, len: u64) -> Com
 
 /// Helper to get const pointer to a buffer defined by ValueRef
 fn get_ptr(ctx: &mut ExecutionManager, reference: ValueRef, len: u64) -> CompactResult<*const u8> {
-     match reference {
+    match reference {
         ValueRef::TempRef(offset, size) => {
-            if (size as u64) < len { return Err(VMErrorCode::MemoryViolation); }
+            if (size as u64) < len {
+                return Err(VMErrorCode::MemoryViolation);
+            }
             let start = offset as usize;
             let end = start + len as usize;
-            if end > ctx.temp_buffer().len() { return Err(VMErrorCode::MemoryViolation); }
+            if end > ctx.temp_buffer().len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
             Ok(unsafe { ctx.temp_buffer().as_ptr().add(start) })
         }
         ValueRef::StringRef(_) | ValueRef::ArrayRef(_) => {
-             // For String/Array, reuse extract_string_slice and return content bytes.
-             let (slen, bytes) = ctx.extract_string_slice(&reference)?;
-             if (slen as u64) < len { return Err(VMErrorCode::MemoryViolation); }
-             Ok(bytes.as_ptr())
+            // For String/Array, reuse extract_string_slice and return content bytes.
+            let (slen, bytes) = ctx.extract_string_slice(&reference)?;
+            if (slen as u64) < len {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            Ok(bytes.as_ptr())
         }
         _ => Err(VMErrorCode::TypeMismatch),
     }
 }
-
 
 /// Handle sol_memcpy syscall
 #[inline(always)]
@@ -177,7 +190,9 @@ pub fn handle_syscall_memcmp(ctx: &mut ExecutionManager) -> CompactResult<()> {
                 break;
             }
         }
-        unsafe { *res_ptr = cmp; }
+        unsafe {
+            *res_ptr = cmp;
+        }
     }
 
     Ok(())

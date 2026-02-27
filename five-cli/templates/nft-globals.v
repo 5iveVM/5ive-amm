@@ -5,11 +5,10 @@
 account NFT {
     token_id: pubkey;
     owner_key: pubkey;
-    uri: string;
+    uri: string<128>;
 }
 
-transfer(state: NFT @mut, from: pubkey, to: pubkey) {
+pub transfer(state: NFT @mut, from: pubkey, to: pubkey) {
     require(state.owner_key == from);
     state.owner_key = to;
 }
-

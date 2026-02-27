@@ -10,7 +10,7 @@ account AuctionState {
 }
 
 // Initialize auction parameters
-init_auction(state: AuctionState @mut, seller: pubkey, end_time: u64, min_increment: u64, reserve: u64) {
+pub init_auction(state: AuctionState @mut, seller: pubkey, end_time: u64, min_increment: u64, reserve: u64) {
     state.seller = seller;
     state.end_time = end_time;
     state.min_increment = min_increment;
@@ -20,7 +20,7 @@ init_auction(state: AuctionState @mut, seller: pubkey, end_time: u64, min_increm
 }
 
 // Place bid (accounting only)
-bid(state: AuctionState @mut, bidder: pubkey, amount: u64) {
+pub bid(state: AuctionState @mut, bidder: pubkey, amount: u64) {
     let now = get_clock();
     require(now < state.end_time);
     require(amount >= state.highest_bid + state.min_increment);
@@ -29,10 +29,9 @@ bid(state: AuctionState @mut, bidder: pubkey, amount: u64) {
 }
 
 // Settle after auction end (no transfers here; just flag)
-settle(state: AuctionState @mut) {
+pub settle(state: AuctionState @mut) {
     let now = get_clock();
     require(now >= state.end_time);
     require(!state.settled);
     state.settled = true;
 }
-

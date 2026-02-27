@@ -1,7 +1,7 @@
 //! Function and method call generation.
 
-use super::assignments::{collect_byte_array_literal_bytes, fixed_u8_array_len};
 use super::super::OpcodeEmitter;
+use super::assignments::{collect_byte_array_literal_bytes, fixed_u8_array_len};
 use super::types::ASTGenerator;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::bytecode_generator::account_utils::account_index_from_param_index;
@@ -12,6 +12,30 @@ use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    fn resolve_account_literal_offset(
+        &self,
+        account_arg: &AstNode,
+        offset_arg: &AstNode,
+    ) -> Result<(u8, u32), VMError> {
+        let account_name = match account_arg {
+            AstNode::Identifier(name) => name,
+            _ => return Err(VMError::InvalidOperation),
+        };
+        let account_index = self
+            .resolve_account_param_by_name(account_name)
+            .ok_or(VMError::InvalidOperation)?;
+
+        let offset = match offset_arg {
+            AstNode::Literal(Value::U8(v)) => *v as u32,
+            AstNode::Literal(Value::U64(v)) => {
+                u32::try_from(*v).map_err(|_| VMError::InvalidOperation)?
+            }
+            _ => return Err(VMError::InvalidOperation),
+        };
+
+        Ok((account_index, offset))
+    }
+
     fn builtin_expected_arg_type(name: &str, arg_idx: usize) -> Option<TypeNode> {
         match (name, arg_idx) {
             ("sha256", 1) | ("keccak256", 1) | ("blake3", 1) => Some(TypeNode::Array {
@@ -34,7 +58,10 @@ impl ASTGenerator {
             ("sha256", 0)
                 | ("keccak256", 0)
                 | ("blake3", 0)
-                | ("verify_ed25519_instruction" | "__verify_ed25519_instruction", 2)
+                | (
+                    "verify_ed25519_instruction" | "__verify_ed25519_instruction",
+                    2
+                )
         )
     }
 
@@ -67,6 +94,97 @@ impl ASTGenerator {
         }
 
         Ok(())
+    }
+
+    fn interface_param_has_attribute(param: &InstructionParameter, attr_name: &str) -> bool {
+        param.attributes.iter().any(|attr| attr.name == attr_name)
+    }
+
+    fn current_function_param_by_name(&self, name: &str) -> Option<&InstructionParameter> {
+        self.current_function_parameters
+            .as_ref()
+            .and_then(|params| params.iter().find(|param| param.name == name))
+    }
+
+    fn emit_pda_bump_value<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        authority_param: &InstructionParameter,
+    ) -> Result<(), VMError> {
+        let pda_config = authority_param
+            .pda_config
+            .as_ref()
+            .ok_or(VMError::InvalidScript)?;
+
+        if let Some(bump_var) = &pda_config.bump {
+            self.generate_ast_node(emitter, &AstNode::Identifier(bump_var.clone()))?;
+            return Ok(());
+        }
+
+        for seed in &pda_config.seeds {
+            self.generate_ast_node(emitter, seed)?;
+        }
+        emitter.emit_const_u8(pda_config.seeds.len() as u8)?;
+        emitter.emit_opcode(PUSH_0);
+        emitter.emit_opcode(FIND_PDA);
+        emitter.emit_opcode(UNPACK_TUPLE);
+        emitter.emit_opcode(SWAP);
+        emitter.emit_opcode(DROP);
+        Ok(())
+    }
+
+    fn emit_pda_signer_group<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        authority_param: &InstructionParameter,
+    ) -> Result<(), VMError> {
+        let pda_config = authority_param
+            .pda_config
+            .as_ref()
+            .ok_or(VMError::InvalidScript)?;
+
+        for seed in &pda_config.seeds {
+            self.generate_ast_node(emitter, seed)?;
+        }
+        self.emit_pda_bump_value(emitter, authority_param)?;
+        emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+        emitter.emit_u8((pda_config.seeds.len() + 1) as u8);
+        Ok(())
+    }
+
+    fn collect_interface_signer_groups<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        interface_method: &InterfaceMethod,
+        args: &[AstNode],
+    ) -> Result<u8, VMError> {
+        let mut signer_group_count = 0u8;
+
+        for (param, arg) in interface_method.parameters.iter().zip(args.iter()) {
+            if !Self::interface_param_has_attribute(param, "authority") {
+                continue;
+            }
+
+            let AstNode::Identifier(authority_name) = arg else {
+                return Err(VMError::InvalidOperation);
+            };
+
+            let authority_param = self
+                .current_function_param_by_name(authority_name)
+                .cloned()
+                .ok_or(VMError::InvalidScript)?;
+
+            if authority_param.pda_config.is_some() {
+                self.emit_pda_signer_group(emitter, &authority_param)?;
+                signer_group_count = signer_group_count
+                    .checked_add(1)
+                    .ok_or(VMError::InvalidOperation)?;
+            } else if !Self::interface_param_has_attribute(&authority_param, "signer") {
+                return Err(VMError::ConstraintViolation);
+            }
+        }
+
+        Ok(signer_group_count)
     }
 
     fn try_emit_unqualified_external_call<T: OpcodeEmitter>(
@@ -164,17 +282,12 @@ impl ASTGenerator {
             if let Some(interface_info) = self.interface_registry.get(interface_name) {
                 // This is an interface method call - generate INVOKE opcode
                 if let Some(interface_method) = interface_info.methods.get(method) {
-                    // Clone to avoid simultaneous borrow of self.interface_registry (immutable) 
+                    // Clone to avoid simultaneous borrow of self.interface_registry (immutable)
                     // and self (mutable) in emit_interface_invoke
                     let info = interface_info.clone();
                     let method_info = interface_method.clone();
-                    
-                    return self.emit_interface_invoke(
-                        emitter,
-                        &info,
-                        &method_info,
-                        args,
-                    );
+
+                    return self.emit_interface_invoke(emitter, &info, &method_info, args);
                 } else {
                     return Err(VMError::InvalidOperation); // Method not found in interface
                 }
@@ -201,15 +314,12 @@ impl ASTGenerator {
         // Standard CALL emission without metadata (VM does not support metadata bytes)
         emitter.emit_opcode(five_protocol::opcodes::CALL);
         emitter.emit_u8(param_count);
-        
+
         // Record function patch for the u16 function address
         let patch_position = emitter.get_position();
         emitter.emit_u16(0x0000); // Placeholder offset
-        
-        self.record_function_patch_at_position(
-            patch_position,
-            method.to_string(),
-        );
+
+        self.record_function_patch_at_position(patch_position, method.to_string());
 
         Ok(())
     }
@@ -250,8 +360,14 @@ impl ASTGenerator {
 
         // Most built-ins consume pre-generated arguments.
         // A few have custom argument lowering and must not pre-generate here.
-        let has_custom_arg_lowering =
-            matches!(name, "derive_pda" | "invoke_signed" | "transfer_lamports" | "close_account");
+        let has_custom_arg_lowering = matches!(
+            name,
+            "derive_pda"
+                | "invoke_signed"
+                | "transfer_lamports"
+                | "close_account"
+                | "load_account_u64"
+        );
 
         if !has_custom_arg_lowering {
             let user_defined_param_types = self.function_parameter_types.get(name).cloned();
@@ -283,6 +399,16 @@ impl ASTGenerator {
             }
             "get_clock" => {
                 emitter.emit_opcode(GET_CLOCK);
+            }
+            "load_account_u64" => {
+                if args.len() != 2 {
+                    return Err(VMError::InvalidParameterCount);
+                }
+                let (account_index, offset) =
+                    self.resolve_account_literal_offset(&args[0], &args[1])?;
+                emitter.emit_opcode(LOAD_EXTERNAL_FIELD);
+                emitter.emit_u8(account_index);
+                emitter.emit_u32(offset);
             }
             "string_length" => {
                 if args.len() != 1 {
@@ -341,17 +467,16 @@ impl ASTGenerator {
                         AstNode::Cast { target_type, .. } => {
                             matches!(target_type.as_ref(), AstNode::Identifier(t) if t == "u8")
                         }
-                        AstNode::Identifier(name) => {
-                            self.local_symbol_table
-                                .get(name)
-                                .map(|f| f.field_type == "u8")
-                                .or_else(|| {
-                                    self.global_symbol_table
-                                        .get(name)
-                                        .map(|f| f.field_type == "u8")
-                                })
-                                .unwrap_or(false)
-                        }
+                        AstNode::Identifier(name) => self
+                            .local_symbol_table
+                            .get(name)
+                            .map(|f| f.field_type == "u8")
+                            .or_else(|| {
+                                self.global_symbol_table
+                                    .get(name)
+                                    .map(|f| f.field_type == "u8")
+                            })
+                            .unwrap_or(false),
                         _ => self
                             .infer_type_from_node(last)
                             .map(|t| t == "u8")
@@ -502,8 +627,10 @@ impl ASTGenerator {
                             return Err(VMError::InvalidScript);
                         };
 
-                        let account_index =
-                            self.resolve_external_account_index(module_name, ext_import.account_index)?;
+                        let account_index = self.resolve_external_account_index(
+                            module_name,
+                            ext_import.account_index,
+                        )?;
 
                         // Found external import - emit CALL_EXTERNAL opcode.
                         // Keep selector as raw u16 for protocol/runtime compatibility.
@@ -539,11 +666,11 @@ impl ASTGenerator {
                 // Standard CALL emission without metadata (VM does not support metadata bytes)
                 emitter.emit_opcode(five_protocol::opcodes::CALL);
                 emitter.emit_u8(param_count);
-                
+
                 // Record function patch for the u16 function address
                 let patch_position = emitter.get_position();
                 emitter.emit_u16(0x0000); // Placeholder offset
-                
+
                 self.record_function_patch_at_position(patch_position, name.to_string());
 
                 // Track return from function call (for proper call depth management)
@@ -565,10 +692,16 @@ impl ASTGenerator {
             .ok_or(VMError::InvalidScript)?;
 
         let mut account_params: Vec<&InstructionParameter> = Vec::new();
-        let registry = self.account_system.as_ref().map(|s| s.get_account_registry());
+        let registry = self
+            .account_system
+            .as_ref()
+            .map(|s| s.get_account_registry());
         for p in params {
-            if super::super::account_utils::is_account_parameter(&p.param_type, &p.attributes, registry)
-            {
+            if super::super::account_utils::is_account_parameter(
+                &p.param_type,
+                &p.attributes,
+                registry,
+            ) {
                 account_params.push(p);
             }
         }
@@ -631,10 +764,16 @@ impl ASTGenerator {
             .ok_or(VMError::InvalidScript)?;
 
         let mut account_params: Vec<&InstructionParameter> = Vec::new();
-        let registry = self.account_system.as_ref().map(|s| s.get_account_registry());
+        let registry = self
+            .account_system
+            .as_ref()
+            .map(|s| s.get_account_registry());
         for p in params {
-            if super::super::account_utils::is_account_parameter(&p.param_type, &p.attributes, registry)
-            {
+            if super::super::account_utils::is_account_parameter(
+                &p.param_type,
+                &p.attributes,
+                registry,
+            ) {
                 account_params.push(p);
             }
         }
@@ -713,8 +852,18 @@ impl ASTGenerator {
         // Step 5: Emit account count
         emitter.emit_const_u8(account_indices.len() as u8)?;
 
-        // Step 6: Emit INVOKE opcode
-        emitter.emit_opcode(INVOKE);
+        // Step 6: Emit signer groups if any authority parameters resolve to PDAs
+        let signer_group_count =
+            self.collect_interface_signer_groups(emitter, interface_method, args)?;
+
+        // Step 7: Emit final invoke opcode
+        if signer_group_count == 0 {
+            emitter.emit_opcode(INVOKE);
+        } else {
+            emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+            emitter.emit_u8(signer_group_count);
+            emitter.emit_opcode(INVOKE_SIGNED);
+        }
 
         Ok(())
     }
@@ -729,9 +878,7 @@ impl ASTGenerator {
 
     /// Check if a field_type string represents an account type
     fn is_account_type_str(field_type: &str) -> bool {
-        field_type == "Account"
-            || field_type == "account"
-            || field_type.starts_with("Account<")
+        field_type == "Account" || field_type == "account" || field_type.starts_with("Account<")
     }
 
     /// Resolve an account argument to its parameter index.
@@ -751,9 +898,11 @@ impl ASTGenerator {
                         return Err(VMError::TypeMismatch);
                     }
 
-                    Ok(super::super::account_utils::account_index_from_param_offset(
-                        field_info.offset,
-                    ))
+                    Ok(
+                        super::super::account_utils::account_index_from_param_offset(
+                            field_info.offset,
+                        ),
+                    )
                 } else {
                     Err(VMError::InvalidScript) // Undefined identifier
                 }
@@ -776,7 +925,10 @@ impl ASTGenerator {
 
     pub(super) fn resolve_account_param_by_name(&self, name: &str) -> Option<u8> {
         let params = self.current_function_parameters.as_ref()?;
-        let registry = self.account_system.as_ref().map(|s| s.get_account_registry());
+        let registry = self
+            .account_system
+            .as_ref()
+            .map(|s| s.get_account_registry());
 
         for (idx, param) in params.iter().enumerate() {
             if param.name != name {
@@ -811,13 +963,13 @@ impl ASTGenerator {
         let mut data_arg_indices = Vec::new();
 
         // Iterate through parameters and corresponding arguments
-        for (idx, (param_type, arg)) in interface_method
+        for (idx, (param, arg)) in interface_method
             .parameters
             .iter()
             .zip(args.iter())
             .enumerate()
         {
-            if Self::is_account_meta_type(param_type) {
+            if Self::is_account_meta_type(&param.param_type) {
                 // This is an account parameter - resolve to index
                 let param_idx = self.resolve_account_argument(arg)?;
                 account_indices.push(param_idx);
@@ -848,7 +1000,7 @@ impl ASTGenerator {
         // Append each argument as a serialized byte chunk.
         for &arg_idx in data_arg_indices {
             let param_type = if let Some(param) = interface_method.parameters.get(arg_idx) {
-                param
+                &param.param_type
             } else {
                 return Err(VMError::InvalidParameterCount);
             };
@@ -870,8 +1022,7 @@ impl ASTGenerator {
         arg: &AstNode,
     ) -> Result<(), VMError> {
         match param_type {
-            TypeNode::Array { element_type, .. }
-                if matches!(element_type.as_ref(), TypeNode::Primitive(name) if name == "u8") =>
+            TypeNode::Array { element_type, .. } if matches!(element_type.as_ref(), TypeNode::Primitive(name) if name == "u8") =>
             {
                 if !self.emit_typed_byte_array_literal(
                     emitter,
@@ -887,8 +1038,16 @@ impl ASTGenerator {
                 if let AstNode::Literal(val) = arg {
                     let byte = val
                         .as_u8()
-                        .or_else(|| val.as_u64().filter(|v| *v <= u8::MAX as u64).map(|v| v as u8))
-                        .or_else(|| val.as_i64().filter(|v| (0..=u8::MAX as i64).contains(v)).map(|v| v as u8))
+                        .or_else(|| {
+                            val.as_u64()
+                                .filter(|v| *v <= u8::MAX as u64)
+                                .map(|v| v as u8)
+                        })
+                        .or_else(|| {
+                            val.as_i64()
+                                .filter(|v| (0..=u8::MAX as i64).contains(v))
+                                .map(|v| v as u8)
+                        })
                         .ok_or(VMError::TypeMismatch)?;
                     emitter.emit_const_bytes(&[byte])?;
                 } else {
@@ -913,10 +1072,13 @@ impl ASTGenerator {
                 }
                 Ok(())
             }
-            TypeNode::Primitive(name) if name == "u64" || name == "i64" || name == "bool" || name == "pubkey" => {
+            TypeNode::Primitive(name)
+                if name == "u64" || name == "i64" || name == "bool" || name == "pubkey" =>
+            {
                 if let AstNode::Literal(Value::Pubkey(pk)) = arg {
                     emitter.emit_const_bytes(pk)?;
-                } else if let (TypeNode::Primitive(name), AstNode::Literal(val)) = (param_type, arg) {
+                } else if let (TypeNode::Primitive(name), AstNode::Literal(val)) = (param_type, arg)
+                {
                     if name == "u64" {
                         let word = val
                             .as_u64()
@@ -967,36 +1129,81 @@ mod tests {
     }
 
     impl OpcodeEmitter for MockEmitter {
-        fn emit_opcode(&mut self, opcode: u8) { self.bytes.push(opcode); }
-        fn emit_u8(&mut self, value: u8) { self.bytes.push(value); }
-        fn emit_u16(&mut self, value: u16) { self.bytes.extend_from_slice(&value.to_le_bytes()); }
-        fn emit_u32(&mut self, value: u32) { self.bytes.extend_from_slice(&value.to_le_bytes()); }
-        fn emit_u64(&mut self, value: u64) { self.bytes.extend_from_slice(&value.to_le_bytes()); }
-        fn emit_bytes(&mut self, bytes: &[u8]) { self.bytes.extend_from_slice(bytes); }
-        fn get_position(&self) -> usize { self.bytes.len() }
+        fn emit_opcode(&mut self, opcode: u8) {
+            self.bytes.push(opcode);
+        }
+        fn emit_u8(&mut self, value: u8) {
+            self.bytes.push(value);
+        }
+        fn emit_u16(&mut self, value: u16) {
+            self.bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        fn emit_u32(&mut self, value: u32) {
+            self.bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        fn emit_u64(&mut self, value: u64) {
+            self.bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        fn emit_bytes(&mut self, bytes: &[u8]) {
+            self.bytes.extend_from_slice(bytes);
+        }
+        fn get_position(&self) -> usize {
+            self.bytes.len()
+        }
         fn patch_u32(&mut self, position: usize, value: u32) {
             self.bytes[position..position + 4].copy_from_slice(&value.to_le_bytes());
         }
         fn patch_u16(&mut self, position: usize, value: u16) {
             self.bytes[position..position + 2].copy_from_slice(&value.to_le_bytes());
         }
-        fn should_include_tests(&self) -> bool { false }
-        fn emit_const_u8(&mut self, value: u8) -> Result<(), VMError> { self.emit_u8(value); Ok(()) }
-        fn emit_const_u16(&mut self, value: u16) -> Result<(), VMError> { self.emit_u16(value); Ok(()) }
-        fn emit_const_u32(&mut self, value: u32) -> Result<(), VMError> { self.emit_u32(value); Ok(()) }
-        fn emit_const_u64(&mut self, value: u64) -> Result<(), VMError> { self.emit_u64(value); Ok(()) }
-        fn emit_const_i64(&mut self, value: i64) -> Result<(), VMError> { self.emit_u64(value as u64); Ok(()) }
-        fn emit_const_bool(&mut self, value: bool) -> Result<(), VMError> { self.emit_u8(u8::from(value)); Ok(()) }
-        fn emit_const_u128(&mut self, value: u128) -> Result<(), VMError> { self.emit_bytes(&value.to_le_bytes()); Ok(()) }
-        fn emit_const_pubkey(&mut self, value: &[u8; 32]) -> Result<(), VMError> { self.emit_bytes(value); Ok(()) }
-        fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError> { self.emit_bytes(value); Ok(()) }
+        fn should_include_tests(&self) -> bool {
+            false
+        }
+        fn emit_const_u8(&mut self, value: u8) -> Result<(), VMError> {
+            self.emit_u8(value);
+            Ok(())
+        }
+        fn emit_const_u16(&mut self, value: u16) -> Result<(), VMError> {
+            self.emit_u16(value);
+            Ok(())
+        }
+        fn emit_const_u32(&mut self, value: u32) -> Result<(), VMError> {
+            self.emit_u32(value);
+            Ok(())
+        }
+        fn emit_const_u64(&mut self, value: u64) -> Result<(), VMError> {
+            self.emit_u64(value);
+            Ok(())
+        }
+        fn emit_const_i64(&mut self, value: i64) -> Result<(), VMError> {
+            self.emit_u64(value as u64);
+            Ok(())
+        }
+        fn emit_const_bool(&mut self, value: bool) -> Result<(), VMError> {
+            self.emit_u8(u8::from(value));
+            Ok(())
+        }
+        fn emit_const_u128(&mut self, value: u128) -> Result<(), VMError> {
+            self.emit_bytes(&value.to_le_bytes());
+            Ok(())
+        }
+        fn emit_const_pubkey(&mut self, value: &[u8; 32]) -> Result<(), VMError> {
+            self.emit_bytes(value);
+            Ok(())
+        }
+        fn emit_const_string(&mut self, value: &[u8]) -> Result<(), VMError> {
+            self.emit_bytes(value);
+            Ok(())
+        }
         fn emit_const_bytes(&mut self, value: &[u8]) -> Result<(), VMError> {
             self.emit_opcode(PUSH_BYTES);
             self.emit_u8(value.len() as u8);
             self.emit_bytes(value);
             Ok(())
         }
-        fn intern_u16_const(&mut self, _value: u16) -> Result<u16, VMError> { Ok(0) }
+        fn intern_u16_const(&mut self, _value: u16) -> Result<u16, VMError> {
+            Ok(0)
+        }
     }
 
     #[test]
@@ -1013,6 +1220,7 @@ mod tests {
             }],
             is_init: false,
             init_config: None,
+            pda_config: None,
         }]);
         gen.register_external_import(
             "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string(),
@@ -1048,9 +1256,13 @@ mod tests {
             }],
             is_init: false,
             init_config: None,
+            pda_config: None,
         }]);
         let mut funcs = HashMap::new();
-        funcs.insert("transfer".to_string(), ASTGenerator::external_selector("transfer"));
+        funcs.insert(
+            "transfer".to_string(),
+            ASTGenerator::external_selector("transfer"),
+        );
         gen.register_external_import("ext0".to_string(), 0, false, funcs);
 
         let mut emitter = MockEmitter::new();
@@ -1066,7 +1278,10 @@ mod tests {
     fn rejects_ambiguous_unqualified_external_call() {
         let mut gen = ASTGenerator::new();
         let mut funcs = HashMap::new();
-        funcs.insert("transfer".to_string(), ASTGenerator::external_selector("transfer"));
+        funcs.insert(
+            "transfer".to_string(),
+            ASTGenerator::external_selector("transfer"),
+        );
         gen.register_external_import("ext0".to_string(), 0, false, funcs.clone());
         gen.register_external_import("ext1".to_string(), 1, false, funcs);
 
@@ -1090,6 +1305,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                pda_config: None,
             },
             InstructionParameter {
                 name: "destination".to_string(),
@@ -1102,6 +1318,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                pda_config: None,
             },
             InstructionParameter {
                 name: "owner".to_string(),
@@ -1114,6 +1331,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                pda_config: None,
             },
             InstructionParameter {
                 name: "token_bytecode".to_string(),
@@ -1123,11 +1341,15 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
+                pda_config: None,
             },
         ]);
 
         let mut funcs = HashMap::new();
-        funcs.insert("transfer".to_string(), ASTGenerator::external_selector("transfer"));
+        funcs.insert(
+            "transfer".to_string(),
+            ASTGenerator::external_selector("transfer"),
+        );
         gen.register_external_import("ext0".to_string(), 0, false, funcs);
 
         let mut emitter = MockEmitter::new();
@@ -1152,6 +1374,7 @@ mod tests {
             }],
             is_init: false,
             init_config: None,
+            pda_config: None,
         }]);
 
         let method = InterfaceMethod {
@@ -1159,10 +1382,28 @@ mod tests {
             discriminator_bytes: None,
             is_anchor: false,
             parameters: vec![
-                TypeNode::Account,
-                TypeNode::Array {
-                    element_type: Box::new(TypeNode::Primitive("u8".to_string())),
-                    size: Some(64),
+                InstructionParameter {
+                    name: "authority".to_string(),
+                    param_type: TypeNode::Account,
+                    is_optional: false,
+                    default_value: None,
+                    attributes: vec![],
+                    is_init: false,
+                    init_config: None,
+                    pda_config: None,
+                },
+                InstructionParameter {
+                    name: "payload".to_string(),
+                    param_type: TypeNode::Array {
+                        element_type: Box::new(TypeNode::Primitive("u8".to_string())),
+                        size: Some(64),
+                    },
+                    is_optional: false,
+                    default_value: None,
+                    attributes: vec![],
+                    is_init: false,
+                    init_config: None,
+                    pda_config: None,
                 },
             ],
             return_type: None,
@@ -1176,9 +1417,7 @@ mod tests {
         let args = vec![
             AstNode::Identifier("authority".to_string()),
             AstNode::ArrayLiteral {
-                elements: (0..64)
-                    .map(|i| AstNode::Literal(Value::U64(i)))
-                    .collect(),
+                elements: (0..64).map(|i| AstNode::Literal(Value::U64(i))).collect(),
             },
         ];
 

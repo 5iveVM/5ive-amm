@@ -110,12 +110,14 @@ impl InterfaceRegistry {
                 } = function_def
                 {
                     let is_anchor = *is_interface_anchor || *is_method_anchor;
-
-                    // Convert InstructionParameter to TypeNode for storage
-                    let param_types: Vec<TypeNode> = parameters
-                        .iter()
-                        .map(|param| param.param_type.clone())
-                        .collect();
+                    for param in parameters {
+                        let has_authority = param.attributes.iter().any(|attr| attr.name == "authority");
+                        let is_account_like = matches!(param.param_type, TypeNode::Account)
+                            || matches!(&param.param_type, TypeNode::Named(name) if name.eq_ignore_ascii_case("account"));
+                        if has_authority && !is_account_like {
+                            return Err(VMError::TypeMismatch);
+                        }
+                    }
 
                     let return_type_node = return_type.as_ref().map(|rt| (**rt).clone());
 
@@ -158,7 +160,7 @@ impl InterfaceRegistry {
                             discriminator: discriminator_val,
                             discriminator_bytes: discriminator_bytes_val,
                             is_anchor,
-                            parameters: param_types,
+                            parameters: parameters.clone(),
                             return_type: return_type_node,
                         },
                     );
@@ -302,7 +304,7 @@ impl InterfaceRegistry {
 
                 // Type check arguments (basic compatibility for now)
                 for (i, arg_type) in arg_types.iter().enumerate() {
-                    let expected_type = &method_info.parameters[i];
+                    let expected_type = &method_info.parameters[i].param_type;
                     if !self.types_are_compatible(arg_type, expected_type) {
                         return Err(VMError::TypeMismatch);
                     }
@@ -490,7 +492,7 @@ impl InterfaceRegistry {
                 for (arg_type, expected_type) in
                     arg_types.iter().zip(&method_info.parameters)
                 {
-                    if !self.types_are_compatible(arg_type, expected_type) {
+                    if !self.types_are_compatible(arg_type, &expected_type.param_type) {
                         // Provide detailed type mismatch information
                         return Err(VMError::TypeMismatch);
                     }
@@ -612,6 +614,7 @@ mod tests {
                     default_value: None,
                     is_init: false,
                     init_config: None,
+                    pda_config: None,
                 }],
                 return_type: Some(Box::new(TypeNode::Primitive("u64".to_string()))),
                 discriminator: Some(1),
@@ -667,6 +670,7 @@ mod tests {
                     default_value: None,
                     is_init: false,
                     init_config: None,
+                    pda_config: None,
                 }],
                 return_type: None,
                 discriminator: None,

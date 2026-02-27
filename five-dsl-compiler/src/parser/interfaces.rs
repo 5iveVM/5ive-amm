@@ -1,5 +1,6 @@
 use crate::ast::{AstNode, Attribute, InstructionParameter};
 use crate::parser::{DslParser, types};
+use crate::parser::instructions::parse_pda_arguments;
 use crate::tokenizer::{Token};
 use five_vm_mito::error::VMError;
 
@@ -459,6 +460,10 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
                     Token::At => {
                         parser.advance(); // consume '@'
                         let name = parser.expect_ident()?;
+                        if name == "pda" {
+                            let _ = parse_pda_arguments(parser)?;
+                            return Err(parser.parse_error("@pda is not allowed on interface parameters"));
+                        }
                         let mut args = Vec::new();
                         if matches!(parser.current_token, Token::LeftParen) {
                             parser.advance(); // consume '('
@@ -492,6 +497,7 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
                 attributes,
                 is_init,
                 init_config,
+                pda_config: None,
             });
 
             // Handle comma separator

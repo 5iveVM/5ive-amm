@@ -10,9 +10,9 @@ use crate::{
     error::{CompactResult, VMErrorCode},
 };
 use five_protocol::{opcodes::*, ValueRef};
+use pinocchio::pubkey::Pubkey;
 #[cfg(target_os = "solana")]
 use pinocchio::pubkey::{create_program_address, find_program_address};
-use pinocchio::pubkey::Pubkey;
 
 /// Process a single seed value and store it in the seed array.
 /// Returns the length of the seed data written.
@@ -33,6 +33,22 @@ pub fn process_seed_value(
             seeds[seed_idx][0] = val;
             Ok(1)
         }
+        ValueRef::PubkeyRef(_) => {
+            let bytes = ctx.extract_pubkey(&seed_value)?;
+            seeds[seed_idx][..32].copy_from_slice(&bytes);
+            Ok(32)
+        }
+        ValueRef::AccountRef(account_idx, account_offset) => {
+            if account_offset != 0 {
+                return Err(VMErrorCode::TypeMismatch);
+            }
+            let account = ctx
+                .accounts()
+                .get(account_idx as usize)
+                .ok_or(VMErrorCode::InvalidAccountIndex)?;
+            seeds[seed_idx][..32].copy_from_slice(account.key().as_ref());
+            Ok(32)
+        }
         ValueRef::TempRef(offset, len) => {
             let start = offset as usize;
             let end = start + len as usize;
@@ -52,11 +68,11 @@ pub fn process_seed_value(
             let len = ctx.temp_buffer()[start];
             let data_start = start + 2;
             let data_end = data_start + len as usize;
-            
+
             if data_end > ctx.temp_buffer().len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
-            
+
             let copy_len = (len as usize).min(32);
             seeds[seed_idx][..copy_len]
                 .copy_from_slice(&ctx.temp_buffer()[data_start..data_start + copy_len]);
@@ -70,11 +86,11 @@ pub fn process_seed_value(
             let len = ctx.temp_buffer()[start];
             let data_start = start + 2;
             let data_end = data_start + len as usize;
-            
+
             if data_end > ctx.temp_buffer().len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
-            
+
             let copy_len = (len as usize).min(32);
             seeds[seed_idx][..copy_len]
                 .copy_from_slice(&ctx.temp_buffer()[data_start..data_start + copy_len]);
@@ -214,7 +230,11 @@ where
 
 /// Helper to push (PDA, bump) tuple result efficiently
 #[inline(always)]
-fn push_pda_result(ctx: &mut ExecutionManager, pda_pubkey: [u8; 32], bump: u8) -> CompactResult<()> {
+fn push_pda_result(
+    ctx: &mut ExecutionManager,
+    pda_pubkey: [u8; 32],
+    bump: u8,
+) -> CompactResult<()> {
     // Store PDA in temp buffer
     let pda_offset = ctx.alloc_temp(32)?;
     ctx.temp_buffer_mut()[pda_offset as usize..(pda_offset + 32) as usize]
@@ -234,11 +254,13 @@ fn push_pda_result(ctx: &mut ExecutionManager, pda_pubkey: [u8; 32], bump: u8) -
     {
         let buffer = ctx.temp_buffer_mut();
         let mut current = tuple_offset as usize;
-        let written = pda_ref.serialize_into(&mut buffer[current..])
+        let written = pda_ref
+            .serialize_into(&mut buffer[current..])
             .map_err(|_| VMErrorCode::MemoryViolation)?;
         current += written;
 
-        bump_ref.serialize_into(&mut buffer[current..])
+        bump_ref
+            .serialize_into(&mut buffer[current..])
             .map_err(|_| VMErrorCode::MemoryViolation)?;
     }
 
@@ -256,13 +278,17 @@ pub fn handle_pda_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<(
                 debug_log!("MitoVM: DERIVE_PDA calling create_program_address");
 
                 #[cfg(target_os = "solana")]
-                let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> =
-                    create_program_address(seeds, &program_pubkey)
-                        .map_err(|_| pinocchio::program_error::ProgramError::Custom(9101));
+                let pda_result: Result<
+                    [u8; 32],
+                    pinocchio::program_error::ProgramError,
+                > = create_program_address(seeds, &program_pubkey)
+                    .map_err(|_| pinocchio::program_error::ProgramError::Custom(9101));
 
                 #[cfg(not(target_os = "solana"))]
-                let pda_result: Result<[u8; 32], pinocchio::program_error::ProgramError> =
-                    crate::utils::derive_pda_offchain(seeds, &program_pubkey).map_err(|e| e.into());
+                let pda_result: Result<
+                    [u8; 32],
+                    pinocchio::program_error::ProgramError,
+                > = crate::utils::derive_pda_offchain(seeds, &program_pubkey).map_err(|e| e.into());
 
                 match pda_result {
                     Ok(pda_pubkey) => {

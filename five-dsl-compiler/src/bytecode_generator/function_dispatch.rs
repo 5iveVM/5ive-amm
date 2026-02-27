@@ -1133,6 +1133,8 @@ impl FunctionDispatcher {
             ast_generator.generate_init_account_sequence(emitter, param, index)?;
         }
 
+        ast_generator.emit_pda_param_setup(emitter, parameters)?;
+
         // Inject @requires(condition) checks
         for param in parameters {
             for attr in &param.attributes {
@@ -1442,6 +1444,7 @@ mod tests {
                         attributes: vec![],
                         is_init: false,
                         init_config: None,
+                    pda_config: None,
                     }],
                     return_type: None,
                     body: Box::new(AstNode::Block {
@@ -1496,6 +1499,7 @@ mod tests {
                 attributes: vec![crate::ast::Attribute { name: "signer".to_string(), args: vec![] }],
                 is_init: false,
                 init_config: None,
+                    pda_config: None,
             },
             InstructionParameter {
                 name: "amount".to_string(),
@@ -1505,6 +1509,7 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
+                    pda_config: None,
             },
         ];
 

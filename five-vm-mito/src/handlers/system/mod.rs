@@ -40,9 +40,7 @@ pub fn handle_system_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
         // Account initialization operations (INIT_ACCOUNT, INIT_PDA_ACCOUNT)
         INIT_ACCOUNT | INIT_PDA_ACCOUNT => handle_init_ops(opcode, ctx),
         // Program Derived Address operations (DERIVE_PDA, FIND_PDA, etc.)
-        DERIVE_PDA | FIND_PDA | DERIVE_PDA_PARAMS | FIND_PDA_PARAMS => {
-            handle_pda_ops(opcode, ctx)
-        }
+        DERIVE_PDA | FIND_PDA | DERIVE_PDA_PARAMS | FIND_PDA_PARAMS => handle_pda_ops(opcode, ctx),
         _ => Err(VMErrorCode::InvalidInstruction),
     }
 }

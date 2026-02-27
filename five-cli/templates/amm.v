@@ -11,14 +11,14 @@ account Pool {
     fee_bps: u64;
 }
 
-init_pool(state: Pool @mut, fee_bps: u64) {
+pub init_pool(state: Pool @mut, fee_bps: u64) {
     state.token_a = 0;
     state.token_b = 0;
     state.total_shares = 0;
     state.fee_bps = fee_bps;
 }
 
-add_liquidity(state: Pool @mut, amount_a: u64, amount_b: u64) -> u64 {
+pub add_liquidity(state: Pool @mut, amount_a: u64, amount_b: u64) -> u64 {
     // Share calc for template
     let shares = amount_a;
     state.token_a = state.token_a + amount_a;
@@ -27,7 +27,7 @@ add_liquidity(state: Pool @mut, amount_a: u64, amount_b: u64) -> u64 {
     return shares;
 }
 
-swap(state: Pool @mut, amount_in: u64, a_for_b: bool) -> u64 {
+pub swap(state: Pool @mut, amount_in: u64, a_for_b: bool) -> u64 {
     // Skeleton implementation for validator compatibility
     let fee = (amount_in * state.fee_bps) / 10000;
     let net_in = amount_in - fee;
@@ -36,7 +36,7 @@ swap(state: Pool @mut, amount_in: u64, a_for_b: bool) -> u64 {
 }
 
 // Quote liquidity shares without mutating state
-quote_add_liquidity(state: Pool, amount_a: u64, amount_b: u64) -> u64 {
+pub quote_add_liquidity(state: Pool, amount_a: u64, amount_b: u64) -> u64 {
     if (amount_b < amount_a) {
         return amount_b;
     }
@@ -44,7 +44,7 @@ quote_add_liquidity(state: Pool, amount_a: u64, amount_b: u64) -> u64 {
 }
 
 // Remove liquidity (simplified)
-remove_liquidity(state: Pool @mut, share: u64) -> u64 {
+pub remove_liquidity(state: Pool @mut, share: u64) -> u64 {
     require(state.total_shares >= share);
     state.total_shares = state.total_shares - share;
     return share;

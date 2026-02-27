@@ -76,6 +76,35 @@ pub cpi_memo_with_signer(memo_program: account, authority: account) -> u64 {{
     )
 }
 
+fn build_memo_auto_pda_cpi_source() -> String {
+    let memo_bytes = [
+        102u8, 105, 118, 101, 45, 99, 112, 105, 45, 97, 117, 116, 111, 45, 112, 100, 97, 45,
+        112, 114, 111, 98, 101, 45, 102, 105, 120, 101, 100, 45, 98, 121, 116, 101, 115, 45, 48,
+        49, 50, 51, 52, 53, 54, 55, 56, 57, 45, 65, 66, 67, 68, 69, 70, 45, 71, 72, 73, 74, 75,
+        76, 45, 77, 78, 79, 80,
+    ];
+    let memo_literal = memo_bytes
+        .iter()
+        .map(|b| b.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    format!(
+        r#"
+interface MemoProgram @program("{memo_program_id}") @serializer(raw) {{
+    write @discriminator_bytes([]) (authority: account @authority, memo: [u8; 64]);
+}}
+
+pub cpi_memo_auto(vm_state: account @pda(seeds=["vm_state"]), memo_program: account) -> u64 {{
+    MemoProgram.write(vm_state, [{memo_literal}]);
+    return 1;
+}}
+"#,
+        memo_program_id = MEMO_PROGRAM_ID,
+        memo_literal = memo_literal
+    )
+}
+
 fn deploy_with_chunk_fallback(
     h: &ValidatorHarness,
     accounts: &BTreeMap<String, RuntimeAccount>,
@@ -321,6 +350,32 @@ fn validator_cpi_fixed_bytes_with_signer_probe_onchain() {
 
     println!(
         "CPI_FIXED_BYTES_SIGNER_PROBE deploy_signature={} deploy_cu={} execute_signature={} execute_cu={}",
+        deploy_signature,
+        deploy_cu,
+        execute_signature,
+        execute_cu
+    );
+}
+
+#[test]
+#[ignore = "requires running validator and pre-deployed program"]
+fn validator_cpi_auto_authority_pda_probe_onchain() {
+    let source = build_memo_auto_pda_cpi_source();
+    let (deploy_signature, deploy_cu, execute_signature, execute_cu) = run_cpi_probe(
+        "cpi_probe_execute_auto_pda",
+        &source,
+        &[
+            "vm_state".to_string(),
+            "memo_program".to_string(),
+            "payer".to_string(),
+        ],
+    );
+    if deploy_signature == Signature::default() {
+        return;
+    }
+
+    println!(
+        "CPI_AUTO_PDA_AUTHORITY_PROBE deploy_signature={} deploy_cu={} execute_signature={} execute_cu={}",
         deploy_signature,
         deploy_cu,
         execute_signature,

@@ -3,7 +3,6 @@
 use super::super::account_system::AccountSystem;
 use super::types::ASTGenerator;
 use crate::ast::AstNode;
-use crate::ast::TypeNode;
 use crate::type_checker::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 use five_vm_mito::error::VMError;
 use sha2::Digest;
@@ -250,12 +249,6 @@ impl ASTGenerator {
                     } = function_def
                     {
                         let method_anchor = *is_anchor || *is_method_anchor;
-                        // Convert InstructionParameter to TypeNode for storage
-                        let param_types: Vec<TypeNode> = parameters
-                            .iter()
-                            .map(|param| param.param_type.clone())
-                            .collect();
-
                         let return_type_node = return_type.as_ref().map(|rt| (**rt).clone());
 
                         let (discriminator_val, discriminator_bytes_val) = if let Some(bytes) = discriminator_bytes {
@@ -278,7 +271,7 @@ impl ASTGenerator {
                                 discriminator: discriminator_val,
                                 discriminator_bytes: discriminator_bytes_val,
                                 is_anchor: method_anchor,
-                                parameters: param_types,
+                                parameters: parameters.clone(),
                                 return_type: return_type_node,
                             },
                         );

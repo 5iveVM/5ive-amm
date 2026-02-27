@@ -48,6 +48,10 @@ Documented import forms:
 
 Imported stdlib interfaces use module calls like `spl_token::transfer(...)`.
 Locally declared interfaces may use dot-call syntax like `ExampleProgram.do_thing(...)`.
+Authority-aware CPI guidance:
+1. mark interface authority account params with `@authority`
+2. declare PDA authorities on caller params with `account @pda(seeds=[...])`
+3. let interface calls choose `INVOKE` vs signed CPI automatically; do not pass signer-seed arrays in normal interface call sites
 
 Use these forms as canonical stdlib module paths.
 

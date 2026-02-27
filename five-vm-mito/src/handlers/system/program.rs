@@ -8,7 +8,7 @@ use crate::{
 use five_protocol::ValueRef;
 
 #[cfg(target_os = "solana")]
-use pinocchio::{syscalls, pubkey::Pubkey};
+use pinocchio::{pubkey::Pubkey, syscalls};
 
 /// Handle sol_get_return_data syscall
 #[inline(always)]
@@ -29,7 +29,9 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
     // Program ID buffer (32 bytes)
     let pid_offset = match pid_ref {
         ValueRef::TempRef(offset, len) => {
-            if len < 32 { return Err(VMErrorCode::MemoryViolation); }
+            if len < 32 {
+                return Err(VMErrorCode::MemoryViolation);
+            }
             offset
         }
         ValueRef::ArrayRef(_offset) => {
@@ -40,16 +42,18 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
             );
             return Err(VMErrorCode::TypeMismatch); // Enforce TempRef for now
         }
-         _ => return Err(VMErrorCode::TypeMismatch),
+        _ => return Err(VMErrorCode::TypeMismatch),
     };
 
     // Data buffer
     let data_offset = match data_ref {
         ValueRef::TempRef(offset, len) => {
-            if (len as u64) < length { return Err(VMErrorCode::MemoryViolation); }
+            if (len as u64) < length {
+                return Err(VMErrorCode::MemoryViolation);
+            }
             offset
         }
-         _ => return Err(VMErrorCode::TypeMismatch),
+        _ => return Err(VMErrorCode::TypeMismatch),
     };
 
     let result_len = {
@@ -63,12 +67,12 @@ pub fn handle_syscall_get_return_data(ctx: &mut ExecutionManager) -> CompactResu
             syscalls::sol_get_return_data(data_ptr, length, pid_ptr)
         }
 
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (pid_offset, data_offset);
-        // Mock
-        debug_log!(
-            "SOL_GET_RETURN_DATA: length={} pid_offset={} data_offset={}",
+        #[cfg(not(target_os = "solana"))]
+        {
+            let _ = (pid_offset, data_offset);
+            // Mock
+            debug_log!(
+                "SOL_GET_RETURN_DATA: length={} pid_offset={} data_offset={}",
                 length,
                 pid_offset,
                 data_offset
@@ -128,7 +132,9 @@ pub fn handle_syscall_get_stack_height(ctx: &mut ExecutionManager) -> CompactRes
 
 /// Handle sol_get_processed_sibling_instruction syscall
 #[inline(always)]
-pub fn handle_syscall_get_processed_sibling_instruction(_ctx: &mut ExecutionManager) -> CompactResult<()> {
+pub fn handle_syscall_get_processed_sibling_instruction(
+    _ctx: &mut ExecutionManager,
+) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_PROCESSED_SIBLING_INSTRUCTION - Not Implemented Fully");
     // This syscall requires complex struct mapping (ProcessedSiblingInstruction).
     // Stubbed: return 0 (false/failure).

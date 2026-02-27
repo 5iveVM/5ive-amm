@@ -527,6 +527,8 @@ impl ASTGenerator {
                         .insert(param.name.clone(), field_info);
                 }
 
+                self.emit_pda_param_setup(emitter, parameters)?;
+
                 // Inject @requires(condition) checks
                 for param in parameters {
                     for attr in &param.attributes {

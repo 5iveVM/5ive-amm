@@ -1,8 +1,21 @@
-// SPL Token CPI template using the bundled stdlib interface.
-// This template is intentionally focused on the transfer/mint CPI flows that are
-// currently exposed by `std::interfaces::spl_token`.
+// SPL Token CPI template using a local interface declaration.
+// Local interfaces use dot-call syntax in the current compiler path.
 
-use std::interfaces::spl_token;
+interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") @serializer(raw) {
+    transfer @discriminator(3) (
+        source: account,
+        destination: account,
+        authority: account,
+        amount: u64
+    );
+
+    mint_to @discriminator(7) (
+        mint: account,
+        destination: account,
+        authority: account,
+        amount: u64
+    );
+}
 
 // Mint tokens to a destination token account via CPI.
 pub mint_tokens(
@@ -12,7 +25,7 @@ pub mint_tokens(
     amount: u64
 ) {
     require(amount > 0);
-    spl_token::mint_to(mint, destination, authority, amount);
+    SPLToken.mint_to(mint, destination, authority, amount);
 }
 
 // Transfer tokens via CPI using the source account owner as authority signer.
@@ -23,5 +36,5 @@ pub transfer_tokens(
     amount: u64
 ) {
     require(amount > 0);
-    spl_token::transfer(source, destination, authority, amount);
+    SPLToken.transfer(source, destination, authority, amount);
 }

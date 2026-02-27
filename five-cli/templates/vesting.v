@@ -10,7 +10,7 @@ account VestingState {
 }
 
 // Initialize a vesting schedule
-init_vesting(state: VestingState @mut, beneficiary: pubkey, start: u64, cliff: u64, duration: u64, total: u64) {
+pub init_vesting(state: VestingState @mut, beneficiary: pubkey, start: u64, cliff: u64, duration: u64, total: u64) {
     state.beneficiary = beneficiary;
     state.start_time = start;
     state.cliff_seconds = cliff;
@@ -21,7 +21,7 @@ init_vesting(state: VestingState @mut, beneficiary: pubkey, start: u64, cliff: u
 
 // Compute releasable amount at current time
 // Release vested tokens (accounting only) - template simplified
-release(state: VestingState @mut, amount: u64) -> u64 {
+pub release(state: VestingState @mut, amount: u64) -> u64 {
     require(amount > 0);
     state.released_amount = state.released_amount + amount;
     return amount;

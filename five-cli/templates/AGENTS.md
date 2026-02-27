@@ -78,6 +78,8 @@ Anchor-porting default:
 4. Local interfaces declared in the same source file use dot-call syntax:
 - `MemoProgram.write(...)`
 5. Missing import for alias calls should be fixed by adding `use <module path>;`.
+6. Prefer interface `@authority` parameters plus caller-side `account @pda(seeds=[...])` metadata over explicit `invoke_signed(...)` calls.
+7. If an interface authority arg is a normal signer account, the compiler should emit plain `INVOKE`; if it is a PDA account, the compiler should emit signed CPI automatically.
 
 ## 6.1) Crypto Capability Contract (Mandatory)
 
@@ -110,6 +112,7 @@ Map Anchor concepts to 5IVE explicitly:
 7. instruction sysvar verification patterns -> explicit `instruction_sysvar: account` parameter plus builtin validation
 8. PDA seed/bump logic -> `@seed(...)`, `account.ctx.bump`, and PDA builtins as needed
 9. Anchor CPI -> 5IVE interfaces with `@program(...)`, serializer/discriminator selection, and direct account params
+10. Anchor CPI authorities backed by PDAs -> interface `@authority` plus caller-side `account @pda(seeds=[...])`; do not make users pass signer-seed arrays at the call site
 
 Porting rules:
 1. Keep instruction names and semantic ordering stable unless the user requests an API change.

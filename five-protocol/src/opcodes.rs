@@ -245,7 +245,6 @@ pub const CALL_NATIVE: u8 = 0x92; // MOVED FROM 0x82 (not implemented)
 pub const PREPARE_CALL: u8 = 0x93; // MOVED FROM 0x83 (not implemented)
 pub const FINISH_CALL: u8 = 0x94; // MOVED FROM 0x84 (not implemented)
 
-
 // ===== LOCAL VARIABLE OPERATIONS (0xA0-0xAF) =====
 // 🎯 MOVED FROM 0x90: Local variable operations moved to 0xA0 range
 pub const ALLOC_LOCALS: u8 = 0xA0; // MOVED FROM 0x90
@@ -284,7 +283,6 @@ pub const PUSH_STRING_W: u8 = 0xB8;
 // ===== FUSED REQUIRE OPERATIONS (0xC0-0xCF) =====
 // See definitions at end of file: REQUIRE_GTE_U64, REQUIRE_NOT_BOOL, etc.
 // Handlers implemented in five-vm-mito/src/handlers/fused_ops.rs
-
 
 // ===== NIBBLE IMMEDIATE OPERATIONS (0xD0-0xD7) =====
 // BPF optimization: single-byte encoding for common local variable operations
@@ -434,23 +432,23 @@ pub enum ArgType {
     U32,
     U64,
     ValueType,
-    FunctionIndex, // u32 fixed
-    LocalIndex, // u8 fixed
-    AccountIndex, // u8 fixed
-    CallExternal,   // account_index (u8) + function_offset (u16) + param_count (u8)
-    CallInternal,   // param_count (u8) + function_address (u16)
-    AccountField,   // account_index (u8) + field_offset (u32)
+    FunctionIndex,     // u32 fixed
+    LocalIndex,        // u8 fixed
+    AccountIndex,      // u8 fixed
+    CallExternal,      // account_index (u8) + function_offset (u16) + param_count (u8)
+    CallInternal,      // param_count (u8) + function_address (u16)
+    AccountField,      // account_index (u8) + field_offset (u32)
     AccountFieldParam, // account_index (u8) + field_offset (u32) + param_index (u8)
-    FusedAccAcc,    // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
-    U16Fixed,       // Fixed 2-byte u16 (for patching)
-    U32Fixed,       // Fixed 4-byte u32 (for patching)
-    FusedSubAdd,    // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
-    ParamImm,       // param(u8) + imm(u8)
-    FieldImm,       // acc(u8) + off(u32) + imm(u8)
+    FusedAccAcc,       // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
+    U16Fixed,          // Fixed 2-byte u16 (for patching)
+    U32Fixed,          // Fixed 4-byte u32 (for patching)
+    FusedSubAdd,       // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
+    ParamImm,          // param(u8) + imm(u8)
+    FieldImm,          // acc(u8) + off(u32) + imm(u8)
     CompareU8Offset16, // compare(u8) + rel_offset(u16)
     CompareU8Target16, // compare(u8) + abs_target(u16)
-    TargetU16, // abs_target(u16)
-    LocalTarget16, // local_index(u8) + abs_target(u16)
+    TargetU16,         // abs_target(u16)
+    LocalTarget16,     // local_index(u8) + abs_target(u16)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -904,7 +902,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         compute_cost: 1,
     },
     // PUSH_ACCOUNT removed due to conflict with ADD (0x20)
-    
     OpcodeInfo {
         opcode: FIELD_SUB_ADD_PARAM,
         name: "FIELD_SUB_ADD_PARAM",
@@ -933,7 +930,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 0,
         compute_cost: 2,
     },
-
     // Arithmetic operations
     OpcodeInfo {
         opcode: ADD,
@@ -1650,7 +1646,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: -1,
         compute_cost: 3,
     },
-
     // Nibble immediate GET_LOCAL operations (0xD0-0xD3)
     OpcodeInfo {
         opcode: GET_LOCAL_0,
@@ -1680,7 +1675,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 1,
         compute_cost: 1,
     },
-
     // Nibble immediate SET_LOCAL operations (0xD4-0xD7)
     OpcodeInfo {
         opcode: SET_LOCAL_0,
@@ -1710,7 +1704,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: -1,
         compute_cost: 1,
     },
-
     // Nibble immediate PUSH constant operations (0xD8-0xDB)
     OpcodeInfo {
         opcode: PUSH_0,
@@ -1740,7 +1733,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 1,
         compute_cost: 1,
     },
-
     // Nibble immediate LOAD_PARAM operations (0xDC-0xDF)
     OpcodeInfo {
         opcode: LOAD_PARAM_0,
@@ -1974,26 +1966,10 @@ pub const fn opcode_name(opcode: u8) -> &'static str {
 pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<usize> {
     if pool_enabled {
         match opcode {
-            PUSH_U8
-            | PUSH_U16
-            | PUSH_U32
-            | PUSH_U64
-            | PUSH_I64
-            | PUSH_BOOL
-            | PUSH_PUBKEY
-            | PUSH_U128
-            | PUSH_STRING
-            | PUSH_BYTES => return Some(1),
-            PUSH_U8_W
-            | PUSH_U16_W
-            | PUSH_U32_W
-            | PUSH_U64_W
-            | PUSH_I64_W
-            | PUSH_BOOL_W
-            | PUSH_U128_W
-            | PUSH_PUBKEY_W
-            | PUSH_STRING_W
-            | PUSH_BYTES_W => return Some(2),
+            PUSH_U8 | PUSH_U16 | PUSH_U32 | PUSH_U64 | PUSH_I64 | PUSH_BOOL | PUSH_PUBKEY
+            | PUSH_U128 | PUSH_STRING | PUSH_BYTES => return Some(1),
+            PUSH_U8_W | PUSH_U16_W | PUSH_U32_W | PUSH_U64_W | PUSH_I64_W | PUSH_BOOL_W
+            | PUSH_U128_W | PUSH_PUBKEY_W | PUSH_STRING_W | PUSH_BYTES_W => return Some(2),
             _ => {}
         }
     }

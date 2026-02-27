@@ -1,5 +1,5 @@
 use crate::ast::{
-    AstNode, Attribute, BlockKind, InstructionParameter, TestAttribute,
+    AstNode, Attribute, BlockKind, InstructionParameter, PdaConfig, TestAttribute,
 };
 use crate::parser::{DslParser, types};
 use crate::tokenizer::{Token};
@@ -99,6 +99,7 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
     {
         let mut is_init = false;
         let mut init_config = None;
+        let mut pda_config = None;
 
         // Allow optional leading attributes placed before the parameter name:
         // e.g., @signer @mut @requires(amount > 0) param: Account
@@ -172,6 +173,11 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
                     // Generic attribute: @name(args...)
                     parser.advance(); // consume '@'
                     let name = parser.expect_ident()?;
+                    if name == "pda" {
+                        let (seeds, bump) = parse_pda_arguments(parser)?;
+                        pda_config = Some(PdaConfig { seeds, bump });
+                        continue;
+                    }
                     let mut args = Vec::new();
 
                     if matches!(parser.current_token, Token::LeftParen) {
@@ -297,6 +303,11 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
                     // Generic attribute: @name(args...)
                     parser.advance(); // consume '@'
                     let name = parser.expect_ident()?;
+                    if name == "pda" {
+                        let (seeds, bump) = parse_pda_arguments(parser)?;
+                        pda_config = Some(PdaConfig { seeds, bump });
+                        continue;
+                    }
                     let mut args = Vec::new();
 
                     if matches!(parser.current_token, Token::LeftParen) {
@@ -343,6 +354,7 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
             attributes: final_attributes,
             is_init,
             init_config,
+            pda_config,
         });
 
         // Handle comma separator
@@ -646,4 +658,84 @@ pub(crate) fn parse_init_arguments(parser: &mut DslParser) -> Result<(Option<Str
     parser.advance(); // consume ')'
 
     Ok((payer, space, seeds, bump))
+}
+
+pub(crate) fn parse_pda_arguments(
+    parser: &mut DslParser,
+) -> Result<(Vec<AstNode>, Option<String>), VMError> {
+    let mut seeds: Option<Vec<AstNode>> = None;
+    let mut bump: Option<String> = None;
+
+    if !matches!(parser.current_token, Token::LeftParen) {
+        return Err(parser.parse_error("'(' to start @pda arguments"));
+    }
+    parser.advance(); // consume '('
+
+    while !matches!(parser.current_token, Token::RightParen | Token::Eof) {
+        let key = match &parser.current_token {
+            Token::Identifier(name) => name.clone(),
+            _ => return Err(parser.parse_error("argument key in @pda()")),
+        };
+        parser.advance();
+
+        if !matches!(parser.current_token, Token::Assign) {
+            return Err(parser.parse_error("'=' after argument key in @pda"));
+        }
+        parser.advance();
+
+        match key.as_str() {
+            "seeds" => {
+                if !matches!(parser.current_token, Token::LeftBracket) {
+                    return Err(parser.parse_error("'[' for @pda seed list"));
+                }
+                parser.advance();
+
+                let mut seed_list = Vec::new();
+                while !matches!(parser.current_token, Token::RightBracket | Token::Eof) {
+                    seed_list.push(parser.parse_expression()?);
+
+                    if matches!(parser.current_token, Token::Comma) {
+                        parser.advance();
+                    } else if !matches!(parser.current_token, Token::RightBracket) {
+                        return Err(parser.parse_error("',' or ']' in @pda seed list"));
+                    }
+                }
+
+                if !matches!(parser.current_token, Token::RightBracket) {
+                    return Err(parser.parse_error("']' to close @pda seed list"));
+                }
+                parser.advance();
+                seeds = Some(seed_list);
+            }
+            "bump" => {
+                bump = match &parser.current_token {
+                    Token::Identifier(name) => {
+                        let n = name.clone();
+                        parser.advance();
+                        Some(n)
+                    }
+                    _ => return Err(parser.parse_error("bump identifier in @pda")),
+                };
+            }
+            _ => return Err(parser.parse_error("'seeds' or 'bump' in @pda()")),
+        }
+
+        if matches!(parser.current_token, Token::Comma) {
+            parser.advance();
+        } else {
+            break;
+        }
+    }
+
+    if !matches!(parser.current_token, Token::RightParen) {
+        return Err(parser.parse_error("')' to close @pda arguments"));
+    }
+    parser.advance();
+
+    let seeds = seeds.ok_or_else(|| parser.parse_error("'seeds=[...]' in @pda()"))?;
+    if seeds.is_empty() {
+        return Err(parser.parse_error("non-empty seed list in @pda()"));
+    }
+
+    Ok((seeds, bump))
 }

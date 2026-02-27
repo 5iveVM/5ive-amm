@@ -59,7 +59,10 @@ impl DslCompiler {
         source: &str,
         config: &CompilationConfig,
     ) -> Result<Vec<u8>, CompilerError> {
-        eprintln!("DEBUG_COMPILER: compile_with_config source_len={}", source.len());
+        eprintln!(
+            "DEBUG_COMPILER: compile_with_config source_len={}",
+            source.len()
+        );
         let mut pipeline = CompilationPipeline::new(source, None);
 
         // Execute standard pipeline (no interfaces)
@@ -234,14 +237,17 @@ impl DslCompiler {
         })?;
 
         // Build ModuleScope from discovered modules
-        let entry_module = graph.compilation_order()
+        let entry_module = graph
+            .compilation_order()
             .last()
-            .ok_or_else(|| CompilerError::new(
-                ErrorCode::INTERNAL_ERROR,
-                ErrorSeverity::Error,
-                ErrorCategory::Internal,
-                "No modules found in compilation graph".to_string(),
-            ))?
+            .ok_or_else(|| {
+                CompilerError::new(
+                    ErrorCode::INTERNAL_ERROR,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Internal,
+                    "No modules found in compilation graph".to_string(),
+                )
+            })?
             .clone();
 
         let mut module_scope = ModuleScope::new(entry_module.clone());
@@ -262,8 +268,7 @@ impl DslCompiler {
         }
 
         // 2. Merge ASTs
-        let mut merger = ModuleMerger::new()
-            .with_namespaces(config.enable_module_namespaces);
+        let mut merger = ModuleMerger::new().with_namespaces(config.enable_module_namespaces);
 
         // Iterate in topological order
         for module_name in graph.compilation_order() {
@@ -277,10 +282,8 @@ impl DslCompiler {
             })?;
 
             // Parse module
-            let mut pipeline = CompilationPipeline::new(
-                &descriptor.source_code,
-                descriptor.file_path.to_str(),
-            );
+            let mut pipeline =
+                CompilationPipeline::new(&descriptor.source_code, descriptor.file_path.to_str());
             let tokens = pipeline.tokenize()?;
             let ast = pipeline.parse(tokens).map_err(|mut e| {
                 if let Some(loc) = &mut e.location {
@@ -312,8 +315,7 @@ impl DslCompiler {
         // 4. Type Check with Module Scope
         {
             use crate::type_checker::DslTypeChecker;
-            let mut type_checker = DslTypeChecker::new()
-                .with_module_scope(module_scope);
+            let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(entry_module);
             type_checker.check_types(&merged_ast).map_err(|e| {
                 CompilerError::new(
@@ -336,14 +338,16 @@ impl DslCompiler {
         );
 
         let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
-        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
-            CompilerError::new(
-                ErrorCode::TYPE_MISMATCH,
-                ErrorSeverity::Error,
-                ErrorCategory::Type,
-                format!("Interface preprocessing failed: {}", e),
-            )
-        })?;
+        interface_registry
+            .preprocess_interfaces(&merged_ast)
+            .map_err(|e| {
+                CompilerError::new(
+                    ErrorCode::TYPE_MISMATCH,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Type,
+                    format!("Interface preprocessing failed: {}", e),
+                )
+            })?;
         let bytecode =
             pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
 
@@ -363,8 +367,7 @@ impl DslCompiler {
         use crate::module_resolver::canonical_module_name;
         use crate::type_checker::ModuleScope;
 
-        let mut merger = ModuleMerger::new()
-            .with_namespaces(config.enable_module_namespaces);
+        let mut merger = ModuleMerger::new().with_namespaces(config.enable_module_namespaces);
 
         // Build ModuleScope for cross-module type resolution
         let entry_path = std::path::Path::new(entry_point);
@@ -377,7 +380,7 @@ impl DslCompiler {
                 format!("Invalid entry point module path: {}", e),
             )
         })?;
-        
+
         let mut module_scope = ModuleScope::new(main_module_name.clone());
 
         // First pass: Parse all modules and populate ModuleScope
@@ -450,8 +453,7 @@ impl DslCompiler {
         // 4. Type Check with Module Scope
         {
             use crate::type_checker::DslTypeChecker;
-            let mut type_checker = DslTypeChecker::new()
-                .with_module_scope(module_scope);
+            let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(main_module_name);
             type_checker.check_types(&merged_ast).map_err(|e| {
                 CompilerError::new(
@@ -468,14 +470,16 @@ impl DslCompiler {
 
         // Note: pipeline.type_check() is skipped because we did it manually with module_scope above
         let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
-        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
-            CompilerError::new(
-                ErrorCode::TYPE_MISMATCH,
-                ErrorSeverity::Error,
-                ErrorCategory::Type,
-                format!("Interface preprocessing failed: {}", e),
-            )
-        })?;
+        interface_registry
+            .preprocess_interfaces(&merged_ast)
+            .map_err(|e| {
+                CompilerError::new(
+                    ErrorCode::TYPE_MISMATCH,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Type,
+                    format!("Interface preprocessing failed: {}", e),
+                )
+            })?;
         let bytecode =
             pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
 
@@ -486,9 +490,7 @@ impl DslCompiler {
 
     /// Discover modules starting from an entry point.
     /// Returns a topologically sorted list of module paths.
-    pub fn discover_modules(
-        entry_point: &std::path::Path,
-    ) -> Result<Vec<String>, CompilerError> {
+    pub fn discover_modules(entry_point: &std::path::Path) -> Result<Vec<String>, CompilerError> {
         use crate::error::{ErrorCategory, ErrorCode, ErrorSeverity};
         use crate::module_resolver::ModuleDiscoverer;
 
@@ -523,9 +525,8 @@ impl DslCompiler {
         module_name: &str,
         scope: &mut crate::type_checker::ModuleScope,
     ) -> Result<(), CompilerError> {
-        use crate::type_checker::ModuleSymbol;
         use crate::ast::{AstNode, TypeNode};
-
+        use crate::type_checker::ModuleSymbol;
 
         scope.set_current_module(module_name.to_string());
 
@@ -534,7 +535,8 @@ impl DslCompiler {
             field_definitions,
             account_definitions,
             ..
-        } = ast {
+        } = ast
+        {
             // Add functions to scope
             for instr_def in instruction_definitions {
                 if let AstNode::InstructionDefinition {
@@ -542,17 +544,21 @@ impl DslCompiler {
                     return_type,
                     visibility,
                     ..
-                } = instr_def {
+                } = instr_def
+                {
                     let type_info = return_type
                         .as_ref()
                         .map(|t| (**t).clone())
                         .unwrap_or_else(|| TypeNode::Primitive("void".to_string()));
 
-                    scope.add_symbol_to_current(name.clone(), ModuleSymbol {
-                        type_info,
-                        is_mutable: false,
-                        visibility: *visibility,
-                    });
+                    scope.add_symbol_to_current(
+                        name.clone(),
+                        ModuleSymbol {
+                            type_info,
+                            is_mutable: false,
+                            visibility: *visibility,
+                        },
+                    );
                 }
             }
 
@@ -563,27 +569,33 @@ impl DslCompiler {
                     field_type,
                     visibility,
                     ..
-                } = field_def {
-                    scope.add_symbol_to_current(name.clone(), ModuleSymbol {
-                        type_info: (**field_type).clone(),
-                        is_mutable: true,
-                        visibility: *visibility,
-                    });
+                } = field_def
+                {
+                    scope.add_symbol_to_current(
+                        name.clone(),
+                        ModuleSymbol {
+                            type_info: (**field_type).clone(),
+                            is_mutable: true,
+                            visibility: *visibility,
+                        },
+                    );
                 }
             }
 
             // Add account types to scope
             for account_def in account_definitions {
                 if let AstNode::AccountDefinition {
-                    name,
-                    visibility,
-                    ..
-                } = account_def {
-                    scope.add_symbol_to_current(name.clone(), ModuleSymbol {
-                        type_info: TypeNode::Account,
-                        is_mutable: false,
-                        visibility: *visibility,
-                    });
+                    name, visibility, ..
+                } = account_def
+                {
+                    scope.add_symbol_to_current(
+                        name.clone(),
+                        ModuleSymbol {
+                            type_info: TypeNode::Account,
+                            is_mutable: false,
+                            visibility: *visibility,
+                        },
+                    );
                 }
             }
         }
@@ -618,14 +630,17 @@ impl DslCompiler {
         })?;
 
         // Build ModuleScope from discovered modules
-        let entry_module = graph.compilation_order()
+        let entry_module = graph
+            .compilation_order()
             .last()
-            .ok_or_else(|| CompilerError::new(
-                ErrorCode::INTERNAL_ERROR,
-                ErrorSeverity::Error,
-                ErrorCategory::Internal,
-                "No modules found in compilation graph".to_string(),
-            ))?
+            .ok_or_else(|| {
+                CompilerError::new(
+                    ErrorCode::INTERNAL_ERROR,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Internal,
+                    "No modules found in compilation graph".to_string(),
+                )
+            })?
             .clone();
 
         let mut module_scope = ModuleScope::new(entry_module.clone());
@@ -646,8 +661,7 @@ impl DslCompiler {
         }
 
         // 2. Merge ASTs
-        let mut merger = ModuleMerger::new()
-            .with_namespaces(config.enable_module_namespaces);
+        let mut merger = ModuleMerger::new().with_namespaces(config.enable_module_namespaces);
 
         // Iterate in topological order
         for module_name in graph.compilation_order() {
@@ -661,10 +675,8 @@ impl DslCompiler {
             })?;
 
             // Parse module
-            let mut pipeline = CompilationPipeline::new(
-                &descriptor.source_code,
-                descriptor.file_path.to_str(),
-            );
+            let mut pipeline =
+                CompilationPipeline::new(&descriptor.source_code, descriptor.file_path.to_str());
             let tokens = pipeline.tokenize()?;
             let ast = pipeline.parse(tokens).map_err(|mut e| {
                 if let Some(loc) = &mut e.location {
@@ -696,8 +708,7 @@ impl DslCompiler {
         // 4. Type Check with Module Scope
         {
             use crate::type_checker::DslTypeChecker;
-            let mut type_checker = DslTypeChecker::new()
-                .with_module_scope(module_scope);
+            let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(entry_module);
             type_checker.check_types(&merged_ast).map_err(|e| {
                 CompilerError::new(
@@ -720,14 +731,16 @@ impl DslCompiler {
         );
 
         let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
-        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
-            CompilerError::new(
-                ErrorCode::TYPE_MISMATCH,
-                ErrorSeverity::Error,
-                ErrorCategory::Type,
-                format!("Interface preprocessing failed: {}", e),
-            )
-        })?;
+        interface_registry
+            .preprocess_interfaces(&merged_ast)
+            .map_err(|e| {
+                CompilerError::new(
+                    ErrorCode::TYPE_MISMATCH,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Type,
+                    format!("Interface preprocessing failed: {}", e),
+                )
+            })?;
         let bytecode =
             pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
         let abi = pipeline.generate_abi(&merged_ast, config)?;
@@ -750,8 +763,7 @@ impl DslCompiler {
         use crate::module_resolver::canonical_module_name;
         use crate::type_checker::ModuleScope;
 
-        let mut merger = ModuleMerger::new()
-            .with_namespaces(config.enable_module_namespaces);
+        let mut merger = ModuleMerger::new().with_namespaces(config.enable_module_namespaces);
 
         // Build ModuleScope for cross-module type resolution
         let entry_path = std::path::Path::new(entry_point);
@@ -764,7 +776,7 @@ impl DslCompiler {
                 format!("Invalid entry point module path: {}", e),
             )
         })?;
-        
+
         let mut module_scope = ModuleScope::new(main_module_name.clone());
 
         // First pass: Parse all modules and populate ModuleScope
@@ -839,8 +851,7 @@ impl DslCompiler {
         // 4. Type Check with Module Scope
         {
             use crate::type_checker::DslTypeChecker;
-            let mut type_checker = DslTypeChecker::new()
-                .with_module_scope(module_scope);
+            let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(main_module_name);
             type_checker.check_types(&merged_ast).map_err(|e| {
                 CompilerError::new(
@@ -857,14 +868,16 @@ impl DslCompiler {
 
         // Note: pipeline.type_check() is skipped because we did it manually with module_scope above
         let mut interface_registry = crate::interface_registry::InterfaceRegistry::new();
-        interface_registry.preprocess_interfaces(&merged_ast).map_err(|e| {
-            CompilerError::new(
-                ErrorCode::TYPE_MISMATCH,
-                ErrorSeverity::Error,
-                ErrorCategory::Type,
-                format!("Interface preprocessing failed: {}", e),
-            )
-        })?;
+        interface_registry
+            .preprocess_interfaces(&merged_ast)
+            .map_err(|e| {
+                CompilerError::new(
+                    ErrorCode::TYPE_MISMATCH,
+                    ErrorSeverity::Error,
+                    ErrorCategory::Type,
+                    format!("Interface preprocessing failed: {}", e),
+                )
+            })?;
         let bytecode =
             pipeline.generate_bytecode_with_interfaces(&merged_ast, config, interface_registry)?;
         let abi = pipeline.generate_abi(&merged_ast, config)?;
@@ -940,8 +953,6 @@ mod tests {
         assert!(!five_file.bytecode.is_empty());
         let _ = five_file.abi; // May be 0 functions for empty source
     }
-
-
 
     #[test]
     fn test_compile_with_metrics() {
@@ -1097,6 +1108,90 @@ pub probe(owner: account @signer, instruction_sysvar: account) -> u64 {
     }
 
     #[test]
+    fn interface_authority_with_signer_uses_plain_invoke() {
+        let source = r#"
+interface TokenLike @program("11111111111111111111111111111111") @serializer(raw) {
+    mint_to @discriminator(7) (
+        mint: account,
+        destination: account,
+        authority: account @authority,
+        amount: u64
+    );
+}
+
+pub mint_tokens(
+    mint: account @mut,
+    destination: account @mut,
+    authority: account @signer,
+    amount: u64
+) {
+    TokenLike.mint_to(mint, destination, authority, amount);
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(inspector.contains_opcode(opcodes::INVOKE));
+        assert!(!inspector.contains_opcode(opcodes::INVOKE_SIGNED));
+    }
+
+    #[test]
+    fn interface_authority_with_pda_uses_invoke_signed() {
+        let source = r#"
+interface TokenLike @program("11111111111111111111111111111111") @serializer(raw) {
+    mint_to @discriminator(7) (
+        mint: account,
+        destination: account,
+        authority: account @authority,
+        amount: u64
+    );
+}
+
+pub mint_tokens(
+    mint: account @mut,
+    destination: account @mut,
+    authority: account @pda(seeds=["mint_auth", mint]),
+    amount: u64
+) -> u64 {
+    TokenLike.mint_to(mint, destination, authority, amount);
+    return authority.ctx.bump as u64;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(inspector.contains_opcode(opcodes::INVOKE_SIGNED));
+        assert!(inspector.contains_opcode(opcodes::CHECK_PDA));
+    }
+
+    #[test]
+    fn interface_authority_requires_signable_argument() {
+        let source = r#"
+interface TokenLike @program("11111111111111111111111111111111") @serializer(raw) {
+    mint_to @discriminator(7) (
+        mint: account,
+        destination: account,
+        authority: account @authority,
+        amount: u64
+    );
+}
+
+pub mint_tokens(
+    mint: account @mut,
+    destination: account @mut,
+    authority: account,
+    amount: u64
+) {
+    TokenLike.mint_to(mint, destination, authority, amount);
+}
+"#;
+
+        assert!(DslCompiler::compile_dsl(source).is_err());
+    }
+
+    #[test]
     fn local_interface_method_calls_work_in_full_interface_pipeline() {
         let source = r#"
 interface CryptoSink @program("11111111111111111111111111111111") @serializer(raw) {
@@ -1131,5 +1226,21 @@ pub send(sink: account) {
         assert!(inspector.contains_opcode(opcodes::PUSH_BYTES));
         assert!(inspector.contains_opcode(opcodes::ARRAY_CONCAT));
         assert!(inspector.contains_opcode(opcodes::INVOKE));
+    }
+
+    #[test]
+    fn load_account_u64_builtin_compiles_to_load_external_field() {
+        let source = r#"
+pub probe(mint: account, vault: account) -> u64 {
+    let supply = load_account_u64(mint, 36);
+    let amount = load_account_u64(vault, 64);
+    return supply + amount;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(inspector.contains_opcode(opcodes::LOAD_EXTERNAL_FIELD));
     }
 }

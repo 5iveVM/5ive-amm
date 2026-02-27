@@ -41,6 +41,8 @@ Use this checklist during execution. Do not skip gates.
 - call methods as `module_alias::method(...)`
 - full path calls are allowed
 - use dot-call syntax only for interfaces declared in the same source file
+- mark interface authority slots with `@authority`
+- prefer caller-side `account @pda(seeds=[...])` metadata over explicit `invoke_signed(...)` seed arrays
 7. Crypto/auth-sensitive logic:
 - build byte preimages explicitly with `bytes_concat(...)`
 - hash into fixed `[u8; 32]` buffers
@@ -119,6 +121,7 @@ Use this checklist during execution. Do not skip gates.
 4. CPI safety (if used):
 - interface program IDs and discriminators validated
 - writable/signer account constraints enforced
+- automatic signed CPI paths prove the authority is either a tx signer or a declared PDA
 5. Crypto safety (if used):
 - Ed25519 verification is fail-closed
 - no placeholder entropy or fallback randomness paths remain

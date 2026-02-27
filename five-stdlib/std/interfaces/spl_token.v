@@ -5,47 +5,47 @@ interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") @seri
     transfer @discriminator(3) (
         source: Account,
         destination: Account,
-        authority: Account,
+        authority: Account @authority,
         amount: u64
     );
 
     approve @discriminator(4) (
         source: Account,
         delegate: Account,
-        authority: Account,
+        authority: Account @authority,
         amount: u64
     );
 
     revoke @discriminator(5) (
         source: Account,
-        authority: Account
+        authority: Account @authority
     );
 
     mint_to @discriminator(7) (
         mint: Account,
         destination: Account,
-        authority: Account,
+        authority: Account @authority,
         amount: u64
     );
 
     burn @discriminator(8) (
         source: Account,
         mint: Account,
-        authority: Account,
+        authority: Account @authority,
         amount: u64
     );
 
     close_account @discriminator(9) (
         token_account: Account,
         destination: Account,
-        authority: Account
+        authority: Account @authority
     );
 
     transfer_checked @discriminator(12) (
         source: Account,
         mint: Account,
         destination: Account,
-        authority: Account,
+        authority: Account @authority,
         amount: u64,
         decimals: u8
     );
@@ -54,7 +54,7 @@ interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") @seri
         source: Account,
         mint: Account,
         delegate: Account,
-        authority: Account,
+        authority: Account @authority,
         amount: u64,
         decimals: u8
     );
@@ -62,7 +62,7 @@ interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") @seri
     mint_to_checked @discriminator(14) (
         mint: Account,
         destination: Account,
-        authority: Account,
+        authority: Account @authority,
         amount: u64,
         decimals: u8
     );
@@ -70,7 +70,7 @@ interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") @seri
     burn_checked @discriminator(15) (
         source: Account,
         mint: Account,
-        authority: Account,
+        authority: Account @authority,
         amount: u64,
         decimals: u8
     );

@@ -208,6 +208,9 @@ impl types::TypeCheckerContext {
                                 }
                                 self.init_space_accounts.insert(param.name.clone());
                             }
+                            if param.pda_config.is_some() {
+                                self.init_bump_accounts.insert(param.name.clone());
+                            }
                             all_instruction_params.insert(param.name.clone(), (param_type, is_mutable));
                             // Aggregate all parameters
                         }

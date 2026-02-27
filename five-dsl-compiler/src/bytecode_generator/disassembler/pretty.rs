@@ -60,7 +60,10 @@ pub fn pretty_instruction(instr: &Instruction) -> String {
         Instruction::CheckSigner {
             offset,
             account_index,
-        } => format!("{:04X}: CHECK_SIGNER account_index={}", offset, account_index),
+        } => format!(
+            "{:04X}: CHECK_SIGNER account_index={}",
+            offset, account_index
+        ),
         Instruction::CheckWritable {
             offset,
             account_index,
