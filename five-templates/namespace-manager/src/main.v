@@ -45,7 +45,7 @@ pub init_manager(
     admin: account @signer,
     treasury: pubkey
 ) {
-    cfg.admin = admin.key;
+    cfg.admin = admin.ctx.key;
     cfg.treasury = treasury;
     cfg.at_price_lamports = 1_000_000_000;
     cfg.bang_price_lamports = 2_000_000_000;
@@ -61,7 +61,7 @@ pub set_symbol_price(
     symbol: string<4>,
     price_lamports: u64
 ) {
-    require(admin.key == cfg.admin);
+    require(admin.ctx.key == cfg.admin);
     if (symbol == "@") { cfg.at_price_lamports = price_lamports; }
     if (symbol == "!") { cfg.bang_price_lamports = price_lamports; }
     if (symbol == "#") { cfg.hash_price_lamports = price_lamports; }
@@ -87,13 +87,13 @@ pub register_tld(
     domain: string,
     now: u64
 ) {
-    require(treasury_account.key == cfg.treasury);
+    require(treasury_account.ctx.key == cfg.treasury);
     let price: u64 = cfg.at_price_lamports;
     transfer_lamports(owner, treasury_account, price);
 
     tld.symbol = symbol;
     tld.domain = domain;
-    tld.owner = owner.key;
+    tld.owner = owner.ctx.key;
     tld.registered_at = now;
     tld.updated_at = now;
     cfg.version_nonce = cfg.version_nonce + 1;
@@ -109,13 +109,13 @@ pub bind_subprogram(
     script_account: pubkey,
     now: u64
 ) {
-    require(tld.owner == owner.key);
+    require(tld.owner == owner.ctx.key);
 
     binding.symbol = symbol;
     binding.domain = domain;
     binding.subprogram = subprogram;
     binding.script_account = script_account;
-    binding.owner = owner.key;
+    binding.owner = owner.ctx.key;
     binding.version = binding.version + 1;
     binding.updated_at = now;
 }
@@ -127,7 +127,7 @@ pub update_subprogram(
     next_script_account: pubkey,
     now: u64
 ) {
-    require(binding.owner == owner.key);
+    require(binding.owner == owner.ctx.key);
 
     history.symbol = binding.symbol;
     history.domain = binding.domain;

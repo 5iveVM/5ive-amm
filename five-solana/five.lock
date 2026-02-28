@@ -1,0 +1,15 @@
+version = 1
+
+[[packages]]
+name = "e2e-interface-lib"
+version = "0.0.0"
+address = "1111111Af7Udc9v3L82dQM5b4zee1Xt77Be4czzbH"
+bytecode_hash = "deadbeef"
+deployed_at = "2026-01-01T00:00:00Z"
+
+[packages.exports]
+methods = ["transfer"]
+
+[[packages.exports.interfaces]]
+name = "TokenOps"
+method_map = { "transfer" = "transfer" }

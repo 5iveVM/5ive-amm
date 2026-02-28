@@ -1148,7 +1148,8 @@ mod tests {
         resolve_external_function_target,
     };
     use crate::{
-        context::ExecutionContext, error::VMErrorCode, stack::StackStorage, MAX_PARAMETERS,
+        context::ExecutionContext, error::VMErrorCode, stack::StackStorage, MitoVM,
+        MAX_PARAMETERS,
     };
     use five_dsl_compiler::DslCompiler;
     use five_protocol::ValueRef;
@@ -1384,5 +1385,121 @@ mod tests {
 
         // Regression: computed remap replaces stale remap for callee context.
         assert_eq!(ctx.external_account_remap()[1], 0);
+    }
+
+    #[test]
+    fn execute_direct_compiled_external_call_path() {
+        let program_id = Pubkey::from([61u8; 32]);
+        let external_key = Pubkey::default();
+        let source_key = Pubkey::from([63u8; 32]);
+        let destination_key = Pubkey::from([64u8; 32]);
+        let owner_key = Pubkey::from([65u8; 32]);
+        let vm_state_key = Pubkey::from([66u8; 32]);
+
+        let callee_source = r#"
+            pub transfer(
+                source_account: account @mut,
+                destination_account: account @mut,
+                owner: account @mut,
+                amount: u64
+            ) {
+            }
+        "#;
+        let callee_bytecode = DslCompiler::compile_dsl(callee_source).expect("callee compile");
+
+        let caller_source = format!(
+            r#"
+            use "{}"::{{transfer}};
+
+            pub fn call_transfer(
+                source_account: account @mut,
+                destination_account: account @mut,
+                owner: account @mut,
+                ext0: account
+            ) {{
+                transfer(source_account, destination_account, owner, 1);
+            }}
+        "#,
+            "11111111111111111111111111111111"
+        );
+        let caller_bytecode = DslCompiler::compile_dsl(&caller_source).expect("caller compile");
+
+        let mut vm_state_lamports = 1;
+        let mut source_lamports = 1;
+        let mut destination_lamports = 1;
+        let mut owner_lamports = 1;
+        let mut external_lamports = 1;
+
+        let mut vm_state_data = [0u8; 8];
+        let mut source_data = [0u8; 8];
+        let mut destination_data = [0u8; 8];
+        let mut owner_data = [0u8; 8];
+        let mut external_data = wrap_script_account_data(&callee_bytecode);
+
+        let vm_state_account = create_account_info(
+            &vm_state_key,
+            false,
+            false,
+            &mut vm_state_lamports,
+            &mut vm_state_data,
+            &program_id,
+        );
+        let source_account = create_account_info(
+            &source_key,
+            false,
+            true,
+            &mut source_lamports,
+            &mut source_data,
+            &program_id,
+        );
+        let destination_account = create_account_info(
+            &destination_key,
+            false,
+            true,
+            &mut destination_lamports,
+            &mut destination_data,
+            &program_id,
+        );
+        let owner_account = create_account_info(
+            &owner_key,
+            true,
+            true,
+            &mut owner_lamports,
+            &mut owner_data,
+            &program_id,
+        );
+        let external_account = create_account_info(
+            &external_key,
+            false,
+            false,
+            &mut external_lamports,
+            external_data.as_mut_slice(),
+            &program_id,
+        );
+
+        let accounts = [
+            vm_state_account,
+            source_account,
+            destination_account,
+            owner_account,
+            external_account,
+        ];
+        let mut input = Vec::new();
+        input.extend_from_slice(&0u32.to_le_bytes());
+        input.extend_from_slice(&4u32.to_le_bytes());
+        for account_idx in [1u32, 2u32, 3u32, 4u32] {
+            input.push(five_protocol::types::ACCOUNT);
+            input.extend_from_slice(&account_idx.to_le_bytes());
+        }
+
+        let mut storage = StackStorage::new();
+        let result = MitoVM::execute_direct(
+            &caller_bytecode,
+            &input,
+            &accounts,
+            &program_id,
+            &mut storage,
+        );
+        assert!(result.is_ok(), "direct external call failed: {:?}", result);
     }
 }

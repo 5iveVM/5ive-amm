@@ -176,8 +176,9 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default()
-                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            lamports: Rent::default().minimum_balance(
+                ScriptAccountHeader::LEN + caller_bytecode.len(),
+            ),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -1035,11 +1036,32 @@ fn build_deploy_instruction(
     owner_name: &str,
     bytecode: &[u8],
 ) -> Instruction {
+    build_deploy_instruction_with_metadata(
+        program_id,
+        accounts,
+        script_name,
+        vm_state_name,
+        owner_name,
+        bytecode,
+        &[],
+    )
+}
+
+fn build_deploy_instruction_with_metadata(
+    program_id: Pubkey,
+    accounts: &BTreeMap<String, RuntimeAccount>,
+    script_name: &str,
+    vm_state_name: &str,
+    owner_name: &str,
+    bytecode: &[u8],
+    metadata: &[u8],
+) -> Instruction {
     let mut data = Vec::with_capacity(10 + bytecode.len());
     data.push(DEPLOY_INSTRUCTION);
     data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
     data.push(0);
-    data.extend_from_slice(&0u32.to_le_bytes());
+    data.extend_from_slice(&(metadata.len() as u32).to_le_bytes());
+    data.extend_from_slice(metadata);
     data.extend_from_slice(bytecode);
     data.push(0);
 
