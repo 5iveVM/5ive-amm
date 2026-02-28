@@ -13,6 +13,7 @@ import { configCommand } from './config.js';
 import { helpCommand } from './help.js';
 import { buildCommand } from './build.js';
 import { namespaceCommand } from './namespace.js';
+import { deployAndExecuteCommand } from './deploy-and-execute.js';
 
 /**
  * Registry of all available commands
@@ -25,6 +26,7 @@ export const commands: CommandDefinition[] = [
   buildCommand,
   executeCommand,
   deployCommand,
+  deployAndExecuteCommand,
   namespaceCommand,
   testCommand,
   versionCommand
@@ -61,7 +63,7 @@ export function getAllCommandNames(): string[] {
 export function getCommandsByCategory(): Record<string, CommandDefinition[]> {
   return {
     'Development': [initCommand, compileCommand, buildCommand, executeCommand, testCommand],
-    'Deployment': [deployCommand, namespaceCommand],
+    'Deployment': [deployCommand, deployAndExecuteCommand, namespaceCommand],
     'Configuration': [configCommand],
     'Utility': [versionCommand, helpCommand],
   };
@@ -133,6 +135,7 @@ export {
   buildCommand,
   executeCommand,
   deployCommand,
+  deployAndExecuteCommand,
   namespaceCommand,
   testCommand,
   versionCommand

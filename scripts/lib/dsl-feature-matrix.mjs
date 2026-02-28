@@ -225,10 +225,58 @@ export function findUntrackedCanonicalFixtures(repoRoot, matrix) {
 export function parseEmbeddedJsonFromStdout(stdout) {
   const marker = 'JSON Output';
   const markerIndex = stdout.lastIndexOf(marker);
-  const candidate = markerIndex >= 0 ? stdout.slice(markerIndex + marker.length) : stdout;
-  const braceIndex = candidate.indexOf('{');
-  if (braceIndex < 0) {
-    throw new Error('unable to locate JSON payload in command output');
+  const rawCandidate = markerIndex >= 0 ? stdout.slice(markerIndex + marker.length) : stdout;
+  const candidate = rawCandidate.replace(/\u001b\[[0-9;]*m/g, '');
+  const startIndexes = [];
+  for (let i = 0; i < candidate.length; i += 1) {
+    if (candidate[i] === '{' && (i === 0 || candidate[i - 1] === '\n')) {
+      startIndexes.push(i);
+    }
   }
-  return JSON.parse(candidate.slice(braceIndex).trim());
+
+  for (let i = startIndexes.length - 1; i >= 0; i -= 1) {
+    const start = startIndexes[i];
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let cursor = start; cursor < candidate.length; cursor += 1) {
+      const char = candidate[cursor];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+        continue;
+      }
+
+      if (char === '{') {
+        depth += 1;
+        continue;
+      }
+
+      if (char === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          const objectSource = candidate.slice(start, cursor + 1);
+          try {
+            return JSON.parse(objectSource);
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  throw new Error('unable to locate JSON payload in command output');
 }
