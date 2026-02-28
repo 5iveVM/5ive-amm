@@ -132,7 +132,10 @@ impl TypeCheckerContext {
                         // Identifiers in expression position must be in scope variables/fields.
                         if !self.symbol_table.contains_key(name) {
                             if let Some(replacement) = self.legacy_init_alias_replacement(name) {
-                                return Err(VMError::undefined_identifier(name, Some(&replacement)));
+                                return Err(VMError::undefined_identifier(
+                                    name,
+                                    Some(&replacement),
+                                ));
                             }
                             eprintln!(
                                 "Undefined identifier{}: '{}' is not in scope",
@@ -282,7 +285,11 @@ impl TypeCheckerContext {
                         Err(VMError::TypeMismatch)
                     };
                 }
-                if let AstNode::FieldAccess { object: account_expr, field: ctx_field } = object.as_ref() {
+                if let AstNode::FieldAccess {
+                    object: account_expr,
+                    field: ctx_field,
+                } = object.as_ref()
+                {
                     if ctx_field == "ctx" {
                         return self
                             .resolve_account_ctx_field_type(account_expr, field)
@@ -304,15 +311,18 @@ impl TypeCheckerContext {
                         // Account names may be namespaced (e.g., "amm_types::AMMPool") but referenced by simple name ("AMMPool")
                         let namespace_suffix = format!("::{}", name);
                         eprintln!("DEBUG: expressions.rs check_expression FieldAccess on TypeNode::Named('{}'), looking for field '{}', suffix='{}'", name, field, namespace_suffix);
-                        let account_fields = self.account_definitions.get(&name)
-                            .or_else(|| {
-                                self.account_definitions.iter()
-                                    .find(|(k, _)| k.ends_with(&namespace_suffix))
-                                    .map(|(_, v)| v)
-                            });
-                        
+                        let account_fields = self.account_definitions.get(&name).or_else(|| {
+                            self.account_definitions
+                                .iter()
+                                .find(|(k, _)| k.ends_with(&namespace_suffix))
+                                .map(|(_, v)| v)
+                        });
+
                         if let Some(account_fields) = account_fields {
-                            eprintln!("DEBUG: Resolved account_fields: {:?}", account_fields.iter().map(|f| &f.name).collect::<Vec<_>>());
+                            eprintln!(
+                                "DEBUG: Resolved account_fields: {:?}",
+                                account_fields.iter().map(|f| &f.name).collect::<Vec<_>>()
+                            );
                             if account_fields.iter().any(|f| f.name == *field) {
                                 Ok(())
                             } else {
@@ -403,7 +413,10 @@ impl TypeCheckerContext {
 
                 Ok(())
             }
-            AstNode::Cast { value, target_type: _ } => {
+            AstNode::Cast {
+                value,
+                target_type: _,
+            } => {
                 // Type check the value being cast
                 self.check_types(value)?;
                 Ok(())
@@ -476,7 +489,9 @@ impl TypeCheckerContext {
                 let is_pubkey_zero_compare = {
                     let object_is_pubkey = is_pubkey(&object_type);
                     let arg_is_zero = matches!(&args[0], AstNode::Literal(Value::U64(0)));
-                    (object_is_pubkey && arg_is_zero) || (is_pubkey(&arg_type) && matches!(object, AstNode::Literal(Value::U64(0))))
+                    (object_is_pubkey && arg_is_zero)
+                        || (is_pubkey(&arg_type)
+                            && matches!(object, AstNode::Literal(Value::U64(0))))
                 };
 
                 let ok = (is_bool(&object_type) && is_bool(&arg_type))
@@ -596,9 +611,7 @@ impl TypeCheckerContext {
                     }
                 }
 
-                return Ok(
-                    method_return_type.unwrap_or(TypeNode::Primitive("unit".to_string()))
-                );
+                return Ok(method_return_type.unwrap_or(TypeNode::Primitive("unit".to_string())));
             }
 
             return Err(self.undefined_identifier_error(module_ns));
@@ -664,7 +677,7 @@ impl TypeCheckerContext {
                 }
                 Ok(TypeNode::Primitive("u64".to_string()))
             }
-            "load_account_u64" => {
+            "load_account_u64" | "load_account_u64_word" => {
                 // load_account_u64(account, literal_offset) -> u64
                 if args.len() != 2 {
                     return Err(VMError::InvalidOperation);
@@ -674,7 +687,8 @@ impl TypeCheckerContext {
                     return Err(VMError::TypeMismatch);
                 }
                 let offset_ty = self.infer_type(&args[1])?;
-                if !matches!(offset_ty, TypeNode::Primitive(ref name) if matches!(name.as_str(), "u8" | "u16" | "u32" | "u64")) {
+                if !matches!(offset_ty, TypeNode::Primitive(ref name) if matches!(name.as_str(), "u8" | "u16" | "u32" | "u64"))
+                {
                     return Err(VMError::TypeMismatch);
                 }
                 Ok(TypeNode::Primitive("u64".to_string()))

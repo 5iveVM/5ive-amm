@@ -1,6 +1,6 @@
+use crate::ast::{AstNode, BlockKind, TypeNode};
 use crate::parser::DslParser;
 use crate::tokenizer::Token;
-use crate::ast::{AstNode, BlockKind, TypeNode};
 use five_protocol::Value;
 
 fn parse_stmt(tokens: Vec<Token>) -> AstNode {
@@ -21,7 +21,12 @@ fn test_parse_let_statement() {
     ];
     let ast = parse_stmt(tokens);
     match ast {
-        AstNode::LetStatement { name, type_annotation, is_mutable, value } => {
+        AstNode::LetStatement {
+            name,
+            type_annotation,
+            is_mutable,
+            value,
+        } => {
             assert_eq!(name, "x");
             assert!(type_annotation.is_none());
             assert!(!is_mutable);
@@ -47,7 +52,9 @@ fn test_parse_let_mut_statement() {
     ];
     let ast = parse_stmt(tokens);
     match ast {
-        AstNode::LetStatement { name, is_mutable, .. } => {
+        AstNode::LetStatement {
+            name, is_mutable, ..
+        } => {
             assert_eq!(name, "x");
             assert!(is_mutable);
         }
@@ -69,12 +76,16 @@ fn test_parse_let_typed_statement() {
     ];
     let ast = parse_stmt(tokens);
     match ast {
-        AstNode::LetStatement { name, type_annotation, .. } => {
+        AstNode::LetStatement {
+            name,
+            type_annotation,
+            ..
+        } => {
             assert_eq!(name, "x");
             assert!(type_annotation.is_some());
             match *type_annotation.unwrap() {
-                 TypeNode::Primitive(t) => assert_eq!(t, "u64"),
-                 _ => panic!("Expected Primitive type"),
+                TypeNode::Primitive(t) => assert_eq!(t, "u64"),
+                _ => panic!("Expected Primitive type"),
             }
         }
         _ => panic!("Expected LetStatement"),
@@ -117,16 +128,20 @@ fn test_parse_field_assignment() {
     ];
     let ast = parse_stmt(tokens);
     match ast {
-        AstNode::FieldAssignment { object, field, value } => {
-             match *object {
+        AstNode::FieldAssignment {
+            object,
+            field,
+            value,
+        } => {
+            match *object {
                 AstNode::Identifier(name) => assert_eq!(name, "x"),
                 _ => panic!("Expected Identifier object"),
-             }
-             assert_eq!(field, "y");
-             match *value {
+            }
+            assert_eq!(field, "y");
+            match *value {
                 AstNode::Literal(Value::U64(v)) => assert_eq!(v, 3),
                 _ => panic!("Expected Literal value"),
-             }
+            }
         }
         _ => panic!("Expected FieldAssignment"),
     }
@@ -157,11 +172,7 @@ fn test_parse_return_statement() {
 #[test]
 fn test_parse_return_empty_statement() {
     // return;
-    let tokens = vec![
-        Token::Return,
-        Token::Semicolon,
-        Token::Eof,
-    ];
+    let tokens = vec![Token::Return, Token::Semicolon, Token::Eof];
     let ast = parse_stmt(tokens);
     match ast {
         AstNode::ReturnStatement { value } => {
@@ -183,16 +194,20 @@ fn test_parse_if_statement() {
     ];
     let ast = parse_stmt(tokens);
     match ast {
-        AstNode::IfStatement { condition, then_branch, else_branch } => {
+        AstNode::IfStatement {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
             match *condition {
-                AstNode::Literal(Value::Bool(true)) => {},
+                AstNode::Literal(Value::Bool(true)) => {}
                 _ => panic!("Expected True condition"),
             }
             match *then_branch {
                 AstNode::Block { statements, kind } => {
                     assert!(statements.is_empty());
                     assert_eq!(kind, BlockKind::Regular);
-                },
+                }
                 _ => panic!("Expected Block"),
             }
             assert!(else_branch.is_none());
@@ -267,12 +282,12 @@ fn test_parse_while_loop() {
     match ast {
         AstNode::WhileLoop { condition, body } => {
             match *condition {
-                AstNode::Literal(Value::Bool(true)) => {},
+                AstNode::Literal(Value::Bool(true)) => {}
                 _ => panic!("Expected True condition"),
             }
             match *body {
-                 AstNode::Block { .. } => {},
-                 _ => panic!("Expected Block body"),
+                AstNode::Block { .. } => {}
+                _ => panic!("Expected Block body"),
             }
         }
         _ => panic!("Expected WhileLoop"),
@@ -292,12 +307,10 @@ fn test_parse_require_statement() {
     ];
     let ast = parse_stmt(tokens);
     match ast {
-        AstNode::RequireStatement { condition } => {
-             match *condition {
-                AstNode::Literal(Value::Bool(true)) => {},
-                _ => panic!("Expected True condition"),
-            }
-        }
+        AstNode::RequireStatement { condition } => match *condition {
+            AstNode::Literal(Value::Bool(true)) => {}
+            _ => panic!("Expected True condition"),
+        },
         _ => panic!("Expected RequireStatement"),
     }
 }

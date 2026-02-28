@@ -2,8 +2,8 @@ use crate::{
     types::{CallFrame, ExternalCacheState},
     MAX_CALL_DEPTH, MAX_LOCALS, STACK_SIZE, TEMP_BUFFER_SIZE,
 };
+use core::mem::{align_of, size_of};
 use five_protocol::ValueRef;
-use core::mem::{size_of, align_of};
 
 /// Total storage size flattened to 16KB to stay within SBF heap limits.
 pub const STORAGE_SIZE: usize = 16384;
@@ -19,12 +19,14 @@ const STACK_BYTES: usize = STACK_SIZE * VALUE_REF_SIZE;
 
 // 2. Call Stack
 // Align to CallFrame alignment
-const CALL_STACK_OFFSET: usize = (STACK_OFFSET + STACK_BYTES + (align_of::<CallFrame>() - 1)) & !(align_of::<CallFrame>() - 1);
+const CALL_STACK_OFFSET: usize =
+    (STACK_OFFSET + STACK_BYTES + (align_of::<CallFrame>() - 1)) & !(align_of::<CallFrame>() - 1);
 const CALL_STACK_BYTES: usize = MAX_CALL_DEPTH * CALL_FRAME_SIZE;
 
 // 3. Locals
 // Align to ValueRef alignment
-const LOCALS_OFFSET: usize = (CALL_STACK_OFFSET + CALL_STACK_BYTES + (align_of::<ValueRef>() - 1)) & !(align_of::<ValueRef>() - 1);
+const LOCALS_OFFSET: usize = (CALL_STACK_OFFSET + CALL_STACK_BYTES + (align_of::<ValueRef>() - 1))
+    & !(align_of::<ValueRef>() - 1);
 const LOCALS_BYTES: usize = MAX_LOCALS * VALUE_REF_SIZE;
 
 // 4. Temp Buffer
@@ -79,7 +81,7 @@ impl StackStorage {
             let layout = Layout::new::<Self>();
             // alloc_zeroed ensures all bytes are 0
             let ptr = alloc_zeroed(layout) as *mut Self;
-            
+
             // In Solana BPF, alloc failure usually traps, but we check null just in case
             if ptr.is_null() {
                 panic!("Memory allocation failed");
@@ -99,12 +101,12 @@ impl StackStorage {
     /// and alignment for `StackStorage`.
     pub unsafe fn new_at_ptr(ptr: *mut u8) -> &'static mut Self {
         use core::ptr;
-        
+
         let storage = &mut *(ptr as *mut Self);
-        
+
         // Zero out the memory
         ptr::write_bytes(storage.memory.as_mut_ptr(), 0, STORAGE_SIZE);
-        
+
         storage
     }
 
@@ -134,7 +136,8 @@ impl StackStorage {
         unsafe {
             // Locals are stored as ValueRefs but typed as MaybeUninit<ValueRef> in FrameManager
             // Since ValueRef is Copy, this cast is safe representation-wise
-            let ptr = self.memory.as_mut_ptr().add(LOCALS_OFFSET) as *mut core::mem::MaybeUninit<ValueRef>;
+            let ptr = self.memory.as_mut_ptr().add(LOCALS_OFFSET)
+                as *mut core::mem::MaybeUninit<ValueRef>;
             core::slice::from_raw_parts_mut(ptr, MAX_LOCALS)
         }
     }
@@ -155,7 +158,8 @@ impl StackStorage {
     #[inline(always)]
     pub fn external_cache_state_mut(&mut self) -> &mut ExternalCacheState {
         unsafe {
-            let ptr = self.memory.as_mut_ptr().add(EXTERNAL_CACHE_OFFSET) as *mut ExternalCacheState;
+            let ptr =
+                self.memory.as_mut_ptr().add(EXTERNAL_CACHE_OFFSET) as *mut ExternalCacheState;
             &mut *ptr
         }
     }
@@ -164,7 +168,9 @@ impl StackStorage {
     /// This allows simultaneous mutable access to disjoint regions which is required
     /// for initializing the ExecutionContext.
     #[inline(always)]
-    pub fn split_mut(&mut self) -> (
+    pub fn split_mut(
+        &mut self,
+    ) -> (
         &mut [ValueRef],
         &mut [CallFrame],
         &mut [core::mem::MaybeUninit<ValueRef>],
@@ -174,16 +180,26 @@ impl StackStorage {
     ) {
         unsafe {
             let ptr = self.memory.as_mut_ptr();
-            let stack = core::slice::from_raw_parts_mut(ptr.add(STACK_OFFSET) as *mut ValueRef, STACK_SIZE);
-            let call_stack = core::slice::from_raw_parts_mut(ptr.add(CALL_STACK_OFFSET) as *mut CallFrame, MAX_CALL_DEPTH);
+            let stack =
+                core::slice::from_raw_parts_mut(ptr.add(STACK_OFFSET) as *mut ValueRef, STACK_SIZE);
+            let call_stack = core::slice::from_raw_parts_mut(
+                ptr.add(CALL_STACK_OFFSET) as *mut CallFrame,
+                MAX_CALL_DEPTH,
+            );
             // Locals
-            let locals = core::slice::from_raw_parts_mut(ptr.add(LOCALS_OFFSET) as *mut core::mem::MaybeUninit<ValueRef>, MAX_LOCALS);
+            let locals = core::slice::from_raw_parts_mut(
+                ptr.add(LOCALS_OFFSET) as *mut core::mem::MaybeUninit<ValueRef>,
+                MAX_LOCALS,
+            );
             // Temp
-            let temp = core::slice::from_raw_parts_mut(ptr.add(TEMP_BUFFER_OFFSET), TEMP_BUFFER_BYTES);
-            let external_cache_state = &mut *(ptr.add(EXTERNAL_CACHE_OFFSET) as *mut ExternalCacheState);
+            let temp =
+                core::slice::from_raw_parts_mut(ptr.add(TEMP_BUFFER_OFFSET), TEMP_BUFFER_BYTES);
+            let external_cache_state =
+                &mut *(ptr.add(EXTERNAL_CACHE_OFFSET) as *mut ExternalCacheState);
             *external_cache_state = ExternalCacheState::empty();
             // Heap
-            let heap = core::slice::from_raw_parts_mut(ptr.add(HEAP_BUFFER_OFFSET), HEAP_BUFFER_BYTES);
+            let heap =
+                core::slice::from_raw_parts_mut(ptr.add(HEAP_BUFFER_OFFSET), HEAP_BUFFER_BYTES);
             (stack, call_stack, locals, temp, external_cache_state, heap)
         }
     }

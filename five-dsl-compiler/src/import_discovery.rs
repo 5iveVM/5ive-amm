@@ -203,7 +203,7 @@ mod tests {
 
         // Emit function name metadata
         let section_size = 1 + (1 + 7) + (1 + 8); // name_count + (len + "swap_AB") + (len + "get_rate")
-        // Emit section size as fixed u16
+                                                  // Emit section size as fixed u16
         builder.emit_u16(section_size as u16);
         builder.emit_u8(2); // 2 function names
 

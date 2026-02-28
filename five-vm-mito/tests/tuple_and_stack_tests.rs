@@ -8,7 +8,7 @@
 //! - UNPACK_TUPLE (0xFA) - Unpack tuple to stack
 
 use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Result as VmResult, Value, FIVE_VM_PROGRAM_ID};
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + 64);
@@ -57,8 +57,8 @@ mod tuple_operations_tests {
 
         match result {
             Ok(Some(Value::Array(_))) => {
-                 // Success - we got an array/tuple ref
-            },
+                // Success - we got an array/tuple ref
+            }
             Ok(val) => panic!("Expected Array, got {:?}", val),
             Err(e) => panic!("CREATE_TUPLE failed: {:?}", e),
         }
@@ -81,7 +81,7 @@ mod tuple_operations_tests {
         match result {
             Ok(Some(Value::U64(element_value))) => {
                 assert_eq!(element_value, 200, "Tuple element at index 1 should be 200");
-            },
+            }
             Ok(val) => panic!("Expected U64(200), got {:?}", val),
             Err(e) => panic!("TUPLE_GET failed: {:?}", e),
         }
@@ -102,7 +102,7 @@ mod tuple_operations_tests {
         match result {
             Ok(Some(Value::U64(top_value))) => {
                 assert_eq!(top_value, 75, "Top element after unpack should be 75");
-            },
+            }
             Ok(val) => panic!("Expected U64(75), got {:?}", val),
             Err(e) => panic!("UNPACK_TUPLE failed: {:?}", e),
         }
@@ -135,7 +135,7 @@ mod tuple_operations_tests {
         match result {
             Ok(Some(Value::U64(nested_value))) => {
                 assert_eq!(nested_value, 2, "Nested tuple access should return 2");
-            },
+            }
             Ok(val) => panic!("Expected U64(2), got {:?}", val),
             Err(e) => panic!("Complex tuple operations failed: {:?}", e),
         }

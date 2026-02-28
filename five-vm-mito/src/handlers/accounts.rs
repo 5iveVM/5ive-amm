@@ -8,16 +8,15 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
-    error_log,
-    pop_u64,
+    error_log, pop_u64,
 };
 use core::convert::TryFrom;
 use five_protocol::{opcodes::*, ValueRef};
-use pinocchio::pubkey::Pubkey;
 #[cfg(target_os = "solana")]
 use pinocchio::instruction::{AccountMeta, Instruction};
 #[cfg(target_os = "solana")]
 use pinocchio::program::invoke_signed;
+use pinocchio::pubkey::Pubkey;
 
 const CLOSED_MARKER: [u8; 4] = *b"CLSD";
 
@@ -30,7 +29,10 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             let owner_ref = ctx.pop()?;
             let space = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
             let lamports = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
-            let account_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+            let account_idx = ctx
+                .pop()?
+                .as_account_idx()
+                .ok_or(VMErrorCode::TypeMismatch)?;
 
             let owner_bytes = ctx.extract_pubkey(&owner_ref)?;
             let owner = Pubkey::from(owner_bytes);
@@ -60,7 +62,10 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             }
         }
         LOAD_ACCOUNT => {
-            let account_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+            let account_idx = ctx
+                .pop()?
+                .as_account_idx()
+                .ok_or(VMErrorCode::TypeMismatch)?;
 
             let account = ctx.get_account(account_idx)?;
 
@@ -81,7 +86,10 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         SAVE_ACCOUNT => {
             let data_value = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
             let offset = ctx.pop()?.as_u64().ok_or(VMErrorCode::TypeMismatch)? as usize;
-            let account_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+            let account_idx = ctx
+                .pop()?
+                .as_account_idx()
+                .ok_or(VMErrorCode::TypeMismatch)?;
 
             debug_log!(
                 "MitoVM: SAVE_ACCOUNT idx: {}, offset: {}, value: {}",
@@ -184,8 +192,14 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         }
         TRANSFER | TRANSFER_SIGNED => {
             let amount = pop_u64!(ctx);
-            let to_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
-            let from_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+            let to_idx = ctx
+                .pop()?
+                .as_account_idx()
+                .ok_or(VMErrorCode::TypeMismatch)?;
+            let from_idx = ctx
+                .pop()?
+                .as_account_idx()
+                .ok_or(VMErrorCode::TypeMismatch)?;
 
             let from = ctx.get_account(from_idx)?;
             let to = ctx.get_account(to_idx)?;
@@ -253,8 +267,14 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         }
         CLOSE_ACCOUNT => {
             // Stack contract: [source_idx, destination_idx]
-            let destination_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
-            let source_idx = ctx.pop()?.as_account_idx().ok_or(VMErrorCode::TypeMismatch)?;
+            let destination_idx = ctx
+                .pop()?
+                .as_account_idx()
+                .ok_or(VMErrorCode::TypeMismatch)?;
+            let source_idx = ctx
+                .pop()?
+                .as_account_idx()
+                .ok_or(VMErrorCode::TypeMismatch)?;
 
             if source_idx == destination_idx {
                 return Err(VMErrorCode::ConstraintViolation);

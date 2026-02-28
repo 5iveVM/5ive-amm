@@ -1,14 +1,8 @@
-
 // Five VM program.
 
 use pinocchio::{
-    account_info::AccountInfo,
-    default_allocator,
-    default_panic_handler,
-    program_entrypoint,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    ProgramResult,
+    account_info::AccountInfo, default_allocator, default_panic_handler, program_entrypoint,
+    program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
 #[macro_export]
@@ -99,7 +93,10 @@ fn process_administrative_instruction(
             debug_log!("Processing Initialize instruction with bump {}", bump);
             instructions::initialize(program_id, accounts, bump)
         }
-        FIVEInstruction::InitLargeProgram { expected_size, chunk_data } => {
+        FIVEInstruction::InitLargeProgram {
+            expected_size,
+            chunk_data,
+        } => {
             debug_log!(
                 "Processing InitLargeProgram instruction (expected size {}, chunk {})",
                 expected_size,
@@ -123,7 +120,12 @@ fn process_administrative_instruction(
                 deploy_fee_lamports,
                 execute_fee_lamports
             );
-            instructions::set_fees(program_id, accounts, deploy_fee_lamports, execute_fee_lamports)
+            instructions::set_fees(
+                program_id,
+                accounts,
+                deploy_fee_lamports,
+                execute_fee_lamports,
+            )
         }
         FIVEInstruction::InitFeeVault { shard_index, bump } => {
             debug_log!("Processing InitFeeVault instruction");

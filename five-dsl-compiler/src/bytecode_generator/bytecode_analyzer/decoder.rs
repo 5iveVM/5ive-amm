@@ -1,4 +1,7 @@
-use super::{AdvancedBytecodeAnalyzer, ControlFlowInfo, InstructionAnalysis, InstructionCategory, OperandInfo};
+use super::{
+    AdvancedBytecodeAnalyzer, ControlFlowInfo, InstructionAnalysis, InstructionCategory,
+    OperandInfo,
+};
 use five_vm_mito::error::VMError;
 
 /// Decode all instructions with full semantic understanding
@@ -33,7 +36,9 @@ pub(crate) fn decode_instructions(analyzer: &mut AdvancedBytecodeAnalyzer) -> Re
 }
 
 /// Decode a single instruction with full understanding of what follows
-fn decode_single_instruction(analyzer: &mut AdvancedBytecodeAnalyzer) -> Result<InstructionAnalysis, VMError> {
+fn decode_single_instruction(
+    analyzer: &mut AdvancedBytecodeAnalyzer,
+) -> Result<InstructionAnalysis, VMError> {
     if analyzer.position >= analyzer.bytecode.len() {
         return Err(VMError::InvalidOperation);
     }
@@ -117,16 +122,8 @@ fn decode_operands(
 
     if (analyzer.features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
         match opcode {
-            PUSH_U8
-            | PUSH_U16
-            | PUSH_U32
-            | PUSH_U64
-            | PUSH_I64
-            | PUSH_BOOL
-            | PUSH_PUBKEY
-            | PUSH_U128
-            | PUSH_STRING
-            | PUSH_BYTES => {
+            PUSH_U8 | PUSH_U16 | PUSH_U32 | PUSH_U64 | PUSH_I64 | PUSH_BOOL | PUSH_PUBKEY
+            | PUSH_U128 | PUSH_STRING | PUSH_BYTES => {
                 if analyzer.position < analyzer.bytecode.len() {
                     let value = analyzer.bytecode[analyzer.position];
                     operands.push(OperandInfo {
@@ -140,16 +137,8 @@ fn decode_operands(
                 }
                 return Ok(operands);
             }
-            PUSH_U8_W
-            | PUSH_U16_W
-            | PUSH_U32_W
-            | PUSH_U64_W
-            | PUSH_I64_W
-            | PUSH_BOOL_W
-            | PUSH_PUBKEY_W
-            | PUSH_U128_W
-            | PUSH_STRING_W
-            | PUSH_BYTES_W => {
+            PUSH_U8_W | PUSH_U16_W | PUSH_U32_W | PUSH_U64_W | PUSH_I64_W | PUSH_BOOL_W
+            | PUSH_PUBKEY_W | PUSH_U128_W | PUSH_STRING_W | PUSH_BYTES_W => {
                 if analyzer.position + 1 < analyzer.bytecode.len() {
                     let value = u16::from_le_bytes([
                         analyzer.bytecode[analyzer.position],
@@ -157,7 +146,8 @@ fn decode_operands(
                     ]);
                     operands.push(OperandInfo {
                         operand_type: "pool_index_u16".to_string(),
-                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2].to_vec(),
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 2]
+                            .to_vec(),
                         decoded_value: Some(value.to_string()),
                         size: 2,
                         description: "Constant pool index (u16)".to_string(),
@@ -310,7 +300,10 @@ fn decode_operands(
 
                 operands.push(OperandInfo {
                     operand_type: "func_offset".to_string(),
-                    raw_value: vec![analyzer.bytecode[analyzer.position + 1], analyzer.bytecode[analyzer.position + 2]],
+                    raw_value: vec![
+                        analyzer.bytecode[analyzer.position + 1],
+                        analyzer.bytecode[analyzer.position + 2],
+                    ],
                     decoded_value: Some(format!("offset_{}", func_offset)),
                     size: 2,
                     description: "Function entry offset".to_string(),
@@ -349,7 +342,8 @@ fn decode_operands(
                     ]);
                     operands.push(OperandInfo {
                         operand_type: "field_offset".to_string(),
-                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4]
+                            .to_vec(),
                         decoded_value: Some(format!("offset_{}", field_offset)),
                         size: 4,
                         description: "Field offset (u32)".to_string(),
@@ -377,7 +371,10 @@ fn decode_operands(
 
                 operands.push(OperandInfo {
                     operand_type: "func_addr".to_string(),
-                    raw_value: vec![analyzer.bytecode[analyzer.position + 1], analyzer.bytecode[analyzer.position + 2]],
+                    raw_value: vec![
+                        analyzer.bytecode[analyzer.position + 1],
+                        analyzer.bytecode[analyzer.position + 2],
+                    ],
                     decoded_value: Some(format!("addr_{}", func_addr)),
                     size: 2,
                     description: "Internal function address".to_string(),
@@ -408,7 +405,8 @@ fn decode_operands(
                     ]);
                     operands.push(OperandInfo {
                         operand_type: "field_offset".to_string(),
-                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4]
+                            .to_vec(),
                         decoded_value: Some(format!("offset_{}", val)),
                         size: 4,
                         description: "Field offset (u32)".to_string(),
@@ -482,7 +480,8 @@ fn decode_operands(
                     ]);
                     operands.push(OperandInfo {
                         operand_type: "field_offset".to_string(),
-                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4]
+                            .to_vec(),
                         decoded_value: Some(format!("offset2_{}", val2)),
                         size: 4,
                         description: "Second field offset (u32)".to_string(),
@@ -578,7 +577,8 @@ fn decode_operands(
                     ]);
                     operands.push(OperandInfo {
                         operand_type: "field_offset".to_string(),
-                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4].to_vec(),
+                        raw_value: analyzer.bytecode[analyzer.position..analyzer.position + 4]
+                            .to_vec(),
                         decoded_value: Some(format!("offset2_{}", val2)),
                         size: 4,
                         description: "Second field offset (u32)".to_string(),
@@ -604,7 +604,7 @@ fn decode_operands(
             if analyzer.position + 1 < analyzer.bytecode.len() {
                 let param = analyzer.bytecode[analyzer.position];
                 let imm = analyzer.bytecode[analyzer.position + 1];
-                
+
                 operands.push(OperandInfo {
                     operand_type: "param_index".to_string(),
                     raw_value: vec![param],
@@ -684,7 +684,8 @@ fn decode_operands(
                 });
                 operands.push(OperandInfo {
                     operand_type: "offset_u16".to_string(),
-                    raw_value: analyzer.bytecode[analyzer.position + 1..analyzer.position + 3].to_vec(),
+                    raw_value: analyzer.bytecode[analyzer.position + 1..analyzer.position + 3]
+                        .to_vec(),
                     decoded_value: Some(offset.to_string()),
                     size: 2,
                     description: "Relative jump offset (u16)".to_string(),
@@ -709,7 +710,8 @@ fn decode_operands(
                 });
                 operands.push(OperandInfo {
                     operand_type: "target_u16".to_string(),
-                    raw_value: analyzer.bytecode[analyzer.position + 1..analyzer.position + 3].to_vec(),
+                    raw_value: analyzer.bytecode[analyzer.position + 1..analyzer.position + 3]
+                        .to_vec(),
                     decoded_value: Some(target.to_string()),
                     size: 2,
                     description: "Absolute jump target (u16)".to_string(),
@@ -764,7 +766,10 @@ fn decode_operands(
 }
 
 /// Decode PUSH instruction operands (type + value)
-fn decode_push_operands(analyzer: &mut AdvancedBytecodeAnalyzer, operands: &mut Vec<OperandInfo>) -> Result<(), VMError> {
+fn decode_push_operands(
+    analyzer: &mut AdvancedBytecodeAnalyzer,
+    operands: &mut Vec<OperandInfo>,
+) -> Result<(), VMError> {
     if analyzer.position >= analyzer.bytecode.len() {
         return Ok(());
     }
@@ -840,7 +845,8 @@ fn decode_push_operands(analyzer: &mut AdvancedBytecodeAnalyzer, operands: &mut 
         0x04 => {
             // Pubkey
             if analyzer.position + 31 < analyzer.bytecode.len() {
-                let pubkey_bytes = analyzer.bytecode[analyzer.position..analyzer.position + 32].to_vec();
+                let pubkey_bytes =
+                    analyzer.bytecode[analyzer.position..analyzer.position + 32].to_vec();
                 let pubkey_hex = pubkey_bytes
                     .iter()
                     .map(|b| format!("{:02x}", b))
@@ -867,8 +873,9 @@ fn decode_push_operands(analyzer: &mut AdvancedBytecodeAnalyzer, operands: &mut 
                 analyzer.position += 4;
 
                 if analyzer.position + len as usize <= analyzer.bytecode.len() {
-                    let string_bytes =
-                        analyzer.bytecode[analyzer.position..analyzer.position + len as usize].to_vec();
+                    let string_bytes = analyzer.bytecode
+                        [analyzer.position..analyzer.position + len as usize]
+                        .to_vec();
                     let string_value = String::from_utf8_lossy(&string_bytes).to_string();
 
                     operands.push(OperandInfo {
@@ -899,11 +906,7 @@ fn decode_push_operands(analyzer: &mut AdvancedBytecodeAnalyzer, operands: &mut 
     Ok(())
 }
 /// Generate semantic description for an instruction
-fn generate_instruction_description(
-    opcode: u8,
-    name: &str,
-    operands: &[OperandInfo],
-) -> String {
+fn generate_instruction_description(opcode: u8, name: &str, operands: &[OperandInfo]) -> String {
     use five_protocol::opcodes::*;
 
     match opcode {
@@ -991,9 +994,7 @@ fn generate_instruction_description(
                 "Store value to account".to_string()
             }
         }
-        LOAD => {
-            "Load value from stack-provided address".to_string()
-        }
+        LOAD => "Load value from stack-provided address".to_string(),
         // COMPACT_FIELD_LOAD/COMPACT_FIELD_STORE removed
         GET_CLOCK => "Get current Solana clock".to_string(),
         REQUIRE => "Assert that stack top is true (else fail)".to_string(),
@@ -1057,10 +1058,7 @@ pub(crate) fn categorize_instruction(opcode: u8) -> InstructionCategory {
 }
 
 /// Analyze control flow for a single instruction
-fn analyze_instruction_control_flow(
-    opcode: u8,
-    operands: &[OperandInfo],
-) -> ControlFlowInfo {
+fn analyze_instruction_control_flow(opcode: u8, operands: &[OperandInfo]) -> ControlFlowInfo {
     use five_protocol::opcodes::*;
 
     match opcode {

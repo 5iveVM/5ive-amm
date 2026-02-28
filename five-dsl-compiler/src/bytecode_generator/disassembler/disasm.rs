@@ -7,26 +7,31 @@ use five_protocol::opcodes;
 /// Produce a textual disassembly (one line per instruction).
 pub fn disassemble(bytes: &[u8]) -> Vec<String> {
     let mut lines = Vec::new();
-    
+
     // Header-aware disassembly: skip magic, features, counts, and metadata.
     let (header, start_pc) = match five_protocol::parse_header(bytes) {
         Ok(res) => res,
         Err(_) => {
             // Fallback for legacy V1 or invalid scripts: just start at 0
-            (five_protocol::OptimizedHeader {
-                magic: [0; 4],
-                features: 0,
-                public_function_count: 0,
-                total_function_count: 0,
-            }, 0)
+            (
+                five_protocol::OptimizedHeader {
+                    magic: [0; 4],
+                    features: 0,
+                    public_function_count: 0,
+                    total_function_count: 0,
+                },
+                0,
+            )
         }
     };
     let pool_enabled = (header.features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
 
     if start_pc > 0 {
-        lines.push(format!("HEADER: magic=5IVE features=0x{:08X} public={} total={}", 
-            header.features, header.public_function_count, header.total_function_count));
-        
+        lines.push(format!(
+            "HEADER: magic=5IVE features=0x{:08X} public={} total={}",
+            header.features, header.public_function_count, header.total_function_count
+        ));
+
         if (header.features & five_protocol::FEATURE_FUNCTION_NAMES) != 0 {
             lines.push("METADATA: Function names section skipped".to_string());
         }
@@ -80,7 +85,12 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                         lines.push(format!("{:04X}: PUSH_U32 idx={}", pc, idx));
                         pc += 2;
                     } else if pc + 5 <= bytes.len() {
-                        let raw = u32::from_le_bytes([bytes[pc + 1], bytes[pc + 2], bytes[pc + 3], bytes[pc + 4]]);
+                        let raw = u32::from_le_bytes([
+                            bytes[pc + 1],
+                            bytes[pc + 2],
+                            bytes[pc + 3],
+                            bytes[pc + 4],
+                        ]);
                         lines.push(format!("{:04X}: PUSH_U32 {}", pc, raw));
                         pc += 5;
                     } else {
@@ -194,7 +204,12 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                         break;
                     }
                 } else if pc + 5 <= bytes.len() {
-                    let len = u32::from_le_bytes([bytes[pc + 1], bytes[pc + 2], bytes[pc + 3], bytes[pc + 4]]);
+                    let len = u32::from_le_bytes([
+                        bytes[pc + 1],
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                    ]);
                     lines.push(format!("{:04X}: PUSH_STRING len={}", pc, len));
                     pc += 5 + len as usize;
                 } else {
@@ -223,10 +238,19 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             | opcodes::PUSH_BYTES_W => {
                 if pc + 2 < bytes.len() {
                     let idx = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
-                    lines.push(format!("{:04X}: {} idx={}", pc, five_protocol::opcodes::opcode_name(op), idx));
+                    lines.push(format!(
+                        "{:04X}: {} idx={}",
+                        pc,
+                        five_protocol::opcodes::opcode_name(op),
+                        idx
+                    ));
                     pc += 3;
                 } else {
-                    lines.push(format!("{:04X}: {} <truncated>", pc, five_protocol::opcodes::opcode_name(op)));
+                    lines.push(format!(
+                        "{:04X}: {} <truncated>",
+                        pc,
+                        five_protocol::opcodes::opcode_name(op)
+                    ));
                     break;
                 }
             }
@@ -280,7 +304,10 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 if pc + 4 <= bytes.len() {
                     let val = bytes[pc + 1];
                     let offset = u16::from_le_bytes([bytes[pc + 2], bytes[pc + 3]]);
-                    lines.push(format!("{:04X}: BR_EQ_U8 val={} offset={}", pc, val, offset));
+                    lines.push(format!(
+                        "{:04X}: BR_EQ_U8 val={} offset={}",
+                        pc, val, offset
+                    ));
                     pc += 4;
                 } else {
                     lines.push(format!("{:04X}: BR_EQ_U8 <truncated>", pc));
@@ -291,7 +318,10 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 if pc + 4 <= bytes.len() {
                     let val = bytes[pc + 1];
                     let target = u16::from_le_bytes([bytes[pc + 2], bytes[pc + 3]]);
-                    lines.push(format!("{:04X}: CMP_EQ_JUMP val={} target={}", pc, val, target));
+                    lines.push(format!(
+                        "{:04X}: CMP_EQ_JUMP val={} target={}",
+                        pc, val, target
+                    ));
                     pc += 4;
                 } else {
                     lines.push(format!("{:04X}: CMP_EQ_JUMP <truncated>", pc));
@@ -336,9 +366,17 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc(u8) + offset(u32) + param(u8)
                 if pc + 6 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let offset = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
                     let param = bytes[pc + 6];
-                    lines.push(format!("{:04X}: REQUIRE_GTE_U64 acc={} offset={} param={}", pc, acc, offset, param));
+                    lines.push(format!(
+                        "{:04X}: REQUIRE_GTE_U64 acc={} offset={} param={}",
+                        pc, acc, offset, param
+                    ));
                     pc += 7;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_GTE_U64 <truncated>", pc));
@@ -349,8 +387,16 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc(u8) + offset(u32)
                 if pc + 6 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
-                    lines.push(format!("{:04X}: REQUIRE_NOT_BOOL acc={} offset={}", pc, acc, offset));
+                    let offset = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
+                    lines.push(format!(
+                        "{:04X}: REQUIRE_NOT_BOOL acc={} offset={}",
+                        pc, acc, offset
+                    ));
                     pc += 6;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_NOT_BOOL <truncated>", pc));
@@ -361,9 +407,17 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc(u8) + offset(u32) + param(u8)
                 if pc + 7 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let offset = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
                     let param = bytes[pc + 6];
-                    lines.push(format!("{:04X}: FIELD_ADD_PARAM acc={} offset={} param={}", pc, acc, offset, param));
+                    lines.push(format!(
+                        "{:04X}: FIELD_ADD_PARAM acc={} offset={} param={}",
+                        pc, acc, offset, param
+                    ));
                     pc += 7;
                 } else {
                     lines.push(format!("{:04X}: FIELD_ADD_PARAM <truncated>", pc));
@@ -374,9 +428,17 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc(u8) + offset(u32) + param(u8)
                 if pc + 7 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let offset = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
                     let param = bytes[pc + 6];
-                    lines.push(format!("{:04X}: FIELD_SUB_PARAM acc={} offset={} param={}", pc, acc, offset, param));
+                    lines.push(format!(
+                        "{:04X}: FIELD_SUB_PARAM acc={} offset={} param={}",
+                        pc, acc, offset, param
+                    ));
                     pc += 7;
                 } else {
                     lines.push(format!("{:04X}: FIELD_SUB_PARAM <truncated>", pc));
@@ -385,7 +447,11 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             }
             opcodes::REQUIRE_PARAM_GT_ZERO => {
                 if pc + 1 < bytes.len() {
-                    lines.push(format!("{:04X}: REQUIRE_PARAM_GT_ZERO param={}", pc, bytes[pc + 1]));
+                    lines.push(format!(
+                        "{:04X}: REQUIRE_PARAM_GT_ZERO param={}",
+                        pc,
+                        bytes[pc + 1]
+                    ));
                     pc += 2;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_PARAM_GT_ZERO <truncated>", pc));
@@ -394,7 +460,11 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             }
             opcodes::REQUIRE_LOCAL_GT_ZERO => {
                 if pc + 1 < bytes.len() {
-                    lines.push(format!("{:04X}: REQUIRE_LOCAL_GT_ZERO local={}", pc, bytes[pc + 1]));
+                    lines.push(format!(
+                        "{:04X}: REQUIRE_LOCAL_GT_ZERO local={}",
+                        pc,
+                        bytes[pc + 1]
+                    ));
                     pc += 2;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_LOCAL_GT_ZERO <truncated>", pc));
@@ -405,10 +475,23 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
                 if pc + 11 <= bytes.len() {
                     let acc1 = bytes[pc + 1];
-                    let offset1 = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let offset1 = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
                     let acc2 = bytes[pc + 6];
-                    let offset2 = u32::from_le_bytes([bytes[pc + 7], bytes[pc + 8], bytes[pc + 9], bytes[pc + 10]]);
-                    lines.push(format!("{:04X}: REQUIRE_EQ_PUBKEY acc1={} offset1={} acc2={} offset2={}", pc, acc1, offset1, acc2, offset2));
+                    let offset2 = u32::from_le_bytes([
+                        bytes[pc + 7],
+                        bytes[pc + 8],
+                        bytes[pc + 9],
+                        bytes[pc + 10],
+                    ]);
+                    lines.push(format!(
+                        "{:04X}: REQUIRE_EQ_PUBKEY acc1={} offset1={} acc2={} offset2={}",
+                        pc, acc1, offset1, acc2, offset2
+                    ));
                     pc += 11;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_EQ_PUBKEY <truncated>", pc));
@@ -417,7 +500,11 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             }
             opcodes::CHECK_SIGNER_WRITABLE => {
                 if pc + 1 < bytes.len() {
-                    lines.push(format!("{:04X}: CHECK_SIGNER_WRITABLE acc={}", pc, bytes[pc + 1]));
+                    lines.push(format!(
+                        "{:04X}: CHECK_SIGNER_WRITABLE acc={}",
+                        pc,
+                        bytes[pc + 1]
+                    ));
                     pc += 2;
                 } else {
                     lines.push(format!("{:04X}: CHECK_SIGNER_WRITABLE <truncated>", pc));
@@ -428,9 +515,17 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc(u8) + offset(u32) + param(u8)
                 if pc + 7 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let offset = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
                     let param = bytes[pc + 6];
-                    lines.push(format!("{:04X}: STORE_PARAM_TO_FIELD acc={} offset={} param={}", pc, acc, offset, param));
+                    lines.push(format!(
+                        "{:04X}: STORE_PARAM_TO_FIELD acc={} offset={} param={}",
+                        pc, acc, offset, param
+                    ));
                     pc += 7;
                 } else {
                     lines.push(format!("{:04X}: STORE_PARAM_TO_FIELD <truncated>", pc));
@@ -441,8 +536,16 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc(u8) + offset(u32)
                 if pc + 6 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
-                    lines.push(format!("{:04X}: STORE_FIELD_ZERO acc={} offset={}", pc, acc, offset));
+                    let offset = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
+                    lines.push(format!(
+                        "{:04X}: STORE_FIELD_ZERO acc={} offset={}",
+                        pc, acc, offset
+                    ));
                     pc += 6;
                 } else {
                     lines.push(format!("{:04X}: STORE_FIELD_ZERO <truncated>", pc));
@@ -453,9 +556,17 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc(u8) + offset(u32) + key_acc(u8)
                 if pc + 7 <= bytes.len() {
                     let acc = bytes[pc + 1];
-                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let offset = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
                     let key_acc = bytes[pc + 6];
-                    lines.push(format!("{:04X}: STORE_KEY_TO_FIELD acc={} offset={} key_acc={}", pc, acc, offset, key_acc));
+                    lines.push(format!(
+                        "{:04X}: STORE_KEY_TO_FIELD acc={} offset={} key_acc={}",
+                        pc, acc, offset, key_acc
+                    ));
                     pc += 7;
                 } else {
                     lines.push(format!("{:04X}: STORE_KEY_TO_FIELD <truncated>", pc));
@@ -466,10 +577,23 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
                 if pc + 11 <= bytes.len() {
                     let acc1 = bytes[pc + 1];
-                    let offset1 = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let offset1 = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
                     let acc2 = bytes[pc + 6];
-                    let offset2 = u32::from_le_bytes([bytes[pc + 7], bytes[pc + 8], bytes[pc + 9], bytes[pc + 10]]);
-                    lines.push(format!("{:04X}: REQUIRE_EQ_FIELDS acc1={} offset1={} acc2={} offset2={}", pc, acc1, offset1, acc2, offset2));
+                    let offset2 = u32::from_le_bytes([
+                        bytes[pc + 7],
+                        bytes[pc + 8],
+                        bytes[pc + 9],
+                        bytes[pc + 10],
+                    ]);
+                    lines.push(format!(
+                        "{:04X}: REQUIRE_EQ_FIELDS acc1={} offset1={} acc2={} offset2={}",
+                        pc, acc1, offset1, acc2, offset2
+                    ));
                     pc += 11;
                 } else {
                     lines.push(format!("{:04X}: REQUIRE_EQ_FIELDS <truncated>", pc));
@@ -480,8 +604,16 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc(u8) + offset(u32)
                 if pc + 5 < bytes.len() {
                     let acc = bytes[pc + 1];
-                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
-                    lines.push(format!("{:04X}: LOAD_FIELD acc={} offset={}", pc, acc, offset));
+                    let offset = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
+                    lines.push(format!(
+                        "{:04X}: LOAD_FIELD acc={} offset={}",
+                        pc, acc, offset
+                    ));
                     pc += 6;
                 } else {
                     lines.push(format!("{:04X}: LOAD_FIELD <truncated>", pc));
@@ -492,7 +624,12 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                 // acc(u8) + offset(u32)
                 if pc + 5 < bytes.len() {
                     let acc = bytes[pc + 1];
-                    let offset = u32::from_le_bytes([bytes[pc + 2], bytes[pc + 3], bytes[pc + 4], bytes[pc + 5]]);
+                    let offset = u32::from_le_bytes([
+                        bytes[pc + 2],
+                        bytes[pc + 3],
+                        bytes[pc + 4],
+                        bytes[pc + 5],
+                    ]);
                     lines.push(format!(
                         "{:04X}: STORE_FIELD acc={} offset={}",
                         pc, acc, offset
@@ -551,7 +688,12 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             opcodes::EQ_ZERO_JUMP | opcodes::GT_ZERO_JUMP | opcodes::LT_ZERO_JUMP => {
                 if pc + 3 <= bytes.len() {
                     let target = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
-                    lines.push(format!("{:04X}: {} target=0x{:04X}", pc, opcode_name(op), target));
+                    lines.push(format!(
+                        "{:04X}: {} target=0x{:04X}",
+                        pc,
+                        opcode_name(op),
+                        target
+                    ));
                     pc += 3;
                 } else {
                     lines.push(format!("{:04X}: {} <truncated>", pc, opcode_name(op)));
@@ -560,7 +702,9 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
             }
             _ => {
                 lines.push(format!("{:04X}: {}", pc, opcode_name(op)));
-                if let Some(operand_size) = opcodes::operand_size(op, &bytes[pc + 1..], pool_enabled) {
+                if let Some(operand_size) =
+                    opcodes::operand_size(op, &bytes[pc + 1..], pool_enabled)
+                {
                     let instruction_size = 1 + operand_size;
                     if pc + instruction_size <= bytes.len() {
                         pc += instruction_size;

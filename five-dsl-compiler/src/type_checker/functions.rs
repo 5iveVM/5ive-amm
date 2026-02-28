@@ -16,7 +16,9 @@ impl TypeCheckerContext {
         match type_node {
             TypeNode::Account => true,
             TypeNode::Named(name) => {
-                name == "Account" || name == "account" || self.account_definitions.contains_key(name)
+                name == "Account"
+                    || name == "account"
+                    || self.account_definitions.contains_key(name)
             }
             _ => false,
         }
@@ -166,21 +168,22 @@ impl TypeCheckerContext {
 
                         // Determine discriminator (duplicate logic from registry for consistency)
                         // Priority: explicit bytes > explicit u8 > anchor derived > default (0)
-                        let (discriminator_val, discriminator_bytes_val) = if let Some(bytes) = discriminator_bytes {
-                             (discriminator.unwrap_or(0), Some(bytes.clone()))
-                        } else if let Some(disc) = discriminator {
-                             (*disc, None)
-                        } else if is_anchor {
-                             // Derive Anchor discriminator: sha256("global:<method_name>")[..8]
-                             let preimage = format!("global:{}", method_name);
-                             let mut hasher = sha2::Sha256::new();
-                             hasher.update(preimage.as_bytes());
-                             let result = hasher.finalize();
-                             let disc_bytes = result[..8].to_vec();
-                             (0, Some(disc_bytes))
-                        } else {
-                             (0, None)
-                        };
+                        let (discriminator_val, discriminator_bytes_val) =
+                            if let Some(bytes) = discriminator_bytes {
+                                (discriminator.unwrap_or(0), Some(bytes.clone()))
+                            } else if let Some(disc) = discriminator {
+                                (*disc, None)
+                            } else if is_anchor {
+                                // Derive Anchor discriminator: sha256("global:<method_name>")[..8]
+                                let preimage = format!("global:{}", method_name);
+                                let mut hasher = sha2::Sha256::new();
+                                hasher.update(preimage.as_bytes());
+                                let result = hasher.finalize();
+                                let disc_bytes = result[..8].to_vec();
+                                (0, Some(disc_bytes))
+                            } else {
+                                (0, None)
+                            };
 
                         methods.insert(
                             method_name.clone(),
@@ -203,11 +206,11 @@ impl TypeCheckerContext {
                     serializer: match serializer_hint.as_deref() {
                         None => {
                             if anchor_mode {
-                                 InterfaceSerializer::Borsh 
+                                InterfaceSerializer::Borsh
                             } else {
-                                 InterfaceSerializer::Bincode
+                                InterfaceSerializer::Bincode
                             }
-                        },
+                        }
                         Some("raw") => InterfaceSerializer::Raw,
                         Some("borsh") => InterfaceSerializer::Borsh,
                         Some("bincode") => InterfaceSerializer::Bincode,
@@ -270,7 +273,9 @@ impl TypeCheckerContext {
                         .current_function_parameters
                         .as_ref()
                         .and_then(|params| params.iter().find(|param| param.name == *arg_name))
-                        .map(|param| Self::param_has_attribute(param, "signer") || param.pda_config.is_some())
+                        .map(|param| {
+                            Self::param_has_attribute(param, "signer") || param.pda_config.is_some()
+                        })
                         .unwrap_or(false);
 
                     if !signable {
@@ -314,7 +319,10 @@ impl TypeCheckerContext {
         let mut writable_accounts: HashSet<String> = HashSet::new();
         for param in parameters {
             if !self.is_valid_type_node(&param.param_type) {
-                eprintln!("Invalid param type: {} ({:?})", param.name, param.param_type);
+                eprintln!(
+                    "Invalid param type: {} ({:?})",
+                    param.name, param.param_type
+                );
                 return Err(VMError::InvalidScript);
             }
 
@@ -327,16 +335,22 @@ impl TypeCheckerContext {
                     crate::ast::TypeNode::Named(name) => {
                         // Check for exact match or namespaced match (e.g., "AMMPool" or "amm_types::AMMPool")
                         let namespace_suffix = format!("::{}", name);
-                        if name == "Account" || name == "account" 
+                        if name == "Account"
+                            || name == "account"
                             || self.account_definitions.contains_key(name)
-                            || self.account_definitions.keys().any(|k| k.ends_with(&namespace_suffix)) 
+                            || self
+                                .account_definitions
+                                .keys()
+                                .any(|k| k.ends_with(&namespace_suffix))
                         {
                             true
                         } else {
                             // Check module scope for imported accounts
                             if let Some(scope) = &self.module_scope {
-                                if let Some(symbol) = scope.resolve_symbol(name, scope.current_module()) {
-                                     matches!(symbol.type_info, crate::ast::TypeNode::Account)
+                                if let Some(symbol) =
+                                    scope.resolve_symbol(name, scope.current_module())
+                                {
+                                    matches!(symbol.type_info, crate::ast::TypeNode::Account)
                                 } else {
                                     false
                                 }
@@ -360,19 +374,31 @@ impl TypeCheckerContext {
 
                         match payer_param {
                             None => {
-                                eprintln!("@init payer '{}' not found in function parameters", payer_name);
+                                eprintln!(
+                                    "@init payer '{}' not found in function parameters",
+                                    payer_name
+                                );
                                 return Err(VMError::InvalidScript);
                             }
                             Some(payer) => {
                                 // Validate payer is account type
-                                if !matches!(payer.param_type, crate::ast::TypeNode::Account | crate::ast::TypeNode::Named(_)) {
-                                    eprintln!("@init payer '{}' must be an account type", payer_name);
+                                if !matches!(
+                                    payer.param_type,
+                                    crate::ast::TypeNode::Account | crate::ast::TypeNode::Named(_)
+                                ) {
+                                    eprintln!(
+                                        "@init payer '{}' must be an account type",
+                                        payer_name
+                                    );
                                     return Err(VMError::TypeMismatch);
                                 }
 
                                 // Validate payer has @signer
                                 if !payer.attributes.iter().any(|a| a.name == "signer") {
-                                    eprintln!("@init payer '{}' must have @signer constraint", payer_name);
+                                    eprintln!(
+                                        "@init payer '{}' must have @signer constraint",
+                                        payer_name
+                                    );
                                     return Err(VMError::ConstraintViolation);
                                 }
                             }
@@ -397,12 +423,11 @@ impl TypeCheckerContext {
             } else {
                 param.param_type.clone()
             };
-            
+
             // Implicit mutability: @init implies mutable, or explicit @mut
             let has_close = param.attributes.iter().any(|a| a.name == "close");
-            let is_mutable = param.is_init
-                || param.attributes.iter().any(|a| a.name == "mut")
-                || has_close;
+            let is_mutable =
+                param.is_init || param.attributes.iter().any(|a| a.name == "mut") || has_close;
 
             self.symbol_table
                 .insert(param.name.clone(), (param_type.clone(), is_mutable));
@@ -431,8 +456,9 @@ impl TypeCheckerContext {
             let is_account_param = match &param.param_type {
                 crate::ast::TypeNode::Account => true,
                 crate::ast::TypeNode::Named(name) => {
-                    name == "Account" || name == "account" ||
-                    self.account_definitions.contains_key(name)
+                    name == "Account"
+                        || name == "account"
+                        || self.account_definitions.contains_key(name)
                 }
                 _ => false,
             };
@@ -441,25 +467,26 @@ impl TypeCheckerContext {
             for attr in &param.attributes {
                 match attr.name.as_str() {
                     "signer" => {
-                         if !is_account_param {
-                             eprintln!("@signer only allowed on accounts: {}", param.name);
-                             return Err(VMError::TypeMismatch); // @signer only allowed on accounts
-                          }
+                        if !is_account_param {
+                            eprintln!("@signer only allowed on accounts: {}", param.name);
+                            return Err(VMError::TypeMismatch); // @signer only allowed on accounts
+                        }
                     }
                     "authority" => {
                         return Err(VMError::InvalidInstruction);
                     }
                     "has" => {
                         if !is_account_param {
-                             return Err(VMError::TypeMismatch); 
+                            return Err(VMError::TypeMismatch);
                         }
                         if attr.args.is_empty() {
-                             return Err(VMError::InvalidInstruction); 
+                            return Err(VMError::InvalidInstruction);
                         }
                         // Validate all targets exist in parameters
                         for arg in &attr.args {
                             if let crate::ast::AstNode::Identifier(target_name) = arg {
-                                let target_exists = parameters.iter().any(|p| p.name == *target_name);
+                                let target_exists =
+                                    parameters.iter().any(|p| p.name == *target_name);
                                 if !target_exists {
                                     eprintln!("@has target not found: {}", target_name);
                                     return Err(VMError::InvalidScript); // Target parameter not found
@@ -471,21 +498,22 @@ impl TypeCheckerContext {
                     }
                     "owner" => {
                         if !is_account_param {
-                             return Err(VMError::TypeMismatch); 
+                            return Err(VMError::TypeMismatch);
                         }
                         if attr.args.len() > 1 {
-                             return Err(VMError::InvalidInstruction); 
+                            return Err(VMError::InvalidInstruction);
                         }
                         // If arg provided, validate it exists
                         if let Some(arg) = attr.args.first() {
-                             if let crate::ast::AstNode::Identifier(target_name) = arg {
-                                 let target_exists = parameters.iter().any(|p| p.name == *target_name);
-                                 if !target_exists {
-                                     eprintln!("@owner target not found: {}", target_name);
+                            if let crate::ast::AstNode::Identifier(target_name) = arg {
+                                let target_exists =
+                                    parameters.iter().any(|p| p.name == *target_name);
+                                if !target_exists {
+                                    eprintln!("@owner target not found: {}", target_name);
                                     // Check imports? Return error.
-                                     return Err(VMError::InvalidScript); 
-                                 }
-                             }
+                                    return Err(VMError::InvalidScript);
+                                }
+                            }
                         }
                     }
                     "close" => {
@@ -499,7 +527,8 @@ impl TypeCheckerContext {
                             AstNode::Identifier(name) => name,
                             _ => return Err(VMError::InvalidInstruction),
                         };
-                        let Some(target_param) = parameters.iter().find(|p| p.name == *target_name) else {
+                        let Some(target_param) = parameters.iter().find(|p| p.name == *target_name)
+                        else {
                             return Err(VMError::InvalidScript);
                         };
                         if !self.is_account_param_type(&target_param.param_type) {
@@ -602,14 +631,9 @@ impl TypeCheckerContext {
     ) -> Result<(), VMError> {
         self.account_definitions
             .insert(name.to_string(), fields.to_vec());
-        
+
         // Add to module scope for cross-module resolution
-        self.add_to_module_scope(
-            name.to_string(), 
-            TypeNode::Account, 
-            false, 
-            visibility
-        );
+        self.add_to_module_scope(name.to_string(), TypeNode::Account, false, visibility);
 
         // Check all account fields have valid types
         for field in fields {

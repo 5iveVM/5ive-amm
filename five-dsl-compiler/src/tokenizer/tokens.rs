@@ -1,6 +1,6 @@
+use crate::ast::SourceLocation;
 use five_vm_mito::error::VMError;
 use std::fmt;
-use crate::ast::SourceLocation;
 
 /// Tokenization errors
 #[derive(Debug, Clone, PartialEq)]

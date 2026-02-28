@@ -3,7 +3,7 @@
 //! Additional tests for edge cases and error conditions in Option/Result operations.
 
 use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Result as VmResult, FIVE_VM_PROGRAM_ID};
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + 32);
@@ -69,8 +69,8 @@ fn test_optional_unwrap_none_constraint_violation() {
         script.push(RETURN_VALUE);
     }) {
         Err(e) => {
-             println!("✅ Option::None unwrap error test passed: {:?}", e);
-             // Should be ConstraintViolation
+            println!("✅ Option::None unwrap error test passed: {:?}", e);
+            // Should be ConstraintViolation
         }
         Ok(result) => panic!("❌ Expected error, but got result: {:?}", result),
     }

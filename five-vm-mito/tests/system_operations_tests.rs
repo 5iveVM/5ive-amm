@@ -12,9 +12,13 @@
 //! - INVOKE (0x80) - Cross-program invocation
 //! - INVOKE_SIGNED (0x81) - Signed cross-program invocation
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, AccountInfo, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }

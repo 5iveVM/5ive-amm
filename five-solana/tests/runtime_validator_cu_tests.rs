@@ -13,7 +13,11 @@ use harness::validator::{
     run_external_interface_mapping_non_cpi, run_external_non_cpi, run_fixture_scenario, Network,
     RuntimeAccount, ScenarioRunResult, ValidatorHarness,
 };
-use solana_sdk::{pubkey::Pubkey, signature::{Keypair, Signer}, system_program};
+use solana_sdk::{
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_program,
+};
 
 // Env contract:
 // - FIVE_CU_NETWORK=localnet|devnet
@@ -47,11 +51,16 @@ fn parse_scenarios() -> Vec<String> {
 
 fn fixture_for(name: &str, repo_root: &std::path::Path) -> Option<PathBuf> {
     match name {
-        "token_full_e2e" => Some(repo_root.join("five-templates/token/runtime-fixtures/init_mint.json")),
-        "memory_string_heavy" => Some(repo_root.join("five-templates/token/runtime-fixtures/init_mint.json")),
-        "arithmetic_intensive" => {
-            Some(repo_root.join("five-templates/arithmetic-bench/runtime-fixtures/arithmetic_heavy.json"))
+        "token_full_e2e" => {
+            Some(repo_root.join("five-templates/token/runtime-fixtures/init_mint.json"))
         }
+        "memory_string_heavy" => {
+            Some(repo_root.join("five-templates/token/runtime-fixtures/init_mint.json"))
+        }
+        "arithmetic_intensive" => Some(
+            repo_root
+                .join("five-templates/arithmetic-bench/runtime-fixtures/arithmetic_heavy.json"),
+        ),
         _ => None,
     }
 }
@@ -78,8 +87,7 @@ fn validator_canonical_account_shape() {
             return;
         }
     };
-    let (vm_state, _bump) =
-        Pubkey::find_program_address(&[b"vm_state"], &harness.program_id);
+    let (vm_state, _bump) = Pubkey::find_program_address(&[b"vm_state"], &harness.program_id);
     let (fee_vault, _fee_bump) =
         Pubkey::find_program_address(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], &harness.program_id);
 
@@ -146,11 +154,28 @@ fn validator_canonical_account_shape() {
         &[],
         vec![],
     );
-    assert_eq!(ix.accounts.len(), 5, "execute must use canonical fee-tail length");
-    assert_eq!(ix.accounts[1].pubkey, vm_state, "vm_state remains fixed at account index 1");
-    assert!(ix.accounts[2].is_signer, "payer must be signer in canonical execute tail");
-    assert_eq!(ix.accounts[3].pubkey, fee_vault, "fee vault must be canonical tail account");
-    assert_eq!(ix.accounts[4].pubkey, system_program::id(), "system program must be final tail account");
+    assert_eq!(
+        ix.accounts.len(),
+        5,
+        "execute must use canonical fee-tail length"
+    );
+    assert_eq!(
+        ix.accounts[1].pubkey, vm_state,
+        "vm_state remains fixed at account index 1"
+    );
+    assert!(
+        ix.accounts[2].is_signer,
+        "payer must be signer in canonical execute tail"
+    );
+    assert_eq!(
+        ix.accounts[3].pubkey, fee_vault,
+        "fee vault must be canonical tail account"
+    );
+    assert_eq!(
+        ix.accounts[4].pubkey,
+        system_program::id(),
+        "system program must be final tail account"
+    );
 }
 
 #[test]
@@ -217,8 +242,15 @@ fn validator_cu_orchestrator() {
                 )
             }
             "arithmetic_intensive" => {
-                let fixture = fixture_for("arithmetic_intensive", &repo_root).expect("fixture path");
-                run_fixture_scenario(&mut harness, &repo_root, &fixture, "arithmetic_intensive", None)
+                let fixture =
+                    fixture_for("arithmetic_intensive", &repo_root).expect("fixture path");
+                run_fixture_scenario(
+                    &mut harness,
+                    &repo_root,
+                    &fixture,
+                    "arithmetic_intensive",
+                    None,
+                )
             }
             _ => panic!("unsupported scenario `{}`", scenario),
         }
@@ -228,7 +260,9 @@ fn validator_cu_orchestrator() {
         results.push(result);
     }
 
-    let output_path = std::env::var("FIVE_CU_RESULTS_FILE").ok().map(PathBuf::from);
+    let output_path = std::env::var("FIVE_CU_RESULTS_FILE")
+        .ok()
+        .map(PathBuf::from);
     let report = harness
         .write_report(results, output_path)
         .unwrap_or_else(|e| panic!("failed writing validator run report: {}", e));

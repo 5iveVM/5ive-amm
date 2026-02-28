@@ -10,7 +10,7 @@
 #[cfg(test)]
 mod tests {
     // use super::*; // Module is empty, so wildcard import is unused
-    use crate::ast::{AstNode, generated::*};
+    use crate::ast::{generated::*, AstNode};
 
     #[test]
     fn test_expression_to_astnode_conversion() {

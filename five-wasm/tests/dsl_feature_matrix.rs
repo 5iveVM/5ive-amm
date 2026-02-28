@@ -117,7 +117,9 @@ fn encode_execute_input(function_index: u32, params: &[serde_json::Value]) -> Ve
 fn assert_expected_value(actual: Option<Value>, expected: &serde_json::Value, scenario_id: &str) {
     match expected {
         serde_json::Value::Number(number) => {
-            let expected = number.as_u64().expect("expected numeric result must be u64");
+            let expected = number
+                .as_u64()
+                .expect("expected numeric result must be u64");
             assert_eq!(
                 actual,
                 Some(Value::U64(expected)),
@@ -143,16 +145,26 @@ fn wasm_matrix_uses_canonical_cli_corpus() {
     let matrix = load_matrix();
 
     for scenario in matrix.scenarios.iter().filter(|scenario| {
-        scenario.layers.wasm && scenario.kind == "positive" && !scenario.requires_accounts && !scenario.requires_cpi
+        scenario.layers.wasm
+            && scenario.kind == "positive"
+            && !scenario.requires_accounts
+            && !scenario.requires_cpi
     }) {
         let source = fs::read_to_string(source_path(&root, scenario)).expect("read matrix source");
-        let bytecode = DslCompiler::compile_dsl(&source)
-            .unwrap_or_else(|error| panic!("scenario {} failed to compile: {}", scenario.id, error));
+        let bytecode = DslCompiler::compile_dsl(&source).unwrap_or_else(|error| {
+            panic!("scenario {} failed to compile: {}", scenario.id, error)
+        });
         let params = scenario_params(&source, scenario);
         let input = encode_execute_input(scenario.function.unwrap_or(0), &params);
         let mut storage = StackStorage::new();
-        let result = MitoVM::execute_direct(&bytecode, &input, &[], &FIVE_VM_PROGRAM_ID, &mut storage)
-            .unwrap_or_else(|error| panic!("scenario {} failed WASM-path execution: {:?}", scenario.id, error));
+        let result =
+            MitoVM::execute_direct(&bytecode, &input, &[], &FIVE_VM_PROGRAM_ID, &mut storage)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "scenario {} failed WASM-path execution: {:?}",
+                        scenario.id, error
+                    )
+                });
 
         if let Some(expected) = &scenario.expected_result {
             assert_expected_value(result, expected, &scenario.id);

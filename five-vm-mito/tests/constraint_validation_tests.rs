@@ -5,10 +5,15 @@
 #[path = "support/accounts.rs"]
 mod support_accounts;
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, VMError, stack::StackStorage, AccountInfo};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, VMError, Value, FIVE_VM_PROGRAM_ID};
 use pinocchio::pubkey::Pubkey;
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &Pubkey) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+    program_id: &Pubkey,
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
 }
@@ -25,7 +30,7 @@ mod basic_constraint_tests {
         payer_lamports: &'a mut u64,
         payer_data: &'a mut [u8],
         sys_lamports: &'a mut u64,
-        sys_data: &'a mut [u8]
+        sys_data: &'a mut [u8],
     ) -> ([five_vm_mito::AccountInfo; 3], Pubkey, Pubkey, u8) {
         let program_id = Pubkey::from([0xAA; 32]);
         let seeds: &[&[u8]] = &[b"test"];
@@ -52,12 +57,18 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(
+            &mut lamports,
+            &mut data,
+            &mut payer_lamports,
+            &mut payer_data,
+            &mut sys_lamports,
+            &mut sys_data,
+        );
 
         // Account 0 (payer) is signer
         let bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
-            0x70, // CHECK_SIGNER
+            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0, 0x70, // CHECK_SIGNER
             0x00, // Account index 0
             0x00, // HALT
         ];
@@ -74,12 +85,18 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(
+            &mut lamports,
+            &mut data,
+            &mut payer_lamports,
+            &mut payer_data,
+            &mut sys_lamports,
+            &mut sys_data,
+        );
 
         // Account 2 (system program) is NOT signer
         let bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
-            0x70, // CHECK_SIGNER
+            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0, 0x70, // CHECK_SIGNER
             0x02, // Account index 2
             0x00,
         ];
@@ -99,12 +116,18 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(
+            &mut lamports,
+            &mut data,
+            &mut payer_lamports,
+            &mut payer_data,
+            &mut sys_lamports,
+            &mut sys_data,
+        );
 
         // Account 0 is writable
         let bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
-            0x71, // CHECK_WRITABLE
+            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0, 0x71, // CHECK_WRITABLE
             0x00, // Account index 0
             0x00, // HALT
         ];
@@ -121,12 +144,18 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(
+            &mut lamports,
+            &mut data,
+            &mut payer_lamports,
+            &mut payer_data,
+            &mut sys_lamports,
+            &mut sys_data,
+        );
 
         // Account 2 is not writable
         let bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
-            0x71, // CHECK_WRITABLE
+            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0, 0x71, // CHECK_WRITABLE
             0x02, // Account index 2
             0x00, // HALT
         ];
@@ -146,14 +175,20 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(
+            &mut lamports,
+            &mut data,
+            &mut payer_lamports,
+            &mut payer_data,
+            &mut sys_lamports,
+            &mut sys_data,
+        );
 
         // Account 1 owner is program_id
         let expected_owner = program_id;
 
         let mut bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
-            0x72, // CHECK_OWNER
+            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0, 0x72, // CHECK_OWNER
             0x01, // Account index 1
         ];
 
@@ -173,12 +208,18 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(
+            &mut lamports,
+            &mut data,
+            &mut payer_lamports,
+            &mut payer_data,
+            &mut sys_lamports,
+            &mut sys_data,
+        );
 
         // Account 1 has data
         let bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
-            0x73, // CHECK_INITIALIZED
+            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0, 0x73, // CHECK_INITIALIZED
             0x01, // Account index 1
             0x00, // HALT
         ];
@@ -195,7 +236,14 @@ mod basic_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, _, _) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, _, _) = setup_accounts(
+            &mut lamports,
+            &mut data,
+            &mut payer_lamports,
+            &mut payer_data,
+            &mut sys_lamports,
+            &mut sys_data,
+        );
 
         // Account 2 (system program) has empty data and owner is System Program ([0u8; 32])
         // create_test_accounts uses [0u8; 32] as system_program_key.
@@ -203,8 +251,7 @@ mod basic_constraint_tests {
         // CHECK_UNINITIALIZED checks account.data.is_empty() AND owner == SystemProgramID (which is also [0;32] in constraints.rs)
 
         let bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
-            0x75, // CHECK_UNINITIALIZED
+            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0, 0x75, // CHECK_UNINITIALIZED
             0x02, // Account index 2
             0x00, // HALT
         ];
@@ -216,8 +263,8 @@ mod basic_constraint_tests {
 
 #[cfg(test)]
 mod pda_constraint_tests {
-    use super::*;
     use super::basic_constraint_tests::setup_accounts;
+    use super::*;
 
     #[test]
     fn test_check_pda_valid() {
@@ -227,12 +274,17 @@ mod pda_constraint_tests {
         let mut payer_data = [0u8; 0];
         let mut sys_lamports = 0u64;
         let mut sys_data = [0u8; 0];
-        let (accounts, program_id, pda_address, bump) = setup_accounts(&mut lamports, &mut data, &mut payer_lamports, &mut payer_data, &mut sys_lamports, &mut sys_data);
+        let (accounts, program_id, pda_address, bump) = setup_accounts(
+            &mut lamports,
+            &mut data,
+            &mut payer_lamports,
+            &mut payer_data,
+            &mut sys_lamports,
+            &mut sys_data,
+        );
 
         // Account 1 is the PDA derived from seeds "test" and program_id
-        let mut bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
-        ];
+        let mut bytecode = vec![0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0];
 
         // 1. Push seeds "test"
         // PUSH_STRING "test"
@@ -273,13 +325,12 @@ mod unimplemented_constraint_tests {
     #[test]
     fn test_check_dedupe_table() {
         let bytecode = vec![
-            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0,
-            0x76, // CHECK_DEDUPE_TABLE
+            0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 0, 0, 0x76, // CHECK_DEDUPE_TABLE
             0x00,
         ];
         let result = execute_test(&bytecode, &[], &[], &FIVE_VM_PROGRAM_ID);
         match result {
-            Err(VMError::InvalidInstruction) => {}, // Correct
+            Err(VMError::InvalidInstruction) => {} // Correct
             _ => panic!("Expected InvalidInstruction for CHECK_DEDUPE_TABLE"),
         }
     }

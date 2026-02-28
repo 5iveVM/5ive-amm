@@ -19,7 +19,7 @@ pub struct ResourceManager<'a> {
     /// Dynamic heap chunks: (pointer, capacity, used_size)
     /// We use a fixed array to track chunks to avoid Vec allocation overhead.
     heap_chunks: [(*mut u8, usize, usize); 4],
-    
+
     /// Number of active heap chunks
     heap_chunk_count: u8,
 
@@ -28,7 +28,7 @@ pub struct ResourceManager<'a> {
 
     /// Stack start address (approximate top of stack)
     stack_start: usize,
-    
+
     /// Track if a chunk is static (borrowed) or dynamic (owned/alloc'd)
     /// If static, we DO NOT dealloc it on drop.
     chunk_is_static: [bool; 4],
@@ -52,7 +52,7 @@ impl<'a> ResourceManager<'a> {
             stack_start,
             chunk_is_static: [false; 4],
         };
-        
+
         // Initialize the first chunk with the provided static heap buffer
         let len = heap_buffer.len();
         if len > 0 {
@@ -63,7 +63,7 @@ impl<'a> ResourceManager<'a> {
             // Track the initial static chunk as allocated heap capacity.
             mgr.total_heap_usage = len;
         }
-        
+
         mgr
     }
 
@@ -74,7 +74,7 @@ impl<'a> ResourceManager<'a> {
     pub fn stack_usage(&self) -> usize {
         let local_var = 0u8;
         let current_sp = &local_var as *const u8 as usize;
-        
+
         // Stack grows down, so start > current
         if self.stack_start >= current_sp {
             self.stack_start - current_sp
@@ -167,9 +167,7 @@ impl<'a> ResourceManager<'a> {
     #[inline]
     pub fn temp_buffer_fixed_mut(&mut self) -> Result<&mut [u8; crate::TEMP_BUFFER_SIZE]> {
         let ptr = self.temp_buffer.as_mut_ptr();
-        unsafe {
-             Ok(&mut *(ptr as *mut [u8; crate::TEMP_BUFFER_SIZE]))
-        }
+        unsafe { Ok(&mut *(ptr as *mut [u8; crate::TEMP_BUFFER_SIZE])) }
     }
 
     #[inline]
@@ -235,15 +233,17 @@ impl<'a> ResourceManager<'a> {
                 // Fits!
                 let offset = used;
                 self.heap_chunks[self.current_chunk as usize].2 += size; // Update used
-                
+
                 let virtual_addr = ((self.current_chunk as u32) << 24) | (offset as u32);
                 return Ok(virtual_addr);
             }
-            
+
             // Try other chunks if current one is full?
             // Simple Linear Scan:
             for i in 0..self.heap_chunk_count {
-                if i == self.current_chunk { continue; }
+                if i == self.current_chunk {
+                    continue;
+                }
                 let (_, cap, used) = self.heap_chunks[i as usize];
                 if used + size <= cap {
                     let offset = used;
@@ -257,29 +257,31 @@ impl<'a> ResourceManager<'a> {
 
         // 2. Need new chunk
         if self.heap_chunk_count >= 4 {
-             return Err(VMErrorCode::OutOfMemory);
+            return Err(VMErrorCode::OutOfMemory);
         }
 
         let new_chunk_size = size.max(DEFAULT_CHUNK_SIZE);
-        let layout = Layout::from_size_align(new_chunk_size, 8)
-            .map_err(|_| VMErrorCode::OutOfMemory)?;
-        
+        let layout =
+            Layout::from_size_align(new_chunk_size, 8).map_err(|_| VMErrorCode::OutOfMemory)?;
+
         let ptr = unsafe { alloc(layout) };
         if ptr.is_null() {
             return Err(VMErrorCode::OutOfMemory);
         }
 
-        // Zero out memory? Not strictly required by unsafe/alloc contract, 
+        // Zero out memory? Not strictly required by unsafe/alloc contract,
         // but safer for VM deterministic behavior if we assume zeroed.
         // However, user said "unsafe so its zero copy", implying performance.
         // We will zero it to be safe, or leave it if performance is critical.
         // OPTIMIZATION: Only zero in debug builds, skip in release for performance
         #[cfg(debug_assertions)]
-        unsafe { ptr::write_bytes(ptr, 0, new_chunk_size) };
+        unsafe {
+            ptr::write_bytes(ptr, 0, new_chunk_size)
+        };
 
         // Add to chunks
         let chunk_index = self.heap_chunk_count;
-        
+
         self.heap_chunks[chunk_index as usize] = (ptr, new_chunk_size, size); // Used = size
         self.heap_chunk_count += 1;
         self.total_heap_usage += new_chunk_size;
@@ -305,12 +307,10 @@ impl<'a> ResourceManager<'a> {
         let (ptr, cap, _used) = self.heap_chunks[chunk_index];
 
         if offset + len > cap {
-             return Err(VMErrorCode::MemoryError);
+            return Err(VMErrorCode::MemoryError);
         }
 
-        unsafe {
-            Ok(core::slice::from_raw_parts(ptr.add(offset), len))
-        }
+        unsafe { Ok(core::slice::from_raw_parts(ptr.add(offset), len)) }
     }
 
     /// Get mutable slice to heap data
@@ -327,12 +327,10 @@ impl<'a> ResourceManager<'a> {
         let (ptr, cap, _used) = self.heap_chunks[chunk_index];
 
         if offset + len > cap {
-             return Err(VMErrorCode::MemoryError);
+            return Err(VMErrorCode::MemoryError);
         }
 
-        unsafe {
-            Ok(core::slice::from_raw_parts_mut(ptr.add(offset), len))
-        }
+        unsafe { Ok(core::slice::from_raw_parts_mut(ptr.add(offset), len)) }
     }
 
     /// Get total heap usage in bytes
@@ -349,7 +347,7 @@ impl<'a> Drop for ResourceManager<'a> {
             if self.chunk_is_static[i] {
                 continue;
             }
-            
+
             let (ptr, cap, _) = self.heap_chunks[i];
             if !ptr.is_null() && cap > 0 {
                 unsafe {

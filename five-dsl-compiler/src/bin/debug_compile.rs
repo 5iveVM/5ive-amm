@@ -213,7 +213,6 @@ fn main() {
     }
 }
 
-
 mod hex {
     pub fn encode(data: &[u8]) -> String {
         data.iter()

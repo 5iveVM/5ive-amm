@@ -90,7 +90,9 @@ async fn init_vm(
         .expect("set_fees must succeed");
 }
 
-async fn setup_runtime_case(execute_fee_lamports: u32) -> (
+async fn setup_runtime_case(
+    execute_fee_lamports: u32,
+) -> (
     solana_program_test::ProgramTestContext,
     Pubkey,
     Keypair,
@@ -199,7 +201,15 @@ async fn setup_runtime_case(execute_fee_lamports: u32) -> (
         .await
         .expect("deploy must succeed");
 
-    (ctx, program_id, owner, readonly_signer, authority, script.pubkey(), vm_state)
+    (
+        ctx,
+        program_id,
+        owner,
+        readonly_signer,
+        authority,
+        script.pubkey(),
+        vm_state,
+    )
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -382,14 +392,8 @@ async fn execute_charges_fee_to_fee_vault_canonical_path() {
         .lamports;
 
     let payload = canonical_execute_payload(0, &[]);
-    let execute_ix = canonical_execute_instruction(
-        program_id,
-        script,
-        vm_state,
-        owner.pubkey(),
-        &payload,
-        None,
-    );
+    let execute_ix =
+        canonical_execute_instruction(program_id, script, vm_state, owner.pubkey(), &payload, None);
 
     ctx.last_blockhash = ctx
         .banks_client
@@ -423,5 +427,9 @@ async fn execute_charges_fee_to_fee_vault_canonical_path() {
         .lamports;
 
     assert!(before_owner > after_owner, "owner must pay execute fee");
-    assert_eq!(after_vault - before_vault, 200, "fee vault receives full execute fee");
+    assert_eq!(
+        after_vault - before_vault,
+        200,
+        "fee vault receives full execute fee"
+    );
 }

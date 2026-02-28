@@ -178,8 +178,7 @@ impl PerformanceMetrics {
 }
 
 /// Opcode usage frequency tracking
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OpcodeStats {
     /// Frequency count for each opcode
     pub usage_frequency: HashMap<String, u64>,
@@ -201,8 +200,7 @@ pub struct OpcodeStats {
 }
 
 /// Memory usage analytics during compilation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MemoryAnalytics {
     /// Peak memory usage during compilation
     pub peak_memory_usage: u64,
@@ -270,8 +268,7 @@ pub struct FunctionComplexityMetrics {
 }
 
 /// Error pattern analytics for debugging
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ErrorPatternAnalytics {
     /// Error frequency by type
     pub error_frequency: HashMap<String, u64>,
@@ -291,8 +288,7 @@ pub struct ErrorPatternAnalytics {
 }
 
 /// Source code statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SourceStats {
     /// Lines of code metrics
     pub total_lines: u64,
@@ -354,8 +350,6 @@ impl Default for PerformanceMetrics {
     }
 }
 
-
-
 impl Default for BytecodeAnalytics {
     fn default() -> Self {
         Self {
@@ -384,8 +378,6 @@ impl Default for FunctionComplexityMetrics {
         }
     }
 }
-
-
 
 /// Metrics collector that instruments the compilation pipeline
 pub struct MetricsCollector {

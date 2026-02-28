@@ -25,7 +25,9 @@ fn new_context<'a>(storage: &'a mut StackStorage) -> ExecutionContext<'a> {
 }
 
 fn push_string_ref(ctx: &mut ExecutionContext<'_>, bytes: &[u8]) -> ValueRef {
-    let offset = ctx.alloc_temp((bytes.len() + 2) as u8).expect("alloc string temp");
+    let offset = ctx
+        .alloc_temp((bytes.len() + 2) as u8)
+        .expect("alloc string temp");
     let start = offset as usize;
     ctx.temp_buffer_mut()[start] = bytes.len() as u8;
     ctx.temp_buffer_mut()[start + 1] = 0;

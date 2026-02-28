@@ -67,7 +67,10 @@ pub main() {}
 "#;
 
     let result = DslCompiler::compile_dsl(dsl);
-    assert!(result.is_ok(), "cast target type should be preserved in field access");
+    assert!(
+        result.is_ok(),
+        "cast target type should be preserved in field access"
+    );
 }
 
 #[test]
@@ -101,5 +104,8 @@ pub main() {}
         msg.contains("reserved keyword"),
         "expected targeted reserved-keyword diagnostic, got: {msg}"
     );
-    assert!(msg.contains("'init'"), "expected offending keyword in diagnostic: {msg}");
+    assert!(
+        msg.contains("'init'"),
+        "expected offending keyword in diagnostic: {msg}"
+    );
 }

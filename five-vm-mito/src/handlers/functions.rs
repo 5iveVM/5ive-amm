@@ -19,12 +19,24 @@ pub fn handle_functions(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let res = handle_call(ctx);
             if let Err(ref e) = res {
                 match e {
-                    VMErrorCode::StackError => { debug_log!("MitoVM: CALL Error: StackError");  },
-                    VMErrorCode::InvalidInstruction => { debug_log!("MitoVM: CALL Error: InvalidInstruction");  },
-                    VMErrorCode::CallStackOverflow => { debug_log!("MitoVM: CALL Error: CallStackOverflow");  },
-                    VMErrorCode::InvalidFunctionIndex => { debug_log!("MitoVM: CALL Error: InvalidFunctionIndex");  },
-                    VMErrorCode::InvalidOperation => { debug_log!("MitoVM: CALL Error: InvalidOperation");  },
-                    _ => { debug_log!("MitoVM: CALL Error: Other VMErrorCode");  },
+                    VMErrorCode::StackError => {
+                        debug_log!("MitoVM: CALL Error: StackError");
+                    }
+                    VMErrorCode::InvalidInstruction => {
+                        debug_log!("MitoVM: CALL Error: InvalidInstruction");
+                    }
+                    VMErrorCode::CallStackOverflow => {
+                        debug_log!("MitoVM: CALL Error: CallStackOverflow");
+                    }
+                    VMErrorCode::InvalidFunctionIndex => {
+                        debug_log!("MitoVM: CALL Error: InvalidFunctionIndex");
+                    }
+                    VMErrorCode::InvalidOperation => {
+                        debug_log!("MitoVM: CALL Error: InvalidOperation");
+                    }
+                    _ => {
+                        debug_log!("MitoVM: CALL Error: Other VMErrorCode");
+                    }
                 }
             }
             res
@@ -137,12 +149,20 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let caller_len = ctx.param_len();
 
     if ctx.size() < param_count as usize {
-        debug_log!("MitoVM: CALL STACK_ERROR - stack_size={} < param_count={}", ctx.size(), param_count);
+        debug_log!(
+            "MitoVM: CALL STACK_ERROR - stack_size={} < param_count={}",
+            ctx.size(),
+            param_count
+        );
         return Err(VMErrorCode::StackError);
     }
 
     #[cfg(feature = "debug-logs")]
-    debug_log!("MitoVM: internal CALL params={} stack={}", param_count as u64, ctx.size() as u64);
+    debug_log!(
+        "MitoVM: internal CALL params={} stack={}",
+        param_count as u64,
+        ctx.size() as u64
+    );
 
     let call_args = materialize_call_args(ctx, param_count)?;
     ctx.allocate_params(param_count + 1)?;
@@ -419,7 +439,10 @@ fn parse_external_layout(
             external_bytecode[offset + 2],
             external_bytecode[offset + 3],
         ]) as usize;
-        let pool_slots = u16::from_le_bytes([external_bytecode[offset + 12], external_bytecode[offset + 13]]) as usize;
+        let pool_slots = u16::from_le_bytes([
+            external_bytecode[offset + 12],
+            external_bytecode[offset + 13],
+        ]) as usize;
         let code_offset = pool_offset + (pool_slots * 8);
         if code_offset >= external_bytecode.len() {
             return Err(VMErrorCode::InvalidInstructionPointer);
@@ -465,7 +488,8 @@ fn resolve_external_function_target(
     external_bytecode: &[u8],
     selector: u16,
 ) -> CompactResult<(usize, Option<usize>)> {
-    let (code_start, public_entry_table, function_names) = parse_external_layout(external_bytecode)?;
+    let (code_start, public_entry_table, function_names) =
+        parse_external_layout(external_bytecode)?;
 
     // 1) Preferred path: selector is FNV-1a(name) and function names metadata exists.
     if let (Some((names_start, names_size)), Some((table_start, table_count))) =
@@ -643,7 +667,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let raw_selector = ctx.fetch_u16()?;
     let param_count = ctx.fetch_byte()?;
     let function_selector = decode_external_selector(ctx, raw_selector)?;
-    
+
     #[cfg(feature = "debug-logs")]
     debug_log!(
         "MitoVM: CALL_EXTERNAL acc={} selector={} params={} stack={}",
@@ -661,7 +685,8 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         return Err(VMErrorCode::StackError);
     }
 
-    let resolved_account_index = ctx.resolve_account_index_for_context(account_index as u8) as usize;
+    let resolved_account_index =
+        ctx.resolve_account_index_for_context(account_index as u8) as usize;
     let resolved_account_index_u8 =
         u8::try_from(resolved_account_index).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
 
@@ -676,7 +701,9 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     }
 
     let (external_bytecode, code_fingerprint, is_authorized) =
-        if let Some((hot_fingerprint, hot_authorized)) = ctx.external_hot_ctx_lookup(resolved_account_index_u8) {
+        if let Some((hot_fingerprint, hot_authorized)) =
+            ctx.external_hot_ctx_lookup(resolved_account_index_u8)
+        {
             let script = ctx
                 .external_hot_ctx_script(resolved_account_index_u8)
                 .ok_or(VMErrorCode::AccountDataEmpty)?;
@@ -742,21 +769,22 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
             // NEW: Import verification for Five bytecode accounts.
             // Check if the account matches verified imports using zero-copy metadata.
-            let pda_derivation_fn: Option<crate::metadata::PdaDerivationFn> = Some(|seeds, program_id| {
-                #[cfg(target_os = "solana")]
-                {
-                    let (key, _bump) = pinocchio::pubkey::find_program_address(seeds, unsafe {
-                        &*(program_id as *const _ as *const pinocchio::pubkey::Pubkey)
-                    });
-                    key
-                }
-                #[cfg(not(target_os = "solana"))]
-                {
-                    let _ = seeds;
-                    let _ = program_id;
-                    [0u8; 32]
-                }
-            });
+            let pda_derivation_fn: Option<crate::metadata::PdaDerivationFn> =
+                Some(|seeds, program_id| {
+                    #[cfg(target_os = "solana")]
+                    {
+                        let (key, _bump) = pinocchio::pubkey::find_program_address(seeds, unsafe {
+                            &*(program_id as *const _ as *const pinocchio::pubkey::Pubkey)
+                        });
+                        key
+                    }
+                    #[cfg(not(target_os = "solana"))]
+                    {
+                        let _ = seeds;
+                        let _ = program_id;
+                        [0u8; 32]
+                    }
+                });
 
             let is_authorized = if let Some(cached) =
                 ctx.import_verify_cache_lookup(resolved_account_index_u8, code_fingerprint)
@@ -768,7 +796,11 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
                     &ctx.program_id,
                     pda_derivation_fn,
                 );
-                ctx.import_verify_cache_store(resolved_account_index_u8, code_fingerprint, authorized);
+                ctx.import_verify_cache_store(
+                    resolved_account_index_u8,
+                    code_fingerprint,
+                    authorized,
+                );
                 authorized
             };
 
@@ -782,7 +814,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
             (external_bytecode, code_fingerprint, is_authorized)
         };
-    
+
     debug_log!(
         "MitoVM: CALL_EXTERNAL loaded external_bytecode length: {}",
         external_bytecode.len() as u32
@@ -795,52 +827,51 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     #[cfg(feature = "debug-logs")]
     {
         let preview_len = external_bytecode.len().min(20);
-        debug_log!("MitoVM: CALL_EXTERNAL external_bytecode preview (first {} bytes):", preview_len as u32);
+        debug_log!(
+            "MitoVM: CALL_EXTERNAL external_bytecode preview (first {} bytes):",
+            preview_len as u32
+        );
         for i in 0..preview_len {
             debug_log!("  [{}]: {}", i as u32, external_bytecode[i]);
         }
     }
 
     // Fast path: transaction-local selector/constraint resolution cache
-    let (resolved_func_offset, required_account_count, constraints) =
-        if let Some(entry) = ctx.external_call_cache_lookup(
+    let (resolved_func_offset, required_account_count, constraints) = if let Some(entry) = ctx
+        .external_call_cache_lookup(
             resolved_account_index as u8,
             function_selector,
             code_fingerprint,
         ) {
-            (
-                entry.func_offset as usize,
-                entry.required_account_count,
-                entry.constraints,
-            )
-        } else {
-            let (resolved_func_offset, resolved_func_index) =
-                resolve_external_function_target(external_bytecode, function_selector)?;
-            let constraint_selector = resolved_func_index.unwrap_or(0);
-            let (required_account_count, constraints) =
-                parse_function_constraints(external_bytecode, constraint_selector)?;
-            let func_offset_u16 =
-                u16::try_from(resolved_func_offset).map_err(|_| VMErrorCode::InvalidInstructionPointer)?;
-            let func_index_u8 = match resolved_func_index {
-                Some(idx) => u8::try_from(idx).map_err(|_| VMErrorCode::InvalidInstructionPointer)?,
-                None => u8::MAX,
-            };
-            ctx.external_call_cache_store(ExternalCallCacheEntry {
-                resolved_account_index: resolved_account_index as u8,
-                selector: function_selector,
-                func_offset: func_offset_u16,
-                func_index: func_index_u8,
-                required_account_count,
-                constraints,
-                code_fingerprint,
-                valid: true,
-            });
-            (
-                resolved_func_offset,
-                required_account_count,
-                constraints,
-            )
+        (
+            entry.func_offset as usize,
+            entry.required_account_count,
+            entry.constraints,
+        )
+    } else {
+        let (resolved_func_offset, resolved_func_index) =
+            resolve_external_function_target(external_bytecode, function_selector)?;
+        let constraint_selector = resolved_func_index.unwrap_or(0);
+        let (required_account_count, constraints) =
+            parse_function_constraints(external_bytecode, constraint_selector)?;
+        let func_offset_u16 = u16::try_from(resolved_func_offset)
+            .map_err(|_| VMErrorCode::InvalidInstructionPointer)?;
+        let func_index_u8 = match resolved_func_index {
+            Some(idx) => u8::try_from(idx).map_err(|_| VMErrorCode::InvalidInstructionPointer)?,
+            None => u8::MAX,
         };
+        ctx.external_call_cache_store(ExternalCallCacheEntry {
+            resolved_account_index: resolved_account_index as u8,
+            selector: function_selector,
+            func_offset: func_offset_u16,
+            func_index: func_index_u8,
+            required_account_count,
+            constraints,
+            code_fingerprint,
+            valid: true,
+        });
+        (resolved_func_offset, required_account_count, constraints)
+    };
 
     if !is_authorized {
         return Err(VMErrorCode::UnauthorizedBytecodeInvocation);
@@ -896,16 +927,16 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         ctx.ip() as u32,
         resolved_func_offset as u32
     );
-    
+
     ctx.switch_to_external_bytecode(external_bytecode, resolved_func_offset)?;
     ctx.current_context = resolved_account_index as u8;
-    
+
     debug_log!(
         "MitoVM: CALL_EXTERNAL after switch_to_external_bytecode - new IP: {}, script len: {}",
         ctx.ip() as u32,
         ctx.script().len() as u32
     );
-    
+
     Ok(())
 }
 
@@ -997,7 +1028,11 @@ fn prepare_callee_frame(
 }
 
 #[inline(always)]
-fn write_scalar_params(ctx: &mut ExecutionManager, call_args: &[ValueRef; MAX_PARAMETERS], param_count: u8) {
+fn write_scalar_params(
+    ctx: &mut ExecutionManager,
+    call_args: &[ValueRef; MAX_PARAMETERS],
+    param_count: u8,
+) {
     let params = ctx.parameters_mut();
     params[0] = ValueRef::U64(0);
     let mut out_idx = 1usize;
@@ -1112,10 +1147,12 @@ mod tests {
         external_selector, handle_call_external, parse_function_constraints,
         resolve_external_function_target,
     };
-    use crate::{context::ExecutionContext, error::VMErrorCode, stack::StackStorage, MAX_PARAMETERS};
+    use crate::{
+        context::ExecutionContext, error::VMErrorCode, stack::StackStorage, MAX_PARAMETERS,
+    };
+    use five_protocol::ValueRef;
     use five_protocol::{BytecodeBuilder, FEATURE_FUNCTION_CONSTRAINTS, FEATURE_FUNCTION_NAMES};
     use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
-    use five_protocol::ValueRef;
 
     #[test]
     fn parse_constraints_returns_default_when_feature_not_set() {
@@ -1132,7 +1169,8 @@ mod tests {
     fn parse_constraints_reads_fixed_width_entries() {
         let mut b = BytecodeBuilder::new();
         b.emit_header(1, 2);
-        b.patch_u32(4, FEATURE_FUNCTION_CONSTRAINTS).expect("features");
+        b.patch_u32(4, FEATURE_FUNCTION_CONSTRAINTS)
+            .expect("features");
 
         // 2 entries x 17 bytes each
         b.emit_u16(34);
@@ -1158,11 +1196,8 @@ mod tests {
     fn parse_constraints_skips_function_names_metadata() {
         let mut b = BytecodeBuilder::new();
         b.emit_header(1, 1);
-        b.patch_u32(
-            4,
-            FEATURE_FUNCTION_NAMES | FEATURE_FUNCTION_CONSTRAINTS,
-        )
-        .expect("features");
+        b.patch_u32(4, FEATURE_FUNCTION_NAMES | FEATURE_FUNCTION_CONSTRAINTS)
+            .expect("features");
 
         // Function names section payload:
         // [name_count=1] [name_len=4] ['t' 'e' 's' 't']
@@ -1263,7 +1298,7 @@ mod tests {
         b.extend_from_slice(&features.to_le_bytes());
         b.push(1); // public function count
         b.push(1); // total function count
-        // Public entry table payload: [count=1][rel_offset=0]
+                   // Public entry table payload: [count=1][rel_offset=0]
         b.extend_from_slice(&(3u16).to_le_bytes());
         b.push(1);
         b.extend_from_slice(&(0u16).to_le_bytes());

@@ -78,7 +78,9 @@ impl<'a> DslTokenizer<'a> {
                         continue;
                     }
 
-                    let attribute = self.read_identifier_allow_leading_digit().map_err(VMError::from)?;
+                    let attribute = self
+                        .read_identifier_allow_leading_digit()
+                        .map_err(VMError::from)?;
 
                     match attribute.as_str() {
                         "signer" => tokens.push(Token::AtSigner),
@@ -393,13 +395,11 @@ impl<'a> DslTokenizer<'a> {
                             })?;
                             tokens.push(Token::NumberLiteral(value));
                         } else {
-                            let number_value =
-                                self.read_number_literal().map_err(VMError::from)?;
+                            let number_value = self.read_number_literal().map_err(VMError::from)?;
                             tokens.push(Token::NumberLiteral(number_value));
                         }
                     } else {
-                        let number_value =
-                            self.read_number_literal().map_err(VMError::from)?;
+                        let number_value = self.read_number_literal().map_err(VMError::from)?;
                         tokens.push(Token::NumberLiteral(number_value));
                     }
                 }
@@ -626,7 +626,9 @@ impl<'a> DslTokenizer<'a> {
             // For now, treat them as regular identifiers so pubkey(0) works as a function call
             // The parser/type checker will determine if it's a type or function based on context
             "pubkey" | "u64" | "u32" | "u16" | "u8" | "i64" | "i32" | "i16" | "i8" | "bool"
-            | "string" | "lamports" | "u128" | "Account" => Token::Identifier(identifier.to_string()),
+            | "string" | "lamports" | "u128" | "Account" => {
+                Token::Identifier(identifier.to_string())
+            }
 
             // Regular identifier
             _ => Token::Identifier(identifier.to_string()),
@@ -710,8 +712,7 @@ impl<'a> DslTokenizer<'a> {
                         // Read the field name after the dot
                         if let Some(ch) = self.current_char {
                             if ch.is_alphabetic() || ch == '_' {
-                                let field_name =
-                                    self.read_identifier().map_err(VMError::from)?;
+                                let field_name = self.read_identifier().map_err(VMError::from)?;
                                 let field_token = self.classify_identifier(&field_name);
                                 tokens.push(field_token);
                             } else {

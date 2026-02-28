@@ -16,7 +16,10 @@
 //! ```
 
 use crate::bridge::CompilerBridge;
-use crate::features::{hover, completion, goto_definition, find_references, semantic, code_actions, document_symbols, workspace_symbols, rename};
+use crate::features::{
+    code_actions, completion, document_symbols, find_references, goto_definition, hover, rename,
+    semantic, workspace_symbols,
+};
 use lsp_types::Url;
 use wasm_bindgen::prelude::*;
 
@@ -187,17 +190,11 @@ impl FiveLspWasm {
         character: u32,
     ) -> Result<Option<String>, JsValue> {
         // Parse URI
-        let url = Url::parse(uri)
-            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+        let url = Url::parse(uri).map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Get definition from feature module
-        let location = goto_definition::get_definition(
-            &mut self.bridge,
-            &url,
-            source,
-            line,
-            character,
-        );
+        let location =
+            goto_definition::get_definition(&mut self.bridge, &url, source, line, character);
 
         // Convert to JSON for passing to JavaScript
         if let Some(loc) = location {
@@ -234,8 +231,7 @@ impl FiveLspWasm {
         character: u32,
     ) -> Result<String, JsValue> {
         // Parse URI
-        let url = Url::parse(uri)
-            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+        let url = Url::parse(uri).map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Get references from feature module
         let references = find_references::find_references(
@@ -255,14 +251,9 @@ impl FiveLspWasm {
     ///
     /// Returns an array of semantic tokens for AST-based syntax highlighting.
     /// Provides more accurate highlighting than regex-based approaches.
-    pub fn get_semantic_tokens(
-        &mut self,
-        uri: &str,
-        source: &str,
-    ) -> Result<String, JsValue> {
+    pub fn get_semantic_tokens(&mut self, uri: &str, source: &str) -> Result<String, JsValue> {
         // Parse URI
-        let url = Url::parse(uri)
-            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+        let url = Url::parse(uri).map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Get semantic tokens
         let tokens = semantic::get_semantic_tokens(&mut self.bridge, source, &url);
@@ -276,14 +267,9 @@ impl FiveLspWasm {
     ///
     /// Returns all top-level definitions (functions, variables, accounts) for
     /// display in the editor's outline/navigator panel.
-    pub fn get_document_symbols(
-        &mut self,
-        uri: &str,
-        source: &str,
-    ) -> Result<String, JsValue> {
+    pub fn get_document_symbols(&mut self, uri: &str, source: &str) -> Result<String, JsValue> {
         // Parse URI
-        let url = Url::parse(uri)
-            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+        let url = Url::parse(uri).map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Get document symbols
         let symbols = document_symbols::get_document_symbols(&mut self.bridge, source, &url);
@@ -312,8 +298,7 @@ impl FiveLspWasm {
         query: &str,
     ) -> Result<String, JsValue> {
         // Parse URI
-        let url = Url::parse(uri)
-            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+        let url = Url::parse(uri).map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Get workspace symbols matching query
         let symbols = workspace_symbols::workspace_symbols(&mut self.bridge, source, query, &url);
@@ -333,8 +318,7 @@ impl FiveLspWasm {
         diagnostic_json: &str,
     ) -> Result<String, JsValue> {
         // Parse URI
-        let url = Url::parse(uri)
-            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+        let url = Url::parse(uri).map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Parse diagnostic from JSON
         let diagnostic: lsp_types::Diagnostic = serde_json::from_str(diagnostic_json)
@@ -365,8 +349,8 @@ impl FiveLspWasm {
         character: u32,
     ) -> Result<Option<String>, JsValue> {
         // Parse URI (validate but currently not used for single-file analysis)
-        let _url = Url::parse(uri)
-            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+        let _url =
+            Url::parse(uri).map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         match rename::prepare_rename(source, line as usize, character as usize) {
             Some(name) => Ok(Some(name)),
@@ -386,11 +370,17 @@ impl FiveLspWasm {
         new_name: &str,
     ) -> Result<Option<String>, JsValue> {
         // Parse URI
-        let url = Url::parse(uri)
-            .map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
+        let url = Url::parse(uri).map_err(|e| JsValue::from_str(&format!("Invalid URI: {}", e)))?;
 
         // Perform rename
-        match rename::rename(&mut self.bridge, source, line as usize, character as usize, new_name, &url) {
+        match rename::rename(
+            &mut self.bridge,
+            source,
+            line as usize,
+            character as usize,
+            new_name,
+            &url,
+        ) {
             Some(edit) => {
                 let json = serde_json::to_string(&edit)
                     .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))?;

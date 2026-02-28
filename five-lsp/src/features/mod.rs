@@ -5,30 +5,30 @@
 //! Phase 3: Semantic tokens, Code actions, Rename, Document Symbols
 //! Phase 4: Signature help, Workspace symbols, Inlay hints
 
-pub mod diagnostics;
-pub mod hover;
-pub mod completion;
-pub mod goto_definition;
-pub mod find_references;
-pub mod semantic;
 pub mod code_actions;
+pub mod completion;
+pub mod diagnostics;
 pub mod document_symbols;
-pub mod rename;
-pub mod workspace_symbols;
-pub mod signature_help;
-pub mod inlay_hints;
+pub mod find_references;
 pub mod formatting;
+pub mod goto_definition;
+pub mod hover;
+pub mod inlay_hints;
+pub mod rename;
+pub mod semantic;
+pub mod signature_help;
+pub mod workspace_symbols;
 
-pub use diagnostics::*;
-pub use hover::*;
-pub use completion::*;
-pub use goto_definition::*;
-pub use find_references::*;
-pub use semantic::*;
 pub use code_actions::*;
+pub use completion::*;
+pub use diagnostics::*;
 pub use document_symbols::*;
-pub use rename::*;
-pub use workspace_symbols::*;
-pub use signature_help::*;
-pub use inlay_hints::*;
+pub use find_references::*;
 pub use formatting::*;
+pub use goto_definition::*;
+pub use hover::*;
+pub use inlay_hints::*;
+pub use rename::*;
+pub use semantic::*;
+pub use signature_help::*;
+pub use workspace_symbols::*;

@@ -327,8 +327,8 @@ impl TypeCheckerContext {
 
     fn check_binary_operator_safety(&self, operator: &str) -> Result<(), VMError> {
         match operator {
-            "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "&&"
-            | "||" | "range" => Ok(()),
+            "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "&&" | "||"
+            | "range" => Ok(()),
             _ => Err(VMError::InvalidScript),
         }
     }
@@ -336,7 +336,6 @@ impl TypeCheckerContext {
 
 #[cfg(test)]
 mod tests {
-    
 
     #[test]
     fn test_type_safe_checker_methods_exist() {

@@ -1,7 +1,7 @@
 use crate::ast::{AstNode, Attribute, InstructionParameter};
-use crate::parser::{DslParser, types};
 use crate::parser::instructions::parse_pda_arguments;
-use crate::tokenizer::{Token};
+use crate::parser::{types, DslParser};
+use crate::tokenizer::Token;
 use five_vm_mito::error::VMError;
 
 fn parse_serializer_name(parser: &mut DslParser) -> Result<String, VMError> {
@@ -81,7 +81,9 @@ fn parse_discriminator_bytes_args(parser: &mut DslParser) -> Result<Vec<u8>, VME
         {
             let b = match &parser.current_token {
                 Token::NumberLiteral(n) if *n <= u8::MAX as u64 => *n as u8,
-                _ => return Err(parser.parse_error("number literal (0-255) for discriminator_bytes")),
+                _ => {
+                    return Err(parser.parse_error("number literal (0-255) for discriminator_bytes"))
+                }
             };
             bytes.push(b);
             parser.advance();
@@ -101,7 +103,9 @@ fn parse_discriminator_bytes_args(parser: &mut DslParser) -> Result<Vec<u8>, VME
         {
             let b = match &parser.current_token {
                 Token::NumberLiteral(n) if *n <= u8::MAX as u64 => *n as u8,
-                _ => return Err(parser.parse_error("number literal (0-255) for discriminator_bytes")),
+                _ => {
+                    return Err(parser.parse_error("number literal (0-255) for discriminator_bytes"))
+                }
             };
             bytes.push(b);
             parser.advance();
@@ -254,9 +258,8 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
         } else if matches!(parser.current_token, Token::At) {
             let saved_pos = parser.position;
             parser.advance(); // consume '@'
-            let is_serializer_attr =
-                matches!(&parser.current_token, Token::Identifier(name) if name == "serializer")
-                    || matches!(parser.current_token, Token::Serializer);
+            let is_serializer_attr = matches!(&parser.current_token, Token::Identifier(name) if name == "serializer")
+                || matches!(parser.current_token, Token::Serializer);
             if is_serializer_attr {
                 parser.advance(); // consume 'serializer'
                 if !matches!(parser.current_token, Token::LeftParen) {
@@ -307,10 +310,10 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
 
             let is_disc = matches!(&parser.current_token, Token::Identifier(name) if name == "discriminator")
                 || matches!(parser.current_token, Token::Discriminator);
-            let is_disc_bytes =
-                matches!(&parser.current_token, Token::Identifier(name) if name == "discriminator_bytes")
-                    || matches!(parser.current_token, Token::DiscriminatorBytes);
-            let is_anchor = matches!(&parser.current_token, Token::Identifier(name) if name == "anchor");
+            let is_disc_bytes = matches!(&parser.current_token, Token::Identifier(name) if name == "discriminator_bytes")
+                || matches!(parser.current_token, Token::DiscriminatorBytes);
+            let is_anchor =
+                matches!(&parser.current_token, Token::Identifier(name) if name == "anchor");
 
             if is_disc {
                 parser.advance(); // consume 'discriminator'
@@ -324,7 +327,9 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
                 parser.advance(); // consume 'anchor'
                 is_method_anchor = true;
             } else {
-                return Err(parser.parse_error("supported method attribute (@anchor, @discriminator, @discriminator_bytes)"));
+                return Err(parser.parse_error(
+                    "supported method attribute (@anchor, @discriminator, @discriminator_bytes)",
+                ));
             }
         }
 
@@ -345,10 +350,10 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
 
             let is_disc = matches!(&parser.current_token, Token::Identifier(name) if name == "discriminator")
                 || matches!(parser.current_token, Token::Discriminator);
-            let is_disc_bytes =
-                matches!(&parser.current_token, Token::Identifier(name) if name == "discriminator_bytes")
-                    || matches!(parser.current_token, Token::DiscriminatorBytes);
-            let is_anchor = matches!(&parser.current_token, Token::Identifier(name) if name == "anchor");
+            let is_disc_bytes = matches!(&parser.current_token, Token::Identifier(name) if name == "discriminator_bytes")
+                || matches!(parser.current_token, Token::DiscriminatorBytes);
+            let is_anchor =
+                matches!(&parser.current_token, Token::Identifier(name) if name == "anchor");
 
             if is_disc {
                 parser.advance(); // consume 'discriminator'
@@ -362,7 +367,9 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
                 parser.advance(); // consume 'anchor'
                 is_method_anchor = true;
             } else {
-                return Err(parser.parse_error("supported method attribute (@anchor, @discriminator, @discriminator_bytes)"));
+                return Err(parser.parse_error(
+                    "supported method attribute (@anchor, @discriminator, @discriminator_bytes)",
+                ));
             }
         }
 
@@ -411,16 +418,25 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
             ) {
                 match &parser.current_token {
                     Token::AtSigner => {
-                        attributes.push(Attribute { name: "signer".to_string(), args: vec![] });
+                        attributes.push(Attribute {
+                            name: "signer".to_string(),
+                            args: vec![],
+                        });
                         parser.advance();
                     }
                     Token::AtMut => {
-                        attributes.push(Attribute { name: "mut".to_string(), args: vec![] });
+                        attributes.push(Attribute {
+                            name: "mut".to_string(),
+                            args: vec![],
+                        });
                         parser.advance();
                     }
                     Token::AtInit => {
                         is_init = true;
-                        attributes.push(Attribute { name: "init".to_string(), args: vec![] });
+                        attributes.push(Attribute {
+                            name: "init".to_string(),
+                            args: vec![],
+                        });
                         parser.advance();
 
                         // For interfaces, we might not need full init config parsing with seeds,
@@ -429,7 +445,8 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
                         if matches!(parser.current_token, Token::LeftBracket) {
                             parser.advance(); // consume '['
                             let mut seeds = Vec::new();
-                            while !matches!(parser.current_token, Token::RightBracket | Token::Eof) {
+                            while !matches!(parser.current_token, Token::RightBracket | Token::Eof)
+                            {
                                 seeds.push(parser.parse_expression()?);
                                 if matches!(parser.current_token, Token::Comma) {
                                     parser.advance();
@@ -462,7 +479,9 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
                         let name = parser.expect_ident()?;
                         if name == "pda" {
                             let _ = parse_pda_arguments(parser)?;
-                            return Err(parser.parse_error("@pda is not allowed on interface parameters"));
+                            return Err(
+                                parser.parse_error("@pda is not allowed on interface parameters")
+                            );
                         }
                         let mut args = Vec::new();
                         if matches!(parser.current_token, Token::LeftParen) {
@@ -522,17 +541,18 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
         };
 
         // Parse optional discriminator after params: discriminator(N) or discriminator_bytes(...)
-        let (discriminator, discriminator_bytes) = if discriminator.is_some() || discriminator_bytes.is_some() {
-            (discriminator, discriminator_bytes)
-        } else if matches!(parser.current_token, Token::Discriminator) {
-            parser.advance(); // consume 'discriminator'
-            parse_discriminator_args(parser)?
-        } else if matches!(parser.current_token, Token::DiscriminatorBytes) {
-            parser.advance(); // consume 'discriminator_bytes'
-            (None, Some(parse_discriminator_bytes_args(parser)?))
-        } else {
-            (None, None)
-        };
+        let (discriminator, discriminator_bytes) =
+            if discriminator.is_some() || discriminator_bytes.is_some() {
+                (discriminator, discriminator_bytes)
+            } else if matches!(parser.current_token, Token::Discriminator) {
+                parser.advance(); // consume 'discriminator'
+                parse_discriminator_args(parser)?
+            } else if matches!(parser.current_token, Token::DiscriminatorBytes) {
+                parser.advance(); // consume 'discriminator_bytes'
+                (None, Some(parse_discriminator_bytes_args(parser)?))
+            } else {
+                (None, None)
+            };
 
         // Optional semicolon
         if matches!(parser.current_token, Token::Semicolon) {

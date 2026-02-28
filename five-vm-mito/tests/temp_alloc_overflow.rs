@@ -40,5 +40,8 @@ fn test_alloc_temp_overflow() {
         allocated,
         TEMP_BUFFER_SIZE
     );
-    assert!(ctx.alloc_temp(1).is_err(), "further alloc must keep failing");
+    assert!(
+        ctx.alloc_temp(1).is_err(),
+        "further alloc must keep failing"
+    );
 }

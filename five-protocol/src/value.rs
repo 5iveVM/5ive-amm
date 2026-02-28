@@ -455,7 +455,7 @@ impl ValueRef {
             ValueRef::StringRef(_) => Some(Value::String(0)), // Convert to string index 0 for legacy
             ValueRef::HeapString(id) => Some(Value::String(*id as u8)),
             ValueRef::HeapArray(id) => Some(Value::Array(*id as u8)),
-            _ => None,                                        // Cannot convert to legacy Value
+            _ => None, // Cannot convert to legacy Value
         }
     }
 

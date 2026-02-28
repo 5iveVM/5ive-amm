@@ -19,7 +19,10 @@ fn test_simple_state_update() {
 
     let bytecode = DslCompiler::compile_dsl(source).expect("Should compile");
     assert!(!bytecode.is_empty(), "Should produce bytecode");
-    assert!(bytecode.starts_with(&five_protocol::FIVE_MAGIC), "Should have valid header");
+    assert!(
+        bytecode.starts_with(&five_protocol::FIVE_MAGIC),
+        "Should have valid header"
+    );
 }
 
 #[test]
@@ -72,12 +75,17 @@ fn test_function_with_single_parameter() {
     "#;
 
     let bytecode = DslCompiler::compile_dsl(source).expect("Should compile");
-    
+
     // Should contain LOAD_PARAM for the amount parameter (optimized or explicit)
     let has_load_param = bytecode.windows(2).any(|w| w[0] == LOAD_PARAM);
-    let has_load_param_opt = bytecode.iter().any(|&b| b == LOAD_PARAM_1 || b == LOAD_PARAM_2 || b == LOAD_PARAM_3);
+    let has_load_param_opt = bytecode
+        .iter()
+        .any(|&b| b == LOAD_PARAM_1 || b == LOAD_PARAM_2 || b == LOAD_PARAM_3);
 
-    assert!(has_load_param || has_load_param_opt, "Should have LOAD_PARAM for parameter");
+    assert!(
+        has_load_param || has_load_param_opt,
+        "Should have LOAD_PARAM for parameter"
+    );
 }
 
 #[test]
@@ -105,7 +113,7 @@ fn test_arithmetic_operations_compilation() {
     "#;
 
     let bytecode = DslCompiler::compile_dsl(source).expect("Should compile");
-    
+
     // Should contain arithmetic opcodes
     let has_arithmetic = bytecode.iter().any(|&b| b == ADD || b == MUL || b == SUB);
     assert!(has_arithmetic, "Should contain arithmetic opcodes");

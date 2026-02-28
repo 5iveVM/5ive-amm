@@ -22,8 +22,8 @@ fn test_workspace_edit_json_consistency() {
 
     if let Some(edit_json) = result {
         // Verify it deserializes to valid WorkspaceEdit
-        let edit: WorkspaceEdit = serde_json::from_str(&edit_json)
-            .expect("WorkspaceEdit should deserialize correctly");
+        let edit: WorkspaceEdit =
+            serde_json::from_str(&edit_json).expect("WorkspaceEdit should deserialize correctly");
 
         // Verify structure: should have either 'changes' or 'documentChanges'
         assert!(
@@ -67,8 +67,8 @@ fn test_diagnostic_json_roundtrip() {
     let diagnostics_json = lsp.get_diagnostics(uri, source).unwrap();
 
     // Deserialize to verify JSON format
-    let diagnostics: Vec<Diagnostic> = serde_json::from_str(&diagnostics_json)
-        .expect("Diagnostics should deserialize correctly");
+    let diagnostics: Vec<Diagnostic> =
+        serde_json::from_str(&diagnostics_json).expect("Diagnostics should deserialize correctly");
 
     // Verify all diagnostics have valid ranges
     for diagnostic in &diagnostics {
@@ -76,7 +76,10 @@ fn test_diagnostic_json_roundtrip() {
             diagnostic.range.start.line <= diagnostic.range.end.line,
             "Diagnostic range must be valid"
         );
-        assert!(!diagnostic.message.is_empty(), "Diagnostic message should not be empty");
+        assert!(
+            !diagnostic.message.is_empty(),
+            "Diagnostic message should not be empty"
+        );
     }
 
     // Re-serialize and verify it matches
@@ -99,13 +102,16 @@ fn test_hover_json_contract() {
 
     if let Some(hover_json) = hover_result {
         // Verify it deserializes to valid Hover
-        let hover: Hover = serde_json::from_str(&hover_json)
-            .expect("Hover should deserialize correctly");
+        let hover: Hover =
+            serde_json::from_str(&hover_json).expect("Hover should deserialize correctly");
 
         // Verify contents exist
         match &hover.contents {
             lsp_types::HoverContents::Scalar(markup) => {
-                assert!(!markup.value.is_empty(), "Hover content should not be empty");
+                assert!(
+                    !markup.value.is_empty(),
+                    "Hover content should not be empty"
+                );
             }
             lsp_types::HoverContents::Array(items) => {
                 assert!(!items.is_empty(), "Hover array should not be empty");
@@ -127,8 +133,8 @@ fn test_definition_json_contract() {
 
     if let Some(definition_json) = definition_result {
         // Verify it deserializes to valid Location
-        let location: Location = serde_json::from_str(&definition_json)
-            .expect("Location should deserialize correctly");
+        let location: Location =
+            serde_json::from_str(&definition_json).expect("Location should deserialize correctly");
 
         // Verify URI format
         assert!(
@@ -153,7 +159,11 @@ fn test_prepare_rename_with_uri_parameter() {
     // Test with valid URI
     let result = lsp.prepare_rename(uri, source, 0, 4).unwrap();
     assert!(result.is_some(), "prepare_rename should find symbol");
-    assert_eq!(result.unwrap(), "oldName", "Should return correct identifier");
+    assert_eq!(
+        result.unwrap(),
+        "oldName",
+        "Should return correct identifier"
+    );
 
     // Test with invalid position
     let result = lsp.prepare_rename(uri, source, 0, 0).unwrap();
@@ -178,7 +188,11 @@ fn test_invalid_uri_error() {
 
     for invalid_uri in invalid_uris {
         let result = lsp.get_diagnostics(invalid_uri, source);
-        assert!(result.is_err(), "Invalid URI '{}' should produce error", invalid_uri);
+        assert!(
+            result.is_err(),
+            "Invalid URI '{}' should produce error",
+            invalid_uri
+        );
 
         if let Err(err) = result {
             let err_str = format!("{:?}", err);
@@ -209,7 +223,10 @@ fn test_empty_source_edge_case() {
 
     // get_definition on empty source
     let def = lsp.get_definition(uri, source, 0, 0).unwrap();
-    assert!(def.is_none(), "Definition on empty source should return None");
+    assert!(
+        def.is_none(),
+        "Definition on empty source should return None"
+    );
 }
 
 #[test]
@@ -223,7 +240,10 @@ fn test_position_out_of_bounds() {
     assert!(hover.is_none(), "Position beyond EOF should return None");
 
     let def = lsp.get_definition(uri, source, 999, 999).unwrap();
-    assert!(def.is_none(), "Position beyond EOF should return None for definition");
+    assert!(
+        def.is_none(),
+        "Position beyond EOF should return None for definition"
+    );
 }
 
 #[test]

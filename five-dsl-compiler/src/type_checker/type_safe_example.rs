@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 
 use super::types::TypeCheckerContext;
-use crate::ast::{AstNode, generated::*};
+use crate::ast::{generated::*, AstNode};
 use five_vm_mito::error::VMError;
 
 /// Type-check an expression using the type-safe API.
@@ -31,11 +31,7 @@ fn example_build_statement(
     condition: AstNode,
     then_branch: AstNode,
 ) -> AstNode {
-    let statement = TypeCheckerContext::build_if_statement(
-        condition,
-        then_branch,
-        None,
-    );
+    let statement = TypeCheckerContext::build_if_statement(condition, then_branch, None);
 
     statement.into()
 }
@@ -47,7 +43,11 @@ fn example_migrated_check_function(
     node: &AstNode,
 ) -> Result<(), VMError> {
     match node {
-        AstNode::IfStatement { condition, then_branch, else_branch } => {
+        AstNode::IfStatement {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
             checker.check_types(condition)?;
             checker.check_types(then_branch)?;
             if let Some(else_b) = else_branch {
@@ -55,19 +55,14 @@ fn example_migrated_check_function(
             }
             Ok(())
         }
-        _ => {
-            checker.check_types(node)
-        }
+        _ => checker.check_types(node),
     }
 }
 
 /// Migration example for a type checker module section.
 impl TypeCheckerContext {
     #[allow(unused)]
-    pub(crate) fn check_expression_migrated(
-        &mut self,
-        expr: &AstNode,
-    ) -> Result<(), VMError> {
+    pub(crate) fn check_expression_migrated(&mut self, expr: &AstNode) -> Result<(), VMError> {
         // Step 1: Check if this is an expression-type node
         match expr {
             AstNode::Identifier(_)
@@ -78,9 +73,7 @@ impl TypeCheckerContext {
             | AstNode::FunctionCall { .. }
             | AstNode::MethodCall { .. }
             | AstNode::BinaryExpression { .. }
-            | AstNode::UnaryExpression { .. } => {
-                self.check_types(expr)
-            }
+            | AstNode::UnaryExpression { .. } => self.check_types(expr),
             _ => {
                 // Falls back to old checking for non-expressions
                 self.check_types(expr)
@@ -101,7 +94,6 @@ impl TypeCheckerContext {
 
 #[cfg(test)]
 mod tests {
-    
 
     #[test]
     fn test_type_safe_pattern() {

@@ -144,7 +144,9 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
                 }
-                ValueRef::AccountRef(account_idx, offset) if account_idx <= ACCOUNT_REF_MAX_VALID => {
+                ValueRef::AccountRef(account_idx, offset)
+                    if account_idx <= ACCOUNT_REF_MAX_VALID =>
+                {
                     // Account-backed optional field: [tag][payload...]
                     match read_account_option_tag(ctx, account_idx, offset)? {
                         Some(payload_offset) => {
@@ -174,7 +176,9 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
             let is_some = match optional_value {
                 ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => false,
                 ValueRef::AccountRef(0, _) => true,
-                ValueRef::AccountRef(account_idx, offset) if account_idx <= ACCOUNT_REF_MAX_VALID => {
+                ValueRef::AccountRef(account_idx, offset)
+                    if account_idx <= ACCOUNT_REF_MAX_VALID =>
+                {
                     read_account_option_tag(ctx, account_idx, offset)?.is_some()
                 }
                 _ => false, // Preserve prior "invalid => false" behavior
@@ -194,7 +198,9 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
             let is_none = match optional_value {
                 ValueRef::AccountRef(ACCOUNT_REF_NONE, _) => true,
                 ValueRef::AccountRef(0, _) => false,
-                ValueRef::AccountRef(account_idx, offset) if account_idx <= ACCOUNT_REF_MAX_VALID => {
+                ValueRef::AccountRef(account_idx, offset)
+                    if account_idx <= ACCOUNT_REF_MAX_VALID =>
+                {
                     read_account_option_tag(ctx, account_idx, offset)?.is_none()
                 }
                 _ => false, // Preserve prior "invalid => false" behavior
@@ -208,7 +214,10 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
             {
                 let mut s = HString::<128>::new();
                 let _ = core::fmt::write(&mut s, format_args!("{:?}", optional_value));
-                debug_log!("MitoVM: OPTIONAL_GET_VALUE extracting from optional {}", s.as_str());
+                debug_log!(
+                    "MitoVM: OPTIONAL_GET_VALUE extracting from optional {}",
+                    s.as_str()
+                );
             }
 
             match optional_value {
@@ -220,7 +229,9 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                     let value = ctx.read_value_from_temp(offset)?;
                     ctx.push(value)?;
                 }
-                ValueRef::AccountRef(account_idx, offset) if account_idx <= ACCOUNT_REF_MAX_VALID => {
+                ValueRef::AccountRef(account_idx, offset)
+                    if account_idx <= ACCOUNT_REF_MAX_VALID =>
+                {
                     match read_account_option_tag(ctx, account_idx, offset)? {
                         Some(payload_offset) => {
                             ctx.push(ValueRef::AccountRef(account_idx, payload_offset))?;
@@ -303,7 +314,10 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
             {
                 let mut s = HString::<128>::new();
                 let _ = core::fmt::write(&mut s, format_args!("{:?}", result_value));
-                debug_log!("MitoVM: RESULT_GET_VALUE extracting from result {}", s.as_str());
+                debug_log!(
+                    "MitoVM: RESULT_GET_VALUE extracting from result {}",
+                    s.as_str()
+                );
             }
 
             match_result_status!(result_value,
@@ -329,7 +343,10 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
             {
                 let mut s = HString::<128>::new();
                 let _ = core::fmt::write(&mut s, format_args!("{:?}", result_value));
-                debug_log!("MitoVM: RESULT_GET_ERROR extracting error from result {}", s.as_str());
+                debug_log!(
+                    "MitoVM: RESULT_GET_ERROR extracting error from result {}",
+                    s.as_str()
+                );
             }
 
             match_result_status!(result_value,
@@ -381,7 +398,8 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 let element = ctx.pop()?;
                 let size = element.serialized_size();
                 write_pos -= size;
-                element.serialize_into(&mut ctx.temp_buffer_mut()[write_pos..write_pos+size])
+                element
+                    .serialize_into(&mut ctx.temp_buffer_mut()[write_pos..write_pos + size])
                     .map_err(|_| VMErrorCode::ProtocolError)?;
             }
 
@@ -402,23 +420,23 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
             let mut current_idx = 0;
 
             loop {
-                 if current_offset >= end_offset {
-                     return Err(VMErrorCode::IndexOutOfBounds);
-                 }
-                 let (val, len) = {
-                      let temp = ctx.temp_buffer();
-                      let v = ValueRef::deserialize_from(&temp[current_offset..])
-                          .map_err(|_| VMErrorCode::ProtocolError)?;
-                      (v, v.serialized_size())
-                 };
+                if current_offset >= end_offset {
+                    return Err(VMErrorCode::IndexOutOfBounds);
+                }
+                let (val, len) = {
+                    let temp = ctx.temp_buffer();
+                    let v = ValueRef::deserialize_from(&temp[current_offset..])
+                        .map_err(|_| VMErrorCode::ProtocolError)?;
+                    (v, v.serialized_size())
+                };
 
-                 if current_idx == index {
-                     ctx.push(val)?;
-                     break;
-                 }
+                if current_idx == index {
+                    ctx.push(val)?;
+                    break;
+                }
 
-                 current_offset += len;
-                 current_idx += 1;
+                current_offset += len;
+                current_idx += 1;
             }
         }
         UNPACK_TUPLE => {
@@ -428,7 +446,7 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 ValueRef::TupleRef(offset, size) => {
                     let mut current_offset = offset as usize;
                     let end_offset = current_offset + size as usize;
-                    
+
                     while current_offset < end_offset {
                         // Scope the immutable borrow
                         let (val, len) = {
@@ -441,7 +459,7 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                             (val, val.serialized_size())
                         };
                         current_offset += len;
-                        
+
                         // Push to stack
                         ctx.push(val)?;
                     }

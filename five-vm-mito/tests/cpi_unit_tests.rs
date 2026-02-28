@@ -87,7 +87,10 @@ mod cpi_invoke_tests {
         // Single-byte discriminator uses 1 of 32 bytes
         let discriminator_size = 1;
         let max_data_remaining = 32 - discriminator_size;
-        assert_eq!(max_data_remaining, 31, "Single-byte discriminator leaves 31 bytes for data");
+        assert_eq!(
+            max_data_remaining, 31,
+            "Single-byte discriminator leaves 31 bytes for data"
+        );
     }
 
     /// Test discriminator 8-byte size (Anchor)
@@ -96,7 +99,10 @@ mod cpi_invoke_tests {
         // Anchor-style 8-byte discriminator
         let discriminator_size = 8;
         let max_data_remaining = 32 - discriminator_size;
-        assert_eq!(max_data_remaining, 24, "8-byte discriminator leaves 24 bytes for data");
+        assert_eq!(
+            max_data_remaining, 24,
+            "8-byte discriminator leaves 24 bytes for data"
+        );
     }
 
     /// Test account index out of range
@@ -211,7 +217,10 @@ mod cpi_error_handling_tests {
         // Calling with wrong number of parameters should fail
         let expected_params = 4;
         let actual_params = 3;
-        assert_ne!(expected_params, actual_params, "Parameter mismatch detected");
+        assert_ne!(
+            expected_params, actual_params,
+            "Parameter mismatch detected"
+        );
     }
 
     /// Test program ID mismatch
@@ -242,7 +251,10 @@ mod cpi_error_handling_tests {
         // If instruction data exceeds 32 bytes, should fail
         let max_bytes = 32;
         let overflow_bytes = 33;
-        assert!(overflow_bytes > max_bytes, "Instruction data overflow detected");
+        assert!(
+            overflow_bytes > max_bytes,
+            "Instruction data overflow detected"
+        );
     }
 
     /// Test account count exceeds maximum
@@ -251,7 +263,10 @@ mod cpi_error_handling_tests {
         // Exceeding 16 accounts should fail
         let max_accounts = 16;
         let attempted_accounts = 17;
-        assert!(attempted_accounts > max_accounts, "Account count exceeds maximum");
+        assert!(
+            attempted_accounts > max_accounts,
+            "Account count exceeds maximum"
+        );
     }
 
     /// Test missing program ID
@@ -275,7 +290,10 @@ mod cpi_interface_verification_tests {
     #[test]
     fn test_program_id_verification() {
         let spl_token_program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
-        assert!(!spl_token_program.is_empty(), "Program ID should not be empty");
+        assert!(
+            !spl_token_program.is_empty(),
+            "Program ID should not be empty"
+        );
     }
 
     /// Test discriminator verification

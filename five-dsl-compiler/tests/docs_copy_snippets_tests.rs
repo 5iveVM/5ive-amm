@@ -39,7 +39,8 @@ fn docs_external_import_snippet_compiles_to_call_external() {
         }
     "#;
 
-    let bytecode = DslCompiler::compile_dsl(source).expect("external import snippet should compile");
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("external import snippet should compile");
     assert!(
         bytecode.iter().any(|op| *op == CALL_EXTERNAL),
         "external import snippet should emit CALL_EXTERNAL"

@@ -378,6 +378,7 @@ impl ASTGenerator {
                 | "transfer_lamports"
                 | "close_account"
                 | "load_account_u64"
+                | "load_account_u64_word"
         );
 
         if !has_custom_arg_lowering {
@@ -411,7 +412,7 @@ impl ASTGenerator {
             "get_clock" => {
                 emitter.emit_opcode(GET_CLOCK);
             }
-            "load_account_u64" => {
+            "load_account_u64" | "load_account_u64_word" => {
                 if args.len() != 2 {
                     return Err(VMError::InvalidParameterCount);
                 }

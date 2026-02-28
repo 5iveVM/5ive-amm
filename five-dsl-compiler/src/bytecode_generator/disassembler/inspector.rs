@@ -58,7 +58,7 @@ impl BytecodeInspector {
             // Skip metadata section
             // Format: [u16 section_size] [u8 name_count] [u8 name_len, bytes...]*
             if offset + 2 <= bytes.len() {
-                let section_size = u16::from_le_bytes([bytes[offset], bytes[offset+1]]);
+                let section_size = u16::from_le_bytes([bytes[offset], bytes[offset + 1]]);
                 offset += 2 + section_size as usize;
             }
         }
@@ -73,11 +73,21 @@ impl BytecodeInspector {
                 ]) as usize;
                 pool_slots = u16::from_le_bytes([bytes[offset + 12], bytes[offset + 13]]);
                 let code_offset = pool_offset + pool_slots as usize * 8;
-                return (code_offset.min(bytes.len()), pool_enabled, pool_offset, pool_slots);
+                return (
+                    code_offset.min(bytes.len()),
+                    pool_enabled,
+                    pool_offset,
+                    pool_slots,
+                );
             }
         }
 
-        (offset.min(bytes.len()), pool_enabled, pool_offset, pool_slots)
+        (
+            offset.min(bytes.len()),
+            pool_enabled,
+            pool_offset,
+            pool_slots,
+        )
     }
 
     fn read_pool_slot_u64(&self, index: u16) -> Option<u64> {
@@ -165,12 +175,12 @@ impl BytecodeInspector {
                                 });
                             }
                         } else {
-                        out.push(PushInfo {
-                            offset: i,
-                            opcode: op,
-                            value: b[i + 1] as u64,
-                            width: 1,
-                        });
+                            out.push(PushInfo {
+                                offset: i,
+                                opcode: op,
+                                value: b[i + 1] as u64,
+                                width: 1,
+                            });
                         }
                     }
                 }

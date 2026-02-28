@@ -113,16 +113,11 @@ impl ASTGenerator {
         // Function dispatcher removed per user request
     }
 
-    pub(crate) fn cache_function_parameter_types(
-        &mut self,
-        instruction_definitions: &[AstNode],
-    ) {
+    pub(crate) fn cache_function_parameter_types(&mut self, instruction_definitions: &[AstNode]) {
         self.function_parameter_types.clear();
         for instruction_def in instruction_definitions {
             if let AstNode::InstructionDefinition {
-                name,
-                parameters,
-                ..
+                name, parameters, ..
             } = instruction_def
             {
                 self.function_parameter_types.insert(
@@ -137,7 +132,7 @@ impl ASTGenerator {
     }
 
     /// Register an external import for CALL_EXTERNAL generation
-    /// 
+    ///
     /// When a function from this module is called, CALL_EXTERNAL will be emitted
     /// instead of a regular CALL opcode.
     pub fn register_external_import(
@@ -194,7 +189,9 @@ impl ASTGenerator {
                 let prev = if i > 0 { Some(chars[i - 1]) } else { None };
                 let next = chars.get(i + 1).copied();
                 let needs_sep = (i != 0
-                    && prev.map(|p| p.is_lowercase() || p.is_ascii_digit()).unwrap_or(false))
+                    && prev
+                        .map(|p| p.is_lowercase() || p.is_ascii_digit())
+                        .unwrap_or(false))
                     || (i != 0
                         && prev.map(|p| p.is_uppercase()).unwrap_or(false)
                         && next.map(|n| n.is_lowercase()).unwrap_or(false));
@@ -251,19 +248,20 @@ impl ASTGenerator {
                         let method_anchor = *is_anchor || *is_method_anchor;
                         let return_type_node = return_type.as_ref().map(|rt| (**rt).clone());
 
-                        let (discriminator_val, discriminator_bytes_val) = if let Some(bytes) = discriminator_bytes {
-                            (discriminator.unwrap_or(0), Some(bytes.clone()))
-                        } else if let Some(disc) = discriminator {
-                            (*disc, None)
-                        } else if method_anchor {
-                            let preimage = format!("global:{}", method_name);
-                            let mut hasher = sha2::Sha256::new();
-                            hasher.update(preimage.as_bytes());
-                            let result = hasher.finalize();
-                            (0, Some(result[..8].to_vec()))
-                        } else {
-                            (0, None)
-                        };
+                        let (discriminator_val, discriminator_bytes_val) =
+                            if let Some(bytes) = discriminator_bytes {
+                                (discriminator.unwrap_or(0), Some(bytes.clone()))
+                            } else if let Some(disc) = discriminator {
+                                (*disc, None)
+                            } else if method_anchor {
+                                let preimage = format!("global:{}", method_name);
+                                let mut hasher = sha2::Sha256::new();
+                                hasher.update(preimage.as_bytes());
+                                let result = hasher.finalize();
+                                (0, Some(result[..8].to_vec()))
+                            } else {
+                                (0, None)
+                            };
 
                         methods.insert(
                             method_name.clone(),
@@ -327,5 +325,4 @@ impl ASTGenerator {
                 .insert(name.clone(), interface_info.clone());
         }
     }
-
 }

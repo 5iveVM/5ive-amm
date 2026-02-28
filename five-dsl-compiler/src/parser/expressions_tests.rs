@@ -1,11 +1,13 @@
+use crate::ast::AstNode;
 use crate::parser::DslParser;
 use crate::tokenizer::Token;
-use crate::ast::AstNode;
 use five_protocol::Value;
 
 fn parse_expr(tokens: Vec<Token>) -> AstNode {
     let mut parser = DslParser::new(tokens);
-    parser.parse_expression().expect("Failed to parse expression")
+    parser
+        .parse_expression()
+        .expect("Failed to parse expression")
 }
 
 #[test]
@@ -66,7 +68,11 @@ fn test_parse_binary_expression_add() {
     ];
     let ast = parse_expr(tokens);
     match ast {
-        AstNode::BinaryExpression { left, operator, right } => {
+        AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } => {
             assert_eq!(operator, "+");
             match *left {
                 AstNode::Identifier(name) => assert_eq!(name, "x"),
@@ -96,7 +102,11 @@ fn test_parse_binary_expression_precedence() {
     let ast = parse_expr(tokens);
 
     match ast {
-        AstNode::BinaryExpression { left, operator, right } => {
+        AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } => {
             assert_eq!(operator, "+");
             // Left should be 1
             match *left {
@@ -105,7 +115,11 @@ fn test_parse_binary_expression_precedence() {
             }
             // Right should be (2 * 3)
             match *right {
-                AstNode::BinaryExpression { left: r_left, operator: r_op, right: r_right } => {
+                AstNode::BinaryExpression {
+                    left: r_left,
+                    operator: r_op,
+                    right: r_right,
+                } => {
                     assert_eq!(r_op, "*");
                     match *r_left {
                         AstNode::Literal(Value::U64(v)) => assert_eq!(v, 2),
@@ -139,7 +153,11 @@ fn test_parse_nested_expression() {
     let ast = parse_expr(tokens);
 
     match ast {
-        AstNode::BinaryExpression { left, operator, right } => {
+        AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } => {
             assert_eq!(operator, "*");
             // Right should be 3
             match *right {
@@ -148,7 +166,11 @@ fn test_parse_nested_expression() {
             }
             // Left should be (1 + 2)
             match *left {
-                AstNode::BinaryExpression { left: l_left, operator: l_op, right: l_right } => {
+                AstNode::BinaryExpression {
+                    left: l_left,
+                    operator: l_op,
+                    right: l_right,
+                } => {
                     assert_eq!(l_op, "+");
                     match *l_left {
                         AstNode::Literal(Value::U64(v)) => assert_eq!(v, 1),
@@ -181,7 +203,11 @@ fn test_parse_method_call() {
     let ast = parse_expr(tokens);
 
     match ast {
-        AstNode::MethodCall { object, method, args } => {
+        AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } => {
             match *object {
                 AstNode::Identifier(name) => assert_eq!(name, "x"),
                 _ => panic!("Expected object identifier"),
@@ -237,7 +263,10 @@ fn test_parse_nested_ctx_field_access() {
         AstNode::FieldAccess { object, field } => {
             assert_eq!(field, "bump");
             match *object {
-                AstNode::FieldAccess { object: inner_obj, field: inner_field } => {
+                AstNode::FieldAccess {
+                    object: inner_obj,
+                    field: inner_field,
+                } => {
                     assert_eq!(inner_field, "ctx");
                     match *inner_obj {
                         AstNode::Identifier(name) => assert_eq!(name, "vault"),
@@ -281,17 +310,16 @@ fn test_parse_array_access() {
 #[test]
 fn test_parse_logical_and() {
     // true && false
-    let tokens = vec![
-        Token::True,
-        Token::LogicalAnd,
-        Token::False,
-        Token::Eof,
-    ];
+    let tokens = vec![Token::True, Token::LogicalAnd, Token::False, Token::Eof];
     let ast = parse_expr(tokens);
 
     // Logical AND parses as a binary expression
     match ast {
-        AstNode::BinaryExpression { left, operator, right } => {
+        AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } => {
             assert_eq!(operator, "&&");
             match *left {
                 AstNode::Literal(Value::Bool(v)) => assert!(v),
@@ -309,17 +337,16 @@ fn test_parse_logical_and() {
 #[test]
 fn test_parse_logical_or() {
     // true || false
-    let tokens = vec![
-        Token::True,
-        Token::LogicalOr,
-        Token::False,
-        Token::Eof,
-    ];
+    let tokens = vec![Token::True, Token::LogicalOr, Token::False, Token::Eof];
     let ast = parse_expr(tokens);
 
     // Logical OR parses as a binary expression
     match ast {
-        AstNode::BinaryExpression { left, operator, right } => {
+        AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } => {
             assert_eq!(operator, "||");
             match *left {
                 AstNode::Literal(Value::Bool(v)) => assert!(v),
@@ -337,11 +364,7 @@ fn test_parse_logical_or() {
 #[test]
 fn test_parse_unary_not() {
     // !true
-    let tokens = vec![
-        Token::Bang,
-        Token::True,
-        Token::Eof,
-    ];
+    let tokens = vec![Token::Bang, Token::True, Token::Eof];
     let ast = parse_expr(tokens);
 
     match ast {
@@ -369,7 +392,11 @@ fn test_parse_comparison() {
 
     // Comparisons are parsed as method calls .lt()
     match ast {
-        AstNode::MethodCall { object, method, args } => {
+        AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } => {
             assert_eq!(method, "lt");
             match *object {
                 AstNode::Literal(Value::U64(v)) => assert_eq!(v, 1),

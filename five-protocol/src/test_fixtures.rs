@@ -11,11 +11,11 @@
 // exported behind the "test-fixtures" feature for use in integration tests
 // (e.g., five-solana verifier alignment).
 
-use alloc::string::String;
 use crate::{
     execute_payload::{canonical_execute_payload, TypedParam},
     types, BytecodeBuilder, JUMP,
 };
+use alloc::string::String;
 
 /// Return a valid header bytecode with minimal content: header + HALT
 pub fn valid_header() -> alloc::vec::Vec<u8> {

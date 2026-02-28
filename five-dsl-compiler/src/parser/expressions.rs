@@ -1,8 +1,8 @@
 use crate::ast::{AstNode, StructLiteralField, TypeNode};
-use crate::parser::{DslParser, types};
+use crate::parser::{types, DslParser};
 use crate::tokenizer::{Token, TokenKind};
-use five_vm_mito::error::VMError;
 use five_protocol::Value;
+use five_vm_mito::error::VMError;
 
 impl DslParser {
     pub(crate) fn parse_expression(&mut self) -> Result<AstNode, VMError> {

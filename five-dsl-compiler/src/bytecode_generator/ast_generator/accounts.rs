@@ -4,10 +4,9 @@
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
 use crate::ast::InstructionParameter;
+use crate::ast::{AstNode, TypeNode};
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
-use crate::ast::{AstNode, TypeNode};
-
 
 impl ASTGenerator {
     pub(crate) fn init_ctx_bump_alias(account_name: &str) -> String {
@@ -18,13 +17,11 @@ impl ASTGenerator {
         format!("__ctx_space_{}", account_name)
     }
 
-    fn bind_init_bump_alias<T: OpcodeEmitter>(
-        &mut self,
-        emitter: &mut T,
-        alias: &str,
-    ) {
+    fn bind_init_bump_alias<T: OpcodeEmitter>(&mut self, emitter: &mut T, alias: &str) {
         // Internal alias used by `account.ctx.bump` lowering.
-        if self.local_symbol_table.contains_key(alias) || self.global_symbol_table.contains_key(alias) {
+        if self.local_symbol_table.contains_key(alias)
+            || self.global_symbol_table.contains_key(alias)
+        {
             return;
         }
         let slot = self.add_local_field(alias.to_string(), "u8".to_string(), false, false);
@@ -38,7 +35,9 @@ impl ASTGenerator {
         alias: &str,
         space: u64,
     ) -> Result<(), VMError> {
-        if self.local_symbol_table.contains_key(alias) || self.global_symbol_table.contains_key(alias) {
+        if self.local_symbol_table.contains_key(alias)
+            || self.global_symbol_table.contains_key(alias)
+        {
             return Ok(());
         }
         let slot = self.add_local_field(alias.to_string(), "u64".to_string(), false, false);
@@ -119,12 +118,13 @@ impl ASTGenerator {
 
             // Look up the account type in the registry with namespace-aware matching
             let namespace_suffix = format!("::{}", account_name);
-            let account_info = registry.account_types.get(account_name)
-                .or_else(|| {
-                    registry.account_types.iter()
-                        .find(|(k, _)| k.ends_with(&namespace_suffix))
-                        .map(|(_, v)| v)
-                });
+            let account_info = registry.account_types.get(account_name).or_else(|| {
+                registry
+                    .account_types
+                    .iter()
+                    .find(|(k, _)| k.ends_with(&namespace_suffix))
+                    .map(|(_, v)| v)
+            });
 
             if let Some(account_info) = account_info {
                 println!(
@@ -194,7 +194,7 @@ impl ASTGenerator {
                     // But we can just use the type_node_to_string from generator
                     // Note: type_node_to_string is not pub, so we might need to rely on generator having it.
                     // Actually, let's just use the generator instance provided.
-                     match &args[0] {
+                    match &args[0] {
                         TypeNode::Primitive(name) | TypeNode::Named(name) => name.clone(),
                         _ => generator.type_node_to_string(&args[0]),
                     }
@@ -202,7 +202,7 @@ impl ASTGenerator {
                     generator.type_node_to_string(type_node)
                 }
             }
-             TypeNode::Primitive(name) | TypeNode::Named(name) => name.clone(),
+            TypeNode::Primitive(name) | TypeNode::Named(name) => name.clone(),
             _ => generator.type_node_to_string(type_node),
         }
     }
@@ -214,16 +214,26 @@ impl ASTGenerator {
         param: &InstructionParameter,
         index: usize,
     ) -> Result<(), VMError> {
-        println!("@@@ INIT_SEQUENCE_CHECK: param='{}', is_init={}, index={}", param.name, param.is_init, index);
+        println!(
+            "@@@ INIT_SEQUENCE_CHECK: param='{}', is_init={}, index={}",
+            param.name, param.is_init, index
+        );
         if !param.is_init {
-            println!("@@@ INIT_SEQUENCE_SKIP: is_init=false for param '{}'", param.name);
+            println!(
+                "@@@ INIT_SEQUENCE_SKIP: is_init=false for param '{}'",
+                param.name
+            );
             return Ok(());
         }
-        println!("@@@ INIT_SEQUENCE_PROCEED: Generating initialization for param '{}'", param.name);
+        println!(
+            "@@@ INIT_SEQUENCE_PROCEED: Generating initialization for param '{}'",
+            param.name
+        );
 
         // Get the init configuration
         let init_config = param.init_config.as_ref().ok_or(VMError::InvalidScript)?;
-        let account_index = super::super::account_utils::account_index_from_param_index(index as u8);
+        let account_index =
+            super::super::account_utils::account_index_from_param_index(index as u8);
 
         // Generate pre-creation validation: CHECK_UNINITIALIZED
         // This ensures the account is not already initialized
@@ -239,9 +249,12 @@ impl ASTGenerator {
             // Auto-calculate space from account struct layout size.
             // We need to resolve the account type from the parameter
             let type_name = Self::extract_account_type_name_static(&param.param_type, self);
-            
-            println!("AST Generator: Auto-calculating space for account type '{}' (@init)", type_name);
-            
+
+            println!(
+                "AST Generator: Auto-calculating space for account type '{}' (@init)",
+                type_name
+            );
+
             let calculated_size = if let Some(account_system) = &self.account_system {
                 let registry = account_system.get_account_registry();
                 // Lookup with namespace support
@@ -250,25 +263,37 @@ impl ASTGenerator {
                     println!("AST Generator: generic Account type, assuming 0 data size");
                     0
                 } else {
-                    let account_info = registry.account_types.get(&type_name)
+                    let account_info = registry
+                        .account_types
+                        .get(&type_name)
                         .or_else(|| {
-                            registry.account_types.iter()
+                            registry
+                                .account_types
+                                .iter()
                                 .find(|(k, _)| k.ends_with(&namespace_suffix))
                                 .map(|(_, v)| v)
                         })
                         .ok_or_else(|| {
-                            println!("AST Generator: ERROR - Account type '{}' not found in registry", type_name);
+                            println!(
+                                "AST Generator: ERROR - Account type '{}' not found in registry",
+                                type_name
+                            );
                             VMError::UndefinedAccountField
                         })?;
 
-                    println!("AST Generator: Found account definition, size={}, total required={}", account_info.total_size, account_info.total_size as u64);
+                    println!(
+                        "AST Generator: Found account definition, size={}, total required={}",
+                        account_info.total_size, account_info.total_size as u64
+                    );
                     account_info.total_size as u64
                 }
             } else {
-                println!("AST Generator: ERROR - AccountSystem not available for space calculation");
+                println!(
+                    "AST Generator: ERROR - AccountSystem not available for space calculation"
+                );
                 return Err(VMError::InvalidScript);
             };
-            
+
             calculated_size
         };
         let space_alias = Self::init_ctx_space_alias(&param.name);
@@ -396,19 +421,24 @@ impl ASTGenerator {
 
     /// Resolve payer parameter name to account index
     fn resolve_payer_account_index(&self, payer_name: &str) -> Result<u8, VMError> {
-        let params = self.current_function_parameters.as_ref()
+        let params = self
+            .current_function_parameters
+            .as_ref()
             .ok_or(VMError::InvalidScript)?;
 
         for (idx, param) in params.iter().enumerate() {
             if param.name == payer_name {
                 // Verify this is an account type
-                if !matches!(param.param_type,
-                    crate::ast::TypeNode::Account | crate::ast::TypeNode::Named(_)) {
+                if !matches!(
+                    param.param_type,
+                    crate::ast::TypeNode::Account | crate::ast::TypeNode::Named(_)
+                ) {
                     return Err(VMError::TypeMismatch);
                 }
 
                 // Account indices use centralized ACCOUNT_INDEX_OFFSET constant
-                let account_idx = super::super::account_utils::account_index_from_param_index(idx as u8);
+                let account_idx =
+                    super::super::account_utils::account_index_from_param_index(idx as u8);
                 return Ok(account_idx);
             }
         }
@@ -418,12 +448,15 @@ impl ASTGenerator {
 
     /// Find first signer for default payer (when payer= not specified)
     fn find_first_signer_account_index(&self) -> Result<u8, VMError> {
-        let params = self.current_function_parameters.as_ref()
+        let params = self
+            .current_function_parameters
+            .as_ref()
             .ok_or(VMError::InvalidScript)?;
 
         for (idx, param) in params.iter().enumerate() {
             if param.attributes.iter().any(|a| a.name == "signer") {
-                let account_idx = super::super::account_utils::account_index_from_param_index(idx as u8);
+                let account_idx =
+                    super::super::account_utils::account_index_from_param_index(idx as u8);
                 return Ok(account_idx);
             }
         }

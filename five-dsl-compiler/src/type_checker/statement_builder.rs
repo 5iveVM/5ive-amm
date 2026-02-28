@@ -3,9 +3,7 @@
 //! Provides helper methods for building type-safe Statement nodes during type checking.
 //! These statements automatically convert to AstNode via the From trait.
 
-use crate::ast::{
-    generated::*, AstNode, TypeNode, EventFieldAssignment, MatchArm, AssertionType,
-};
+use crate::ast::{generated::*, AssertionType, AstNode, EventFieldAssignment, MatchArm, TypeNode};
 
 /// Helper methods for building statements
 #[allow(dead_code)]
@@ -101,10 +99,7 @@ impl super::types::TypeCheckerContext {
         event_name: String,
         fields: Vec<EventFieldAssignment>,
     ) -> Statement {
-        Statement::EmitStatement(EmitStatementNode {
-            event_name,
-            fields,
-        })
+        Statement::EmitStatement(EmitStatementNode { event_name, fields })
     }
 
     /// Create a match expression statement
@@ -116,10 +111,7 @@ impl super::types::TypeCheckerContext {
     }
 
     /// Create a tuple destructuring statement
-    pub(crate) fn build_tuple_destructuring(
-        targets: Vec<String>,
-        value: AstNode,
-    ) -> Statement {
+    pub(crate) fn build_tuple_destructuring(targets: Vec<String>, value: AstNode) -> Statement {
         Statement::TupleDestructuring(TupleDestructuringNode {
             targets,
             value: Box::new(value),
@@ -127,10 +119,7 @@ impl super::types::TypeCheckerContext {
     }
 
     /// Create a tuple assignment statement
-    pub(crate) fn build_tuple_assignment(
-        targets: Vec<AstNode>,
-        value: AstNode,
-    ) -> Statement {
+    pub(crate) fn build_tuple_assignment(targets: Vec<AstNode>, value: AstNode) -> Statement {
         Statement::TupleAssignment(TupleAssignmentNode {
             targets,
             value: Box::new(value),

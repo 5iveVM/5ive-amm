@@ -1,7 +1,7 @@
 //! Assignment and variable declaration generation.
 
-use super::types::ASTGenerator;
 use super::super::OpcodeEmitter;
+use super::types::ASTGenerator;
 use crate::ast::{AstNode, TypeNode};
 use crate::FieldInfo;
 use five_protocol::opcodes::*;
@@ -15,9 +15,10 @@ enum ByteArrayLiteralLowering {
 
 pub(super) fn fixed_u8_array_len(type_node: Option<&TypeNode>) -> Option<usize> {
     match type_node {
-        Some(TypeNode::Array { element_type, size: Some(size) })
-            if matches!(element_type.as_ref(), TypeNode::Primitive(name) if name == "u8") =>
-        {
+        Some(TypeNode::Array {
+            element_type,
+            size: Some(size),
+        }) if matches!(element_type.as_ref(), TypeNode::Primitive(name) if name == "u8") => {
             usize::try_from(*size).ok()
         }
         _ => None,
@@ -62,14 +63,14 @@ pub(super) fn collect_byte_array_literal_bytes(value: &AstNode) -> Option<Vec<u8
 }
 
 fn fixed_u8_array_len_from_type_str(type_name: &str) -> Option<usize> {
-    let inner = type_name
-        .strip_prefix("[u8;")?
-        .strip_suffix(']')?
-        .trim();
+    let inner = type_name.strip_prefix("[u8;")?.strip_suffix(']')?.trim();
     inner.parse::<usize>().ok()
 }
 
-fn classify_byte_array_literal(type_node: Option<&TypeNode>, value: &AstNode) -> ByteArrayLiteralLowering {
+fn classify_byte_array_literal(
+    type_node: Option<&TypeNode>,
+    value: &AstNode,
+) -> ByteArrayLiteralLowering {
     let expected_len = match fixed_u8_array_len(type_node) {
         Some(len) => len,
         None => return ByteArrayLiteralLowering::NotApplicable,
@@ -181,11 +182,7 @@ impl ASTGenerator {
         }
 
         // Generate local variable storage instruction with V2 optimization
-        self.emit_set_local(
-            emitter,
-            offset,
-            &format!("let statement '{}'", name),
-        );
+        self.emit_set_local(emitter, offset, &format!("let statement '{}'", name));
         Ok(())
     }
 
@@ -210,7 +207,9 @@ impl ASTGenerator {
                 } else {
                     // Fallback if not in precomputed map (shouldn't happen if analyzer ran)
                     let off = self.field_counter + i as u32;
-                    if off >= max_offset_used { max_offset_used = off + 1; }
+                    if off >= max_offset_used {
+                        max_offset_used = off + 1;
+                    }
                     off
                 }
             } else {
@@ -220,7 +219,9 @@ impl ASTGenerator {
             };
 
             // Update high water mark if using precomputed
-            if using_precomputed && offset >= self.field_counter && offset >= max_offset_used { max_offset_used = offset + 1; }
+            if using_precomputed && offset >= self.field_counter && offset >= max_offset_used {
+                max_offset_used = offset + 1;
+            }
 
             let field_info = FieldInfo {
                 offset,
@@ -391,12 +392,9 @@ impl ASTGenerator {
                 AstNode::FieldAccess { object, field } => {
                     // Handle field assignment (e.g., account.field = value)
                     if let AstNode::Identifier(account_name) = object.as_ref() {
-                        if let Some(field_info) = self.local_symbol_table.get(account_name)
-                        {
-                            let field_offset = self.calculate_account_field_offset(
-                                &field_info.field_type,
-                                field,
-                            )?; // Pass account_type string
+                        if let Some(field_info) = self.local_symbol_table.get(account_name) {
+                            let field_offset =
+                                self.calculate_account_field_offset(&field_info.field_type, field)?; // Pass account_type string
                             emitter.emit_opcode(STORE_FIELD); // Use STORE_FIELD for now, assuming it handles account fields
                             emitter.emit_u8(field_info.offset as u8);
                             emitter.emit_u32(field_offset);
@@ -422,7 +420,10 @@ impl ASTGenerator {
         field: &String,
         value: &AstNode,
     ) -> Result<(), VMError> {
-        if let AstNode::FieldAccess { field: ctx_field, .. } = object {
+        if let AstNode::FieldAccess {
+            field: ctx_field, ..
+        } = object
+        {
             if ctx_field == "ctx" {
                 return Err(VMError::ImmutableField);
             }
@@ -446,14 +447,16 @@ impl ASTGenerator {
                             .account_types
                             .get(&account_type)
                             .or_else(|| {
-                                account_system.get_account_registry().account_types.iter()
+                                account_system
+                                    .get_account_registry()
+                                    .account_types
+                                    .iter()
                                     .find(|(k, _)| k.ends_with(&namespace_suffix))
                                     .map(|(_, v)| v)
                             });
 
-                        let is_custom_field = account_info
-                            .and_then(|t| t.fields.get(field))
-                            .is_some();
+                        let is_custom_field =
+                            account_info.and_then(|t| t.fields.get(field)).is_some();
                         if !is_custom_field {
                             #[cfg(debug_assertions)]
                             println!("AST Generator: ERROR - Cannot assign to built-in account property '{}.{}'", account_name, field);
@@ -474,17 +477,17 @@ impl ASTGenerator {
                             .account_types
                             .get(&account_type)
                             .or_else(|| {
-                                account_system.get_account_registry().account_types.iter()
+                                account_system
+                                    .get_account_registry()
+                                    .account_types
+                                    .iter()
                                     .find(|(k, _)| k.ends_with(&namespace_suffix))
                                     .map(|(_, v)| v)
                             });
 
                         if let Some(account_type_info) = account_type_info {
-                            if let Some(struct_field_info) =
-                                account_type_info.fields.get(field)
-                            {
-                                target_field_type =
-                                    Some(struct_field_info.field_type.clone());
+                            if let Some(struct_field_info) = account_type_info.fields.get(field) {
+                                target_field_type = Some(struct_field_info.field_type.clone());
                             }
                         }
                     }
@@ -540,14 +543,16 @@ impl ASTGenerator {
                         .account_types
                         .get(&account_type)
                         .or_else(|| {
-                            account_system.get_account_registry().account_types.iter()
+                            account_system
+                                .get_account_registry()
+                                .account_types
+                                .iter()
                                 .find(|(k, _)| k.ends_with(&namespace_suffix))
                                 .map(|(_, v)| v)
                         });
 
                     if let Some(account_type_info) = account_type_info {
-                        if let Some(struct_field_info) = account_type_info.fields.get(field)
-                        {
+                        if let Some(struct_field_info) = account_type_info.fields.get(field) {
                             struct_field_info.is_optional
                         } else {
                             false
@@ -564,8 +569,7 @@ impl ASTGenerator {
                 }
 
                 // Calculate field offset within account using the account type
-                let field_offset =
-                    self.calculate_account_field_offset(&account_type, field)?;
+                let field_offset = self.calculate_account_field_offset(&account_type, field)?;
 
                 // Debug logging for zero-copy account access
                 #[cfg(debug_assertions)]
@@ -613,16 +617,17 @@ impl ASTGenerator {
                     }
 
                     // Get script field info from global symbol table
-                    if let Some(script_field_info) =
-                        self.global_symbol_table.get(account_name)
-                    {
+                    if let Some(script_field_info) = self.global_symbol_table.get(account_name) {
                         // Protocol V3: STORE_FIELD account_index_u8, offset_u32
                         emitter.emit_opcode(STORE_FIELD);
                         emitter.emit_u8(0); // Script account is always index 0
                         emitter.emit_u32(script_field_info.offset);
 
                         #[cfg(debug_assertions)]
-                        println!("AST Generator: Generated script field store for '{}' at offset {}", account_name, script_field_info.offset);
+                        println!(
+                            "AST Generator: Generated script field store for '{}' at offset {}",
+                            account_name, script_field_info.offset
+                        );
                         return Ok(());
                     } else {
                         return Err(VMError::UndefinedField);
@@ -633,7 +638,8 @@ impl ASTGenerator {
                         "AST Generator: ERROR - Object '{}' not found in any symbol table",
                         account_name
                     );
-                    return Err(VMError::undefined_identifier(account_name, None)); // Object not found anywhere
+                    return Err(VMError::undefined_identifier(account_name, None));
+                    // Object not found anywhere
                 }
             }
         } else {

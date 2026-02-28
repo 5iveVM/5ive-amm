@@ -12,19 +12,13 @@ impl Default for LanguageContext {
     fn default() -> Self {
         Self {
             valid_types: &[
-                "u8", "u16", "u32", "u64",
-                "bool",
-                "string",
-                "pubkey",
-                "account",
+                "u8", "u16", "u32", "u64", "bool", "string", "pubkey", "account",
             ],
             valid_keywords: &[
-                "pub", "fn", "account", "let", "mut", "if", "else", "return",
-                "require", "init", "use", "import",
+                "pub", "fn", "account", "let", "mut", "if", "else", "return", "require", "init",
+                "use", "import",
             ],
-            valid_constraints: &[
-                "@mut", "@signer", "@init", "@pda",
-            ],
+            valid_constraints: &["@mut", "@signer", "@init", "@pda"],
         }
     }
 }
@@ -44,7 +38,9 @@ pub fn suggest_for_parse_error(expected: &str, found: &str) -> Option<Vec<String
                 "`{}` is a valid type in Five DSL, but is being used in an invalid context",
                 type_name
             ));
-            suggestions.push("Check that you're using it in the right position in the statement".to_string());
+            suggestions.push(
+                "Check that you're using it in the right position in the statement".to_string(),
+            );
         } else {
             // Suggest similar types
             if let Some(similar) = find_similar_type(type_name) {
@@ -62,8 +58,14 @@ pub fn suggest_for_parse_error(expected: &str, found: &str) -> Option<Vec<String
     // Constraint token errors
     if found.contains("@") {
         let mut suggestions = vec![];
-        suggestions.push("Constraints (@mut, @signer, @init) are only valid after account parameter names".to_string());
-        suggestions.push(format!("Valid constraints are: {}", ctx.valid_constraints.join(", ")));
+        suggestions.push(
+            "Constraints (@mut, @signer, @init) are only valid after account parameter names"
+                .to_string(),
+        );
+        suggestions.push(format!(
+            "Valid constraints are: {}",
+            ctx.valid_constraints.join(", ")
+        ));
         return Some(suggestions);
     }
 
@@ -80,7 +82,8 @@ pub fn suggest_for_parse_error(expected: &str, found: &str) -> Option<Vec<String
     if expected.contains("}") {
         let suggestions = vec![
             "Add a closing brace `}` to complete the block".to_string(),
-            "Check for missing closing braces in accounts, functions, or control structures".to_string(),
+            "Check for missing closing braces in accounts, functions, or control structures"
+                .to_string(),
         ];
         return Some(suggestions);
     }
@@ -90,7 +93,9 @@ pub fn suggest_for_parse_error(expected: &str, found: &str) -> Option<Vec<String
 
 /// Find a similar type name (for typo suggestions)
 fn find_similar_type(input: &str) -> Option<&'static str> {
-    let valid_types = &["u8", "u16", "u32", "u64", "bool", "string", "pubkey", "account"];
+    let valid_types = &[
+        "u8", "u16", "u32", "u64", "bool", "string", "pubkey", "account",
+    ];
 
     // Simple fuzzy matching: look for types with >60% character overlap
     for &candidate in valid_types {
@@ -130,10 +135,12 @@ fn calculate_similarity(a: &str, b: &str) -> f32 {
     for i in 1..=len_a {
         curr[0] = i;
         for j in 1..=len_b {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
-            curr[j] = (prev[j] + 1)
-                .min(curr[j - 1] + 1)
-                .min(prev[j - 1] + cost);
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
         }
         core::mem::swap(&mut prev, &mut curr);
     }

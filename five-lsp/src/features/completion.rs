@@ -95,7 +95,11 @@ fn is_completion_char(c: char) -> bool {
 /// Try to get constraint annotation suggestions if cursor is after '@'
 ///
 /// Returns Some(Vec) if in constraint context, None otherwise
-fn try_get_constraint_suggestions(source: &str, line: usize, character: usize) -> Option<Vec<CompletionItem>> {
+fn try_get_constraint_suggestions(
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Option<Vec<CompletionItem>> {
     let lines: Vec<&str> = source.lines().collect();
 
     if line >= lines.len() {
@@ -112,7 +116,11 @@ fn try_get_constraint_suggestions(source: &str, line: usize, character: usize) -
 
     // Look backwards from cursor position to find '@'
     // If character == chars.len(), start from the last character
-    let mut pos = if character == chars.len() { character - 1 } else { character - 1 };
+    let mut pos = if character == chars.len() {
+        character - 1
+    } else {
+        character - 1
+    };
 
     // Skip alphanumeric characters (partial constraint name after @)
     while pos > 0 && chars[pos].is_alphanumeric() {
@@ -139,22 +147,22 @@ fn get_constraint_suggestions(prefix: &str) -> Vec<CompletionItem> {
         (
             "@signer",
             "Requires the account to be a signer of the transaction",
-            "Required for accounts that must authorize the transaction"
+            "Required for accounts that must authorize the transaction",
         ),
         (
             "@mut",
             "Marks the account as mutable/writable",
-            "Required for accounts that will be modified during execution"
+            "Required for accounts that will be modified during execution",
         ),
         (
             "@init",
             "Initializes a new account",
-            "Creates and initializes a new account. Syntax: @init(payer=<account>, space=<bytes>)"
+            "Creates and initializes a new account. Syntax: @init(payer=<account>, space=<bytes>)",
         ),
         (
             "@writable",
             "Alias for @mut - marks account as writable",
-            "Alternate syntax for @mut constraint"
+            "Alternate syntax for @mut constraint",
         ),
     ];
 
@@ -239,12 +247,28 @@ fn get_symbol_suggestions(
 
     // Always include common built-in types (in case bridge is unavailable)
     let common_types = vec![
-        ("u64", "Unsigned 64-bit integer", CompletionItemKind::TYPE_PARAMETER),
-        ("u32", "Unsigned 32-bit integer", CompletionItemKind::TYPE_PARAMETER),
-        ("u8", "Unsigned 8-bit integer", CompletionItemKind::TYPE_PARAMETER),
+        (
+            "u64",
+            "Unsigned 64-bit integer",
+            CompletionItemKind::TYPE_PARAMETER,
+        ),
+        (
+            "u32",
+            "Unsigned 32-bit integer",
+            CompletionItemKind::TYPE_PARAMETER,
+        ),
+        (
+            "u8",
+            "Unsigned 8-bit integer",
+            CompletionItemKind::TYPE_PARAMETER,
+        ),
         ("bool", "Boolean type", CompletionItemKind::TYPE_PARAMETER),
         ("string", "String type", CompletionItemKind::TYPE_PARAMETER),
-        ("pubkey", "Solana public key", CompletionItemKind::TYPE_PARAMETER),
+        (
+            "pubkey",
+            "Solana public key",
+            CompletionItemKind::TYPE_PARAMETER,
+        ),
     ];
 
     suggestions.extend(
@@ -266,9 +290,17 @@ fn get_symbol_suggestions(
 /// Get type name suggestions
 fn get_type_suggestions(prefix: &str) -> Vec<CompletionItem> {
     vec![
-        ("Option", "Optional value", CompletionItemKind::TYPE_PARAMETER),
+        (
+            "Option",
+            "Optional value",
+            CompletionItemKind::TYPE_PARAMETER,
+        ),
         ("Result", "Result type", CompletionItemKind::TYPE_PARAMETER),
-        ("Vec", "Vector/Array type", CompletionItemKind::TYPE_PARAMETER),
+        (
+            "Vec",
+            "Vector/Array type",
+            CompletionItemKind::TYPE_PARAMETER,
+        ),
     ]
     .into_iter()
     .filter(|(name, _, _)| name.starts_with(prefix))
@@ -337,7 +369,13 @@ mod tests {
     fn test_no_duplicates_in_keyword_suggestions() {
         let keywords = get_keyword_suggestions("");
         let labels: Vec<_> = keywords.iter().map(|k| k.label.clone()).collect();
-        assert_eq!(labels.len(), labels.iter().collect::<std::collections::HashSet<_>>().len());
+        assert_eq!(
+            labels.len(),
+            labels
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+        );
     }
 
     #[test]
@@ -369,8 +407,16 @@ mod tests {
         let constraints = get_constraint_suggestions("");
         assert!(!constraints.is_empty());
         for constraint in &constraints {
-            assert!(constraint.detail.is_some(), "Constraint {} missing detail", constraint.label);
-            assert!(constraint.documentation.is_some(), "Constraint {} missing docs", constraint.label);
+            assert!(
+                constraint.detail.is_some(),
+                "Constraint {} missing detail",
+                constraint.label
+            );
+            assert!(
+                constraint.documentation.is_some(),
+                "Constraint {} missing docs",
+                constraint.label
+            );
         }
     }
 

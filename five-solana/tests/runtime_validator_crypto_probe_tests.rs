@@ -2,20 +2,20 @@
 
 mod harness;
 
+use ed25519_dalek::{Keypair as DalekKeypair, Signer as DalekSigner};
 use five::state::ScriptAccountHeader;
 use five_dsl_compiler::DslCompiler;
 use harness::fixtures::canonical_execute_payload;
 use harness::validator::{
-    build_deploy_instruction, build_execute_instruction_with_extras, RuntimeAccount, ValidatorHarness,
+    build_deploy_instruction, build_execute_instruction_with_extras, RuntimeAccount,
+    ValidatorHarness,
 };
-use ed25519_dalek::{Keypair as DalekKeypair, Signer as DalekSigner};
 use solana_sdk::{
     ed25519_instruction::new_ed25519_instruction,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signature::{Signature, Signer},
-    system_program,
-    sysvar,
+    system_program, sysvar,
 };
 use std::collections::BTreeMap;
 
@@ -88,7 +88,9 @@ fn deploy_with_chunk_fallback(
     if let Ok(ok) = direct {
         return (ok.signature, ok.units_consumed);
     }
-    let err = direct.err().unwrap_or_else(|| "direct deploy failed".to_string());
+    let err = direct
+        .err()
+        .unwrap_or_else(|| "direct deploy failed".to_string());
     if !err.contains("too large") {
         panic!("deploy tx: {}", err);
     }
@@ -121,7 +123,12 @@ fn deploy_with_chunk_fallback(
         data: init_data,
     };
     let init = h
-        .send_ixs("crypto_probe_init_large", vec![init_ix], vec![], Some(1_400_000))
+        .send_ixs(
+            "crypto_probe_init_large",
+            vec![init_ix],
+            vec![],
+            Some(1_400_000),
+        )
         .expect("init large deploy");
     total_cu = total_cu.saturating_add(init.units_consumed);
     last_sig = Some(init.signature);
@@ -144,7 +151,12 @@ fn deploy_with_chunk_fallback(
             data: append_data,
         };
         let append = h
-            .send_ixs("crypto_probe_append", vec![append_ix], vec![], Some(1_400_000))
+            .send_ixs(
+                "crypto_probe_append",
+                vec![append_ix],
+                vec![],
+                Some(1_400_000),
+            )
             .expect("append deploy chunk");
         total_cu = total_cu.saturating_add(append.units_consumed);
         last_sig = Some(append.signature);
@@ -170,10 +182,7 @@ fn deploy_with_chunk_fallback(
     total_cu = total_cu.saturating_add(finalize.units_consumed);
     last_sig = Some(finalize.signature);
 
-    (
-        last_sig.expect("chunked deploy signature"),
-        total_cu,
-    )
+    (last_sig.expect("chunked deploy signature"), total_cu)
 }
 
 fn execute_crypto_probe(

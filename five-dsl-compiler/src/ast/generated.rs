@@ -2,7 +2,11 @@
 // Generated from node_metadata.toml by generate_ast tool
 // Run: cargo run --bin generate_ast
 
-use crate::ast::{AstNode, BlockKind, TypeNode, StructField, InstructionParameter, EventFieldAssignment, MatchArm, ErrorVariant, StructLiteralField, SwitchCase, TestAttribute, AssertionType, ModuleSpecifier, ImportItem, Visibility};
+use crate::ast::{
+    AssertionType, AstNode, BlockKind, ErrorVariant, EventFieldAssignment, ImportItem,
+    InstructionParameter, MatchArm, ModuleSpecifier, StructField, StructLiteralField, SwitchCase,
+    TestAttribute, TypeNode, Visibility,
+};
 use five_protocol::Value;
 
 // ============================================================================
@@ -438,26 +442,59 @@ pub enum structure {
 impl From<Expression> for AstNode {
     fn from(expr: Expression) -> Self {
         match expr {
-            Expression::StringLiteral(node) => AstNode::StringLiteral{ value: node.value },
-            Expression::ArrayLiteral(node) => AstNode::ArrayLiteral{ elements: node.elements },
-            Expression::TupleLiteral(node) => AstNode::TupleLiteral{ elements: node.elements },
-            Expression::StructLiteral(node) => AstNode::StructLiteral{ fields: node.fields },
-            Expression::TemplateLiteral(node) => AstNode::TemplateLiteral{ parts: node.parts },
-            Expression::FieldAccess(node) => AstNode::FieldAccess{ object: node.object, field: node.field },
-            Expression::ArrayAccess(node) => AstNode::ArrayAccess{ index: node.index, array: node.array },
-            Expression::TupleAccess(node) => AstNode::TupleAccess{ object: node.object, index: node.index },
-            Expression::FunctionCall(node) => AstNode::FunctionCall{ args: node.args, name: node.name },
-            Expression::MethodCall(node) => AstNode::MethodCall{ args: node.args, method: node.method, object: node.object },
-            Expression::EnumVariantAccess(node) => AstNode::EnumVariantAccess{ enum_name: node.enum_name, variant_name: node.variant_name },
-            Expression::ErrorPropagation(node) => AstNode::ErrorPropagation{ expression: node.expression },
-            Expression::UnaryExpression(node) => AstNode::UnaryExpression{ operator: node.operator, operand: node.operand },
-            Expression::BinaryExpression(node) => AstNode::BinaryExpression{ left: node.left, operator: node.operator, right: node.right },
+            Expression::StringLiteral(node) => AstNode::StringLiteral { value: node.value },
+            Expression::ArrayLiteral(node) => AstNode::ArrayLiteral {
+                elements: node.elements,
+            },
+            Expression::TupleLiteral(node) => AstNode::TupleLiteral {
+                elements: node.elements,
+            },
+            Expression::StructLiteral(node) => AstNode::StructLiteral {
+                fields: node.fields,
+            },
+            Expression::TemplateLiteral(node) => AstNode::TemplateLiteral { parts: node.parts },
+            Expression::FieldAccess(node) => AstNode::FieldAccess {
+                object: node.object,
+                field: node.field,
+            },
+            Expression::ArrayAccess(node) => AstNode::ArrayAccess {
+                index: node.index,
+                array: node.array,
+            },
+            Expression::TupleAccess(node) => AstNode::TupleAccess {
+                object: node.object,
+                index: node.index,
+            },
+            Expression::FunctionCall(node) => AstNode::FunctionCall {
+                args: node.args,
+                name: node.name,
+            },
+            Expression::MethodCall(node) => AstNode::MethodCall {
+                args: node.args,
+                method: node.method,
+                object: node.object,
+            },
+            Expression::EnumVariantAccess(node) => AstNode::EnumVariantAccess {
+                enum_name: node.enum_name,
+                variant_name: node.variant_name,
+            },
+            Expression::ErrorPropagation(node) => AstNode::ErrorPropagation {
+                expression: node.expression,
+            },
+            Expression::UnaryExpression(node) => AstNode::UnaryExpression {
+                operator: node.operator,
+                operand: node.operand,
+            },
+            Expression::BinaryExpression(node) => AstNode::BinaryExpression {
+                left: node.left,
+                operator: node.operator,
+                right: node.right,
+            },
             Expression::Identifier(name) => AstNode::Identifier(name),
             Expression::Literal(value) => AstNode::Literal(value),
         }
     }
 }
-
 
 // ============================================================================
 // STATEMENT CATEGORY CONVERSIONS
@@ -466,25 +503,81 @@ impl From<Expression> for AstNode {
 impl From<Statement> for AstNode {
     fn from(stmt: Statement) -> Self {
         match stmt {
-            Statement::Assignment(node) => AstNode::Assignment{ value: node.value, target: node.target },
-            Statement::FieldAssignment(node) => AstNode::FieldAssignment{ field: node.field, object: node.object, value: node.value },
-            Statement::RequireStatement(node) => AstNode::RequireStatement{ condition: node.condition },
-            Statement::LetStatement(node) => AstNode::LetStatement{ type_annotation: node.type_annotation, is_mutable: node.is_mutable, value: node.value, name: node.name },
-            Statement::TupleDestructuring(node) => AstNode::TupleDestructuring{ value: node.value, targets: node.targets },
-            Statement::TupleAssignment(node) => AstNode::TupleAssignment{ value: node.value, targets: node.targets },
-            Statement::IfStatement(node) => AstNode::IfStatement{ else_branch: node.else_branch, condition: node.condition, then_branch: node.then_branch },
-            Statement::MatchExpression(node) => AstNode::MatchExpression{ arms: node.arms, expression: node.expression },
-            Statement::ReturnStatement(node) => AstNode::ReturnStatement{ value: node.value },
-            Statement::ForLoop(node) => AstNode::ForLoop{ body: node.body, update: node.update, condition: node.condition, init: node.init },
-            Statement::ForInLoop(node) => AstNode::ForInLoop{ iterable: node.iterable, variable: node.variable, body: node.body },
-            Statement::ForOfLoop(node) => AstNode::ForOfLoop{ variable: node.variable, body: node.body, iterable: node.iterable },
-            Statement::WhileLoop(node) => AstNode::WhileLoop{ body: node.body, condition: node.condition },
-            Statement::DoWhileLoop(node) => AstNode::DoWhileLoop{ body: node.body, condition: node.condition },
-            Statement::SwitchStatement(node) => AstNode::SwitchStatement{ default_case: node.default_case, discriminant: node.discriminant, cases: node.cases },
-            Statement::BreakStatement(node) => AstNode::BreakStatement{ label: node.label },
-            Statement::ContinueStatement(node) => AstNode::ContinueStatement{ label: node.label },
-            Statement::EmitStatement(node) => AstNode::EmitStatement{ event_name: node.event_name, fields: node.fields },
-            Statement::AssertStatement(node) => AstNode::AssertStatement{ assertion_type: node.assertion_type, args: node.args },
+            Statement::Assignment(node) => AstNode::Assignment {
+                value: node.value,
+                target: node.target,
+            },
+            Statement::FieldAssignment(node) => AstNode::FieldAssignment {
+                field: node.field,
+                object: node.object,
+                value: node.value,
+            },
+            Statement::RequireStatement(node) => AstNode::RequireStatement {
+                condition: node.condition,
+            },
+            Statement::LetStatement(node) => AstNode::LetStatement {
+                type_annotation: node.type_annotation,
+                is_mutable: node.is_mutable,
+                value: node.value,
+                name: node.name,
+            },
+            Statement::TupleDestructuring(node) => AstNode::TupleDestructuring {
+                value: node.value,
+                targets: node.targets,
+            },
+            Statement::TupleAssignment(node) => AstNode::TupleAssignment {
+                value: node.value,
+                targets: node.targets,
+            },
+            Statement::IfStatement(node) => AstNode::IfStatement {
+                else_branch: node.else_branch,
+                condition: node.condition,
+                then_branch: node.then_branch,
+            },
+            Statement::MatchExpression(node) => AstNode::MatchExpression {
+                arms: node.arms,
+                expression: node.expression,
+            },
+            Statement::ReturnStatement(node) => AstNode::ReturnStatement { value: node.value },
+            Statement::ForLoop(node) => AstNode::ForLoop {
+                body: node.body,
+                update: node.update,
+                condition: node.condition,
+                init: node.init,
+            },
+            Statement::ForInLoop(node) => AstNode::ForInLoop {
+                iterable: node.iterable,
+                variable: node.variable,
+                body: node.body,
+            },
+            Statement::ForOfLoop(node) => AstNode::ForOfLoop {
+                variable: node.variable,
+                body: node.body,
+                iterable: node.iterable,
+            },
+            Statement::WhileLoop(node) => AstNode::WhileLoop {
+                body: node.body,
+                condition: node.condition,
+            },
+            Statement::DoWhileLoop(node) => AstNode::DoWhileLoop {
+                body: node.body,
+                condition: node.condition,
+            },
+            Statement::SwitchStatement(node) => AstNode::SwitchStatement {
+                default_case: node.default_case,
+                discriminant: node.discriminant,
+                cases: node.cases,
+            },
+            Statement::BreakStatement(node) => AstNode::BreakStatement { label: node.label },
+            Statement::ContinueStatement(node) => AstNode::ContinueStatement { label: node.label },
+            Statement::EmitStatement(node) => AstNode::EmitStatement {
+                event_name: node.event_name,
+                fields: node.fields,
+            },
+            Statement::AssertStatement(node) => AstNode::AssertStatement {
+                assertion_type: node.assertion_type,
+                args: node.args,
+            },
         }
     }
 }
@@ -496,17 +589,71 @@ impl From<Statement> for AstNode {
 impl From<Definition> for AstNode {
     fn from(def: Definition) -> Self {
         match def {
-            Definition::FieldDefinition(node) => AstNode::FieldDefinition{ visibility: node.visibility, is_mutable: node.is_mutable, name: node.name, default_value: node.default_value, is_optional: node.is_optional, field_type: node.field_type },
-            Definition::InstructionDefinition(node) => AstNode::InstructionDefinition{ visibility: node.visibility, is_public: node.visibility.is_on_chain_callable(), name: node.name, return_type: node.return_type, parameters: node.parameters, body: node.body },
-            Definition::EventDefinition(node) => AstNode::EventDefinition{ visibility: node.visibility, name: node.name, fields: node.fields },
-            Definition::ErrorTypeDefinition(node) => AstNode::ErrorTypeDefinition{ variants: node.variants, name: node.name },
-            Definition::AccountDefinition(node) => AstNode::AccountDefinition{ fields: node.fields, name: node.name, visibility: node.visibility },
-            Definition::InterfaceDefinition(node) => AstNode::InterfaceDefinition{ name: node.name, program_id: node.program_id, serializer: node.serializer, is_anchor: node.is_anchor, functions: node.functions },
-            Definition::InterfaceFunction(node) => AstNode::InterfaceFunction{ return_type: node.return_type, parameters: node.parameters, name: node.name, discriminator: node.discriminator, discriminator_bytes: node.discriminator_bytes, is_anchor: node.is_anchor },
-            Definition::ImportStatement(node) => AstNode::ImportStatement{ module_specifier: node.module_specifier, imported_items: node.imported_items },
-            Definition::ArrowFunction(node) => AstNode::ArrowFunction{ parameters: node.parameters, body: node.body, is_async: node.is_async, return_type: node.return_type },
-            Definition::TestFunction(node) => AstNode::TestFunction{ body: node.body, name: node.name, attributes: node.attributes },
-            Definition::TestModule(node) => AstNode::TestModule{ attributes: node.attributes, body: node.body, name: node.name },
+            Definition::FieldDefinition(node) => AstNode::FieldDefinition {
+                visibility: node.visibility,
+                is_mutable: node.is_mutable,
+                name: node.name,
+                default_value: node.default_value,
+                is_optional: node.is_optional,
+                field_type: node.field_type,
+            },
+            Definition::InstructionDefinition(node) => AstNode::InstructionDefinition {
+                visibility: node.visibility,
+                is_public: node.visibility.is_on_chain_callable(),
+                name: node.name,
+                return_type: node.return_type,
+                parameters: node.parameters,
+                body: node.body,
+            },
+            Definition::EventDefinition(node) => AstNode::EventDefinition {
+                visibility: node.visibility,
+                name: node.name,
+                fields: node.fields,
+            },
+            Definition::ErrorTypeDefinition(node) => AstNode::ErrorTypeDefinition {
+                variants: node.variants,
+                name: node.name,
+            },
+            Definition::AccountDefinition(node) => AstNode::AccountDefinition {
+                fields: node.fields,
+                name: node.name,
+                visibility: node.visibility,
+            },
+            Definition::InterfaceDefinition(node) => AstNode::InterfaceDefinition {
+                name: node.name,
+                program_id: node.program_id,
+                serializer: node.serializer,
+                is_anchor: node.is_anchor,
+                functions: node.functions,
+            },
+            Definition::InterfaceFunction(node) => AstNode::InterfaceFunction {
+                return_type: node.return_type,
+                parameters: node.parameters,
+                name: node.name,
+                discriminator: node.discriminator,
+                discriminator_bytes: node.discriminator_bytes,
+                is_anchor: node.is_anchor,
+            },
+            Definition::ImportStatement(node) => AstNode::ImportStatement {
+                module_specifier: node.module_specifier,
+                imported_items: node.imported_items,
+            },
+            Definition::ArrowFunction(node) => AstNode::ArrowFunction {
+                parameters: node.parameters,
+                body: node.body,
+                is_async: node.is_async,
+                return_type: node.return_type,
+            },
+            Definition::TestFunction(node) => AstNode::TestFunction {
+                body: node.body,
+                name: node.name,
+                attributes: node.attributes,
+            },
+            Definition::TestModule(node) => AstNode::TestModule {
+                attributes: node.attributes,
+                body: node.body,
+                name: node.name,
+            },
         }
     }
 }

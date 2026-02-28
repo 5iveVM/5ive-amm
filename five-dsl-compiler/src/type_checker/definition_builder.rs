@@ -4,8 +4,8 @@
 //! These definitions automatically convert to AstNode via the From trait.
 
 use crate::ast::{
-    generated::*, AstNode, TypeNode, StructField, InstructionParameter,
-    ErrorVariant, ModuleSpecifier, ImportItem, Visibility, TestAttribute,
+    generated::*, AstNode, ErrorVariant, ImportItem, InstructionParameter, ModuleSpecifier,
+    StructField, TestAttribute, TypeNode, Visibility,
 };
 
 /// Helper methods for building definitions

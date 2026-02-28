@@ -66,9 +66,7 @@ fn parse_namespace_segment(parser: &mut DslParser) -> Result<String, VMError> {
     }
 
     if !saw_part || !is_valid_namespace_segment(&segment) {
-        return Err(parser.parse_error(
-            "namespace segment (lowercase alnum + '-', one level path)",
-        ));
+        return Err(parser.parse_error("namespace segment (lowercase alnum + '-', one level path)"));
     }
 
     Ok(segment.to_ascii_lowercase())
@@ -89,9 +87,7 @@ fn parse_scoped_namespace(parser: &mut DslParser) -> Result<ModuleSpecifier, VME
     let subprogram = parse_namespace_segment(parser)?;
 
     Ok(ModuleSpecifier::Namespace(NamespaceSpecifier::new(
-        symbol,
-        domain,
-        subprogram,
+        symbol, domain, subprogram,
     )))
 }
 
@@ -144,7 +140,7 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
         }
         _ => {
             return Err(
-                parser.parse_error("module identifier, quoted address, or scoped namespace target"),
+                parser.parse_error("module identifier, quoted address, or scoped namespace target")
             )
         }
     };

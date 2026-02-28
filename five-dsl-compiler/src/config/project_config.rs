@@ -1,9 +1,9 @@
 //! Project configuration for multi-file compilation.
 
+use five_vm_mito::error::VMError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use five_vm_mito::error::VMError;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProjectConfig {
@@ -81,18 +81,13 @@ pub struct DeployConfig {
 
 impl ProjectConfig {
     pub fn load(path: &Path) -> Result<Self, VMError> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|_| VMError::InvalidOperation)?;
+        let content = std::fs::read_to_string(path).map_err(|_| VMError::InvalidOperation)?;
 
-        toml::from_str(&content)
-            .map_err(|_| VMError::InvalidOperation)
+        toml::from_str(&content).map_err(|_| VMError::InvalidOperation)
     }
 
     pub fn get_entry_point(&self) -> Option<PathBuf> {
-        self.project
-            .entry_point
-            .as_ref()
-            .map(PathBuf::from)
+        self.project.entry_point.as_ref().map(PathBuf::from)
     }
 
     pub fn get_source_dir(&self) -> PathBuf {
@@ -212,10 +207,7 @@ max_bytecode_size = 1048576
         let (_temp, path) = create_test_config(content);
         let config = ProjectConfig::load(&path).unwrap();
 
-        assert_eq!(
-            config.get_entry_point(),
-            Some(PathBuf::from("src/main.v"))
-        );
+        assert_eq!(config.get_entry_point(), Some(PathBuf::from("src/main.v")));
     }
 
     #[test]

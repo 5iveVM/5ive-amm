@@ -1,9 +1,9 @@
 use crate::{error, state::FIVEVMState};
+#[cfg(target_os = "solana")]
+use pinocchio::pubkey::create_program_address;
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
-#[cfg(target_os = "solana")]
-use pinocchio::pubkey::create_program_address;
 
 pub const VM_STATE_SEED: &[u8] = b"vm_state";
 // Reserved namespace for VM-level fee vault PDAs.
@@ -152,16 +152,25 @@ mod tests {
         let mut data = [];
 
         // 1. Success: Admin key + Signer
-        let admin_signer = create_account_info(&admin_key, true, false, &mut lamports, &mut data, &owner);
+        let admin_signer =
+            create_account_info(&admin_key, true, false, &mut lamports, &mut data, &owner);
         assert_eq!(verify_admin_signer(&admin_signer, &admin_key), Ok(()));
 
         // 2. Fail: Admin key but not signer
-        let admin_no_signer = create_account_info(&admin_key, false, false, &mut lamports, &mut data, &owner);
-        assert_eq!(verify_admin_signer(&admin_no_signer, &admin_key), Err(ProgramError::MissingRequiredSignature));
+        let admin_no_signer =
+            create_account_info(&admin_key, false, false, &mut lamports, &mut data, &owner);
+        assert_eq!(
+            verify_admin_signer(&admin_no_signer, &admin_key),
+            Err(ProgramError::MissingRequiredSignature)
+        );
 
         // 3. Fail: Not admin key (even if signer)
-        let other_signer = create_account_info(&other_key, true, false, &mut lamports, &mut data, &owner);
-        assert_eq!(verify_admin_signer(&other_signer, &admin_key), Err(ProgramError::InvalidArgument));
+        let other_signer =
+            create_account_info(&other_key, true, false, &mut lamports, &mut data, &owner);
+        assert_eq!(
+            verify_admin_signer(&other_signer, &admin_key),
+            Err(ProgramError::InvalidArgument)
+        );
     }
 
     #[test]
@@ -173,12 +182,17 @@ mod tests {
         let mut data = [];
 
         // 1. Success: Owned by program
-        let owned_account = create_account_info(&key, false, false, &mut lamports, &mut data, &program_id);
+        let owned_account =
+            create_account_info(&key, false, false, &mut lamports, &mut data, &program_id);
         assert_eq!(verify_program_owned(&owned_account, &program_id), Ok(()));
 
         // 2. Fail: Not owned by program
-        let not_owned_account = create_account_info(&key, false, false, &mut lamports, &mut data, &other_program);
-        assert_eq!(verify_program_owned(&not_owned_account, &program_id), Err(ProgramError::IllegalOwner));
+        let not_owned_account =
+            create_account_info(&key, false, false, &mut lamports, &mut data, &other_program);
+        assert_eq!(
+            verify_program_owned(&not_owned_account, &program_id),
+            Err(ProgramError::IllegalOwner)
+        );
     }
 
     #[test]
@@ -188,10 +202,9 @@ mod tests {
         // Copy the output below into the HARDCODED_* constants
 
         let program_id = Pubkey::from([
-            0x2f, 0xb1, 0xf4, 0x4e, 0xea, 0xd0, 0x75, 0xf6,
-            0x64, 0x5f, 0x89, 0xbb, 0xa2, 0x8c, 0xf5, 0x66,
-            0x91, 0x91, 0xdf, 0x5d, 0xc6, 0xd9, 0x2e, 0xde,
-            0xea, 0x76, 0x61, 0x0f, 0xb3, 0x63, 0x9a, 0x56,
+            0x2f, 0xb1, 0xf4, 0x4e, 0xea, 0xd0, 0x75, 0xf6, 0x64, 0x5f, 0x89, 0xbb, 0xa2, 0x8c,
+            0xf5, 0x66, 0x91, 0x91, 0xdf, 0x5d, 0xc6, 0xd9, 0x2e, 0xde, 0xea, 0x76, 0x61, 0x0f,
+            0xb3, 0x63, 0x9a, 0x56,
         ]);
 
         println!("\n=== HARDCODED FEE VAULT ADDRESSES ===");
@@ -215,7 +228,10 @@ mod tests {
                         println!();
                     }
                     println!("];");
-                    println!("pub const HARDCODED_FEE_VAULT_{}_BUMP: u8 = {};", shard, bump);
+                    println!(
+                        "pub const HARDCODED_FEE_VAULT_{}_BUMP: u8 = {};",
+                        shard, bump
+                    );
                     println!();
                 }
                 Err(_) => {
@@ -266,10 +282,27 @@ mod tests {
                 state.initialize(Pubkey::default(), canonical_bump);
             }
 
-            let script_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut script_data, &program_id);
-            let vm_account = create_account_info(&canonical_vm_state, false, false, &mut lamports, &mut vm_data, &program_id);
+            let script_account = create_account_info(
+                &Pubkey::default(),
+                false,
+                false,
+                &mut lamports,
+                &mut script_data,
+                &program_id,
+            );
+            let vm_account = create_account_info(
+                &canonical_vm_state,
+                false,
+                false,
+                &mut lamports,
+                &mut vm_data,
+                &program_id,
+            );
 
-            assert_eq!(validate_vm_and_script_accounts(&program_id, &script_account, &vm_account), Ok(()));
+            assert_eq!(
+                validate_vm_and_script_accounts(&program_id, &script_account, &vm_account),
+                Ok(())
+            );
         }
 
         // Case 2: VM not initialized
@@ -283,10 +316,27 @@ mod tests {
                 state.is_initialized = 0;
             }
 
-            let script_account = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut script_data, &program_id);
-            let vm_account = create_account_info(&canonical_vm_state, false, false, &mut lamports, &mut vm_data, &program_id);
+            let script_account = create_account_info(
+                &Pubkey::default(),
+                false,
+                false,
+                &mut lamports,
+                &mut script_data,
+                &program_id,
+            );
+            let vm_account = create_account_info(
+                &canonical_vm_state,
+                false,
+                false,
+                &mut lamports,
+                &mut vm_data,
+                &program_id,
+            );
 
-            assert_eq!(validate_vm_and_script_accounts(&program_id, &script_account, &vm_account), Err(error::program_not_initialized_error()));
+            assert_eq!(
+                validate_vm_and_script_accounts(&program_id, &script_account, &vm_account),
+                Err(error::program_not_initialized_error())
+            );
         }
 
         // Case 3: Script not owned
@@ -301,10 +351,27 @@ mod tests {
             }
 
             let other_owner = Pubkey::default();
-            let script_not_owned = create_account_info(&Pubkey::default(), false, false, &mut lamports, &mut script_data, &other_owner);
-            let vm_account = create_account_info(&canonical_vm_state, false, false, &mut lamports, &mut vm_data, &program_id);
+            let script_not_owned = create_account_info(
+                &Pubkey::default(),
+                false,
+                false,
+                &mut lamports,
+                &mut script_data,
+                &other_owner,
+            );
+            let vm_account = create_account_info(
+                &canonical_vm_state,
+                false,
+                false,
+                &mut lamports,
+                &mut vm_data,
+                &program_id,
+            );
 
-            assert_eq!(validate_vm_and_script_accounts(&program_id, &script_not_owned, &vm_account), Err(ProgramError::IllegalOwner));
+            assert_eq!(
+                validate_vm_and_script_accounts(&program_id, &script_not_owned, &vm_account),
+                Err(ProgramError::IllegalOwner)
+            );
         }
     }
 
@@ -352,14 +419,17 @@ mod tests {
             &mut vm_data,
             &program_id,
         );
-        assert_eq!(verify_canonical_vm_state_account(&vm_account, &program_id), Ok(()));
+        assert_eq!(
+            verify_canonical_vm_state_account(&vm_account, &program_id),
+            Ok(())
+        );
     }
 }
 
-pub const PERMISSION_PRE_BYTECODE: u8 = 0x01;         // Bit 0
-pub const PERMISSION_POST_BYTECODE: u8 = 0x02;        // Bit 1
+pub const PERMISSION_PRE_BYTECODE: u8 = 0x01; // Bit 0
+pub const PERMISSION_POST_BYTECODE: u8 = 0x02; // Bit 1
 #[allow(dead_code)]
-pub const PERMISSION_PDA_SPECIAL_CHARS: u8 = 0x04;    // Bit 2
+pub const PERMISSION_PDA_SPECIAL_CHARS: u8 = 0x04; // Bit 2
 const KNOWN_PERMISSIONS: u8 =
     PERMISSION_PRE_BYTECODE | PERMISSION_POST_BYTECODE | PERMISSION_PDA_SPECIAL_CHARS;
 
@@ -408,7 +478,9 @@ pub fn verify_program_owned(account: &AccountInfo, program_id: &Pubkey) -> Progr
         #[cfg(feature = "debug-logs")]
         {
             pinocchio::log::sol_log("DEBUG: verify_program_owned FAILED");
-            pinocchio::log::sol_log("Account owner mismatch - script/state account not owned by program");
+            pinocchio::log::sol_log(
+                "Account owner mismatch - script/state account not owned by program",
+            );
         }
         return Err(ProgramError::IllegalOwner);
     }
@@ -432,7 +504,11 @@ pub fn verify_canonical_vm_state_account(
                 if vm_state.is_initialized() && vm_state.vm_state_bump != expected_bump {
                     return Err(ProgramError::InvalidAccountData);
                 }
-                return validate_vm_state_pda_with_bump(vm_state_account, program_id, expected_bump);
+                return validate_vm_state_pda_with_bump(
+                    vm_state_account,
+                    program_id,
+                    expected_bump,
+                );
             }
         }
     }
@@ -501,8 +577,8 @@ pub fn verify_hardcoded_fee_vault_account_with_bump(
     expected_bump: u8,
 ) -> ProgramResult {
     verify_hardcoded_fee_vault_account(fee_vault_account, program_id, shard_index)?;
-    let hardcoded_bump = get_hardcoded_fee_vault_bump(shard_index)
-        .ok_or(ProgramError::InvalidInstructionData)?;
+    let hardcoded_bump =
+        get_hardcoded_fee_vault_bump(shard_index).ok_or(ProgramError::InvalidInstructionData)?;
     if expected_bump != hardcoded_bump {
         return Err(ProgramError::InvalidArgument);
     }
@@ -550,7 +626,10 @@ pub fn verify_hardcoded_vm_state_account_with_bump(
 }
 
 #[inline(always)]
-pub fn derive_fee_vault_pda(program_id: &Pubkey, shard_index: u8) -> Result<(Pubkey, u8), ProgramError> {
+pub fn derive_fee_vault_pda(
+    program_id: &Pubkey,
+    shard_index: u8,
+) -> Result<(Pubkey, u8), ProgramError> {
     let shard_seed = [shard_index];
     #[cfg(not(target_os = "solana"))]
     {

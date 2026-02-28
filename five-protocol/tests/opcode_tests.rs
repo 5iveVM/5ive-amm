@@ -1,9 +1,29 @@
 use five_protocol::{
-    get_opcode_info, is_valid_opcode, opcode_compute_cost, opcode_name,
-    operand_size, parser, BytecodeBuilder, ParseError, OPCODE_TABLE,
+    get_opcode_info,
+    is_valid_opcode,
+    opcode_compute_cost,
+    opcode_name,
+    operand_size,
+    parser,
+    BytecodeBuilder,
+    ParseError,
     // Import some key opcodes to test against
-    ADD, ALLOC_LOCALS, BR_EQ_U8, CAST, CREATE_TUPLE, HALT, JUMP, LOAD, PUSH_ARRAY_LITERAL,
-    PUSH_STRING, PUSH_STRING_LITERAL, PUSH_U16, PUSH_U16_W, RETURN, STORE,
+    ADD,
+    ALLOC_LOCALS,
+    BR_EQ_U8,
+    CAST,
+    CREATE_TUPLE,
+    HALT,
+    JUMP,
+    LOAD,
+    OPCODE_TABLE,
+    PUSH_ARRAY_LITERAL,
+    PUSH_STRING,
+    PUSH_STRING_LITERAL,
+    PUSH_U16,
+    PUSH_U16_W,
+    RETURN,
+    STORE,
 };
 use std::collections::HashSet;
 
@@ -14,14 +34,26 @@ fn test_opcode_table_integrity() {
     for info in OPCODE_TABLE.iter() {
         // Check for duplicates
         if !opcodes.insert(info.opcode) {
-            panic!("Duplicate opcode definition found: {} ({:#04x})", info.name, info.opcode);
+            panic!(
+                "Duplicate opcode definition found: {} ({:#04x})",
+                info.name, info.opcode
+            );
         }
 
         // Check that name is not empty
-        assert!(!info.name.is_empty(), "Opcode {:#04x} has empty name", info.opcode);
+        assert!(
+            !info.name.is_empty(),
+            "Opcode {:#04x} has empty name",
+            info.opcode
+        );
 
         // Compute cost should be reasonable (at least 1)
-        assert!(info.compute_cost >= 1, "Opcode {} has invalid compute cost {}", info.name, info.compute_cost);
+        assert!(
+            info.compute_cost >= 1,
+            "Opcode {} has invalid compute cost {}",
+            info.name,
+            info.compute_cost
+        );
     }
 }
 
@@ -66,7 +98,11 @@ fn test_opcode_constants_match_table() {
 
     let check_opcode = |opcode: u8, name: &str| {
         let info = get_opcode_info(opcode).expect(&format!("Opcode {} not found in table", name));
-        assert_eq!(info.opcode, opcode, "Opcode constant {} mismatch with table", name);
+        assert_eq!(
+            info.opcode, opcode,
+            "Opcode constant {} mismatch with table",
+            name
+        );
         assert_eq!(info.name, name, "Opcode name mismatch for {}", name);
     };
 
@@ -81,7 +117,10 @@ fn test_call_native_in_opcode_table() {
     // Test that CALL_NATIVE (0x92) is correctly in the opcode table
     const CALL_NATIVE: u8 = 0x92;
     let info = get_opcode_info(CALL_NATIVE);
-    assert!(info.is_some(), "CALL_NATIVE (0x92) should be in opcode table");
+    assert!(
+        info.is_some(),
+        "CALL_NATIVE (0x92) should be in opcode table"
+    );
     let info = info.unwrap();
     assert_eq!(info.name, "CALL_NATIVE");
     assert_eq!(info.opcode, CALL_NATIVE);
@@ -97,12 +136,22 @@ fn test_operand_size_uses_canonical_fixed_and_variable_widths() {
     assert_eq!(operand_size(CREATE_TUPLE, &[0x03], false), Some(1));
     assert_eq!(operand_size(ALLOC_LOCALS, &[0x04], false), Some(1));
     assert_eq!(operand_size(BR_EQ_U8, &[0x02, 0x34, 0x12], false), Some(3));
-    assert_eq!(operand_size(STORE, &[0x01, 0x44, 0x33, 0x22, 0x11], false), Some(5));
+    assert_eq!(
+        operand_size(STORE, &[0x01, 0x44, 0x33, 0x22, 0x11], false),
+        Some(5)
+    );
     assert_eq!(operand_size(LOAD, &[], false), Some(0));
     assert_eq!(operand_size(CAST, &[0x01], false), Some(1));
 
     // PUSH_STRING uses u32 length prefix + bytes.
-    assert_eq!(operand_size(PUSH_STRING, &[0x03, 0x00, 0x00, 0x00, b'a', b'b', b'c'], false), Some(7));
+    assert_eq!(
+        operand_size(
+            PUSH_STRING,
+            &[0x03, 0x00, 0x00, 0x00, b'a', b'b', b'c'],
+            false
+        ),
+        Some(7)
+    );
     assert_eq!(operand_size(PUSH_STRING, &[0x03, 0x00], false), None);
 
     // Literal builders use a single immediate count byte in bytecode.
@@ -125,7 +174,11 @@ fn parser_advances_correctly_after_literal_builder_opcodes() {
     };
 
     let parsed = parser::parse_bytecode(&script);
-    assert!(parsed.errors.is_empty(), "parser errors: {:?}", parsed.errors);
+    assert!(
+        parsed.errors.is_empty(),
+        "parser errors: {:?}",
+        parsed.errors
+    );
     assert_eq!(parsed.instructions.len(), 4);
     assert_eq!(parsed.instructions[0].opcode, PUSH_ARRAY_LITERAL);
     assert_eq!(parsed.instructions[0].size, 2);
@@ -149,7 +202,11 @@ fn parser_advances_correctly_after_cast_immediate() {
     };
 
     let parsed = parser::parse_bytecode(&script);
-    assert!(parsed.errors.is_empty(), "parser errors: {:?}", parsed.errors);
+    assert!(
+        parsed.errors.is_empty(),
+        "parser errors: {:?}",
+        parsed.errors
+    );
     assert_eq!(parsed.instructions.len(), 2);
     assert_eq!(parsed.instructions[0].opcode, CAST);
     assert_eq!(parsed.instructions[0].size, 2);
@@ -175,7 +232,11 @@ fn parser_uses_canonical_widths_for_corrected_opcodes() {
     };
 
     let parsed = parser::parse_bytecode(&script);
-    assert!(parsed.errors.is_empty(), "parser errors: {:?}", parsed.errors);
+    assert!(
+        parsed.errors.is_empty(),
+        "parser errors: {:?}",
+        parsed.errors
+    );
 
     let alloc = parsed.instructions[0];
     assert_eq!(alloc.opcode, ALLOC_LOCALS);
@@ -233,7 +294,11 @@ fn parser_decodes_br_eq_u8_compare_and_offset() {
     };
 
     let parsed = parser::parse_bytecode(&script);
-    assert!(parsed.errors.is_empty(), "parser errors: {:?}", parsed.errors);
+    assert!(
+        parsed.errors.is_empty(),
+        "parser errors: {:?}",
+        parsed.errors
+    );
     let br = parsed.instructions[0];
     assert_eq!(br.opcode, BR_EQ_U8);
     assert_eq!(br.size, 4);

@@ -6,7 +6,9 @@ use five_protocol::opcodes;
 
 fn bytecode_contains_u64_literal(bytecode: &[u8], value: u64) -> bool {
     let needle = value.to_le_bytes();
-    bytecode.windows(needle.len()).any(|window| window == needle)
+    bytecode
+        .windows(needle.len())
+        .any(|window| window == needle)
 }
 
 // ============================================================================

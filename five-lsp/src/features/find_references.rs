@@ -54,7 +54,12 @@ pub fn find_references(
 }
 
 /// Find references to a local variable (only within its scope)
-fn find_references_in_local_scope(source: &str, identifier: &str, uri: &Url, var_line: usize) -> Vec<Location> {
+fn find_references_in_local_scope(
+    source: &str,
+    identifier: &str,
+    uri: &Url,
+    var_line: usize,
+) -> Vec<Location> {
     let mut references = Vec::new();
     let lines: Vec<&str> = source.lines().collect();
 
@@ -75,8 +80,7 @@ fn find_references_in_local_scope(source: &str, identifier: &str, uri: &Url, var
         .unwrap_or(0);
 
     // Find the end of this block (where nesting drops below var_nesting)
-    let block_end = var_line
-        .max(block_start)
+    let block_end = var_line.max(block_start)
         + lines
             .iter()
             .skip(var_line + 1)
@@ -324,7 +328,8 @@ mod tests {
 
     #[test]
     fn test_find_references_account_definition() {
-        let source = "account Counter {\n  value: u64,\n}\n\npub read_counter(c: account Counter) {}";
+        let source =
+            "account Counter {\n  value: u64,\n}\n\npub read_counter(c: account Counter) {}";
         let uri = Url::parse("file:///test.v").unwrap();
         let mut bridge = CompilerBridge::new();
         let references = find_references(&mut bridge, &uri, source, 0, 8); // At 'Counter'
@@ -350,7 +355,11 @@ pub increment() {
 
         // We expect both occurrences of the local counter to be found
         // (definition on line 3 and use on line 4)
-        assert_eq!(references.len(), 2, "Should find 2 occurrences of local counter");
+        assert_eq!(
+            references.len(),
+            2,
+            "Should find 2 occurrences of local counter"
+        );
     }
 
     #[test]
@@ -368,7 +377,11 @@ pub get_total() -> u64 {
         let references = find_references(&mut bridge, &uri, source, 0, 4);
 
         // Should find definition and the use in return statement
-        assert_eq!(references.len(), 2, "Should find definition and use of global total");
+        assert_eq!(
+            references.len(),
+            2,
+            "Should find definition and use of global total"
+        );
     }
 
     #[test]

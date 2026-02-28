@@ -9,15 +9,15 @@ pub mod disassembler;
 pub mod error;
 pub mod five_file;
 pub mod import_discovery;
-pub mod interface_serializer;
 pub mod interface_registry;
+pub mod interface_serializer;
 pub mod metrics;
 pub mod module_resolver;
 pub mod parser;
-pub mod stdlib_registry;
-pub mod workspace_resolver;
 #[cfg(feature = "security-audit")]
 pub mod security_rules;
+pub mod stdlib_registry;
+pub mod workspace_resolver;
 #[cfg(not(feature = "security-audit"))]
 pub mod security_rules {
     use crate::ast::AstNode;
@@ -64,12 +64,14 @@ pub use ast::{
     AstNode, ErrorVariant, EventFieldAssignment, MatchArm, StructField, StructLiteralField,
     SwitchCase, TypeNode, Visibility,
 };
+pub use ast::{BlockKind, InstructionParameter};
+pub use bytecode_generator::ModuleMerger;
 pub use bytecode_generator::{DslBytecodeGenerator, FieldInfo};
 pub use bytecode_parser::{BytecodeMetadata, BytecodeParseError, BytecodeParser, CallInfo};
 pub use compiler::{CompilationConfig, CompilationMode, DslCompiler};
 pub use config::{
-    BuildConfig, DeployConfig, DependencyConfig, OptimizationConfig, ProjectConfig, ProjectInfo,
-    LinkType, LockFile, NamespaceBinding, PackageManifest, WorkspaceConfig,
+    BuildConfig, DependencyConfig, DeployConfig, LinkType, LockFile, NamespaceBinding,
+    OptimizationConfig, PackageManifest, ProjectConfig, ProjectInfo, WorkspaceConfig,
 };
 pub use five_file::FiveFile;
 pub use import_discovery::{
@@ -87,5 +89,3 @@ pub use security_rules::{
 };
 pub use tokenizer::{DslTokenizer, Token};
 pub use type_checker::{DslTypeChecker, ModuleScope, ModuleSymbol, ModuleSymbolTable};
-pub use bytecode_generator::ModuleMerger;
-pub use ast::{BlockKind, InstructionParameter};

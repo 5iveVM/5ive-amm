@@ -1,6 +1,6 @@
 // Type definitions for the type checker
 
-use crate::ast::{InstructionParameter, StructField, TypeNode, SourceLocation};
+use crate::ast::{InstructionParameter, SourceLocation, StructField, TypeNode};
 use crate::type_checker::ModuleScope;
 use five_vm_mito::error::VMError;
 use std::collections::{HashMap, HashSet};
@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 pub struct SymbolDefinition {
     pub type_info: TypeNode,
     pub is_mutable: bool,
-    pub location: Option<SourceLocation>,  // Where this symbol was defined
+    pub location: Option<SourceLocation>, // Where this symbol was defined
 }
 
 /// Interface method information for bytecode generation
@@ -113,7 +113,13 @@ impl TypeCheckerContext {
     }
 
     /// Add a symbol to the current module scope (if multi-module mode)
-    pub fn add_to_module_scope(&mut self, name: String, type_info: TypeNode, is_mutable: bool, visibility: crate::ast::Visibility) {
+    pub fn add_to_module_scope(
+        &mut self,
+        name: String,
+        type_info: TypeNode,
+        is_mutable: bool,
+        visibility: crate::ast::Visibility,
+    ) {
         if let Some(ref mut scope) = self.module_scope {
             let symbol = super::ModuleSymbol {
                 type_info,
@@ -146,7 +152,8 @@ impl TypeCheckerContext {
     pub fn is_on_chain_callable_symbol(&self, name: &str) -> bool {
         if let Some(ref scope) = self.module_scope {
             if let Some(current_module) = &self.current_module {
-                return scope.resolve_symbol(name, current_module)
+                return scope
+                    .resolve_symbol(name, current_module)
                     .map(|s| s.visibility.is_on_chain_callable())
                     .unwrap_or(false);
             }
@@ -170,12 +177,21 @@ impl TypeCheckerContext {
     }
 
     /// Record where a symbol was defined (for go-to-definition)
-    pub fn record_definition(&mut self, name: String, type_info: TypeNode, is_mutable: bool, location: Option<SourceLocation>) {
-        self.symbol_definitions.insert(name, SymbolDefinition {
-            type_info,
-            is_mutable,
-            location,
-        });
+    pub fn record_definition(
+        &mut self,
+        name: String,
+        type_info: TypeNode,
+        is_mutable: bool,
+        location: Option<SourceLocation>,
+    ) {
+        self.symbol_definitions.insert(
+            name,
+            SymbolDefinition {
+                type_info,
+                is_mutable,
+                location,
+            },
+        );
     }
 
     /// Get definition information for a symbol (includes source location)

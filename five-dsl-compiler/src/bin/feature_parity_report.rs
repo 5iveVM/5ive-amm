@@ -99,7 +99,11 @@ fn find_uncataloged_fixtures(root: &Path, tracked: &BTreeSet<String>) -> Vec<Str
     out
 }
 
-fn classify(required_layers: &[String], layer_coverage: &BTreeMap<String, bool>, scenario_count: usize) -> String {
+fn classify(
+    required_layers: &[String],
+    layer_coverage: &BTreeMap<String, bool>,
+    scenario_count: usize,
+) -> String {
     if scenario_count == 0 {
         return "red".to_string();
     }
@@ -119,7 +123,9 @@ fn write_markdown(report: &ParityReport, path: &Path) -> std::io::Result<()> {
     let mut md = String::new();
     md.push_str("# 5IVE DSL Feature Parity Matrix\n\n");
     md.push_str("| Category | Scenarios | Positive | Negative | Compiler | VM | CLI | WASM | LSP | Runtime | Localnet | Devnet Tracked | Uncataloged | Strength |\n");
-    md.push_str("|---|---:|---:|---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---:|:---:|\n");
+    md.push_str(
+        "|---|---:|---:|---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---:|:---:|\n",
+    );
 
     for category in &report.categories {
         let layer = |name: &str| {
@@ -151,7 +157,10 @@ fn write_markdown(report: &ParityReport, path: &Path) -> std::io::Result<()> {
     md.push_str("\n");
     md.push_str(&format!(
         "Summary: total={}, green={}, yellow={}, red={}\n\n",
-        report.summary.total_categories, report.summary.green, report.summary.yellow, report.summary.red
+        report.summary.total_categories,
+        report.summary.green,
+        report.summary.yellow,
+        report.summary.red
     ));
 
     if !report.uncataloged_fixtures.is_empty() {
@@ -167,7 +176,9 @@ fn write_markdown(report: &ParityReport, path: &Path) -> std::io::Result<()> {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let fixture_root = workspace_root.join("five-cli").join("test-scripts");
-    let matrix_path = workspace_root.join("testing").join("dsl-feature-matrix.json");
+    let matrix_path = workspace_root
+        .join("testing")
+        .join("dsl-feature-matrix.json");
     let output_root = workspace_root.join("target").join("feature-parity");
     fs::create_dir_all(&output_root)?;
 
@@ -214,8 +225,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             category: category.id.clone(),
             description: category.description.clone(),
             scenario_count: scenarios.len(),
-            positive_count: scenarios.iter().filter(|scenario| scenario.kind == "positive").count(),
-            negative_count: scenarios.iter().filter(|scenario| scenario.kind == "negative").count(),
+            positive_count: scenarios
+                .iter()
+                .filter(|scenario| scenario.kind == "positive")
+                .count(),
+            negative_count: scenarios
+                .iter()
+                .filter(|scenario| scenario.kind == "negative")
+                .count(),
             layer_coverage,
             required_layers: category.required_layers.clone(),
             uncataloged_fixtures: *uncataloged_by_category.get(&category.id).unwrap_or(&0),
@@ -225,9 +242,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let summary = Summary {
         total_categories: categories.len(),
-        green: categories.iter().filter(|category| category.strength == "green").count(),
-        yellow: categories.iter().filter(|category| category.strength == "yellow").count(),
-        red: categories.iter().filter(|category| category.strength == "red").count(),
+        green: categories
+            .iter()
+            .filter(|category| category.strength == "green")
+            .count(),
+        yellow: categories
+            .iter()
+            .filter(|category| category.strength == "yellow")
+            .count(),
+        red: categories
+            .iter()
+            .filter(|category| category.strength == "red")
+            .count(),
     };
 
     let report = ParityReport {

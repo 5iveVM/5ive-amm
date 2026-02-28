@@ -4,9 +4,13 @@
 //! It focuses on edge cases, stack effects, and specific bit-level behaviors.
 
 use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
@@ -119,10 +123,10 @@ fn test_spec_bitwise_operations() {
 
     // Retrying with just checking the last operation (XOR)
     let bytecode_xor = build_script(|script| {
-         push_u64(script, 0xFF);
-         push_u64(script, 0x0F);
-         script.push(BITWISE_XOR);
-         script.push(HALT);
+        push_u64(script, 0xFF);
+        push_u64(script, 0x0F);
+        script.push(BITWISE_XOR);
+        script.push(HALT);
     });
 
     let result = execute_test(&bytecode_xor, &[], &[]).unwrap();
@@ -174,7 +178,7 @@ fn test_spec_bitwise_shifts() {
     let res_sar = execute_test(&bc_sar, &[], &[]).unwrap();
 
     if let Some(val) = res_sar {
-         match val {
+        match val {
             Value::I64(v) => assert_eq!(v, -4, "-8 >> 1 (arith) should be -4"),
             Value::U64(v) => assert_eq!(v as i64, -4, "-8 >> 1 (arith) cast as U64 should be -4"),
             _ => panic!("Unexpected result type for SAR: {:?}", val),
@@ -197,7 +201,11 @@ fn test_spec_stack_ops_complex() {
         script.push(HALT); // Top should be 10
     });
     let res_over = execute_test(&bc_over, &[], &[]).unwrap();
-    assert_eq!(res_over, Some(Value::U64(10)), "OVER should copy 2nd item to top");
+    assert_eq!(
+        res_over,
+        Some(Value::U64(10)),
+        "OVER should copy 2nd item to top"
+    );
 
     // 2. ROT: a b c -> b c a
     // Stack: [1, 2, 3] -> [2, 3, 1]
@@ -209,7 +217,11 @@ fn test_spec_stack_ops_complex() {
         script.push(HALT); // Top should be 1
     });
     let res_rot = execute_test(&bc_rot, &[], &[]).unwrap();
-    assert_eq!(res_rot, Some(Value::U64(1)), "ROT should move 3rd item to top");
+    assert_eq!(
+        res_rot,
+        Some(Value::U64(1)),
+        "ROT should move 3rd item to top"
+    );
 
     // 3. PICK: Copy N-th item to top
     // Stack: [10, 20, 30, 40]
@@ -229,7 +241,11 @@ fn test_spec_stack_ops_complex() {
     let res_pick = execute_test(&bc_pick, &[], &[]).unwrap();
     // Stack: [10, 20, 30, 40]
     // PICK 2: 0->40, 1->30, 2->20
-    assert_eq!(res_pick, Some(Value::U64(20)), "PICK 2 should duplicate value 20");
+    assert_eq!(
+        res_pick,
+        Some(Value::U64(20)),
+        "PICK 2 should duplicate value 20"
+    );
 }
 
 #[test]
@@ -246,7 +262,11 @@ fn test_spec_nibble_ops() {
         script.push(HALT);
     });
     let res = execute_test(&bc_nibble, &[], &[]).unwrap();
-    assert_eq!(res, Some(Value::U64(6)), "Nibble PUSH ops should work correctly");
+    assert_eq!(
+        res,
+        Some(Value::U64(6)),
+        "Nibble PUSH ops should work correctly"
+    );
 }
 
 // Pattern Fusion tests removed as opcodes were reverted

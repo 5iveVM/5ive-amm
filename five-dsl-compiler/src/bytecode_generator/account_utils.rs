@@ -7,7 +7,10 @@ use crate::ast::{Attribute, TypeNode};
 pub fn account_index_from_param_index(param_index: u8) -> u8 {
     let offset = super::ACCOUNT_INDEX_OFFSET;
     let result = param_index.saturating_add(offset);
-    println!("DEBUG: account_index_from_param_index({}) with offset {} -> {}", param_index, offset, result);
+    println!(
+        "DEBUG: account_index_from_param_index({}) with offset {} -> {}",
+        param_index, offset, result
+    );
     result
 }
 
@@ -28,7 +31,10 @@ pub fn is_account_type(type_node: &TypeNode, account_registry: Option<&AccountRe
             }
 
             // Check built-in account types
-            if matches!(name.as_str(), "Account" | "TokenAccount" | "ProgramAccount" | "account") {
+            if matches!(
+                name.as_str(),
+                "Account" | "TokenAccount" | "ProgramAccount" | "account"
+            ) {
                 return true;
             }
 
@@ -39,13 +45,18 @@ pub fn is_account_type(type_node: &TypeNode, account_registry: Option<&AccountRe
 
         TypeNode::Primitive(name) => {
             // Handle primitive account types
-            matches!(name.as_str(), "Account" | "TokenAccount" | "ProgramAccount" | "account")
+            matches!(
+                name.as_str(),
+                "Account" | "TokenAccount" | "ProgramAccount" | "account"
+            )
         }
 
         TypeNode::Generic { base, .. } => {
             // Handle generic account types like Account<T>
-            matches!(base.as_str(), "Account" | "TokenAccount" | "ProgramAccount" | "account")
-                || base.ends_with("Account")
+            matches!(
+                base.as_str(),
+                "Account" | "TokenAccount" | "ProgramAccount" | "account"
+            ) || base.ends_with("Account")
         }
 
         TypeNode::Account => true,
@@ -105,8 +116,7 @@ pub fn type_node_to_string(type_node: &TypeNode) -> String {
             if args.is_empty() {
                 base.clone()
             } else {
-                let arg_strings: Vec<String> =
-                    args.iter().map(type_node_to_string).collect();
+                let arg_strings: Vec<String> = args.iter().map(type_node_to_string).collect();
                 format!("{}<{}>", base, arg_strings.join(", "))
             }
         }
@@ -118,8 +128,7 @@ pub fn type_node_to_string(type_node: &TypeNode) -> String {
             }
         }
         TypeNode::Tuple { elements } => {
-            let type_strings: Vec<String> =
-                elements.iter().map(type_node_to_string).collect();
+            let type_strings: Vec<String> = elements.iter().map(type_node_to_string).collect();
             format!("({})", type_strings.join(", "))
         }
         TypeNode::Struct { fields } => {
@@ -196,14 +205,32 @@ mod tests {
 
     #[test]
     fn test_account_attributes() {
-        assert!(has_account_attributes(&[Attribute { name: "mut".to_string(), args: vec![] }]));
-        assert!(has_account_attributes(&[Attribute { name: "signer".to_string(), args: vec![] }]));
-        assert!(has_account_attributes(&[Attribute { name: "init".to_string(), args: vec![] }]));
+        assert!(has_account_attributes(&[Attribute {
+            name: "mut".to_string(),
+            args: vec![]
+        }]));
+        assert!(has_account_attributes(&[Attribute {
+            name: "signer".to_string(),
+            args: vec![]
+        }]));
+        assert!(has_account_attributes(&[Attribute {
+            name: "init".to_string(),
+            args: vec![]
+        }]));
         assert!(has_account_attributes(&[
-            Attribute { name: "mut".to_string(), args: vec![] },
-            Attribute { name: "signer".to_string(), args: vec![] }
+            Attribute {
+                name: "mut".to_string(),
+                args: vec![]
+            },
+            Attribute {
+                name: "signer".to_string(),
+                args: vec![]
+            }
         ]));
-        assert!(!has_account_attributes(&[Attribute { name: "param".to_string(), args: vec![] }]));
+        assert!(!has_account_attributes(&[Attribute {
+            name: "param".to_string(),
+            args: vec![]
+        }]));
         assert!(!has_account_attributes(&[]));
     }
 
@@ -219,21 +246,30 @@ mod tests {
         // Attribute-based detection
         assert!(is_account_parameter(
             &TypeNode::Named("SomeType".to_string()),
-            &[Attribute { name: "mut".to_string(), args: vec![] }],
+            &[Attribute {
+                name: "mut".to_string(),
+                args: vec![]
+            }],
             None
         ));
 
         // Init flag detection
-         assert!(is_account_parameter(
+        assert!(is_account_parameter(
             &TypeNode::Named("SomeType".to_string()),
-            &[Attribute { name: "init".to_string(), args: vec![] }],
+            &[Attribute {
+                name: "init".to_string(),
+                args: vec![]
+            }],
             None
         ));
 
         // Neither type nor attributes indicate account
         assert!(!is_account_parameter(
             &TypeNode::Named("u64".to_string()),
-            &[Attribute { name: "param".to_string(), args: vec![] }],
+            &[Attribute {
+                name: "param".to_string(),
+                args: vec![]
+            }],
             None
         ));
     }

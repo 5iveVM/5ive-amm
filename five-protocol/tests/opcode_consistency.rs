@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use five_protocol::opcodes::{self, OPCODE_TABLE, get_opcode_info};
+    use five_protocol::opcodes::{self, get_opcode_info, OPCODE_TABLE};
     use std::collections::HashSet;
 
     #[test]
@@ -11,7 +11,10 @@ mod tests {
         for info in OPCODE_TABLE {
             // Check for duplicate opcode values
             if !seen_opcodes.insert(info.opcode) {
-                panic!("Duplicate opcode value found: 0x{:02X} ({})", info.opcode, info.name);
+                panic!(
+                    "Duplicate opcode value found: 0x{:02X} ({})",
+                    info.opcode, info.name
+                );
             }
 
             // Check for duplicate names
@@ -21,7 +24,11 @@ mod tests {
 
             // Check lookup consistency
             let lookup = get_opcode_info(info.opcode);
-            assert!(lookup.is_some(), "Opcode 0x{:02X} not found in lookup", info.opcode);
+            assert!(
+                lookup.is_some(),
+                "Opcode 0x{:02X} not found in lookup",
+                info.opcode
+            );
             let lookup_info = lookup.unwrap();
             assert_eq!(lookup_info.opcode, info.opcode);
             assert_eq!(lookup_info.name, info.name);
@@ -33,8 +40,10 @@ mod tests {
         // Verify known opcodes are in correct ranges
         let check_range = |opcode: u8, name: &str, expected_min: u8, expected_max: u8| {
             if opcode < expected_min || opcode > expected_max {
-                panic!("Opcode {} (0x{:02X}) is out of expected range [0x{:02X}, 0x{:02X}]",
-                       name, opcode, expected_min, expected_max);
+                panic!(
+                    "Opcode {} (0x{:02X}) is out of expected range [0x{:02X}, 0x{:02X}]",
+                    name, opcode, expected_min, expected_max
+                );
             }
         };
 

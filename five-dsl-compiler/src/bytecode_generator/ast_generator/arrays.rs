@@ -52,7 +52,10 @@ impl ASTGenerator {
             // Example: double-entry bookkeeping (sub/add pairs) -> FIELD_SUB_ADD_PARAM
             if let Some(consumed) = self.try_emit_fused_assignment_block(emitter, statements, i)? {
                 #[cfg(debug_assertions)]
-                println!("FUSED_DEBUG: Consumed {} statements for fused block pattern", consumed);
+                println!(
+                    "FUSED_DEBUG: Consumed {} statements for fused block pattern",
+                    consumed
+                );
                 i += consumed;
                 continue;
             }

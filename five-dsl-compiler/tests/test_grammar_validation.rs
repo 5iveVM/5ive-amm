@@ -33,18 +33,9 @@ fn test_node_registry_categories_are_organized() {
     let statement_nodes = registry.get_by_category("statement");
     let definition_nodes = registry.get_by_category("definition");
 
-    assert!(
-        !expression_nodes.is_empty(),
-        "Should have expression nodes"
-    );
-    assert!(
-        !statement_nodes.is_empty(),
-        "Should have statement nodes"
-    );
-    assert!(
-        !definition_nodes.is_empty(),
-        "Should have definition nodes"
-    );
+    assert!(!expression_nodes.is_empty(), "Should have expression nodes");
+    assert!(!statement_nodes.is_empty(), "Should have statement nodes");
+    assert!(!definition_nodes.is_empty(), "Should have definition nodes");
 
     println!(
         "Node organization: {} expressions, {} statements, {} definitions",
@@ -152,7 +143,10 @@ fn test_all_field_definitions_are_valid() {
     }
 
     println!("Total node fields: {}", field_count);
-    assert!(field_count > 100, "Should have hundreds of fields across all nodes");
+    assert!(
+        field_count > 100,
+        "Should have hundreds of fields across all nodes"
+    );
 }
 
 #[test]
@@ -293,7 +287,9 @@ fn test_grammar_rules_exist_for_key_nodes() {
     ];
 
     for node_name in key_nodes {
-        let node = registry.get_node(node_name).unwrap_or_else(|| panic!("Node {} should exist", node_name));
+        let node = registry
+            .get_node(node_name)
+            .unwrap_or_else(|| panic!("Node {} should exist", node_name));
         let rule = get_grammar_rule_str(node);
 
         println!("Node {}: grammar rule length = {}", node_name, rule.len());
@@ -366,7 +362,7 @@ fn test_node_categories_are_consistent() {
         "definition",
         "structure",
         "type_node",
-        "program",  // Top-level program node
+        "program", // Top-level program node
     ];
 
     for (name, node) in registry.nodes.iter() {

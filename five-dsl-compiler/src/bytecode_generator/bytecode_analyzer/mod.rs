@@ -5,7 +5,7 @@
 // pattern detection, and comprehensive reporting for optimization and debugging.
 
 use crate::ast::AstNode;
-use five_protocol::{ResourceRequirements};
+use five_protocol::ResourceRequirements;
 use five_vm_mito::error::VMError;
 
 pub mod analysis;
@@ -108,7 +108,6 @@ impl AdvancedBytecodeAnalyzer {
     ) -> Result<ResourceRequirements, VMError> {
         analysis::calculate_resource_requirements(self, ast)
     }
-
 }
 
 impl Default for AdvancedBytecodeAnalyzer {

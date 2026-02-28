@@ -285,7 +285,10 @@ impl OpcodePatterns {
     }
 
     /// Emit a PUSH_PUBKEY instruction with a pubkey
-    pub fn emit_push_pubkey(emitter: &mut impl OpcodeEmitter, value: &[u8; 32]) -> Result<(), VMError> {
+    pub fn emit_push_pubkey(
+        emitter: &mut impl OpcodeEmitter,
+        value: &[u8; 32],
+    ) -> Result<(), VMError> {
         emitter.emit_const_pubkey(value)
     }
 

@@ -7,7 +7,7 @@
 //! - leader_schedule_epoch (8 bytes)
 //! - unix_timestamp (8 bytes)
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
 /// Test that GET_CLOCK returns complete clock data as TupleRef
 #[test]
@@ -27,7 +27,13 @@ fn test_get_clock_complete_data_structure() {
     let input_data = [];
 
     let mut storage = StackStorage::new();
-    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &FIVE_VM_PROGRAM_ID, &mut storage);
+    let result = MitoVM::execute_direct(
+        &bytecode,
+        &input_data,
+        &accounts,
+        &FIVE_VM_PROGRAM_ID,
+        &mut storage,
+    );
 
     match result {
         Ok(Some(value)) => {

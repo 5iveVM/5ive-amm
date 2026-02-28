@@ -100,8 +100,6 @@ impl ASTGenerator {
         offset
     }
 
-
-
     /// Try to emit a built-in arithmetic/comparison method
     ///
     /// Returns Some(()) if the method was a built-in and was emitted,
@@ -135,7 +133,7 @@ impl ASTGenerator {
     }
 
     /// Parse a qualified function name like "module::function"
-    /// 
+    ///
     /// Returns Some((module_name, function_name)) if the name contains "::"
     /// Returns None for unqualified function names
     pub(super) fn parse_qualified_name(name: &str) -> Option<(&str, &str)> {

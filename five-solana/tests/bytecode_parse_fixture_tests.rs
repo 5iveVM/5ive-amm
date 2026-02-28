@@ -1,5 +1,5 @@
-use five_protocol::parser::{parse_code_bounds, parse_instruction_with_features};
 use five::instructions::{verify_bytecode_content, FIVEInstruction, DEPLOY_INSTRUCTION};
+use five_protocol::parser::{parse_code_bounds, parse_instruction_with_features};
 
 #[test]
 fn parse_defi_bench_fixture_with_feature_aware_parser() {
@@ -17,11 +17,7 @@ fn parse_defi_bench_fixture_with_feature_aware_parser() {
             Ok((_, size)) => offset += size,
             Err(e) => panic!(
                 "parse error at offset {} (0x{:X}), opcode=0x{:02X}, features=0x{:08X}, err={:?}",
-                offset,
-                offset,
-                bytecode[offset],
-                header.features,
-                e
+                offset, offset, bytecode[offset], header.features, e
             ),
         }
     }

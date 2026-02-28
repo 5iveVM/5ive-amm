@@ -196,10 +196,10 @@ impl TestUtils {
 
         // Features (4 bytes LE) - enable function metadata
         bytecode.extend_from_slice(&0x0102u32.to_le_bytes()); // FEATURE_FUNCTION_NAMES (0x100) + base features
-        
-        // public_count (1 byte) - number of externally callable functions  
+
+        // public_count (1 byte) - number of externally callable functions
         bytecode.push(0);
-        
+
         // total_count (1 byte) - total number of functions including internal
         bytecode.push(1);
 
@@ -456,7 +456,10 @@ impl MolluskTestUtils {
 
     /// Create system program account pair for Mollusk tests
     pub fn system_program_account() -> (Pubkey, Account) {
-        (system_program::ID.to_bytes(), Account::new(1, 0, &system_program::ID))
+        (
+            system_program::ID.to_bytes(),
+            Account::new(1, 0, &system_program::ID),
+        )
     }
 
     /// Create funded authority account for testing
@@ -466,7 +469,11 @@ impl MolluskTestUtils {
 
     /// Create Five VM state account with proper initialization
     pub fn vm_state_account(lamports: u64, script_data: &[u8], program_id: &Pubkey) -> Account {
-        let mut account = Account::new(lamports, script_data.len(), &SolPubkey::new_from_array(*program_id));
+        let mut account = Account::new(
+            lamports,
+            script_data.len(),
+            &SolPubkey::new_from_array(*program_id),
+        );
         account.data = script_data.to_vec();
         account
     }
@@ -523,7 +530,13 @@ impl MolluskTestUtils {
 
         // Execute the VM script with real bytecode and filtered accounts
         let mut storage = crate::stack::StackStorage::new();
-        match MitoVM::execute_direct(script_bytecode, &[], account_infos.as_slice(), program_id, &mut storage) {
+        match MitoVM::execute_direct(
+            script_bytecode,
+            &[],
+            account_infos.as_slice(),
+            program_id,
+            &mut storage,
+        ) {
             Ok(_) => Ok(()),
             Err(vm_error) => Err(vm_error),
         }
@@ -531,7 +544,6 @@ impl MolluskTestUtils {
 
     /// Create system program account pair for Mollusk tests
     /// Following counter-pinocchio pattern for real account creation
-
 
     /// Validate Five VM execution result using Mollusk checks
     /// Provides comprehensive result validation following Mollusk patterns
@@ -569,8 +581,8 @@ impl MolluskTestUtils {
 
         // Create account metas for instruction
         let account_metas = vec![
-            AccountMeta::new(SolPubkey::new_from_array(authority_key), true),                // signer
-            AccountMeta::new(SolPubkey::new_from_array(script_account_key), false),          // script state
+            AccountMeta::new(SolPubkey::new_from_array(authority_key), true), // signer
+            AccountMeta::new(SolPubkey::new_from_array(script_account_key), false), // script state
             AccountMeta::new_readonly(SolPubkey::new_from_array(system_program_key), false), // system program
         ];
 
@@ -595,7 +607,7 @@ macro_rules! opcodes {
 macro_rules! push_u64 {
     ($val:expr) => {{
         let mut ops = vec![0x1B]; // PUSH_U64 opcode
-        // Fixed size little endian encoding
+                                  // Fixed size little endian encoding
         ops.extend_from_slice(&($val as u64).to_le_bytes());
         ops
     }};

@@ -14,15 +14,14 @@ use five_protocol::{
     opcodes::{self, CALL_EXTERNAL, HALT},
     parser::parse_code_bounds,
 };
-use harness::addresses::{
-    canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda,
-};
+use harness::addresses::{canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda};
 use harness::compile::{load_or_compile_bytecode, maybe_write_generated_v};
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use harness::perf::{assert_no_regression, print_scenario_line, CuMetrics};
 use serde::Deserialize;
 use solana_program::{
-    account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError, program_option::COption, pubkey::Pubkey as ProgramPubkey,
+    account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
+    program_option::COption, pubkey::Pubkey as ProgramPubkey,
 };
 use solana_program_test::{ProgramTest, ProgramTestBanksClientExt, ProgramTestContext};
 use solana_sdk::{
@@ -300,7 +299,8 @@ async fn token_e2e_bpf_compute_units() {
 #[tokio::test(flavor = "multi_thread")]
 async fn spl_token_interface_cpi_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let fixture_path = repo_root.join("five-templates/cpi-examples/runtime-fixtures/spl-token-mint-e2e.json");
+    let fixture_path =
+        repo_root.join("five-templates/cpi-examples/runtime-fixtures/spl-token-mint-e2e.json");
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(120_000)).await;
 }
 
@@ -366,7 +366,8 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
             pubkey: token_script_pubkey,
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
             is_writable: false,
@@ -389,7 +390,11 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         }}
     "#
     );
-    maybe_write_generated_v(&repo_root, "generated/external-transfer-caller.v", &caller_source);
+    maybe_write_generated_v(
+        &repo_root,
+        "generated/external-transfer-caller.v",
+        &caller_source,
+    );
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller script should compile");
     print_external_call_opcode_mix("external_non_cpi", &caller_bytecode);
@@ -399,7 +404,8 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -485,7 +491,11 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_token.success, "token deploy failed: {:?}", deploy_token.error);
+    assert!(
+        deploy_token.success,
+        "token deploy failed: {:?}",
+        deploy_token.error
+    );
 
     let deploy_caller_ix = build_deploy_instruction(
         program_id,
@@ -503,7 +513,11 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+    assert!(
+        deploy_caller.success,
+        "caller deploy failed: {:?}",
+        deploy_caller.error
+    );
 
     let step = StepFixture {
         name: "external_transfer_non_cpi".to_string(),
@@ -564,7 +578,8 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         .expect("fetch destination account")
         .expect("destination token account missing");
     let source_balance = u64::from_le_bytes(source_after.data[64..72].try_into().unwrap());
-    let destination_balance = u64::from_le_bytes(destination_after.data[64..72].try_into().unwrap());
+    let destination_balance =
+        u64::from_le_bytes(destination_after.data[64..72].try_into().unwrap());
     assert_eq!(source_balance, 450);
     assert_eq!(destination_balance, 150);
 
@@ -614,11 +629,15 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes(), Pubkey::find_program_address(&[b"vm_state"], &program_id).1);
+        vm_state.initialize(
+            owner_pubkey.to_bytes(),
+            Pubkey::find_program_address(&[b"vm_state"], &program_id).1,
+        );
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) =
+        Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -643,7 +662,11 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
             // No-op body; success proves selector mapping resolved correctly.
         }
     "#;
-    maybe_write_generated_v(&repo_root, "generated/external-interface-callee.v", callee_source);
+    maybe_write_generated_v(
+        &repo_root,
+        "generated/external-interface-callee.v",
+        callee_source,
+    );
     let callee_bytecode =
         DslCompiler::compile_dsl(callee_source).expect("callee script should compile");
 
@@ -664,7 +687,9 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
             ),
             data: vec![
                 0u8;
-                ScriptAccountHeader::LEN + callee_export_metadata.len() + callee_bytecode.len()
+                ScriptAccountHeader::LEN
+                    + callee_export_metadata.len()
+                    + callee_bytecode.len()
             ],
             is_signer: false,
             is_writable: false,
@@ -696,9 +721,13 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
         }}
     "#
     );
-    maybe_write_generated_v(&repo_root, "generated/external-interface-caller.v", &caller_source);
-    let caller_bytecode =
-        DslCompiler::compile_dsl(&caller_source).expect("caller script should compile via lockfile mapping");
+    maybe_write_generated_v(
+        &repo_root,
+        "generated/external-interface-caller.v",
+        &caller_source,
+    );
+    let caller_bytecode = DslCompiler::compile_dsl(&caller_source)
+        .expect("caller script should compile via lockfile mapping");
     print_external_call_opcode_mix("external_interface_mapping_non_cpi", &caller_bytecode);
     assert!(
         caller_bytecode.iter().any(|op| *op == CALL_EXTERNAL),
@@ -711,7 +740,8 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -720,7 +750,10 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
     );
 
     // Placeholder writable accounts used as arguments.
-    for (name, lamports) in [("source_account", 1_000_000u64), ("destination_account", 1_000_000u64)] {
+    for (name, lamports) in [
+        ("source_account", 1_000_000u64),
+        ("destination_account", 1_000_000u64),
+    ] {
         accounts.insert(
             name.to_string(),
             RuntimeAccount {
@@ -773,7 +806,11 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_callee.success, "callee deploy failed: {:?}", deploy_callee.error);
+    assert!(
+        deploy_callee.success,
+        "callee deploy failed: {:?}",
+        deploy_callee.error
+    );
 
     let deploy_caller_ix = build_deploy_instruction(
         program_id,
@@ -791,7 +828,11 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+    assert!(
+        deploy_caller.success,
+        "caller deploy failed: {:?}",
+        deploy_caller.error
+    );
 
     let step = StepFixture {
         name: "external_interface_mapping_non_cpi".to_string(),
@@ -901,15 +942,28 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     const REGISTER_PRICE_LAMPORTS: u64 = 1_000_000_000;
 
     let cfg_pda = Pubkey::find_program_address(&[b"5ns_config"], &program_id).0;
-    let tld_pda =
-        Pubkey::find_program_address(&[b"5ns_tld", SYMBOL.as_bytes(), DOMAIN.as_bytes()], &program_id).0;
+    let tld_pda = Pubkey::find_program_address(
+        &[b"5ns_tld", SYMBOL.as_bytes(), DOMAIN.as_bytes()],
+        &program_id,
+    )
+    .0;
     let binding_pda = Pubkey::find_program_address(
-        &[b"5ns_binding", SYMBOL.as_bytes(), DOMAIN.as_bytes(), SUBPROGRAM.as_bytes()],
+        &[
+            b"5ns_binding",
+            SYMBOL.as_bytes(),
+            DOMAIN.as_bytes(),
+            SUBPROGRAM.as_bytes(),
+        ],
         &program_id,
     )
     .0;
     let bad_binding_pda = Pubkey::find_program_address(
-        &[b"5ns_binding", SYMBOL.as_bytes(), DOMAIN.as_bytes(), b"attacker-program"],
+        &[
+            b"5ns_binding",
+            SYMBOL.as_bytes(),
+            DOMAIN.as_bytes(),
+            b"attacker-program",
+        ],
         &program_id,
     )
     .0;
@@ -979,11 +1033,15 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes(), Pubkey::find_program_address(&[b"vm_state"], &program_id).1);
+        vm_state.initialize(
+            owner_pubkey.to_bytes(),
+            Pubkey::find_program_address(&[b"vm_state"], &program_id).1,
+        );
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) =
+        Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -1003,7 +1061,8 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + namespace_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + namespace_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + namespace_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -1080,12 +1139,20 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy.success, "namespace manager deploy failed: {:?}", deploy.error);
+    assert!(
+        deploy.success,
+        "namespace manager deploy failed: {:?}",
+        deploy.error
+    );
 
     let init_step = StepFixture {
         name: "namespace_init_manager".to_string(),
         function_index: 0,
-        extras: vec!["ns_cfg".to_string(), "owner".to_string(), "system_program".to_string()],
+        extras: vec![
+            "ns_cfg".to_string(),
+            "owner".to_string(),
+            "system_program".to_string(),
+        ],
         params: vec![ParamFixture::PubkeyAccount {
             account: "treasury".to_string(),
         }],
@@ -1147,7 +1214,9 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
             ParamFixture::String {
                 value: DOMAIN.to_string(),
             },
-            ParamFixture::U64 { value: 1_700_000_000 },
+            ParamFixture::U64 {
+                value: 1_700_000_000,
+            },
         ],
         expected: ExpectedFixture::Success,
     };
@@ -1166,7 +1235,11 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
         Some(1_400_000),
     )
     .await;
-    assert!(register.success, "register_tld failed: {:?}", register.error);
+    assert!(
+        register.success,
+        "register_tld failed: {:?}",
+        register.error
+    );
 
     let owner_after = ctx
         .banks_client
@@ -1223,7 +1296,9 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
             ParamFixture::PubkeyAccount {
                 account: "target_script_ref".to_string(),
             },
-            ParamFixture::U64 { value: 1_700_000_123 },
+            ParamFixture::U64 {
+                value: 1_700_000_123,
+            },
         ],
         expected: ExpectedFixture::Success,
     };
@@ -1305,7 +1380,9 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
             ParamFixture::PubkeyAccount {
                 account: "target_script_ref".to_string(),
             },
-            ParamFixture::U64 { value: 1_700_000_456 },
+            ParamFixture::U64 {
+                value: 1_700_000_456,
+            },
         ],
         expected: ExpectedFixture::Error,
     };
@@ -1386,11 +1463,15 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes(), Pubkey::find_program_address(&[b"vm_state"], &program_id).1);
+        vm_state.initialize(
+            owner_pubkey.to_bytes(),
+            Pubkey::find_program_address(&[b"vm_state"], &program_id).1,
+        );
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) =
+        Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -1412,7 +1493,8 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
             pubkey: token_script_pubkey,
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
             is_writable: false,
@@ -1440,7 +1522,11 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
         }}
     "#
     );
-    maybe_write_generated_v(&repo_root, "generated/external-burst-caller.v", &caller_source);
+    maybe_write_generated_v(
+        &repo_root,
+        "generated/external-burst-caller.v",
+        &caller_source,
+    );
     let caller_bytecode =
         DslCompiler::compile_dsl(&caller_source).expect("caller burst script should compile");
     print_external_call_opcode_mix("external_burst_non_cpi", &caller_bytecode);
@@ -1450,7 +1536,8 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -1538,7 +1625,11 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_token.success, "token deploy failed: {:?}", deploy_token.error);
+    assert!(
+        deploy_token.success,
+        "token deploy failed: {:?}",
+        deploy_token.error
+    );
 
     let deploy_caller_ix = build_deploy_instruction(
         program_id,
@@ -1556,30 +1647,58 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+    assert!(
+        deploy_caller.success,
+        "caller deploy failed: {:?}",
+        deploy_caller.error
+    );
 
     let burst_step = StepFixture {
         name: "external_transfer_burst_non_cpi".to_string(),
         function_index: 0,
         extras: vec![
-            "source_token_1".to_string(), "dest_token_1".to_string(),
-            "source_token_2".to_string(), "dest_token_2".to_string(),
-            "source_token_3".to_string(), "dest_token_3".to_string(),
-            "source_token_4".to_string(), "dest_token_4".to_string(),
+            "source_token_1".to_string(),
+            "dest_token_1".to_string(),
+            "source_token_2".to_string(),
+            "dest_token_2".to_string(),
+            "source_token_3".to_string(),
+            "dest_token_3".to_string(),
+            "source_token_4".to_string(),
+            "dest_token_4".to_string(),
             "owner".to_string(),
             "token_script".to_string(),
         ],
         params: vec![
-            ParamFixture::AccountRef { account: "source_token_1".to_string() },
-            ParamFixture::AccountRef { account: "dest_token_1".to_string() },
-            ParamFixture::AccountRef { account: "source_token_2".to_string() },
-            ParamFixture::AccountRef { account: "dest_token_2".to_string() },
-            ParamFixture::AccountRef { account: "source_token_3".to_string() },
-            ParamFixture::AccountRef { account: "dest_token_3".to_string() },
-            ParamFixture::AccountRef { account: "source_token_4".to_string() },
-            ParamFixture::AccountRef { account: "dest_token_4".to_string() },
-            ParamFixture::AccountRef { account: "owner".to_string() },
-            ParamFixture::AccountRef { account: "token_script".to_string() },
+            ParamFixture::AccountRef {
+                account: "source_token_1".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "dest_token_1".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "source_token_2".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "dest_token_2".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "source_token_3".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "dest_token_3".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "source_token_4".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "dest_token_4".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "owner".to_string(),
+            },
+            ParamFixture::AccountRef {
+                account: "token_script".to_string(),
+            },
         ],
         expected: ExpectedFixture::Success,
     };
@@ -1697,11 +1816,15 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(owner_pubkey.to_bytes(), Pubkey::find_program_address(&[b"vm_state"], &program_id).1);
+        vm_state.initialize(
+            owner_pubkey.to_bytes(),
+            Pubkey::find_program_address(&[b"vm_state"], &program_id).1,
+        );
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) =
+        Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -1723,7 +1846,8 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
             pubkey: token_script_pubkey,
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
             is_writable: false,
@@ -1761,8 +1885,8 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
     );
     maybe_write_generated_v(&repo_root, "mass-transfer-generated.v", &caller_source);
 
-    let caller_bytecode =
-        DslCompiler::compile_dsl(&caller_source).expect("caller mass-transfer script should compile");
+    let caller_bytecode = DslCompiler::compile_dsl(&caller_source)
+        .expect("caller mass-transfer script should compile");
     print_external_call_opcode_mix("external_mass_transfer_non_cpi", &caller_bytecode);
     accounts.insert(
         "caller_script".to_string(),
@@ -1770,7 +1894,8 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -1859,7 +1984,11 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_token.success, "token deploy failed: {:?}", deploy_token.error);
+    assert!(
+        deploy_token.success,
+        "token deploy failed: {:?}",
+        deploy_token.error
+    );
 
     let deploy_caller_ix = build_deploy_instruction(
         program_id,
@@ -1877,7 +2006,11 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+    assert!(
+        deploy_caller.success,
+        "caller deploy failed: {:?}",
+        deploy_caller.error
+    );
 
     let mut extras = Vec::with_capacity(pair_count * 2 + 2);
     let mut params = Vec::with_capacity(pair_count * 2 + 2);
@@ -1951,8 +2084,18 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
             .expect("destination token account missing");
         let src_balance = u64::from_le_bytes(src_after.data[64..72].try_into().unwrap());
         let dst_balance = u64::from_le_bytes(dst_after.data[64..72].try_into().unwrap());
-        assert_eq!(src_balance, 30000 - (18 * amount), "source {} balance mismatch", i + 1);
-        assert_eq!(dst_balance, 15000 + (18 * amount), "destination {} balance mismatch", i + 1);
+        assert_eq!(
+            src_balance,
+            30000 - (18 * amount),
+            "source {} balance mismatch",
+            i + 1
+        );
+        assert_eq!(
+            dst_balance,
+            15000 + (18 * amount),
+            "destination {} balance mismatch",
+            i + 1
+        );
     }
 
     // Total transfer calls: 18 calls per pair
@@ -2035,15 +2178,16 @@ async fn external_token_all_public_non_cpi_bpf_compute_units() {
 #[tokio::test(flavor = "multi_thread")]
 async fn anchor_interface_cpi_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let fixture_path = repo_root.join("five-templates/cpi-examples/runtime-fixtures/anchor-program-call-e2e.json");
+    let fixture_path =
+        repo_root.join("five-templates/cpi-examples/runtime-fixtures/anchor-program-call-e2e.json");
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(120_000)).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn anchor_interface_manual_borsh_cpi_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let fixture_path =
-        repo_root.join("five-templates/cpi-examples/runtime-fixtures/anchor-program-call-e2e-manual.json");
+    let fixture_path = repo_root
+        .join("five-templates/cpi-examples/runtime-fixtures/anchor-program-call-e2e-manual.json");
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(120_000)).await;
 }
 
@@ -2106,7 +2250,8 @@ async fn scenario_arithmetic_intensive_bpf_compute_units() {
 #[tokio::test(flavor = "multi_thread")]
 async fn scenario_branching_intensive_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let fixture_path = repo_root.join("five-templates/branching-bench/runtime-fixtures/branching.json");
+    let fixture_path =
+        repo_root.join("five-templates/branching-bench/runtime-fixtures/branching.json");
     let total = run_fixture_bpf_compute_units(&repo_root, &fixture_path, None).await;
     print_scenario_line("branching_intensive", total, total);
     assert_no_regression(
@@ -2174,7 +2319,10 @@ async fn run_fixture_bpf_compute_units(
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(authority_pubkey.to_bytes(), Pubkey::find_program_address(&[b"vm_state"], &program_id).1);
+        vm_state.initialize(
+            authority_pubkey.to_bytes(),
+            Pubkey::find_program_address(&[b"vm_state"], &program_id).1,
+        );
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = execute_fee_lamports;
     }
@@ -2251,15 +2399,18 @@ async fn run_fixture_bpf_compute_units(
             .copy_from_slice(&bytecode);
         if let Some(script_account) = accounts.get_mut(&fixture.script_name) {
             script_account.data = script_data;
-            script_account.lamports =
-                Rent::default().minimum_balance(script_account.data.len());
+            script_account.lamports = Rent::default().minimum_balance(script_account.data.len());
         }
     }
 
     for extra in &fixture.extra_accounts {
         let pubkey = if let Some(pubkey_str) = &extra.pubkey {
-            Pubkey::from_str(pubkey_str)
-                .unwrap_or_else(|_| panic!("invalid pubkey '{}' for fixture account '{}'", pubkey_str, extra.name))
+            Pubkey::from_str(pubkey_str).unwrap_or_else(|_| {
+                panic!(
+                    "invalid pubkey '{}' for fixture account '{}'",
+                    pubkey_str, extra.name
+                )
+            })
         } else if extra.name == "system_program" {
             system_program::id()
         } else if extra.is_signer {
@@ -2361,12 +2512,17 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
                 }
             }
         }
-        assert!(deploy_result.success, "deploy failed: {:?}", deploy_result.error);
+        assert!(
+            deploy_result.success,
+            "deploy failed: {:?}",
+            deploy_result.error
+        );
         println!("BPF_CU deploy={}", deploy_result.units_consumed);
         total_units = deploy_result.units_consumed;
     }
     if fixture.name == "spl_token_cpi_e2e" {
-        let setup_units = initialize_spl_token_accounts(&mut ctx, &accounts, &fixture.authority.name).await;
+        let setup_units =
+            initialize_spl_token_accounts(&mut ctx, &accounts, &fixture.authority.name).await;
         total_units = total_units.saturating_add(setup_units);
         println!("BPF_CU spl_setup={}", setup_units);
     }
@@ -2374,7 +2530,9 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
     let step_budget = |name: &str| -> u64 {
         match name {
             "init_mint" => 10_000,
-            "init_token_account_user1" | "init_token_account_user2" | "init_token_account_user3" => 8_500,
+            "init_token_account_user1"
+            | "init_token_account_user2"
+            | "init_token_account_user3" => 8_500,
             "mint_to_user1" | "mint_to_user2" | "mint_to_user3" => 7_000,
             "transfer_user2_to_user3" => 7_000,
             "approve_user3_to_user2" => 7_000,
@@ -2470,7 +2628,11 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
         let fee_paid = fee_vault_after.saturating_sub(fee_vault_before);
         match step.expected {
             ExpectedFixture::Success => {
-                assert!(result.success, "step {} failed: {:?}", step.name, result.error);
+                assert!(
+                    result.success,
+                    "step {} failed: {:?}",
+                    step.name, result.error
+                );
             }
             ExpectedFixture::Error => {
                 assert!(
@@ -2483,7 +2645,8 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
         }
         if step.expected != ExpectedFixture::Error {
             assert!(
-                result.units_consumed <= step_budget(&step.name).saturating_add(CU_FEE_STEP_HEADROOM),
+                result.units_consumed
+                    <= step_budget(&step.name).saturating_add(CU_FEE_STEP_HEADROOM),
                 "step {} consumed {} CU above budget {} (+fee headroom {})",
                 step.name,
                 result.units_consumed,
@@ -2493,13 +2656,16 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
         }
         if execute_fee_lamports > 0 {
             assert_eq!(
-                fee_paid,
-                execute_fee_lamports as u64,
+                fee_paid, execute_fee_lamports as u64,
                 "step {} should charge exactly one execute fee",
                 step.name
             );
         } else {
-            assert_eq!(fee_paid, 0, "step {} should not charge execute fee", step.name);
+            assert_eq!(
+                fee_paid, 0,
+                "step {} should not charge execute fee",
+                step.name
+            );
         }
         total_units = total_units.saturating_add(result.units_consumed);
         println!(
@@ -2516,7 +2682,11 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
 
     println!(
         "BPF_CU fixture={} mode={} total_units={} execute_fee_lamports={} fee_vault={}",
-        fixture.name, cu_mode.as_str(), total_units, execute_fee_lamports, fee_vault_pubkey
+        fixture.name,
+        cu_mode.as_str(),
+        total_units,
+        execute_fee_lamports,
+        fee_vault_pubkey
     );
     if fixture.name == "spl_token_cpi_e2e" {
         assert_spl_token_fixture_result(&mut ctx, &accounts, &fixture.authority.name).await;
@@ -2525,16 +2695,18 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
         assert_anchor_token_fixture_result(&mut ctx, &accounts, &fixture.authority.name).await;
     }
     if fixture.name == "anchor_token_cpi_e2e_manual" {
-        assert_anchor_token_manual_fixture_result(&mut ctx, &accounts, &fixture.authority.name).await;
+        assert_anchor_token_manual_fixture_result(&mut ctx, &accounts, &fixture.authority.name)
+            .await;
     }
-    let total_budget = total_budget_override.unwrap_or_else(|| {
-        if fixture.name == "token_full_e2e" {
-            480_000
-        } else {
-            700_000
-        }
-    })
-    .saturating_add((fixture.steps.len() as u64).saturating_mul(CU_FEE_STEP_HEADROOM));
+    let total_budget = total_budget_override
+        .unwrap_or_else(|| {
+            if fixture.name == "token_full_e2e" {
+                480_000
+            } else {
+                700_000
+            }
+        })
+        .saturating_add((fixture.steps.len() as u64).saturating_mul(CU_FEE_STEP_HEADROOM));
     assert!(
         total_units <= total_budget,
         "fixture total {} exceeds regression budget",
@@ -2675,11 +2847,15 @@ async fn minimal_execute_floor_bpf_compute_units() {
     let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data).unwrap();
-        vm_state.initialize(authority_pubkey.to_bytes(), Pubkey::find_program_address(&[b"vm_state"], &program_id).1);
+        vm_state.initialize(
+            authority_pubkey.to_bytes(),
+            Pubkey::find_program_address(&[b"vm_state"], &program_id).1,
+        );
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) =
+        Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -2761,13 +2937,7 @@ async fn minimal_execute_floor_bpf_compute_units() {
     let mut ctx = program_test.start_with_context().await;
 
     let deploy_ix = build_deploy_instruction(
-        program_id,
-        &accounts,
-        "script",
-        "vm_state",
-        "payer",
-        &bytecode,
-        0,
+        program_id, &accounts, "script", "vm_state", "payer", &bytecode, 0,
     );
     let deploy_result = simulate_and_process(
         &mut ctx,
@@ -2776,7 +2946,11 @@ async fn minimal_execute_floor_bpf_compute_units() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_result.success, "minimal deploy failed: {:?}", deploy_result.error);
+    assert!(
+        deploy_result.success,
+        "minimal deploy failed: {:?}",
+        deploy_result.error
+    );
 
     let payload = canonical_execute_payload(0, &[]);
     let execute_ix = build_execute_instruction(
@@ -2819,7 +2993,12 @@ async fn minimal_execute_floor_bpf_compute_units() {
     );
 }
 
-fn resolve_owner(owner: AccountOwner, program_id: Pubkey, authority: Pubkey, self_key: Pubkey) -> Pubkey {
+fn resolve_owner(
+    owner: AccountOwner,
+    program_id: Pubkey,
+    authority: Pubkey,
+    self_key: Pubkey,
+) -> Pubkey {
     match owner {
         AccountOwner::Program => program_id,
         AccountOwner::System => system_program::id(),
@@ -2830,7 +3009,10 @@ fn resolve_owner(owner: AccountOwner, program_id: Pubkey, authority: Pubkey, sel
     }
 }
 
-fn build_external_all_public_caller_source(token_import_address: &str, call_count: usize) -> String {
+fn build_external_all_public_caller_source(
+    token_import_address: &str,
+    call_count: usize,
+) -> String {
     let calls = TOKEN_ALL_PUBLIC_CALLS
         .iter()
         .chain(TOKEN_ALL_PUBLIC_POST_CALLS.iter())
@@ -3016,11 +3198,15 @@ async fn run_external_token_all_public_profile(
     {
         let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
             .expect("invalid vm state account layout");
-        vm_state.initialize(payer_pubkey.to_bytes(), Pubkey::find_program_address(&[b"vm_state"], &program_id).1);
+        vm_state.initialize(
+            payer_pubkey.to_bytes(),
+            Pubkey::find_program_address(&[b"vm_state"], &program_id).1,
+        );
         vm_state.deploy_fee_lamports = 0;
         vm_state.execute_fee_lamports = 0;
     }
-    let (vm_state_pubkey, _vm_state_bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (vm_state_pubkey, _vm_state_bump) =
+        Pubkey::find_program_address(&[b"vm_state"], &program_id);
     accounts.insert(
         "vm_state".to_string(),
         RuntimeAccount {
@@ -3042,7 +3228,8 @@ async fn run_external_token_all_public_profile(
             pubkey: token_script_pubkey,
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
             is_writable: false,
@@ -3060,16 +3247,21 @@ async fn run_external_token_all_public_profile(
 
     let token_import_address = bs58::encode(token_script_pubkey.to_bytes()).into_string();
     let caller_source = build_external_all_public_caller_source(&token_import_address, call_count);
-    maybe_write_generated_v(&repo_root, "generated/external-all-public-caller.v", &caller_source);
-    let caller_bytecode =
-        DslCompiler::compile_dsl(&caller_source).expect("external all-public caller should compile");
+    maybe_write_generated_v(
+        &repo_root,
+        "generated/external-all-public-caller.v",
+        &caller_source,
+    );
+    let caller_bytecode = DslCompiler::compile_dsl(&caller_source)
+        .expect("external all-public caller should compile");
     accounts.insert(
         "caller_script".to_string(),
         RuntimeAccount {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -3113,7 +3305,11 @@ async fn run_external_token_all_public_profile(
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_token.success, "token deploy failed: {:?}", deploy_token.error);
+    assert!(
+        deploy_token.success,
+        "token deploy failed: {:?}",
+        deploy_token.error
+    );
 
     let deploy_caller_ix = build_deploy_instruction(
         program_id,
@@ -3131,7 +3327,11 @@ async fn run_external_token_all_public_profile(
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+    assert!(
+        deploy_caller.success,
+        "caller deploy failed: {:?}",
+        deploy_caller.error
+    );
 
     let step = StepFixture {
         name: "external_all_public_non_cpi".to_string(),
@@ -3192,18 +3392,14 @@ async fn run_external_token_all_public_profile(
     let execute = simulate_and_process(
         &mut ctx,
         vec![execute_ix],
-        collect_signers(
-            &accounts,
-            &["payer", "user1", "user2", "user3"],
-        ),
+        collect_signers(&accounts, &["payer", "user1", "user2", "user3"]),
         Some(1_400_000),
     )
     .await;
     assert!(
         execute.success,
         "external all-public execution failed (call_count={}): {:?}",
-        call_count,
-        execute.error
+        call_count, execute.error
     );
 
     if assert_full_state {
@@ -3278,7 +3474,12 @@ async fn initialize_spl_token_accounts(
         .pubkey;
     let authority = accounts
         .get(authority_name)
-        .unwrap_or_else(|| panic!("missing authority account `{}` for spl setup", authority_name))
+        .unwrap_or_else(|| {
+            panic!(
+                "missing authority account `{}` for spl setup",
+                authority_name
+            )
+        })
         .pubkey;
 
     let mut setup_ixs = vec![spl_token::instruction::initialize_mint2(
@@ -3337,11 +3538,7 @@ async fn initialize_spl_token_accounts(
     }
 
     let result = simulate_and_process(ctx, setup_ixs, vec![], None).await;
-    assert!(
-        result.success,
-        "spl token setup failed: {:?}",
-        result.error
-    );
+    assert!(result.success, "spl token setup failed: {:?}", result.error);
     result.units_consumed
 }
 
@@ -3356,7 +3553,12 @@ async fn assert_spl_token_fixture_result(
         .pubkey;
     let authority = accounts
         .get(authority_name)
-        .unwrap_or_else(|| panic!("missing authority account `{}` for spl assertion", authority_name))
+        .unwrap_or_else(|| {
+            panic!(
+                "missing authority account `{}` for spl assertion",
+                authority_name
+            )
+        })
         .pubkey;
 
     let mint_account = ctx
@@ -3365,13 +3567,16 @@ async fn assert_spl_token_fixture_result(
         .await
         .expect("fetch mint account")
         .expect("mint account not found");
-    let mint_state = spl_token::state::Mint::unpack(&mint_account.data)
-        .expect("failed to unpack mint account");
+    let mint_state =
+        spl_token::state::Mint::unpack(&mint_account.data).expect("failed to unpack mint account");
     let has_full_flow_accounts = accounts.contains_key("user1_token")
         && accounts.contains_key("user2_token")
         && accounts.contains_key("user3_token");
     if has_full_flow_accounts {
-        assert_eq!(mint_state.supply, 1900, "unexpected mint supply after full flow");
+        assert_eq!(
+            mint_state.supply, 1900,
+            "unexpected mint supply after full flow"
+        );
     } else {
         assert_eq!(mint_state.supply, 1, "unexpected mint supply");
     }
@@ -3462,15 +3667,18 @@ fn seed_anchor_token_accounts(
     }
     if let Some(user1_token) = accounts.get_mut("user1_token") {
         user1_token.owner = anchor_token_program_id();
-        user1_token.data = encode_anchor_token_account(user1, mint_key, 0, false, 0, Pubkey::default(), true);
+        user1_token.data =
+            encode_anchor_token_account(user1, mint_key, 0, false, 0, Pubkey::default(), true);
     }
     if let Some(user2_token) = accounts.get_mut("user2_token") {
         user2_token.owner = anchor_token_program_id();
-        user2_token.data = encode_anchor_token_account(user2, mint_key, 0, false, 0, Pubkey::default(), true);
+        user2_token.data =
+            encode_anchor_token_account(user2, mint_key, 0, false, 0, Pubkey::default(), true);
     }
     if let Some(user3_token) = accounts.get_mut("user3_token") {
         user3_token.owner = anchor_token_program_id();
-        user3_token.data = encode_anchor_token_account(user3, mint_key, 0, false, 0, Pubkey::default(), true);
+        user3_token.data =
+            encode_anchor_token_account(user3, mint_key, 0, false, 0, Pubkey::default(), true);
     }
 }
 
@@ -3481,7 +3689,12 @@ async fn assert_anchor_token_fixture_result(
 ) {
     let user1 = accounts
         .get(authority_name)
-        .unwrap_or_else(|| panic!("missing authority `{}` for anchor assertion", authority_name))
+        .unwrap_or_else(|| {
+            panic!(
+                "missing authority `{}` for anchor assertion",
+                authority_name
+            )
+        })
         .pubkey;
     let mint_key = accounts["mint"].pubkey;
     let mint_data = ctx
@@ -3492,8 +3705,14 @@ async fn assert_anchor_token_fixture_result(
         .expect("anchor mint missing")
         .data;
     let mint_state = decode_anchor_mint(&mint_data);
-    assert_eq!(mint_state.authority, user1, "unexpected anchor mint authority");
-    assert_eq!(mint_state.freeze_authority, user1, "unexpected anchor freeze authority");
+    assert_eq!(
+        mint_state.authority, user1,
+        "unexpected anchor mint authority"
+    );
+    assert_eq!(
+        mint_state.freeze_authority, user1,
+        "unexpected anchor freeze authority"
+    );
     assert_eq!(mint_state.supply, 1900, "unexpected anchor mint supply");
 
     let user1_token = decode_anchor_token_account(
@@ -3520,10 +3739,22 @@ async fn assert_anchor_token_fixture_result(
             .expect("anchor user3 token missing")
             .data,
     );
-    assert_eq!(user1_token.balance, 950, "unexpected anchor user1 token amount");
-    assert_eq!(user2_token.balance, 400, "unexpected anchor user2 token amount");
-    assert_eq!(user3_token.balance, 550, "unexpected anchor user3 token amount");
-    assert!(!user2_token.is_frozen, "anchor user2 token should be thawed");
+    assert_eq!(
+        user1_token.balance, 950,
+        "unexpected anchor user1 token amount"
+    );
+    assert_eq!(
+        user2_token.balance, 400,
+        "unexpected anchor user2 token amount"
+    );
+    assert_eq!(
+        user3_token.balance, 550,
+        "unexpected anchor user3 token amount"
+    );
+    assert!(
+        !user2_token.is_frozen,
+        "anchor user2 token should be thawed"
+    );
 }
 
 async fn assert_anchor_token_manual_fixture_result(
@@ -3533,7 +3764,12 @@ async fn assert_anchor_token_manual_fixture_result(
 ) {
     let user1 = accounts
         .get(authority_name)
-        .unwrap_or_else(|| panic!("missing authority `{}` for anchor assertion", authority_name))
+        .unwrap_or_else(|| {
+            panic!(
+                "missing authority `{}` for anchor assertion",
+                authority_name
+            )
+        })
         .pubkey;
     let mint_key = accounts["mint"].pubkey;
     let mint_data = ctx
@@ -3544,8 +3780,14 @@ async fn assert_anchor_token_manual_fixture_result(
         .expect("anchor mint missing")
         .data;
     let mint_state = decode_anchor_mint(&mint_data);
-    assert_eq!(mint_state.authority, user1, "unexpected anchor mint authority");
-    assert_eq!(mint_state.freeze_authority, user1, "unexpected anchor freeze authority");
+    assert_eq!(
+        mint_state.authority, user1,
+        "unexpected anchor mint authority"
+    );
+    assert_eq!(
+        mint_state.freeze_authority, user1,
+        "unexpected anchor freeze authority"
+    );
     assert_eq!(mint_state.supply, 1900, "unexpected anchor mint supply");
 
     let user1_token = decode_anchor_token_account(
@@ -3572,10 +3814,22 @@ async fn assert_anchor_token_manual_fixture_result(
             .expect("anchor user3 token missing")
             .data,
     );
-    assert_eq!(user1_token.balance, 900, "unexpected anchor user1 token amount");
-    assert_eq!(user2_token.balance, 400, "unexpected anchor user2 token amount");
-    assert_eq!(user3_token.balance, 600, "unexpected anchor user3 token amount");
-    assert!(!user2_token.is_frozen, "anchor user2 token should be thawed");
+    assert_eq!(
+        user1_token.balance, 900,
+        "unexpected anchor user1 token amount"
+    );
+    assert_eq!(
+        user2_token.balance, 400,
+        "unexpected anchor user2 token amount"
+    );
+    assert_eq!(
+        user3_token.balance, 600,
+        "unexpected anchor user3 token amount"
+    );
+    assert!(
+        !user2_token.is_frozen,
+        "anchor user2 token should be thawed"
+    );
 }
 
 #[derive(Debug)]
@@ -3641,7 +3895,10 @@ fn encode_anchor_token_account(
 }
 
 fn decode_anchor_mint(data: &[u8]) -> AnchorMintState {
-    assert!(data.len() >= 8 + 32 + 32 + 8 + 1, "anchor mint data too small");
+    assert!(
+        data.len() >= 8 + 32 + 32 + 8 + 1,
+        "anchor mint data too small"
+    );
     assert_eq!(
         &data[0..8],
         &anchor_account_discriminator("Mint"),
@@ -3658,7 +3915,10 @@ fn decode_anchor_mint(data: &[u8]) -> AnchorMintState {
 }
 
 fn decode_anchor_token_account(data: &[u8]) -> AnchorTokenState {
-    assert!(data.len() >= 8 + 32 + 32 + 8 + 1 + 8 + 32 + 1, "anchor token data too small");
+    assert!(
+        data.len() >= 8 + 32 + 32 + 8 + 1 + 8 + 32 + 1,
+        "anchor token data too small"
+    );
     assert_eq!(
         &data[0..8],
         &anchor_account_discriminator("TokenAccount"),
@@ -3860,7 +4120,11 @@ fn build_execute_instruction(
             pubkey: a.pubkey,
             is_signer: a.is_signer && a.signer.is_some(),
             // Imported bytecode accounts must be read-only during execution.
-            is_writable: if is_external_script { false } else { a.is_writable },
+            is_writable: if is_external_script {
+                false
+            } else {
+                a.is_writable
+            },
         });
     }
 
@@ -3929,7 +4193,11 @@ fn build_execute_instruction_with_extras(
             pubkey: a.pubkey,
             is_signer: a.is_signer && a.signer.is_some(),
             // Imported bytecode accounts must be read-only during execution.
-            is_writable: if is_external_script { false } else { a.is_writable },
+            is_writable: if is_external_script {
+                false
+            } else {
+                a.is_writable
+            },
         });
     }
 
@@ -3994,11 +4262,19 @@ fn resolve_account_ref_index(step: &StepFixture, account: &str) -> u8 {
         .extras
         .iter()
         .position(|name| name == account)
-        .unwrap_or_else(|| panic!("account `{}` not found in extras {:?}", account, step.extras));
+        .unwrap_or_else(|| {
+            panic!(
+                "account `{}` not found in extras {:?}",
+                account, step.extras
+            )
+        });
     (pos as u8) + 1
 }
 
-fn collect_signers<'a>(accounts: &'a BTreeMap<String, RuntimeAccount>, names: &[&str]) -> Vec<&'a Keypair> {
+fn collect_signers<'a>(
+    accounts: &'a BTreeMap<String, RuntimeAccount>,
+    names: &[&str],
+) -> Vec<&'a Keypair> {
     let mut out = Vec::new();
     for name in names {
         if let Some(kp) = accounts[*name].signer.as_ref() {

@@ -71,18 +71,20 @@ fn find_definition_by_text(source: &str, identifier: &str, uri: &Url) -> Option<
 
         // Look for definition patterns in order of specificity
         let definition_patterns = vec![
-            format!("pub {}(", identifier),     // pub function(
-            format!("pub {} :", identifier),    // pub field :
-            format!("mut {} :", identifier),    // mut field :
-            format!("let {} ", identifier),     // let variable
-            format!("let {}=", identifier),     // let variable=
-            format!("{} : ", identifier),       // parameter : (in function signature)
-            format!("account {}", identifier),  // account definition
+            format!("pub {}(", identifier),    // pub function(
+            format!("pub {} :", identifier),   // pub field :
+            format!("mut {} :", identifier),   // mut field :
+            format!("let {} ", identifier),    // let variable
+            format!("let {}=", identifier),    // let variable=
+            format!("{} : ", identifier),      // parameter : (in function signature)
+            format!("account {}", identifier), // account definition
         ];
 
         for pattern in definition_patterns {
             if let Some(pos) = line.find(&pattern) {
-                if pos == 0 || (pos > 0 && !is_identifier_char(line.chars().nth(pos - 1).unwrap_or(' '))) {
+                if pos == 0
+                    || (pos > 0 && !is_identifier_char(line.chars().nth(pos - 1).unwrap_or(' ')))
+                {
                     let identifier_pos = pos + pattern.find(identifier).unwrap_or(0);
                     return Some(Location {
                         uri: uri.clone(),
@@ -114,9 +116,14 @@ fn find_definition_by_text(source: &str, identifier: &str, uri: &Url) -> Option<
             let actual_pos = search_pos + pos;
 
             // Check word boundaries
-            let before_ok = actual_pos == 0 || !is_identifier_char(line.chars().nth(actual_pos - 1).unwrap_or(' '));
+            let before_ok = actual_pos == 0
+                || !is_identifier_char(line.chars().nth(actual_pos - 1).unwrap_or(' '));
             let after_ok = actual_pos + identifier.len() >= line.len()
-                || !is_identifier_char(line.chars().nth(actual_pos + identifier.len()).unwrap_or(' '));
+                || !is_identifier_char(
+                    line.chars()
+                        .nth(actual_pos + identifier.len())
+                        .unwrap_or(' '),
+                );
 
             if before_ok && after_ok {
                 return Some(Location {
@@ -188,7 +195,6 @@ fn extract_identifier_at_position(source: &str, line: usize, character: usize) -
 fn is_identifier_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -269,10 +275,16 @@ pub increment() {
         // goto-definition of 'counter' should find the local variable on line 3, not global on line 0
         let location = get_definition(&mut bridge, &uri, source, 4, 4);
 
-        assert!(location.is_some(), "Should find definition for shadowed counter");
+        assert!(
+            location.is_some(),
+            "Should find definition for shadowed counter"
+        );
         if let Some(loc) = location {
             // Should point to line 3 (the local counter definition)
-            assert_eq!(loc.range.start.line, 3, "Should find local counter on line 3, not global");
+            assert_eq!(
+                loc.range.start.line, 3,
+                "Should find local counter on line 3, not global"
+            );
         }
     }
 
@@ -290,9 +302,15 @@ pub get_total() -> u64 {
         // goto-definition of 'total' in return statement
         let location = get_definition(&mut bridge, &uri, source, 3, 11);
 
-        assert!(location.is_some(), "Should find definition for global variable");
+        assert!(
+            location.is_some(),
+            "Should find definition for global variable"
+        );
         if let Some(loc) = location {
-            assert_eq!(loc.range.start.line, 0, "Should find global variable definition");
+            assert_eq!(
+                loc.range.start.line, 0,
+                "Should find global variable definition"
+            );
         }
     }
 
@@ -309,9 +327,15 @@ pub get_total() -> u64 {
         // goto-definition of 'value' in the expression "value + 1"
         let location = get_definition(&mut bridge, &uri, source, 1, 18);
 
-        assert!(location.is_some(), "Should find definition for function parameter");
+        assert!(
+            location.is_some(),
+            "Should find definition for function parameter"
+        );
         if let Some(loc) = location {
-            assert_eq!(loc.range.start.line, 0, "Should find parameter on function definition line");
+            assert_eq!(
+                loc.range.start.line, 0,
+                "Should find parameter on function definition line"
+            );
         }
     }
 }

@@ -1,6 +1,6 @@
-use five_protocol::ValueRef;
 use crate::error::{CompactResult, VMErrorCode};
 use crate::STACK_SIZE;
+use five_protocol::ValueRef;
 
 /// Manages the operand stack for the VM.
 pub struct StackManager<'a> {

@@ -3,9 +3,13 @@
 //! These tests use proven Five DSL scripts from five-cli/test-scripts to validate
 //! our PDA/CPI implementations with real compiled bytecode rather than manual opcodes.
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }

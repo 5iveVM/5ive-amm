@@ -4,25 +4,24 @@ use crate::{
     error::{CompactResult, Result, VMErrorCode},
     metadata::ImportMetadata,
     stack::StackStorage,
-    types::{CallFrame, ExternalCallCacheEntry, ExternalCacheState, ExternalImportVerifyCacheEntry},
+    types::{
+        CallFrame, ExternalCacheState, ExternalCallCacheEntry, ExternalImportVerifyCacheEntry,
+    },
     MAX_LOCALS, MAX_PARAMETERS, MAX_SCRIPT_SIZE,
 };
 
-use five_protocol::{ValueRef, types};
+use five_protocol::{types, ValueRef};
+#[cfg(any(target_os = "solana", test))]
+use pinocchio::instruction::{AccountMeta, Seed};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Instruction, Signer},
     program::{invoke, invoke_signed},
     pubkey::Pubkey,
 };
-#[cfg(any(target_os = "solana", test))]
-use pinocchio::instruction::{AccountMeta, Seed};
 
 use crate::systems::{
-    accounts::AccountManager,
-    frame::FrameManager,
-    resource::ResourceManager,
-    stack::StackManager,
+    accounts::AccountManager, frame::FrameManager, resource::ResourceManager, stack::StackManager,
 };
 
 pub const EXTERNAL_CALL_CACHE_SIZE: usize = 32;
@@ -324,8 +323,7 @@ impl<'a> ExecutionContext<'a> {
         }
         let bytes = &self.bytecode[start..end];
         Ok(u64::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ]))
     }
 
@@ -514,7 +512,8 @@ impl<'a> ExecutionContext<'a> {
     /// Get account without lazy validation (for internal VM use)
     #[inline(always)]
     pub fn get_account_unchecked(&self, index: u8) -> CompactResult<&'a AccountInfo> {
-        self.accounts.get_unchecked(self.resolve_account_index(index))
+        self.accounts
+            .get_unchecked(self.resolve_account_index(index))
     }
 
     #[inline(always)]
@@ -860,33 +859,37 @@ impl<'a> ExecutionContext<'a> {
             ValueRef::StringRef(offset) => {
                 let start = *offset as usize;
                 let temp_buf = self.memory.temp_buffer();
-                
+
                 if start >= temp_buf.len() {
-                     crate::debug_log!("EXTRACT_STRING ERROR: Offset out of bounds. offset={} temp_len={}", start, temp_buf.len());
-                     return Err(VMErrorCode::MemoryError);
+                    crate::debug_log!(
+                        "EXTRACT_STRING ERROR: Offset out of bounds. offset={} temp_len={}",
+                        start,
+                        temp_buf.len()
+                    );
+                    return Err(VMErrorCode::MemoryError);
                 }
-                
+
                 let len = temp_buf[start] as usize;
                 let data_start = start + 2;
                 let data_end = data_start + len;
-                
+
                 if data_end > temp_buf.len() {
                     crate::debug_log!("EXTRACT_STRING ERROR: String end out of bounds. start={} end={} len={} temp_len={}", data_start, data_end, len, temp_buf.len());
                     return Err(VMErrorCode::MemoryError);
                 }
-                
+
                 Ok((len as u32, &temp_buf[data_start..data_end]))
             }
             ValueRef::HeapString(heap_id) => {
                 let virtual_addr = *heap_id;
-                
+
                 // Read length prefix (4 bytes)
                 let len_bytes = self.memory.get_heap_data(virtual_addr, 4)?;
                 let len = u32::from_le_bytes(len_bytes.try_into().unwrap());
 
                 // Read string data
-                // Data starts at virtual_addr + 4. 
-                // Note: This relies on alloc_heap_unsafe guaranteeing contiguous allocation 
+                // Data starts at virtual_addr + 4.
+                // Note: This relies on alloc_heap_unsafe guaranteeing contiguous allocation
                 // for the requested size (len + 4), so (offset + 4) is valid within the chunk.
                 let data_slice = self.memory.get_heap_data(virtual_addr + 4, len)?;
 
@@ -907,7 +910,8 @@ impl<'a> ExecutionContext<'a> {
         lamports: u64,
         owner: &Pubkey,
     ) -> CompactResult<()> {
-        self.accounts.create_account(account_idx, space, lamports, owner)
+        self.accounts
+            .create_account(account_idx, space, lamports, owner)
     }
 
     #[inline]
@@ -919,7 +923,8 @@ impl<'a> ExecutionContext<'a> {
         lamports: u64,
         owner: &Pubkey,
     ) -> CompactResult<()> {
-        self.accounts.create_account_with_payer(account_idx, payer_idx, space, lamports, owner)
+        self.accounts
+            .create_account_with_payer(account_idx, payer_idx, space, lamports, owner)
     }
 
     #[inline]
@@ -933,7 +938,15 @@ impl<'a> ExecutionContext<'a> {
         owner: &Pubkey,
         payer_idx: u8,
     ) -> CompactResult<()> {
-        self.accounts.create_pda_account(account_idx, seeds, bump, space, lamports, owner, payer_idx)
+        self.accounts.create_pda_account(
+            account_idx,
+            seeds,
+            bump,
+            space,
+            lamports,
+            owner,
+            payer_idx,
+        )
     }
 
     // --- Solana integration ---
@@ -986,8 +999,12 @@ impl<'a> ExecutionContext<'a> {
     }
 
     #[inline]
-    pub fn refresh_account_pointers_after_cpi(&self, account_indices: &[usize]) -> CompactResult<()> {
-        self.accounts.refresh_account_pointers_after_cpi(account_indices)
+    pub fn refresh_account_pointers_after_cpi(
+        &self,
+        account_indices: &[usize],
+    ) -> CompactResult<()> {
+        self.accounts
+            .refresh_account_pointers_after_cpi(account_indices)
     }
 
     // --- Lazy validation operations ---
@@ -1027,14 +1044,18 @@ impl<'a> ExecutionContext<'a> {
                 && entry.selector == selector
                 && entry.code_fingerprint == code_fingerprint
             {
-                self.external_cache_state.external_cache_hits =
-                    self.external_cache_state.external_cache_hits.saturating_add(1);
+                self.external_cache_state.external_cache_hits = self
+                    .external_cache_state
+                    .external_cache_hits
+                    .saturating_add(1);
                 return Some(*entry);
             }
         }
 
-        self.external_cache_state.external_cache_misses =
-            self.external_cache_state.external_cache_misses.saturating_add(1);
+        self.external_cache_state.external_cache_misses = self
+            .external_cache_state
+            .external_cache_misses
+            .saturating_add(1);
         None
     }
 
@@ -1057,8 +1078,10 @@ impl<'a> ExecutionContext<'a> {
                 && entry.resolved_account_index == resolved_account_index
                 && entry.code_fingerprint == code_fingerprint
             {
-                self.external_cache_state.import_verify_cache_hits =
-                    self.external_cache_state.import_verify_cache_hits.saturating_add(1);
+                self.external_cache_state.import_verify_cache_hits = self
+                    .external_cache_state
+                    .import_verify_cache_hits
+                    .saturating_add(1);
                 return Some(entry.authorized);
             }
         }
@@ -1072,14 +1095,15 @@ impl<'a> ExecutionContext<'a> {
         code_fingerprint: u32,
         authorized: bool,
     ) {
-        let idx =
-            self.external_cache_state.external_import_verify_cache_next % EXTERNAL_VERIFY_CACHE_SIZE;
-        self.external_cache_state.external_import_verify_cache[idx] = ExternalImportVerifyCacheEntry {
-            resolved_account_index,
-            code_fingerprint,
-            authorized,
-            valid: true,
-        };
+        let idx = self.external_cache_state.external_import_verify_cache_next
+            % EXTERNAL_VERIFY_CACHE_SIZE;
+        self.external_cache_state.external_import_verify_cache[idx] =
+            ExternalImportVerifyCacheEntry {
+                resolved_account_index,
+                code_fingerprint,
+                authorized,
+                valid: true,
+            };
         self.external_cache_state.external_import_verify_cache_next =
             (self.external_cache_state.external_import_verify_cache_next + 1)
                 % EXTERNAL_VERIFY_CACHE_SIZE;
@@ -1116,7 +1140,8 @@ impl<'a> ExecutionContext<'a> {
         code_fingerprint: u32,
         import_authorized: bool,
     ) -> CompactResult<()> {
-        let script_len_u32 = u32::try_from(script_len).map_err(|_| VMErrorCode::InvalidScriptSize)?;
+        let script_len_u32 =
+            u32::try_from(script_len).map_err(|_| VMErrorCode::InvalidScriptSize)?;
         self.external_cache_state.external_hot_account_index = resolved_account_index;
         self.external_cache_state.external_hot_script_ptr = script_ptr;
         self.external_cache_state.external_hot_script_len = script_len_u32;
@@ -1166,16 +1191,28 @@ impl<'a> ExecutionContext<'a> {
         }
 
         // 1. Function Index (u32)
-        if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-        let function_index = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
+        if offset + 4 > input_len {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let function_index = u32::from_le_bytes(
+            self.instruction_data[offset..offset + 4]
+                .try_into()
+                .unwrap(),
+        );
         offset += 4;
 
         // Store function index at params[0]
         self.frame.parameters[0] = ValueRef::U64(function_index as u64);
 
         // 2. Parameter Count (u32) - required for canonical execute envelope.
-        if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-        let param_count = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
+        if offset + 4 > input_len {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let param_count = u32::from_le_bytes(
+            self.instruction_data[offset..offset + 4]
+                .try_into()
+                .unwrap(),
+        );
         offset += 4;
 
         // Limit count to available slots (MAX_PARAMETERS - 1 for func index)
@@ -1186,22 +1223,34 @@ impl<'a> ExecutionContext<'a> {
         // Fixed-size, typed parameter parsing. Type-id sentinel is reserved.
 
         for i in 0..count {
-             if offset >= input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-             let type_id = self.instruction_data[offset];
-             offset += 1;
+            if offset >= input_len {
+                return Err(VMErrorCode::InvalidInstructionPointer);
+            }
+            let type_id = self.instruction_data[offset];
+            offset += 1;
 
-             match type_id {
+            match type_id {
                 t if t == types::STRING => {
-                    if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                    let len = u32::from_le_bytes(self.instruction_data[offset..offset+4].try_into().unwrap()) as usize;
+                    if offset + 4 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let len = u32::from_le_bytes(
+                        self.instruction_data[offset..offset + 4]
+                            .try_into()
+                            .unwrap(),
+                    ) as usize;
                     offset += 4;
 
                     // Check bounds
-                    if offset + len > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
+                    if offset + len > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
 
                     // Temp buffer layout: [len:u8, type:u8, bytes...]
                     let total_size = 2 + len;
-                    if total_size > crate::TEMP_BUFFER_SIZE { return Err(VMErrorCode::OutOfMemory); }
+                    if total_size > crate::TEMP_BUFFER_SIZE {
+                        return Err(VMErrorCode::OutOfMemory);
+                    }
                     // Current temp allocator uses u8 offsets/sizes; reject values
                     // that would wrap and cause out-of-bounds writes.
                     if len > u8::MAX as usize || total_size > u8::MAX as usize {
@@ -1226,40 +1275,72 @@ impl<'a> ExecutionContext<'a> {
                     self.frame.parameters[i + 1] = ValueRef::StringRef(array_id as u16);
                 }
                 t if t == types::BOOL => {
-                    if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                    let val = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
+                    if offset + 4 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let val = u32::from_le_bytes(
+                        self.instruction_data[offset..offset + 4]
+                            .try_into()
+                            .unwrap(),
+                    );
                     offset += 4;
                     self.frame.parameters[i + 1] = ValueRef::Bool(val != 0);
                 }
                 t if t == types::U8 => {
-                     if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                     let val = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
-                     offset += 4;
-                     self.frame.parameters[i + 1] = ValueRef::U8(val as u8);
+                    if offset + 4 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let val = u32::from_le_bytes(
+                        self.instruction_data[offset..offset + 4]
+                            .try_into()
+                            .unwrap(),
+                    );
+                    offset += 4;
+                    self.frame.parameters[i + 1] = ValueRef::U8(val as u8);
                 }
                 t if t == types::U32 => {
-                     if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                     let val = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
-                     offset += 4;
-                     self.frame.parameters[i + 1] = ValueRef::U64(val as u64);
+                    if offset + 4 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let val = u32::from_le_bytes(
+                        self.instruction_data[offset..offset + 4]
+                            .try_into()
+                            .unwrap(),
+                    );
+                    offset += 4;
+                    self.frame.parameters[i + 1] = ValueRef::U64(val as u64);
                 }
                 t if t == types::U64 => {
-                     if offset + 8 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                     let val = u64::from_le_bytes(self.instruction_data[offset..offset + 8].try_into().unwrap());
-                     offset += 8;
-                     self.frame.parameters[i + 1] = ValueRef::U64(val);
+                    if offset + 8 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let val = u64::from_le_bytes(
+                        self.instruction_data[offset..offset + 8]
+                            .try_into()
+                            .unwrap(),
+                    );
+                    offset += 8;
+                    self.frame.parameters[i + 1] = ValueRef::U64(val);
                 }
                 t if t == types::PUBKEY => {
-                     if offset + 32 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                     let temp_offset = self.alloc_temp(32)?;
-                     self.memory.temp_buffer[temp_offset as usize..temp_offset as usize + 32]
+                    if offset + 32 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let temp_offset = self.alloc_temp(32)?;
+                    self.memory.temp_buffer[temp_offset as usize..temp_offset as usize + 32]
                         .copy_from_slice(&self.instruction_data[offset..offset + 32]);
-                     offset += 32;
-                     self.frame.parameters[i + 1] = ValueRef::TempRef(temp_offset, 32);
+                    offset += 32;
+                    self.frame.parameters[i + 1] = ValueRef::TempRef(temp_offset, 32);
                 }
                 t if t == types::ACCOUNT => {
-                    if offset + 4 > input_len { return Err(VMErrorCode::InvalidInstructionPointer); }
-                    let idx = u32::from_le_bytes(self.instruction_data[offset..offset + 4].try_into().unwrap());
+                    if offset + 4 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let idx = u32::from_le_bytes(
+                        self.instruction_data[offset..offset + 4]
+                            .try_into()
+                            .unwrap(),
+                    );
                     offset += 4;
                     let idx_u8 = u8::try_from(idx).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
                     self.frame.parameters[i + 1] = ValueRef::AccountRef(idx_u8, 0);
@@ -1269,7 +1350,7 @@ impl<'a> ExecutionContext<'a> {
                     // Unknown or unsupported type.
                     return Err(VMErrorCode::TypeMismatch);
                 }
-             }
+            }
         }
 
         // Clear trailing slots so parameters from previous invocations are never reused.
@@ -1342,8 +1423,8 @@ pub type ExecutionManager<'a> = ExecutionContext<'a>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use five_protocol::types;
     use crate::types::ExternalCallCacheEntry;
+    use five_protocol::types;
     #[test]
     fn invoke_instruction_succeeds() {
         let program_id = Pubkey::from([1u8; 32]);
@@ -1361,14 +1442,25 @@ mod tests {
         );
         let accounts = [account];
         let mut storage = StackStorage::new();
-        let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0, 0, 0, 0, 0);
-        let metas = [
-            AccountMeta {
-                pubkey: account.key(),
-                is_signer: account.is_signer(),
-                is_writable: account.is_writable(),
-            },
-        ];
+        let ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        let metas = [AccountMeta {
+            pubkey: account.key(),
+            is_signer: account.is_signer(),
+            is_writable: account.is_writable(),
+        }];
         let instruction = Instruction {
             program_id: &program_id,
             accounts: &metas,
@@ -1395,14 +1487,25 @@ mod tests {
         );
         let accounts = [account];
         let mut storage = StackStorage::new();
-        let ctx = ExecutionContext::new(&[], &accounts, program_id, &[], 0, &mut storage, 0, 0, 0, 0, 0, 0);
-        let metas = [
-            AccountMeta {
-                pubkey: account.key(),
-                is_signer: account.is_signer(),
-                is_writable: account.is_writable(),
-            },
-        ];
+        let ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        let metas = [AccountMeta {
+            pubkey: account.key(),
+            is_signer: account.is_signer(),
+            is_writable: account.is_writable(),
+        }];
         let instruction = Instruction {
             program_id: &program_id,
             accounts: &metas,
@@ -1448,7 +1551,12 @@ mod tests {
             &instruction_data,
             0,
             &mut storage,
-            0, 0, 0, 0, 0, 0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
         );
 
         let result = ctx.parse_parameters();
@@ -1546,7 +1654,9 @@ mod tests {
             valid: true,
         });
 
-        let hit = ctx.external_call_cache_lookup(2, 7, 1234).expect("expected cache hit");
+        let hit = ctx
+            .external_call_cache_lookup(2, 7, 1234)
+            .expect("expected cache hit");
         assert_eq!(hit.func_offset, 42);
 
         let (hits, misses, _) = ctx.external_cache_metrics();

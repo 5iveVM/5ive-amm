@@ -25,8 +25,8 @@ fn cpi_minimal_interface_call_compiles_without_jump_verification_failure() {
         }
     "#;
 
-    let bytecode = DslCompiler::compile_dsl(source)
-        .expect("minimal CPI interface call should compile");
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("minimal CPI interface call should compile");
     assert!(
         bytecode.iter().any(|op| *op == opcodes::INVOKE),
         "interface CPI call should emit INVOKE opcode"
@@ -93,7 +93,11 @@ fn amm_like_cpi_program_compiles_and_emits_invoke() {
     let bytecode =
         DslCompiler::compile_dsl(source).expect("AMM-like CPI source should compile cleanly");
     let invoke_count = bytecode.iter().filter(|op| **op == opcodes::INVOKE).count();
-    assert!(invoke_count >= 1, "expected INVOKE opcode(s), found {}", invoke_count);
+    assert!(
+        invoke_count >= 1,
+        "expected INVOKE opcode(s), found {}",
+        invoke_count
+    );
 }
 
 #[test]
@@ -104,12 +108,14 @@ fn one_shot_amm_fixture_compiles_when_present() {
         .to_path_buf();
     let amm_path = workspace_root.join("5ive-amm/src/main.v");
     if !amm_path.exists() {
-        eprintln!("Skipping AMM fixture compile regression; missing {}", amm_path.display());
+        eprintln!(
+            "Skipping AMM fixture compile regression; missing {}",
+            amm_path.display()
+        );
         return;
     }
 
-    let source = fs::read_to_string(&amm_path)
-        .expect("expected readable 5ive-amm fixture source");
+    let source = fs::read_to_string(&amm_path).expect("expected readable 5ive-amm fixture source");
     let bytecode = DslCompiler::compile_dsl(&source)
         .expect("5ive-amm fixture should compile without InvalidInstructionPointer");
     assert!(

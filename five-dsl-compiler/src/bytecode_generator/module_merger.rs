@@ -65,7 +65,11 @@ impl ModuleMerger {
         } = *main_ast
         {
             // Collect all module ASTs to avoid borrowing conflicts
-            let modules: Vec<_> = self.module_asts.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+            let modules: Vec<_> = self
+                .module_asts
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
 
             // Merge all module ASTs into the main AST
             for (module_name, module_ast) in modules.iter() {
@@ -263,10 +267,7 @@ mod tests {
     use super::*;
     use crate::ast::{BlockKind, Visibility};
 
-    fn create_simple_program(
-        name: &str,
-        instructions: Vec<AstNode>,
-    ) -> AstNode {
+    fn create_simple_program(name: &str, instructions: Vec<AstNode>) -> AstNode {
         AstNode::Program {
             program_name: name.to_string(),
             field_definitions: vec![],
@@ -330,7 +331,11 @@ mod tests {
         let result = merger.merge();
 
         assert!(result.is_ok());
-        if let AstNode::Program { instruction_definitions, .. } = result.unwrap() {
+        if let AstNode::Program {
+            instruction_definitions,
+            ..
+        } = result.unwrap()
+        {
             assert_eq!(instruction_definitions.len(), 0);
         }
     }
@@ -338,7 +343,10 @@ mod tests {
     #[test]
     fn test_merge_with_public_functions() {
         let mut merger = ModuleMerger::new();
-        let main = create_simple_program("main", vec![create_instruction("main_fn", Visibility::Public)]);
+        let main = create_simple_program(
+            "main",
+            vec![create_instruction("main_fn", Visibility::Public)],
+        );
         let helper = create_simple_program(
             "helper",
             vec![create_instruction("helper_fn", Visibility::Public)],
@@ -350,7 +358,11 @@ mod tests {
         let result = merger.merge();
         assert!(result.is_ok());
 
-        if let AstNode::Program { instruction_definitions, .. } = result.unwrap() {
+        if let AstNode::Program {
+            instruction_definitions,
+            ..
+        } = result.unwrap()
+        {
             // Should have both main_fn and helper::helper_fn
             assert_eq!(instruction_definitions.len(), 2);
 
@@ -373,7 +385,10 @@ mod tests {
     #[test]
     fn test_merge_internal_functions_included() {
         let mut merger = ModuleMerger::new();
-        let main = create_simple_program("main", vec![create_instruction("main_fn", Visibility::Public)]);
+        let main = create_simple_program(
+            "main",
+            vec![create_instruction("main_fn", Visibility::Public)],
+        );
         let helper = create_simple_program(
             "helper",
             vec![create_instruction("internal_fn", Visibility::Internal)],
@@ -385,7 +400,11 @@ mod tests {
         let result = merger.merge();
         assert!(result.is_ok());
 
-        if let AstNode::Program { instruction_definitions, .. } = result.unwrap() {
+        if let AstNode::Program {
+            instruction_definitions,
+            ..
+        } = result.unwrap()
+        {
             // Should have both main_fn and internal_fn (internal is importable)
             assert_eq!(instruction_definitions.len(), 2);
         }
@@ -394,7 +413,10 @@ mod tests {
     #[test]
     fn test_merge_private_functions_excluded() {
         let mut merger = ModuleMerger::new();
-        let main = create_simple_program("main", vec![create_instruction("main_fn", Visibility::Public)]);
+        let main = create_simple_program(
+            "main",
+            vec![create_instruction("main_fn", Visibility::Public)],
+        );
         let helper = create_simple_program(
             "helper",
             vec![
@@ -409,7 +431,11 @@ mod tests {
         let result = merger.merge();
         assert!(result.is_ok());
 
-        if let AstNode::Program { instruction_definitions, .. } = result.unwrap() {
+        if let AstNode::Program {
+            instruction_definitions,
+            ..
+        } = result.unwrap()
+        {
             // Should have main_fn and helper::public_fn, but NOT helper::private_fn
             assert_eq!(instruction_definitions.len(), 2);
 
@@ -442,7 +468,10 @@ mod tests {
     #[test]
     fn test_merge_multiple_modules() {
         let mut merger = ModuleMerger::new();
-        let main = create_simple_program("main", vec![create_instruction("main_fn", Visibility::Public)]);
+        let main = create_simple_program(
+            "main",
+            vec![create_instruction("main_fn", Visibility::Public)],
+        );
         let helper1 = create_simple_program(
             "helper1",
             vec![create_instruction("helper1_fn", Visibility::Public)],
@@ -459,7 +488,11 @@ mod tests {
         let result = merger.merge();
         assert!(result.is_ok());
 
-        if let AstNode::Program { instruction_definitions, .. } = result.unwrap() {
+        if let AstNode::Program {
+            instruction_definitions,
+            ..
+        } = result.unwrap()
+        {
             assert_eq!(instruction_definitions.len(), 3);
 
             let names: Vec<String> = instruction_definitions

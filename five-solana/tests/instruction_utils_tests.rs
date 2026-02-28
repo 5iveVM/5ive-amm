@@ -1,12 +1,8 @@
 #[cfg(test)]
 mod instruction_utils_tests {
-    use five::instructions::{require_min_accounts, require_signer};
     use five::instructions::fees::transfer_fee;
-    use pinocchio::{
-        account_info::AccountInfo,
-        program_error::ProgramError,
-        pubkey::Pubkey,
-    };
+    use five::instructions::{require_min_accounts, require_signer};
+    use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
     // Helper to create a fake AccountInfo
     fn create_account_info<'a>(
@@ -35,7 +31,10 @@ mod instruction_utils_tests {
         assert_eq!(require_min_accounts(&accounts, 2), Ok(()));
 
         // Failure
-        assert_eq!(require_min_accounts(&accounts, 3), Err(ProgramError::NotEnoughAccountKeys));
+        assert_eq!(
+            require_min_accounts(&accounts, 3),
+            Err(ProgramError::NotEnoughAccountKeys)
+        );
     }
 
     #[test]
@@ -51,7 +50,10 @@ mod instruction_utils_tests {
 
         // Failure
         let non_signer = create_account_info(&key, false, false, &mut lamports, &mut data, &owner);
-        assert_eq!(require_signer(&non_signer), Err(ProgramError::MissingRequiredSignature));
+        assert_eq!(
+            require_signer(&non_signer),
+            Err(ProgramError::MissingRequiredSignature)
+        );
     }
 
     #[test]
@@ -63,11 +65,28 @@ mod instruction_utils_tests {
         let mut recipient_lamports = 100;
         let mut data = [];
 
-        let payer = create_account_info(&payer_key, true, true, &mut payer_lamports, &mut data, &program_id);
-        let recipient = create_account_info(&recipient_key, false, true, &mut recipient_lamports, &mut data, &program_id);
+        let payer = create_account_info(
+            &payer_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut data,
+            &program_id,
+        );
+        let recipient = create_account_info(
+            &recipient_key,
+            false,
+            true,
+            &mut recipient_lamports,
+            &mut data,
+            &program_id,
+        );
 
         // Success transfer
-        assert_eq!(transfer_fee(&program_id, &payer, &recipient, 100, None), Ok(()));
+        assert_eq!(
+            transfer_fee(&program_id, &payer, &recipient, 100, None),
+            Ok(())
+        );
         assert_eq!(payer.lamports(), 900);
         assert_eq!(recipient.lamports(), 200);
 
@@ -78,7 +97,10 @@ mod instruction_utils_tests {
         );
 
         // Zero amount (no-op)
-        assert_eq!(transfer_fee(&program_id, &payer, &recipient, 0, None), Ok(()));
+        assert_eq!(
+            transfer_fee(&program_id, &payer, &recipient, 0, None),
+            Ok(())
+        );
         assert_eq!(payer.lamports(), 900);
         assert_eq!(recipient.lamports(), 200);
 
@@ -105,8 +127,22 @@ mod instruction_utils_tests {
         let mut recipient_lamports = 100;
         let mut data = [];
 
-        let payer = create_account_info(&payer_key, true, true, &mut payer_lamports, &mut data, &Pubkey::from(system_program_id));
-        let recipient = create_account_info(&recipient_key, false, true, &mut recipient_lamports, &mut data, &Pubkey::default());
+        let payer = create_account_info(
+            &payer_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut data,
+            &Pubkey::from(system_program_id),
+        );
+        let recipient = create_account_info(
+            &recipient_key,
+            false,
+            true,
+            &mut recipient_lamports,
+            &mut data,
+            &Pubkey::default(),
+        );
         let program_id = Pubkey::from([9u8; 32]);
 
         // This should hit the check `let system_program = system_program.ok_or(...)`

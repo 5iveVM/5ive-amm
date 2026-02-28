@@ -1,8 +1,6 @@
-use crate::ast::{
-    AstNode, Attribute, BlockKind, InstructionParameter, PdaConfig, TestAttribute,
-};
-use crate::parser::{DslParser, types};
-use crate::tokenizer::{Token};
+use crate::ast::{AstNode, Attribute, BlockKind, InstructionParameter, PdaConfig, TestAttribute};
+use crate::parser::{types, DslParser};
+use crate::tokenizer::Token;
 use five_vm_mito::error::VMError;
 
 fn is_reserved_function_name_token(token: &Token) -> bool {
@@ -110,24 +108,34 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
         ) {
             match &parser.current_token {
                 Token::AtSigner => {
-                    leading_attributes.push(Attribute { name: "signer".to_string(), args: vec![] });
+                    leading_attributes.push(Attribute {
+                        name: "signer".to_string(),
+                        args: vec![],
+                    });
                     parser.advance();
                 }
                 Token::AtMut => {
-                    leading_attributes.push(Attribute { name: "mut".to_string(), args: vec![] });
+                    leading_attributes.push(Attribute {
+                        name: "mut".to_string(),
+                        args: vec![],
+                    });
                     parser.advance();
                 }
                 Token::AtInit => {
                     is_init = true;
-                    leading_attributes.push(Attribute { name: "init".to_string(), args: vec![] });
+                    leading_attributes.push(Attribute {
+                        name: "init".to_string(),
+                        args: vec![],
+                    });
                     parser.advance();
 
                     // Parse optional (payer=name, space=256, seeds=[...], bump=name) syntax using shared helper
-                    let (payer_name, explicit_space, explicit_seeds, explicit_bump) = parse_init_arguments(parser)?;
+                    let (payer_name, explicit_space, explicit_seeds, explicit_bump) =
+                        parse_init_arguments(parser)?;
 
                     // Check for optional [seeds] syntax (legacy or standalone)
                     if explicit_seeds.is_some() {
-                            init_config = Some(crate::ast::InitConfig {
+                        init_config = Some(crate::ast::InitConfig {
                             seeds: explicit_seeds,
                             bump: explicit_bump,
                             space: explicit_space,
@@ -152,13 +160,12 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
                         }
                         parser.advance(); // consume ']'
 
-                            init_config = Some(crate::ast::InitConfig {
+                        init_config = Some(crate::ast::InitConfig {
                             seeds: if seeds.is_empty() { None } else { Some(seeds) },
                             bump: None, // Will fill in after parsing name
                             space: explicit_space,
                             payer: payer_name,
                         });
-
                     } else {
                         // Simple @init without seeds (may have payer/space)
                         init_config = Some(crate::ast::InitConfig {
@@ -241,20 +248,30 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
         ) {
             match &parser.current_token {
                 Token::AtSigner => {
-                    trailing_attributes.push(Attribute { name: "signer".to_string(), args: vec![] });
+                    trailing_attributes.push(Attribute {
+                        name: "signer".to_string(),
+                        args: vec![],
+                    });
                     parser.advance();
                 }
                 Token::AtMut => {
-                    trailing_attributes.push(Attribute { name: "mut".to_string(), args: vec![] });
+                    trailing_attributes.push(Attribute {
+                        name: "mut".to_string(),
+                        args: vec![],
+                    });
                     parser.advance();
                 }
                 Token::AtInit => {
                     is_init = true;
-                    trailing_attributes.push(Attribute { name: "init".to_string(), args: vec![] });
+                    trailing_attributes.push(Attribute {
+                        name: "init".to_string(),
+                        args: vec![],
+                    });
                     parser.advance(); // consume @init token
 
                     // Parse optional (payer=name, space=256, seeds=[...], bump=name) syntax using shared helper
-                    let (payer_name, explicit_space, explicit_seeds, explicit_bump) = parse_init_arguments(parser)?;
+                    let (payer_name, explicit_space, explicit_seeds, explicit_bump) =
+                        parse_init_arguments(parser)?;
 
                     // Check for optional [seeds] syntax
                     if explicit_seeds.is_some() {
@@ -559,7 +576,17 @@ pub(crate) fn parse_test_function(parser: &mut DslParser) -> Result<AstNode, VME
 
 /// Parse @init arguments: @init(payer=authority, space=256)
 /// Returns (payer: Option<String>, space: Option<u64>)
-pub(crate) fn parse_init_arguments(parser: &mut DslParser) -> Result<(Option<String>, Option<u64>, Option<Vec<AstNode>>, Option<String>), VMError> {
+pub(crate) fn parse_init_arguments(
+    parser: &mut DslParser,
+) -> Result<
+    (
+        Option<String>,
+        Option<u64>,
+        Option<Vec<AstNode>>,
+        Option<String>,
+    ),
+    VMError,
+> {
     let mut payer: Option<String> = None;
     let mut space: Option<u64> = None;
     let mut seeds: Option<Vec<AstNode>> = None;

@@ -10,8 +10,8 @@
 //! - VM sees: [VM State, param0, param1, ...] with indices [0, 1, 2, ...]
 //! - Therefore: param_index + 1 = account_index (not +2)
 
-use five_dsl_compiler::bytecode_generator::ACCOUNT_INDEX_OFFSET;
 use five_dsl_compiler::bytecode_generator::account_utils::account_index_from_param_index;
+use five_dsl_compiler::bytecode_generator::ACCOUNT_INDEX_OFFSET;
 
 #[test]
 fn test_account_index_offset_is_one() {
@@ -27,19 +27,22 @@ fn test_account_index_offset_is_one() {
 fn test_param_to_account_mapping() {
     // param0 (first parameter) -> account index 1 (0 + 1)
     assert_eq!(
-        account_index_from_param_index(0), 1,
+        account_index_from_param_index(0),
+        1,
         "param0 should map to account index 1"
     );
 
     // param1 (second parameter) -> account index 2 (1 + 1)
     assert_eq!(
-        account_index_from_param_index(1), 2,
+        account_index_from_param_index(1),
+        2,
         "param1 should map to account index 2"
     );
 
     // param2 (third parameter) -> account index 3 (2 + 1)
     assert_eq!(
-        account_index_from_param_index(2), 3,
+        account_index_from_param_index(2),
+        3,
         "param2 should map to account index 3"
     );
 }

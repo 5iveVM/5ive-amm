@@ -2,10 +2,7 @@
 ///
 /// Validates the integration of ModuleScope with TypeCheckerContext
 /// for multi-module type checking with visibility enforcement
-
-use five_dsl_compiler::{
-    DslTypeChecker, ModuleScope, ModuleSymbol, TypeNode, Visibility,
-};
+use five_dsl_compiler::{DslTypeChecker, ModuleScope, ModuleSymbol, TypeNode, Visibility};
 
 #[test]
 fn test_type_checker_context_creation() {

@@ -29,7 +29,10 @@ pub main() {
     let result = DslCompiler::compile_dsl(dsl);
 
     // Should succeed - 64 fields is at the limit
-    assert!(result.is_ok(), "Compilation should succeed with exactly 64 fields");
+    assert!(
+        result.is_ok(),
+        "Compilation should succeed with exactly 64 fields"
+    );
 }
 
 #[test]
@@ -58,7 +61,10 @@ pub main() {
 
     // FIXED: Compilation now fails early with >64 fields
     // Field limit is now enforced during account registration
-    assert!(result.is_err(), "Account with >64 fields should fail compilation");
+    assert!(
+        result.is_err(),
+        "Account with >64 fields should fail compilation"
+    );
 }
 
 #[test]
@@ -86,7 +92,10 @@ pub main() {
 
     // CURRENT BEHAVIOR: Struct definitions with >64 fields FAIL at compilation
     // (earlier than accounts, which pass compilation)
-    assert!(result.is_err(), "Struct definitions with >64 fields should fail");
+    assert!(
+        result.is_err(),
+        "Struct definitions with >64 fields should fail"
+    );
 }
 
 #[test]
@@ -114,5 +123,8 @@ pub main() {
 
     // CURRENT BEHAVIOR: Event definitions compile even with >64 fields
     // The error would only occur at serialization time
-    assert!(result.is_ok(), "Event definitions compile regardless of field count");
+    assert!(
+        result.is_ok(),
+        "Event definitions compile regardless of field count"
+    );
 }

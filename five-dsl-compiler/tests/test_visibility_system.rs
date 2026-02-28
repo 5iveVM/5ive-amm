@@ -1,6 +1,5 @@
 /// Tests for the Visibility system.
-
-use five_dsl_compiler::{DslParser, DslTokenizer, Visibility, AstNode};
+use five_dsl_compiler::{AstNode, DslParser, DslTokenizer, Visibility};
 
 #[test]
 fn test_visibility_enum_properties() {
@@ -48,9 +47,7 @@ script TestScript {
 
         // Check the first instruction
         if let AstNode::InstructionDefinition {
-            name,
-            visibility,
-            ..
+            name, visibility, ..
         } = &instruction_definitions[0]
         {
             assert_eq!(name, "transfer");
@@ -90,9 +87,7 @@ script TestScript {
 
         // Check the first instruction
         if let AstNode::InstructionDefinition {
-            name,
-            visibility,
-            ..
+            name, visibility, ..
         } = &instruction_definitions[0]
         {
             assert_eq!(name, "validate_amount");
@@ -180,8 +175,7 @@ script TestScript {
     let ast = parser.parse().expect("Should parse");
 
     if let AstNode::Program {
-        field_definitions,
-        ..
+        field_definitions, ..
     } = ast
     {
         assert_eq!(field_definitions.len(), 2);
@@ -240,8 +234,7 @@ script TestScript {
     let ast = parser.parse().expect("Should parse");
 
     if let AstNode::Program {
-        event_definitions,
-        ..
+        event_definitions, ..
     } = ast
     {
         assert_eq!(event_definitions.len(), 2);
@@ -375,9 +368,7 @@ script MyApp {
             .iter()
             .filter_map(|node| {
                 if let AstNode::InstructionDefinition {
-                    name,
-                    visibility,
-                    ..
+                    name, visibility, ..
                 } = node
                 {
                     Some((name.clone(), *visibility))
@@ -523,7 +514,10 @@ script TokenSwap {
 
         // Verify the swap function is public and others are internal
         for node in &instruction_definitions {
-            if let AstNode::InstructionDefinition { name, visibility, .. } = node {
+            if let AstNode::InstructionDefinition {
+                name, visibility, ..
+            } = node
+            {
                 if name == "swap" {
                     assert_eq!(visibility, &Visibility::Public);
                     assert!(visibility.is_on_chain_callable());
@@ -569,9 +563,7 @@ script NoPublic {
         // Verify the function is parsed (but as internal/private)
         assert_eq!(instruction_definitions.len(), 1);
         if let AstNode::InstructionDefinition {
-            name,
-            visibility,
-            ..
+            name, visibility, ..
         } = &instruction_definitions[0]
         {
             assert_eq!(name, "internal_only");

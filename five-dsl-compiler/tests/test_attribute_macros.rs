@@ -21,9 +21,13 @@ fn test_attribute_macros_requires_desugaring() {
     // 2. Parse
     let mut parser = DslParser::new(tokens);
     let ast = parser.parse().expect("Should parse");
-    
+
     // Check AST structure for attribute
-    if let AstNode::Program { instruction_definitions, .. } = &ast {
+    if let AstNode::Program {
+        instruction_definitions,
+        ..
+    } = &ast
+    {
         if let AstNode::InstructionDefinition { parameters, .. } = &instruction_definitions[0] {
             assert_eq!(parameters.len(), 1);
             let param = &parameters[0];
@@ -48,10 +52,13 @@ fn test_attribute_macros_requires_desugaring() {
 
     // Verify bytecode is valid
     assert!(bytecode.starts_with(&FIVE_MAGIC));
-    
+
     // Verify bytecode contains REQUIRE opcode
     // We expect: ... [Generate Condition] REQUIRE [Generate Body] ...
-    assert!(bytecode.contains(&REQUIRE), "Bytecode should contain REQUIRE opcode generated from @requires");
+    assert!(
+        bytecode.contains(&REQUIRE),
+        "Bytecode should contain REQUIRE opcode generated from @requires"
+    );
 }
 
 #[test]
@@ -74,16 +81,20 @@ fn test_attribute_macros_multiple_attributes() {
     let tokens = tokenizer.tokenize().expect("Should tokenize");
     let mut parser = DslParser::new(tokens);
     let ast = parser.parse().expect("Should parse");
-    
-    if let AstNode::Program { instruction_definitions, .. } = &ast {
+
+    if let AstNode::Program {
+        instruction_definitions,
+        ..
+    } = &ast
+    {
         if let AstNode::InstructionDefinition { parameters, .. } = &instruction_definitions[0] {
             assert_eq!(parameters.len(), 2);
-            
+
             // Check first parameter: @signer owner: Account
             let p1 = &parameters[0];
             assert_eq!(p1.name, "owner");
             assert!(p1.attributes.iter().any(|a| a.name == "signer"));
-            
+
             // Check second parameter: amount: u64 @requires(...)
             let p2 = &parameters[1];
             assert_eq!(p2.name, "amount");
@@ -96,6 +107,9 @@ fn test_attribute_macros_multiple_attributes() {
 
     let mut generator = DslBytecodeGenerator::new();
     let bytecode = generator.generate(&ast).expect("Should generate bytecode");
-    
-    assert!(bytecode.contains(&REQUIRE), "Bytecode should contain REQUIRE opcode");
+
+    assert!(
+        bytecode.contains(&REQUIRE),
+        "Bytecode should contain REQUIRE opcode"
+    );
 }

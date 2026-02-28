@@ -1,4 +1,4 @@
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM};
+use five_vm_mito::{MitoVM, FIVE_VM_PROGRAM_ID};
 use pinocchio::account_info::AccountInfo;
 
 #[test]
@@ -39,7 +39,13 @@ fn test_phase1_return_value_debugging() {
     println!("========================================");
 
     let mut storage = five_vm_mito::stack::StackStorage::new();
-    match MitoVM::execute_direct(&bytecode, &input_data, accounts, &FIVE_VM_PROGRAM_ID, &mut storage) {
+    match MitoVM::execute_direct(
+        &bytecode,
+        &input_data,
+        accounts,
+        &FIVE_VM_PROGRAM_ID,
+        &mut storage,
+    ) {
         Ok(result) => {
             println!("========================================");
             println!("Execution completed successfully!");

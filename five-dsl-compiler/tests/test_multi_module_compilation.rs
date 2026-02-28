@@ -5,10 +5,9 @@
 /// - Multi-module type checking with visibility enforcement
 /// - Module merging with proper visibility handling
 /// - Bytecode generation from merged modules
-
 use five_dsl_compiler::{
-    DslParser, DslTokenizer, Visibility, AstNode, ModuleScope, ModuleSymbol,
-    ModuleMerger, BlockKind, TypeNode,
+    AstNode, BlockKind, DslParser, DslTokenizer, ModuleMerger, ModuleScope, ModuleSymbol, TypeNode,
+    Visibility,
 };
 
 /// Helper to create a simple public function
@@ -483,10 +482,7 @@ fn test_namespace_collision_prevention() {
         ],
     );
 
-    let main = create_program(
-        "main",
-        vec![create_public_function("main_fn")],
-    );
+    let main = create_program("main", vec![create_public_function("main_fn")]);
 
     merger.set_main_ast(main);
     merger.add_module("helper1".to_string(), helper1);
@@ -529,8 +525,7 @@ fn test_namespace_collision_prevention() {
 #[test]
 fn test_backward_compatibility_flat_namespace() {
     // Test that disabling namespace qualification works (backward compatibility)
-    let mut merger = ModuleMerger::new()
-        .with_namespaces(false); // Disable namespace qualification
+    let mut merger = ModuleMerger::new().with_namespaces(false); // Disable namespace qualification
 
     let helper = create_program(
         "helper",
@@ -540,10 +535,7 @@ fn test_backward_compatibility_flat_namespace() {
         ],
     );
 
-    let main = create_program(
-        "main",
-        vec![create_public_function("main_fn")],
-    );
+    let main = create_program("main", vec![create_public_function("main_fn")]);
 
     merger.set_main_ast(main);
     merger.add_module("helper".to_string(), helper);

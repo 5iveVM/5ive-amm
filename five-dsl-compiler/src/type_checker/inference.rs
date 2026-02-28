@@ -213,7 +213,10 @@ impl TypeCheckerContext {
                             Ok(promoted)
                         } else {
                             // Numeric types but incompatible (e.g., exotic mix)
-                            eprintln!("DEBUG: Arithmetic type mismatch between {:?} and {:?}", left_type, right_type);
+                            eprintln!(
+                                "DEBUG: Arithmetic type mismatch between {:?} and {:?}",
+                                left_type, right_type
+                            );
                             Err(VMError::TypeMismatch)
                         }
                     }
@@ -288,7 +291,11 @@ impl TypeCheckerContext {
                         Err(VMError::TypeMismatch)
                     };
                 }
-                if let AstNode::FieldAccess { object: account_expr, field: ctx_field } = object.as_ref() {
+                if let AstNode::FieldAccess {
+                    object: account_expr,
+                    field: ctx_field,
+                } = object.as_ref()
+                {
                     if ctx_field == "ctx" {
                         return self.infer_account_ctx_field_type(account_expr, field);
                     }
@@ -315,15 +322,19 @@ impl TypeCheckerContext {
                         // Account names may be namespaced (e.g., "amm_types::AMMPool") but referenced by simple name ("AMMPool")
                         let namespace_suffix = format!("::{}", name);
                         eprintln!("DEBUG: inference.rs infer_type FieldAccess on TypeNode::Named('{}'), looking for field '{}', suffix='{}'", name, field, namespace_suffix);
-                        let account_fields = self.account_definitions.get(&name)
-                            .or_else(|| {
-                                self.account_definitions.iter()
-                                    .find(|(k, _)| k.ends_with(&namespace_suffix))
-                                    .map(|(_, v)| v)
-                            });
-                        
+                        let account_fields = self.account_definitions.get(&name).or_else(|| {
+                            self.account_definitions
+                                .iter()
+                                .find(|(k, _)| k.ends_with(&namespace_suffix))
+                                .map(|(_, v)| v)
+                        });
+
                         if let Some(account_fields) = account_fields {
-                            eprintln!("DEBUG: Resolved account_fields for '{}': {:?}", name, account_fields.iter().map(|f| &f.name).collect::<Vec<_>>());
+                            eprintln!(
+                                "DEBUG: Resolved account_fields for '{}': {:?}",
+                                name,
+                                account_fields.iter().map(|f| &f.name).collect::<Vec<_>>()
+                            );
                             if let Some(field_def) =
                                 account_fields.iter().find(|f| f.name == *field)
                             {
@@ -336,7 +347,10 @@ impl TypeCheckerContext {
                                     Ok(field_def.field_type.clone())
                                 }
                             } else {
-                                eprintln!("DEBUG: Field '{}' not found in account fields for '{}'", field, name);
+                                eprintln!(
+                                    "DEBUG: Field '{}' not found in account fields for '{}'",
+                                    field, name
+                                );
                                 if let Some(replacement) =
                                     Self::legacy_account_metadata_replacement(field)
                                 {

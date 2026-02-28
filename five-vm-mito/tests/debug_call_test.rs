@@ -1,4 +1,4 @@
-use five_vm_mito::{MitoVM, Pubkey, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Pubkey, Value};
 
 #[test]
 fn test_debug_call() {
@@ -10,9 +10,8 @@ fn test_debug_call() {
         // Header (10 bytes)
         0x35, 0x49, 0x56, 0x45, // Magic
         0x00, 0x00, 0x00, 0x00, // Features
-        0x00,                   // Public count
-        0x00,                   // Total count
-
+        0x00, // Public count
+        0x00, // Total count
         // Function 2 (Test)
         // PUSH_U64(5) - Fixed size 8 bytes
         0x1B, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -23,17 +22,16 @@ fn test_debug_call() {
         // For debugging: just ADD and RETURN
         0x20, // ADD
         0x07, // RETURN
-        0x00,                   // HALT
-
+        0x00, // HALT
         // Function 1 (Add) - Starts at 20 (0x14) - Unused for now
-        0xA5, 0x01,             // LOAD_PARAM 1
-        0xA2, 0x00,             // SET_LOCAL 0
-        0xA5, 0x02,             // LOAD_PARAM 2
-        0xA2, 0x01,             // SET_LOCAL 1
-        0xA3, 0x00,             // GET_LOCAL 0
-        0xA3, 0x01,             // GET_LOCAL 1
-        0x20,                   // ADD
-        0x07,                   // RETURN_VALUE
+        0xA5, 0x01, // LOAD_PARAM 1
+        0xA2, 0x00, // SET_LOCAL 0
+        0xA5, 0x02, // LOAD_PARAM 2
+        0xA2, 0x01, // SET_LOCAL 1
+        0xA3, 0x00, // GET_LOCAL 0
+        0xA3, 0x01, // GET_LOCAL 1
+        0x20, // ADD
+        0x07, // RETURN_VALUE
     ];
 
     let accounts = [];
@@ -41,7 +39,8 @@ fn test_debug_call() {
 
     let program_id = Pubkey::default();
     let mut storage = StackStorage::new();
-    let result = MitoVM::execute_direct(&bytecode, &input_data, &accounts, &program_id, &mut storage);
+    let result =
+        MitoVM::execute_direct(&bytecode, &input_data, &accounts, &program_id, &mut storage);
 
     match result {
         Ok(res) => {

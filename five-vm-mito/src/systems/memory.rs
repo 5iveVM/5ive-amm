@@ -96,9 +96,7 @@ impl<'a> MemoryManager<'a> {
         // Cast slice to fixed-size array; StackStorage guarantees TEMP_BUFFER_SIZE.
 
         let ptr = self.temp_buffer.as_mut_ptr();
-        unsafe {
-             Ok(&mut *(ptr as *mut [u8; crate::TEMP_BUFFER_SIZE]))
-        }
+        unsafe { Ok(&mut *(ptr as *mut [u8; crate::TEMP_BUFFER_SIZE])) }
     }
 
     #[inline]
@@ -147,7 +145,9 @@ impl<'a> MemoryManager<'a> {
     #[inline]
     pub fn heap_alloc(&mut self, size: usize) -> CompactResult<u32> {
         let offset = self.heap_storage.len();
-        self.heap_storage.try_reserve(size).map_err(|_| VMErrorCode::OutOfMemory)?;
+        self.heap_storage
+            .try_reserve(size)
+            .map_err(|_| VMErrorCode::OutOfMemory)?;
 
         for _ in 0..size {
             self.heap_storage.push(0);
@@ -161,7 +161,7 @@ impl<'a> MemoryManager<'a> {
         let start = offset as usize;
         let end = start + size as usize;
         if end > self.heap_storage.len() {
-             return Err(VMErrorCode::MemoryError);
+            return Err(VMErrorCode::MemoryError);
         }
         Ok(&mut self.heap_storage[start..end])
     }
@@ -171,7 +171,7 @@ impl<'a> MemoryManager<'a> {
         let start = offset as usize;
         let end = start + size as usize;
         if end > self.heap_storage.len() {
-             return Err(VMErrorCode::MemoryError);
+            return Err(VMErrorCode::MemoryError);
         }
         Ok(&self.heap_storage[start..end])
     }

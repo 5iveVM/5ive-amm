@@ -11,8 +11,7 @@ use five_vm_mito::MAX_SCRIPT_SIZE as VM_MAX_SCRIPT_SIZE;
 #[test]
 fn protocol_and_vm_call_depth_limits_match() {
     assert_eq!(
-        PROTOCOL_MAX_CALL_DEPTH,
-        VM_MAX_CALL_DEPTH,
+        PROTOCOL_MAX_CALL_DEPTH, VM_MAX_CALL_DEPTH,
         "protocol and VM MAX_CALL_DEPTH must stay aligned"
     );
     assert!(VM_MAX_CALL_DEPTH > 0, "MAX_CALL_DEPTH must be non-zero");
@@ -21,8 +20,7 @@ fn protocol_and_vm_call_depth_limits_match() {
 #[test]
 fn protocol_and_vm_parameter_limits_match() {
     assert_eq!(
-        PROTOCOL_MAX_FUNCTION_PARAMS,
-        VM_MAX_PARAMETERS,
+        PROTOCOL_MAX_FUNCTION_PARAMS, VM_MAX_PARAMETERS,
         "protocol and VM parameter limits must stay aligned"
     );
     assert!(VM_MAX_PARAMETERS > 0, "MAX_PARAMETERS must be non-zero");
@@ -31,8 +29,7 @@ fn protocol_and_vm_parameter_limits_match() {
 #[test]
 fn protocol_and_vm_local_limits_match() {
     assert_eq!(
-        PROTOCOL_MAX_LOCALS,
-        VM_MAX_LOCALS,
+        PROTOCOL_MAX_LOCALS, VM_MAX_LOCALS,
         "protocol and VM local limits must stay aligned"
     );
     assert!(VM_MAX_LOCALS > 0, "MAX_LOCALS must be non-zero");
@@ -41,8 +38,7 @@ fn protocol_and_vm_local_limits_match() {
 #[test]
 fn protocol_and_vm_script_size_limits_match() {
     assert_eq!(
-        PROTOCOL_MAX_SCRIPT_SIZE,
-        VM_MAX_SCRIPT_SIZE,
+        PROTOCOL_MAX_SCRIPT_SIZE, VM_MAX_SCRIPT_SIZE,
         "protocol and VM script size limits must stay aligned"
     );
     assert!(VM_MAX_SCRIPT_SIZE > 0, "MAX_SCRIPT_SIZE must be non-zero");
@@ -51,20 +47,62 @@ fn protocol_and_vm_script_size_limits_match() {
 #[test]
 fn protocol_opcodes_are_either_dispatched_or_explicitly_rejected() {
     let explicitly_rejected: [(&str, &str); 14] = [
-        ("PUSH_ZERO", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("PUSH_ONE", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("DUP_ADD", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("DUP_SUB", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("DUP_MUL", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("VALIDATE_AMOUNT_NONZERO", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("VALIDATE_SUFFICIENT", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("EQ_ZERO_JUMP", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("TRANSFER_DEBIT", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("TRANSFER_CREDIT", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("RETURN_SUCCESS", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("RETURN_ERROR", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("GT_ZERO_JUMP", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
-        ("LT_ZERO_JUMP", "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM"),
+        (
+            "PUSH_ZERO",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "PUSH_ONE",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "DUP_ADD",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "DUP_SUB",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "DUP_MUL",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "VALIDATE_AMOUNT_NONZERO",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "VALIDATE_SUFFICIENT",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "EQ_ZERO_JUMP",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "TRANSFER_DEBIT",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "TRANSFER_CREDIT",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "RETURN_SUCCESS",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "RETURN_ERROR",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "GT_ZERO_JUMP",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
+        (
+            "LT_ZERO_JUMP",
+            "Pattern-fusion Tier-2 opcode intentionally not dispatched in MitoVM",
+        ),
     ];
     let rejected_names: std::collections::HashSet<&str> =
         explicitly_rejected.iter().map(|(name, _)| *name).collect();

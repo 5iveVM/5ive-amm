@@ -5,8 +5,6 @@ use std::ops::{Deref, DerefMut};
 #[derive(Clone, Default)]
 pub struct LocalSymbolTable(HashMap<String, FieldInfo>);
 
-
-
 impl Deref for LocalSymbolTable {
     type Target = HashMap<String, FieldInfo>;
 

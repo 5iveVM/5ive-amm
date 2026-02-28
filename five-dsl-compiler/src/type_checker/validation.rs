@@ -46,8 +46,10 @@ impl TypeCheckerContext {
         use TypeNode::Primitive;
         match (t1, t2) {
             (Primitive(n1), Primitive(n2)) => {
-                if (n1 == type_names::LAMPORTS && (n2 == type_names::LAMPORTS || n2 == type_names::U64))
-                    || (n2 == type_names::LAMPORTS && (n1 == type_names::LAMPORTS || n1 == type_names::U64))
+                if (n1 == type_names::LAMPORTS
+                    && (n2 == type_names::LAMPORTS || n2 == type_names::U64))
+                    || (n2 == type_names::LAMPORTS
+                        && (n1 == type_names::LAMPORTS || n1 == type_names::U64))
                 {
                     return Some(Primitive(type_names::LAMPORTS.to_string()));
                 }
@@ -221,7 +223,16 @@ impl TypeCheckerContext {
                     )
             }
             (TypeNode::Named(name1), TypeNode::Named(name2)) => name1 == name2,
-            (TypeNode::Sized { base_type: b1, size: s1 }, TypeNode::Sized { base_type: b2, size: s2 }) => b1 == b2 && s1 == s2,
+            (
+                TypeNode::Sized {
+                    base_type: b1,
+                    size: s1,
+                },
+                TypeNode::Sized {
+                    base_type: b2,
+                    size: s2,
+                },
+            ) => b1 == b2 && s1 == s2,
             (TypeNode::Sized { base_type, .. }, TypeNode::Primitive(p)) => base_type == p,
             (TypeNode::Primitive(p), TypeNode::Sized { base_type, .. }) => base_type == p,
             (TypeNode::Account, TypeNode::Account) => true,
@@ -232,13 +243,13 @@ impl TypeCheckerContext {
                 // Check if it's a built-in account name or a user-defined account type
                 name == type_names::ACCOUNT_LOWER
                     || name == type_names::ACCOUNT_UPPER
-                    || self.account_definitions.contains_key(name)  // User-defined account type
+                    || self.account_definitions.contains_key(name) // User-defined account type
             }
             (TypeNode::Named(name), TypeNode::Account) => {
                 // Reverse: custom account type parameter compatible with Account
                 name == type_names::ACCOUNT_LOWER
                     || name == type_names::ACCOUNT_UPPER
-                    || self.account_definitions.contains_key(name)  // User-defined account type
+                    || self.account_definitions.contains_key(name) // User-defined account type
             }
             (TypeNode::Tuple { elements: e1 }, TypeNode::Tuple { elements: e2 }) => {
                 e1.len() == e2.len()

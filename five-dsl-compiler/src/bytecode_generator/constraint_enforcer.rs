@@ -1,5 +1,5 @@
-use crate::ast::{InstructionParameter, TypeNode, Attribute, AstNode};
 use super::OpcodeEmitter;
+use crate::ast::{AstNode, Attribute, InstructionParameter, TypeNode};
 use crate::bytecode_generator::account_utils::account_index_from_param_index;
 use crate::bytecode_generator::types::AccountRegistry;
 use five_protocol::opcodes::*;
@@ -18,12 +18,12 @@ pub fn emit_constraint_checks<T: OpcodeEmitter>(
         // Skip non-account parameters for most checks
         let is_account = is_account_param(param, account_registry);
         if !is_account {
-             continue;
+            continue;
         }
-        
+
         // Resolve account index (absolute index in VM)
         let account_idx = account_index_from_param_index(param_index as u8);
-        
+
         let mut has_signer = false;
         let mut has_writable = false;
         // Process attributes
@@ -36,10 +36,17 @@ pub fn emit_constraint_checks<T: OpcodeEmitter>(
                     has_writable = true;
                 }
                 "has" => {
-                    emit_has_check(emitter, account_idx, param, attribute, parameters, account_registry)?;
+                    emit_has_check(
+                        emitter,
+                        account_idx,
+                        param,
+                        attribute,
+                        parameters,
+                        account_registry,
+                    )?;
                 }
 
-                 _ => {}
+                _ => {}
             }
         }
         if has_signer && has_writable {
@@ -68,7 +75,8 @@ fn emit_init_payer_checks<T: OpcodeEmitter>(
         if let Some(ref init_config) = param.init_config {
             if let Some(ref payer_name) = init_config.payer {
                 // Find the payer parameter index
-                let payer_param_index = parameters.iter()
+                let payer_param_index = parameters
+                    .iter()
                     .position(|p| p.name == *payer_name)
                     .ok_or(VMError::InvalidScript)?;
 
@@ -95,28 +103,25 @@ fn is_account_param(param: &InstructionParameter, account_registry: &AccountRegi
 
             // Check registry
             let namespace_suffix = format!("::{}", name);
-            account_registry.account_types.contains_key(name) ||
-            account_registry.account_types.keys().any(|k| k.ends_with(&namespace_suffix))
-        },
+            account_registry.account_types.contains_key(name)
+                || account_registry
+                    .account_types
+                    .keys()
+                    .any(|k| k.ends_with(&namespace_suffix))
+        }
         _ => false,
     }
 }
 
 /// Emit CHECK_SIGNER opcode
-fn emit_signer_check<T: OpcodeEmitter>(
-    emitter: &mut T,
-    account_idx: u8,
-) -> Result<(), VMError> {
+fn emit_signer_check<T: OpcodeEmitter>(emitter: &mut T, account_idx: u8) -> Result<(), VMError> {
     emitter.emit_opcode(CHECK_SIGNER);
-    emitter.emit_u8(account_idx); 
+    emitter.emit_u8(account_idx);
     Ok(())
 }
 
 /// Emit CHECK_WRITABLE opcode
-fn emit_writable_check<T: OpcodeEmitter>(
-    emitter: &mut T,
-    account_idx: u8,
-) -> Result<(), VMError> {
+fn emit_writable_check<T: OpcodeEmitter>(emitter: &mut T, account_idx: u8) -> Result<(), VMError> {
     emitter.emit_opcode(CHECK_WRITABLE);
     emitter.emit_u8(account_idx);
     Ok(())
@@ -144,7 +149,9 @@ fn emit_has_check<T: OpcodeEmitter>(
         };
 
         // Find target parameter index
-        let (target_idx, target_param) = all_parameters.iter().enumerate()
+        let (target_idx, target_param) = all_parameters
+            .iter()
+            .enumerate()
             .find(|(_, p)| p.name == *target_name)
             .ok_or(VMError::InvalidScript)?; // Target not found
 
@@ -170,7 +177,7 @@ fn emit_has_check<T: OpcodeEmitter>(
         };
 
         // 3. Emit Verification Bytecode
-        
+
         // A. Load Account Field -> Stack
         emitter.emit_opcode(LOAD_FIELD);
         emitter.emit_u8(account_idx);

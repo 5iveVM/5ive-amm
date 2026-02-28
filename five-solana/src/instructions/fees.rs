@@ -1,6 +1,11 @@
 use pinocchio::{
-    account_info::AccountInfo, instruction::{AccountMeta, Instruction, Seed, Signer}, program::invoke_signed,
-    program_error::ProgramError, pubkey::Pubkey, ProgramResult, sysvars::Sysvar,
+    account_info::AccountInfo,
+    instruction::{AccountMeta, Instruction, Seed, Signer},
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    sysvars::Sysvar,
+    ProgramResult,
 };
 
 use crate::{
@@ -45,7 +50,11 @@ pub(crate) fn build_system_transfer_ix(amount: u64) -> [u8; 12] {
 }
 
 #[inline(always)]
-pub(crate) fn build_system_create_account_ix(lamports: u64, space: u64, owner: &Pubkey) -> [u8; 52] {
+pub(crate) fn build_system_create_account_ix(
+    lamports: u64,
+    space: u64,
+    owner: &Pubkey,
+) -> [u8; 52] {
     let mut data = [0u8; 52];
     data[0..4].copy_from_slice(&0u32.to_le_bytes()); // create_account discriminator
     data[4..12].copy_from_slice(&lamports.to_le_bytes());
@@ -118,7 +127,8 @@ pub fn transfer_fee(
         *payer.try_borrow_mut_lamports()? -= amount;
 
         // Use checked_add to prevent overflow in recipient lamports
-        let new_recipient_lamports = recipient.lamports()
+        let new_recipient_lamports = recipient
+            .lamports()
             .checked_add(amount)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         *recipient.try_borrow_mut_lamports()? = new_recipient_lamports;
@@ -168,11 +178,7 @@ pub fn collect_deploy_fee_with_state(
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    verify_hardcoded_fee_vault_account(
-        fee_vault_account,
-        program_id,
-        fee_shard_index,
-    )?;
+    verify_hardcoded_fee_vault_account(fee_vault_account, program_id, fee_shard_index)?;
     validate_fee_transfer_accounts(program_id, payer, fee_vault_account, system_program)?;
 
     transfer_fee(
@@ -225,7 +231,8 @@ pub fn init_fee_vault(
     let expected_bump = crate::common::get_hardcoded_fee_vault_bump(shard_index)
         .ok_or(ProgramError::InvalidInstructionData)?;
     #[cfg(test)]
-    let (expected_key, expected_bump) = crate::common::derive_fee_vault_pda(program_id, shard_index)?;
+    let (expected_key, expected_bump) =
+        crate::common::derive_fee_vault_pda(program_id, shard_index)?;
     if fee_vault_account.key() != &expected_key || bump != expected_bump {
         return Err(ProgramError::InvalidArgument);
     }
@@ -238,8 +245,8 @@ pub fn init_fee_vault(
         return Err(ProgramError::IllegalOwner);
     }
 
-    let rent = pinocchio::sysvars::rent::Rent::get()
-        .map_err(|_| ProgramError::AccountNotRentExempt)?;
+    let rent =
+        pinocchio::sysvars::rent::Rent::get().map_err(|_| ProgramError::AccountNotRentExempt)?;
     let rent_lamports = rent.minimum_balance(0);
 
     let create_account_data = build_system_create_account_ix(rent_lamports, 0u64, program_id);
@@ -271,7 +278,11 @@ pub fn init_fee_vault(
         accounts: &metas,
         data: &create_account_data,
     };
-    invoke_signed::<3>(&instruction, &[payer, fee_vault_account, system_program], &[signer])?;
+    invoke_signed::<3>(
+        &instruction,
+        &[payer, fee_vault_account, system_program],
+        &[signer],
+    )?;
     Ok(())
 }
 
@@ -293,11 +304,7 @@ pub fn withdraw_script_fees(
 
     verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
     verify_program_owned(vm_state_account, program_id)?;
-    verify_hardcoded_fee_vault_account(
-        fee_vault_account,
-        program_id,
-        shard_index,
-    )?;
+    verify_hardcoded_fee_vault_account(fee_vault_account, program_id, shard_index)?;
     require_signer(authority)?;
     if !fee_vault_account.is_writable() || !recipient.is_writable() {
         return Err(ProgramError::InvalidArgument);
@@ -312,8 +319,8 @@ pub fn withdraw_script_fees(
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    let rent = pinocchio::sysvars::rent::Rent::get()
-        .map_err(|_| ProgramError::AccountNotRentExempt)?;
+    let rent =
+        pinocchio::sysvars::rent::Rent::get().map_err(|_| ProgramError::AccountNotRentExempt)?;
     let min_balance = rent.minimum_balance(0);
     let current = fee_vault_account.lamports();
     if current < min_balance {
@@ -529,7 +536,8 @@ mod tests {
     fn init_fee_vault_rejects_non_system_program_identity_when_idempotent() {
         let program_id = Pubkey::from([31u8; 32]);
         let (vm_key, vm_bump) = crate::common::derive_canonical_vm_state_pda(&program_id).unwrap();
-        let (fee_vault_key, fee_vault_bump) = crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
+        let (fee_vault_key, fee_vault_bump) =
+            crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
         let payer_key = Pubkey::from([32u8; 32]);
         let fake_system_key = Pubkey::from([33u8; 32]);
         let authority_key = Pubkey::from([34u8; 32]);

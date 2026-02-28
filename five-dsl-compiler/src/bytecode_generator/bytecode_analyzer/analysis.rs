@@ -1,4 +1,6 @@
-use super::{AdvancedBytecodeAnalyzer, AnalysisSummary, BasicBlock, InstructionCategory, OptimizationPattern};
+use super::{
+    AdvancedBytecodeAnalyzer, AnalysisSummary, BasicBlock, InstructionCategory, OptimizationPattern,
+};
 use crate::ast::AstNode;
 use five_protocol::{opcodes::*, ResourceRequirements};
 use five_vm_mito::error::VMError;
@@ -57,7 +59,9 @@ pub(crate) fn analyze_control_flow(analyzer: &mut AdvancedBytecodeAnalyzer) -> R
 }
 
 /// Perform stack effect analysis
-pub(crate) fn analyze_stack_effects(analyzer: &mut AdvancedBytecodeAnalyzer) -> Result<(), VMError> {
+pub(crate) fn analyze_stack_effects(
+    analyzer: &mut AdvancedBytecodeAnalyzer,
+) -> Result<(), VMError> {
     analyzer.stack_analysis.stack_depths.clear();
     analyzer.stack_analysis.max_stack_depth = 0;
     analyzer.stack_analysis.min_stack_depth = 0;
@@ -96,7 +100,9 @@ pub(crate) fn analyze_stack_effects(analyzer: &mut AdvancedBytecodeAnalyzer) -> 
 }
 
 /// Detect optimization patterns in the bytecode
-pub(crate) fn detect_patterns(analyzer: &AdvancedBytecodeAnalyzer) -> Result<Vec<OptimizationPattern>, VMError> {
+pub(crate) fn detect_patterns(
+    analyzer: &AdvancedBytecodeAnalyzer,
+) -> Result<Vec<OptimizationPattern>, VMError> {
     let mut patterns = Vec::new();
 
     // Pattern 1: Consecutive PUSH/POP pairs (can be eliminated)
@@ -125,7 +131,8 @@ pub(crate) fn detect_patterns(analyzer: &AdvancedBytecodeAnalyzer) -> Result<Vec
         {
             // Check if there are instructions after this that are not jump targets
             let next_offset = instruction.offset + instruction.size;
-            if i + 1 < analyzer.instructions.len() && analyzer.instructions[i + 1].offset == next_offset
+            if i + 1 < analyzer.instructions.len()
+                && analyzer.instructions[i + 1].offset == next_offset
             {
                 // There's an instruction immediately following - could be dead code
                 patterns.push(OptimizationPattern {
@@ -240,7 +247,10 @@ pub(crate) fn calculate_resource_requirements(
 }
 
 /// Calculate maximum concurrent stack usage across functions (simplified implementation)
-fn calculate_max_concurrent_stack_usage(analyzer: &AdvancedBytecodeAnalyzer, _ast: &AstNode) -> u16 {
+fn calculate_max_concurrent_stack_usage(
+    analyzer: &AdvancedBytecodeAnalyzer,
+    _ast: &AstNode,
+) -> u16 {
     // Conservative estimate based on stack analysis.
     analyzer.stack_analysis.max_stack_depth.max(32) as u16
 }

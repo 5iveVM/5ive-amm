@@ -72,8 +72,6 @@ enum Commands {
         debug_bytecode: bool,
     },
 
-
-
     /// Build a project from five.toml configuration
     Build {
         /// Path to project directory (defaults to current dir)
@@ -549,7 +547,8 @@ fn handle_compile(
 
     if metrics {
         // Compile with metrics (using config)
-        let (bytecode, mut compilation_metrics) = DslCompiler::compile_with_metrics_and_config(&source_code, &config)?;
+        let (bytecode, mut compilation_metrics) =
+            DslCompiler::compile_with_metrics_and_config(&source_code, &config)?;
 
         let compile_time = start_time.elapsed();
 
@@ -754,12 +753,12 @@ fn handle_compile_multi(
     // but typically we pass all involved files to modules list for merging, and specify entry point.
     // Looking at compile_modules implementation (line 360-391), it iterates ALL module_files.
     // Use heuristic: pass logic requires explicit list.
-    
+
     // Actually compile_modules logic:
     // verifies entry_point is in module_files?
     // "if file_path == entry_point { set_main } else { add_module }"
     // So we need to ensure ALL files (including main) are in `module_files`.
-    
+
     module_strs.push(main_str.clone());
     for m in &modules {
         module_strs.push(m.to_string_lossy().to_string());
@@ -785,11 +784,11 @@ fn handle_compile_multi(
 
     // Write bytecode
     fs::write(&output_path, &bytecode)?;
-    
+
     if !quiet {
         println!("✅ Compilation successful");
         println!("💾 Bytecode written to: {}", output_path.display());
-        
+
         if summary || verbose {
             println!("\n📈 Compilation Summary:");
             println!("   Output file: {}", output_path.display());
@@ -826,8 +825,8 @@ fn handle_build(
     }
 
     let config_content = fs::read_to_string(&config_path)?;
-    let config: FiveConfig = toml::from_str(&config_content)
-        .map_err(|e| format!("Failed to parse five.toml: {}", e))?;
+    let config: FiveConfig =
+        toml::from_str(&config_content).map_err(|e| format!("Failed to parse five.toml: {}", e))?;
 
     // Determine entry point
     let entry_point_str = if let Some(build) = &config.build {
@@ -854,7 +853,7 @@ fn handle_build(
                 return Err(format!("Module file not found: {}", file_path.display()).into());
             }
             if file_path != entry_point {
-                 modules.push(file_path);
+                modules.push(file_path);
             }
         }
     }
@@ -1060,8 +1059,8 @@ fn handle_inspect(
         println!("🔍 Inspecting bytecode: {}", bytecode_path.display());
     }
 
-    let bytecode = fs::read(&bytecode_path)
-        .map_err(|e| format!("Failed to read bytecode file: {}", e))?;
+    let bytecode =
+        fs::read(&bytecode_path).map_err(|e| format!("Failed to read bytecode file: {}", e))?;
 
     println!("File: {}", bytecode_path.display());
     println!("Size: {} bytes", bytecode.len());

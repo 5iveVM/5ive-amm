@@ -7,7 +7,10 @@ fn assert_external_call_compiles(source: &str) {
         bytecode.iter().any(|op| *op == CALL_EXTERNAL),
         "bytecode should contain CALL_EXTERNAL"
     );
-    assert!(!source.contains("ext0::"), "source should not use ext0 namespace");
+    assert!(
+        !source.contains("ext0::"),
+        "source should not use ext0 namespace"
+    );
     assert!(
         source.contains("token_bytecode: account"),
         "source should bind token bytecode as explicit account"

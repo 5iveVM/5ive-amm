@@ -31,9 +31,8 @@ mod tests {
     fn canonical_vm_key(program_id: &Pubkey) -> Pubkey {
         let mut pid = [0u8; 32];
         pid.copy_from_slice(program_id);
-        let (pda, _bump) =
-            five_vm_mito::utils::find_program_address_offchain(&[b"vm_state"], &pid)
-                .expect("canonical vm_state pda");
+        let (pda, _bump) = five_vm_mito::utils::find_program_address_offchain(&[b"vm_state"], &pid)
+            .expect("canonical vm_state pda");
         pda
     }
 

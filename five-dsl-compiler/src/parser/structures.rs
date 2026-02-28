@@ -1,6 +1,6 @@
 use crate::ast::{AstNode, ErrorVariant, StructField};
-use crate::parser::{DslParser, types};
-use crate::tokenizer::{Token};
+use crate::parser::{types, DslParser};
+use crate::tokenizer::Token;
 use five_vm_mito::error::VMError;
 
 #[allow(dead_code)]
@@ -141,7 +141,11 @@ pub(crate) fn parse_event_definition(parser: &mut DslParser) -> Result<AstNode, 
     }
     parser.advance(); // consume '}'
 
-    Ok(AstNode::EventDefinition { name, fields, visibility })
+    Ok(AstNode::EventDefinition {
+        name,
+        fields,
+        visibility,
+    })
 }
 
 pub(crate) fn parse_error_type_definition(parser: &mut DslParser) -> Result<AstNode, VMError> {
@@ -348,5 +352,9 @@ pub(crate) fn parse_account_definition(parser: &mut DslParser) -> Result<AstNode
     }
     parser.advance(); // consume '}'
 
-    Ok(AstNode::AccountDefinition { name, fields, visibility })
+    Ok(AstNode::AccountDefinition {
+        name,
+        fields,
+        visibility,
+    })
 }

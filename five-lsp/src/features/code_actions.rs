@@ -33,7 +33,8 @@ pub fn get_code_actions(
     }
 
     // Mutability issues - prepend 'mut ' before identifier
-    if message.contains("mut") || message.contains("immutable") || message.contains("cannot assign") {
+    if message.contains("mut") || message.contains("immutable") || message.contains("cannot assign")
+    {
         if let Some(edit) = fix_missing_mutability(source, line_num, &diagnostic.range) {
             actions.push(code_action_from_edit(
                 "Add 'mut' modifier",
@@ -84,7 +85,9 @@ pub fn get_code_actions(
 
     // Missing semicolon errors
     if message.contains("semicolon") || message.contains("expected `;`") {
-        if let Some(edit) = fix_missing_semicolon(source, line_num, diagnostic.range.start.character as usize) {
+        if let Some(edit) =
+            fix_missing_semicolon(source, line_num, diagnostic.range.start.character as usize)
+        {
             actions.push(code_action_from_edit(
                 "Add semicolon",
                 edit,
@@ -180,7 +183,9 @@ pub fn fix_missing_visibility(source: &str, line: usize) -> Option<TextEdit> {
     let line_str = lines[line];
 
     // Check if line is a function/struct without 'pub'
-    if (line_str.contains("function ") || line_str.contains("account ")) && !line_str.contains("pub ") {
+    if (line_str.contains("function ") || line_str.contains("account "))
+        && !line_str.contains("pub ")
+    {
         let trimmed = line_str.trim_start();
         let indent = line_str.len() - trimmed.len();
 
@@ -240,7 +245,11 @@ pub fn fix_missing_mutability(source: &str, line: usize, _range: &Range) -> Opti
 /// Quick fix for adding account constraints
 ///
 /// Appends a constraint (e.g., '@mut', '@signer') after the account parameter.
-pub fn fix_missing_account_constraint(source: &str, line: usize, constraint: &str) -> Option<TextEdit> {
+pub fn fix_missing_account_constraint(
+    source: &str,
+    line: usize,
+    constraint: &str,
+) -> Option<TextEdit> {
     let lines: Vec<&str> = source.lines().collect();
 
     if line >= lines.len() {

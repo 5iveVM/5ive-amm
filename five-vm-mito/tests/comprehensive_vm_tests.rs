@@ -4,9 +4,13 @@
 //! and ensure Five VM meets its production-readiness goals.
 
 use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
@@ -321,7 +325,11 @@ mod mixed_type_operations {
         });
 
         let result = execute_test(&bytecode, &[], &[]).unwrap();
-        assert_eq!(result, Some(Value::Bool(true)), "6 (u64) <= 20 (u128) should be true");
+        assert_eq!(
+            result,
+            Some(Value::Bool(true)),
+            "6 (u64) <= 20 (u128) should be true"
+        );
     }
 
     #[test]
@@ -335,7 +343,11 @@ mod mixed_type_operations {
         });
 
         let result = execute_test(&bytecode, &[], &[]).unwrap();
-        assert_eq!(result, Some(Value::Bool(true)), "6 (u128) <= 20 (u64) should be true");
+        assert_eq!(
+            result,
+            Some(Value::Bool(true)),
+            "6 (u128) <= 20 (u64) should be true"
+        );
     }
 
     #[test]
@@ -349,6 +361,10 @@ mod mixed_type_operations {
         });
 
         let result = execute_test(&bytecode, &[], &[]).unwrap();
-        assert_eq!(result, Some(Value::Bool(true)), "6 (u64) <= 20 (u64) should be true");
+        assert_eq!(
+            result,
+            Some(Value::Bool(true)),
+            "6 (u64) <= 20 (u64) should be true"
+        );
     }
 }

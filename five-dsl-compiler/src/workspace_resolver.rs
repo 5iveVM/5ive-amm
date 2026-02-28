@@ -1,12 +1,11 @@
+use five_vm_mito::error::VMError;
+use glob::glob;
 /// Workspace Discovery and Resolution
 ///
 /// Provides functionality to discover workspace structure,
 /// resolve dependencies, and determine build order.
-
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use glob::glob;
-use five_vm_mito::error::VMError;
 
 use crate::config::workspace::{
     LinkType, LockFile, PackageDependency, PackageManifest, WorkspaceConfig,
@@ -55,17 +54,18 @@ pub struct Workspace {
 
 impl Workspace {
     /// Discover workspace from a starting path
-    /// 
+    ///
     /// Walks up directories looking for five.toml with [workspace] section
     pub fn discover(start_path: &Path) -> Result<Option<Self>, WorkspaceError> {
         let mut current = start_path.to_path_buf();
-        
+
         if current.is_file() {
-            current = current.parent()
+            current = current
+                .parent()
                 .ok_or(WorkspaceError::InvalidPath)?
                 .to_path_buf();
         }
-        
+
         while current.as_os_str().len() > 1 {
             let manifest_path = current.join("five.toml");
             if manifest_path.exists() {
@@ -78,21 +78,23 @@ impl Workspace {
                 None => break,
             };
         }
-        
+
         Ok(None)
     }
 
     /// Try to load workspace config from five.toml
     fn try_load_workspace_config(path: &Path) -> Result<Option<WorkspaceConfig>, WorkspaceError> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| WorkspaceError::IoError(e.to_string()))?;
-        
+        let content =
+            std::fs::read_to_string(path).map_err(|e| WorkspaceError::IoError(e.to_string()))?;
+
         // Parse as toml::Value first to check for workspace section
-        let value: toml::Value = toml::from_str(&content)
-            .map_err(|e| WorkspaceError::ParseError(e.to_string()))?;
-        
+        let value: toml::Value =
+            toml::from_str(&content).map_err(|e| WorkspaceError::ParseError(e.to_string()))?;
+
         if let Some(workspace) = value.get("workspace") {
-            let config: WorkspaceConfig = workspace.clone().try_into()
+            let config: WorkspaceConfig = workspace
+                .clone()
+                .try_into()
                 .map_err(|e: toml::de::Error| WorkspaceError::ParseError(e.to_string()))?;
             Ok(Some(config))
         } else {
@@ -103,15 +105,14 @@ impl Workspace {
     /// Load workspace from root directory
     pub fn load(root: PathBuf, config: WorkspaceConfig) -> Result<Self, WorkspaceError> {
         let lock_path = root.join("five.lock");
-        let lock = LockFile::load(&lock_path)
-            .unwrap_or_else(|_| LockFile::new());
-        
+        let lock = LockFile::load(&lock_path).unwrap_or_else(|_| LockFile::new());
+
         let mut packages = Vec::new();
-        
+
         // Resolve member paths (with glob support)
         for member_pattern in &config.members {
             let pattern = root.join(member_pattern).display().to_string();
-            
+
             let paths: Vec<PathBuf> = if member_pattern.contains('*') {
                 glob(&pattern)
                     .map_err(|e| WorkspaceError::GlobError(e.to_string()))?
@@ -120,7 +121,7 @@ impl Workspace {
             } else {
                 vec![root.join(member_pattern)]
             };
-            
+
             for path in paths {
                 // Check exclusions
                 if let Some(ref excludes) = config.exclude {
@@ -129,7 +130,7 @@ impl Workspace {
                         continue;
                     }
                 }
-                
+
                 if path.is_dir() {
                     let manifest_path = path.join("five.toml");
                     if manifest_path.exists() {
@@ -139,7 +140,7 @@ impl Workspace {
                 }
             }
         }
-        
+
         Ok(Self {
             root,
             config,
@@ -156,12 +157,15 @@ impl Workspace {
     ) -> Result<ResolvedPackage, WorkspaceError> {
         let content = std::fs::read_to_string(manifest_path)
             .map_err(|e| WorkspaceError::IoError(e.to_string()))?;
-        
-        let manifest: PackageManifest = toml::from_str(&content)
-            .map_err(|e| WorkspaceError::ParseError(format!(
-                "Failed to parse {}: {}", manifest_path.display(), e
-            )))?;
-        
+
+        let manifest: PackageManifest = toml::from_str(&content).map_err(|e| {
+            WorkspaceError::ParseError(format!(
+                "Failed to parse {}: {}",
+                manifest_path.display(),
+                e
+            ))
+        })?;
+
         // Resolve dependencies
         let mut dependencies = Vec::new();
         if let Some(ref deps) = manifest.dependencies {
@@ -170,7 +174,7 @@ impl Workspace {
                 dependencies.push(resolved);
             }
         }
-        
+
         Ok(ResolvedPackage {
             name: manifest.package.name.clone(),
             path: path.to_path_buf(),
@@ -197,13 +201,18 @@ impl Workspace {
                     address: lock.get_address(name).map(String::from),
                 })
             }
-            PackageDependency::Full { path, link, address, .. } => {
-                let package_path = path.as_ref()
-                    .map(|p| package_path.join(p));
-                
-                let resolved_address = address.clone()
+            PackageDependency::Full {
+                path,
+                link,
+                address,
+                ..
+            } => {
+                let package_path = path.as_ref().map(|p| package_path.join(p));
+
+                let resolved_address = address
+                    .clone()
                     .or_else(|| lock.get_address(name).map(String::from));
-                
+
                 Ok(ResolvedDependency {
                     name: name.to_string(),
                     link: link.clone(),
@@ -219,17 +228,21 @@ impl Workspace {
         let mut order = Vec::new();
         let mut visited = HashSet::new();
         let mut in_progress = HashSet::new();
-        
+
         // Build name-to-package map
-        let package_map: HashMap<&str, &ResolvedPackage> = self.packages
-            .iter()
-            .map(|p| (p.name.as_str(), p))
-            .collect();
-        
+        let package_map: HashMap<&str, &ResolvedPackage> =
+            self.packages.iter().map(|p| (p.name.as_str(), p)).collect();
+
         for package in &self.packages {
-            self.visit_package(package, &package_map, &mut visited, &mut in_progress, &mut order)?;
+            self.visit_package(
+                package,
+                &package_map,
+                &mut visited,
+                &mut in_progress,
+                &mut order,
+            )?;
         }
-        
+
         Ok(order)
     }
 
@@ -244,24 +257,24 @@ impl Workspace {
         if visited.contains(&package.name) {
             return Ok(());
         }
-        
+
         if in_progress.contains(&package.name) {
             return Err(WorkspaceError::CyclicDependency(package.name.clone()));
         }
-        
+
         in_progress.insert(package.name.clone());
-        
+
         // Visit dependencies first
         for dep in &package.dependencies {
             if let Some(dep_package) = package_map.get(dep.name.as_str()) {
                 self.visit_package(dep_package, package_map, visited, in_progress, order)?;
             }
         }
-        
+
         in_progress.remove(&package.name);
         visited.insert(package.name.clone());
         order.push(package);
-        
+
         Ok(())
     }
 
@@ -275,7 +288,8 @@ impl Workspace {
 
     /// Save lock file
     pub fn save_lock(&self) -> Result<(), WorkspaceError> {
-        self.lock.save(&self.root.join("five.lock"))
+        self.lock
+            .save(&self.root.join("five.lock"))
             .map_err(|_| WorkspaceError::IoError("Failed to save lock file".to_string()))
     }
 }

@@ -6,7 +6,9 @@
 mod support;
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, VMError, Value, stack::StackStorage};
+use five_vm_mito::{
+    stack::StackStorage, MitoVM, Result as VmResult, VMError, Value, FIVE_VM_PROGRAM_ID,
+};
 use support::script_builder::ScriptBuilder;
 
 fn execute_script(build: impl FnOnce(&mut ScriptBuilder)) -> VmResult<Option<Value>> {
@@ -389,13 +391,27 @@ mod error_handling {
         let mut storage = StackStorage::new();
         // Input: Func 0 (u32), ParamCount 0 (u32)
         let public_input = [0, 0, 0, 0, 0, 0, 0, 0];
-        let public_result = MitoVM::execute_direct(&script, &public_input, &[], &FIVE_VM_PROGRAM_ID, &mut storage).unwrap();
+        let public_result = MitoVM::execute_direct(
+            &script,
+            &public_input,
+            &[],
+            &FIVE_VM_PROGRAM_ID,
+            &mut storage,
+        )
+        .unwrap();
         assert_eq!(public_result, Some(Value::U64(42)));
 
         let mut storage2 = StackStorage::new();
         // Input: Func 1 (u32), ParamCount 0 (u32)
         let private_input = [1, 0, 0, 0, 0, 0, 0, 0];
-        let err = MitoVM::execute_direct(&script, &private_input, &[], &FIVE_VM_PROGRAM_ID, &mut storage2).unwrap_err();
+        let err = MitoVM::execute_direct(
+            &script,
+            &private_input,
+            &[],
+            &FIVE_VM_PROGRAM_ID,
+            &mut storage2,
+        )
+        .unwrap_err();
         assert!(
             matches!(err, VMError::FunctionVisibilityViolation { .. }),
             "Expected FunctionVisibilityViolation, got: {:?}",

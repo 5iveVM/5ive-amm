@@ -57,18 +57,33 @@ fn test_discover_modules_simple() -> Result<(), Box<dyn std::error::Error>> {
     let (_dir, root_path, entry_point_path) = create_test_project(files)?;
 
     let modules = DslCompiler::discover_modules(&entry_point_path)?;
-    
+
     // Resolve paths for comparison
     let lib_path = root_path.join("src/lib.v").canonicalize()?;
     let main_path = root_path.join("src/main.v").canonicalize()?;
-    
+
     // Use canonical paths for comparison to handle symlinks
-    let modules_canonical: Vec<PathBuf> = modules.iter()
-        .map(|m| Path::new(m).canonicalize().unwrap_or_else(|_| PathBuf::from(m)))
+    let modules_canonical: Vec<PathBuf> = modules
+        .iter()
+        .map(|m| {
+            Path::new(m)
+                .canonicalize()
+                .unwrap_or_else(|_| PathBuf::from(m))
+        })
         .collect();
 
-    assert!(modules_canonical.contains(&lib_path), "Module list {:?} does not contain {:?}", modules_canonical, lib_path);
-    assert!(modules_canonical.contains(&main_path), "Module list {:?} does not contain {:?}", modules_canonical, main_path);
+    assert!(
+        modules_canonical.contains(&lib_path),
+        "Module list {:?} does not contain {:?}",
+        modules_canonical,
+        lib_path
+    );
+    assert!(
+        modules_canonical.contains(&main_path),
+        "Module list {:?} does not contain {:?}",
+        modules_canonical,
+        main_path
+    );
     assert_eq!(modules.len(), 2);
 
     Ok(())
@@ -77,22 +92,43 @@ fn test_discover_modules_simple() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn test_discover_modules_nested_path() -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
-    files.insert("main.v".to_string(), "script main { use utils::helpers; }".to_string());
-    files.insert("utils/helpers.v".to_string(), "script helpers { }".to_string());
+    files.insert(
+        "main.v".to_string(),
+        "script main { use utils::helpers; }".to_string(),
+    );
+    files.insert(
+        "utils/helpers.v".to_string(),
+        "script helpers { }".to_string(),
+    );
 
     let (_dir, root_path, entry_point_path) = create_test_project(files)?;
 
     let modules = DslCompiler::discover_modules(&entry_point_path)?;
-    
+
     let helpers_path = root_path.join("src/utils/helpers.v").canonicalize()?;
     let main_path = root_path.join("src/main.v").canonicalize()?;
 
-    let modules_canonical: Vec<PathBuf> = modules.iter()
-        .map(|m| Path::new(m).canonicalize().unwrap_or_else(|_| PathBuf::from(m)))
+    let modules_canonical: Vec<PathBuf> = modules
+        .iter()
+        .map(|m| {
+            Path::new(m)
+                .canonicalize()
+                .unwrap_or_else(|_| PathBuf::from(m))
+        })
         .collect();
 
-    assert!(modules_canonical.contains(&helpers_path), "Module list {:?} does not contain {:?}", modules_canonical, helpers_path);
-    assert!(modules_canonical.contains(&main_path), "Module list {:?} does not contain {:?}", modules_canonical, main_path);
+    assert!(
+        modules_canonical.contains(&helpers_path),
+        "Module list {:?} does not contain {:?}",
+        modules_canonical,
+        helpers_path
+    );
+    assert!(
+        modules_canonical.contains(&main_path),
+        "Module list {:?} does not contain {:?}",
+        modules_canonical,
+        main_path
+    );
     assert_eq!(modules.len(), 2);
 
     Ok(())
@@ -101,8 +137,14 @@ fn test_discover_modules_nested_path() -> Result<(), Box<dyn std::error::Error>>
 #[test]
 fn test_auto_discovery_simple_compilation() -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
-    files.insert("main.v".to_string(), "script main { use lib; pub fn do_stuff() { } }".to_string());
-    files.insert("lib.v".to_string(), "script lib { pub fn my_func() { } }".to_string());
+    files.insert(
+        "main.v".to_string(),
+        "script main { use lib; pub fn do_stuff() { } }".to_string(),
+    );
+    files.insert(
+        "lib.v".to_string(),
+        "script lib { pub fn my_func() { } }".to_string(),
+    );
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
     let config = CompilationConfig::new(CompilationMode::Testing);
@@ -137,7 +179,10 @@ fn test_auto_discovery_missing_module_error() -> Result<(), Box<dyn std::error::
     // But create_test_project only writes files we give it.
     // So we provide main.v, but NOT the module it uses.
     let mut files = HashMap::new();
-    files.insert("main.v".to_string(), "script main { use non_existent; }".to_string());
+    files.insert(
+        "main.v".to_string(),
+        "script main { use non_existent; }".to_string(),
+    );
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
     let config = CompilationConfig::new(CompilationMode::Testing);
@@ -146,7 +191,12 @@ fn test_auto_discovery_missing_module_error() -> Result<(), Box<dyn std::error::
 
     assert!(result.is_err(), "Expected error for missing module");
     let err = result.unwrap_err();
-    assert_eq!(err.code, ErrorCode::FILE_NOT_FOUND, "Expected FILE_NOT_FOUND error code, got {:?}", err.code);
+    assert_eq!(
+        err.code,
+        ErrorCode::FILE_NOT_FOUND,
+        "Expected FILE_NOT_FOUND error code, got {:?}",
+        err.code
+    );
 
     Ok(())
 }
@@ -154,8 +204,14 @@ fn test_auto_discovery_missing_module_error() -> Result<(), Box<dyn std::error::
 #[test]
 fn test_compile_modules_explicit_mode() -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
-    files.insert("main.v".to_string(), "script main { use lib; pub fn test_main() { } }".to_string());
-    files.insert("lib.v".to_string(), "script lib { pub fn test_lib() { } }".to_string());
+    files.insert(
+        "main.v".to_string(),
+        "script main { use lib; pub fn test_main() { } }".to_string(),
+    );
+    files.insert(
+        "lib.v".to_string(),
+        "script lib { pub fn test_lib() { } }".to_string(),
+    );
 
     let (_dir, root_path, _entry_point_path) = create_test_project(files)?;
     let config = CompilationConfig::new(CompilationMode::Testing);
@@ -200,8 +256,7 @@ fn test_bundled_stdlib_named_import_auto_discovery() -> Result<(), Box<dyn std::
     );
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
-    let config = CompilationConfig::new(CompilationMode::Testing)
-        .with_module_namespaces(false);
+    let config = CompilationConfig::new(CompilationMode::Testing).with_module_namespaces(false);
 
     let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
     assert!(!bytecode.is_empty());
@@ -264,13 +319,18 @@ fn test_ambiguous_unqualified_call_fails() -> Result<(), Box<dyn std::error::Err
     let alpha_path = root_path.join("src/alpha.v").to_string_lossy().to_string();
     let beta_path = root_path.join("src/beta.v").to_string_lossy().to_string();
 
-    let result = DslCompiler::compile_modules(vec![main_path.clone(), alpha_path, beta_path], &main_path, &config);
+    let result = DslCompiler::compile_modules(
+        vec![main_path.clone(), alpha_path, beta_path],
+        &main_path,
+        &config,
+    );
     assert!(result.is_err());
     Ok(())
 }
 
 #[test]
-fn test_bundled_stdlib_extended_builtin_wrappers_compile() -> Result<(), Box<dyn std::error::Error>> {
+fn test_bundled_stdlib_extended_builtin_wrappers_compile() -> Result<(), Box<dyn std::error::Error>>
+{
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
@@ -296,7 +356,8 @@ fn test_bundled_stdlib_extended_builtin_wrappers_compile() -> Result<(), Box<dyn
 }
 
 #[test]
-fn test_bundled_stdlib_spl_token_extended_interface_compile() -> Result<(), Box<dyn std::error::Error>> {
+fn test_bundled_stdlib_spl_token_extended_interface_compile(
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
@@ -328,7 +389,8 @@ fn test_bundled_stdlib_spl_token_extended_interface_compile() -> Result<(), Box<
 }
 
 #[test]
-fn test_bundled_stdlib_system_program_extended_interface_compile() -> Result<(), Box<dyn std::error::Error>> {
+fn test_bundled_stdlib_system_program_extended_interface_compile(
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
@@ -405,7 +467,8 @@ fn test_builtins_unqualified_call_without_import_fails() -> Result<(), Box<dyn s
 }
 
 #[test]
-fn test_builtins_module_qualified_call_without_import_fails() -> Result<(), Box<dyn std::error::Error>> {
+fn test_builtins_module_qualified_call_without_import_fails(
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
@@ -420,7 +483,8 @@ fn test_builtins_module_qualified_call_without_import_fails() -> Result<(), Box<
 }
 
 #[test]
-fn test_builtins_fully_qualified_call_without_import_fails() -> Result<(), Box<dyn std::error::Error>> {
+fn test_builtins_fully_qualified_call_without_import_fails(
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),

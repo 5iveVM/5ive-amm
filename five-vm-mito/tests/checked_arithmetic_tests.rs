@@ -2,9 +2,13 @@
 //! Validates overflow detection and error handling (Task 2.2)
 
 use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, VMError, Value, stack::StackStorage, AccountInfo};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, VMError, Value, FIVE_VM_PROGRAM_ID};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
@@ -211,7 +215,7 @@ fn test_checked_arithmetic_with_locals() {
     let mut input = vec![];
     input.extend_from_slice(&0u32.to_le_bytes()); // Func 0
     input.extend_from_slice(&2u32.to_le_bytes()); // Count 2
-    // Type 4 (U64) for both params
+                                                  // Type 4 (U64) for both params
     input.push(4); // Type U64
     input.extend_from_slice(&0u64.to_le_bytes());
     input.push(4); // Type U64

@@ -1,10 +1,7 @@
 use five_dsl_compiler::DslCompiler;
 use five_protocol::{opcodes::ARRAY_CONCAT, ValueRef};
 use five_vm_mito::{
-    handlers::{
-        arrays::handle_arrays,
-        system::crypto::handle_syscall_sha256,
-    },
+    handlers::{arrays::handle_arrays, system::crypto::handle_syscall_sha256},
     ExecutionContext, StackStorage, FIVE_VM_PROGRAM_ID,
 };
 
@@ -41,7 +38,8 @@ fn concat(ctx: &mut ExecutionContext<'_>, left: ValueRef, right: ValueRef) -> Va
 fn hash_preimage(ctx: &mut ExecutionContext<'_>, preimage: ValueRef) -> [u8; 32] {
     let out_off = ctx.alloc_temp(32).expect("alloc out");
     ctx.push(preimage).expect("push preimage");
-    ctx.push(ValueRef::TempRef(out_off, 32)).expect("push output");
+    ctx.push(ValueRef::TempRef(out_off, 32))
+        .expect("push output");
     handle_syscall_sha256(ctx).expect("sha256");
 
     let mut out = [0u8; 32];
@@ -74,7 +72,9 @@ fn canonical_preimage_hash_vector_matches_anchor_layout() {
     let p1 = concat(&mut ctx, p0, clock_ref);
     let preimage = concat(&mut ctx, p1, request_ref);
 
-    let (len, bytes) = ctx.extract_string_slice(&preimage).expect("extract preimage");
+    let (len, bytes) = ctx
+        .extract_string_slice(&preimage)
+        .expect("extract preimage");
     assert_eq!(len, 64);
 
     let mut expected_preimage = Vec::new();

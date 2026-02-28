@@ -2,8 +2,8 @@
 //!
 //! This demo shows the complete implementation without VM dependencies.
 
-use std::collections::HashMap;
 use five_protocol::opcodes::{CALL, PUSH_U64, RETURN};
+use std::collections::HashMap;
 
 /// Function call information extracted from bytecode
 #[derive(Debug, Clone)]

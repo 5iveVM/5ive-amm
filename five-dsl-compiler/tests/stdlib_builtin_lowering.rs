@@ -20,7 +20,8 @@ fn now_seconds_lowers_to_get_clock_opcode() {
 
 #[test]
 fn memory_copy_lowers_to_native_call_path() {
-    let bytecode = compile_source("pub fn run(dst: u64, src: u64, len: u64) { memcpy(dst, src, len); }");
+    let bytecode =
+        compile_source("pub fn run(dst: u64, src: u64, len: u64) { memcpy(dst, src, len); }");
     assert!(bytecode.starts_with(&FIVE_MAGIC));
     assert!(
         bytecode.contains(&CALL_NATIVE),

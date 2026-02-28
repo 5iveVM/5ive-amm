@@ -50,7 +50,11 @@ fn compiler_matrix_scenarios_match_expectations() {
     let root = repo_root();
     let matrix = load_matrix();
 
-    for scenario in matrix.scenarios.iter().filter(|scenario| scenario.layers.compiler) {
+    for scenario in matrix
+        .scenarios
+        .iter()
+        .filter(|scenario| scenario.layers.compiler)
+    {
         let source_path = scenario_source_path(&root, scenario);
         let source = fs::read_to_string(&source_path)
             .unwrap_or_else(|error| panic!("failed reading {}: {}", source_path.display(), error));

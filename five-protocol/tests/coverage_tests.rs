@@ -79,16 +79,25 @@ fn test_parameter_protocol_coverage() {
     assert!(protocol.validate().is_ok());
 
     // Test adding too many parameters
-    assert_eq!(protocol.add_param(Value::U64(0)), Err(CallError::TooManyParameters));
+    assert_eq!(
+        protocol.add_param(Value::U64(0)),
+        Err(CallError::TooManyParameters)
+    );
 
     // Test invalid parameter type
     let mut protocol_bad_type = ParameterProtocol::new(sig);
-    assert_eq!(protocol_bad_type.add_param(Value::Bool(true)), Err(CallError::InvalidParameterType));
+    assert_eq!(
+        protocol_bad_type.add_param(Value::Bool(true)),
+        Err(CallError::InvalidParameterType)
+    );
 
     // Test missing parameters validation
     let mut protocol_missing = ParameterProtocol::new(sig);
     protocol_missing.add_param(Value::U64(100)).unwrap();
-    assert_eq!(protocol_missing.validate(), Err(CallError::MissingParameters));
+    assert_eq!(
+        protocol_missing.validate(),
+        Err(CallError::MissingParameters)
+    );
 }
 
 #[test]
@@ -143,8 +152,8 @@ fn test_value_conversion_coverage() {
     let v_account = Value::Account(5);
     let r_account = v_account.to_valueref();
     assert_eq!(r_account, ValueRef::U8(5)); // Note: Value::Account converts to ValueRef::U8 in current impl
-    // When converting back, it becomes Value::U8(5), not Value::Account(5)
-    // This is expected behavior based on Value::to_valueref implementation
+                                            // When converting back, it becomes Value::U8(5), not Value::Account(5)
+                                            // This is expected behavior based on Value::to_valueref implementation
     assert_eq!(r_account.to_value(), Some(Value::U8(5)));
     assert_eq!(v_account.as_account_idx(), Some(5));
 

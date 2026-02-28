@@ -2,9 +2,7 @@
 
 use std::collections::HashMap;
 
-use five_protocol::{
-    opcodes::*, BytecodeBuilder, FIVE_HEADER_OPTIMIZED_SIZE, MAX_FUNCTIONS,
-};
+use five_protocol::{opcodes::*, BytecodeBuilder, FIVE_HEADER_OPTIMIZED_SIZE, MAX_FUNCTIONS};
 
 /// Errors returned by [`ScriptBuilder`].
 #[derive(Debug, PartialEq, Eq)]
@@ -175,7 +173,9 @@ impl ScriptBuilder {
 
         let mut header = BytecodeBuilder::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE);
         header.emit_header(public_functions as u8, total_functions as u8);
-        header.patch_u32(4, self.features as u32).expect("header feature patch");
+        header
+            .patch_u32(4, self.features as u32)
+            .expect("header feature patch");
         let mut script = header.build();
         script.reserve(total_body_len);
 

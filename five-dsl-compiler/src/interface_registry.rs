@@ -7,8 +7,8 @@
 use crate::ast::{AstNode, TypeNode};
 use crate::type_checker::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 use five_vm_mito::error::VMError;
-use std::collections::HashMap;
 use sha2::Digest;
+use std::collections::HashMap;
 
 /// Global interface registry for two-pass compilation
 /// This provides the single source of truth for all interface definitions
@@ -111,7 +111,8 @@ impl InterfaceRegistry {
                 {
                     let is_anchor = *is_interface_anchor || *is_method_anchor;
                     for param in parameters {
-                        let has_authority = param.attributes.iter().any(|attr| attr.name == "authority");
+                        let has_authority =
+                            param.attributes.iter().any(|attr| attr.name == "authority");
                         let is_account_like = matches!(param.param_type, TypeNode::Account)
                             || matches!(&param.param_type, TypeNode::Named(name) if name.eq_ignore_ascii_case("account"));
                         if has_authority && !is_account_like {
@@ -123,27 +124,28 @@ impl InterfaceRegistry {
 
                     // Determine discriminator
                     // Priority: explicit bytes > explicit u8 > anchor derived > default (0)
-                    let (discriminator_val, discriminator_bytes_val) = if let Some(bytes) = discriminator_bytes {
-                         (discriminator.unwrap_or(0), Some(bytes.clone()))
-                    } else if let Some(disc) = discriminator {
-                         (*disc, None)
-                    } else if is_anchor {
-                         // Derive Anchor discriminator: sha256("global:<method_name>")[..8]
-                         let preimage = format!("global:{}", method_name);
-                         let mut hasher = sha2::Sha256::new();
-                         hasher.update(preimage.as_bytes());
-                         let result = hasher.finalize();
-                         let disc_bytes = result[..8].to_vec();
-                         (0, Some(disc_bytes))
-                    } else {
-                         (0, None)
-                    };
+                    let (discriminator_val, discriminator_bytes_val) =
+                        if let Some(bytes) = discriminator_bytes {
+                            (discriminator.unwrap_or(0), Some(bytes.clone()))
+                        } else if let Some(disc) = discriminator {
+                            (*disc, None)
+                        } else if is_anchor {
+                            // Derive Anchor discriminator: sha256("global:<method_name>")[..8]
+                            let preimage = format!("global:{}", method_name);
+                            let mut hasher = sha2::Sha256::new();
+                            hasher.update(preimage.as_bytes());
+                            let result = hasher.finalize();
+                            let disc_bytes = result[..8].to_vec();
+                            (0, Some(disc_bytes))
+                        } else {
+                            (0, None)
+                        };
 
                     // Validate discriminator uniqueness within interface
-                    let check_bytes = discriminator_bytes_val.clone().unwrap_or_else(|| {
-                        vec![discriminator_val]
-                    });
-                    
+                    let check_bytes = discriminator_bytes_val
+                        .clone()
+                        .unwrap_or_else(|| vec![discriminator_val]);
+
                     for existing_info in methods.values() {
                         let existing_bytes = existing_info
                             .discriminator_bytes
@@ -489,9 +491,7 @@ impl InterfaceRegistry {
                 }
 
                 // Enhanced type checking with detailed error reporting
-                for (arg_type, expected_type) in
-                    arg_types.iter().zip(&method_info.parameters)
-                {
+                for (arg_type, expected_type) in arg_types.iter().zip(&method_info.parameters) {
                     if !self.types_are_compatible(arg_type, &expected_type.param_type) {
                         // Provide detailed type mismatch information
                         return Err(VMError::TypeMismatch);

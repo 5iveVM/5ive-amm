@@ -1,12 +1,9 @@
 #[cfg(test)]
 mod script_header_v3_tests {
-    use five::{
-        instructions::verify_bytecode_content,
-        state::ScriptAccountHeader,
-    };
+    use five::{instructions::verify_bytecode_content, state::ScriptAccountHeader};
     use five_protocol::{
         bytecode, parser,
-        test_fixtures::{invalid_call_target, valid_header, operand_truncation},
+        test_fixtures::{invalid_call_target, operand_truncation, valid_header},
         HALT,
     };
 
@@ -35,13 +32,7 @@ mod script_header_v3_tests {
         let parsed = parser::parse_bytecode(&valid_bytecode);
         assert!(parsed.errors.is_empty());
 
-        let invalid_magic = vec![
-            b'B', b'A', b'D', b'X',
-            0,
-            1,
-            2,
-            HALT,
-        ];
+        let invalid_magic = vec![b'B', b'A', b'D', b'X', 0, 1, 2, HALT];
         assert!(verify_bytecode_content(&invalid_magic).is_err());
         let parsed_invalid = parser::parse_bytecode(&invalid_magic);
         assert!(!parsed_invalid.errors.is_empty());
@@ -51,10 +42,7 @@ mod script_header_v3_tests {
         let parsed_short = parser::parse_bytecode(&too_short);
         assert!(!parsed_short.errors.is_empty());
 
-        let invalid_opcode = bytecode!(
-            emit_header(1, 2),
-            emit_u8(0xC0)
-        );
+        let invalid_opcode = bytecode!(emit_header(1, 2), emit_u8(0xC0));
         assert!(verify_bytecode_content(&invalid_opcode).is_err());
         let parsed_bad_op = parser::parse_bytecode(&invalid_opcode);
         assert!(!parsed_bad_op.errors.is_empty());

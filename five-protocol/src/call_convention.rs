@@ -224,7 +224,8 @@ impl Default for LocalStorage {
 impl LocalStorage {
     /// Create new local storage
     #[inline]
-    pub fn new() -> Self { // Removed const as Vec allocation is needed
+    pub fn new() -> Self {
+        // Removed const as Vec allocation is needed
         let mut locals = Vec::with_capacity(MAX_LOCALS);
         for _ in 0..MAX_LOCALS {
             locals.push((0, ValueRef::Empty));

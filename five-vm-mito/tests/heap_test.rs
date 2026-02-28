@@ -1,4 +1,4 @@
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
 fn build_bytecode(body: &[u8]) -> Vec<u8> {
     let mut bytecode = vec![
@@ -28,16 +28,16 @@ fn test_heap_string_allocation() {
 
     match result {
         Ok(value) => {
-             println!("Success: {:?}", value);
-             if let Some(Value::String(_)) = value {
-                 // OK
-             } else {
-                 panic!("Expected String value");
-             }
+            println!("Success: {:?}", value);
+            if let Some(Value::String(_)) = value {
+                // OK
+            } else {
+                panic!("Expected String value");
+            }
         }
         Err(e) => {
-             println!("Failed: {:?}", e);
-             panic!("Should have succeeded with heap allocation");
+            println!("Failed: {:?}", e);
+            panic!("Should have succeeded with heap allocation");
         }
     }
 }

@@ -4,28 +4,28 @@
 
 mod definition_builder;
 mod expressions;
+#[cfg(test)]
+mod expressions_tests;
 mod functions;
 mod inference;
-mod statements;
+pub mod module_scope;
 mod statement_builder;
+mod statements;
+#[cfg(test)]
+mod statements_tests;
 mod type_helpers;
 mod type_safe_checker;
 mod type_safe_example;
 mod types;
 mod validation;
-pub mod module_scope;
-#[cfg(test)]
-mod expressions_tests;
-#[cfg(test)]
-mod statements_tests;
 
 use crate::ast::{AstNode, TypeNode};
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
 // Re-export public types
-pub use types::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 pub use module_scope::{ModuleScope, ModuleSymbol, ModuleSymbolTable};
+pub use types::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 
 // Type alias for backward compatibility
 pub type DslTypeChecker = types::TypeCheckerContext;
@@ -138,13 +138,19 @@ impl types::TypeCheckerContext {
                     if let AstNode::InstructionDefinition { parameters, .. } = instruction_def {
                         for param in parameters {
                             if !self.is_valid_type_node(&param.param_type) {
-                                eprintln!("Invalid param type in mod checked: {} ({:?})", param.name, param.param_type);
+                                eprintln!(
+                                    "Invalid param type in mod checked: {} ({:?})",
+                                    param.name, param.param_type
+                                );
                                 return Err(VMError::InvalidScript);
                             }
 
                             // Validate @init constraints
                             if param.is_init {
-                                eprintln!("DEBUG: Validating @init for parameter '{}' with type '{:?}'", param.name, param.param_type);
+                                eprintln!(
+                                    "DEBUG: Validating @init for parameter '{}' with type '{:?}'",
+                                    param.name, param.param_type
+                                );
                                 // @init can only be applied to Account types (built-in or user-defined)
                                 let is_valid_account = match &param.param_type {
                                     crate::ast::TypeNode::Account => true,
@@ -153,9 +159,14 @@ impl types::TypeCheckerContext {
                                         if name == "Account" || name == "account" {
                                             true
                                         } else if account_definitions.iter().any(|def| {
-                                            if let AstNode::AccountDefinition { name: acc_name, .. } = def {
+                                            if let AstNode::AccountDefinition {
+                                                name: acc_name,
+                                                ..
+                                            } = def
+                                            {
                                                 // Match both unqualified name and namespaced name (e.g., "AMMPool" or "amm_types::AMMPool")
-                                                acc_name == name || acc_name.ends_with(&format!("::{}", name))
+                                                acc_name == name
+                                                    || acc_name.ends_with(&format!("::{}", name))
                                             } else {
                                                 false
                                             }
@@ -165,16 +176,30 @@ impl types::TypeCheckerContext {
                                             // Check module scope for imported accounts
                                             // We need to verify that the named type resolves to an Account type
                                             if let Some(scope) = &self.module_scope {
-                                                eprintln!("DEBUG: Checking module scope for '{}'", name);
-                                                if let Some(symbol) = scope.resolve_symbol(name, scope.current_module()) {
-                                                     eprintln!("DEBUG: Resolved symbol for '{}': {:?}", name, symbol);
-                                                     matches!(symbol.type_info, crate::ast::TypeNode::Account)
+                                                eprintln!(
+                                                    "DEBUG: Checking module scope for '{}'",
+                                                    name
+                                                );
+                                                if let Some(symbol) = scope
+                                                    .resolve_symbol(name, scope.current_module())
+                                                {
+                                                    eprintln!(
+                                                        "DEBUG: Resolved symbol for '{}': {:?}",
+                                                        name, symbol
+                                                    );
+                                                    matches!(
+                                                        symbol.type_info,
+                                                        crate::ast::TypeNode::Account
+                                                    )
                                                 } else {
                                                     eprintln!("DEBUG: Could not resolve symbol for '{}' in module scope", name);
                                                     false
                                                 }
                                             } else {
-                                                eprintln!("DEBUG: No module scope available for '{}'", name);
+                                                eprintln!(
+                                                    "DEBUG: No module scope available for '{}'",
+                                                    name
+                                                );
                                                 false
                                             }
                                         }
@@ -183,16 +208,25 @@ impl types::TypeCheckerContext {
                                 };
 
                                 if !is_valid_account {
-                                    eprintln!("DEBUG: @init validation FAILED for parameter '{}'", param.name);
+                                    eprintln!(
+                                        "DEBUG: @init validation FAILED for parameter '{}'",
+                                        param.name
+                                    );
                                     return Err(VMError::ConstraintViolation);
                                 }
-                                eprintln!("DEBUG: @init validation PASSED for parameter '{}'", param.name);
+                                eprintln!(
+                                    "DEBUG: @init validation PASSED for parameter '{}'",
+                                    param.name
+                                );
                             }
 
                             let mut is_mutable = param.is_init;
                             if !is_mutable {
                                 // Check for explicit @mut attribute
-                                is_mutable = param.attributes.iter().any(|attr| attr.name == "mut" || attr.name == "close");
+                                is_mutable = param
+                                    .attributes
+                                    .iter()
+                                    .any(|attr| attr.name == "mut" || attr.name == "close");
                             }
 
                             let param_type = if param.param_type.is_account_type() {
@@ -211,7 +245,8 @@ impl types::TypeCheckerContext {
                             if param.pda_config.is_some() {
                                 self.init_bump_accounts.insert(param.name.clone());
                             }
-                            all_instruction_params.insert(param.name.clone(), (param_type, is_mutable));
+                            all_instruction_params
+                                .insert(param.name.clone(), (param_type, is_mutable));
                             // Aggregate all parameters
                         }
                     }
@@ -266,11 +301,17 @@ impl types::TypeCheckerContext {
                 ..
             } => self.check_instruction_definition(name, parameters, return_type, body),
             // Event definition
-            AstNode::EventDefinition { name: _, fields, visibility: _ } => self.check_event_definition(fields),
+            AstNode::EventDefinition {
+                name: _,
+                fields,
+                visibility: _,
+            } => self.check_event_definition(fields),
             // Account definition
-            AstNode::AccountDefinition { name, fields, visibility } => {
-                self.check_account_definition(name, fields, *visibility)
-            }
+            AstNode::AccountDefinition {
+                name,
+                fields,
+                visibility,
+            } => self.check_account_definition(name, fields, *visibility),
             // Error type definition
             AstNode::ErrorTypeDefinition { name, variants } => {
                 self.check_error_type_definition(name, variants)
@@ -357,10 +398,12 @@ impl types::TypeCheckerContext {
                 let prev = if i > 0 { Some(chars[i - 1]) } else { None };
                 let next = chars.get(i + 1).copied();
                 let needs_sep = i != 0
-                    && prev.map(|p| p.is_lowercase() || p.is_ascii_digit()).unwrap_or(false)
-                        || (i != 0
-                            && prev.map(|p| p.is_uppercase()).unwrap_or(false)
-                            && next.map(|n| n.is_lowercase()).unwrap_or(false));
+                    && prev
+                        .map(|p| p.is_lowercase() || p.is_ascii_digit())
+                        .unwrap_or(false)
+                    || (i != 0
+                        && prev.map(|p| p.is_uppercase()).unwrap_or(false)
+                        && next.map(|n| n.is_lowercase()).unwrap_or(false));
                 if needs_sep {
                     out.push('_');
                 }

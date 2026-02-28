@@ -48,10 +48,7 @@ pub main() {
     let result = DslCompiler::compile_dsl(dsl);
 
     // Should succeed - u128 works in locals
-    assert!(
-        result.is_ok(),
-        "u128 should work as local variable type"
-    );
+    assert!(result.is_ok(), "u128 should work as local variable type");
 }
 
 #[test]
@@ -90,7 +87,10 @@ pub main() {
     let result = DslCompiler::compile_dsl(dsl);
 
     // Should succeed - u64 is supported in account fields
-    assert!(result.is_ok(), "u64 should work in account field definitions");
+    assert!(
+        result.is_ok(),
+        "u64 should work in account field definitions"
+    );
 }
 
 #[test]
@@ -180,10 +180,7 @@ pub main() {
     let result = DslCompiler::compile_dsl(dsl);
 
     // Should succeed - u128 locals work
-    assert!(
-        result.is_ok(),
-        "u128 locals should work in functions"
-    );
+    assert!(result.is_ok(), "u128 locals should work in functions");
 }
 
 #[test]

@@ -160,41 +160,47 @@ impl ASTGenerator {
             match operator {
                 "-" => {
                     // Optimization: DUP_SUB for x - x
-                     if let (AstNode::Identifier(left_name), AstNode::Identifier(right_name)) = (left, right) {
-                         if left_name == right_name {
-                             self.generate_ast_node(emitter, left)?;
-                             emitter.emit_opcode(DUP_SUB);
-                             return Ok(true);
-                         }
-                     }
+                    if let (AstNode::Identifier(left_name), AstNode::Identifier(right_name)) =
+                        (left, right)
+                    {
+                        if left_name == right_name {
+                            self.generate_ast_node(emitter, left)?;
+                            emitter.emit_opcode(DUP_SUB);
+                            return Ok(true);
+                        }
+                    }
                     try_constant_fold!(self, emitter, left, right, wrapping_sub)
-                },
+                }
                 "*" => {
                     // Optimization: DUP_MUL for x * x
-                     if let (AstNode::Identifier(left_name), AstNode::Identifier(right_name)) = (left, right) {
-                         if left_name == right_name {
-                             self.generate_ast_node(emitter, left)?;
-                             emitter.emit_opcode(DUP_MUL);
-                             return Ok(true);
-                         }
-                     }
+                    if let (AstNode::Identifier(left_name), AstNode::Identifier(right_name)) =
+                        (left, right)
+                    {
+                        if left_name == right_name {
+                            self.generate_ast_node(emitter, left)?;
+                            emitter.emit_opcode(DUP_MUL);
+                            return Ok(true);
+                        }
+                    }
                     try_constant_fold!(self, emitter, left, right, wrapping_mul)
-                },
-                 // Optimization: DUP_ADD for x + x
-                 "+" => {
-                     // Check if both operands are the same identifier (e.g. x + x)
-                     if let (AstNode::Identifier(left_name), AstNode::Identifier(right_name)) = (left, right) {
-                         if left_name == right_name {
-                             // Emit regular load for the first operand
-                             self.generate_ast_node(emitter, left)?;
-                             // Emit DUP_ADD to double it (replacing second load + ADD)
-                             emitter.emit_opcode(DUP_ADD);
-                             return Ok(true);
-                         }
-                     }
-                     // Standard constant folding for addition
-                     try_constant_fold!(self, emitter, left, right, wrapping_add);
-                 }
+                }
+                // Optimization: DUP_ADD for x + x
+                "+" => {
+                    // Check if both operands are the same identifier (e.g. x + x)
+                    if let (AstNode::Identifier(left_name), AstNode::Identifier(right_name)) =
+                        (left, right)
+                    {
+                        if left_name == right_name {
+                            // Emit regular load for the first operand
+                            self.generate_ast_node(emitter, left)?;
+                            // Emit DUP_ADD to double it (replacing second load + ADD)
+                            emitter.emit_opcode(DUP_ADD);
+                            return Ok(true);
+                        }
+                    }
+                    // Standard constant folding for addition
+                    try_constant_fold!(self, emitter, left, right, wrapping_add);
+                }
                 _ => {} // Other operators use standard evaluation
             }
         }
@@ -253,7 +259,7 @@ impl ASTGenerator {
                 }
 
                 if *n <= u8::MAX as u64 {
-                   emitter.emit_const_u8(*n as u8)?;
+                    emitter.emit_const_u8(*n as u8)?;
                 } else if *n <= u16::MAX as u64 {
                     emitter.emit_const_u16(*n as u16)?;
                 } else if *n <= u32::MAX as u64 {
@@ -305,5 +311,4 @@ impl ASTGenerator {
     pub(super) fn is_simple_expression(&self, expr: &AstNode) -> bool {
         matches!(expr, AstNode::Literal(_) | AstNode::Identifier(_))
     }
-
 }

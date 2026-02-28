@@ -1,11 +1,15 @@
-use crate::ast::{AstNode, EventFieldAssignment, MatchArm, BlockKind};
-use crate::parser::{DslParser, types};
+use crate::ast::{AstNode, BlockKind, EventFieldAssignment, MatchArm};
+use crate::parser::{types, DslParser};
 use crate::tokenizer::Token;
 use five_vm_mito::error::VMError;
 
 impl DslParser {
     pub(crate) fn parse_statement(&mut self) -> Result<AstNode, VMError> {
-        eprintln!("DEBUG_PARSER: parse_statement current_token={:?} kind={:?}", self.current_token, self.current_token.kind());
+        eprintln!(
+            "DEBUG_PARSER: parse_statement current_token={:?} kind={:?}",
+            self.current_token,
+            self.current_token.kind()
+        );
         match &self.current_token {
             // Handle tuple destructuring assignment: (target1, target2) = value;
             Token::LeftParen => {
@@ -67,7 +71,11 @@ impl DslParser {
 
                 if matches!(self.current_token, Token::LeftParen) {
                     // Peek ahead to ensure it's a tuple destructuring (identifier follows paren)
-                    eprintln!("DEBUG_PARSER: let destructuring candidate: current={:?} next={:?}", self.current_token, self.peek_kind(1));
+                    eprintln!(
+                        "DEBUG_PARSER: let destructuring candidate: current={:?} next={:?}",
+                        self.current_token,
+                        self.peek_kind(1)
+                    );
                     self.advance(); // consume '('
                     let mut targets = Vec::new();
                     while !matches!(self.current_token, Token::RightParen)
@@ -86,13 +94,19 @@ impl DslParser {
                         }
                     }
                     if !matches!(self.current_token, Token::RightParen) {
-                        eprintln!("DEBUG_PARSER: E0001 close list expected found {:?}", self.current_token);
+                        eprintln!(
+                            "DEBUG_PARSER: E0001 close list expected found {:?}",
+                            self.current_token
+                        );
                         return Err(self.parse_error("')' to end destructuring assignment"));
                     }
                     self.advance(); // consume ')'
 
                     if !matches!(self.current_token, Token::Assign) {
-                        eprintln!("DEBUG_PARSER: E0001 assign expected found {:?}", self.current_token);
+                        eprintln!(
+                            "DEBUG_PARSER: E0001 assign expected found {:?}",
+                            self.current_token
+                        );
                         return Err(self.parse_error("'=' for destructuring assignment"));
                     }
                     self.advance(); // consume '='
@@ -119,7 +133,10 @@ impl DslParser {
                         _ => return Err(self.parse_error("variable name identifier")),
                     };
                     self.advance();
-                    eprintln!("DEBUG_PARSER: let name={} current_token={:?}", name, self.current_token);
+                    eprintln!(
+                        "DEBUG_PARSER: let name={} current_token={:?}",
+                        name, self.current_token
+                    );
 
                     // Parse optional type annotation: : Type
                     let type_annotation = if matches!(self.current_token, Token::Colon) {

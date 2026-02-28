@@ -3,24 +3,22 @@
 use crate::{
     context::ExecutionManager,
     debug_log,
+    error::{CompactResult, Result, VMError, VMErrorCode},
     error_log,
-    error::{CompactResult, Result, VMErrorCode, VMError},
     handlers::{
         handle_accounts, handle_arithmetic, handle_arrays, handle_constraints, handle_control_flow,
         handle_functions, handle_locals, handle_logical, handle_memory, handle_nibble_locals,
         handle_option_result_ops, handle_stack_ops, handle_system_ops,
     },
-    stack_error_context,
-    FIVE_MAGIC,
+    stack_error_context, FIVE_MAGIC,
 };
 use five_protocol::{ConstantPoolDescriptor, Value, ValueRef, FIVE_HEADER_OPTIMIZED_SIZE};
 
-
+#[cfg(feature = "debug-logs")]
+use heapless::String as HString;
 use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
 #[cfg(not(target_os = "solana"))]
 use std::sync::atomic::{AtomicU64, Ordering};
-#[cfg(feature = "debug-logs")]
-use heapless::String as HString;
 #[cfg(not(target_os = "solana"))]
 static LAST_COMPUTE_UNITS: AtomicU64 = AtomicU64::new(0);
 #[cfg(not(target_os = "solana"))]
@@ -116,8 +114,7 @@ impl MitoVM {
             header_features,
             pool_desc,
             public_entry_table,
-        ) =
-            Self::parse_optimized_header(script)?;
+        ) = Self::parse_optimized_header(script)?;
 
         debug_log!("MitoVM: Creating ExecutionManager...");
         debug_log!(
@@ -143,18 +140,22 @@ impl MitoVM {
         if let Some((offset, count)) = public_entry_table {
             ctx.set_public_entry_table(offset, count);
         }
-        let import_metadata_offset = if (header_features & five_protocol::FEATURE_IMPORT_VERIFICATION) != 0 {
-            if let Some(desc) = pool_desc {
-                (desc.string_blob_offset as usize).saturating_add(desc.string_blob_len as usize)
+        let import_metadata_offset =
+            if (header_features & five_protocol::FEATURE_IMPORT_VERIFICATION) != 0 {
+                if let Some(desc) = pool_desc {
+                    (desc.string_blob_offset as usize).saturating_add(desc.string_blob_len as usize)
+                } else {
+                    script.len()
+                }
             } else {
                 script.len()
-            }
-        } else {
-            script.len()
-        };
+            };
         ctx.set_import_metadata_offset(import_metadata_offset)?;
         ctx.set_ip(start_ip);
-        debug_log!("MitoVM: ExecutionManager created with IP set to {}", start_ip as u32);
+        debug_log!(
+            "MitoVM: ExecutionManager created with IP set to {}",
+            start_ip as u32
+        );
 
         let dispatch_ip = ctx.initialize_entry_point(start_ip)?;
 
@@ -178,7 +179,6 @@ impl MitoVM {
             #[cfg(feature = "debug-logs")]
             {
                 _instruction_count += 1;
-
             }
 
             // Cache values to avoid simultaneous borrows.
@@ -204,8 +204,8 @@ impl MitoVM {
             #[cfg(feature = "trace-execution")]
             {
                debug_log!(
-                   "MitoVM: EXEC LOOP - Opcode: {} at IP: {}", 
-                   opcode, 
+                   "MitoVM: EXEC LOOP - Opcode: {} at IP: {}",
+                   opcode,
                    current_ip
                );
                if opcode == 0 { // Just to make sure it's reachable and we panic
@@ -224,7 +224,10 @@ impl MitoVM {
             if let Err(e) = result {
                 // Enhanced error context with full VM state
                 stack_error_context!(opcode, ctx, "EXECUTION_FAILED", 0, ctx.size());
-                error_log!("MitoVM: ERROR_DETAILS: error_occurred at current_ip: {}", current_ip as u64);
+                error_log!(
+                    "MitoVM: ERROR_DETAILS: error_occurred at current_ip: {}",
+                    current_ip as u64
+                );
                 error_log!("OPCODE FAILED: {}", opcode as u64);
                 error_log!("Stack size: {}", ctx.size() as u64);
                 return Err(e);
@@ -245,7 +248,6 @@ impl MitoVM {
                 break;
             }
         }
-
 
         Ok(())
     }
@@ -352,7 +354,10 @@ impl MitoVM {
     /// Handles complex references like TempRef, OptionalRef, and AccountRef.
     #[allow(dead_code)]
     #[inline(never)]
-    pub fn resolve_value_ref(value_ref: &ValueRef, ctx: &ExecutionManager<'_>) -> CompactResult<Value> {
+    pub fn resolve_value_ref(
+        value_ref: &ValueRef,
+        ctx: &ExecutionManager<'_>,
+    ) -> CompactResult<Value> {
         // Delegate to resolution module
         crate::resolution::resolve_value_ref(value_ref, ctx)
     }
@@ -398,8 +403,8 @@ impl MitoVM {
         let execution_result = Self::execute_instruction_loop(&mut ctx);
         match execution_result {
             Ok(()) => {
-                let result = crate::resolution::finalize_execution_result(&mut ctx)
-                    .map_err(VMError::from);
+                let result =
+                    crate::resolution::finalize_execution_result(&mut ctx).map_err(VMError::from);
                 #[cfg(not(target_os = "solana"))]
                 {
                     let (hits, misses, verify_hits) = ctx.external_cache_metrics();
@@ -460,24 +465,29 @@ impl MitoVM {
         input_data: &[u8],
         accounts: &[AccountInfo],
         program_id: &Pubkey,
-    ) -> std::result::Result<(Option<Value>, VMExecutionContext), (VMError, VMExecutionContext)> {
+    ) -> std::result::Result<(Option<Value>, VMExecutionContext), (VMError, VMExecutionContext)>
+    {
         let mut storage = crate::stack::StackStorage::new();
         // Map initialization error to (VMError, EmptyContext) since we can't create a meaningful context yet
-        let (mut ctx, _dispatch_ip) =
-            Self::initialize_execution_context(script, input_data, accounts, program_id, &mut storage).map_err(
-                |e| {
-                    (
-                        VMError::from(e),
-                        VMExecutionContext {
-                            instruction_pointer: 0,
-                            halted: false,
-                            error: Some(VMError::from(e)),
-                            memory: [0u8; crate::TEMP_BUFFER_SIZE],
-                            failed_opcode: None,
-                        },
-                    )
+        let (mut ctx, _dispatch_ip) = Self::initialize_execution_context(
+            script,
+            input_data,
+            accounts,
+            program_id,
+            &mut storage,
+        )
+        .map_err(|e| {
+            (
+                VMError::from(e),
+                VMExecutionContext {
+                    instruction_pointer: 0,
+                    halted: false,
+                    error: Some(VMError::from(e)),
+                    memory: [0u8; crate::TEMP_BUFFER_SIZE],
+                    failed_opcode: None,
                 },
-            )?;
+            )
+        })?;
 
         #[cfg(feature = "debug-logs")]
         debug_log!(
@@ -612,8 +622,14 @@ impl MitoVM {
                     script[metadata_end + 10],
                     script[metadata_end + 11],
                 ]),
-                pool_slots: u16::from_le_bytes([script[metadata_end + 12], script[metadata_end + 13]]),
-                reserved: u16::from_le_bytes([script[metadata_end + 14], script[metadata_end + 15]]),
+                pool_slots: u16::from_le_bytes([
+                    script[metadata_end + 12],
+                    script[metadata_end + 13],
+                ]),
+                reserved: u16::from_le_bytes([
+                    script[metadata_end + 14],
+                    script[metadata_end + 15],
+                ]),
             };
 
             let pool_offset = desc.pool_offset as usize;
@@ -706,7 +722,6 @@ impl MitoVM {
 
         Ok((offset, public_entry))
     }
-
 }
 
 #[cfg(test)]
@@ -745,11 +760,11 @@ mod tests {
     #[test]
     fn parse_optimized_header_with_valid_bytes() {
         let script = vec![
-            b'5', b'I', b'V', b'E',  // magic
-            0x00, 0x00, 0x00, 0x00,  // features
-            0x01,                     // public_count
-            0x01,                     // total_count
-            0x00, 0x00,               // extra bytes
+            b'5', b'I', b'V', b'E', // magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x01, // public_count
+            0x01, // total_count
+            0x00, 0x00, // extra bytes
         ];
         let result = MitoVM::parse_optimized_header(&script);
         assert!(result.is_ok());
@@ -762,10 +777,10 @@ mod tests {
     #[test]
     fn parse_optimized_header_minimum_size() {
         let script = vec![
-            b'5', b'I', b'V', b'E',  // magic
-            0x00, 0x00, 0x00, 0x00,  // features
-            0x00,                     // public_count (0)
-            0x00,                     // total_count (0)
+            b'5', b'I', b'V', b'E', // magic
+            0x00, 0x00, 0x00, 0x00, // features
+            0x00, // public_count (0)
+            0x00, // total_count (0)
         ];
         let result = MitoVM::parse_optimized_header(&script);
         assert!(result.is_ok());

@@ -32,14 +32,15 @@ fn memcpy_copies_bytes_between_temp_buffers() {
     ctx.temp_buffer_mut()[src_offset as usize..src_offset as usize + source_bytes.len()]
         .copy_from_slice(&source_bytes);
 
-    ctx.push(ValueRef::TempRef(dst_offset, source_bytes.len() as u8)).unwrap();
-    ctx.push(ValueRef::TempRef(src_offset, source_bytes.len() as u8)).unwrap();
+    ctx.push(ValueRef::TempRef(dst_offset, source_bytes.len() as u8))
+        .unwrap();
+    ctx.push(ValueRef::TempRef(src_offset, source_bytes.len() as u8))
+        .unwrap();
     ctx.push(ValueRef::U64(source_bytes.len() as u64)).unwrap();
 
     handle_syscall_memcpy(&mut ctx).expect("memcpy syscall");
 
-    let copied =
-        &ctx.temp_buffer()[dst_offset as usize..dst_offset as usize + source_bytes.len()];
+    let copied = &ctx.temp_buffer()[dst_offset as usize..dst_offset as usize + source_bytes.len()];
     assert_eq!(copied, &source_bytes);
 }
 
@@ -57,8 +58,10 @@ fn memcmp_writes_zero_for_equal_buffers() {
     ctx.temp_buffer_mut()[right_offset as usize..right_offset as usize + bytes.len()]
         .copy_from_slice(&bytes);
 
-    ctx.push(ValueRef::TempRef(left_offset, bytes.len() as u8)).unwrap();
-    ctx.push(ValueRef::TempRef(right_offset, bytes.len() as u8)).unwrap();
+    ctx.push(ValueRef::TempRef(left_offset, bytes.len() as u8))
+        .unwrap();
+    ctx.push(ValueRef::TempRef(right_offset, bytes.len() as u8))
+        .unwrap();
     ctx.push(ValueRef::U64(bytes.len() as u64)).unwrap();
     ctx.push(ValueRef::TempRef(result_offset, 4)).unwrap();
 

@@ -375,8 +375,6 @@ mod tests {
         assert!(!is_builtin_account_property("custom_field"));
     }
 
-
-
     #[test]
     fn test_numeric_type_meta() {
         assert_eq!(numeric_type_meta(type_names::U8), Some((false, 8)));

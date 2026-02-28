@@ -3,9 +3,13 @@
 //! This suite tests logical operations (AND, OR, NOT, XOR, BITWISE_*) and rotate operations.
 
 use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
@@ -44,7 +48,11 @@ fn test_bitwise_not() {
         script.push(HALT);
     });
     let res = execute_test(&bc_not_zero, &[], &[]).unwrap();
-    assert_eq!(res, Some(Value::U64(0xFFFFFFFFFFFFFFFF)), "~0 should be 0xFFFFFFFFFFFFFFFF");
+    assert_eq!(
+        res,
+        Some(Value::U64(0xFFFFFFFFFFFFFFFF)),
+        "~0 should be 0xFFFFFFFFFFFFFFFF"
+    );
 
     // ~0xFFFFFFFFFFFFFFFF should be 0
     let bc_not_max = build_script(|script| {
@@ -62,7 +70,11 @@ fn test_bitwise_not() {
         script.push(HALT);
     });
     let res = execute_test(&bc_not_alt, &[], &[]).unwrap();
-    assert_eq!(res, Some(Value::U64(0x0F0F0F0F0F0F0F0F)), "~0xF0... should be 0x0F...");
+    assert_eq!(
+        res,
+        Some(Value::U64(0x0F0F0F0F0F0F0F0F)),
+        "~0xF0... should be 0x0F..."
+    );
 }
 
 #[test]
@@ -152,7 +164,11 @@ fn test_rotate_right() {
         script.push(HALT);
     });
     let res = execute_test(&bc_wrap, &[], &[]).unwrap();
-    assert_eq!(res, Some(Value::U64(0x8000000000000000)), "1 rotr 1 should wrap to MSB");
+    assert_eq!(
+        res,
+        Some(Value::U64(0x8000000000000000)),
+        "1 rotr 1 should wrap to MSB"
+    );
 }
 
 #[test]
@@ -186,5 +202,9 @@ fn test_logical_xor() {
         script.push(HALT);
     });
     let res = execute_test(&bc_ff, &[], &[]).unwrap();
-    assert_eq!(res, Some(Value::Bool(false)), "false ^ false should be false");
+    assert_eq!(
+        res,
+        Some(Value::Bool(false)),
+        "false ^ false should be false"
+    );
 }

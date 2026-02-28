@@ -40,7 +40,10 @@ mod bytecode_benchmarks {
         let bytecode = result.unwrap();
         assert!(!bytecode.is_empty(), "Bytecode should not be empty");
 
-        println!("Simple counter contract compiled successfully: {} bytes", bytecode.len());
+        println!(
+            "Simple counter contract compiled successfully: {} bytes",
+            bytecode.len()
+        );
     }
 
     #[test]
@@ -62,7 +65,10 @@ mod bytecode_benchmarks {
         "#;
 
         let result = DslCompiler::compile_dsl(source);
-        assert!(result.is_ok(), "Should compile function with many variables");
+        assert!(
+            result.is_ok(),
+            "Should compile function with many variables"
+        );
         println!(
             "Multi-variable function compiled successfully: {} bytes",
             result.unwrap().len()

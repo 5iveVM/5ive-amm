@@ -1,9 +1,7 @@
 use five_dsl_compiler::bytecode_generator::disassembler::disassemble;
-use five_dsl_compiler::DslCompiler;
 use five_dsl_compiler::bytecode_generator::disassembler::BytecodeInspector;
-use five_protocol::{
-    opcodes, parser, BytecodeBuilder, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC,
-};
+use five_dsl_compiler::DslCompiler;
+use five_protocol::{opcodes, parser, BytecodeBuilder, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 
 #[test]
 fn compiled_bytecode_conforms_to_protocol_header_and_opcode_table() {
@@ -23,7 +21,10 @@ fn compiled_bytecode_conforms_to_protocol_header_and_opcode_table() {
 
     let public_count = bytecode[8];
     let total_count = bytecode[9];
-    assert!(public_count <= total_count, "public count must not exceed total count");
+    assert!(
+        public_count <= total_count,
+        "public count must not exceed total count"
+    );
 
     let parsed = parser::parse_bytecode(&bytecode);
     assert!(
@@ -56,7 +57,11 @@ fn compiled_call_encoding_decodes_cleanly() {
 
     let bytecode = DslCompiler::compile_dsl(source).expect("dsl should compile");
     let parsed = parser::parse_bytecode(&bytecode);
-    assert!(parsed.errors.is_empty(), "parser errors: {:?}", parsed.errors);
+    assert!(
+        parsed.errors.is_empty(),
+        "parser errors: {:?}",
+        parsed.errors
+    );
 
     let call_instructions = parsed
         .instructions
@@ -73,7 +78,10 @@ fn compiled_call_encoding_decodes_cleanly() {
             (call.arg1 as usize) < bytecode.len(),
             "CALL target should remain in bytecode bounds"
         );
-        assert!(call.arg2 <= u8::MAX as u64, "CALL param count must fit in u8");
+        assert!(
+            call.arg2 <= u8::MAX as u64,
+            "CALL param count must fit in u8"
+        );
     }
 }
 

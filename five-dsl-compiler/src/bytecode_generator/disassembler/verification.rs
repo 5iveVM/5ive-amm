@@ -58,7 +58,11 @@ impl VerificationResult {
     }
 
     /// Create a result with errors
-    pub fn with_errors(errors: Vec<VerificationError>, jump_count: usize, bytecode_length: usize) -> Self {
+    pub fn with_errors(
+        errors: Vec<VerificationError>,
+        jump_count: usize,
+        bytecode_length: usize,
+    ) -> Self {
         Self {
             is_valid: errors.is_empty(),
             errors,
@@ -77,7 +81,9 @@ impl VerificationResult {
         } else {
             let mut summary = format!(
                 "✗ Bytecode verification FAILED: {} bytes, {} JUMP instructions, {} errors:\n",
-                self.bytecode_length, self.jump_count, self.errors.len()
+                self.bytecode_length,
+                self.jump_count,
+                self.errors.len()
             );
             for error in &self.errors {
                 summary.push_str(&format!("  - {}\n", error));
@@ -125,7 +131,7 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
             scan_len = code_end;
         }
     }
-    
+
     while offset < scan_len {
         let opcode = bytecode[offset];
 
@@ -133,7 +139,7 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
             // JUMP instructions use fixed u16 offset
             opcodes::JUMP | opcodes::JUMP_IF | opcodes::JUMP_IF_NOT => {
                 jump_count += 1;
-                
+
                 // Need at least 2 more bytes for the u16 target
                 if offset + 2 >= scan_len {
                     errors.push(VerificationError {
@@ -234,7 +240,6 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                 offset += 11;
             }
 
-
             // BR_EQ_U8: compare_value(u8) + offset(u16)
             opcodes::BR_EQ_U8 => {
                 // Opcode(1) + Val(1) + Offset(2) = 4
@@ -315,7 +320,8 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
             // Handle other opcodes - use get_operand_size
             _ => {
                 let remaining = bytecode.get(offset + 1..).unwrap_or(&[]);
-                let operand_size = opcodes::operand_size(opcode, remaining, pool_enabled).unwrap_or(0);
+                let operand_size =
+                    opcodes::operand_size(opcode, remaining, pool_enabled).unwrap_or(0);
                 offset += 1 + operand_size;
             }
         }
@@ -348,7 +354,8 @@ mod tests {
         // 1000 in little-endian u16: 0xE8, 0x03
         let bytecode = vec![
             opcodes::JUMP,
-            0xE8, 0x03, // 1000 in little-endian u16
+            0xE8,
+            0x03, // 1000 in little-endian u16
             opcodes::HALT,
         ];
         let result = verify_jump_targets(&bytecode);
@@ -363,7 +370,8 @@ mod tests {
         // JUMP to offset 3 (valid) using fixed u16 encoding
         let bytecode = vec![
             opcodes::JUMP,
-            0x03, 0x00, // 3 in little-endian u16
+            0x03,
+            0x00,          // 3 in little-endian u16
             opcodes::HALT, // at offset 3 - valid target
         ];
         let result = verify_jump_targets(&bytecode);
@@ -376,7 +384,8 @@ mod tests {
         // JUMP to last valid offset
         let bytecode = vec![
             opcodes::JUMP,
-            0x03, 0x00, // 3 in little-endian u16 - points to the HALT
+            0x03,
+            0x00,          // 3 in little-endian u16 - points to the HALT
             opcodes::HALT, // at offset 3
         ];
         let result = verify_jump_targets(&bytecode);
@@ -388,9 +397,15 @@ mod tests {
         let bytecode = vec![
             opcodes::REQUIRE_EQ_PUBKEY,
             1, // acc1
-            0x00, 0x00, 0x00, 0x00, // offset1
-            2, // acc2
-            0xFF, 0x3F, 0x00, 0x00, // offset2 = 0x3FFF (legacy sentinel)
+            0x00,
+            0x00,
+            0x00,
+            0x00, // offset1
+            2,    // acc2
+            0xFF,
+            0x3F,
+            0x00,
+            0x00, // offset2 = 0x3FFF (legacy sentinel)
             opcodes::HALT,
         ];
         let result = verify_jump_targets(&bytecode);
@@ -404,11 +419,14 @@ mod tests {
     fn test_call_is_fixed_width_for_scanning() {
         let bytecode = vec![
             opcodes::CALL,
-            0x00,       // param_count
-            0x09, 0x00, // target=9
-            0xFF, 0x3F, // metadata-like bytes that must be treated as payload bytes
+            0x00, // param_count
+            0x09,
+            0x00, // target=9
+            0xFF,
+            0x3F, // metadata-like bytes that must be treated as payload bytes
             opcodes::JUMP_IF,
-            0x09, 0x00, // valid jump target
+            0x09,
+            0x00, // valid jump target
             opcodes::HALT,
         ];
         let result = verify_jump_targets(&bytecode);
@@ -424,7 +442,8 @@ mod tests {
             opcodes::PUSH_ARRAY_LITERAL,
             0x04, // count
             opcodes::JUMP,
-            0x05, 0x00, // jump to HALT
+            0x05,
+            0x00, // jump to HALT
             opcodes::HALT,
         ];
 
@@ -442,7 +461,8 @@ mod tests {
             opcodes::CAST,
             0x01, // ValueType::U8
             opcodes::JUMP,
-            0x05, 0x00, // jump to HALT
+            0x05,
+            0x00, // jump to HALT
             opcodes::HALT,
         ];
 

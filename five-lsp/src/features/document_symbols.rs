@@ -47,9 +47,7 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
         // Add functions (instructions)
         for instr in instruction_definitions {
             if let AstNode::InstructionDefinition {
-                name,
-                visibility,
-                ..
+                name, visibility, ..
             } = instr
             {
                 let location = make_location_range();
@@ -106,7 +104,11 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
                     SymbolKind::STRUCT,
                     location.clone(),
                     location,
-                    if children.is_empty() { None } else { Some(children) },
+                    if children.is_empty() {
+                        None
+                    } else {
+                        Some(children)
+                    },
                 ));
             }
         }
@@ -136,7 +138,11 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
                     SymbolKind::EVENT,
                     location.clone(),
                     location,
-                    if children.is_empty() { None } else { Some(children) },
+                    if children.is_empty() {
+                        None
+                    } else {
+                        Some(children)
+                    },
                 ));
             }
         }
@@ -144,9 +150,7 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
         // Add global fields
         for field in field_definitions {
             if let AstNode::FieldDefinition {
-                name,
-                is_mutable,
-                ..
+                name, is_mutable, ..
             } = field
             {
                 let location = make_location_range();
@@ -169,13 +173,19 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
 
         // Add interfaces
         for interface in interface_definitions {
-            if let AstNode::InterfaceDefinition { name, functions, .. } = interface {
+            if let AstNode::InterfaceDefinition {
+                name, functions, ..
+            } = interface
+            {
                 let location = make_location_range();
                 let mut children = Vec::new();
 
                 // Add interface functions as nested symbols
                 for func in functions {
-                    if let AstNode::InterfaceFunction { name: func_name, .. } = func {
+                    if let AstNode::InterfaceFunction {
+                        name: func_name, ..
+                    } = func
+                    {
                         let func_location = make_location_range();
                         children.push(make_symbol(
                             func_name.clone(),
@@ -194,7 +204,11 @@ fn extract_symbols_from_ast(ast: &AstNode) -> Vec<DocumentSymbol> {
                     SymbolKind::INTERFACE,
                     location.clone(),
                     location,
-                    if children.is_empty() { None } else { Some(children) },
+                    if children.is_empty() {
+                        None
+                    } else {
+                        Some(children)
+                    },
                 ));
             }
         }

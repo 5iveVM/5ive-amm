@@ -5,18 +5,18 @@
 // These are used by the `generate-grammar` CLI tool to auto-generate grammar.js
 
 use five_protocol::Value;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-pub mod registry;
-pub mod generated;
 pub mod conversions;
+pub mod generated;
+pub mod registry;
 
 // Re-export registry for public API
-pub use registry::{NodeRegistry, NODE_REGISTRY, RegistryError};
+pub use registry::{NodeRegistry, RegistryError, NODE_REGISTRY};
 
 // Re-export generated AST structures for forward compatibility
 // These are type-safe versions that can be converted to/from the original AstNode enum
-pub use generated::{Expression, Statement, Definition};
+pub use generated::{Definition, Expression, Statement};
 
 // Note: Conversions module provides From/Into implementations for compatibility
 
@@ -39,7 +39,11 @@ pub struct SourceLocation {
 impl SourceLocation {
     /// Create a new source location
     pub fn new(line: u32, column: u32, length: u32) -> Self {
-        Self { line, column, length }
+        Self {
+            line,
+            column,
+            length,
+        }
     }
 
     /// Get the end column of this span
@@ -62,8 +66,7 @@ pub enum BlockKind {
 }
 
 /// Visibility modifier for cross-module access control
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Visibility {
     /// `pub` - on-chain callable, exported for imports
     Public,
@@ -85,7 +88,6 @@ impl Visibility {
         matches!(self, Visibility::Public)
     }
 }
-
 
 /// AST node types for parsed .stacks syntax
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -327,7 +329,7 @@ pub enum AstNode {
         return_type: Option<Box<TypeNode>>,
         discriminator: Option<u8>, // Custom discriminator for the instruction
         discriminator_bytes: Option<Vec<u8>>, // Optional multi-byte discriminator
-        is_anchor: bool, // Whether this function follows Anchor conventions
+        is_anchor: bool,           // Whether this function follows Anchor conventions
     },
 
     // Import system AST nodes
@@ -343,9 +345,9 @@ pub enum AstNode {
 /// Module specifier for use/import statements
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ModuleSpecifier {
-    Local(String),              // use lib; or import lib;
-    Nested(Vec<String>),        // use utils::helpers;
-    External(String),           // use "0x123"::{fn1, fn2}; (contract address or PDA seeds)
+    Local(String),                 // use lib; or import lib;
+    Nested(Vec<String>),           // use utils::helpers;
+    External(String),              // use "0x123"::{fn1, fn2}; (contract address or PDA seeds)
     Namespace(NamespaceSpecifier), // use @org/program::{fn};
 }
 
@@ -492,10 +494,10 @@ pub struct InstructionParameter {
     pub param_type: TypeNode,
     pub is_optional: bool,
     pub default_value: Option<Box<AstNode>>,
-    pub attributes: Vec<Attribute>, // Generalized attributes
-    pub is_init: bool,           // True if @init constraint is applied
+    pub attributes: Vec<Attribute>,      // Generalized attributes
+    pub is_init: bool,                   // True if @init constraint is applied
     pub init_config: Option<InitConfig>, // Configuration for account initialization
-    pub pda_config: Option<PdaConfig>, // Configuration for PDA validation / signer derivation
+    pub pda_config: Option<PdaConfig>,   // Configuration for PDA validation / signer derivation
 }
 
 /// Event field assignment for emit statements

@@ -11,7 +11,7 @@
 //! - Error handling and validation chains
 //! - Performance optimization combinations
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
 #[cfg(test)]
 mod defi_workflow_tests {
@@ -344,9 +344,21 @@ mod performance_optimization_tests {
         ];
 
         let mut storage_trad = StackStorage::new();
-        let traditional_result = MitoVM::execute_direct(&traditional_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage_trad);
+        let traditional_result = MitoVM::execute_direct(
+            &traditional_bytecode,
+            &[],
+            &[],
+            &FIVE_VM_PROGRAM_ID,
+            &mut storage_trad,
+        );
         let mut storage_opt = StackStorage::new();
-        let optimized_result = MitoVM::execute_direct(&optimized_bytecode, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage_opt);
+        let optimized_result = MitoVM::execute_direct(
+            &optimized_bytecode,
+            &[],
+            &[],
+            &FIVE_VM_PROGRAM_ID,
+            &mut storage_opt,
+        );
 
         match (traditional_result, optimized_result) {
             (Ok(Some(Value::U64(10))), Ok(Some(Value::U64(10)))) => {
@@ -366,7 +378,6 @@ mod performance_optimization_tests {
             _ => println!("ℹ️ Pattern fusion optimization not fully implemented"),
         }
     }
-
 }
 
 #[cfg(test)]

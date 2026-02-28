@@ -1,12 +1,8 @@
 // Upgrade mechanism implementation for FIVE VM
 
-use pinocchio::{
-    account_info::AccountInfo,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-};
-use bytemuck::{Pod, Zeroable};
 use crate::error::FIVEError;
+use bytemuck::{Pod, Zeroable};
+use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 use solana_nostd_sha256::hashv;
 
 /// Enhanced script header with upgrade support
@@ -17,7 +13,7 @@ pub struct FIVEScriptHeaderV2 {
     pub owner: Pubkey,
     pub script_id: u64,
     pub bytecode_len: u32,
-    
+
     // Upgrade fields
     pub version: u32,
     pub upgrade_authority: Pubkey,
@@ -29,56 +25,56 @@ pub struct FIVEScriptHeaderV2 {
 
 impl FIVEScriptHeaderV2 {
     pub const LEN: usize = 32 + 8 + 4 + 4 + 32 + 32 + 8 + 1 + 7; // 128 bytes
-    
+
     pub fn validate(&self, account_data_len: usize) -> Result<(), ProgramError> {
         // Check bytecode length is reasonable
         if self.bytecode_len as usize > five_vm_mito::MAX_SCRIPT_SIZE {
             return Err(ProgramError::Custom(9101));
         }
-        
+
         // Check account is large enough
         let required_len = Self::LEN + self.bytecode_len as usize;
         if account_data_len < required_len {
             return Err(ProgramError::Custom(9102));
         }
-        
+
         // Check version is reasonable
         if self.version > 1000 {
             return Err(ProgramError::Custom(9103));
         }
-        
+
         Ok(())
     }
-    
+
     pub fn from_account_data(data: &[u8]) -> Result<&Self, ProgramError> {
         if data.len() < Self::LEN {
             return Err(ProgramError::Custom(9104));
         }
-        
+
         let header: &Self = bytemuck::from_bytes(&data[..Self::LEN]);
         header.validate(data.len())?;
         Ok(header)
     }
-    
+
     pub fn from_account_data_mut(data: &mut [u8]) -> Result<&mut Self, ProgramError> {
         if data.len() < Self::LEN {
             return Err(ProgramError::Custom(9105));
         }
-        
+
         let data_len = data.len();
         let header: &mut Self = bytemuck::from_bytes_mut(&mut data[..Self::LEN]);
         header.validate(data_len)?;
         Ok(header)
     }
-    
+
     pub fn get_bytecode<'a>(&self, data: &'a [u8]) -> Result<&'a [u8], ProgramError> {
         let bytecode_start = Self::LEN;
         let bytecode_len = self.bytecode_len as usize;
-        
+
         if data.len() < bytecode_start + bytecode_len {
             return Err(ProgramError::Custom(9106));
         }
-        
+
         Ok(&data[bytecode_start..bytecode_start + bytecode_len])
     }
 }
@@ -95,18 +91,19 @@ pub struct ScriptVersionHistory {
 
 impl ScriptVersionHistory {
     pub const LEN: usize = 8 + 4 + 4 + (VersionRecord::LEN * 10);
-    
+
     pub fn find_version(&self, version: u32) -> Option<&VersionRecord> {
-        self.versions.iter()
+        self.versions
+            .iter()
             .take(self.version_count as usize)
             .find(|v| v.version == version && v.is_active != 0)
     }
-    
+
     pub fn add_version(&mut self, record: VersionRecord) -> Result<(), ProgramError> {
         if self.version_count >= 10 {
             return Err(FIVEError::VersionHistoryFull.into());
         }
-        
+
         self.versions[self.version_count as usize] = record;
         self.version_count += 1;
         self.current_version = record.version;
@@ -139,11 +136,11 @@ pub fn validate_upgrade_authority(
     if proof_account.key() != authority {
         return Ok(false);
     }
-    
+
     if !proof_account.is_signer() {
         return Ok(false);
     }
-    
+
     Ok(true)
 }
 
@@ -192,11 +189,11 @@ pub fn archive_current_version(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_script_header_v2_validation() {
         let mut data = vec![0u8; FIVEScriptHeaderV2::LEN + 100];
-        
+
         // Create valid header
         let header = FIVEScriptHeaderV2 {
             owner: Pubkey::default(),
@@ -209,17 +206,17 @@ mod tests {
             is_immutable: 0,
             _padding: [0; 7],
         };
-        
+
         // Write header to data
         data[..FIVEScriptHeaderV2::LEN].copy_from_slice(bytemuck::bytes_of(&header));
-        
+
         // Test deserialization
         let parsed = FIVEScriptHeaderV2::from_account_data(&data).unwrap();
         assert_eq!(parsed.version, 1);
         assert_eq!(parsed.bytecode_len, 100);
         assert_eq!(parsed.is_immutable, 0);
     }
-    
+
     #[test]
     fn test_version_history() {
         let mut history = ScriptVersionHistory {
@@ -235,57 +232,49 @@ mod tests {
                 bytecode_hash: [0; 32],
             }; 10],
         };
-        
+
         // Add first version
         let record1 = create_version_record(1, b"bytecode_v1", &Pubkey::default(), 1000);
         history.add_version(record1).unwrap();
-        
+
         assert_eq!(history.version_count, 1);
         assert_eq!(history.current_version, 1);
-        
+
         // Find version
         let found = history.find_version(1).unwrap();
         assert_eq!(found.version, 1);
         assert_eq!(found.deployment_slot, 1000);
     }
-    
+
     #[test]
     fn test_bytecode_hash() {
         let bytecode1 = b"test bytecode";
         let bytecode2 = b"different bytecode";
-        
+
         let hash1 = calculate_bytecode_hash(bytecode1);
         let hash2 = calculate_bytecode_hash(bytecode2);
-        
+
         // Different bytecode should have different hashes
         assert_ne!(hash1, hash2);
-        
+
         // Same bytecode should have same hash
         let hash1_again = calculate_bytecode_hash(bytecode1);
         assert_eq!(hash1, hash1_again);
     }
-    
+
     #[test]
     fn test_archive_pda_derivation() {
         let program_id = Pubkey::default();
         let script_id = 42u64;
         let version = 3u32;
-        
-        let archive_pda = archive_current_version(
-            &program_id,
-            script_id,
-            version,
-            b"test"
-        ).unwrap();
-        
+
+        let archive_pda =
+            archive_current_version(&program_id, script_id, version, b"test").unwrap();
+
         // Verify PDA is deterministic
-        let archive_pda2 = archive_current_version(
-            &program_id,
-            script_id,
-            version,
-            b"test"
-        ).unwrap();
-        
+        let archive_pda2 =
+            archive_current_version(&program_id, script_id, version, b"test").unwrap();
+
         assert_eq!(archive_pda, archive_pda2);
     }
 
@@ -307,7 +296,8 @@ mod tests {
 
         // Fill history with 10 versions
         for i in 0..10 {
-            let record = create_version_record(i + 1, b"bytecode", &Pubkey::default(), 1000 + i as u64);
+            let record =
+                create_version_record(i + 1, b"bytecode", &Pubkey::default(), 1000 + i as u64);
             assert!(history.add_version(record).is_ok());
         }
 
@@ -397,7 +387,10 @@ mod tests {
         header.bytecode_len = 100; // Reset
 
         // 2. Account too small
-        assert_eq!(header.validate(FIVEScriptHeaderV2::LEN + 50), Err(ProgramError::Custom(9102)));
+        assert_eq!(
+            header.validate(FIVEScriptHeaderV2::LEN + 50),
+            Err(ProgramError::Custom(9102))
+        );
 
         // 3. Version too high
         header.version = 1001;
@@ -406,11 +399,17 @@ mod tests {
 
         // 4. from_account_data short data
         let short_data = vec![0u8; FIVEScriptHeaderV2::LEN - 1];
-        assert_eq!(FIVEScriptHeaderV2::from_account_data(&short_data).err(), Some(ProgramError::Custom(9104)));
+        assert_eq!(
+            FIVEScriptHeaderV2::from_account_data(&short_data).err(),
+            Some(ProgramError::Custom(9104))
+        );
 
         // 5. from_account_data_mut short data
         let mut short_data_mut = vec![0u8; FIVEScriptHeaderV2::LEN - 1];
-        assert_eq!(FIVEScriptHeaderV2::from_account_data_mut(&mut short_data_mut).err(), Some(ProgramError::Custom(9105)));
+        assert_eq!(
+            FIVEScriptHeaderV2::from_account_data_mut(&mut short_data_mut).err(),
+            Some(ProgramError::Custom(9105))
+        );
 
         // 6. get_bytecode short data
         // Restore valid header in data
@@ -420,7 +419,10 @@ mod tests {
 
         // get_bytecode is called on &self.
         let valid_header = FIVEScriptHeaderV2::from_account_data(&data).unwrap();
-        assert_eq!(valid_header.get_bytecode(truncated_data).err(), Some(ProgramError::Custom(9106)));
+        assert_eq!(
+            valid_header.get_bytecode(truncated_data).err(),
+            Some(ProgramError::Custom(9106))
+        );
     }
 
     #[test]
@@ -444,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_padding_zeroed() {
-         let record = create_version_record(1, b"test", &Pubkey::default(), 123);
-         assert_eq!(record._padding, [0; 3]);
+        let record = create_version_record(1, b"test", &Pubkey::default(), 123);
+        assert_eq!(record._padding, [0; 3]);
     }
 }

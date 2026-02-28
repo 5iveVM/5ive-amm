@@ -3,9 +3,9 @@
 use five_protocol::{
     execute_payload::{canonical_execute_payload, TypedParam},
     test_fixtures::{
-        execute_payload_minimal, execute_payload_typed_sample,
-        execute_payload_truncated_function_index, execute_payload_truncated_param_count,
-        execute_payload_truncated_u64_param, execute_payload_unknown_type,
+        execute_payload_minimal, execute_payload_truncated_function_index,
+        execute_payload_truncated_param_count, execute_payload_truncated_u64_param,
+        execute_payload_typed_sample, execute_payload_unknown_type,
     },
     types,
 };
@@ -67,8 +67,14 @@ fn malformed_execute_payload_variants_are_produced() {
     assert_eq!(execute_payload_truncated_param_count().len(), 6);
 
     let truncated_u64 = execute_payload_truncated_u64_param();
-    assert_eq!(u32::from_le_bytes(truncated_u64[0..4].try_into().unwrap()), 1);
-    assert_eq!(u32::from_le_bytes(truncated_u64[4..8].try_into().unwrap()), 1);
+    assert_eq!(
+        u32::from_le_bytes(truncated_u64[0..4].try_into().unwrap()),
+        1
+    );
+    assert_eq!(
+        u32::from_le_bytes(truncated_u64[4..8].try_into().unwrap()),
+        1
+    );
     assert_eq!(truncated_u64[8], types::U64);
     assert_eq!(truncated_u64.len(), 13);
 

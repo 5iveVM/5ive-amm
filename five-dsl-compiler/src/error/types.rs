@@ -200,7 +200,10 @@ impl error::Error for CompilerError {
 #[derive(Debug, Clone)]
 pub enum ModuleResolutionError {
     CircularDependency(String),
-    ModuleNotFound { module_path: String, searched_paths: Vec<PathBuf> },
+    ModuleNotFound {
+        module_path: String,
+        searched_paths: Vec<PathBuf>,
+    },
     InvalidModulePath(String),
     IoError(String), // For underlying std::io::Error
     Generic(String), // Fallback for other issues
@@ -212,13 +215,22 @@ impl fmt::Display for ModuleResolutionError {
             ModuleResolutionError::CircularDependency(path) => {
                 write!(f, "Circular dependency detected involving module: {}", path)
             }
-            ModuleResolutionError::ModuleNotFound { module_path, searched_paths } => {
-                write!(f, "Module '{}' not found. Searched paths: {:?}", module_path, searched_paths)
+            ModuleResolutionError::ModuleNotFound {
+                module_path,
+                searched_paths,
+            } => {
+                write!(
+                    f,
+                    "Module '{}' not found. Searched paths: {:?}",
+                    module_path, searched_paths
+                )
             }
             ModuleResolutionError::InvalidModulePath(path) => {
                 write!(f, "Invalid module path format: {}", path)
             }
-            ModuleResolutionError::IoError(msg) => write!(f, "IO error during module resolution: {}", msg),
+            ModuleResolutionError::IoError(msg) => {
+                write!(f, "IO error during module resolution: {}", msg)
+            }
             ModuleResolutionError::Generic(msg) => write!(f, "Module resolution error: {}", msg),
         }
     }

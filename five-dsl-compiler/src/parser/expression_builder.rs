@@ -4,9 +4,7 @@
 //! new generated AST structures. These can be automatically converted to AstNode
 //! via the From trait.
 
-use crate::ast::{
-    generated::*, AstNode, StructLiteralField,
-};
+use crate::ast::{generated::*, AstNode, StructLiteralField};
 use five_protocol::Value;
 
 /// Helper to build expression nodes
@@ -63,7 +61,11 @@ impl crate::parser::DslParser {
     }
 
     /// Create a method call expression
-    pub(crate) fn build_method_call(object: AstNode, method: String, args: Vec<AstNode>) -> Expression {
+    pub(crate) fn build_method_call(
+        object: AstNode,
+        method: String,
+        args: Vec<AstNode>,
+    ) -> Expression {
         Expression::MethodCall(MethodCallNode {
             object: Box::new(object),
             method,

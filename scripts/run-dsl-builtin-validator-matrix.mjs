@@ -38,6 +38,20 @@ function ensureFile(filePath, label) {
   }
 }
 
+function loadProbeOutput(filePath) {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`probe output not found: ${filePath}`);
+  }
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+function loadProbeArtifact(filePath) {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`probe artifact not found: ${filePath}`);
+  }
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
 function parseCryptoProbe(stdout, stderr) {
   const combined = `${stdout || ''}\n${stderr || ''}`;
   if (combined.includes('SKIP validator_crypto_probe_onchain:')) {
@@ -79,6 +93,37 @@ function parseStdlibProbe(stdout, stderr) {
     clockDeployCu: Number(match[6]),
     clockExecuteSignature: match[7],
     clockExecuteCu: Number(match[8]),
+  };
+}
+
+function parseAccountProbe(stdout, stderr) {
+  const combined = `${stdout || ''}\n${stderr || ''}`;
+  if (combined.includes('SKIP validator_account_probe_onchain:')) {
+    throw new Error('validator account probe skipped');
+  }
+  const match = combined.match(
+    /ACCOUNT_PROBE load_deploy_signature=(\S+) load_deploy_cu=(\d+) load_execute_signature=(\S+) load_execute_cu=(\d+) lamports_deploy_signature=(\S+) lamports_deploy_cu=(\d+) lamports_execute_signature=(\S+) lamports_execute_cu=(\d+) owner_deploy_signature=(\S+) owner_deploy_cu=(\d+) owner_execute_signature=(\S+) owner_execute_cu=(\d+) key_deploy_signature=(\S+) key_deploy_cu=(\d+) key_execute_signature=(\S+) key_execute_cu=(\d+)/
+  );
+  if (!match) {
+    throw new Error('could not parse ACCOUNT_PROBE output');
+  }
+  return {
+    loadDeploySignature: match[1],
+    loadDeployCu: Number(match[2]),
+    loadExecuteSignature: match[3],
+    loadExecuteCu: Number(match[4]),
+    lamportsDeploySignature: match[5],
+    lamportsDeployCu: Number(match[6]),
+    lamportsExecuteSignature: match[7],
+    lamportsExecuteCu: Number(match[8]),
+    ownerDeploySignature: match[9],
+    ownerDeployCu: Number(match[10]),
+    ownerExecuteSignature: match[11],
+    ownerExecuteCu: Number(match[12]),
+    keyDeploySignature: match[13],
+    keyDeployCu: Number(match[14]),
+    keyExecuteSignature: match[15],
+    keyExecuteCu: Number(match[16]),
   };
 }
 
@@ -180,6 +225,7 @@ if (featureMatrixBuiltins.length > 0) {
       cwd: repoRoot,
       env: process.env,
       encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
     }
   );
 
@@ -226,6 +272,10 @@ for (const [target, builtins] of cargoGroups.entries()) {
     testFile = 'runtime_validator_crypto_probe_tests';
     testName = 'validator_crypto_probe_onchain';
     parseOutput = parseCryptoProbe;
+  } else if (target === 'runtime_validator_account_probe_tests::validator_account_probe_onchain') {
+    testFile = 'runtime_validator_account_probe_tests';
+    testName = 'validator_account_probe_onchain';
+    parseOutput = parseAccountProbe;
   } else if (target === 'runtime_validator_stdlib_probe_tests::validator_stdlib_time_and_sysvar_onchain') {
     testFile = 'runtime_validator_stdlib_probe_tests';
     testName = 'validator_stdlib_time_and_sysvar_onchain';
@@ -234,41 +284,21 @@ for (const [target, builtins] of cargoGroups.entries()) {
     throw new Error(`unsupported cargo builtin validator target: ${target}`);
   }
 
-  const run = spawnSync(
-    'cargo',
-    [
-      'test',
-      '-q',
-      '-p',
-      'five',
-      '--features',
-      'validator-harness',
-      '--test',
-      testFile,
-      testName,
-      '--',
-      '--ignored',
-      '--nocapture',
-    ],
-    {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        FIVE_CU_NETWORK: 'localnet',
-        FIVE_CU_PROGRAM_ID: args.programId,
-        FIVE_CU_PAYER_KEYPAIR: args.keypair,
-        FIVE_CU_RPC_URL: 'http://127.0.0.1:8899',
-      },
-      encoding: 'utf8',
-    }
-  );
-
+  const probeArtifactPath = path.join(resultsDir, `${testFile}-${testName}.json`);
+  const probeOutputPath = path.join(resultsDir, `${testFile}-${testName}.log`);
+  let probeStdout = '';
+  let probeStderr = '';
   let probe;
-  let groupPassed = run.status === 0;
+  let groupPassed = true;
   let note = '';
 
   try {
-    probe = parseOutput(run.stdout, run.stderr);
+    if (fs.existsSync(probeArtifactPath)) {
+      probe = loadProbeArtifact(probeArtifactPath);
+    } else {
+      probeStdout = loadProbeOutput(probeOutputPath);
+      probe = parseOutput(probeStdout, probeStderr);
+    }
   } catch (error) {
     groupPassed = false;
     note = error.message;
@@ -283,7 +313,7 @@ for (const [target, builtins] of cargoGroups.entries()) {
       status: groupPassed ? 'PASS' : 'FAIL',
       note:
         note ||
-        (run.status === 0 ? '' : run.stderr || run.stdout || `cargo test exit ${run.status}`),
+        (!groupPassed ? probeStdout || probeStderr || 'missing or invalid probe log' : ''),
     };
 
     if (builtin.name === 'verify_ed25519_instruction') {
@@ -311,6 +341,17 @@ for (const [target, builtins] of cargoGroups.entries()) {
         computeUnitsUsed: probe?.clockExecuteCu ?? null,
         deploySignature: probe?.clockDeploySignature ?? null,
         deployComputeUnitsUsed: probe?.clockDeployCu ?? null,
+      };
+    } else if (builtin.name === 'load_account_u64_word') {
+      entry = {
+        ...entry,
+        transactionId: probe?.loadExecuteSignature ?? null,
+        computeUnitsUsed: probe?.loadExecuteCu ?? null,
+        deploySignature: probe?.loadDeploySignature ?? null,
+        deployComputeUnitsUsed: probe?.loadDeployCu ?? null,
+        note:
+          entry.note ||
+          'Shared validator probe also exercises account.ctx.lamports, account.ctx.owner, and account.ctx.key.',
       };
     }
 

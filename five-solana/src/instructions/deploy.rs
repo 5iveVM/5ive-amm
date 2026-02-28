@@ -1,14 +1,17 @@
 use pinocchio::{
-    account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
-    instruction::{Seed, Signer, AccountMeta, Instruction},
-    program::invoke_signed, sysvars::Sysvar,
+    account_info::AccountInfo,
+    instruction::{AccountMeta, Instruction, Seed, Signer},
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    sysvars::Sysvar,
+    ProgramResult,
 };
 
 use crate::{
     common::{
-        validate_vm_and_script_accounts, verify_program_owned, validate_permissions,
-        verify_hardcoded_vm_state_account_with_bump,
-        verify_admin_signer,
+        validate_permissions, validate_vm_and_script_accounts, verify_admin_signer,
+        verify_hardcoded_vm_state_account_with_bump, verify_program_owned,
     },
     error::program_already_initialized_error,
     state::{FIVEVMState, ScriptAccountHeader},
@@ -16,8 +19,8 @@ use crate::{
 
 use super::{
     fees::{build_system_create_account_ix, collect_deploy_fee, collect_deploy_fee_with_state},
-    verify::{verify_bytecode_content},
     require_min_accounts, require_signer, safe_realloc,
+    verify::verify_bytecode_content,
 };
 
 /// Minimum deployment instruction length:
@@ -44,12 +47,12 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
         require_min_accounts(accounts, 4)?;
         let payer = &accounts[2];
         let system_program = &accounts[3];
-        
+
         require_signer(payer)?;
-        
+
         // Verify System Program ID
         if system_program.key() != &Pubkey::default() {
-             return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData);
         }
 
         // Calculate rent for VM state account
@@ -61,10 +64,7 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
             build_system_create_account_ix(rent_lamports, FIVEVMState::LEN as u64, program_id);
 
         let bump_seed = [bump];
-        let seeds: &[Seed] = &[
-            Seed::from(b"vm_state"),
-            Seed::from(&bump_seed),
-        ];
+        let seeds: &[Seed] = &[Seed::from(b"vm_state"), Seed::from(&bump_seed)];
         let signer = Signer::from(seeds);
 
         let metas = [
@@ -86,7 +86,11 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
             data: &create_account_data,
         };
 
-        invoke_signed::<3>(&instruction, &[payer, vm_state_account, system_program], &[signer])?;
+        invoke_signed::<3>(
+            &instruction,
+            &[payer, vm_state_account, system_program],
+            &[signer],
+        )?;
     } else {
         // Ownership is enough here because canonical key+bump was already checked above.
         // This allows legacy initialized state (stale stored bump) to pass into migration.
@@ -134,7 +138,6 @@ pub fn deploy(
     permissions: u8,
     fee_shard_index: u8,
 ) -> ProgramResult {
-
     // Validate permissions bitmask
     validate_permissions(permissions)?;
 
@@ -235,8 +238,7 @@ pub fn deploy(
     let metadata_start = ScriptAccountHeader::LEN;
     let metadata_end = metadata_start + metadata.len();
     script_data[metadata_start..metadata_end].copy_from_slice(metadata);
-    script_data[metadata_end..metadata_end + bytecode.len()]
-        .copy_from_slice(bytecode);
+    script_data[metadata_end..metadata_end + bytecode.len()].copy_from_slice(bytecode);
 
     Ok(())
 }
@@ -404,8 +406,7 @@ pub fn append_bytecode(
             return Err(ProgramError::Custom(7006)); // Account size mismatch
         }
 
-        let bytecode =
-            &script_data[ScriptAccountHeader::LEN..bytecode_end];
+        let bytecode = &script_data[ScriptAccountHeader::LEN..bytecode_end];
 
         if bytecode.len() < 4 || bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
             return Err(ProgramError::Custom(8203)); // Invalid bytecode size
@@ -450,10 +451,7 @@ pub fn append_bytecode(
 }
 
 /// Finalize script upload manually
-pub fn finalize_script_upload(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> ProgramResult {
+pub fn finalize_script_upload(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     require_min_accounts(accounts, 2)?;
     let script_account = &accounts[0];
     let owner = &accounts[1];
@@ -493,12 +491,8 @@ pub fn finalize_script_upload(
     verify_bytecode_content(bytecode)?;
 
     // Update header
-    let mut final_header = ScriptAccountHeader::create_from_bytecode(
-        bytecode,
-        *owner.key(),
-        script_id,
-        permissions,
-    );
+    let mut final_header =
+        ScriptAccountHeader::create_from_bytecode(bytecode, *owner.key(), script_id, permissions);
     // Set upload flags BEFORE writing to account (single-write pattern)
     final_header.set_upload_len(0);
     final_header.set_upload_mode(false);
@@ -780,7 +774,14 @@ mod tests {
         let owner_before = owner.lamports();
         let admin_before = admin.lamports();
 
-        let accounts = [script_account, vm_account, owner, admin, fee_vault, system_program];
+        let accounts = [
+            script_account,
+            vm_account,
+            owner,
+            admin,
+            fee_vault,
+            system_program,
+        ];
         assert_eq!(
             deploy(&program_id, &accounts, &bytecode, &[], 0, 0),
             Err(ProgramError::Custom(7007))

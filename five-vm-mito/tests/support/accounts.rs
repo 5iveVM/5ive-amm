@@ -20,7 +20,8 @@ pub fn create_test_accounts<'a>(
     payer_data: &'a mut [u8],
     system_lamports: &'a mut u64,
     system_data: &'a mut [u8],
-) -> [AccountInfo; 3] { // Now returns 3 accounts
+) -> [AccountInfo; 3] {
+    // Now returns 3 accounts
     let payer_key = Pubkey::from([1u8; 32]);
     let system_program_key = Pubkey::from([0u8; 32]); // System Program ID (all zeros for test/mock usually, or standard ID)
 

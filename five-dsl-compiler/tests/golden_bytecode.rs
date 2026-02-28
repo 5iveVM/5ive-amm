@@ -222,15 +222,33 @@ fn parse_constant_pool_layout(bytecode: &[u8]) -> (Option<(usize, u16)>, usize) 
         return (None, offset.min(bytecode.len()));
     }
     let desc = ConstantPoolDescriptor {
-        pool_offset: u32::from_le_bytes([bytecode[offset], bytecode[offset + 1], bytecode[offset + 2], bytecode[offset + 3]]),
-        string_blob_offset: u32::from_le_bytes([bytecode[offset + 4], bytecode[offset + 5], bytecode[offset + 6], bytecode[offset + 7]]),
-        string_blob_len: u32::from_le_bytes([bytecode[offset + 8], bytecode[offset + 9], bytecode[offset + 10], bytecode[offset + 11]]),
+        pool_offset: u32::from_le_bytes([
+            bytecode[offset],
+            bytecode[offset + 1],
+            bytecode[offset + 2],
+            bytecode[offset + 3],
+        ]),
+        string_blob_offset: u32::from_le_bytes([
+            bytecode[offset + 4],
+            bytecode[offset + 5],
+            bytecode[offset + 6],
+            bytecode[offset + 7],
+        ]),
+        string_blob_len: u32::from_le_bytes([
+            bytecode[offset + 8],
+            bytecode[offset + 9],
+            bytecode[offset + 10],
+            bytecode[offset + 11],
+        ]),
         pool_slots: u16::from_le_bytes([bytecode[offset + 12], bytecode[offset + 13]]),
         reserved: u16::from_le_bytes([bytecode[offset + 14], bytecode[offset + 15]]),
     };
     let pool_offset = desc.pool_offset as usize;
     let code_offset = pool_offset + desc.pool_slots as usize * 8;
-    (Some((pool_offset, desc.pool_slots)), code_offset.min(bytecode.len()))
+    (
+        Some((pool_offset, desc.pool_slots)),
+        code_offset.min(bytecode.len()),
+    )
 }
 
 /// Golden test: verify left-associative division emits two DIVs in left-associative order for `6 / 2 / 3`
@@ -402,7 +420,10 @@ fn golden_derive_pda_with_bump_unwraps_to_pubkey() {
 
     let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
     let derive_positions = find_opcode_positions(&bytecode, opcodes::DERIVE_PDA);
-    assert!(!derive_positions.is_empty(), "expected DERIVE_PDA in bytecode");
+    assert!(
+        !derive_positions.is_empty(),
+        "expected DERIVE_PDA in bytecode"
+    );
 
     // In bump-validation mode codegen should emit UNPACK_TUPLE + DROP after DERIVE_PDA.
     let unpack_positions = find_opcode_positions(&bytecode, opcodes::UNPACK_TUPLE);
@@ -417,9 +438,9 @@ fn golden_derive_pda_with_bump_unwraps_to_pubkey() {
     );
 
     let has_ordered_pattern = derive_positions.iter().any(|&d| {
-        unpack_positions.iter().any(|&u| {
-            u > d && drop_positions.iter().any(|&dr| dr > u)
-        })
+        unpack_positions
+            .iter()
+            .any(|&u| u > d && drop_positions.iter().any(|&dr| dr > u))
     });
     assert!(
         has_ordered_pattern,

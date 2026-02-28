@@ -386,8 +386,14 @@ async fn deploy_fails_when_owner_cannot_pay_deploy_fee() {
     let owner_after = read_lamports(&mut ctx, owner.pubkey(), "owner after deploy").await;
     let vault_after = read_lamports(&mut ctx, fee_vault, "fee vault after deploy").await;
 
-    assert_eq!(owner_after, owner_before, "owner lamports must be unchanged");
-    assert_eq!(vault_after, vault_before, "fee vault must not receive partial fee");
+    assert_eq!(
+        owner_after, owner_before,
+        "owner lamports must be unchanged"
+    );
+    assert_eq!(
+        vault_after, vault_before,
+        "fee vault must not receive partial fee"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -534,6 +540,12 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
     let owner_after = read_lamports(&mut ctx, owner.pubkey(), "owner after execute").await;
     let vault_after = read_lamports(&mut ctx, fee_vault, "fee vault after execute").await;
 
-    assert_eq!(owner_after, owner_before, "owner lamports must be unchanged");
-    assert_eq!(vault_after, vault_before, "fee vault must not receive partial fee");
+    assert_eq!(
+        owner_after, owner_before,
+        "owner lamports must be unchanged"
+    );
+    assert_eq!(
+        vault_after, vault_before,
+        "fee vault must not receive partial fee"
+    );
 }

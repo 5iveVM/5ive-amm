@@ -5,9 +5,15 @@
 //! are the same runtime functions used by validators, proper parameter validation
 //! is what determines success.
 
-use five_vm_mito::{error::VMError, FIVE_VM_PROGRAM_ID, MitoVM, stack::StackStorage, AccountInfo, Value};
+use five_vm_mito::{
+    error::VMError, stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID,
+};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
@@ -124,8 +130,7 @@ mod pda_parameter_validation_tests {
             0x35, 0x49, 0x56, 0x45, // 5IVE magic
             // Push seed "counter"
             0x67, 0x07, // PUSH_STRING(7)
-            b'c', b'o', b'u', b'n', b't', b'e', b'r',
-            // Push seeds_count
+            b'c', b'o', b'u', b'n', b't', b'e', b'r', // Push seeds_count
             0x18, 0x01, // PUSH_U8(1)
             // Push program ID
             0x1E, // PUSH_PUBKEY
@@ -273,8 +278,7 @@ mod account_initialization_tests {
             0x1E, // PUSH_PUBKEY
             0x06, 0xDD, 0xF6, 0xE1, 0xD7, 0x65, 0xA1, 0x93, 0xD9, 0xCB, 0xE1, 0x46, 0xCE, 0xEB,
             0x79, 0xAC, 0x1C, 0xB4, 0x85, 0xED, 0x5F, 0x5B, 0x37, 0x91, 0x3A, 0x8C, 0xF5, 0x85,
-            0x7E, 0xFF, 0x00, 0xA9,
-            // Push lamports
+            0x7E, 0xFF, 0x00, 0xA9, // Push lamports
             0x1B, 0x00, 0xCA, 0x9A, 0x3B, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(1_000_000_000)
             // Push excessive space (100MB > 10MB limit)
             0x1B, 0x00, 0x00, 0x40, 0x06, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(100MB)
@@ -313,15 +317,13 @@ mod account_initialization_tests {
             0x1B, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(42)
             // Push first seed (string "vault")
             0x67, 0x05, // PUSH_STRING(5)
-            b'v', b'a', b'u', b'l', b't',
-            // Push seeds count
+            b'v', b'a', b'u', b'l', b't', // Push seeds count
             0x18, 0x02, // PUSH_U8(2) - 2 seeds
             // Push owner pubkey
             0x1E, // PUSH_PUBKEY
             0x06, 0xDD, 0xF6, 0xE1, 0xD7, 0x65, 0xA1, 0x93, 0xD9, 0xCB, 0xE1, 0x46, 0xCE, 0xEB,
             0x79, 0xAC, 0x1C, 0xB4, 0x85, 0xED, 0x5F, 0x5B, 0x37, 0x91, 0x3A, 0x8C, 0xF5, 0x85,
-            0x7E, 0xFF, 0x00, 0xA9,
-            // Push lamports
+            0x7E, 0xFF, 0x00, 0xA9, // Push lamports
             0x1B, 0x00, 0xCA, 0x9A, 0x3B, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(1_000_000_000)
             // Push space
             0x1B, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(256)

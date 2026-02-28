@@ -211,8 +211,8 @@ impl AccountInfo {
         let header = mem::size_of::<Account>();
         let align = mem::align_of::<Account>();
         let data_len = data.len();
-        let layout = Layout::from_size_align(header + data_len, align)
-            .expect("invalid Account layout");
+        let layout =
+            Layout::from_size_align(header + data_len, align).expect("invalid Account layout");
 
         unsafe {
             let raw = alloc(layout) as *mut Account;

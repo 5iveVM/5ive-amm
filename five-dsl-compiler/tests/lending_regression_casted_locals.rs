@@ -108,7 +108,10 @@ pub main() {
     let result = DslCompiler::compile_dsl(dsl);
 
     // Should fail due to mutability constraint.
-    assert!(result.is_err(), "Mutation through non-mut account should fail");
+    assert!(
+        result.is_err(),
+        "Mutation through non-mut account should fail"
+    );
 }
 
 #[test]
@@ -185,8 +188,5 @@ pub main() {
     let result = DslCompiler::compile_dsl(dsl);
 
     // Should succeed - no silent cast/type mismatch.
-    assert!(
-        result.is_ok(),
-        "Type narrowing via cast should work"
-    );
+    assert!(result.is_ok(), "Type narrowing via cast should work");
 }

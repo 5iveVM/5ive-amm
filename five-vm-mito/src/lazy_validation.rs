@@ -25,7 +25,11 @@ impl LazyAccountValidator {
     /// Create new lazy validator for the given number of accounts
     #[inline]
     pub const fn new(account_count: usize) -> Self {
-        let clamped = if account_count > 64 { 64 } else { account_count };
+        let clamped = if account_count > 64 {
+            64
+        } else {
+            account_count
+        };
         Self {
             touched_bitmap: Cell::new(0),
             account_count: clamped as u8,
@@ -93,7 +97,7 @@ impl LazyAccountValidator {
         // Basic account validation - removed strict initialization check
         // Accounts can be uninitialized (e.g. for @init constraints), so we should not
         // enforce initialization here. Explicit opcodes like CHECK_INITIALIZED handle this.
-        
+
         // Additional constraints validation can leverage header-provided metadata when available
         Ok(())
     }

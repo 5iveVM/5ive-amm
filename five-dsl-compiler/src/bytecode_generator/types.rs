@@ -28,7 +28,7 @@ pub struct FunctionInfo {
     pub name: String,
     pub offset: usize,
     pub parameter_count: u8,
-    pub is_public: bool, // true for pub functions, false for private
+    pub is_public: bool,       // true for pub functions, false for private
     pub has_return_type: bool, // true if function has a return type (not void)
 }
 

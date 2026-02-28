@@ -4,9 +4,13 @@
 //! to verify that function calls work correctly in the MitoVM.
 
 use five_dsl_compiler::DslCompiler;
-use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
@@ -44,7 +48,7 @@ fn test_multiple_functions_execution() {
     // Function 0 (test) has 0 parameters.
     let input: &[u8] = &[
         0, 0, 0, 0, // func_index = 0
-        0, 0, 0, 0  // param_count = 0
+        0, 0, 0, 0, // param_count = 0
     ];
 
     println!("Executing bytecode with MitoVM...");
@@ -111,7 +115,7 @@ fn test_multiple_functions_execution() {
             println!("Trying function index 2 (test function)...");
             let input_2: &[u8] = &[
                 2, 0, 0, 0, // func_index = 2
-                0, 0, 0, 0  // param_count = 0
+                0, 0, 0, 0, // param_count = 0
             ];
             match execute_test(&vm_bytecode, input_2, accounts) {
                 Ok(Some(Value::U64(result))) => {
@@ -126,7 +130,8 @@ fn test_multiple_functions_execution() {
             println!("Trying function index 0 (add function - will fail without params)...");
             let input_0: &[u8] = &[
                 0, 0, 0, 0, // func_index = 0
-                0, 0, 0, 0  // param_count = 0 (but it expects 2, so this might fail differently, but encoding is valid)
+                0, 0, 0,
+                0, // param_count = 0 (but it expects 2, so this might fail differently, but encoding is valid)
             ];
             match execute_test(&vm_bytecode, input_0, accounts) {
                 Ok(Some(Value::U64(result))) => {

@@ -57,9 +57,9 @@ pub const FEATURE_FUSED_BRANCH: u32 = 1 << 0;
 pub const FEATURE_NO_VALIDATION: u32 = 1 << 1;
 pub const FEATURE_MINIMAL_ERRORS: u32 = 1 << 2;
 pub const FEATURE_COLD_START_OPT: u32 = 1 << 3;
-pub const FEATURE_IMPORT_VERIFICATION: u32 = 1 << 4;  // Import verification metadata present
-pub const FEATURE_FUNCTION_CONSTRAINTS: u32 = 1 << 9;  // Function constraint metadata present
-// Constant pool features
+pub const FEATURE_IMPORT_VERIFICATION: u32 = 1 << 4; // Import verification metadata present
+pub const FEATURE_FUNCTION_CONSTRAINTS: u32 = 1 << 9; // Function constraint metadata present
+                                                      // Constant pool features
 pub const FEATURE_CONSTANT_POOL: u32 = 1 << 10; // Constant pool descriptor + pool data present
 pub const FEATURE_CONSTANT_POOL_STRINGS: u32 = 1 << 11; // String blob present (fat pointers in pool)
 pub const FEATURE_PUBLIC_ENTRY_TABLE: u32 = 1 << 12; // Compact public entry offset table metadata
@@ -126,8 +126,8 @@ pub struct FunctionNameMetadata {
 /// Function constraint metadata entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FunctionConstraintEntry {
-    pub account_count: u8,           // How many accounts this function needs
-    pub constraints: [u8; 16],       // Up to 16 accounts, each with 8-bit constraint bitmask
+    pub account_count: u8,     // How many accounts this function needs
+    pub constraints: [u8; 16], // Up to 16 accounts, each with 8-bit constraint bitmask
 }
 
 impl FunctionConstraintEntry {

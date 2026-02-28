@@ -422,7 +422,8 @@ impl SuggestionRule for TypeMismatchRule {
                 ("u64", "u32") | ("u64", "u8") => {
                     suggestions.push(
                         Suggestion::new(
-                            "Try converting to u64 with `.into()` or cast with `as u64`".to_string(),
+                            "Try converting to u64 with `.into()` or cast with `as u64`"
+                                .to_string(),
                             0.8,
                         )
                         .with_type(SuggestionType::TypeFix),
@@ -473,17 +474,12 @@ impl SuggestionRule for UndefinedVariableRule {
 
         if let Some(identifier) = &error.context.identifier {
             if let Some(candidate) = error.context.get_data("did_you_mean") {
-                let suggestion = Suggestion::new(
-                    format!("Did you mean `{}`?", candidate),
-                    0.95,
-                )
-                .with_explanation(
-                    format!(
+                let suggestion = Suggestion::new(format!("Did you mean `{}`?", candidate), 0.95)
+                    .with_explanation(format!(
                         "The identifier `{}` is not in scope, but `{}` is available.",
                         identifier, candidate
-                    ),
-                )
-                .with_type(SuggestionType::Replacement);
+                    ))
+                    .with_type(SuggestionType::Replacement);
 
                 if let Some(location) = &error.location {
                     suggestions.push(suggestion.with_code_fix(CodeFix::replacement(

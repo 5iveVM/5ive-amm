@@ -1,9 +1,8 @@
+use five_vm_mito::error::VMError;
 /// Workspace configuration and management.
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use five_vm_mito::error::VMError;
 
 /// Link type for dependencies.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
@@ -74,7 +73,9 @@ pub enum VersionSpec {
     #[default]
     Inherit,
     Explicit(String),
-    WorkspaceRef { workspace: bool },
+    WorkspaceRef {
+        workspace: bool,
+    },
 }
 
 /// Package build configuration.
@@ -212,17 +213,13 @@ impl LockFile {
         if !path.exists() {
             return Ok(Self::new());
         }
-        let content = std::fs::read_to_string(path)
-            .map_err(|_| VMError::InvalidOperation)?;
-        toml::from_str(&content)
-            .map_err(|_| VMError::InvalidOperation)
+        let content = std::fs::read_to_string(path).map_err(|_| VMError::InvalidOperation)?;
+        toml::from_str(&content).map_err(|_| VMError::InvalidOperation)
     }
 
     pub fn save(&self, path: &Path) -> Result<(), VMError> {
-        let content = toml::to_string_pretty(self)
-            .map_err(|_| VMError::InvalidOperation)?;
-        std::fs::write(path, content)
-            .map_err(|_| VMError::InvalidOperation)
+        let content = toml::to_string_pretty(self).map_err(|_| VMError::InvalidOperation)?;
+        std::fs::write(path, content).map_err(|_| VMError::InvalidOperation)
     }
 
     /// Get address for a package
@@ -267,7 +264,11 @@ impl LockFile {
     /// Upsert namespace binding.
     pub fn update_namespace(&mut self, namespace: String, address: String) {
         let updated_at = None;
-        if let Some(idx) = self.namespaces.iter().position(|n| n.namespace == namespace) {
+        if let Some(idx) = self
+            .namespaces
+            .iter()
+            .position(|n| n.namespace == namespace)
+        {
             self.namespaces[idx] = NamespaceBinding {
                 namespace,
                 address,
@@ -299,7 +300,7 @@ mod tests {
         struct WorkspaceToml {
             workspace: WorkspaceConfig,
         }
-        
+
         let toml_str = r#"
 [workspace]
 members = ["packages/*"]
@@ -311,7 +312,10 @@ version = "1.0.0"
         let parsed: WorkspaceToml = toml::from_str(toml_str).unwrap();
         let config = parsed.workspace;
         assert_eq!(config.members, vec!["packages/*"]);
-        assert_eq!(config.exclude, Some(vec!["packages/deprecated".to_string()]));
+        assert_eq!(
+            config.exclude,
+            Some(vec!["packages/deprecated".to_string()])
+        );
     }
 
     #[test]
@@ -339,8 +343,11 @@ utils = "1.0.0"
             deployed_at: None,
             exports: None,
         });
-        
-        assert_eq!(lock.get_address("math-lib"), Some("11111111111111111111111111111111"));
+
+        assert_eq!(
+            lock.get_address("math-lib"),
+            Some("11111111111111111111111111111111")
+        );
         assert_eq!(lock.get_address("unknown"), None);
     }
 }

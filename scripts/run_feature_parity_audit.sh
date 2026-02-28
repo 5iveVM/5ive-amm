@@ -36,7 +36,7 @@ fi
 
 if [[ "${FIVE_REQUIRE_LOCALNET_BUILTIN_MATRIX:-0}" == "1" ]]; then
   echo "[extra] Run builtin localnet validator matrix"
-  node scripts/run-dsl-builtin-validator-matrix.mjs \
+  ./scripts/run-dsl-builtin-validator-matrix.sh \
     --network localnet \
     --program-id "${FIVE_PROGRAM_ID:-}" \
     --vm-state "${VM_STATE_PDA:-}" \

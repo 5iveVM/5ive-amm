@@ -36,11 +36,9 @@ fn main() {
 async fn native_main() {
     // Initialize logging (writes to stderr so LSP protocol on stdout isn't polluted)
     tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::new(
-                std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
-            ),
-        )
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+        ))
         .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
         .init();
 

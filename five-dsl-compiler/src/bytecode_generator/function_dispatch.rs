@@ -1,11 +1,11 @@
 // Function metadata collection for DSL calls.
 
+use super::import_table::ImportTable;
 use super::scope_analyzer;
 use super::types::*;
 use super::{AccountSystem, OpcodeEmitter};
-use super::import_table::ImportTable;
-use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::ast::ImportItem;
+use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::bytecode_generator::types; // Import the module directly
 use crate::config::workspace::{ExportMetadata, LockFile};
 
@@ -79,32 +79,38 @@ impl FunctionDispatcher {
         item: &ImportItem,
         exports: Option<&ExportMetadata>,
     ) -> Result<(bool, String, HashMap<String, u16>, Vec<String>), VMError> {
-        let classify_unqualified = |name: &str,
-                                    exports: Option<&ExportMetadata>|
-         -> Result<(bool, String, HashMap<String, u16>, Vec<String>), VMError> {
-            if let Some(exports) = exports {
-                let method_exists = exports.methods.iter().any(|m| m == name);
-                let iface = exports.interfaces.iter().find(|i| i.name == name);
+        let classify_unqualified =
+            |name: &str,
+             exports: Option<&ExportMetadata>|
+             -> Result<(bool, String, HashMap<String, u16>, Vec<String>), VMError> {
+                if let Some(exports) = exports {
+                    let method_exists = exports.methods.iter().any(|m| m == name);
+                    let iface = exports.interfaces.iter().find(|i| i.name == name);
 
-                if method_exists && iface.is_some() {
-                    return Err(VMError::InvalidScript);
-                }
-                if !method_exists && iface.is_none() {
-                    return Err(VMError::InvalidScript);
-                }
-                if let Some(iface) = iface {
-                    let mut selectors = HashMap::new();
-                    let mut import_names = Vec::new();
-                    for (method, callee) in &iface.method_map {
-                        selectors.insert(method.clone(), Self::external_selector(callee));
-                        import_names.push(callee.clone());
+                    if method_exists && iface.is_some() {
+                        return Err(VMError::InvalidScript);
                     }
-                    return Ok((true, name.to_string(), selectors, import_names));
+                    if !method_exists && iface.is_none() {
+                        return Err(VMError::InvalidScript);
+                    }
+                    if let Some(iface) = iface {
+                        let mut selectors = HashMap::new();
+                        let mut import_names = Vec::new();
+                        for (method, callee) in &iface.method_map {
+                            selectors.insert(method.clone(), Self::external_selector(callee));
+                            import_names.push(callee.clone());
+                        }
+                        return Ok((true, name.to_string(), selectors, import_names));
+                    }
                 }
-            }
 
-            Ok((false, name.to_string(), HashMap::new(), vec![name.to_string()]))
-        };
+                Ok((
+                    false,
+                    name.to_string(),
+                    HashMap::new(),
+                    vec![name.to_string()],
+                ))
+            };
 
         match item {
             ImportItem::Method(name) => {
@@ -183,7 +189,9 @@ impl FunctionDispatcher {
                     {
                         println!(
                             "DEBUG: instruction_definition[{}] = {} (public: {})",
-                            i, name, visibility.is_on_chain_callable()
+                            i,
+                            name,
+                            visibility.is_on_chain_callable()
                         );
                     }
                 }
@@ -300,7 +308,7 @@ impl FunctionDispatcher {
                     name: "__init".to_string(),
                     offset: 0, // Will be patched later
                     parameter_count: 0,
-                    is_public: true, // __init is always public (entry point)
+                    is_public: true,        // __init is always public (entry point)
                     has_return_type: false, // init blocks don't have return types
                 });
 
@@ -423,14 +431,19 @@ impl FunctionDispatcher {
                 } = import_stmt
                 {
                     // Extract account address or module path
-                    let (account_address, is_external_import, namespace_seed) = match module_specifier {
-                        crate::ast::ModuleSpecifier::External(addr) => (addr.clone(), true, None),
-                        crate::ast::ModuleSpecifier::Namespace(ns) => {
-                            (ns.import_key().to_string(), true, Some(ns.pda_seed_bytes()))
-                        }
-                        crate::ast::ModuleSpecifier::Local(name) => (name.clone(), false, None),
-                        crate::ast::ModuleSpecifier::Nested(path) => (path.join("::"), false, None),
-                    };
+                    let (account_address, is_external_import, namespace_seed) =
+                        match module_specifier {
+                            crate::ast::ModuleSpecifier::External(addr) => {
+                                (addr.clone(), true, None)
+                            }
+                            crate::ast::ModuleSpecifier::Namespace(ns) => {
+                                (ns.import_key().to_string(), true, Some(ns.pda_seed_bytes()))
+                            }
+                            crate::ast::ModuleSpecifier::Local(name) => (name.clone(), false, None),
+                            crate::ast::ModuleSpecifier::Nested(path) => {
+                                (path.join("::"), false, None)
+                            }
+                        };
 
                     // Store import information for both functions and fields
                     // ARCHITECTURE: Five DSL supports importing both functions and fields
@@ -465,8 +478,10 @@ impl FunctionDispatcher {
                                                 verify_name,
                                             );
                                         } else {
-                                            self.import_table
-                                                .add_import_by_address(&account_address, verify_name);
+                                            self.import_table.add_import_by_address(
+                                                &account_address,
+                                                verify_name,
+                                            );
                                         }
                                     }
                                 }
@@ -533,8 +548,10 @@ impl FunctionDispatcher {
                                     "import_all".to_string(),
                                 );
                             } else {
-                                self.import_table
-                                    .add_import_by_address(&account_address, "import_all".to_string());
+                                self.import_table.add_import_by_address(
+                                    &account_address,
+                                    "import_all".to_string(),
+                                );
                             }
                         }
 
@@ -607,8 +624,8 @@ impl FunctionDispatcher {
 
         // 1. Generate Dispatcher Preamble (Jump Table)
         // Checks function index (param 0) and jumps to the corresponding "Call Block"
-        
-        // We need to track where the jump offsets are so we can patch them 
+
+        // We need to track where the jump offsets are so we can patch them
         // to point to the Call Blocks we'll generate next.
         let mut jump_patch_locations: Vec<(usize, String, usize)> = Vec::new();
 
@@ -624,26 +641,39 @@ impl FunctionDispatcher {
             jump_patch_locations.push((i, function.name.clone(), patch_pos));
             emitter.emit_u16(0xFFFF); // Placeholder absolute offset to Call Block
         }
-        
-        println!("DEBUG: Finished Checks Loop. Position: {}", emitter.get_position());
+
+        println!(
+            "DEBUG: Finished Checks Loop. Position: {}",
+            emitter.get_position()
+        );
 
         // If no match found (and not init), halt or error
         // Default behavior: just halt/return if no function matches
         emitter.emit_opcode(five_protocol::opcodes::HALT);
 
-        println!("DEBUG: Emitting Call Blocks. Position: {}", emitter.get_position());
+        println!(
+            "DEBUG: Emitting Call Blocks. Position: {}",
+            emitter.get_position()
+        );
 
         // 2. Generate Call Blocks
         // Each block jumps directly to the function (not CALL, to avoid call depth issues)
         self.public_entry_points.clear();
         for (function_index, name, patch_pos) in jump_patch_locations {
-            let function = self.functions.iter().find(|f| f.name == name)
+            let function = self
+                .functions
+                .iter()
+                .find(|f| f.name == name)
                 .ok_or(VMError::InvalidScript)?;
-            
+
             // Patch the JUMP_IF to point here (start of Call Block)
             let call_block_start = emitter.get_position();
-            println!("DEBUG: Patching {} at {} to point to Call Block at {}", name, patch_pos, call_block_start);
-            self.dispatch_jump_patches.push((patch_pos, call_block_start));
+            println!(
+                "DEBUG: Patching {} at {} to point to Call Block at {}",
+                name, patch_pos, call_block_start
+            );
+            self.dispatch_jump_patches
+                .push((patch_pos, call_block_start));
             if function.is_public {
                 self.public_entry_points
                     .push((function_index as u8, call_block_start));
@@ -662,7 +692,7 @@ impl FunctionDispatcher {
             // For functions with parameters, we need to move them from the input parameters
             // Jump directly to the function body to preserve parameter indexing
             // in the original execution context.
-            
+
             // Retrieve parameters from cache
             let function_parameters = &self.parameter_cache[&name];
 
@@ -676,7 +706,9 @@ impl FunctionDispatcher {
                     &param.attributes,
                     Some(account_system.get_account_registry()),
                 );
-                if is_account { continue; }
+                if is_account {
+                    continue;
+                }
 
                 actual_data_count += 1;
                 data_param_index += 1;
@@ -697,12 +729,12 @@ impl FunctionDispatcher {
             emitter.emit_u8(actual_data_count);
 
             let call_offset_pos = emitter.get_position();
-            self.dispatch_patch_locations.insert(function.name.clone(), call_offset_pos);
+            self.dispatch_patch_locations
+                .insert(function.name.clone(), call_offset_pos);
             emitter.emit_u16(0xFFFF); // Placeholder for function offset
 
             // HALT after return
             emitter.emit_opcode(five_protocol::opcodes::HALT);
-
         }
 
         Ok(())
@@ -725,7 +757,10 @@ impl FunctionDispatcher {
         }
 
         for (name, patch_pos) in &self.dispatch_patch_locations {
-            let function = self.functions.iter().find(|f| f.name == *name)
+            let function = self
+                .functions
+                .iter()
+                .find(|f| f.name == *name)
                 .ok_or(VMError::InvalidScript)?;
 
             let absolute_target = function
@@ -770,16 +805,30 @@ impl FunctionDispatcher {
                 else {
                     continue;
                 };
-                let (address, _namespace_seed, local_module_alias, local_module_path, is_external_import) = match module_specifier {
+                let (
+                    address,
+                    _namespace_seed,
+                    local_module_alias,
+                    local_module_path,
+                    is_external_import,
+                ) = match module_specifier {
                     crate::ast::ModuleSpecifier::External(address) => {
                         (address.clone(), None, None, None, true)
                     }
-                    crate::ast::ModuleSpecifier::Namespace(ns) => {
-                        (ns.import_key().to_string(), Some(ns.pda_seed_bytes()), None, None, true)
-                    }
-                    crate::ast::ModuleSpecifier::Local(name) => {
-                        (name.clone(), None, Some(name.clone()), Some(name.clone()), false)
-                    }
+                    crate::ast::ModuleSpecifier::Namespace(ns) => (
+                        ns.import_key().to_string(),
+                        Some(ns.pda_seed_bytes()),
+                        None,
+                        None,
+                        true,
+                    ),
+                    crate::ast::ModuleSpecifier::Local(name) => (
+                        name.clone(),
+                        None,
+                        Some(name.clone()),
+                        Some(name.clone()),
+                        false,
+                    ),
                     crate::ast::ModuleSpecifier::Nested(path) if !path.is_empty() => {
                         let full = path.join("::");
                         let alias = path[path.len() - 1].clone();
@@ -788,9 +837,7 @@ impl FunctionDispatcher {
                     _ => continue,
                 };
 
-                let exports = lockfile
-                    .as_ref()
-                    .and_then(|l| l.get_exports(&address));
+                let exports = lockfile.as_ref().and_then(|l| l.get_exports(&address));
                 let mut selectors = HashMap::new();
                 let mut allow_any_function = imported_items.is_none();
                 if let Some(items) = imported_items {
@@ -821,7 +868,8 @@ impl FunctionDispatcher {
                             }
                         } else {
                             if is_external_import {
-                                selectors.insert(item_name.clone(), Self::external_selector(&item_name));
+                                selectors
+                                    .insert(item_name.clone(), Self::external_selector(&item_name));
                             }
                         }
                     }
@@ -1018,22 +1066,25 @@ impl FunctionDispatcher {
         // If max_local_index is -1, we need 0 locals. Otherwise max_index + 1.
         let required_locals = (max_local_index + 1) as u8;
         if required_locals > 0 {
-             // 0xA0 is ALLOC_LOCALS in five_protocol::opcodes
-             // We can use the constant if imported, or just use the opcode value with a comment
-             // ALLOC_LOCALS is imported via `use super::opcodes::*;`? No, `use five_protocol::opcodes::*;` is not fully visible here?
-             // function_dispatch.rs imports `five_protocol` types but maybe not all opcodes.
-             // It uses `five_protocol::opcodes::LOAD_PARAM` etc explicitly.
-             emitter.emit_opcode(five_protocol::opcodes::ALLOC_LOCALS);
-             emitter.emit_u8(required_locals);
-             println!("DEBUG: Emitting ALLOC_LOCALS {} for function {}", required_locals, function_name);
+            // 0xA0 is ALLOC_LOCALS in five_protocol::opcodes
+            // We can use the constant if imported, or just use the opcode value with a comment
+            // ALLOC_LOCALS is imported via `use super::opcodes::*;`? No, `use five_protocol::opcodes::*;` is not fully visible here?
+            // function_dispatch.rs imports `five_protocol` types but maybe not all opcodes.
+            // It uses `five_protocol::opcodes::LOAD_PARAM` etc explicitly.
+            emitter.emit_opcode(five_protocol::opcodes::ALLOC_LOCALS);
+            emitter.emit_u8(required_locals);
+            println!(
+                "DEBUG: Emitting ALLOC_LOCALS {} for function {}",
+                required_locals, function_name
+            );
         }
-        
+
         // Setup AST generator
         ast_generator.set_precomputed_allocations(allocations_map);
         ast_generator.field_counter = required_locals as u32; // Reset local slot counter to next available slot (or keep it if we want to reuse?)
-        // Actually field_counter should probably track the count to avoid overwriting if new locals are added dynamically (e.g. temps)
-        // But ScopeAnalyzer should have caught all variables. Temps (like in array literal) use field_counter.
-        // So field_counter should start at required_locals.
+                                                              // Actually field_counter should probably track the count to avoid overwriting if new locals are added dynamically (e.g. temps)
+                                                              // But ScopeAnalyzer should have caught all variables. Temps (like in array literal) use field_counter.
+                                                              // So field_counter should start at required_locals.
 
         ast_generator.local_symbol_table.clear(); // Clear previous locals
 
@@ -1070,18 +1121,20 @@ impl FunctionDispatcher {
         // - authority: account_offset=1, is_parameter=false
         // - freeze_authority: offset=0, is_parameter=true → LOAD_PARAM 1
         // - decimals: offset=1, is_parameter=true → LOAD_PARAM 2  ← Correct!
-        
+
         let mut account_counter: u32 = 0;
         let mut data_counter: u32 = 0;
 
         // Count data parameters to ensure field_counter starts after them
         let total_data_params: u32 = parameters
             .iter()
-            .filter(|p| !super::account_utils::is_account_parameter(
-                &p.param_type,
-                &p.attributes,
-                Some(account_system.get_account_registry())
-            ))
+            .filter(|p| {
+                !super::account_utils::is_account_parameter(
+                    &p.param_type,
+                    &p.attributes,
+                    Some(account_system.get_account_registry()),
+                )
+            })
             .count() as u32;
 
         for (_index, param) in parameters.iter().enumerate() {
@@ -1090,7 +1143,7 @@ impl FunctionDispatcher {
             let is_account = super::account_utils::is_account_parameter(
                 &param.param_type,
                 &param.attributes,
-                Some(account_system.get_account_registry())
+                Some(account_system.get_account_registry()),
             );
 
             // Determine offset and access pattern
@@ -1113,7 +1166,7 @@ impl FunctionDispatcher {
                 // Implicit mutability: @init implies mutable, or explicit @mut
                 is_mutable: param.is_init || param.attributes.iter().any(|a| a.name == "mut"),
                 is_optional: param.is_optional,
-                is_parameter,       // Account params use account access, data params use LOAD_PARAM
+                is_parameter, // Account params use account access, data params use LOAD_PARAM
             };
             ast_generator.add_parameter_to_symbol_table(param.name.clone(), field_info);
         }
@@ -1141,9 +1194,12 @@ impl FunctionDispatcher {
                 if attr.name == "requires" {
                     if let Some(condition) = attr.args.first() {
                         println!("DEBUG: Generating require statement for condition in function_dispatch: {:?}", condition);
-                        ast_generator.generate_ast_node(emitter, &AstNode::RequireStatement { 
-                            condition: Box::new(condition.clone()) 
-                        })?;
+                        ast_generator.generate_ast_node(
+                            emitter,
+                            &AstNode::RequireStatement {
+                                condition: Box::new(condition.clone()),
+                            },
+                        )?;
                     }
                 }
             }
@@ -1208,8 +1264,13 @@ impl FunctionDispatcher {
             let type_name = self.type_node_to_string(&param.param_type);
 
             if account_system.is_account_type(&type_name) {
-                self.current_function_params
-                    .insert(param.name.clone(), (type_name, param.attributes.iter().map(|a| a.name.clone()).collect()));
+                self.current_function_params.insert(
+                    param.name.clone(),
+                    (
+                        type_name,
+                        param.attributes.iter().map(|a| a.name.clone()).collect(),
+                    ),
+                );
             }
         }
 
@@ -1444,7 +1505,7 @@ mod tests {
                         attributes: vec![],
                         is_init: false,
                         init_config: None,
-                    pda_config: None,
+                        pda_config: None,
                     }],
                     return_type: None,
                     body: Box::new(AstNode::Block {
@@ -1496,10 +1557,13 @@ mod tests {
                 param_type: TypeNode::Primitive("Account".to_string()),
                 is_optional: false,
                 default_value: None,
-                attributes: vec![crate::ast::Attribute { name: "signer".to_string(), args: vec![] }],
+                attributes: vec![crate::ast::Attribute {
+                    name: "signer".to_string(),
+                    args: vec![],
+                }],
                 is_init: false,
                 init_config: None,
-                    pda_config: None,
+                pda_config: None,
             },
             InstructionParameter {
                 name: "amount".to_string(),
@@ -1509,7 +1573,7 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
-                    pda_config: None,
+                pda_config: None,
             },
         ];
 
@@ -1541,7 +1605,9 @@ mod tests {
         // Simulate import registration via populate_import_table method
         // We'll directly add an import entry to the import_table
         let address = "11111111111111111111111111111111";
-        dispatcher.import_table.add_import_by_address(address, "external_func".to_string());
+        dispatcher
+            .import_table
+            .add_import_by_address(address, "external_func".to_string());
 
         let table = dispatcher.get_import_table();
         assert!(!table.is_empty());
@@ -1559,10 +1625,9 @@ mod tests {
         let mut dispatcher = FunctionDispatcher::new();
 
         // Add multiple imports
-        dispatcher.import_table.add_import_by_address(
-            "11111111111111111111111111111111",
-            "func1".to_string(),
-        );
+        dispatcher
+            .import_table
+            .add_import_by_address("11111111111111111111111111111111", "func1".to_string());
         dispatcher.import_table.add_import_by_address(
             "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
             "func2".to_string(),
@@ -1599,7 +1664,10 @@ mod tests {
 
         assert!(is_interface);
         assert_eq!(name, "TokenOps");
-        assert_eq!(selectors.get("transfer"), Some(&FunctionDispatcher::external_selector("transfer_checked")));
+        assert_eq!(
+            selectors.get("transfer"),
+            Some(&FunctionDispatcher::external_selector("transfer_checked"))
+        );
         assert_eq!(verify_names, vec!["transfer_checked".to_string()]);
     }
 
@@ -1652,7 +1720,9 @@ mod tests {
         let mut dispatcher = FunctionDispatcher::new();
 
         let seeds = vec![b"vault".to_vec(), b"user".to_vec()];
-        dispatcher.import_table.add_import_by_seeds(seeds, "get_vault".to_string());
+        dispatcher
+            .import_table
+            .add_import_by_seeds(seeds, "get_vault".to_string());
 
         let table = dispatcher.get_import_table();
         assert_eq!(table.len(), 1);

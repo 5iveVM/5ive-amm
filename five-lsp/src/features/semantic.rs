@@ -18,26 +18,26 @@ pub struct SerializableSemanticToken {
 
 /// Semantic token types for Five DSL
 pub const SEMANTIC_TOKEN_TYPES: &[&str] = &[
-    "function",      // 0: function declarations
-    "variable",      // 1: variable declarations
-    "type",          // 2: type references
-    "keyword",       // 3: language keywords
-    "modifier",      // 4: pub, mut, etc.
-    "comment",       // 5: comments
-    "string",        // 6: string literals
-    "number",        // 7: numeric literals
-    "account",       // 8: account parameters
-    "operator",      // 9: operators
+    "function", // 0: function declarations
+    "variable", // 1: variable declarations
+    "type",     // 2: type references
+    "keyword",  // 3: language keywords
+    "modifier", // 4: pub, mut, etc.
+    "comment",  // 5: comments
+    "string",   // 6: string literals
+    "number",   // 7: numeric literals
+    "account",  // 8: account parameters
+    "operator", // 9: operators
 ];
 
 /// Semantic token modifiers for Five DSL
 pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
-    "declaration",   // 0: declarations
-    "definition",    // 1: definitions
-    "readonly",      // 2: immutable binding
-    "deprecated",    // 3: deprecated items
-    "public",        // 4: public visibility
-    "mutable",       // 5: mutable binding
+    "declaration", // 0: declarations
+    "definition",  // 1: definitions
+    "readonly",    // 2: immutable binding
+    "deprecated",  // 3: deprecated items
+    "public",      // 4: public visibility
+    "mutable",     // 5: mutable binding
 ];
 
 /// Get semantic tokens for highlighting
@@ -53,7 +53,8 @@ pub fn get_semantic_tokens(
     let lines: Vec<&str> = source.lines().collect();
 
     // First, try to compile to AST for semantic context
-    let ast_context = bridge.compile_to_ast(uri, source)
+    let ast_context = bridge
+        .compile_to_ast(uri, source)
         .ok()
         .map(|ast| AstContext::from_ast(&ast));
 
@@ -64,12 +65,7 @@ pub fn get_semantic_tokens(
         }
 
         // Extract tokens from the line with AST context
-        extract_tokens_from_line(
-            line,
-            line_idx as u32,
-            &mut tokens,
-            ast_context.as_ref(),
-        );
+        extract_tokens_from_line(line, line_idx as u32, &mut tokens, ast_context.as_ref());
     }
 
     tokens
@@ -137,16 +133,45 @@ impl AstContext {
 
 /// Keywords in Five DSL that should be highlighted as keywords
 const KEYWORDS: &[&str] = &[
-    "instruction", "function", "pub", "let", "mut", "if", "else", "match", "return",
-    "account", "field", "interface", "event", "emit", "require", "init", "constraints",
-    "use", "import", "as", "when", "for", "while", "do", "break", "continue",
-    "true", "false", "None", "Some", "Ok", "Err", "error",
+    "instruction",
+    "function",
+    "pub",
+    "let",
+    "mut",
+    "if",
+    "else",
+    "match",
+    "return",
+    "account",
+    "field",
+    "interface",
+    "event",
+    "emit",
+    "require",
+    "init",
+    "constraints",
+    "use",
+    "import",
+    "as",
+    "when",
+    "for",
+    "while",
+    "do",
+    "break",
+    "continue",
+    "true",
+    "false",
+    "None",
+    "Some",
+    "Ok",
+    "Err",
+    "error",
 ];
 
 /// Types that should be highlighted as types
 const TYPES: &[&str] = &[
-    "u64", "u32", "u16", "u8", "i64", "i32", "i16", "i8", "bool", "string",
-    "pubkey", "lamports", "u128", "Account", "Result", "Option",
+    "u64", "u32", "u16", "u8", "i64", "i32", "i16", "i8", "bool", "string", "pubkey", "lamports",
+    "u128", "Account", "Result", "Option",
 ];
 
 /// Extract semantic tokens from a single line with AST context
@@ -206,7 +231,9 @@ fn extract_tokens_from_line(
         // Handle numbers
         if chars[i].is_ascii_digit() {
             let start = i;
-            while i < chars.len() && (chars[i].is_ascii_alphanumeric() || chars[i] == '_' || chars[i] == '.') {
+            while i < chars.len()
+                && (chars[i].is_ascii_alphanumeric() || chars[i] == '_' || chars[i] == '.')
+            {
                 i += 1;
             }
             tokens.push(SerializableSemanticToken {
@@ -295,7 +322,23 @@ fn extract_tokens_from_line(
             // Check for multi-char operators
             if i < chars.len() {
                 let two_char: String = chars[start..i.min(start + 2)].iter().collect();
-                if matches!(two_char.as_str(), "==" | "!=" | "<=" | ">=" | "&&" | "||" | "->" | "=>" | "+=" | "-=" | "*=" | "/=" | "<<" | ">>" | "<<<") {
+                if matches!(
+                    two_char.as_str(),
+                    "==" | "!="
+                        | "<="
+                        | ">="
+                        | "&&"
+                        | "||"
+                        | "->"
+                        | "=>"
+                        | "+="
+                        | "-="
+                        | "*="
+                        | "/="
+                        | "<<"
+                        | ">>"
+                        | "<<<"
+                ) {
                     i += 1;
                 }
             }

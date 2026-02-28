@@ -2,9 +2,7 @@
 
 use wasm_bindgen::prelude::*;
 
-use five_protocol::{
-    opcodes, types, Value, FIVE_DEPLOY_MAGIC, FIVE_MAGIC, MAX_SCRIPT_SIZE,
-};
+use five_protocol::{opcodes, types, Value, FIVE_DEPLOY_MAGIC, FIVE_MAGIC, MAX_SCRIPT_SIZE};
 use five_vm_mito::{error::VMError, FIVE_VM_PROGRAM_ID};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +10,6 @@ const MAX_COMPUTE_UNITS: usize = 1_000_000;
 use five_dsl_compiler::{
     error::integration,
     metrics::{export_metrics, CompilerMetrics, ExportFormat, MetricsCollector},
-
     DslCompiler,
 };
 
@@ -420,14 +417,18 @@ impl FiveVMWasm {
                 let instruction_pointer = exec_context.instruction_pointer;
                 let final_stack = vec![]; // Stack contents not needed for current use case
                 let final_memory = exec_context.memory.to_vec();
-                                          // Check if we stopped due to a system call
+                // Check if we stopped due to a system call
                 if let Some(system_call) = self._system.get_encountered_system_call() {
                     let (status, opcode_name, opcode) = match system_call {
-                        SystemCallType::Invoke(op) => (ExecutionStatus::StoppedAtInvoke, "INVOKE", op),
+                        SystemCallType::Invoke(op) => {
+                            (ExecutionStatus::StoppedAtInvoke, "INVOKE", op)
+                        }
                         SystemCallType::InvokeSigned(op) => {
                             (ExecutionStatus::StoppedAtInvokeSigned, "INVOKE_SIGNED", op)
                         }
-                        SystemCallType::InitPDA(op) => (ExecutionStatus::StoppedAtInitPDA, "INIT_PDA", op),
+                        SystemCallType::InitPDA(op) => {
+                            (ExecutionStatus::StoppedAtInitPDA, "INIT_PDA", op)
+                        }
                         SystemCallType::Transfer(op) => {
                             (ExecutionStatus::StoppedAtSystemCall, "TRANSFER", op)
                         }
@@ -446,7 +447,10 @@ impl FiveVMWasm {
                         instruction_pointer,
                         final_stack: final_stack.clone(),
                         final_memory: final_memory.clone(),
-                        final_accounts: updated_accounts.iter().map(|acc| serde_wasm_bindgen::to_value(acc).unwrap()).collect(),
+                        final_accounts: updated_accounts
+                            .iter()
+                            .map(|acc| serde_wasm_bindgen::to_value(acc).unwrap())
+                            .collect(),
                         error_message: None,
                         execution_context: None,
                         stopped_at_opcode: Some(opcode),
@@ -461,7 +465,10 @@ impl FiveVMWasm {
                         instruction_pointer,
                         final_stack,
                         final_memory,
-                        final_accounts: updated_accounts.iter().map(|acc| serde_wasm_bindgen::to_value(acc).unwrap()).collect(),
+                        final_accounts: updated_accounts
+                            .iter()
+                            .map(|acc| serde_wasm_bindgen::to_value(acc).unwrap())
+                            .collect(),
                         error_message: None,
                         execution_context: None,
                         stopped_at_opcode: None,
@@ -502,7 +509,8 @@ impl FiveVMWasm {
                 let final_stack = vec![]; // Stack contents not available in error case
                 let final_memory = exec_context.memory.to_vec();
                 let stopped_at_opcode = exec_context.failed_opcode;
-                let stopped_at_opcode_name = stopped_at_opcode.map(|op| opcode_to_name(op).to_string());
+                let stopped_at_opcode_name =
+                    stopped_at_opcode.map(|op| opcode_to_name(op).to_string());
 
                 Ok(TestResult {
                     status,
@@ -586,7 +594,10 @@ impl FiveVMWasm {
         let mut opcodes_map = serde_json::Map::new();
 
         for info in five_protocol::opcodes::OPCODE_TABLE {
-            opcodes_map.insert(info.name.to_string(), serde_json::Value::Number(serde_json::Number::from(info.opcode)));
+            opcodes_map.insert(
+                info.name.to_string(),
+                serde_json::Value::Number(serde_json::Number::from(info.opcode)),
+            );
         }
 
         let constants = serde_json::json!({
@@ -620,7 +631,10 @@ impl FiveVMWasm {
             five_vm_mito::VMExecutionContext,
             Vec<WasmAccount>,
         ),
-        (five_vm_mito::error::VMError, five_vm_mito::VMExecutionContext),
+        (
+            five_vm_mito::error::VMError,
+            five_vm_mito::VMExecutionContext,
+        ),
     > {
         // Decode instruction data before passing to MitoVM
         // If decoding fails, return early with empty context
@@ -674,32 +688,39 @@ impl FiveVMWasm {
         // Prepare backing storage for account data
         // The AccountInfo constructor is not available in pinocchio 0.9.2
         // We'll keep the backing storage but use empty account_infos for now
-        let keys: Vec<pinocchio::pubkey::Pubkey> = wasm_accounts.iter().map(|a| {
-            let mut pubkey_bytes = [0u8; 32];
-            pubkey_bytes.copy_from_slice(&a.key);
-            pinocchio::pubkey::Pubkey::from(pubkey_bytes)
-        }).collect();
-        let owners: Vec<pinocchio::pubkey::Pubkey> = wasm_accounts.iter().map(|a| {
-            let mut pubkey_bytes = [0u8; 32];
-            pubkey_bytes.copy_from_slice(&a.owner);
-            pinocchio::pubkey::Pubkey::from(pubkey_bytes)
-        }).collect();
+        let keys: Vec<pinocchio::pubkey::Pubkey> = wasm_accounts
+            .iter()
+            .map(|a| {
+                let mut pubkey_bytes = [0u8; 32];
+                pubkey_bytes.copy_from_slice(&a.key);
+                pinocchio::pubkey::Pubkey::from(pubkey_bytes)
+            })
+            .collect();
+        let owners: Vec<pinocchio::pubkey::Pubkey> = wasm_accounts
+            .iter()
+            .map(|a| {
+                let mut pubkey_bytes = [0u8; 32];
+                pubkey_bytes.copy_from_slice(&a.owner);
+                pinocchio::pubkey::Pubkey::from(pubkey_bytes)
+            })
+            .collect();
         let mut lamports: Vec<u64> = wasm_accounts.iter().map(|a| a.lamports).collect();
         let mut data: Vec<Vec<u8>> = wasm_accounts.iter().map(|a| a.data.clone()).collect();
 
         // Manual AccountInfo construction using Pinocchio API
-        let mut account_infos: Vec<pinocchio::account_info::AccountInfo> = Vec::with_capacity(wasm_accounts.len());
+        let mut account_infos: Vec<pinocchio::account_info::AccountInfo> =
+            Vec::with_capacity(wasm_accounts.len());
         for i in 0..wasm_accounts.len() {
-             account_infos.push(pinocchio::account_info::AccountInfo::new(
-                 &keys[i],
-                 wasm_accounts[i].is_signer,
-                 wasm_accounts[i].is_writable,
-                 &mut lamports[i],
-                 &mut data[i],
-                 &owners[i],
-                 false, // executable
-                 0,     // rent_epoch
-             ));
+            account_infos.push(pinocchio::account_info::AccountInfo::new(
+                &keys[i],
+                wasm_accounts[i].is_signer,
+                wasm_accounts[i].is_writable,
+                &mut lamports[i],
+                &mut data[i],
+                &owners[i],
+                false, // executable
+                0,     // rent_epoch
+            ));
         }
 
         // Execute using MitoVM with populated accounts
@@ -722,26 +743,26 @@ impl FiveVMWasm {
         // Note: AccountInfo::new() creates a copy, so we must read back from AccountInfo
         let mut updated_wasm_accounts = Vec::with_capacity(wasm_accounts.len());
         for i in 0..wasm_accounts.len() {
-             let account_info = &account_infos[i];
+            let account_info = &account_infos[i];
 
-             // Safety: We are the only ones accessing this data in this thread
-             let new_data = unsafe { account_info.borrow_data_unchecked() }.to_vec();
-             let new_lamports = account_info.lamports();
-             let new_owner = *account_info.owner();
+            // Safety: We are the only ones accessing this data in this thread
+            let new_data = unsafe { account_info.borrow_data_unchecked() }.to_vec();
+            let new_lamports = account_info.lamports();
+            let new_owner = *account_info.owner();
 
-             updated_wasm_accounts.push(WasmAccount {
+            updated_wasm_accounts.push(WasmAccount {
                 key: keys[i],
                 data: new_data,
                 lamports: new_lamports,
                 is_writable: wasm_accounts[i].is_writable,
                 is_signer: wasm_accounts[i].is_signer,
                 owner: new_owner,
-             });
+            });
         }
 
         // Enhanced error reporting for debugging
         match &result {
-             Ok((result_value, context)) => {
+            Ok((result_value, context)) => {
                 log_message(&format!(
                     "WASM: MitoVM execution SUCCESS - IP: {}, halted: {}",
                     context.instruction_pointer, context.halted
@@ -759,7 +780,9 @@ impl FiveVMWasm {
                 match vm_error {
                     five_vm_mito::error::VMError::StackError => {
                         log_message("StackError detected");
-                        log_message("Possible causes: empty stack pop, return failure, or stack corruption");
+                        log_message(
+                            "Possible causes: empty stack pop, return failure, or stack corruption",
+                        );
                     }
                     five_vm_mito::error::VMError::AbiParameterMismatch {
                         function_index,
@@ -793,7 +816,7 @@ impl FiveVMWasm {
         }
 
         log_message(&format!("Result: {:?}", result));
-        
+
         // Return result with updated accounts
         result.map(|(val, ctx)| (val, ctx, updated_wasm_accounts))
     }
@@ -808,10 +831,7 @@ impl FiveVMWasm {
         }
 
         // Log input for debugging
-        log_message(&format!(
-            "Extracting bytecode ({} bytes)",
-            input_data.len()
-        ));
+        log_message(&format!("Extracting bytecode ({} bytes)", input_data.len()));
 
         // Check if this is already pure FIVE bytecode (starts with magic bytes)
         if input_data.len() >= 4 && &input_data[0..4] == FIVE_MAGIC {
@@ -894,25 +914,14 @@ impl FiveVMWasm {
 
             // Log the decoding for debugging
             log_message("Decoded instruction");
-            log_message(&format!(
-                "  Raw ({}): {:?}",
-                input_data.len(),
-                input_data
-            ));
+            log_message(&format!("  Raw ({}): {:?}", input_data.len(), input_data));
             log_message(&format!("  Discriminator: {}", input_data[0]));
-            log_message(&format!(
-                "  MitoVM data ({}): {:?}",
-                data.len(),
-                data
-            ));
+            log_message(&format!("  MitoVM data ({}): {:?}", data.len(), data));
 
             Ok(data.to_vec())
         } else {
             // Not an Execute instruction - pass through as-is
-            log_message(&format!(
-                "Non-Execute, passing through: {:?}",
-                input_data
-            ));
+            log_message(&format!("Non-Execute, passing through: {:?}", input_data));
             Ok(input_data.to_vec())
         }
     }
@@ -1351,9 +1360,7 @@ impl BytecodeAnalyzer {
         }))
     }
 
-    pub(crate) fn analyze_semantic_internal(
-        bytecode: &[u8],
-    ) -> Result<serde_json::Value, String> {
+    pub(crate) fn analyze_semantic_internal(bytecode: &[u8]) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::bytecode_generator::AdvancedBytecodeAnalyzer;
 
         // Create and run the advanced analyzer
@@ -1646,7 +1653,7 @@ impl WasmSuggestion {
     pub fn explanation(&self) -> Option<String> {
         self.explanation.clone()
     }
-    
+
     #[wasm_bindgen(getter)]
     pub fn code_suggestion(&self) -> Option<String> {
         self.code_suggestion.clone()
@@ -1707,7 +1714,7 @@ pub struct WasmCompilerError {
     #[wasm_bindgen(skip)]
     pub source_line: Option<String>,
     /// Source snippet for multi-line context
-    #[wasm_bindgen(skip)] 
+    #[wasm_bindgen(skip)]
     pub source_snippet: Option<String>,
     /// Line number (for SDK compatibility)
     #[wasm_bindgen(skip)]
@@ -1782,93 +1789,96 @@ impl WasmCompilerError {
     pub fn format_terminal(&self) -> String {
         use std::fmt::Write;
         let mut output = String::new();
-        
+
         // Header: error[E0000]: message
         // Use colors if possible (simulated with ANSI codes for now since we're returning string)
         let color_reset = "\x1b[0m";
         let color_red = "\x1b[31m";
         let color_blue = "\x1b[34m";
         let color_cyan = "\x1b[36m";
-        
+
         let severity_color = match self.severity.as_str() {
             "error" => color_red,
             "warning" => "\x1b[33m", // Yellow
             _ => color_blue,
         };
-        
+
         // 1. Error header
         writeln!(
-            &mut output, 
-            "{}{}[{}]{}: {}", 
-            severity_color,
-            self.severity, 
-            self.code, 
-            color_reset,
-            self.message
-        ).unwrap();
-        
+            &mut output,
+            "{}{}[{}]{}: {}",
+            severity_color, self.severity, self.code, color_reset, self.message
+        )
+        .unwrap();
+
         // 2. Location
         if let Some(loc) = &self.location {
             let file_display = loc.file.as_deref().unwrap_or("unknown");
             writeln!(
-                &mut output, 
-                "  {}-->{} {}:{}:{}", 
-                color_blue, color_reset,
-                file_display, loc.line, loc.column
-            ).unwrap();
+                &mut output,
+                "  {}-->{} {}:{}:{}",
+                color_blue, color_reset, file_display, loc.line, loc.column
+            )
+            .unwrap();
         } else if let (Some(line), Some(col)) = (self.line, self.column) {
-             // Fallback to direct line/col if location object missing
-             writeln!(
-                &mut output, 
-                "  {}-->{} line {}:{}", 
-                color_blue, color_reset,
-                line, col
-            ).unwrap();
+            // Fallback to direct line/col if location object missing
+            writeln!(
+                &mut output,
+                "  {}-->{} line {}:{}",
+                color_blue, color_reset, line, col
+            )
+            .unwrap();
         }
-        
+
         // 3. Description (if present and different from message)
         if let Some(desc) = &self.description {
             if desc != &self.message {
                 writeln!(&mut output, "  {}", desc).unwrap();
             }
         }
-        
+
         // 4. Source snippet
         if let Some(snippet) = &self.source_snippet {
             writeln!(&mut output, "{}", snippet).unwrap();
         } else if let Some(line_content) = &self.source_line {
-             if let Some(loc) = &self.location {
-                 let line_num_str = loc.line.to_string();
-                 let pad = " ".repeat(line_num_str.len());
-                 
-                 writeln!(&mut output, "  {} |{}", pad, color_reset).unwrap();
-                 writeln!(&mut output, "{} {} |{} {}", loc.line, color_blue, color_reset, line_content).unwrap();
-                 
-                 // Underline error
-                 let pointer_pad = " ".repeat(loc.column.saturating_sub(1) as usize);
-                 let pointer_len = std::cmp::max(1, loc.length);
-                 let pointer = "^".repeat(pointer_len);
-                 
-                 writeln!(
-                     &mut output, 
-                     "  {} |{} {}{}{} {}", 
-                     pad, color_blue, pointer_pad, severity_color, pointer, color_reset
-                 ).unwrap();
-             }
+            if let Some(loc) = &self.location {
+                let line_num_str = loc.line.to_string();
+                let pad = " ".repeat(line_num_str.len());
+
+                writeln!(&mut output, "  {} |{}", pad, color_reset).unwrap();
+                writeln!(
+                    &mut output,
+                    "{} {} |{} {}",
+                    loc.line, color_blue, color_reset, line_content
+                )
+                .unwrap();
+
+                // Underline error
+                let pointer_pad = " ".repeat(loc.column.saturating_sub(1) as usize);
+                let pointer_len = std::cmp::max(1, loc.length);
+                let pointer = "^".repeat(pointer_len);
+
+                writeln!(
+                    &mut output,
+                    "  {} |{} {}{}{} {}",
+                    pad, color_blue, pointer_pad, severity_color, pointer, color_reset
+                )
+                .unwrap();
+            }
         }
-        
+
         // 5. Suggestions
         if !self.suggestions.is_empty() {
             for suggestion in &self.suggestions {
                 writeln!(
-                    &mut output, 
-                    "  {}={}>{} {}", 
-                    color_cyan, color_reset, 
-                    color_cyan, suggestion.message
-                ).unwrap();
+                    &mut output,
+                    "  {}={}>{} {}",
+                    color_cyan, color_reset, color_cyan, suggestion.message
+                )
+                .unwrap();
             }
         }
-        
+
         output
     }
 
@@ -2527,8 +2537,7 @@ impl WasmCompilationResult {
     #[wasm_bindgen]
     pub fn get_metrics_object(&self) -> JsValue {
         if let Some(metrics) = &self.detailed_metrics {
-            return serde_wasm_bindgen::to_value(metrics)
-                .unwrap_or_else(|_| JsValue::NULL);
+            return serde_wasm_bindgen::to_value(metrics).unwrap_or_else(|_| JsValue::NULL);
         }
 
         if self.metrics.is_empty() {
@@ -2598,7 +2607,6 @@ impl WasmCompilationWithMetrics {
         serde_wasm_bindgen::to_value(&parsed)
             .map_err(|e| JsValue::from_str(&format!("Failed to convert metrics to JS: {}", e)))
     }
-
 }
 
 #[wasm_bindgen]
@@ -2645,9 +2653,20 @@ impl WasmFiveCompiler {
     /// Format an error message using the native terminal formatter
     /// This provides rich Rust-style error output with source context and colors
     #[wasm_bindgen]
-    pub fn format_error_terminal(&self, message: String, code: String, severity: String, line: u32, column: u32, _source: &str) -> String {
-        use five_dsl_compiler::error::{TerminalFormatter, ErrorFormatter, CompilerError, ErrorCode, ErrorSeverity, ErrorCategory, SourceLocation};
-        
+    pub fn format_error_terminal(
+        &self,
+        message: String,
+        code: String,
+        severity: String,
+        line: u32,
+        column: u32,
+        _source: &str,
+    ) -> String {
+        use five_dsl_compiler::error::{
+            CompilerError, ErrorCategory, ErrorCode, ErrorFormatter, ErrorSeverity, SourceLocation,
+            TerminalFormatter,
+        };
+
         // Construct a partial CompilerError for formatting
         // Note: This is a best-effort reconstruction since we can't easily pass the full CompilerError object from JS
         let severity_enum = match severity.as_str() {
@@ -2657,20 +2676,21 @@ impl WasmFiveCompiler {
             "help" => ErrorSeverity::Help,
             _ => ErrorSeverity::Error,
         };
-        
+
         // Parse error code number (e.g. "E0001" -> 1)
         let code_num = code.trim_start_matches('E').parse::<u32>().unwrap_or(0);
         let code_enum = ErrorCode::new(code_num);
-        
-        let location = SourceLocation::new(line, column, 0); // Offset 0 as deeper context extraction might not need it 
-        
+
+        let location = SourceLocation::new(line, column, 0); // Offset 0 as deeper context extraction might not need it
+
         let error = CompilerError::new(
             code_enum,
             severity_enum,
             ErrorCategory::Internal, // Category doesn't affect terminal formatting much
-            message
-        ).with_location(location);
-        
+            message,
+        )
+        .with_location(location);
+
         let formatter = TerminalFormatter::new();
         formatter.format_error(&error)
     }
@@ -2694,9 +2714,15 @@ impl WasmFiveCompiler {
             // Set error formatter... (keeping existing logic short for brevity in thought, but must include in code)
             let error_format = options.error_format.as_str();
             let _ = match error_format {
-                "terminal" => integration::set_formatter(&mut integration::get_error_system_mut(), "terminal"),
-                "json" => integration::set_formatter(&mut integration::get_error_system_mut(), "json"),
-                "lsp" => integration::set_formatter(&mut integration::get_error_system_mut(), "lsp"),
+                "terminal" => {
+                    integration::set_formatter(&mut integration::get_error_system_mut(), "terminal")
+                }
+                "json" => {
+                    integration::set_formatter(&mut integration::get_error_system_mut(), "json")
+                }
+                "lsp" => {
+                    integration::set_formatter(&mut integration::get_error_system_mut(), "lsp")
+                }
                 _ => integration::set_formatter(&mut integration::get_error_system_mut(), "json"),
             };
         }
@@ -2741,10 +2767,9 @@ impl WasmFiveCompiler {
 
         let (bytecode, disassembly, success, errors, abi) = {
             use five_dsl_compiler::compiler::pipeline::CompilationPipeline;
-            
-            let mut pipeline =
-                CompilationPipeline::new(source, options.source_file.as_deref());
-            
+
+            let mut pipeline = CompilationPipeline::new(source, options.source_file.as_deref());
+
             // Execute pipeline stages manually
             let result = (|| -> Result<(Box<Vec<u8>>, Vec<String>, Option<five_dsl_compiler::bytecode_generator::types::FIVEABI>), five_dsl_compiler::error::CompilerError> {
                 let tokens = pipeline.tokenize()?;
@@ -2767,7 +2792,7 @@ impl WasmFiveCompiler {
                     let bytecode = *bytecode_box;
                     // Finalize metrics
                     pipeline.finalize_metrics(&bytecode);
-                    
+
                     if collect_metrics {
                         let metrics = pipeline.get_metrics();
                         let export_format = map_metrics_format(&metrics_format);
@@ -2778,9 +2803,15 @@ impl WasmFiveCompiler {
                             detailed_metrics = Some(metrics.clone());
                         }
                     }
-                    
+
                     let b_vec: Vec<u8> = bytecode;
-                    (Option::<Vec<u8>>::Some(b_vec), log, true, Vec::<five_dsl_compiler::error::CompilerError>::new(), abi)
+                    (
+                        Option::<Vec<u8>>::Some(b_vec),
+                        log,
+                        true,
+                        Vec::<five_dsl_compiler::error::CompilerError>::new(),
+                        abi,
+                    )
                 }
                 Err(e) => {
                     let mut errors = pipeline.get_error_collector().get_errors().to_vec();
@@ -2793,18 +2824,22 @@ impl WasmFiveCompiler {
         };
 
         let compilation_time = (js_sys::Date::now() - start_time) as f64;
-        
-        let (error_count, warning_count, warnings, error_strings, compiler_errors_vec, formatted_errors_terminal, formatted_errors_json) = 
-            process_errors(&errors, source, options.source_file.as_deref());
+
+        let (
+            error_count,
+            warning_count,
+            warnings,
+            error_strings,
+            compiler_errors_vec,
+            formatted_errors_terminal,
+            formatted_errors_json,
+        ) = process_errors(&errors, source, options.source_file.as_deref());
 
         // Serialize ABI to JSON if present
         let abi_json = abi.and_then(|a| {
             // Debug: Log ABI structure before serialization
             if !a.functions.is_empty() {
-                log_message(&format!(
-                    "Generated {} functions",
-                    a.functions.len()
-                ));
+                log_message(&format!("Generated {} functions", a.functions.len()));
                 // Log first function details
                 let first_fn = &a.functions[0];
                 log_message(&format!(
@@ -2816,34 +2851,30 @@ impl WasmFiveCompiler {
                     let first_param = &first_fn.parameters[0];
                     log_message(&format!(
                         "Param 0: '{}' ({})",
-                        first_param.name,
-                        first_param.param_type
+                        first_param.name, first_param.param_type
                     ));
                 }
             }
             let json_result = serde_json::to_string(&a).ok();
             // Debug: Show JSON output
             if let Some(ref json) = json_result {
-                log_message(&format!(
-                    "ABI JSON len: {}",
-                    json.len()
-                ));
+                log_message(&format!("ABI JSON len: {}", json.len()));
                 // Show first 200 chars of JSON to verify parameters are there
                 let preview = if json.len() > 200 {
                     format!("{}...", &json[..200])
                 } else {
                     json.clone()
                 };
-                log_message(&format!(
-                    "JSON preview: {}",
-                    preview
-                ));
+                log_message(&format!("JSON preview: {}", preview));
             }
             json_result
         });
 
-
-        let bytecode_size = if let Some(ref b) = bytecode { b.len() } else { 0 };
+        let bytecode_size = if let Some(ref b) = bytecode {
+            b.len()
+        } else {
+            0
+        };
 
         WasmCompilationResult {
             success,
@@ -2864,7 +2895,6 @@ impl WasmFiveCompiler {
             formatted_errors_json,
         }
     }
-
 
     /// Compile multi-file project with automatic discovery
     #[wasm_bindgen(js_name = compileMultiWithDiscovery)]
@@ -2903,7 +2933,10 @@ impl WasmFiveCompiler {
         };
 
         // Use the new method that returns FiveFile (Bytecode + ABI)
-        match DslCompiler::compile_with_auto_discovery_to_five_file(Path::new(&entry_point), &config) {
+        match DslCompiler::compile_with_auto_discovery_to_five_file(
+            Path::new(&entry_point),
+            &config,
+        ) {
             Ok(five_file) => {
                 let compilation_time = js_sys::Date::now() - start_time;
                 let abi_json = serde_json::to_string(&five_file.abi).ok();
@@ -2934,18 +2967,30 @@ impl WasmFiveCompiler {
                 let source_dir = entry_path.parent().unwrap_or(Path::new("")).to_path_buf();
                 let discoverer = ModuleDiscoverer::new(source_dir);
                 let mut source_map = std::collections::HashMap::new();
-                
+
                 if let Ok(graph) = discoverer.discover_modules(entry_path) {
-                     for (_, descriptor) in graph.modules() {
-                        source_map.insert(descriptor.file_path.clone(), descriptor.source_code.clone());
+                    for (_, descriptor) in graph.modules() {
+                        source_map
+                            .insert(descriptor.file_path.clone(), descriptor.source_code.clone());
                     }
                 }
 
                 let compilation_time = js_sys::Date::now() - start_time;
-                
-                let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
-                    process_multi_errors(&[e], &source_map, Some(&std::path::PathBuf::from(entry_point)));
-                
+
+                let (
+                    error_count,
+                    warning_count,
+                    warnings,
+                    errors,
+                    compiler_errors,
+                    formatted_terminal,
+                    formatted_json,
+                ) = process_multi_errors(
+                    &[e],
+                    &source_map,
+                    Some(&std::path::PathBuf::from(entry_point)),
+                );
+
                 Ok(WasmCompilationResult {
                     success: false,
                     bytecode_size: 0,
@@ -2967,7 +3012,6 @@ impl WasmFiveCompiler {
             }
         }
     }
-
 
     /// Discover modules starting from an entry point
     #[wasm_bindgen(js_name = discoverModules)]
@@ -3021,7 +3065,7 @@ impl WasmFiveCompiler {
 
         // Use the new method that returns FiveFile (Bytecode + ABI)
         match DslCompiler::compile_modules_to_five_file(modules.clone(), &entry_point, &config) {
-             Ok(five_file) => {
+            Ok(five_file) => {
                 let compilation_time = js_sys::Date::now() - start_time;
                 let abi_json = serde_json::to_string(&five_file.abi).ok();
 
@@ -3043,22 +3087,33 @@ impl WasmFiveCompiler {
                     formatted_errors_terminal: String::new(),
                     formatted_errors_json: String::new(),
                 })
-             }
-             Err(e) => {
+            }
+            Err(e) => {
                 let compilation_time = js_sys::Date::now() - start_time;
-                
+
                 // Build simple source map for error formatting since we have the files list
                 let mut source_map = std::collections::HashMap::new();
                 for file_path in modules {
-                   if let Ok(content) = std::fs::read_to_string(&file_path) {
-                       source_map.insert(std::path::PathBuf::from(file_path), content);
-                   }
+                    if let Ok(content) = std::fs::read_to_string(&file_path) {
+                        source_map.insert(std::path::PathBuf::from(file_path), content);
+                    }
                 }
-                
-                let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
-                    process_multi_errors(&[e], &source_map, Some(&std::path::PathBuf::from(entry_point)));
-                
-                 Ok(WasmCompilationResult {
+
+                let (
+                    error_count,
+                    warning_count,
+                    warnings,
+                    errors,
+                    compiler_errors,
+                    formatted_terminal,
+                    formatted_json,
+                ) = process_multi_errors(
+                    &[e],
+                    &source_map,
+                    Some(&std::path::PathBuf::from(entry_point)),
+                );
+
+                Ok(WasmCompilationResult {
                     success: false,
                     bytecode_size: 0,
                     compilation_time,
@@ -3076,7 +3131,7 @@ impl WasmFiveCompiler {
                     formatted_errors_terminal: formatted_terminal,
                     formatted_errors_json: formatted_json,
                 })
-             }
+            }
         }
     }
 
@@ -3094,16 +3149,19 @@ impl WasmFiveCompiler {
             pub param_count: u8,
         }
 
-        let discovery = ImportDiscovery::discover_functions_from_bytecode("unknown_contract", bytecode)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            
-        let simple_functions: Vec<SimpleDiscoveredFunction> = discovery.functions.values().map(|f| {
-            SimpleDiscoveredFunction {
+        let discovery =
+            ImportDiscovery::discover_functions_from_bytecode("unknown_contract", bytecode)
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let simple_functions: Vec<SimpleDiscoveredFunction> = discovery
+            .functions
+            .values()
+            .map(|f| SimpleDiscoveredFunction {
                 name: f.name.clone(),
                 address: f.address,
                 param_count: f.param_count,
-            }
-        }).collect();
+            })
+            .collect();
 
         Ok(serde_wasm_bindgen::to_value(&simple_functions)?)
     }
@@ -3116,11 +3174,9 @@ impl WasmFiveCompiler {
         modules: &JsValue,
         options: &WasmCompilationOptions,
     ) -> WasmCompilationResult {
-        use five_dsl_compiler::{
-            DslBytecodeGenerator, DslTypeChecker, ModuleMerger,
-        };
         use five_dsl_compiler::compiler::pipeline::CompilationPipeline;
         use five_dsl_compiler::error::{CompilerError, ErrorCategory, ErrorCode, ErrorSeverity};
+        use five_dsl_compiler::{DslBytecodeGenerator, DslTypeChecker, ModuleMerger};
         use std::path::PathBuf;
 
         #[derive(serde::Deserialize)]
@@ -3142,12 +3198,15 @@ impl WasmFiveCompiler {
                 out
             }
         }
-        
+
         // Create a source map for all modules to support rich error reporting
         let mut source_map = std::collections::HashMap::new();
-        let main_file_name = options.source_file.clone().unwrap_or_else(|| "input.v".to_string());
+        let main_file_name = options
+            .source_file
+            .clone()
+            .unwrap_or_else(|| "input.v".to_string());
         source_map.insert(PathBuf::from(&main_file_name), main_source.to_string());
-        
+
         let mut module_sources: Vec<(String, String, PathBuf)> = Vec::new();
         let empty_modules = js_sys::Array::new();
         let modules_array = modules.dyn_ref::<js_sys::Array>().unwrap_or(&empty_modules);
@@ -3162,9 +3221,20 @@ impl WasmFiveCompiler {
                         ErrorCategory::Syntax,
                         error_msg.clone(),
                     );
-                    let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
-                        process_multi_errors(&[compiler_error], &source_map, Some(&std::path::PathBuf::from(&main_file_name)));
-                    
+                    let (
+                        error_count,
+                        warning_count,
+                        warnings,
+                        errors,
+                        compiler_errors,
+                        formatted_terminal,
+                        formatted_json,
+                    ) = process_multi_errors(
+                        &[compiler_error],
+                        &source_map,
+                        Some(&std::path::PathBuf::from(&main_file_name)),
+                    );
+
                     return WasmCompilationResult {
                         success: false,
                         bytecode: None,
@@ -3198,9 +3268,20 @@ impl WasmFiveCompiler {
         let main_tokens = match main_pipeline.tokenize() {
             Ok(t) => t,
             Err(e) => {
-                let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
-                    process_multi_errors(&[e], &source_map, Some(&std::path::PathBuf::from(&main_file_name)));
-                
+                let (
+                    error_count,
+                    warning_count,
+                    warnings,
+                    errors,
+                    compiler_errors,
+                    formatted_terminal,
+                    formatted_json,
+                ) = process_multi_errors(
+                    &[e],
+                    &source_map,
+                    Some(&std::path::PathBuf::from(&main_file_name)),
+                );
+
                 return WasmCompilationResult {
                     success: false,
                     bytecode: None,
@@ -3221,14 +3302,24 @@ impl WasmFiveCompiler {
                 };
             }
         };
-
 
         let main_ast = match main_pipeline.parse(main_tokens) {
             Ok(ast) => ast,
             Err(e) => {
-                let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
-                    process_multi_errors(&[e], &source_map, Some(&std::path::PathBuf::from(&main_file_name)));
-                
+                let (
+                    error_count,
+                    warning_count,
+                    warnings,
+                    errors,
+                    compiler_errors,
+                    formatted_terminal,
+                    formatted_json,
+                ) = process_multi_errors(
+                    &[e],
+                    &source_map,
+                    Some(&std::path::PathBuf::from(&main_file_name)),
+                );
+
                 return WasmCompilationResult {
                     success: false,
                     bytecode: None,
@@ -3250,18 +3341,29 @@ impl WasmFiveCompiler {
             }
         };
 
-        let mut merger = ModuleMerger::new()
-            .with_namespaces(options.enable_module_namespaces);
+        let mut merger = ModuleMerger::new().with_namespaces(options.enable_module_namespaces);
         merger.set_main_ast(main_ast);
 
         for (module_name, module_source, module_path) in module_sources {
-            let mut module_pipeline = CompilationPipeline::new(&module_source, module_path.to_str());
+            let mut module_pipeline =
+                CompilationPipeline::new(&module_source, module_path.to_str());
             let tokens = match module_pipeline.tokenize() {
                 Ok(t) => t,
                 Err(e) => {
-                    let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
-                        process_multi_errors(&[e], &source_map, Some(&std::path::PathBuf::from(&main_file_name)));
-                    
+                    let (
+                        error_count,
+                        warning_count,
+                        warnings,
+                        errors,
+                        compiler_errors,
+                        formatted_terminal,
+                        formatted_json,
+                    ) = process_multi_errors(
+                        &[e],
+                        &source_map,
+                        Some(&std::path::PathBuf::from(&main_file_name)),
+                    );
+
                     return WasmCompilationResult {
                         success: false,
                         bytecode: None,
@@ -3285,9 +3387,20 @@ impl WasmFiveCompiler {
             let module_ast = match module_pipeline.parse(tokens) {
                 Ok(ast) => ast,
                 Err(e) => {
-                    let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
-                        process_multi_errors(&[e], &source_map, Some(&std::path::PathBuf::from(&main_file_name)));
-                    
+                    let (
+                        error_count,
+                        warning_count,
+                        warnings,
+                        errors,
+                        compiler_errors,
+                        formatted_terminal,
+                        formatted_json,
+                    ) = process_multi_errors(
+                        &[e],
+                        &source_map,
+                        Some(&std::path::PathBuf::from(&main_file_name)),
+                    );
+
                     return WasmCompilationResult {
                         success: false,
                         bytecode: None,
@@ -3315,17 +3428,17 @@ impl WasmFiveCompiler {
         match merger.merge() {
             Ok(merged_ast) => {
                 // Build ModuleScope for cross-module type resolution
-                use five_dsl_compiler::type_checker::{ModuleScope, ModuleSymbol};
                 use five_dsl_compiler::ast::{AstNode, TypeNode};
-                
+                use five_dsl_compiler::type_checker::{ModuleScope, ModuleSymbol};
+
                 // Extract main module name from filename
                 let main_module_name = std::path::Path::new(&main_file_name)
                     .file_stem()
                     .map(|s| s.to_string_lossy().to_string())
                     .unwrap_or_else(|| "main".to_string());
-                
+
                 let mut module_scope = ModuleScope::new(main_module_name.clone());
-                
+
                 // Populate module scope from merged AST
                 // The merged AST contains all definitions from all modules
                 if let AstNode::Program {
@@ -3333,71 +3446,106 @@ impl WasmFiveCompiler {
                     field_definitions,
                     account_definitions,
                     ..
-                } = &merged_ast {
+                } = &merged_ast
+                {
                     module_scope.set_current_module(main_module_name.clone());
-                    
+
                     // Add all account definitions to scope
                     for account_def in account_definitions {
-                        if let AstNode::AccountDefinition { name, visibility, .. } = account_def {
-                            module_scope.add_symbol_to_current(name.clone(), ModuleSymbol {
-                                type_info: TypeNode::Account,
-                                is_mutable: false,
-                                visibility: *visibility,
-                            });
+                        if let AstNode::AccountDefinition {
+                            name, visibility, ..
+                        } = account_def
+                        {
+                            module_scope.add_symbol_to_current(
+                                name.clone(),
+                                ModuleSymbol {
+                                    type_info: TypeNode::Account,
+                                    is_mutable: false,
+                                    visibility: *visibility,
+                                },
+                            );
                         }
                     }
-                    
+
                     // Add instruction definitions to scope
                     for instr_def in instruction_definitions {
-                        if let AstNode::InstructionDefinition { name, return_type, visibility, .. } = instr_def {
+                        if let AstNode::InstructionDefinition {
+                            name,
+                            return_type,
+                            visibility,
+                            ..
+                        } = instr_def
+                        {
                             let type_info = return_type
                                 .as_ref()
                                 .map(|t| (**t).clone())
                                 .unwrap_or_else(|| TypeNode::Primitive("void".to_string()));
-                            module_scope.add_symbol_to_current(name.clone(), ModuleSymbol {
-                                type_info,
-                                is_mutable: false,
-                                visibility: *visibility,
-                            });
+                            module_scope.add_symbol_to_current(
+                                name.clone(),
+                                ModuleSymbol {
+                                    type_info,
+                                    is_mutable: false,
+                                    visibility: *visibility,
+                                },
+                            );
                         }
                     }
-                    
+
                     // Add field definitions to scope
                     for field_def in field_definitions {
-                        if let AstNode::FieldDefinition { name, field_type, visibility, .. } = field_def {
-                            module_scope.add_symbol_to_current(name.clone(), ModuleSymbol {
-                                type_info: (**field_type).clone(),
-                                is_mutable: true,
-                                visibility: *visibility,
-                            });
+                        if let AstNode::FieldDefinition {
+                            name,
+                            field_type,
+                            visibility,
+                            ..
+                        } = field_def
+                        {
+                            module_scope.add_symbol_to_current(
+                                name.clone(),
+                                ModuleSymbol {
+                                    type_info: (**field_type).clone(),
+                                    is_mutable: true,
+                                    visibility: *visibility,
+                                },
+                            );
                         }
                     }
                 }
-                
+
                 // Perform Type Checking with module scope
-                let mut type_checker = DslTypeChecker::new()
-                    .with_module_scope(module_scope);
+                let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
                 type_checker.set_current_module(main_module_name);
-                
+
                 if let Err(e) = type_checker.check_types(&merged_ast) {
-                     let compiler_error = five_dsl_compiler::error::CompilerError::new(
-                         five_dsl_compiler::error::ErrorCode::TYPE_MISMATCH,
-                         five_dsl_compiler::error::ErrorSeverity::Error,
-                         five_dsl_compiler::error::ErrorCategory::Type,
-                         format!("Type checking failed: {}", e),
-                     );
-                     
-                     // Attach location info if captured by the type checker
-                     // Attach location info if captured by the type checker
-                     // Note: last_error_span/file fields are no longer exposed directly on TypeCheckerContext
-                     // To fix properly we would need to capture this info from the error itself if available
-                     // Proceed without enhanced location info from the context.
-                     // if let (Some(span), Some(file)) = (type_checker.last_error_span.clone(), type_checker.last_error_file.clone()) { ... }
+                    let compiler_error = five_dsl_compiler::error::CompilerError::new(
+                        five_dsl_compiler::error::ErrorCode::TYPE_MISMATCH,
+                        five_dsl_compiler::error::ErrorSeverity::Error,
+                        five_dsl_compiler::error::ErrorCategory::Type,
+                        format!("Type checking failed: {}", e),
+                    );
 
-                     let (error_count, warning_count, warnings, errors, compiler_errors, formatted_terminal, formatted_json) = 
-                        process_multi_errors(&[compiler_error], &source_map, Some(&std::path::PathBuf::from(&main_file_name)));
+                    // Attach location info if captured by the type checker
+                    // Attach location info if captured by the type checker
+                    // Note: last_error_span/file fields are no longer exposed directly on TypeCheckerContext
+                    // To fix properly we would need to capture this info from the error itself if available
+                    // Proceed without enhanced location info from the context.
+                    // if let (Some(span), Some(file)) = (type_checker.last_error_span.clone(), type_checker.last_error_file.clone()) { ... }
 
-                     return WasmCompilationResult {
+                    let (
+                        error_count,
+                        warning_count,
+                        warnings,
+                        errors,
+                        compiler_errors,
+                        formatted_terminal,
+                        formatted_json,
+                    ) = process_multi_errors(
+                        &[compiler_error],
+                        &source_map,
+                        Some(&std::path::PathBuf::from(&main_file_name)),
+                    );
+
+                    return WasmCompilationResult {
                         success: false,
                         bytecode: None,
                         bytecode_size: 0,
@@ -3415,10 +3563,8 @@ impl WasmFiveCompiler {
                         formatted_errors_terminal: formatted_terminal,
                         formatted_errors_json: formatted_json,
                     };
-
-
                 }
-                
+
                 // Configure Bytecode Generator
                 use five_dsl_compiler::compiler::OptimizationLevel;
                 use five_dsl_compiler::{CompilationConfig, CompilationMode};
@@ -3430,13 +3576,13 @@ impl WasmFiveCompiler {
                     "debug" => CompilationMode::Testing,
                     _ => CompilationMode::Testing,
                 };
-        
+
                 // Parse optimization level
                 let optimization_level = match options.optimization_level.as_str() {
                     "production" => OptimizationLevel::Production,
                     _ => OptimizationLevel::Production,
                 };
-        
+
                 let config = CompilationConfig {
                     mode: compilation_mode,
                     optimization_level,
@@ -3448,16 +3594,16 @@ impl WasmFiveCompiler {
 
                 // Generate Bytecode
                 let mut generator = if config.v2_preview {
-                     DslBytecodeGenerator::with_v2_preview_config(&config)
+                    DslBytecodeGenerator::with_v2_preview_config(&config)
                 } else {
-                     DslBytecodeGenerator::with_optimization_config(&config)
+                    DslBytecodeGenerator::with_optimization_config(&config)
                 };
-                
+
                 match generator.generate(&merged_ast) {
                     Ok(bytecode) => {
                         let compilation_time = js_sys::Date::now() - start_time;
                         let disassembly = generator.get_disassembly();
-                        
+
                         // Generate ABI
                         let abi = match generator.generate_abi(&merged_ast) {
                             Ok(abi) => match serde_json::to_string(&abi) {
@@ -3485,10 +3631,10 @@ impl WasmFiveCompiler {
                             formatted_errors_terminal: String::new(),
                             formatted_errors_json: String::new(),
                         }
-                    },
+                    }
                     Err(e) => {
-                         let error_msg = e.to_string();
-                         WasmCompilationResult {
+                        let error_msg = e.to_string();
+                        WasmCompilationResult {
                             success: false,
                             bytecode: None,
                             bytecode_size: 0,
@@ -3631,7 +3777,10 @@ impl WasmFiveCompiler {
                 let mut suggestions = vec![];
 
                 // Add context-aware suggestions for common types
-                suggestions.push(format!("Check that `{}` is a valid type for this context", type_name));
+                suggestions.push(format!(
+                    "Check that `{}` is a valid type for this context",
+                    type_name
+                ));
 
                 // Suggest valid primitive types
                 match type_name {
@@ -3639,7 +3788,10 @@ impl WasmFiveCompiler {
                         suggestions.push("Valid types in Five include: u8, u16, u32, u64, bool, string<N>, pubkey, and user-defined account types".to_string());
                     }
                     "string" => {
-                        suggestions.push("Strings must specify a size, e.g., `string<32>` or `string<256>`".to_string());
+                        suggestions.push(
+                            "Strings must specify a size, e.g., `string<32>` or `string<256>`"
+                                .to_string(),
+                        );
                     }
                     _ => {
                         suggestions.push("Valid types in Five include: u8, u16, u32, u64, bool, string<N>, pubkey, and user-defined account types".to_string());
@@ -4061,7 +4213,8 @@ impl WasmFiveCompiler {
 
         while i < bytecode.len() {
             let opcode = bytecode[i];
-            let instruction_size = get_instruction_size_with_features(opcode, &bytecode[i..], header.features);
+            let instruction_size =
+                get_instruction_size_with_features(opcode, &bytecode[i..], header.features);
 
             // Ensure we have enough bytes for this instruction
             if i + instruction_size > bytecode.len() {
@@ -4097,7 +4250,9 @@ impl WasmFiveCompiler {
                 let next_instruction_idx = i + instruction_size;
 
                 // Check if next instruction exists and is POP
-                if next_instruction_idx < bytecode.len() && bytecode[next_instruction_idx] == opcodes::POP {
+                if next_instruction_idx < bytecode.len()
+                    && bytecode[next_instruction_idx] == opcodes::POP
+                {
                     // Found PUSH ... POP sequence.
                     // Skip PUSH (size bytes)
                     // Skip POP (1 byte)
@@ -4122,7 +4277,9 @@ impl WasmFiveCompiler {
             .map_err(|e| JsValue::from_str(&e))
     }
 
-    pub(crate) fn extract_account_definitions_internal(source: &str) -> Result<serde_json::Value, String> {
+    pub(crate) fn extract_account_definitions_internal(
+        source: &str,
+    ) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::{ast::AstNode, DslParser, DslTokenizer};
 
         let mut tokenizer = DslTokenizer::new(source);
@@ -4143,7 +4300,13 @@ impl WasmFiveCompiler {
         } = &ast
         {
             for account_def in accounts {
-                if let AstNode::AccountDefinition { name, fields, visibility: _, .. } = account_def {
+                if let AstNode::AccountDefinition {
+                    name,
+                    fields,
+                    visibility: _,
+                    ..
+                } = account_def
+                {
                     let mut field_list = Vec::new();
                     for field in fields {
                         field_list.push(serde_json::json!({
@@ -4174,7 +4337,9 @@ impl WasmFiveCompiler {
             .map_err(|e| JsValue::from_str(&e))
     }
 
-    pub(crate) fn extract_function_signatures_internal(source: &str) -> Result<serde_json::Value, String> {
+    pub(crate) fn extract_function_signatures_internal(
+        source: &str,
+    ) -> Result<serde_json::Value, String> {
         use five_dsl_compiler::{ast::AstNode, DslParser, DslTokenizer};
 
         let mut tokenizer = DslTokenizer::new(source);
@@ -4344,10 +4509,7 @@ impl WasmFiveCompiler {
             }
         }
 
-        Err(format!(
-            "Function '{}' not found",
-            function_name
-        ))
+        Err(format!("Function '{}' not found", function_name))
     }
 
     /// Get compiler statistics
@@ -4730,13 +4892,19 @@ impl ParameterEncoder {
                 .map(|s| s.to_lowercase())
                 .unwrap_or_default();
 
-            if is_account_type || normalized_type == "account" || normalized_type == "mint" || normalized_type == "tokenaccount" {
+            if is_account_type
+                || normalized_type == "account"
+                || normalized_type == "mint"
+                || normalized_type == "tokenaccount"
+            {
                 data.push(types::ACCOUNT);
                 if let Some(num) = param.as_f64() {
                     let idx = num as u32;
                     data.extend_from_slice(&idx.to_le_bytes());
                 } else {
-                    return Err(JsValue::from_str("ACCOUNT parameter must be a numeric index"));
+                    return Err(JsValue::from_str(
+                        "ACCOUNT parameter must be a numeric index",
+                    ));
                 }
                 continue;
             }
@@ -4748,7 +4916,9 @@ impl ParameterEncoder {
                     data.extend_from_slice(&val.to_le_bytes());
                 }
                 "u16" => {
-                    return Err(JsValue::from_str("U16 is not supported by current VM parameter parser"));
+                    return Err(JsValue::from_str(
+                        "U16 is not supported by current VM parameter parser",
+                    ));
                 }
                 "u32" => {
                     data.push(types::U32);
@@ -4759,14 +4929,20 @@ impl ParameterEncoder {
                     data.push(types::U64);
                     let raw = param.as_f64().unwrap_or(0.0);
                     if normalized_type == "i64" && raw < 0.0 {
-                        return Err(JsValue::from_str("I64 negative values are not supported by current VM parameter parser"));
+                        return Err(JsValue::from_str(
+                            "I64 negative values are not supported by current VM parameter parser",
+                        ));
                     }
                     let val = raw as u64;
                     data.extend_from_slice(&val.to_le_bytes());
                 }
                 "bool" => {
                     data.push(types::BOOL);
-                    let val = if param.as_bool().unwrap_or(false) { 1u32 } else { 0u32 };
+                    let val = if param.as_bool().unwrap_or(false) {
+                        1u32
+                    } else {
+                        0u32
+                    };
                     data.extend_from_slice(&val.to_le_bytes());
                 }
                 "pubkey" => {
@@ -4788,7 +4964,9 @@ impl ParameterEncoder {
                         }
                         data.extend_from_slice(&bytes);
                     } else {
-                        return Err(JsValue::from_str("Pubkey must be a base58 string or 32-byte Uint8Array"));
+                        return Err(JsValue::from_str(
+                            "Pubkey must be a base58 string or 32-byte Uint8Array",
+                        ));
                     }
                 }
                 "string" | "bytes" => {
@@ -4798,12 +4976,10 @@ impl ParameterEncoder {
                         let len = bytes.len() as u32;
                         if let Some(max) = max_len {
                             if len > max {
-                                return Err(JsValue::from_str(
-                                    &format!(
-                                        "STRING parameter exceeds declared size: got {} bytes, max {}",
-                                        len, max
-                                    )
-                                ));
+                                return Err(JsValue::from_str(&format!(
+                                    "STRING parameter exceeds declared size: got {} bytes, max {}",
+                                    len, max
+                                )));
                             }
                         }
                         data.extend_from_slice(&len.to_le_bytes());
@@ -4815,18 +4991,18 @@ impl ParameterEncoder {
                         let len = bytes.len() as u32;
                         if let Some(max) = max_len {
                             if len > max {
-                                return Err(JsValue::from_str(
-                                    &format!(
-                                        "STRING parameter exceeds declared size: got {} bytes, max {}",
-                                        len, max
-                                    )
-                                ));
+                                return Err(JsValue::from_str(&format!(
+                                    "STRING parameter exceeds declared size: got {} bytes, max {}",
+                                    len, max
+                                )));
                             }
                         }
                         data.extend_from_slice(&len.to_le_bytes());
                         data.extend_from_slice(&bytes);
                     } else {
-                        return Err(JsValue::from_str("STRING parameter must be a string or Uint8Array"));
+                        return Err(JsValue::from_str(
+                            "STRING parameter must be a string or Uint8Array",
+                        ));
                     }
                 }
                 "" => {
@@ -4847,12 +5023,10 @@ impl ParameterEncoder {
                         let len = bytes.len() as u32;
                         if let Some(max) = max_len {
                             if len > max {
-                                return Err(JsValue::from_str(
-                                    &format!(
-                                        "STRING parameter exceeds declared size: got {} bytes, max {}",
-                                        len, max
-                                    )
-                                ));
+                                return Err(JsValue::from_str(&format!(
+                                    "STRING parameter exceeds declared size: got {} bytes, max {}",
+                                    len, max
+                                )));
                             }
                         }
                         data.extend_from_slice(&len.to_le_bytes());
@@ -4933,7 +5107,15 @@ fn process_errors(
     errors: &[five_dsl_compiler::error::CompilerError],
     source: &str,
     filename: Option<&str>,
-) -> (usize, usize, Vec<String>, Vec<String>, Vec<WasmCompilerError>, String, String) {
+) -> (
+    usize,
+    usize,
+    Vec<String>,
+    Vec<String>,
+    Vec<WasmCompilerError>,
+    String,
+    String,
+) {
     let mut source_map = std::collections::HashMap::new();
     let name = filename.unwrap_or("input.v");
     source_map.insert(std::path::PathBuf::from(name), source.to_string());
@@ -4945,7 +5127,15 @@ fn process_multi_errors(
     errors: &[five_dsl_compiler::error::CompilerError],
     source_map: &std::collections::HashMap<std::path::PathBuf, String>,
     main_file_hint: Option<&std::path::PathBuf>,
-) -> (usize, usize, Vec<String>, Vec<String>, Vec<WasmCompilerError>, String, String) {
+) -> (
+    usize,
+    usize,
+    Vec<String>,
+    Vec<String>,
+    Vec<WasmCompilerError>,
+    String,
+    String,
+) {
     let mut compiler_errors_vec = Vec::new();
     let mut error_strings = Vec::new();
     let mut warnings = Vec::new();
@@ -4955,58 +5145,61 @@ fn process_multi_errors(
     // Use context extractor for source lines
     use five_dsl_compiler::error::context::SourceContextExtractor;
     use five_dsl_compiler::error::formatting::{ErrorFormatter, JsonFormatter, TerminalFormatter};
-    
-    let extractor = SourceContextExtractor::new();
-    
-    // Create rich errors with source context for formatting
-    let rich_errors: Vec<five_dsl_compiler::error::CompilerError> = errors.iter().map(|e| {
-        let mut e = e.clone(); 
-        
-        // Remap input.v to main file hint if present
-        if let Some(hint) = main_file_hint {
-            if let Some(ref loc) = e.location {
-                if let Some(ref file) = loc.file {
-                    if file.to_string_lossy() == "input.v" {
-                        let mut new_loc = loc.clone();
-                        new_loc.file = Some(hint.clone());
-                        e.location = Some(new_loc);
-                    }
-                }
-            }
-        }
 
-        // Inject correct source from map based on error location
-        if let Some(ref loc) = e.location {
-            if let Some(ref file) = loc.file {
-                if let Some(source) = source_map.get(file) {
-                    e.context.source_line = Some(source.clone());
-                } else {
-                    // Fallback to searching by filename if path doesn't match exactly
-                    let filename = file.file_name().and_then(|f| f.to_str());
-                    if let Some(name) = filename {
-                        for (path, src) in source_map {
-                            if path.file_name().and_then(|f| f.to_str()) == Some(name) {
-                                e.context.source_line = Some(src.clone());
-                                break;
-                            }
+    let extractor = SourceContextExtractor::new();
+
+    // Create rich errors with source context for formatting
+    let rich_errors: Vec<five_dsl_compiler::error::CompilerError> = errors
+        .iter()
+        .map(|e| {
+            let mut e = e.clone();
+
+            // Remap input.v to main file hint if present
+            if let Some(hint) = main_file_hint {
+                if let Some(ref loc) = e.location {
+                    if let Some(ref file) = loc.file {
+                        if file.to_string_lossy() == "input.v" {
+                            let mut new_loc = loc.clone();
+                            new_loc.file = Some(hint.clone());
+                            e.location = Some(new_loc);
                         }
                     }
                 }
+            }
+
+            // Inject correct source from map based on error location
+            if let Some(ref loc) = e.location {
+                if let Some(ref file) = loc.file {
+                    if let Some(source) = source_map.get(file) {
+                        e.context.source_line = Some(source.clone());
+                    } else {
+                        // Fallback to searching by filename if path doesn't match exactly
+                        let filename = file.file_name().and_then(|f| f.to_str());
+                        if let Some(name) = filename {
+                            for (path, src) in source_map {
+                                if path.file_name().and_then(|f| f.to_str()) == Some(name) {
+                                    e.context.source_line = Some(src.clone());
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } else if source_map.len() == 1 {
+                    // If only one source is provided and error has no file, use that source.
+                    if let Some(source) = source_map.values().next() {
+                        e.context.source_line = Some(source.clone());
+                    }
+                }
             } else if source_map.len() == 1 {
-                // If only one source is provided and error has no file, use that source.
+                // No location but only one source: inject for context.
                 if let Some(source) = source_map.values().next() {
                     e.context.source_line = Some(source.clone());
                 }
             }
-        } else if source_map.len() == 1 {
-            // No location but only one source: inject for context.
-            if let Some(source) = source_map.values().next() {
-                e.context.source_line = Some(source.clone());
-            }
-        }
-        
-        e
-    }).collect();
+
+            e
+        })
+        .collect();
 
     let term_formatter = TerminalFormatter::new();
     let json_formatter = JsonFormatter::new();
@@ -5022,18 +5215,18 @@ fn process_multi_errors(
         // However, currently CompilerError doesn't hold suggestions directly in the struct definition in lib.rs
         // CompilerError does not have a suggestions field.
         // Suggestions are generated by SuggestionEngine.
-        
+
         // We'll use the global suggestion engine
         let error_system = five_dsl_compiler::error::error_system();
         let generated_suggestions = error_system.generate_suggestions(error);
-        
+
         for s in generated_suggestions {
-             suggestions.push(WasmSuggestion {
-                 message: s.message,
-                 explanation: s.explanation,
-                 confidence: s.confidence as f64,
-                 code_suggestion: s.code_fix.as_ref().map(|f| f.replacement.clone()),
-             });
+            suggestions.push(WasmSuggestion {
+                message: s.message,
+                explanation: s.explanation,
+                confidence: s.confidence as f64,
+                code_suggestion: s.code_fix.as_ref().map(|f| f.replacement.clone()),
+            });
         }
 
         // Extract source context
@@ -5043,7 +5236,8 @@ fn process_multi_errors(
                     // Fallback search
                     let filename = file.file_name().and_then(|f| f.to_str());
                     filename.and_then(|name| {
-                        source_map.iter()
+                        source_map
+                            .iter()
                             .find(|(p, _)| p.file_name().and_then(|f| f.to_str()) == Some(name))
                             .map(|(_, s)| s.clone())
                     })
@@ -5054,18 +5248,22 @@ fn process_multi_errors(
 
             if let Some(source) = file_source {
                 if let Ok(context) = extractor.extract_context(&source, location) {
-                     // Get the specific error line content
-                     let line_content = context.lines.iter()
+                    // Get the specific error line content
+                    let line_content = context
+                        .lines
+                        .iter()
                         .find(|l| l.is_error_line)
                         .map(|l| l.content.clone());
-                     
-                     // Snippet could be the full joined context
-                     let snippet = context.lines.iter()
+
+                    // Snippet could be the full joined context
+                    let snippet = context
+                        .lines
+                        .iter()
                         .map(|l| format!("{:4} | {}", l.line_number, l.content))
                         .collect::<Vec<_>>()
                         .join("\n");
-                        
-                     (line_content, Some(snippet))
+
+                    (line_content, Some(snippet))
                 } else {
                     (None, None)
                 }
@@ -5107,7 +5305,15 @@ fn process_multi_errors(
         }
     }
 
-    (error_count, warning_count, warnings, error_strings, compiler_errors_vec, formatted_terminal, formatted_json)
+    (
+        error_count,
+        warning_count,
+        warnings,
+        error_strings,
+        compiler_errors_vec,
+        formatted_terminal,
+        formatted_json,
+    )
 }
 
 #[cfg(test)]
@@ -5142,15 +5348,15 @@ mod formatting_tests {
         };
 
         let output = error.format_terminal();
-        
+
         // Check for key components in the output
         assert!(output.contains("[E0001]"));
         assert!(output.contains("test message"));
-        assert!(output.contains("test.v:10:5")); 
+        assert!(output.contains("test.v:10:5"));
         assert!(output.contains("test description"));
         assert!(output.contains("let x = error;"));
         assert!(output.contains("try this"));
-        
+
         // Check coloring codes (basic check)
         assert!(output.contains("\x1b[31m")); // Red for error
         assert!(output.contains("\x1b[34m")); // Blue for location
@@ -5387,8 +5593,7 @@ mod error_enhancement_tests {
         let abi_data = Some(abi_json.to_string());
 
         let msg = FiveVMWasm::enhance_parameter_error_static(
-            &abi_data,
-            0, // function index
+            &abi_data, 0, // function index
             2, // expected
             1, // actual
             1, // failed index (b)
@@ -5406,8 +5611,7 @@ mod error_enhancement_tests {
         let abi_data = None;
 
         let msg = FiveVMWasm::enhance_parameter_error_static(
-            &abi_data,
-            0, // function index
+            &abi_data, 0, // function index
             2, // expected
             1, // actual
             1, // failed index
@@ -5422,7 +5626,7 @@ mod error_enhancement_tests {
 #[cfg(test)]
 mod compiler_error_tests {
     use super::*;
-    use five_dsl_compiler::error::{CompilerError, ErrorCode, ErrorSeverity, ErrorCategory};
+    use five_dsl_compiler::error::{CompilerError, ErrorCategory, ErrorCode, ErrorSeverity};
 
     #[test]
     fn test_process_multi_errors_single() {
@@ -5627,7 +5831,7 @@ mod compiler_tests {
 
     #[test]
     fn test_validate_account_constraints_internal() {
-         let source = r#"
+        let source = r#"
             script test_program {
                 instruction my_func(@signer acc1: account) {
                     return;
@@ -5640,11 +5844,9 @@ mod compiler_tests {
             { "is_signer": true, "is_writable": false }
         ]);
 
-        let result = WasmFiveCompiler::validate_account_constraints_internal(
-            source,
-            "my_func",
-            accounts
-        ).unwrap();
+        let result =
+            WasmFiveCompiler::validate_account_constraints_internal(source, "my_func", accounts)
+                .unwrap();
 
         assert_eq!(result["success"], true);
         let validations = result["validation_results"].as_array().unwrap();
@@ -5659,8 +5861,9 @@ mod compiler_tests {
         let result_fail = WasmFiveCompiler::validate_account_constraints_internal(
             source,
             "my_func",
-            accounts_fail
-        ).unwrap();
+            accounts_fail,
+        )
+        .unwrap();
 
         let validations_fail = result_fail["validation_results"].as_array().unwrap();
         let checks_fail = validations_fail[0]["constraint_checks"].as_array().unwrap();

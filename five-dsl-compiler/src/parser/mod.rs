@@ -2,15 +2,13 @@
 //
 // Handles parsing tokens into an Abstract Syntax Tree (AST).
 
-use crate::ast::{
-    AstNode, BlockKind,
-};
+use crate::ast::{AstNode, BlockKind};
 use crate::tokenizer::{Token, TokenKind};
 use five_vm_mito::error::VMError;
 
 mod blocks;
-mod expressions;
 mod expression_builder;
+mod expressions;
 mod imports;
 mod instructions;
 mod interfaces;
@@ -95,7 +93,10 @@ impl DslParser {
         while self.current_token.kind() != TokenKind::RightBrace
             && self.current_token.kind() != TokenKind::Eof
         {
-            eprintln!("DEBUG_PARSER: parse_module processing token={:?}", self.current_token);
+            eprintln!(
+                "DEBUG_PARSER: parse_module processing token={:?}",
+                self.current_token
+            );
             match self.current_token.kind() {
                 TokenKind::Use | TokenKind::Import => {
                     import_statements.push(imports::parse_use_statement(self)?);
@@ -125,13 +126,11 @@ impl DslParser {
                 TokenKind::At => {
                     // Support attribute-prefixed interface declarations such as:
                     // @anchor interface Foo @program("...") { ... }
-                    let is_anchor_interface = matches!(
-                        self.tokens.get(self.position + 1),
-                        Some(Token::Identifier(name)) if name == "anchor"
-                    ) && matches!(
-                        self.tokens.get(self.position + 2),
-                        Some(Token::Interface)
-                    );
+                    let is_anchor_interface =
+                        matches!(
+                            self.tokens.get(self.position + 1),
+                            Some(Token::Identifier(name)) if name == "anchor"
+                        ) && matches!(self.tokens.get(self.position + 2), Some(Token::Interface));
                     if is_anchor_interface {
                         interface_definitions.push(interfaces::parse_interface_definition(self)?);
                     } else {
@@ -164,7 +163,8 @@ impl DslParser {
                 TokenKind::Identifier => {
                     // Decide between function definition and field definition by lookahead
                     if self.peek_kind(1) == TokenKind::LeftParen {
-                        instruction_definitions.push(instructions::parse_instruction_definition(self)?);
+                        instruction_definitions
+                            .push(instructions::parse_instruction_definition(self)?);
                     } else {
                         field_definitions.push(structures::parse_field_definition(self)?);
                     }
@@ -235,10 +235,11 @@ impl DslParser {
             Ok(())
         } else {
             let msg = format!("expected {:?}", k);
-            if msg.len() <= 9 { // "expected " is 9 chars
-                 Err(self.parse_error(&format!("DEBUG_EMPTY_TOKENKIND: {:?}", k)))
+            if msg.len() <= 9 {
+                // "expected " is 9 chars
+                Err(self.parse_error(&format!("DEBUG_EMPTY_TOKENKIND: {:?}", k)))
             } else {
-                 Err(self.parse_error(&msg))
+                Err(self.parse_error(&msg))
             }
         }
     }
@@ -274,7 +275,7 @@ impl DslParser {
         use heapless::String as HString;
         let mut expected_str = HString::new();
         let _ = expected_str.push_str(expected);
-        
+
         let mut found_str = HString::new();
         let _ = found_str.push_str(&self.token_to_string(&self.current_token));
         VMError::ParseError {

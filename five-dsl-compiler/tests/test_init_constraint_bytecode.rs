@@ -249,7 +249,8 @@ fn test_init_with_seeded_auto_bump_derives_canonical_bump() {
         }
     "#;
 
-    let bytecode = DslCompiler::compile_dsl(source).expect("Should compile with auto bump derivation");
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("Should compile with auto bump derivation");
     assert!(
         bytecode.windows(1).any(|w| w[0] == FIND_PDA),
         "Auto bump path should emit FIND_PDA"
@@ -272,7 +273,8 @@ fn test_init_with_seeded_auto_bump_exposes_account_ctx_bump() {
         }
     "#;
 
-    let bytecode = DslCompiler::compile_dsl(source).expect("Should compile and expose vault.ctx.bump");
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("Should compile and expose vault.ctx.bump");
     assert!(
         bytecode.windows(1).any(|w| w[0] == FIND_PDA),
         "Auto bump path should still emit FIND_PDA"

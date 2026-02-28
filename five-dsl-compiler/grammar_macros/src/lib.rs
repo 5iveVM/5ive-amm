@@ -23,7 +23,6 @@
 /// - `rule`: The tree-sitter rule definition
 /// - `precedence`: Optional precedence level for expressions (integer)
 /// - `associativity`: Optional associativity ("left" or "right")
-
 use proc_macro::TokenStream;
 
 /// Attribute macro for attaching tree-sitter grammar rules to AST nodes

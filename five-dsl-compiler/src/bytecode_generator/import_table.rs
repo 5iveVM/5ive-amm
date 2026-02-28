@@ -171,10 +171,7 @@ mod tests {
     #[test]
     fn test_add_import_by_seeds() {
         let mut table = ImportTable::new();
-        let seeds = vec![
-            b"vault".to_vec(),
-            b"user".to_vec(),
-        ];
+        let seeds = vec![b"vault".to_vec(), b"user".to_vec()];
 
         table.add_import_by_seeds(seeds, "pda_func".to_string());
         assert_eq!(table.len(), 1);
@@ -200,10 +197,7 @@ mod tests {
     #[test]
     fn test_serialize_pda_seeds_import() {
         let mut table = ImportTable::new();
-        let seeds = vec![
-            b"vault".to_vec(),
-            b"user123".to_vec(),
-        ];
+        let seeds = vec![b"vault".to_vec(), b"user123".to_vec()];
 
         table.add_import_by_seeds(seeds.clone(), "vault_func".to_string());
 
@@ -254,7 +248,7 @@ mod tests {
         // Verify structure
         assert_eq!(serialized[0], 1); // 1 import
         assert_eq!(serialized[1], 0); // type = address
-        // [2..34] = 32-byte address string
+                                      // [2..34] = 32-byte address string
         assert_eq!(serialized[34], 10); // function name length
         assert_eq!(&serialized[35..45], b"myfunction");
     }

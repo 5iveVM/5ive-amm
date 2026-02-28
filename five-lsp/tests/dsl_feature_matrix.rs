@@ -48,11 +48,17 @@ fn lsp_matrix_scenarios_match_expected_diagnostics() {
     let matrix = load_matrix();
     let mut bridge = CompilerBridge::new();
 
-    for scenario in matrix.scenarios.iter().filter(|scenario| scenario.layers.lsp) {
+    for scenario in matrix
+        .scenarios
+        .iter()
+        .filter(|scenario| scenario.layers.lsp)
+    {
         let source = fs::read_to_string(source_path(&root, scenario)).expect("read matrix source");
         let diagnostics = bridge
             .get_diagnostics(&scenario_uri(scenario), &source)
-            .unwrap_or_else(|error| panic!("scenario {} diagnostics failed: {}", scenario.id, error));
+            .unwrap_or_else(|error| {
+                panic!("scenario {} diagnostics failed: {}", scenario.id, error)
+            });
 
         match scenario.kind.as_str() {
             "positive" => {
@@ -65,7 +71,9 @@ fn lsp_matrix_scenarios_match_expected_diagnostics() {
             }
             "negative" => {
                 assert!(
-                    diagnostics.iter().any(|diagnostic| diagnostic.severity == Some(DiagnosticSeverity::ERROR)),
+                    diagnostics
+                        .iter()
+                        .any(|diagnostic| diagnostic.severity == Some(DiagnosticSeverity::ERROR)),
                     "scenario {} should emit at least one error diagnostic",
                     scenario.id
                 );

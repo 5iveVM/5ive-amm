@@ -135,7 +135,6 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
 
                 ctx.set_external_account_remap(frame.account_remap);
                 ctx.restore_parameters(frame.param_start, frame.param_len); // Restore caller's parameters
-
             } else {
                 // Top-level return, halt the script
                 ctx.set_halted(true);
@@ -201,8 +200,8 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 ctx.set_external_account_remap(frame.account_remap);
                 ctx.restore_parameters(frame.param_start, frame.param_len); // Restore caller's parameters
 
-                // RETURN_VALUE semantics: The return value remains on top of the stack
-                // for the calling function to use (e.g., SET_LOCAL, arithmetic operations, etc.)
+            // RETURN_VALUE semantics: The return value remains on top of the stack
+            // for the calling function to use (e.g., SET_LOCAL, arithmetic operations, etc.)
             } else {
                 // Top-level return, halt the script
 

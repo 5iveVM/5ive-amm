@@ -4,7 +4,7 @@
 //! and verifying memory safety checks.
 
 use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Result as VmResult, FIVE_VM_PROGRAM_ID};
 
 const SYSCALL_SHA256: u8 = 80;
 
@@ -54,8 +54,8 @@ fn test_syscall_sha256_small_buffer() {
         script.push(RETURN_VALUE);
     }) {
         Err(e) => {
-             println!("✅ SHA256 small buffer failed as expected: {:?}", e);
-             // Should be MemoryViolation
+            println!("✅ SHA256 small buffer failed as expected: {:?}", e);
+            // Should be MemoryViolation
         }
         Ok(result) => panic!("❌ Expected MemoryViolation, got result: {:?}", result),
     }

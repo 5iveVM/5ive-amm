@@ -1,8 +1,7 @@
 use five_protocol::ValueRef;
 use five_vm_mito::{
-    error::VMErrorCode, utils::ValueRefUtils, AccountInfo, ExecutionContext, MitoVM,
-    StackStorage, Value,
-    systems::resource::ResourceManager,
+    error::VMErrorCode, systems::resource::ResourceManager, utils::ValueRefUtils, AccountInfo,
+    ExecutionContext, MitoVM, StackStorage, Value,
 };
 use pinocchio::pubkey::Pubkey;
 
@@ -36,7 +35,8 @@ fn resolve_temp_ref_valid() {
 
     ctx.temp_buffer_mut()[..serialized_len].copy_from_slice(&temp_buffer[..serialized_len]);
 
-    let value = MitoVM::resolve_value_ref(&ValueRef::TempRef(0, serialized_len as u8), &ctx).unwrap();
+    let value =
+        MitoVM::resolve_value_ref(&ValueRef::TempRef(0, serialized_len as u8), &ctx).unwrap();
     assert_eq!(value, Value::U64(42));
 }
 
@@ -302,7 +302,10 @@ fn test_value_ref_utils() {
     assert_eq!(ValueRefUtils::as_u64(ValueRef::Bool(true)).unwrap(), 1);
     assert_eq!(ValueRefUtils::as_u64(ValueRef::Bool(false)).unwrap(), 0);
     // Type mismatch
-    assert_eq!(ValueRefUtils::as_u64(ValueRef::Empty).unwrap_err(), VMErrorCode::TypeMismatch);
+    assert_eq!(
+        ValueRefUtils::as_u64(ValueRef::Empty).unwrap_err(),
+        VMErrorCode::TypeMismatch
+    );
 
     // as_bool
     assert_eq!(ValueRefUtils::as_bool(ValueRef::Bool(true)).unwrap(), true);

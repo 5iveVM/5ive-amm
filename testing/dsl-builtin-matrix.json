@@ -95,15 +95,18 @@
         "wasm_matrix": false,
         "lsp_matrix": true,
         "runtime_matrix": false,
-        "validator_localnet": false
+        "validator_localnet": true
       },
       "unit_suites": [
         "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
         "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
-        "five-dsl-compiler/src/compiler/mod.rs"
+        "five-dsl-compiler/src/compiler/mod.rs",
+        "five-solana/tests/runtime_validator_account_probe_tests.rs"
       ],
       "matrix_scenario": null,
-      "expected_limitations": "Runtime and validator coverage still need a purpose-built account-read scenario."
+      "validator_mode": "cargo_test",
+      "validator_target": "runtime_validator_account_probe_tests::validator_account_probe_onchain",
+      "expected_limitations": "Host-side runtime_unit coverage is still missing; localnet coverage is probe-backed."
     },
     {
       "id": "builtin_abort_now",

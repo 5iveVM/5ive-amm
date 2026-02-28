@@ -35,8 +35,12 @@ macro_rules! check_constraint {
         let account_idx = $ctx.fetch_byte()?;
         let $account = $ctx.get_account_for_read(account_idx)?;
         if !($check) {
-             debug_log!("MitoVM: {} failed - account {} check failed", $name, account_idx);
-             return Err(VMErrorCode::ConstraintViolation);
+            debug_log!(
+                "MitoVM: {} failed - account {} check failed",
+                $name,
+                account_idx
+            );
+            return Err(VMErrorCode::ConstraintViolation);
         }
         debug_log!("MitoVM: {} passed for account {}", $name, account_idx);
     }};
@@ -83,14 +87,19 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             // Account should be uninitialized (empty data) for @init
             // SAFETY: We only read the data slice; mutable borrows are ruled out by `ExecutionManager`.
             if !unsafe { account.borrow_data_unchecked() }.is_empty() {
-                debug_log!("MitoVM: CHECK_UNINITIALIZED failed - data_len={} (expected 0)", account.data_len());
+                debug_log!(
+                    "MitoVM: CHECK_UNINITIALIZED failed - data_len={} (expected 0)",
+                    account.data_len()
+                );
                 return Err(VMErrorCode::ConstraintViolation);
             }
 
             // Also check that account owner is the System Program for new accounts
             let account_owner = *account.owner();
             if account_owner != Pubkey::from(SYSTEM_PROGRAM_ID) {
-                debug_log!("MitoVM: CHECK_UNINITIALIZED failed - owner mismatch (expected SystemProgram)");
+                debug_log!(
+                    "MitoVM: CHECK_UNINITIALIZED failed - owner mismatch (expected SystemProgram)"
+                );
                 return Err(VMErrorCode::ConstraintViolation);
             }
 
@@ -121,8 +130,8 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
                     .map_err(|_| ());
 
                 #[cfg(not(target_os = "solana"))]
-                let pda_result = crate::utils::derive_pda_offchain(seeds, &program_pubkey)
-                    .map_err(|_| ());
+                let pda_result =
+                    crate::utils::derive_pda_offchain(seeds, &program_pubkey).map_err(|_| ());
 
                 match pda_result {
                     Ok(derived_pda) => {
@@ -147,14 +156,14 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
         // Encoding: REQUIRE_OWNER account_idx(u8) signer_idx(u8) offset(u32)
         // Saves ~400 CU per call by avoiding 4 separate opcode dispatches
         REQUIRE_OWNER => {
-            let account_idx = ctx.fetch_byte()?;      // Account containing the owner field
-            let signer_idx = ctx.fetch_byte()?;       // Account to compare key against
-            let field_offset = ctx.fetch_u32()?;      // Offset of pubkey field in account data
+            let account_idx = ctx.fetch_byte()?; // Account containing the owner field
+            let signer_idx = ctx.fetch_byte()?; // Account to compare key against
+            let field_offset = ctx.fetch_u32()?; // Offset of pubkey field in account data
 
             // Get the owner/authority field from account data
             let account = ctx.get_account_for_read(account_idx)?;
             let data = unsafe { account.borrow_data_unchecked() };
-            
+
             let start = field_offset as usize;
             let end = start + 32;
             if end > data.len() {
@@ -173,13 +182,17 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
                 debug_log!("MitoVM: REQUIRE_OWNER failed - pubkey mismatch");
                 return Err(VMErrorCode::ConstraintViolation);
             }
-            debug_log!("MitoVM: REQUIRE_OWNER passed for acc {} signer {}", account_idx, signer_idx);
+            debug_log!(
+                "MitoVM: REQUIRE_OWNER passed for acc {} signer {}",
+                account_idx,
+                signer_idx
+            );
         }
 
         _ => {
             debug_log!("MitoVM: Unknown constraint opcode: {}", opcode);
             return Err(VMErrorCode::InvalidInstruction);
-        },
+        }
     }
     Ok(())
 }

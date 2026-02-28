@@ -16,7 +16,7 @@ pub type Result<T> = std::result::Result<T, VMError>;
 pub type CompactResult<T> = std::result::Result<T, VMErrorCode>;
 
 /// Compact error code for on-chain execution (1 byte).
-/// 
+///
 /// This enum provides ultra-compact error representation for on-chain
 /// VM execution where every byte matters. Use this in hot paths and
 /// convert to `VMError` only when rich context is needed.

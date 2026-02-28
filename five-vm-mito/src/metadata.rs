@@ -212,18 +212,10 @@ mod tests {
         assert!(!metadata.is_empty());
 
         // Matching address should verify
-        assert!(metadata.verify_account(
-            &test_addr,
-            &[0u8; 32],
-            None
-        ));
+        assert!(metadata.verify_account(&test_addr, &[0u8; 32], None));
 
         // Different address should not verify
-        assert!(!metadata.verify_account(
-            &[2u8; 32],
-            &[0u8; 32],
-            None
-        ));
+        assert!(!metadata.verify_account(&[2u8; 32], &[0u8; 32], None));
     }
 
     /// Test metadata with PDA seeds
@@ -271,11 +263,7 @@ mod tests {
         full_bytecode.extend(metadata_bytes);
 
         let metadata = ImportMetadata::new(&full_bytecode, 50).unwrap();
-        assert!(metadata.verify_account(
-            &test_addr,
-            &[0u8; 32],
-            None
-        ));
+        assert!(metadata.verify_account(&test_addr, &[0u8; 32], None));
     }
 
     /// Test offset beyond bytecode
@@ -311,17 +299,9 @@ mod tests {
         let metadata = ImportMetadata::new(&metadata_bytes, 0).unwrap();
 
         // First import (address) should verify
-        assert!(metadata.verify_account(
-            &addr1,
-            &[0u8; 32],
-            None
-        ));
+        assert!(metadata.verify_account(&addr1, &[0u8; 32], None));
 
         // Wrong address should not verify
-        assert!(!metadata.verify_account(
-            &[99u8; 32],
-            &[0u8; 32],
-            None
-        ));
+        assert!(!metadata.verify_account(&[99u8; 32], &[0u8; 32], None));
     }
 }

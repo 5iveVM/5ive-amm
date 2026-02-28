@@ -78,7 +78,11 @@ impl AccountSystem {
     /// Process a single account definition node
     fn process_account_definition_node(&mut self, account_def: &AstNode) -> Result<(), VMError> {
         match account_def {
-            AstNode::AccountDefinition { name, fields, visibility: _ } => {
+            AstNode::AccountDefinition {
+                name,
+                fields,
+                visibility: _,
+            } => {
                 self.process_account_definition(name, fields)?;
             }
             _ => {} // Skip non-account definitions
@@ -263,18 +267,28 @@ impl AccountSystem {
     /// Helper to resolve account type
     fn resolve_account_type(&self, account_type: &str) -> Option<&AccountTypeInfo> {
         let namespace_suffix = format!("::{}", account_type);
-        self.account_registry.account_types.get(account_type)
+        self.account_registry
+            .account_types
+            .get(account_type)
             .or_else(|| {
-                self.account_registry.account_types.iter()
+                self.account_registry
+                    .account_types
+                    .iter()
                     .find(|(k, _)| k.ends_with(&namespace_suffix))
                     .map(|(_, v)| v)
             })
     }
 
     /// Helper to resolve account index
-    fn resolve_account_index(&self, symbol_table: &HashMap<String, FieldInfo>, account_param: &str) -> Result<u8, VMError> {
+    fn resolve_account_index(
+        &self,
+        symbol_table: &HashMap<String, FieldInfo>,
+        account_param: &str,
+    ) -> Result<u8, VMError> {
         if let Some(param_info) = symbol_table.get(account_param) {
-            Ok(super::account_utils::account_index_from_param_offset(param_info.offset))
+            Ok(super::account_utils::account_index_from_param_offset(
+                param_info.offset,
+            ))
         } else {
             Err(VMError::InvalidScript) // Parameter not found
         }
@@ -618,10 +632,7 @@ mod tests {
             base: "Option".to_string(),
             args: vec![TypeNode::Primitive("u64".to_string())],
         };
-        assert_eq!(
-            account_system.calculate_type_size(&option_u64).unwrap(),
-            9
-        );
+        assert_eq!(account_system.calculate_type_size(&option_u64).unwrap(), 9);
 
         let vec_u64 = TypeNode::Generic {
             base: "Vec".to_string(),
@@ -642,7 +653,10 @@ mod tests {
                 },
             ],
         };
-        assert_eq!(account_system.calculate_type_size(&vec_u64_64).unwrap(), 4 + (8 * 64));
+        assert_eq!(
+            account_system.calculate_type_size(&vec_u64_64).unwrap(),
+            4 + (8 * 64)
+        );
     }
 
     #[test]
@@ -680,20 +694,18 @@ mod tests {
     fn test_option_field_marked_optional_in_registry() {
         let mut account_system = AccountSystem::new();
 
-        let fields = vec![
-            StructField {
-                name: "nickname".to_string(),
-                field_type: TypeNode::Generic {
-                    base: "Option".to_string(),
-                    args: vec![TypeNode::Sized {
-                        base_type: "string".to_string(),
-                        size: 16,
-                    }],
-                },
-                is_mutable: true,
-                is_optional: false,
+        let fields = vec![StructField {
+            name: "nickname".to_string(),
+            field_type: TypeNode::Generic {
+                base: "Option".to_string(),
+                args: vec![TypeNode::Sized {
+                    base_type: "string".to_string(),
+                    size: 16,
+                }],
             },
-        ];
+            is_mutable: true,
+            is_optional: false,
+        }];
 
         account_system
             .process_account_definition("Profile", &fields)

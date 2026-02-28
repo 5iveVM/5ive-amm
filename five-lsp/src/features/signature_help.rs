@@ -99,7 +99,9 @@ fn get_function_signature(func_name: &str, active_param: usize) -> Option<Signat
                         documentation: None,
                     },
                     ParameterInformation {
-                        label: ParameterLabel::Simple("type: TypeAnnotation (optional)".to_string()),
+                        label: ParameterLabel::Simple(
+                            "type: TypeAnnotation (optional)".to_string(),
+                        ),
                         documentation: None,
                     },
                     ParameterInformation {
@@ -207,7 +209,10 @@ mod tests {
 
     #[test]
     fn test_extract_function_name() {
-        assert_eq!(extract_function_name("my_func"), Some("my_func".to_string()));
+        assert_eq!(
+            extract_function_name("my_func"),
+            Some("my_func".to_string())
+        );
         assert_eq!(extract_function_name("  test"), Some("test".to_string()));
         assert_eq!(
             extract_function_name("some.method"),

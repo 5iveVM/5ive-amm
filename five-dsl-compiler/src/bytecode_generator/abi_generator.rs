@@ -2,7 +2,7 @@
 
 use super::account_utils;
 use super::types::*;
-use crate::ast::{AstNode};
+use crate::ast::AstNode;
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
@@ -208,7 +208,7 @@ impl ABIGenerator {
 
     /// Process an instruction definition and add to ABI
     fn process_instruction_definition(&mut self, instruction_def: &AstNode) -> Result<(), VMError> {
-                match instruction_def {
+        match instruction_def {
             AstNode::InstructionDefinition {
                 name,
                 parameters,
@@ -350,10 +350,13 @@ mod tests {
                         param_type: TypeNode::Primitive("Account".to_string()),
                         is_optional: false,
                         default_value: None,
-                        attributes: vec![crate::ast::Attribute { name: "signer".to_string(), args: vec![] }],
+                        attributes: vec![crate::ast::Attribute {
+                            name: "signer".to_string(),
+                            args: vec![],
+                        }],
                         is_init: false,
                         init_config: None,
-                    pda_config: None,
+                        pda_config: None,
                     },
                     InstructionParameter {
                         name: "amount".to_string(),
@@ -363,7 +366,7 @@ mod tests {
                         attributes: vec![],
                         is_init: false,
                         init_config: None,
-                    pda_config: None,
+                        pda_config: None,
                     },
                 ],
                 return_type: None,

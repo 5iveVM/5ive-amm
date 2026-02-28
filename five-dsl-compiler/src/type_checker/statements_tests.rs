@@ -1,5 +1,5 @@
-use crate::type_checker::types::TypeCheckerContext;
 use crate::ast::{AstNode, TypeNode};
+use crate::type_checker::types::TypeCheckerContext;
 use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
@@ -56,14 +56,20 @@ fn test_check_let_typed_invalid() {
         is_mutable: false,
         value: Box::new(AstNode::Literal(Value::U64(1))),
     };
-    assert!(matches!(checker.check_statement(&node), Err(VMError::TypeMismatch)));
+    assert!(matches!(
+        checker.check_statement(&node),
+        Err(VMError::TypeMismatch)
+    ));
 }
 
 #[test]
 fn test_check_assignment_valid() {
     let mut checker = TypeCheckerContext::new();
     // let mut x = 1;
-    checker.symbol_table.insert("x".to_string(), (TypeNode::Primitive("u64".to_string()), true));
+    checker.symbol_table.insert(
+        "x".to_string(),
+        (TypeNode::Primitive("u64".to_string()), true),
+    );
 
     let node = AstNode::Assignment {
         target: "x".to_string(),
@@ -76,14 +82,20 @@ fn test_check_assignment_valid() {
 #[test]
 fn test_check_assignment_type_mismatch() {
     let mut checker = TypeCheckerContext::new();
-    checker.symbol_table.insert("x".to_string(), (TypeNode::Primitive("u64".to_string()), true));
+    checker.symbol_table.insert(
+        "x".to_string(),
+        (TypeNode::Primitive("u64".to_string()), true),
+    );
 
     let node = AstNode::Assignment {
         target: "x".to_string(),
         value: Box::new(AstNode::Literal(Value::Bool(true))),
     };
 
-    assert!(matches!(checker.check_statement(&node), Err(VMError::TypeMismatch)));
+    assert!(matches!(
+        checker.check_statement(&node),
+        Err(VMError::TypeMismatch)
+    ));
 }
 
 #[test]
@@ -91,7 +103,10 @@ fn test_check_if_statement() {
     let mut checker = TypeCheckerContext::new();
     let node = AstNode::IfStatement {
         condition: Box::new(AstNode::Literal(Value::Bool(true))),
-        then_branch: Box::new(AstNode::Block { statements: vec![], kind: crate::ast::BlockKind::Regular }),
+        then_branch: Box::new(AstNode::Block {
+            statements: vec![],
+            kind: crate::ast::BlockKind::Regular,
+        }),
         else_branch: None,
     };
     assert!(checker.check_statement(&node).is_ok());
@@ -104,7 +119,10 @@ fn test_check_if_statement_invalid_condition() {
     // not that it evaluates to boolean. This test documents current behavior.
     let node = AstNode::IfStatement {
         condition: Box::new(AstNode::Literal(Value::U64(1))),
-        then_branch: Box::new(AstNode::Block { statements: vec![], kind: crate::ast::BlockKind::Regular }),
+        then_branch: Box::new(AstNode::Block {
+            statements: vec![],
+            kind: crate::ast::BlockKind::Regular,
+        }),
         else_branch: None,
     };
     assert!(checker.check_statement(&node).is_ok());
@@ -115,7 +133,10 @@ fn test_check_while_loop() {
     let mut checker = TypeCheckerContext::new();
     let node = AstNode::WhileLoop {
         condition: Box::new(AstNode::Literal(Value::Bool(true))),
-        body: Box::new(AstNode::Block { statements: vec![], kind: crate::ast::BlockKind::Regular }),
+        body: Box::new(AstNode::Block {
+            statements: vec![],
+            kind: crate::ast::BlockKind::Regular,
+        }),
     };
     assert!(checker.check_statement(&node).is_ok());
 }
@@ -123,7 +144,9 @@ fn test_check_while_loop() {
 #[test]
 fn test_field_assignment_to_account_ctx_is_read_only() {
     let mut checker = TypeCheckerContext::new();
-    checker.symbol_table.insert("vault".to_string(), (TypeNode::Account, true));
+    checker
+        .symbol_table
+        .insert("vault".to_string(), (TypeNode::Account, true));
 
     let node = AstNode::FieldAssignment {
         object: Box::new(AstNode::FieldAccess {
@@ -134,5 +157,8 @@ fn test_field_assignment_to_account_ctx_is_read_only() {
         value: Box::new(AstNode::Literal(Value::U64(1))),
     };
 
-    assert!(matches!(checker.check_statement(&node), Err(VMError::ImmutableField)));
+    assert!(matches!(
+        checker.check_statement(&node),
+        Err(VMError::ImmutableField)
+    ));
 }

@@ -146,7 +146,10 @@ pub main() {
     let result = DslCompiler::compile_dsl(dsl);
 
     // Should fail with type mismatch
-    assert!(result.is_err(), "Custom account should not be recognized by type checker for CPI");
+    assert!(
+        result.is_err(),
+        "Custom account should not be recognized by type checker for CPI"
+    );
 }
 
 #[test]

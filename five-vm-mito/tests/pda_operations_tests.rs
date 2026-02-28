@@ -3,11 +3,16 @@
 //! Tests for PDA derivation, validation, and seed management functionality
 //! that mirror the failing blockchain integration test cases.
 
-use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 use pinocchio::pubkey::Pubkey;
 use solana_sdk::pubkey::Pubkey as SolanaPubkey;
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo], program_id: &Pubkey) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+    program_id: &Pubkey,
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
 }
@@ -481,7 +486,8 @@ mod pda_security {
             0x00, // HALT
         ];
 
-        let result_correct = execute_test(correct_program_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
+        let result_correct =
+            execute_test(correct_program_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
         let result_wrong = execute_test(wrong_program_bytecode, &[], accounts, &FIVE_VM_PROGRAM_ID);
 
         match (result_correct, result_wrong) {

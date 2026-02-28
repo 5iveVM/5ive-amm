@@ -92,8 +92,8 @@ impl NodeRegistry {
 
     /// Parse TOML metadata into a registry
     fn parse(toml_str: &str) -> Result<Self, RegistryError> {
-        let value: toml::Value = toml::from_str(toml_str)
-            .map_err(|e| RegistryError::ParseError(e.to_string()))?;
+        let value: toml::Value =
+            toml::from_str(toml_str).map_err(|e| RegistryError::ParseError(e.to_string()))?;
 
         let mut registry = Self {
             nodes: HashMap::new(),
@@ -142,7 +142,9 @@ impl NodeRegistry {
                     let name = table
                         .get("name")
                         .and_then(|n| n.as_str())
-                        .ok_or(RegistryError::MissingField("auxiliary type name".to_string()))?
+                        .ok_or(RegistryError::MissingField(
+                            "auxiliary type name".to_string(),
+                        ))?
                         .to_string();
 
                     let mut fields = HashMap::new();
@@ -150,9 +152,7 @@ impl NodeRegistry {
                         for (field_name, field_value) in field_table {
                             let field_type = field_value
                                 .as_str()
-                                .or_else(|| {
-                                    field_value.get("type").and_then(|t| t.as_str())
-                                })
+                                .or_else(|| field_value.get("type").and_then(|t| t.as_str()))
                                 .ok_or_else(|| {
                                     RegistryError::InvalidFormat(format!(
                                         "Invalid field type for {}",
@@ -170,14 +170,9 @@ impl NodeRegistry {
                         .unwrap_or("")
                         .to_string();
 
-                    registry.auxiliary_types.insert(
-                        name.clone(),
-                        AuxiliaryTypeMetadata {
-                            name,
-                            fields,
-                            doc,
-                        },
-                    );
+                    registry
+                        .auxiliary_types
+                        .insert(name.clone(), AuxiliaryTypeMetadata { name, fields, doc });
                 }
             }
         }
@@ -207,8 +202,7 @@ impl NodeRegistry {
                                 .to_string();
                             fields.insert(field_name.clone(), field_type);
                         }
-                    } else if let Some(single_field) = table.get("field").and_then(|f| f.as_str())
-                    {
+                    } else if let Some(single_field) = table.get("field").and_then(|f| f.as_str()) {
                         // Handle single field shorthand
                         fields.insert("value".to_string(), single_field.to_string());
                     }
@@ -219,14 +213,9 @@ impl NodeRegistry {
                         .unwrap_or("")
                         .to_string();
 
-                    registry.type_nodes.insert(
-                        name.clone(),
-                        TypeNodeMetadata {
-                            name,
-                            fields,
-                            doc,
-                        },
-                    );
+                    registry
+                        .type_nodes
+                        .insert(name.clone(), TypeNodeMetadata { name, fields, doc });
                 }
             }
         }
@@ -290,11 +279,11 @@ impl NodeRegistry {
                     }
 
                     // Parse grammar metadata - look for [nodes.grammar] section in same table
-                    let grammar = table
-                        .get("grammar")
-                        .and_then(|g| g.as_table())
-                        .map(|gg| {
-                            GrammarMetadata {
+                    let grammar =
+                        table
+                            .get("grammar")
+                            .and_then(|g| g.as_table())
+                            .map(|gg| GrammarMetadata {
                                 rule_name: gg
                                     .get("rule_name")
                                     .and_then(|r| r.as_str())
@@ -305,10 +294,12 @@ impl NodeRegistry {
                                     .and_then(|r| r.as_str())
                                     .unwrap_or("")
                                     .to_string(),
-                            }
-                        });
+                            });
 
-                    let precedence = table.get("precedence").and_then(|p| p.as_integer()).map(|p| p as i32);
+                    let precedence = table
+                        .get("precedence")
+                        .and_then(|p| p.as_integer())
+                        .map(|p| p as i32);
                     let associativity = table
                         .get("associativity")
                         .and_then(|a| a.as_str())
@@ -325,11 +316,7 @@ impl NodeRegistry {
                     };
 
                     registry.nodes.insert(name.clone(), node);
-                    registry
-                        .categories
-                        .entry(category)
-                        .or_default()
-                        .push(name);
+                    registry.categories.entry(category).or_default().push(name);
                 }
             }
         }
@@ -368,12 +355,7 @@ impl NodeRegistry {
     pub fn get_by_category(&self, category: &str) -> Vec<&NodeMetadata> {
         self.categories
             .get(category)
-            .map(|names| {
-                names
-                    .iter()
-                    .filter_map(|n| self.nodes.get(n))
-                    .collect()
-            })
+            .map(|names| names.iter().filter_map(|n| self.nodes.get(n)).collect())
             .unwrap_or_default()
     }
 

@@ -1,4 +1,4 @@
-use five_vm_mito::{MitoVM, Value, Pubkey, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Pubkey, Value};
 
 #[test]
 fn test_swap_debug() {
@@ -14,37 +14,47 @@ fn test_swap_debug() {
     let bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // 5IVE magic
         0x00, 0x00, 0x00, 0x00, // Features
-        0x00, 0x00,             // Counts
-
+        0x00, 0x00, // Counts
         // PUSH_U64(3)
-        0x1B, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // PUSH_U64(10)
-        0x1B, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x13,                   // SWAP
-        0x21,                   // SUB
-        0x00                    // HALT
+        0x1B, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(10)
+        0x1B, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x13, // SWAP
+        0x21, // SUB
+        0x00, // HALT
     ];
 
-    let result = { let mut storage = StackStorage::new(); MitoVM::execute_direct(&bytecode, &[], &[], &program_id, &mut storage) }.unwrap();
+    let result = {
+        let mut storage = StackStorage::new();
+        MitoVM::execute_direct(&bytecode, &[], &[], &program_id, &mut storage)
+    }
+    .unwrap();
     println!("Result: {:?}", result);
-    assert_eq!(result, Some(Value::U64(7)), "Expected 10 - 3 = 7 after swap");
+    assert_eq!(
+        result,
+        Some(Value::U64(7)),
+        "Expected 10 - 3 = 7 after swap"
+    );
 
     // Test without SWAP: 10 - 3 = 7 directly
     // Push 10, Push 3 -> [10, 3]. SUB -> 10 - 3 = 7.
     let bytecode_no_swap = vec![
         0x35, 0x49, 0x56, 0x45, // 5IVE magic
         0x00, 0x00, 0x00, 0x00, // Features
-        0x00, 0x00,             // Counts
-
+        0x00, 0x00, // Counts
         // PUSH_U64(10)
-        0x1B, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // PUSH_U64(3)
-        0x1B, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x21,                   // SUB
-        0x00                    // HALT
+        0x1B, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // PUSH_U64(3)
+        0x1B, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x21, // SUB
+        0x00, // HALT
     ];
 
-    let result_no_swap = { let mut storage = StackStorage::new(); MitoVM::execute_direct(&bytecode_no_swap, &[], &[], &program_id, &mut storage) }.unwrap();
+    let result_no_swap = {
+        let mut storage = StackStorage::new();
+        MitoVM::execute_direct(&bytecode_no_swap, &[], &[], &program_id, &mut storage)
+    }
+    .unwrap();
     println!("Result: {:?}", result_no_swap);
-    assert_eq!(result_no_swap, Some(Value::U64(7)), "Expected 10 - 3 = 7 (direct)");
+    assert_eq!(
+        result_no_swap,
+        Some(Value::U64(7)),
+        "Expected 10 - 3 = 7 (direct)"
+    );
 }

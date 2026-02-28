@@ -12,12 +12,12 @@ script SingleParam {
 
     println!("Compiling script:");
     println!("{}", source);
-    
+
     match DslCompiler::compile_dsl(source) {
         Ok(bytecode) => {
             println!("Compilation successful!");
             println!("Bytecode length: {}", bytecode.len());
-            
+
             // Print bytecode as hex
             print!("Bytecode: ");
             for byte in &bytecode {

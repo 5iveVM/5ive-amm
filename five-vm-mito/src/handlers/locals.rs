@@ -38,7 +38,7 @@ pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
         LOAD_PARAM_0..=LOAD_PARAM_3 => {
             let index = opcode - LOAD_PARAM_0;
             let value = ctx.parameters()[index as usize];
-            
+
             if value.is_empty() {
                 // Parameters must be initialized; returning 0 hides bugs.
                 debug_log!(
@@ -47,7 +47,7 @@ pub fn handle_nibble_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                 );
                 return Err(VMErrorCode::InvalidParameter);
             }
-            
+
             ctx.push(value)?;
         }
         _ => {
@@ -129,7 +129,7 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 return Err(VMErrorCode::InvalidInstruction);
             }
 
-            let actual_param_index = compiler_param_index as usize; 
+            let actual_param_index = compiler_param_index as usize;
 
             // Validate translated parameter index bounds against actual parameter count
             if actual_param_index > ctx.param_len() as usize {
@@ -143,14 +143,14 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
 
             // Get parameter value using 0-based indexing
             let param_value = ctx.parameters()[actual_param_index];
-            
+
             // Check if parameter is empty (uninitialized)
             if param_value.is_empty() {
                 debug_log!(
                     "MitoVM: LOAD_PARAM ERROR - parameter at index {} is empty/uninitialized",
                     actual_param_index as u32
                 );
-                
+
                 return Err(VMErrorCode::InvalidParameter);
             }
 
@@ -167,7 +167,6 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 ValueRef::U8(v) => debug_log!("LOAD_PARAM {} = U8({})", compiler_param_index, *v),
                 _ => debug_log!("LOAD_PARAM {} = unknown", compiler_param_index),
             }
-
         }
         STORE_PARAM => {
             let param_index = ctx.fetch_byte()? as u32;
@@ -181,15 +180,19 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
         RESULT_UNWRAP | RESULT_GET_VALUE | RESULT_GET_ERROR => {
             handle_option_result_ops(opcode, ctx)?;
         }
-        
+
         CAST => {
             let target_type = ctx.fetch_byte()?;
             let value = ctx.pop()?;
-            
+
             // Handle U8 cast
             if target_type == five_protocol::types::U8 {
                 let u8_val = value.as_u64().ok_or(VMErrorCode::TypeMismatch)? as u8;
-                debug_log!("MitoVM: CAST to U8: {} -> {}", value.as_u64().unwrap(), u8_val);
+                debug_log!(
+                    "MitoVM: CAST to U8: {} -> {}",
+                    value.as_u64().unwrap(),
+                    u8_val
+                );
                 ctx.push(ValueRef::U8(u8_val))?;
             } else {
                 debug_log!("MitoVM: CAST unsupported type: {}", target_type);
@@ -212,7 +215,9 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
 fn emit_event_value(ctx: &ExecutionManager, value: ValueRef) -> CompactResult<()> {
     match value {
         ValueRef::StringRef(_) | ValueRef::TempRef(_, _) | ValueRef::ArrayRef(_) => {
-            let (_len, bytes) = ctx.extract_string_slice(&value).map_err(|_| VMErrorCode::TypeMismatch)?;
+            let (_len, bytes) = ctx
+                .extract_string_slice(&value)
+                .map_err(|_| VMErrorCode::TypeMismatch)?;
             emit_event_bytes(bytes);
             Ok(())
         }

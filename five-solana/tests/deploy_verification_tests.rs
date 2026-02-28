@@ -1,13 +1,12 @@
 #[cfg(test)]
 mod deploy_verification_tests {
     use five::instructions::verify_bytecode_content;
-    use five_dsl_compiler::DslCompiler;
     use five_dsl_compiler::bytecode_generator::disassembler::BytecodeInspector;
+    use five_dsl_compiler::DslCompiler;
     use five_protocol::{
-        bytecode, opcodes::*,
-        test_fixtures::{
-            invalid_call_target, operand_truncation, valid_header,
-        },
+        bytecode,
+        opcodes::*,
+        test_fixtures::{invalid_call_target, operand_truncation, valid_header},
     };
 
     #[test]
@@ -28,8 +27,8 @@ mod deploy_verification_tests {
     fn test_verify_invalid_call_out_of_bounds() {
         // Create bytecode with CALL pointing to function address > bytecode length (invalid)
         let bytecode_data = bytecode!(
-            emit_header(0, 0), 
-            emit_call(200, 0)       // calling address 200, which is outside bytecode len (~14)
+            emit_header(0, 0),
+            emit_call(200, 0) // calling address 200, which is outside bytecode len (~14)
         );
         assert!(verify_bytecode_content(&bytecode_data).is_err());
     }
@@ -106,11 +105,8 @@ mod deploy_verification_tests {
     #[test]
     fn test_rejects_stale_empty_function_fixture() {
         let bytecode_data = vec![
-            0x35, 0x49, 0x56, 0x45,
-            0x4f, 0x01, 0x00, 0x00,
-            0x01,
-            0x01,
-            0x06, 0x01, 0x04, 0x74, 0x65, 0x73, 0x74, 0x19, 0x64, 0x07, 0x00,
+            0x35, 0x49, 0x56, 0x45, 0x4f, 0x01, 0x00, 0x00, 0x01, 0x01, 0x06, 0x01, 0x04, 0x74,
+            0x65, 0x73, 0x74, 0x19, 0x64, 0x07, 0x00,
         ];
 
         let parsed = five_protocol::parser::parse_bytecode(&bytecode_data);
@@ -119,7 +115,10 @@ mod deploy_verification_tests {
             "legacy fixture should be parser-invalid until regenerated"
         );
         assert!(
-            parsed.errors.iter().any(|e| matches!(e, five_protocol::parser::ParseError::HeaderTooShort)),
+            parsed
+                .errors
+                .iter()
+                .any(|e| matches!(e, five_protocol::parser::ParseError::HeaderTooShort)),
             "expected HeaderTooShort from legacy fixture, got {:?}",
             parsed.errors
         );
@@ -136,7 +135,10 @@ mod deploy_verification_tests {
         let bytecode_data = bytecode!(emit_header(2, 1), emit_halt());
         // Should return Err(ProgramError::Custom(8105))
         let result = verify_bytecode_content(&bytecode_data);
-        assert!(matches!(result, Err(pinocchio::program_error::ProgramError::Custom(8105))));
+        assert!(matches!(
+            result,
+            Err(pinocchio::program_error::ProgramError::Custom(8105))
+        ));
     }
 
     #[test]
@@ -145,7 +147,10 @@ mod deploy_verification_tests {
         let bytecode_data = bytecode!(emit_header(0, 1), emit_halt());
         // Should return Err(ProgramError::Custom(8104))
         let result = verify_bytecode_content(&bytecode_data);
-        assert!(matches!(result, Err(pinocchio::program_error::ProgramError::Custom(8104))));
+        assert!(matches!(
+            result,
+            Err(pinocchio::program_error::ProgramError::Custom(8104))
+        ));
     }
 
     #[test]
@@ -157,22 +162,31 @@ mod deploy_verification_tests {
 
         let large_bytecode = vec![0u8; five_protocol::MAX_SCRIPT_SIZE + 1];
         let result = verify_bytecode_content(&large_bytecode);
-        assert!(matches!(result, Err(pinocchio::program_error::ProgramError::Custom(8101))));
+        assert!(matches!(
+            result,
+            Err(pinocchio::program_error::ProgramError::Custom(8101))
+        ));
     }
 
     #[test]
     fn verifier_and_parser_align_on_shared_fixtures() {
         let valid = valid_header();
         assert!(verify_bytecode_content(&valid).is_ok());
-        assert!(five_protocol::parser::parse_bytecode(&valid).errors.is_empty());
+        assert!(five_protocol::parser::parse_bytecode(&valid)
+            .errors
+            .is_empty());
 
         let invalid_call = invalid_call_target();
         assert!(verify_bytecode_content(&invalid_call).is_err());
-        assert!(!five_protocol::parser::parse_bytecode(&invalid_call).errors.is_empty());
+        assert!(!five_protocol::parser::parse_bytecode(&invalid_call)
+            .errors
+            .is_empty());
 
         let truncated = operand_truncation();
         assert!(verify_bytecode_content(&truncated).is_err());
-        assert!(!five_protocol::parser::parse_bytecode(&truncated).errors.is_empty());
+        assert!(!five_protocol::parser::parse_bytecode(&truncated)
+            .errors
+            .is_empty());
     }
 
     #[test]

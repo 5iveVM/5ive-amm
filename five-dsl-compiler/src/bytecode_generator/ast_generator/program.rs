@@ -1,7 +1,7 @@
 //! Program generation logic.
 
-use super::types::ASTGenerator;
 use super::super::OpcodeEmitter;
+use super::types::ASTGenerator;
 use crate::ast::AstNode;
 use crate::ast::ImportItem;
 use five_vm_mito::error::VMError;

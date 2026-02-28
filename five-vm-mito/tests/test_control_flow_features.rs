@@ -5,7 +5,7 @@
 mod support;
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Result as VmResult, Value, FIVE_VM_PROGRAM_ID};
 use support::script_builder::ScriptBuilder;
 
 fn execute_script(build: impl FnOnce(&mut ScriptBuilder)) -> VmResult<Option<Value>> {
@@ -58,10 +58,7 @@ mod return_value_handling {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(100)
-                        .return_value()
-                        .push_u64(200)
-                        .return_value();
+                    f.push_u64(100).return_value().push_u64(200).return_value();
                 })
                 .unwrap();
         })
@@ -76,10 +73,7 @@ mod return_value_handling {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(50)
-                        .push_u64(50)
-                        .emit(ADD)
-                        .return_value();
+                    f.push_u64(50).push_u64(50).emit(ADD).return_value();
                 })
                 .unwrap();
         })
@@ -97,7 +91,11 @@ mod function_composition {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(2).call("add_three", 1).call("multiply_two", 1).call("subtract_one", 1).return_value();
+                    f.push_u64(2)
+                        .call("add_three", 1)
+                        .call("multiply_two", 1)
+                        .call("subtract_one", 1)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -128,7 +126,11 @@ mod function_composition {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(1).call("increment", 1).call("increment", 1).call("increment", 1).return_value();
+                    f.push_u64(1)
+                        .call("increment", 1)
+                        .call("increment", 1)
+                        .call("increment", 1)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -171,7 +173,10 @@ mod stack_manipulation_in_functions {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(10).push_u64(3).call("add_swapped", 2).return_value();
+                    f.push_u64(10)
+                        .push_u64(3)
+                        .call("add_swapped", 2)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -180,7 +185,11 @@ mod stack_manipulation_in_functions {
                     // load_param(1)=10, load_param(2)=3 -> [10, 3]
                     // SWAP -> [3, 10]
                     // ADD -> 3 + 10 = 13
-                    f.load_param(1).load_param(2).emit(SWAP).emit(ADD).return_value();
+                    f.load_param(1)
+                        .load_param(2)
+                        .emit(SWAP)
+                        .emit(ADD)
+                        .return_value();
                 })
                 .unwrap();
         })
@@ -225,7 +234,11 @@ mod parameter_passing_reliability {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(100).call("identity", 1).push_u64(200).call("identity", 1).return_value();
+                    f.push_u64(100)
+                        .call("identity", 1)
+                        .push_u64(200)
+                        .call("identity", 1)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -246,7 +259,10 @@ mod parameter_passing_reliability {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(10).call("add_five", 1).call("add_twenty", 1).return_value();
+                    f.push_u64(10)
+                        .call("add_five", 1)
+                        .call("add_twenty", 1)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -323,10 +339,7 @@ mod arithmetic_edge_cases {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(42)
-                        .push_u64(42)
-                        .emit(EQ)
-                        .return_value();
+                    f.push_u64(42).push_u64(42).emit(EQ).return_value();
                 })
                 .unwrap();
         })

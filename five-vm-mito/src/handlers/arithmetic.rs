@@ -61,12 +61,8 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
         // AccountRef vs Integer comparisons
         // For Option/Result encodings, AccountRef index acts as a tag (0/254/255).
         // Comparing AccountRef to a literal should use the index, not account data.
-        (ValueRef::AccountRef(account_idx, _), ValueRef::U64(b)) => {
-            Ok((account_idx as u64) == b)
-        }
-        (ValueRef::U64(a), ValueRef::AccountRef(account_idx, _)) => {
-            Ok(a == (account_idx as u64))
-        }
+        (ValueRef::AccountRef(account_idx, _), ValueRef::U64(b)) => Ok((account_idx as u64) == b),
+        (ValueRef::U64(a), ValueRef::AccountRef(account_idx, _)) => Ok(a == (account_idx as u64)),
 
         // Pubkey/Temp comparisons
         (ValueRef::PubkeyRef(_), _)
@@ -131,7 +127,7 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 // Stack grows up: [..., A, B] where B is at sp-1
                 let b_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 1) };
                 let a_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 2) };
-                
+
                 if let (ValueRef::U64(a), ValueRef::U64(b)) = (a_val, b_val) {
                     // Fast path: u64 + u64
                     let result = a.wrapping_add(b);
@@ -142,8 +138,8 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                     // Pop B (decrement sp)
                     ctx.stack.sp -= 1;
                 } else {
-                     // Slow path: promotion
-                     polymorphic_binary_op!(ctx, "ADD", wrapping_add);
+                    // Slow path: promotion
+                    polymorphic_binary_op!(ctx, "ADD", wrapping_add);
                 }
             } else {
                 return Err(VMErrorCode::StackUnderflow.into());
@@ -155,7 +151,7 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             if sp >= 2 {
                 let b_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 1) };
                 let a_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 2) };
-                
+
                 if let (ValueRef::U64(a), ValueRef::U64(b)) = (a_val, b_val) {
                     let result = a.wrapping_sub(b);
                     unsafe {
@@ -163,7 +159,7 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                     }
                     ctx.stack.sp -= 1;
                 } else {
-                     polymorphic_binary_op!(ctx, "SUB", wrapping_sub);
+                    polymorphic_binary_op!(ctx, "SUB", wrapping_sub);
                 }
             } else {
                 return Err(VMErrorCode::StackUnderflow.into());
@@ -175,7 +171,7 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             if sp >= 2 {
                 let b_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 1) };
                 let a_val = unsafe { *ctx.stack.stack.get_unchecked(sp - 2) };
-                
+
                 if let (ValueRef::U64(a), ValueRef::U64(b)) = (a_val, b_val) {
                     let result = a.wrapping_mul(b);
                     unsafe {
@@ -183,7 +179,7 @@ pub fn handle_arithmetic(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                     }
                     ctx.stack.sp -= 1;
                 } else {
-                     polymorphic_binary_op!(ctx, "MUL", wrapping_mul);
+                    polymorphic_binary_op!(ctx, "MUL", wrapping_mul);
                 }
             } else {
                 return Err(VMErrorCode::StackUnderflow.into());

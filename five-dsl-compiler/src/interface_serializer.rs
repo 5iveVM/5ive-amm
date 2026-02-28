@@ -82,9 +82,7 @@ fn borsh_encode_value(
         }
         (TypeNode::Primitive(name), Value::String(idx)) if name == "string" => {
             let table = string_table.ok_or(VMError::InvalidOperation)?;
-            let bytes = table
-                .get(*idx as usize)
-                .ok_or(VMError::InvalidOperation)?;
+            let bytes = table.get(*idx as usize).ok_or(VMError::InvalidOperation)?;
             let len = bytes.len() as u32;
             buf.extend_from_slice(&len.to_le_bytes());
             buf.extend_from_slice(bytes);
@@ -125,9 +123,7 @@ fn bincode_encode_value(
         }
         (TypeNode::Primitive(name), Value::String(idx)) if name == "string" => {
             let table = string_table.ok_or(VMError::InvalidOperation)?;
-            let bytes = table
-                .get(*idx as usize)
-                .ok_or(VMError::InvalidOperation)?;
+            let bytes = table.get(*idx as usize).ok_or(VMError::InvalidOperation)?;
             let len = bytes.len() as u32;
             buf.extend_from_slice(&len.to_le_bytes());
             buf.extend_from_slice(bytes);
@@ -151,10 +147,7 @@ mod tests {
             TypeNode::Primitive("u64".to_string()),
             TypeNode::Primitive("pubkey".to_string()),
         ];
-        let args = vec![
-            Value::U64(42),
-            Value::Pubkey([9u8; 32]),
-        ];
+        let args = vec![Value::U64(42), Value::Pubkey([9u8; 32])];
 
         let out = serialize_instruction_data(
             &InterfaceSerializer::Borsh,
@@ -168,10 +161,7 @@ mod tests {
         // discriminator + u64 + pubkey
         assert_eq!(out.len(), 8 + 8 + 32);
         assert_eq!(&out[0..8], &discriminator[..]);
-        assert_eq!(
-            &out[8..16],
-            &42u64.to_le_bytes()
-        );
+        assert_eq!(&out[8..16], &42u64.to_le_bytes());
         assert_eq!(&out[16..48], &[9u8; 32]);
     }
 
@@ -222,10 +212,7 @@ mod tests {
             TypeNode::Primitive("u64".to_string()),
             TypeNode::Primitive("pubkey".to_string()),
         ];
-        let args = vec![
-            Value::U64(500),
-            Value::Pubkey([0xAB; 32]),
-        ];
+        let args = vec![Value::U64(500), Value::Pubkey([0xAB; 32])];
 
         let out = serialize_instruction_data(
             &InterfaceSerializer::Borsh,

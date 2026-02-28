@@ -6,7 +6,7 @@
 mod support;
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Result as VmResult, Value, FIVE_VM_PROGRAM_ID};
 use support::script_builder::ScriptBuilder;
 
 fn execute_script(build: impl FnOnce(&mut ScriptBuilder)) -> VmResult<Option<Value>> {
@@ -164,7 +164,10 @@ mod multiple_parameters {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(10).push_u64(20).call("sum_two", 2).return_value();
+                    f.push_u64(10)
+                        .push_u64(20)
+                        .call("sum_two", 2)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -183,7 +186,11 @@ mod multiple_parameters {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(5).push_u64(10).push_u64(15).call("sum_three", 3).return_value();
+                    f.push_u64(5)
+                        .push_u64(10)
+                        .push_u64(15)
+                        .call("sum_three", 3)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -207,7 +214,12 @@ mod multiple_parameters {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(1).push_u64(2).push_u64(3).push_u64(4).call("sum_four", 4).return_value();
+                    f.push_u64(1)
+                        .push_u64(2)
+                        .push_u64(3)
+                        .push_u64(4)
+                        .call("sum_four", 4)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -234,7 +246,11 @@ mod multiple_parameters {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(3).push_u64(7).push_u64(2).call("compute", 3).return_value();
+                    f.push_u64(3)
+                        .push_u64(7)
+                        .push_u64(2)
+                        .call("compute", 3)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -357,7 +373,10 @@ mod nested_function_calls {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(10).call("double", 1).call("add_five", 1).return_value();
+                    f.push_u64(10)
+                        .call("double", 1)
+                        .call("add_five", 1)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -387,7 +406,10 @@ mod nested_function_calls {
                 .unwrap();
             script
                 .private_function("level1", |f| {
-                    f.load_param(1).push_u64(10).call("level2", 2).return_value();
+                    f.load_param(1)
+                        .push_u64(10)
+                        .call("level2", 2)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -435,7 +457,10 @@ mod parameter_edge_cases {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(u64::MAX - 100).push_u64(50).call("add", 2).return_value();
+                    f.push_u64(u64::MAX - 100)
+                        .push_u64(50)
+                        .call("add", 2)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -456,7 +481,10 @@ mod parameter_edge_cases {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(100).push_u64(30).call("subtract", 2).return_value();
+                    f.push_u64(100)
+                        .push_u64(30)
+                        .call("subtract", 2)
+                        .return_value();
                 })
                 .unwrap();
             script

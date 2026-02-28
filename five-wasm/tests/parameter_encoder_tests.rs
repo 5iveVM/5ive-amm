@@ -133,7 +133,10 @@ fn encode_execute_accepts_base58_pubkey_string() {
 fn encode_execute_rejects_invalid_base58_pubkey_string() {
     let params = Array::new();
     // Invalid base58 character '0' (zero) should fail decode
-    params.push(&make_param("pubkey", JsValue::from_str("0OIlInvalidBase58")));
+    params.push(&make_param(
+        "pubkey",
+        JsValue::from_str("0OIlInvalidBase58"),
+    ));
     let err = ParameterEncoder::encode_execute(0, params).unwrap_err();
     assert!(err
         .as_string()
@@ -148,10 +151,7 @@ fn encode_execute_rejects_wrong_length_pubkey_string() {
     let pk_base58 = bs58::encode(&pk_bytes).into_string();
     params.push(&make_param("pubkey", JsValue::from_str(&pk_base58)));
     let err = ParameterEncoder::encode_execute(0, params).unwrap_err();
-    assert!(err
-        .as_string()
-        .unwrap_or_default()
-        .contains("32 bytes"));
+    assert!(err.as_string().unwrap_or_default().contains("32 bytes"));
 }
 
 #[wasm_bindgen_test]

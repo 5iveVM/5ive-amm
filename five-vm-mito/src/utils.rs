@@ -81,16 +81,17 @@ pub fn resolve_u64(value: ValueRef, ctx: &crate::context::ExecutionManager) -> C
                 .map_err(|_| VMErrorCode::InvalidAccountData)?;
             Ok(u64::from_le_bytes(bytes))
         }
-        ValueRef::U128(v) => {
-            u64::try_from(v).map_err(|_| VMErrorCode::NumericOverflow)
-        }
+        ValueRef::U128(v) => u64::try_from(v).map_err(|_| VMErrorCode::NumericOverflow),
         _ => value.as_u64().ok_or(VMErrorCode::TypeMismatch),
     }
 }
 
 /// Helper to resolve a value (including AccountRef) to bool for logical operations
 /// This reads 1 byte from account data if given an AccountRef
-pub fn resolve_bool(value: ValueRef, ctx: &crate::context::ExecutionManager) -> CompactResult<bool> {
+pub fn resolve_bool(
+    value: ValueRef,
+    ctx: &crate::context::ExecutionManager,
+) -> CompactResult<bool> {
     match value {
         ValueRef::AccountRef(account_idx, offset) => {
             let account = ctx.get_account(account_idx)?;
@@ -192,7 +193,9 @@ impl ErrorUtils {
             VMError::OutOfMemory => "Out of memory",
             VMError::ProtocolError => "Protocol error",
             VMError::TooManySeeds => "Too many seeds provided for PDA derivation",
-            VMError::UnauthorizedBytecodeInvocation => "Five bytecode account not authorized by import verification",
+            VMError::UnauthorizedBytecodeInvocation => {
+                "Five bytecode account not authorized by import verification"
+            }
             VMError::PdaDerivationFailed => "Failed to derive PDA from provided seeds",
             VMError::AccountNotFound => "Account not found or invalid account index",
             VMError::AccountDataEmpty => "Account data is empty when data was expected",
@@ -316,7 +319,6 @@ impl DebugUtils {
     }
 }
 
-
 /// Convert ValueRef to byte array for PDA seeds and CPI instruction data
 /// This consolidates the repeated conversion logic found in multiple handlers
 pub fn value_ref_to_seed_bytes(
@@ -362,7 +364,8 @@ pub fn value_ref_to_seed_bytes(
             if end > ctx.memory.temp_buffer.len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
-            Vec::from_slice(&ctx.memory.temp_buffer[start..end]).map_err(|_| VMErrorCode::MemoryError)
+            Vec::from_slice(&ctx.memory.temp_buffer[start..end])
+                .map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::InputRef(offset) => {
             debug_log!(
@@ -399,16 +402,17 @@ pub fn value_ref_to_seed_bytes(
             if start + 2 > ctx.memory.temp_buffer.len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
-            
+
             let len = ctx.memory.temp_buffer[start] as usize;
             let data_start = start + 2;
             let data_end = data_start + len;
-            
+
             if data_end > ctx.memory.temp_buffer.len() {
                 return Err(VMErrorCode::MemoryViolation);
             }
-            
-            Vec::from_slice(&ctx.memory.temp_buffer[data_start..data_end]).map_err(|_| VMErrorCode::MemoryError)
+
+            Vec::from_slice(&ctx.memory.temp_buffer[data_start..data_end])
+                .map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::Empty => {
             debug_log!("MitoVM: value_ref_to_seed_bytes - Empty value");
@@ -526,22 +530,31 @@ pub fn derive_pda_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> CompactRes
     for s in seeds {
         hasher_seeds.push(s).map_err(|_| VMErrorCode::MemoryError)?;
     }
-    hasher_seeds.push(program_id).map_err(|_| VMErrorCode::MemoryError)?;
-    hasher_seeds.push(b"ProgramDerivedAddress").map_err(|_| VMErrorCode::MemoryError)?;
+    hasher_seeds
+        .push(program_id)
+        .map_err(|_| VMErrorCode::MemoryError)?;
+    hasher_seeds
+        .push(b"ProgramDerivedAddress")
+        .map_err(|_| VMErrorCode::MemoryError)?;
 
     let hash = hashv(&hasher_seeds);
     Ok(Pubkey::from(hash))
 }
 
 /// Helper for off-chain program address finding (with bump searching)
-pub fn find_program_address_offchain(seeds: &[&[u8]], program_id: &[u8; 32]) -> CompactResult<([u8; 32], u8)> {
+pub fn find_program_address_offchain(
+    seeds: &[&[u8]],
+    program_id: &[u8; 32],
+) -> CompactResult<([u8; 32], u8)> {
     for bump in (0..=255u8).rev() {
         let bump_slice = [bump];
         let mut full_seeds: Vec<&[u8], 17> = Vec::new();
         for s in seeds {
             full_seeds.push(s).map_err(|_| VMErrorCode::MemoryError)?;
         }
-        full_seeds.push(&bump_slice).map_err(|_| VMErrorCode::MemoryError)?;
+        full_seeds
+            .push(&bump_slice)
+            .map_err(|_| VMErrorCode::MemoryError)?;
 
         let pda = derive_pda_offchain(&full_seeds, program_id)?;
 

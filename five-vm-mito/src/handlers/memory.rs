@@ -8,8 +8,7 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
-    error_log,
-    utils,
+    error_log, utils,
 };
 use five_protocol::{opcodes::*, ValueRef};
 
@@ -37,8 +36,8 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
 
             if (field_offset as usize + 8) > account_data.len() {
                 debug_log!(
-                    "MitoVM: STORE bounds check failed: offset={} + 8 > len={}", 
-                    field_offset, 
+                    "MitoVM: STORE bounds check failed: offset={} + 8 > len={}",
+                    field_offset,
                     account_data.len()
                 );
                 return Err(VMErrorCode::InvalidAccountData);
@@ -111,8 +110,8 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 // Eager bounds check: even if lazy, we verify the data *exists*
                 if (field_offset as usize + 8) > account.data_len() {
                     debug_log!(
-                        "MitoVM: LOAD_FIELD eager bounds check failed: offset={} + 8 > len={}", 
-                        field_offset, 
+                        "MitoVM: LOAD_FIELD eager bounds check failed: offset={} + 8 > len={}",
+                        field_offset,
                         account.data_len()
                     );
                     return Err(VMErrorCode::InvalidAccountData);
@@ -150,8 +149,8 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
 
             if (field_offset as usize + 32) > data.len() {
                 debug_log!(
-                    "MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset {} + 32 > len {}", 
-                    field_offset, 
+                    "MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset {} + 32 > len {}",
+                    field_offset,
                     data.len()
                 );
                 return Err(VMErrorCode::InvalidAccountData);
@@ -168,7 +167,8 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             } else {
                 // Fallback: eager load as TempRef for very large offsets (> 64KB)
                 let mut pubkey_bytes = [0u8; 32];
-                pubkey_bytes.copy_from_slice(&data[field_offset as usize..field_offset as usize + 32]);
+                pubkey_bytes
+                    .copy_from_slice(&data[field_offset as usize..field_offset as usize + 32]);
 
                 let temp_offset = ctx.alloc_temp(32)?;
                 let temp_buf = ctx.get_temp_data_mut(temp_offset, 32)?;

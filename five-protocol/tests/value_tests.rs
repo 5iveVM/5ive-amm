@@ -29,8 +29,14 @@ fn test_valueref_serialization_roundtrip() {
         let mut buffer = vec![0u8; expected_size];
 
         // Test serialize_into
-        let size = value.serialize_into(&mut buffer).expect("Serialization failed");
-        assert_eq!(size, expected_size, "Serialized size mismatch for {:?}", value);
+        let size = value
+            .serialize_into(&mut buffer)
+            .expect("Serialization failed");
+        assert_eq!(
+            size, expected_size,
+            "Serialized size mismatch for {:?}",
+            value
+        );
 
         // Test deserialize_from
         let deserialized = ValueRef::deserialize_from(&buffer).expect("Deserialization failed");

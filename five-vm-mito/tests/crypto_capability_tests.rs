@@ -1,16 +1,18 @@
 use five_protocol::{opcodes::ARRAY_CONCAT, opcodes::HALT, ValueRef};
 use five_vm_mito::{
-    handlers::{arrays::handle_arrays, system::crypto::{
-        handle_syscall_blake3, handle_syscall_keccak256, handle_syscall_sha256,
-        handle_syscall_verify_ed25519_instruction,
-    }},
+    handlers::{
+        arrays::handle_arrays,
+        system::crypto::{
+            handle_syscall_blake3, handle_syscall_keccak256, handle_syscall_sha256,
+            handle_syscall_verify_ed25519_instruction,
+        },
+    },
     AccountInfo, ExecutionContext, StackStorage, FIVE_VM_PROGRAM_ID,
 };
 
 const ED25519_PROGRAM_ID_BYTES: [u8; 32] = [
-    0x03, 0x7d, 0x46, 0xd6, 0x7c, 0x93, 0xfb, 0xbe, 0x12, 0xf9, 0x42, 0x8f, 0x83, 0x8d, 0x40,
-    0xff, 0x05, 0x70, 0x74, 0x49, 0x27, 0xf4, 0x8a, 0x64, 0xfc, 0xca, 0x70, 0x44, 0x80, 0x00,
-    0x00, 0x00,
+    0x03, 0x7d, 0x46, 0xd6, 0x7c, 0x93, 0xfb, 0xbe, 0x12, 0xf9, 0x42, 0x8f, 0x83, 0x8d, 0x40, 0xff,
+    0x05, 0x70, 0x74, 0x49, 0x27, 0xf4, 0x8a, 0x64, 0xfc, 0xca, 0x70, 0x44, 0x80, 0x00, 0x00, 0x00,
 ];
 
 fn build_ed25519_sysvar_payload(
@@ -68,17 +70,19 @@ fn test_sha256_known_vector_abc() {
 
     let input = b"abc";
     let input_off = ctx.alloc_temp(input.len() as u8).unwrap();
-    ctx.temp_buffer_mut()[input_off as usize..input_off as usize + input.len()].copy_from_slice(input);
+    ctx.temp_buffer_mut()[input_off as usize..input_off as usize + input.len()]
+        .copy_from_slice(input);
     let out_off = ctx.alloc_temp(32).unwrap();
 
-    ctx.push(ValueRef::TempRef(input_off, input.len() as u8)).unwrap();
+    ctx.push(ValueRef::TempRef(input_off, input.len() as u8))
+        .unwrap();
     ctx.push(ValueRef::TempRef(out_off, 32)).unwrap();
     handle_syscall_sha256(&mut ctx).unwrap();
 
     let expected: [u8; 32] = [
-        0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae,
-        0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
-        0xf2, 0x00, 0x15, 0xad,
+        0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22,
+        0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00,
+        0x15, 0xad,
     ];
     let got = &ctx.temp_buffer()[out_off as usize..out_off as usize + 32];
     assert_eq!(got, &expected);
@@ -104,17 +108,19 @@ fn test_keccak256_known_vector_abc() {
 
     let input = b"abc";
     let input_off = ctx.alloc_temp(input.len() as u8).unwrap();
-    ctx.temp_buffer_mut()[input_off as usize..input_off as usize + input.len()].copy_from_slice(input);
+    ctx.temp_buffer_mut()[input_off as usize..input_off as usize + input.len()]
+        .copy_from_slice(input);
     let out_off = ctx.alloc_temp(32).unwrap();
 
-    ctx.push(ValueRef::TempRef(input_off, input.len() as u8)).unwrap();
+    ctx.push(ValueRef::TempRef(input_off, input.len() as u8))
+        .unwrap();
     ctx.push(ValueRef::TempRef(out_off, 32)).unwrap();
     handle_syscall_keccak256(&mut ctx).unwrap();
 
     let expected: [u8; 32] = [
-        0x4e, 0x03, 0x65, 0x7a, 0xea, 0x45, 0xa9, 0x4f, 0xc7, 0xd4, 0x7b, 0xa8, 0x26, 0xc8,
-        0xd6, 0x67, 0xc0, 0xd1, 0xe6, 0xe3, 0x3a, 0x64, 0xa0, 0x36, 0xec, 0x44, 0xf5, 0x8f,
-        0xa1, 0x2d, 0x6c, 0x45,
+        0x4e, 0x03, 0x65, 0x7a, 0xea, 0x45, 0xa9, 0x4f, 0xc7, 0xd4, 0x7b, 0xa8, 0x26, 0xc8, 0xd6,
+        0x67, 0xc0, 0xd1, 0xe6, 0xe3, 0x3a, 0x64, 0xa0, 0x36, 0xec, 0x44, 0xf5, 0x8f, 0xa1, 0x2d,
+        0x6c, 0x45,
     ];
     let got = &ctx.temp_buffer()[out_off as usize..out_off as usize + 32];
     assert_eq!(got, &expected);
@@ -140,17 +146,19 @@ fn test_blake3_known_vector_abc() {
 
     let input = b"abc";
     let input_off = ctx.alloc_temp(input.len() as u8).unwrap();
-    ctx.temp_buffer_mut()[input_off as usize..input_off as usize + input.len()].copy_from_slice(input);
+    ctx.temp_buffer_mut()[input_off as usize..input_off as usize + input.len()]
+        .copy_from_slice(input);
     let out_off = ctx.alloc_temp(32).unwrap();
 
-    ctx.push(ValueRef::TempRef(input_off, input.len() as u8)).unwrap();
+    ctx.push(ValueRef::TempRef(input_off, input.len() as u8))
+        .unwrap();
     ctx.push(ValueRef::TempRef(out_off, 32)).unwrap();
     handle_syscall_blake3(&mut ctx).unwrap();
 
     let expected: [u8; 32] = [
-        0x64, 0x37, 0xb3, 0xac, 0x38, 0x46, 0x51, 0x33, 0xff, 0xb6, 0x3b, 0x75, 0x27, 0x3a,
-        0x8d, 0xb5, 0x48, 0xc5, 0x58, 0x46, 0x5d, 0x79, 0xdb, 0x03, 0xfd, 0x35, 0x9c, 0x6c,
-        0xd5, 0xbd, 0x9d, 0x85,
+        0x64, 0x37, 0xb3, 0xac, 0x38, 0x46, 0x51, 0x33, 0xff, 0xb6, 0x3b, 0x75, 0x27, 0x3a, 0x8d,
+        0xb5, 0x48, 0xc5, 0x58, 0x46, 0x5d, 0x79, 0xdb, 0x03, 0xfd, 0x35, 0x9c, 0x6c, 0xd5, 0xbd,
+        0x9d, 0x85,
     ];
     let got = &ctx.temp_buffer()[out_off as usize..out_off as usize + 32];
     assert_eq!(got, &expected);
@@ -181,7 +189,8 @@ fn test_array_concat_dynamic_entropy_preimage() {
     let request_count = [5u8; 8];
 
     let house_off = ctx.alloc_temp(32).unwrap();
-    ctx.temp_buffer_mut()[house_off as usize..house_off as usize + 32].copy_from_slice(&house_entropy);
+    ctx.temp_buffer_mut()[house_off as usize..house_off as usize + 32]
+        .copy_from_slice(&house_entropy);
     let user_off = ctx.alloc_temp(16).unwrap();
     ctx.temp_buffer_mut()[user_off as usize..user_off as usize + 16].copy_from_slice(&user_seed);
     let slot_off = ctx.alloc_temp(8).unwrap();
@@ -272,8 +281,12 @@ fn test_ed25519_sysvar_positive_and_negatives() {
     // Positive case
     {
         let mut sysvar_lamports = 1u64;
-        let mut sysvar_data =
-            build_ed25519_sysvar_payload(&expected_pubkey, &signature, &message, &ED25519_PROGRAM_ID_BYTES);
+        let mut sysvar_data = build_ed25519_sysvar_payload(
+            &expected_pubkey,
+            &signature,
+            &message,
+            &ED25519_PROGRAM_ID_BYTES,
+        );
         let sysvar_key = [42u8; 32];
         let sysvar_account = AccountInfo::new(
             &sysvar_key,
@@ -304,7 +317,8 @@ fn test_ed25519_sysvar_positive_and_negatives() {
         );
 
         let pk_off = ctx.alloc_temp(32).unwrap();
-        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32].copy_from_slice(&expected_pubkey);
+        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32]
+            .copy_from_slice(&expected_pubkey);
         let msg_off = ctx.alloc_temp(32).unwrap();
         ctx.temp_buffer_mut()[msg_off as usize..msg_off as usize + 32].copy_from_slice(&message);
         let sig_off = ctx.alloc_temp(64).unwrap();
@@ -321,8 +335,12 @@ fn test_ed25519_sysvar_positive_and_negatives() {
     // Wrong signer pubkey (should fail)
     {
         let mut sysvar_lamports = 1u64;
-        let mut sysvar_data =
-            build_ed25519_sysvar_payload(&expected_pubkey, &signature, &message, &ED25519_PROGRAM_ID_BYTES);
+        let mut sysvar_data = build_ed25519_sysvar_payload(
+            &expected_pubkey,
+            &signature,
+            &message,
+            &ED25519_PROGRAM_ID_BYTES,
+        );
         let sysvar_key = [43u8; 32];
         let sysvar_account = AccountInfo::new(
             &sysvar_key,
@@ -370,8 +388,12 @@ fn test_ed25519_sysvar_positive_and_negatives() {
     // Wrong message/signature and malformed ix program-id/missing sysvar fail
     {
         let mut sysvar_lamports = 1u64;
-        let mut sysvar_data =
-            build_ed25519_sysvar_payload(&expected_pubkey, &signature, &message, &ED25519_PROGRAM_ID_BYTES);
+        let mut sysvar_data = build_ed25519_sysvar_payload(
+            &expected_pubkey,
+            &signature,
+            &message,
+            &ED25519_PROGRAM_ID_BYTES,
+        );
         let sysvar_key = [44u8; 32];
         let sysvar_account = AccountInfo::new(
             &sysvar_key,
@@ -402,9 +424,11 @@ fn test_ed25519_sysvar_positive_and_negatives() {
             0,
         );
         let pk_off = ctx.alloc_temp(32).unwrap();
-        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32].copy_from_slice(&expected_pubkey);
+        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32]
+            .copy_from_slice(&expected_pubkey);
         let msg_off = ctx.alloc_temp(32).unwrap();
-        ctx.temp_buffer_mut()[msg_off as usize..msg_off as usize + 32].copy_from_slice(&wrong_message);
+        ctx.temp_buffer_mut()[msg_off as usize..msg_off as usize + 32]
+            .copy_from_slice(&wrong_message);
         let sig_off = ctx.alloc_temp(64).unwrap();
         ctx.temp_buffer_mut()[sig_off as usize..sig_off as usize + 64].copy_from_slice(&signature);
         ctx.push(ValueRef::AccountRef(0, 0)).unwrap();
@@ -431,11 +455,13 @@ fn test_ed25519_sysvar_positive_and_negatives() {
             0,
         );
         let pk_off = ctx.alloc_temp(32).unwrap();
-        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32].copy_from_slice(&expected_pubkey);
+        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32]
+            .copy_from_slice(&expected_pubkey);
         let msg_off = ctx.alloc_temp(32).unwrap();
         ctx.temp_buffer_mut()[msg_off as usize..msg_off as usize + 32].copy_from_slice(&message);
         let sig_off = ctx.alloc_temp(64).unwrap();
-        ctx.temp_buffer_mut()[sig_off as usize..sig_off as usize + 64].copy_from_slice(&wrong_signature);
+        ctx.temp_buffer_mut()[sig_off as usize..sig_off as usize + 64]
+            .copy_from_slice(&wrong_signature);
         ctx.push(ValueRef::AccountRef(0, 0)).unwrap();
         ctx.push(ValueRef::TempRef(pk_off, 32)).unwrap();
         ctx.push(ValueRef::TempRef(msg_off, 32)).unwrap();
@@ -475,7 +501,8 @@ fn test_ed25519_sysvar_positive_and_negatives() {
             0,
         );
         let pk_off = ctx.alloc_temp(32).unwrap();
-        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32].copy_from_slice(&expected_pubkey);
+        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32]
+            .copy_from_slice(&expected_pubkey);
         let msg_off = ctx.alloc_temp(32).unwrap();
         ctx.temp_buffer_mut()[msg_off as usize..msg_off as usize + 32].copy_from_slice(&message);
         let sig_off = ctx.alloc_temp(64).unwrap();
@@ -504,7 +531,8 @@ fn test_ed25519_sysvar_positive_and_negatives() {
             0,
         );
         let pk_off = ctx.alloc_temp(32).unwrap();
-        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32].copy_from_slice(&expected_pubkey);
+        ctx.temp_buffer_mut()[pk_off as usize..pk_off as usize + 32]
+            .copy_from_slice(&expected_pubkey);
         let msg_off = ctx.alloc_temp(32).unwrap();
         ctx.temp_buffer_mut()[msg_off as usize..msg_off as usize + 32].copy_from_slice(&message);
         let sig_off = ctx.alloc_temp(64).unwrap();

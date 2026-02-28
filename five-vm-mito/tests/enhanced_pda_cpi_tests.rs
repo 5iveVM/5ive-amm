@@ -3,9 +3,13 @@
 //! Comprehensive tests for Program Derived Address and Cross-Program Invocation
 //! functionality with realistic Solana account structures and stack management.
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
@@ -406,10 +410,10 @@ mod system_integration_tests {
 
         for (opcode, name) in test_opcodes {
             let bytecode = vec![
-                0x35, 0x49, 0x56, 0x45,   // 5IVE magic
-                0x00, 0x00, 0x00, 0x00, // features (4 bytes LE)
-                0x00, // public_function_count
-                0x00, // total_function_count
+                0x35, 0x49, 0x56, 0x45, // 5IVE magic
+                0x00, 0x00, 0x00, 0x00,   // features (4 bytes LE)
+                0x00,   // public_function_count
+                0x00,   // total_function_count
                 opcode, // System opcode
                 0x00,   // HALT
             ];

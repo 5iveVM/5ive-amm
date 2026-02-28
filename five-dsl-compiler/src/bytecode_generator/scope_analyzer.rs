@@ -199,7 +199,12 @@ impl ScopeAnalyzer {
     }
 
     /// Declare a new variable in the current scope
-    pub fn declare_variable(&mut self, name: &str, var_type: &str, is_parameter: bool) -> Result<(), VMError> {
+    pub fn declare_variable(
+        &mut self,
+        name: &str,
+        var_type: &str,
+        is_parameter: bool,
+    ) -> Result<(), VMError> {
         let var_scope = VariableScope {
             name: name.to_string(),
             var_type: var_type.to_string(),
@@ -389,7 +394,7 @@ impl ScopeAnalyzer {
             let mut available_slots = Vec::new();
             let mut next_slot = 0;
             let variables_len = analysis.variables.len();
-            
+
             // Map to track usage weight for each allocated slot
             // slot_index -> total_usage_count
             let mut slot_weights: HashMap<usize, usize> = HashMap::new();
@@ -412,7 +417,7 @@ impl ScopeAnalyzer {
                 variable.assigned_slot = Some(slot);
                 // Accumulate usage count for this slot
                 *slot_weights.entry(slot).or_insert(0) += variable.usage_count;
-                
+
                 // Note: The logic below for freeing slots is simplified and imperfect.
                 // In a full implementation, we would check implementation-specific liveness intervals.
                 // However, preserving existing behavior for now.
@@ -422,24 +427,24 @@ impl ScopeAnalyzer {
             }
 
             // OPTIMIZATION: Remap slots based on frequency
-            // Create a mapping from old_slot -> new_slot where new slots 0,1,2,3 
+            // Create a mapping from old_slot -> new_slot where new slots 0,1,2,3
             // are assigned to the most heavily used old slots.
-            
+
             // 1. Convert weights to a vector of (slot, weight)
             let mut weighted_slots: Vec<(usize, usize)> = slot_weights.into_iter().collect();
-            
+
             // 2. Sort by weight descending (most used first), then by slot index (stability)
             weighted_slots.sort_by(|a, b| {
                 b.1.cmp(&a.1) // Descending by weight
-                   .then(a.0.cmp(&b.0)) // Ascending by slot index (stable tie-break)
+                    .then(a.0.cmp(&b.0)) // Ascending by slot index (stable tie-break)
             });
-            
+
             // 3. Create mapping: weighted_slots[i].original_slot -> i (new_slot)
             let mut slot_map: HashMap<usize, usize> = HashMap::new();
             for (new_index, (old_slot, _)) in weighted_slots.iter().enumerate() {
                 slot_map.insert(*old_slot, new_index);
             }
-            
+
             // 4. Update all variables with new slot mappings
             allocations.clear(); // Clear any partial work if it existed
             for variable in &mut analysis.variables {

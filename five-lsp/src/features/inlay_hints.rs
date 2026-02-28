@@ -43,7 +43,9 @@ fn find_let_statements(line: &str, line_num: u32, hints: &mut Vec<InlayHint>) {
             let var_name = after_let[..name_end].trim();
 
             // Check if type annotation already exists
-            if !line[let_pos..].contains(':') || line[let_pos..].find(':').unwrap() > line[let_pos..].find('=').unwrap_or(usize::MAX)
+            if !line[let_pos..].contains(':')
+                || line[let_pos..].find(':').unwrap()
+                    > line[let_pos..].find('=').unwrap_or(usize::MAX)
             {
                 // Add hint after variable name
                 hints.push(InlayHint {
@@ -159,9 +161,10 @@ fn add_parameter_hints(func_name: &str, line_num: u32, paren_pos: u32, hints: &m
         label: InlayHintLabel::String(format!("{}: ", params[0])),
         kind: Some(InlayHintKind::PARAMETER),
         text_edits: None,
-        tooltip: Some(lsp_types::InlayHintTooltip::String(
-            format!("Parameter: {}", params[0]),
-        )),
+        tooltip: Some(lsp_types::InlayHintTooltip::String(format!(
+            "Parameter: {}",
+            params[0]
+        ))),
         padding_left: Some(false),
         padding_right: Some(false),
         data: None,

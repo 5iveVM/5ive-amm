@@ -1,5 +1,5 @@
-use crate::type_checker::types::TypeCheckerContext;
 use crate::ast::{AstNode, TypeNode};
+use crate::type_checker::types::TypeCheckerContext;
 use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
@@ -31,7 +31,10 @@ fn test_check_identifier_not_found() {
 fn test_check_identifier_found() {
     let mut checker = TypeCheckerContext::new();
     // Simulate variable 'x' in symbol table
-    checker.symbol_table.insert("x".to_string(), (TypeNode::Primitive("u64".to_string()), false));
+    checker.symbol_table.insert(
+        "x".to_string(),
+        (TypeNode::Primitive("u64".to_string()), false),
+    );
     let node = AstNode::Identifier("x".to_string());
     assert!(checker.check_expression(&node).is_ok());
 }
@@ -41,7 +44,10 @@ fn test_check_binary_expression_valid() {
     let mut checker = TypeCheckerContext::new();
     // x + 1
     // Need 'x' in scope
-    checker.symbol_table.insert("x".to_string(), (TypeNode::Primitive("u64".to_string()), false));
+    checker.symbol_table.insert(
+        "x".to_string(),
+        (TypeNode::Primitive("u64".to_string()), false),
+    );
 
     let node = AstNode::BinaryExpression {
         left: Box::new(AstNode::Identifier("x".to_string())),
@@ -56,7 +62,10 @@ fn test_check_binary_expression_valid() {
 fn test_check_binary_expression_type_mismatch() {
     let mut checker = TypeCheckerContext::new();
     // x + true (u64 + bool) -> Mismatch
-    checker.symbol_table.insert("x".to_string(), (TypeNode::Primitive("u64".to_string()), false));
+    checker.symbol_table.insert(
+        "x".to_string(),
+        (TypeNode::Primitive("u64".to_string()), false),
+    );
 
     let node = AstNode::BinaryExpression {
         left: Box::new(AstNode::Identifier("x".to_string())),
@@ -126,7 +135,10 @@ fn test_check_binary_expression_type_mismatch() {
 #[test]
 fn test_infer_binary_expression_type_mismatch() {
     let mut checker = TypeCheckerContext::new();
-    checker.symbol_table.insert("x".to_string(), (TypeNode::Primitive("u64".to_string()), false));
+    checker.symbol_table.insert(
+        "x".to_string(),
+        (TypeNode::Primitive("u64".to_string()), false),
+    );
 
     let node = AstNode::BinaryExpression {
         left: Box::new(AstNode::Identifier("x".to_string())),
@@ -135,14 +147,20 @@ fn test_infer_binary_expression_type_mismatch() {
     };
 
     // infer_type should catch the mismatch
-    assert!(matches!(checker.infer_type(&node), Err(VMError::TypeMismatch)));
+    assert!(matches!(
+        checker.infer_type(&node),
+        Err(VMError::TypeMismatch)
+    ));
 }
 
 #[test]
 fn test_check_method_call() {
     let mut checker = TypeCheckerContext::new();
     // x.add(1)
-    checker.symbol_table.insert("x".to_string(), (TypeNode::Primitive("u64".to_string()), false));
+    checker.symbol_table.insert(
+        "x".to_string(),
+        (TypeNode::Primitive("u64".to_string()), false),
+    );
 
     let node = AstNode::MethodCall {
         object: Box::new(AstNode::Identifier("x".to_string())),
@@ -173,7 +191,9 @@ fn test_check_array_access_valid() {
         element_type: Box::new(TypeNode::Primitive("u64".to_string())),
         size: Some(10),
     };
-    checker.symbol_table.insert("arr".to_string(), (array_type, false));
+    checker
+        .symbol_table
+        .insert("arr".to_string(), (array_type, false));
 
     let node = AstNode::ArrayAccess {
         array: Box::new(AstNode::Identifier("arr".to_string())),
@@ -191,7 +211,9 @@ fn test_check_array_access_invalid_index() {
         element_type: Box::new(TypeNode::Primitive("u64".to_string())),
         size: Some(10),
     };
-    checker.symbol_table.insert("arr".to_string(), (array_type, false));
+    checker
+        .symbol_table
+        .insert("arr".to_string(), (array_type, false));
 
     let node = AstNode::ArrayAccess {
         array: Box::new(AstNode::Identifier("arr".to_string())),
@@ -199,7 +221,10 @@ fn test_check_array_access_invalid_index() {
     };
 
     // check_expression for ArrayAccess calls infer_type on index and checks if it is numeric
-    assert!(matches!(checker.check_expression(&node), Err(VMError::InvalidScript)));
+    assert!(matches!(
+        checker.check_expression(&node),
+        Err(VMError::InvalidScript)
+    ));
     // Note: check_expression returns InvalidScript for non-numeric index in ArrayAccess
 }
 
@@ -208,12 +233,10 @@ fn test_check_struct_literal() {
     let mut checker = TypeCheckerContext::new();
     // { x: 1 }
     let node = AstNode::StructLiteral {
-        fields: vec![
-            crate::ast::StructLiteralField {
-                field_name: "x".to_string(),
-                value: Box::new(AstNode::Literal(Value::U64(1))),
-            }
-        ],
+        fields: vec![crate::ast::StructLiteralField {
+            field_name: "x".to_string(),
+            value: Box::new(AstNode::Literal(Value::U64(1))),
+        }],
     };
 
     assert!(checker.check_expression(&node).is_ok());
@@ -222,7 +245,9 @@ fn test_check_struct_literal() {
 #[test]
 fn test_check_account_ctx_core_fields() {
     let mut checker = TypeCheckerContext::new();
-    checker.symbol_table.insert("vault".to_string(), (TypeNode::Account, false));
+    checker
+        .symbol_table
+        .insert("vault".to_string(), (TypeNode::Account, false));
 
     let lamports_expr = AstNode::FieldAccess {
         object: Box::new(AstNode::FieldAccess {
@@ -241,7 +266,9 @@ fn test_check_account_ctx_core_fields() {
 #[test]
 fn test_check_account_ctx_bump_requires_seeded_init_context() {
     let mut checker = TypeCheckerContext::new();
-    checker.symbol_table.insert("vault".to_string(), (TypeNode::Account, false));
+    checker
+        .symbol_table
+        .insert("vault".to_string(), (TypeNode::Account, false));
 
     let bump_expr = AstNode::FieldAccess {
         object: Box::new(AstNode::FieldAccess {
@@ -251,7 +278,10 @@ fn test_check_account_ctx_bump_requires_seeded_init_context() {
         field: "bump".to_string(),
     };
 
-    assert!(matches!(checker.check_expression(&bump_expr), Err(VMError::UndefinedField)));
+    assert!(matches!(
+        checker.check_expression(&bump_expr),
+        Err(VMError::UndefinedField)
+    ));
 
     checker.init_bump_accounts.insert("vault".to_string());
     assert!(checker.check_expression(&bump_expr).is_ok());
@@ -264,7 +294,9 @@ fn test_check_account_ctx_bump_requires_seeded_init_context() {
 #[test]
 fn test_legacy_metadata_field_access_provides_ctx_hint() {
     let mut checker = TypeCheckerContext::new();
-    checker.symbol_table.insert("payer".to_string(), (TypeNode::Account, false));
+    checker
+        .symbol_table
+        .insert("payer".to_string(), (TypeNode::Account, false));
 
     let expr = AstNode::FieldAccess {
         object: Box::new(AstNode::Identifier("payer".to_string())),
@@ -272,7 +304,10 @@ fn test_legacy_metadata_field_access_provides_ctx_hint() {
     };
 
     match checker.check_expression(&expr) {
-        Err(VMError::UndefinedIdentifierWithContext { identifier, did_you_mean }) => {
+        Err(VMError::UndefinedIdentifierWithContext {
+            identifier,
+            did_you_mean,
+        }) => {
             assert_eq!(identifier.as_str(), "lamports");
             assert_eq!(
                 did_you_mean.as_ref().map(|s| s.as_str()),
@@ -291,7 +326,10 @@ fn test_legacy_init_alias_identifier_provides_ctx_hint() {
     let expr = AstNode::Identifier("vault_bump".to_string());
 
     match checker.check_expression(&expr) {
-        Err(VMError::UndefinedIdentifierWithContext { identifier, did_you_mean }) => {
+        Err(VMError::UndefinedIdentifierWithContext {
+            identifier,
+            did_you_mean,
+        }) => {
             assert_eq!(identifier.as_str(), "vault_bump");
             assert_eq!(
                 did_you_mean.as_ref().map(|s| s.as_str()),
@@ -322,20 +360,21 @@ fn test_infer_pubkey_constructor_rejects_non_zero_numeric() {
         args: vec![AstNode::Literal(Value::U64(1))],
     };
 
-    assert!(matches!(checker.infer_type(&node), Err(VMError::TypeMismatch)));
+    assert!(matches!(
+        checker.infer_type(&node),
+        Err(VMError::TypeMismatch)
+    ));
 }
 
 #[test]
 fn test_infer_close_account_type() {
     let mut checker = TypeCheckerContext::new();
-    checker.symbol_table.insert(
-        "vault".to_string(),
-        (TypeNode::Account, true),
-    );
-    checker.symbol_table.insert(
-        "maker".to_string(),
-        (TypeNode::Account, true),
-    );
+    checker
+        .symbol_table
+        .insert("vault".to_string(), (TypeNode::Account, true));
+    checker
+        .symbol_table
+        .insert("maker".to_string(), (TypeNode::Account, true));
 
     let node = AstNode::FunctionCall {
         name: "close_account".to_string(),

@@ -165,7 +165,10 @@ mod tests {
 
         // Lookup in global scope
         assert!(resolver.lookup("x").is_some());
-        assert_eq!(resolver.lookup("x").unwrap().type_name.as_deref(), Some("u64"));
+        assert_eq!(
+            resolver.lookup("x").unwrap().type_name.as_deref(),
+            Some("u64")
+        );
 
         // Push function scope and add shadowing symbol
         resolver.push_scope(ScopeType::Function);
@@ -180,12 +183,18 @@ mod tests {
         );
 
         // Inner scope shadows outer
-        assert_eq!(resolver.lookup("x").unwrap().type_name.as_deref(), Some("string"));
+        assert_eq!(
+            resolver.lookup("x").unwrap().type_name.as_deref(),
+            Some("string")
+        );
         assert!(resolver.lookup("x").unwrap().is_mutable);
 
         // Pop scope - back to global
         resolver.pop_scope();
-        assert_eq!(resolver.lookup("x").unwrap().type_name.as_deref(), Some("u64"));
+        assert_eq!(
+            resolver.lookup("x").unwrap().type_name.as_deref(),
+            Some("u64")
+        );
         assert!(!resolver.lookup("x").unwrap().is_mutable);
     }
 

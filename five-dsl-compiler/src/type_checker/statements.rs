@@ -67,7 +67,10 @@ impl TypeCheckerContext {
                 field,
                 value,
             } => {
-                if let AstNode::FieldAccess { field: ctx_field, .. } = object.as_ref() {
+                if let AstNode::FieldAccess {
+                    field: ctx_field, ..
+                } = object.as_ref()
+                {
                     if ctx_field == "ctx" {
                         return Err(VMError::ImmutableField);
                     }
@@ -145,15 +148,22 @@ impl TypeCheckerContext {
                             // Look up account fields with namespace-aware matching
                             let namespace_suffix = format!("::{}", account_type_name);
                             eprintln!("DEBUG: FieldAssignment on TypeNode::Named('{}'), looking for field '{}', suffix='{}'", account_type_name, field, namespace_suffix);
-                            let account_fields = self.account_definitions.get(&account_type_name)
+                            let account_fields = self
+                                .account_definitions
+                                .get(&account_type_name)
                                 .or_else(|| {
-                                    self.account_definitions.iter()
+                                    self.account_definitions
+                                        .iter()
                                         .find(|(k, _)| k.ends_with(&namespace_suffix))
                                         .map(|(_, v)| v)
                                 });
-                            
+
                             if let Some(account_fields) = account_fields {
-                                eprintln!("DEBUG: Resolved account_fields for '{}': {:?}", account_type_name, account_fields.iter().map(|f| &f.name).collect::<Vec<_>>());
+                                eprintln!(
+                                    "DEBUG: Resolved account_fields for '{}': {:?}",
+                                    account_type_name,
+                                    account_fields.iter().map(|f| &f.name).collect::<Vec<_>>()
+                                );
                                 if let Some(field_def) =
                                     account_fields.iter().find(|f| f.name == *field)
                                 {
@@ -203,8 +213,16 @@ impl TypeCheckerContext {
                                                     let rhs_is_account = match &value_type {
                                                         TypeNode::Account => true,
                                                         TypeNode::Named(ref n) => {
-                                                            self.account_definitions.contains_key(n) ||
-                                                            self.account_definitions.keys().any(|k| k.ends_with(&format!("::{}", n)))
+                                                            self.account_definitions.contains_key(n)
+                                                                || self
+                                                                    .account_definitions
+                                                                    .keys()
+                                                                    .any(|k| {
+                                                                        k.ends_with(&format!(
+                                                                            "::{}",
+                                                                            n
+                                                                        ))
+                                                                    })
                                                         }
                                                         _ => false,
                                                     };
@@ -239,11 +257,17 @@ impl TypeCheckerContext {
                                         }
                                     }
                                 } else {
-                                    eprintln!("DEBUG: Field '{}' not found in account fields for '{}'", field, account_type_name);
+                                    eprintln!(
+                                        "DEBUG: Field '{}' not found in account fields for '{}'",
+                                        field, account_type_name
+                                    );
                                     return Err(VMError::UndefinedField);
                                 }
                             } else {
-                                eprintln!("DEBUG: No account definition found for '{}'", account_type_name);
+                                eprintln!(
+                                    "DEBUG: No account definition found for '{}'",
+                                    account_type_name
+                                );
                                 return Err(VMError::UndefinedField);
                             }
                         }
@@ -358,7 +382,7 @@ impl TypeCheckerContext {
                             target.clone(),
                             element_type.clone(),
                             false, // Destructured targets are immutable
-                            None, // TODO: Add position tracking to AST nodes
+                            None,  // TODO: Add position tracking to AST nodes
                         );
                     }
                 } else {

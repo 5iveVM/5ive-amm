@@ -7,8 +7,7 @@ use five_lsp::CompilerBridge;
 use lsp_types::Url;
 
 fn create_test_uri(filename: &str) -> Url {
-    Url::parse(&format!("file:///test/{}", filename))
-        .expect("Failed to create test URI")
+    Url::parse(&format!("file:///test/{}", filename)).expect("Failed to create test URI")
 }
 
 #[test]
@@ -163,10 +162,7 @@ fn test_cache_invalidation_on_source_change() {
     let diag2 = bridge
         .get_diagnostics(&uri, invalid_source)
         .expect("Failed second call");
-    assert!(
-        !diag2.is_empty(),
-        "Invalid code should produce diagnostics"
-    );
+    assert!(!diag2.is_empty(), "Invalid code should produce diagnostics");
 }
 
 #[test]

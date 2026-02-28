@@ -9,11 +9,7 @@ use harness::validator::{
     build_deploy_instruction, build_execute_instruction_with_extras, RuntimeAccount,
     ValidatorHarness,
 };
-use solana_sdk::{
-    signature::Signature,
-    signer::Signer,
-    system_program,
-};
+use solana_sdk::{signature::Signature, signer::Signer, system_program};
 use std::{
     collections::BTreeMap,
     fs,
@@ -135,6 +131,18 @@ fn execute_probe(
     )
 }
 
+fn maybe_write_probe_artifact(payload: &str) {
+    let Ok(path) = std::env::var("FIVE_CU_PROBE_OUTPUT_PATH") else {
+        return;
+    };
+
+    let artifact_path = PathBuf::from(path);
+    if let Some(parent) = artifact_path.parent() {
+        fs::create_dir_all(parent).expect("create stdlib probe artifact parent");
+    }
+    fs::write(&artifact_path, payload).expect("write stdlib probe artifact");
+}
+
 #[test]
 #[ignore = "requires running validator and pre-deployed program"]
 fn validator_stdlib_time_and_sysvar_onchain() {
@@ -173,6 +181,30 @@ pub run() -> u64 {
         execute_probe(&h, "stdlib_now_seconds", &now_bytecode);
     let (clock_deploy_signature, clock_deploy_cu, clock_execute_signature, clock_execute_cu) =
         execute_probe(&h, "stdlib_clock_sysvar", &clock_bytecode);
+
+    maybe_write_probe_artifact(&format!(
+        concat!(
+            "{{",
+            "\"kind\":\"stdlib\",",
+            "\"nowDeploySignature\":\"{}\",",
+            "\"nowDeployCu\":{},",
+            "\"nowExecuteSignature\":\"{}\",",
+            "\"nowExecuteCu\":{},",
+            "\"clockDeploySignature\":\"{}\",",
+            "\"clockDeployCu\":{},",
+            "\"clockExecuteSignature\":\"{}\",",
+            "\"clockExecuteCu\":{}",
+            "}}"
+        ),
+        now_deploy_signature,
+        now_deploy_cu,
+        now_execute_signature,
+        now_execute_cu,
+        clock_deploy_signature,
+        clock_deploy_cu,
+        clock_execute_signature,
+        clock_execute_cu
+    ));
 
     println!(
         "STDLIB_PROBE now_deploy_signature={} now_deploy_cu={} now_execute_signature={} now_execute_cu={} clock_deploy_signature={} clock_deploy_cu={} clock_execute_signature={} clock_execute_cu={}",

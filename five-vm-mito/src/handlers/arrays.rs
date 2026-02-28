@@ -206,8 +206,7 @@ fn extract_raw_bytes<'a>(
                                 if write_offset + len > out.len() {
                                     return Err(VMErrorCode::OutOfMemory);
                                 }
-                                out[write_offset..write_offset + len]
-                                    .copy_from_slice(bytes);
+                                out[write_offset..write_offset + len].copy_from_slice(bytes);
                                 write_offset += len;
                             }
                             _ => {
@@ -542,8 +541,10 @@ fn handle_array_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
             let header_size = 2usize;
 
             // Calculate maximum capacity accounting for this array's offset in the buffer
-            let available_after_array_start = ctx.temp_buffer().len().saturating_sub(array_id as usize);
-            let max_capacity = available_after_array_start.saturating_sub(header_size) / element_size;
+            let available_after_array_start =
+                ctx.temp_buffer().len().saturating_sub(array_id as usize);
+            let max_capacity =
+                available_after_array_start.saturating_sub(header_size) / element_size;
 
             if index >= max_capacity {
                 return Err(VMErrorCode::IndexOutOfBounds);
@@ -677,7 +678,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
 
                 // Write length (u32)
                 let length_bytes = (string_length as u32).to_le_bytes();
-                ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
+                ctx.get_heap_data_mut(heap_id, 4)?
+                    .copy_from_slice(&length_bytes);
 
                 // Read string bytes from bytecode directly into heap
                 for i in 0..string_length {
@@ -758,7 +760,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                     let heap_total_size = 4 + string_length as usize;
                     let heap_id = ctx.heap_alloc(heap_total_size)?;
                     let length_bytes = string_length.to_le_bytes();
-                    ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
+                    ctx.get_heap_data_mut(heap_id, 4)?
+                        .copy_from_slice(&length_bytes);
                     ctx.get_heap_data_mut(heap_id + 4, string_length)?
                         .copy_from_slice(string_bytes);
                     if core::str::from_utf8(string_bytes).is_err() {
@@ -772,7 +775,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                 let array_id = ctx.alloc_temp(alloc_size)?;
                 ctx.temp_buffer_mut()[array_id as usize] = string_length as u8;
                 ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
-                ctx.temp_buffer_mut()[array_id as usize + 2..array_id as usize + 2 + string_length as usize]
+                ctx.temp_buffer_mut()
+                    [array_id as usize + 2..array_id as usize + 2 + string_length as usize]
                     .copy_from_slice(string_bytes);
                 if core::str::from_utf8(string_bytes).is_err() {
                     return Err(VMErrorCode::InvalidOperation);
@@ -783,10 +787,7 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
 
             // Legacy PUSH_STRING - similar to PUSH_STRING_LITERAL but with u32 length
             let string_length = ctx.fetch_u32()?; // Fetch fixed length (u32)
-            debug_log!(
-                "MitoVM: PUSH_STRING with {} bytes",
-                string_length
-            );
+            debug_log!("MitoVM: PUSH_STRING with {} bytes", string_length);
 
             if string_length == 0 {
                 // Empty string - stored as empty array with string element type
@@ -806,7 +807,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
 
                 // Write length (u32)
                 let length_bytes = string_length.to_le_bytes();
-                ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
+                ctx.get_heap_data_mut(heap_id, 4)?
+                    .copy_from_slice(&length_bytes);
 
                 // Read string bytes from bytecode
                 for i in 0..string_length {
@@ -889,7 +891,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
                 let heap_total_size = 4 + string_length as usize;
                 let heap_id = ctx.heap_alloc(heap_total_size)?;
                 let length_bytes = string_length.to_le_bytes();
-                ctx.get_heap_data_mut(heap_id, 4)?.copy_from_slice(&length_bytes);
+                ctx.get_heap_data_mut(heap_id, 4)?
+                    .copy_from_slice(&length_bytes);
                 ctx.get_heap_data_mut(heap_id + 4, string_length)?
                     .copy_from_slice(string_bytes);
                 if core::str::from_utf8(string_bytes).is_err() {
@@ -903,7 +906,8 @@ fn handle_string_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRe
             let array_id = ctx.alloc_temp(alloc_size)?;
             ctx.temp_buffer_mut()[array_id as usize] = string_length as u8;
             ctx.temp_buffer_mut()[array_id as usize + 1] = 1;
-            ctx.temp_buffer_mut()[array_id as usize + 2..array_id as usize + 2 + string_length as usize]
+            ctx.temp_buffer_mut()
+                [array_id as usize + 2..array_id as usize + 2 + string_length as usize]
                 .copy_from_slice(string_bytes);
             if core::str::from_utf8(string_bytes).is_err() {
                 return Err(VMErrorCode::InvalidOperation);

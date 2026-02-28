@@ -1,21 +1,16 @@
 mod harness;
 
-use std::{
-    collections::BTreeMap,
-    path::PathBuf,
-};
+use std::{collections::BTreeMap, path::PathBuf};
 
 use five::instructions::{DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
 use five::state::{FIVEVMState, ScriptAccountHeader};
 use five_dsl_compiler::DslCompiler;
 use five_protocol::opcodes::{
     self, ADD, AND, BITWISE_AND, CHECK_SIGNER, DIV, GET_CLOCK, GET_KEY, GET_LOCAL_0, HALT,
-    LOAD_FIELD, MUL, MUL_DIV, NOT, OR, POP, PUSH_1, PUSH_2, PUSH_STRING, PUSH_U8, PUSH_U64,
+    LOAD_FIELD, MUL, MUL_DIV, NOT, OR, POP, PUSH_1, PUSH_2, PUSH_STRING, PUSH_U64, PUSH_U8,
     REQUIRE, REQUIRE_PARAM_GT_ZERO, SET_LOCAL_0, SHIFT_LEFT, STORE_FIELD, SUB,
 };
-use harness::addresses::{
-    canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda,
-};
+use harness::addresses::{canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda};
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use harness::perf::{assert_no_regression, print_bench_line, CuMetrics};
 use solana_program_test::{ProgramTest, ProgramTestContext};
@@ -137,7 +132,8 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
             pubkey: token_script_pubkey,
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + token_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + token_bytecode.len()],
             is_signer: false,
             is_writable: false,
@@ -172,7 +168,8 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -240,7 +237,11 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_token.success, "token deploy failed: {:?}", deploy_token.error);
+    assert!(
+        deploy_token.success,
+        "token deploy failed: {:?}",
+        deploy_token.error
+    );
 
     let deploy_caller_ix = build_deploy_instruction(
         program_id,
@@ -257,7 +258,11 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
         Some(1_400_000),
     )
     .await;
-    assert!(deploy_caller.success, "caller deploy failed: {:?}", deploy_caller.error);
+    assert!(
+        deploy_caller.success,
+        "caller deploy failed: {:?}",
+        deploy_caller.error
+    );
 
     let payload = canonical_execute_payload(
         0,
@@ -284,7 +289,11 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
         Some(1_400_000),
     )
     .await;
-    assert!(execute_cold.success, "cold execute failed: {:?}", execute_cold.error);
+    assert!(
+        execute_cold.success,
+        "cold execute failed: {:?}",
+        execute_cold.error
+    );
 
     let execute_hot = simulate_and_process(
         &mut ctx,
@@ -293,9 +302,15 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
         Some(1_400_000),
     )
     .await;
-    assert!(execute_hot.success, "hot execute failed: {:?}", execute_hot.error);
+    assert!(
+        execute_hot.success,
+        "hot execute failed: {:?}",
+        execute_hot.error
+    );
 
-    let deploy_units = deploy_token.units_consumed.saturating_add(deploy_caller.units_consumed);
+    let deploy_units = deploy_token
+        .units_consumed
+        .saturating_add(deploy_caller.units_consumed);
 
     let cold = CuMetrics {
         deploy: deploy_units,
@@ -730,12 +745,7 @@ async fn opcode_micro_memory_store_load_field_cold_single_bpf_cu() {
 
     let mut ctx = start_context(program_id, &accounts).await;
     let deploy_ix = build_deploy_instruction(
-        program_id,
-        &accounts,
-        "script",
-        "vm_state",
-        "owner",
-        &script,
+        program_id, &accounts, "script", "vm_state", "owner", &script,
     );
     let deploy = simulate_and_process(
         &mut ctx,
@@ -886,12 +896,7 @@ async fn run_single_script_case(
     let mut ctx = start_context(program_id, &accounts).await;
 
     let deploy_ix = build_deploy_instruction(
-        program_id,
-        &accounts,
-        "script",
-        "vm_state",
-        "owner",
-        &bytecode,
+        program_id, &accounts, "script", "vm_state", "owner", &bytecode,
     );
     let deploy = simulate_and_process(
         &mut ctx,
@@ -900,7 +905,11 @@ async fn run_single_script_case(
         Some(1_400_000),
     )
     .await;
-    assert!(deploy.success, "{} deploy failed: {:?}", test_name, deploy.error);
+    assert!(
+        deploy.success,
+        "{} deploy failed: {:?}",
+        test_name, deploy.error
+    );
 
     let execute_ix = build_execute_instruction(
         program_id,
@@ -917,7 +926,11 @@ async fn run_single_script_case(
         Some(1_400_000),
     )
     .await;
-    assert!(execute.success, "{} execute failed: {:?}", test_name, execute.error);
+    assert!(
+        execute.success,
+        "{} execute failed: {:?}",
+        test_name, execute.error
+    );
 
     CuMetrics {
         deploy: deploy.units_consumed,
@@ -994,7 +1007,10 @@ fn base_accounts(program_id: Pubkey, owner_lamports: u64) -> BTreeMap<String, Ru
     accounts
 }
 
-async fn start_context(program_id: Pubkey, accounts: &BTreeMap<String, RuntimeAccount>) -> ProgramTestContext {
+async fn start_context(
+    program_id: Pubkey,
+    accounts: &BTreeMap<String, RuntimeAccount>,
+) -> ProgramTestContext {
     let mut program_test = ProgramTest::new("five", program_id, None);
     program_test.prefer_bpf(true);
 
@@ -1069,7 +1085,11 @@ fn build_execute_instruction(
         metas.push(AccountMeta {
             pubkey: account.pubkey,
             is_signer: account.is_signer,
-            is_writable: if is_external_script { false } else { account.is_writable },
+            is_writable: if is_external_script {
+                false
+            } else {
+                account.is_writable
+            },
         });
     }
     let payer = select_execute_payer(accounts, extras);
@@ -1106,7 +1126,10 @@ fn select_execute_payer<'a>(
         .expect("missing signer+writable payer account for execute")
 }
 
-fn collect_signers<'a>(accounts: &'a BTreeMap<String, RuntimeAccount>, names: &[&str]) -> Vec<&'a Keypair> {
+fn collect_signers<'a>(
+    accounts: &'a BTreeMap<String, RuntimeAccount>,
+    names: &[&str],
+) -> Vec<&'a Keypair> {
     let mut out = Vec::new();
     for name in names {
         if let Some(kp) = accounts[*name].signer.as_ref() {

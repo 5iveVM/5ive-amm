@@ -189,8 +189,14 @@ pub main() {
 
     let err = result.expect_err("reserved keyword must fail");
     let msg = format!("{:?}", err);
-    assert!(msg.contains("reserved keyword"), "diagnostic should mention reserved keyword: {msg}");
-    assert!(msg.contains("'init'"), "diagnostic should include offending token: {msg}");
+    assert!(
+        msg.contains("reserved keyword"),
+        "diagnostic should mention reserved keyword: {msg}"
+    );
+    assert!(
+        msg.contains("'init'"),
+        "diagnostic should include offending token: {msg}"
+    );
 }
 
 #[test]

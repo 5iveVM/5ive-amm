@@ -8,13 +8,31 @@
 //! which Pinocchio syscall to execute. All parameters are passed through the VM's
 //! stack using ValueRef for zero-copy efficiency.
 
-use crate::{
-    context::ExecutionManager,
-    debug_log,
-    error::{CompactResult, VMErrorCode},
+pub use crate::handlers::system::compute::handle_syscall_remaining_compute_units;
+pub use crate::handlers::system::cpi::{
+    handle_syscall_invoke_signed_c, handle_syscall_invoke_signed_rust,
+};
+pub use crate::handlers::system::crypto::{
+    handle_syscall_alt_bn128_compression, handle_syscall_alt_bn128_group_op,
+    handle_syscall_big_mod_exp, handle_syscall_blake3, handle_syscall_curve_group_op,
+    handle_syscall_curve_multiscalar_mul, handle_syscall_curve_pairing_map,
+    handle_syscall_curve_validate_point, handle_syscall_keccak256, handle_syscall_poseidon,
+    handle_syscall_secp256k1_recover, handle_syscall_sha256,
+    handle_syscall_verify_ed25519_instruction,
+};
+pub use crate::handlers::system::logging::{
+    handle_syscall_log, handle_syscall_log_64, handle_syscall_log_compute_units,
+    handle_syscall_log_data, handle_syscall_log_pubkey,
+};
+pub use crate::handlers::system::memory::{
+    handle_syscall_memcmp, handle_syscall_memcpy, handle_syscall_memmove, handle_syscall_memset,
 };
 pub use crate::handlers::system::pda::{
     handle_syscall_create_program_address, handle_syscall_try_find_program_address,
+};
+pub use crate::handlers::system::program::{
+    handle_syscall_get_processed_sibling_instruction, handle_syscall_get_return_data,
+    handle_syscall_get_stack_height, handle_syscall_set_return_data,
 };
 pub use crate::handlers::system::sysvars::{
     handle_syscall_get_clock_sysvar, handle_syscall_get_epoch_rewards_sysvar,
@@ -22,29 +40,10 @@ pub use crate::handlers::system::sysvars::{
     handle_syscall_get_fees_sysvar, handle_syscall_get_last_restart_slot,
     handle_syscall_get_rent_sysvar, handle_syscall_get_sysvar,
 };
-pub use crate::handlers::system::logging::{
-    handle_syscall_log, handle_syscall_log_64, handle_syscall_log_compute_units,
-    handle_syscall_log_data, handle_syscall_log_pubkey,
-};
-pub use crate::handlers::system::compute::handle_syscall_remaining_compute_units;
-pub use crate::handlers::system::program::{
-    handle_syscall_get_return_data, handle_syscall_set_return_data,
-    handle_syscall_get_stack_height, handle_syscall_get_processed_sibling_instruction,
-};
-pub use crate::handlers::system::memory::{
-    handle_syscall_memcpy, handle_syscall_memmove, handle_syscall_memset, handle_syscall_memcmp,
-};
-pub use crate::handlers::system::crypto::{
-    handle_syscall_sha256, handle_syscall_keccak256, handle_syscall_blake3,
-    handle_syscall_poseidon, handle_syscall_secp256k1_recover,
-    handle_syscall_verify_ed25519_instruction,
-    handle_syscall_alt_bn128_compression, handle_syscall_alt_bn128_group_op,
-    handle_syscall_big_mod_exp, handle_syscall_curve_group_op,
-    handle_syscall_curve_multiscalar_mul, handle_syscall_curve_pairing_map,
-    handle_syscall_curve_validate_point,
-};
-pub use crate::handlers::system::cpi::{
-    handle_syscall_invoke_signed_c, handle_syscall_invoke_signed_rust,
+use crate::{
+    context::ExecutionManager,
+    debug_log,
+    error::{CompactResult, VMErrorCode},
 };
 
 // ===== SYSCALL ID CONSTANTS =====

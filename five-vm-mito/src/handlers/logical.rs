@@ -4,7 +4,11 @@
 //! These operations work on boolean values and bitwise operations on u64 values.
 
 use crate::{
-    bitwise_op, context::ExecutionManager, debug_log, error::{CompactResult, VMErrorCode}, logical_binary_op, pop_bool, rotate_op, shift_op, vm_push_bool
+    bitwise_op,
+    context::ExecutionManager,
+    debug_log,
+    error::{CompactResult, VMErrorCode},
+    logical_binary_op, pop_bool, rotate_op, shift_op, vm_push_bool,
 };
 use five_protocol::{opcodes::*, ValueRef};
 

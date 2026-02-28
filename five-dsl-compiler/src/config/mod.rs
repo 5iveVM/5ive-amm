@@ -4,7 +4,7 @@ pub mod project_config;
 pub mod workspace;
 
 pub use project_config::{
-    BuildConfig, DeployConfig, DependencyConfig, OptimizationConfig, ProjectConfig, ProjectInfo,
+    BuildConfig, DependencyConfig, DeployConfig, OptimizationConfig, ProjectConfig, ProjectInfo,
 };
 
 pub use workspace::{

@@ -1,8 +1,8 @@
 //! Tests for parameter indexing regression prevention.
-//! 
+//!
 //! This test suite ensures that data parameters use 1-based indexing for LOAD_PARAM
 //! bytecode instructions, and account parameters are indexed correctly.
-//! 
+//!
 //! Regression: Previously, data parameters used 0-based indexing, causing LOAD_PARAM 0
 //! to incorrectly try to load the function index instead of the first data parameter.
 
@@ -63,9 +63,15 @@ fn test_data_parameter_indexing_multiple_value_params() {
     let mut load_param_indices = Vec::new();
 
     // Collect indices from optimized opcodes
-    if bytecode.contains(&LOAD_PARAM_1) { load_param_indices.push(1); }
-    if bytecode.contains(&LOAD_PARAM_2) { load_param_indices.push(2); }
-    if bytecode.contains(&LOAD_PARAM_3) { load_param_indices.push(3); }
+    if bytecode.contains(&LOAD_PARAM_1) {
+        load_param_indices.push(1);
+    }
+    if bytecode.contains(&LOAD_PARAM_2) {
+        load_param_indices.push(2);
+    }
+    if bytecode.contains(&LOAD_PARAM_3) {
+        load_param_indices.push(3);
+    }
 
     // Collect indices from explicit LOAD_PARAM
     for window in bytecode.windows(2) {
@@ -148,7 +154,9 @@ fn test_single_data_param_bytecode_generation() {
 
     // The function should have at least one LOAD_PARAM for the amount parameter
     let has_load_param = bytecode.windows(2).any(|w| w[0] == LOAD_PARAM);
-    let has_load_param_opt = bytecode.iter().any(|&b| b == LOAD_PARAM_1 || b == LOAD_PARAM_2 || b == LOAD_PARAM_3);
+    let has_load_param_opt = bytecode
+        .iter()
+        .any(|&b| b == LOAD_PARAM_1 || b == LOAD_PARAM_2 || b == LOAD_PARAM_3);
 
     assert!(
         has_load_param || has_load_param_opt,

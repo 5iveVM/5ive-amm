@@ -5,7 +5,9 @@
 //! cryptographic operations and compute unit management.
 
 use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{AccountInfo, FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
+use five_vm_mito::{
+    stack::StackStorage, AccountInfo, MitoVM, Result as VmResult, FIVE_VM_PROGRAM_ID,
+};
 
 // Syscall IDs (must match five-vm-mito/src/handlers/syscalls.rs)
 const SYSCALL_REMAINING_COMPUTE_UNITS: u8 = 50;
@@ -16,9 +18,8 @@ const SYSCALL_POSEIDON: u8 = 83;
 const SYSCALL_SECP256K1_RECOVER: u8 = 84;
 const SYSCALL_VERIFY_ED25519_INSTRUCTION: u8 = 92;
 const ED25519_PROGRAM_ID_BYTES: [u8; 32] = [
-    0x03, 0x7d, 0x46, 0xd6, 0x7c, 0x93, 0xfb, 0xbe, 0x12, 0xf9, 0x42, 0x8f, 0x83, 0x8d, 0x40,
-    0xff, 0x05, 0x70, 0x74, 0x49, 0x27, 0xf4, 0x8a, 0x64, 0xfc, 0xca, 0x70, 0x44, 0x80, 0x00,
-    0x00, 0x00,
+    0x03, 0x7d, 0x46, 0xd6, 0x7c, 0x93, 0xfb, 0xbe, 0x12, 0xf9, 0x42, 0x8f, 0x83, 0x8d, 0x40, 0xff,
+    0x05, 0x70, 0x74, 0x49, 0x27, 0xf4, 0x8a, 0x64, 0xfc, 0xca, 0x70, 0x44, 0x80, 0x00, 0x00, 0x00,
 ];
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
@@ -41,7 +42,10 @@ fn execute(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
     MitoVM::execute_direct(&script, &[], &[], &FIVE_VM_PROGRAM_ID, &mut storage)
 }
 
-fn execute_with_accounts(build: impl FnOnce(&mut Vec<u8>), accounts: &[AccountInfo]) -> VmResult<Option<Value>> {
+fn execute_with_accounts(
+    build: impl FnOnce(&mut Vec<u8>),
+    accounts: &[AccountInfo],
+) -> VmResult<Option<Value>> {
     let script = build_script(build);
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(&script, &[], accounts, &FIVE_VM_PROGRAM_ID, &mut storage)

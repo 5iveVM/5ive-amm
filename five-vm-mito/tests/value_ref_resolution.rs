@@ -1,5 +1,7 @@
 use five_protocol::ValueRef;
-use five_vm_mito::{error::VMErrorCode, AccountInfo, ExecutionContext, MitoVM, Pubkey, StackStorage, Value};
+use five_vm_mito::{
+    error::VMErrorCode, AccountInfo, ExecutionContext, MitoVM, Pubkey, StackStorage, Value,
+};
 
 #[test]
 fn resolve_input_ref_to_u64() {
@@ -7,7 +9,20 @@ fn resolve_input_ref_to_u64() {
     let program_id = Pubkey::default();
     let accounts: [AccountInfo; 0] = [];
     let mut storage = StackStorage::new();
-    let ctx = ExecutionContext::new(&[], &accounts, program_id, &data, 0, &mut storage, 0, 0, 0, 0, 0, 0);
+    let ctx = ExecutionContext::new(
+        &[],
+        &accounts,
+        program_id,
+        &data,
+        0,
+        &mut storage,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    );
     let value = MitoVM::resolve_value_ref(&ValueRef::InputRef(0), &ctx).unwrap();
     assert_eq!(value, Value::U64(42));
 }

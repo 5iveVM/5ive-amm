@@ -135,7 +135,14 @@ jobs:
       - name: Run builtin CLI matrix
         run: node scripts/run-dsl-builtin-matrix-cli.mjs
       - name: Run builtin localnet validator matrix
-        run: node scripts/run-dsl-builtin-validator-matrix.mjs --network localnet --program-id "$FIVE_PROGRAM_ID" --vm-state "$VM_STATE_PDA" --keypair "$FIVE_KEYPAIR_PATH"
+        run: ./scripts/run-dsl-builtin-validator-matrix.sh --network localnet --program-id "$FIVE_PROGRAM_ID" --vm-state "$VM_STATE_PDA" --keypair "$FIVE_KEYPAIR_PATH"
+      - name: Run supplemental localnet account probes
+        run: |
+          FIVE_CU_NETWORK=localnet \
+          FIVE_CU_PROGRAM_ID="$FIVE_PROGRAM_ID" \
+          FIVE_CU_PAYER_KEYPAIR="$FIVE_KEYPAIR_PATH" \
+          FIVE_CU_RPC_URL="${FIVE_RPC_URL:-http://127.0.0.1:8899}" \
+          cargo test -q -p five --features validator-harness --test runtime_validator_account_probe_tests validator_account_probe_onchain -- --ignored --nocapture
       - name: Stop local validator
         if: always()
         run: |

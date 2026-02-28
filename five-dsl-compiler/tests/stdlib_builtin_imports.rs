@@ -40,7 +40,11 @@ fn load_stdlib_builtin_names() -> BTreeSet<String> {
                 .chars()
                 .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
                 .collect();
-            if name.is_empty() { None } else { Some(name) }
+            if name.is_empty() {
+                None
+            } else {
+                Some(name)
+            }
         })
         .collect()
 }
@@ -48,11 +52,18 @@ fn load_stdlib_builtin_names() -> BTreeSet<String> {
 #[test]
 fn builtin_inventory_matches_stdlib_exports() {
     let matrix = load_builtin_matrix();
-    let matrix_names: BTreeSet<String> =
-        matrix.builtins.iter().map(|builtin| builtin.name.clone()).collect();
+    let matrix_names: BTreeSet<String> = matrix
+        .builtins
+        .iter()
+        .map(|builtin| builtin.name.clone())
+        .collect();
     let stdlib_names = load_stdlib_builtin_names();
 
-    assert_eq!(matrix_names.len(), 29, "expected 29 stdlib builtin wrappers in inventory");
+    assert_eq!(
+        matrix_names.len(),
+        29,
+        "expected 29 stdlib builtin wrappers in inventory"
+    );
     assert_eq!(
         matrix_names, stdlib_names,
         "builtin inventory must exactly match five-stdlib/std/builtins.v exports"

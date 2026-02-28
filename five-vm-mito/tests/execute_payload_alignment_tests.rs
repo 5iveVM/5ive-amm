@@ -7,18 +7,7 @@ fn new_context<'a>(input_data: &'a [u8], storage: &'a mut StackStorage) -> Execu
     let accounts: &'a [AccountInfo] = &[];
     let program_id = Pubkey::default();
     ExecutionContext::new(
-        bytecode,
-        accounts,
-        program_id,
-        input_data,
-        0,
-        storage,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
+        bytecode, accounts, program_id, input_data, 0, storage, 0, 0, 0, 0, 0, 0,
     )
 }
 
@@ -95,7 +84,8 @@ fn parse_parameters_decodes_fixed_width_execute_envelope() {
     let mut storage = StackStorage::new();
     let mut ctx = new_context(&payload, &mut storage);
 
-    ctx.parse_parameters().expect("canonical payload should parse");
+    ctx.parse_parameters()
+        .expect("canonical payload should parse");
     let params = ctx.parameters();
 
     assert_eq!(params[0], ValueRef::U64(2));
@@ -160,7 +150,8 @@ fn parse_parameters_token_shape_parses_without_panicking() {
     let mut storage = StackStorage::new();
     let mut ctx = new_context(&payload, &mut storage);
 
-    ctx.parse_parameters().expect("token-shaped payload should parse");
+    ctx.parse_parameters()
+        .expect("token-shaped payload should parse");
     let params = ctx.parameters();
     assert!(matches!(params[1], ValueRef::TempRef(_, 32)));
     assert_eq!(params[2], ValueRef::U8(6));
@@ -178,7 +169,10 @@ fn parse_parameters_many_large_strings_fails_gracefully() {
     let mut ctx = new_context(&payload, &mut storage);
 
     let err = ctx.parse_parameters().unwrap_err();
-    assert!(matches!(err, VMErrorCode::MemoryError | VMErrorCode::OutOfMemory));
+    assert!(matches!(
+        err,
+        VMErrorCode::MemoryError | VMErrorCode::OutOfMemory
+    ));
 }
 
 #[test]

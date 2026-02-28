@@ -6,9 +6,8 @@ use five_protocol::opcodes::{
 
 const PUSH_LITERAL_OPCODES: [u8; 4] = [PUSH_U8, PUSH_U16, PUSH_U32, PUSH_U64];
 use five_protocol::{
-    Value, FEATURE_COLD_START_OPT, FEATURE_FUNCTION_NAMES,
-    FEATURE_FUSED_BRANCH, FEATURE_MINIMAL_ERRORS, FEATURE_NO_VALIDATION,
-    FEATURE_CONSTANT_POOL, FIVE_MAGIC,
+    Value, FEATURE_COLD_START_OPT, FEATURE_CONSTANT_POOL, FEATURE_FUNCTION_NAMES,
+    FEATURE_FUSED_BRANCH, FEATURE_MINIMAL_ERRORS, FEATURE_NO_VALIDATION, FIVE_MAGIC,
 };
 use five_vm_mito::error::VMError;
 
@@ -205,7 +204,9 @@ fn test_lamports_field_access_rejected_for_non_accounts() {
         .tokenize()
         .expect("Should tokenize non-account lamports access");
     let mut parser = DslParser::new(tokens);
-    let ast = parser.parse().expect("Should parse non-account lamports access");
+    let ast = parser
+        .parse()
+        .expect("Should parse non-account lamports access");
 
     let mut type_checker = DslTypeChecker::new();
     let result = type_checker.check_types(&ast);
@@ -1045,9 +1046,7 @@ fn test_identifier_generic_vec_with_capacity_parses() {
         .tokenize()
         .expect("Should tokenize Vec<T, N> generic");
     let mut parser = DslParser::new(tokens);
-    let ast = parser
-        .parse()
-        .expect("Should parse Vec<T, N> generic type");
+    let ast = parser.parse().expect("Should parse Vec<T, N> generic type");
 
     if let AstNode::Program {
         init_block: Some(init),
@@ -1291,12 +1290,11 @@ fn test_account_field_sized_string_parses() {
         .tokenize()
         .expect("Should tokenize account sized strings");
     let mut parser = DslParser::new(tokens);
-    let ast = parser
-        .parse()
-        .expect("Should parse account sized strings");
+    let ast = parser.parse().expect("Should parse account sized strings");
 
     if let AstNode::Program {
-        account_definitions, ..
+        account_definitions,
+        ..
     } = &ast
     {
         assert_eq!(account_definitions.len(), 1);
@@ -1961,7 +1959,12 @@ fn test_event_definition() {
         assert_eq!(instruction_definitions.len(), 1);
 
         // Check event: Transfer { from: pubkey, to: pubkey, amount: u64, timestamp: u64 }
-        if let AstNode::EventDefinition { name, fields, visibility: _ } = &event_definitions[0] {
+        if let AstNode::EventDefinition {
+            name,
+            fields,
+            visibility: _,
+        } = &event_definitions[0]
+        {
             assert_eq!(name, "Transfer");
             assert_eq!(fields.len(), 4);
 
@@ -3142,7 +3145,10 @@ fn test_cpi_rejects_local_variable_as_account() {
     "#;
 
     let result = DslCompiler::compile_dsl(source);
-    assert!(result.is_err(), "Should reject local variable as account argument");
+    assert!(
+        result.is_err(),
+        "Should reject local variable as account argument"
+    );
 
     println!("✅ Local variable rejection test passed!");
     println!("  - Compiler correctly rejects local vars in account positions");
@@ -3166,7 +3172,10 @@ fn test_cpi_rejects_expression_as_account() {
     if let Err(e) = &result {
         eprintln!("DEBUG: Compilation error: {:?}", e);
     }
-    assert!(result.is_ok(), "Should accept simple identifier in account position");
+    assert!(
+        result.is_ok(),
+        "Should accept simple identifier in account position"
+    );
 
     println!("✅ Expression rejection test passed!");
     println!("  - Only simple identifiers allowed for account arguments");
@@ -3207,7 +3216,10 @@ fn test_cpi_duplicate_account_indices() {
     "#;
 
     let result = DslCompiler::compile_dsl(source);
-    assert!(result.is_ok(), "Should allow same account passed multiple times");
+    assert!(
+        result.is_ok(),
+        "Should allow same account passed multiple times"
+    );
 
     println!("✅ Duplicate account indices test passed!");
     println!("  - Same account parameter can be passed multiple times");
@@ -3227,7 +3239,10 @@ fn test_cpi_account_pubkey_mismatch_rejected() {
     "#;
 
     let result = DslCompiler::compile_dsl(source);
-    assert!(result.is_err(), "Should reject account passed where pubkey data is required");
+    assert!(
+        result.is_err(),
+        "Should reject account passed where pubkey data is required"
+    );
 }
 
 #[test]
@@ -3291,7 +3306,10 @@ fn test_anchor_prefix_interface_derives_discriminator_and_defaults_borsh() {
     let mut hasher = sha2::Sha256::new();
     hasher.update(b"global:initialize");
     let expected = hasher.finalize()[..8].to_vec();
-    assert_eq!(initialize.discriminator_bytes.clone().unwrap_or_default(), expected);
+    assert_eq!(
+        initialize.discriminator_bytes.clone().unwrap_or_default(),
+        expected
+    );
 }
 
 #[test]
@@ -3315,7 +3333,10 @@ fn test_anchor_discriminator_bytes_bracket_override_parses() {
     let counter = registry
         .get_interface("Counter")
         .expect("Counter interface should exist");
-    let reset = counter.methods.get("reset").expect("reset method should exist");
+    let reset = counter
+        .methods
+        .get("reset")
+        .expect("reset method should exist");
     assert_eq!(
         reset.discriminator_bytes.clone().unwrap_or_default(),
         vec![1, 2, 3, 4, 5, 6, 7, 8]
@@ -3594,7 +3615,10 @@ fn test_external_import_invalid_pubkey_fails_compile() {
     "#;
 
     let result = DslCompiler::compile_dsl(source);
-    assert!(result.is_err(), "invalid pubkey import must fail compilation");
+    assert!(
+        result.is_err(),
+        "invalid pubkey import must fail compilation"
+    );
 }
 
 #[test]
@@ -3629,10 +3653,13 @@ fn test_external_imported_items_allow_unqualified_call() {
         }
     "#;
 
-    let bytecode = DslCompiler::compile_dsl(source).expect("unqualified external call should compile");
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("unqualified external call should compile");
     let disassembly = five_dsl_compiler::bytecode_generator::disassembler::disassemble(&bytecode);
     assert!(
-        disassembly.iter().any(|line| line.contains("CALL_EXTERNAL")),
+        disassembly
+            .iter()
+            .any(|line| line.contains("CALL_EXTERNAL")),
         "unqualified imported call should emit CALL_EXTERNAL; disassembly:\n{}",
         disassembly.join("\n")
     );
@@ -3671,10 +3698,13 @@ fn test_scoped_namespace_import_compiles_and_emits_call_external() {
         }
     "#;
 
-    let bytecode = DslCompiler::compile_dsl(source).expect("scoped namespace import should compile");
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("scoped namespace import should compile");
     let disassembly = five_dsl_compiler::bytecode_generator::disassembler::disassemble(&bytecode);
     assert!(
-        disassembly.iter().any(|line| line.contains("CALL_EXTERNAL")),
+        disassembly
+            .iter()
+            .any(|line| line.contains("CALL_EXTERNAL")),
         "scoped namespace imported call should emit CALL_EXTERNAL; disassembly:\n{}",
         disassembly.join("\n")
     );

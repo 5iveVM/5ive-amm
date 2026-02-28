@@ -1,8 +1,8 @@
 //! Tests for parameter indexing regression prevention.
-//! 
+//!
 //! This test suite ensures that LOAD_PARAM correctly handles 1-based indexing
 //! for function parameters.
-//! 
+//!
 //! Regression: Previously, data parameters used 0-based indexing, causing
 //! LOAD_PARAM 0 to incorrectly try to access the function index instead of
 //! the first parameter.
@@ -10,7 +10,7 @@
 mod support;
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Result as VmResult, Value, FIVE_VM_PROGRAM_ID};
 use support::script_builder::ScriptBuilder;
 
 fn execute_script(build: impl FnOnce(&mut ScriptBuilder)) -> VmResult<Option<Value>> {
@@ -63,10 +63,7 @@ mod parameter_indexing {
                 .unwrap();
             script
                 .private_function("add_one", |f| {
-                    f.load_param(1)
-                        .push_u64(1)
-                        .emit(ADD)
-                        .return_value();
+                    f.load_param(1).push_u64(1).emit(ADD).return_value();
                 })
                 .unwrap();
         })
@@ -81,7 +78,11 @@ mod parameter_indexing {
         let result = execute_script(|script| {
             script
                 .public_function("main", |f| {
-                    f.push_u64(10).push_u64(20).push_u64(30).call("sum_three", 3).return_value();
+                    f.push_u64(10)
+                        .push_u64(20)
+                        .push_u64(30)
+                        .call("sum_three", 3)
+                        .return_value();
                 })
                 .unwrap();
             script
@@ -134,7 +135,10 @@ mod parameter_indexing {
                 .public_function("main", |f| {
                     // Push counter value (100) and amount parameter (25)
                     // Call add_to_counter with parameter count 1
-                    f.push_u64(100).push_u64(25).call("add_to_counter", 1).return_value();
+                    f.push_u64(100)
+                        .push_u64(25)
+                        .call("add_to_counter", 1)
+                        .return_value();
                 })
                 .unwrap();
             script

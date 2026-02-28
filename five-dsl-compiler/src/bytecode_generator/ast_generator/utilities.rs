@@ -10,8 +10,6 @@ use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
 impl ASTGenerator {
-
-
     /// Parse program ID string to 32-byte array
     pub(super) fn parse_program_id(&self, program_id: &str) -> Result<[u8; 32], VMError> {
         let decoded = bs58::decode(program_id)
@@ -119,8 +117,6 @@ impl DslBytecodeGenerator {
 
         Ok(ast_generator)
     }
-
-
 }
 
 #[cfg(test)]
@@ -190,8 +186,8 @@ mod tests {
         assert_eq!(
             parsed,
             [
-                6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172,
-                28, 180, 133, 237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
+                6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28,
+                180, 133, 237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
             ]
         );
     }

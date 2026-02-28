@@ -9,7 +9,11 @@ mod parameter_indexing_tests {
     use five::instructions::{FIVEInstruction, EXECUTE_INSTRUCTION};
     use five_protocol::types;
 
-    fn encode_execute_payload(function_index: u32, param_count: u32, typed_params: &[u8]) -> Vec<u8> {
+    fn encode_execute_payload(
+        function_index: u32,
+        param_count: u32,
+        typed_params: &[u8],
+    ) -> Vec<u8> {
         let mut payload = Vec::new();
         payload.extend_from_slice(&function_index.to_le_bytes());
         payload.extend_from_slice(&param_count.to_le_bytes());
@@ -95,10 +99,14 @@ mod parameter_indexing_tests {
 
 #[cfg(test)]
 mod comprehensive_instruction_tests {
-    use five::instructions::{DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION, FIVEInstruction};
+    use five::instructions::{FIVEInstruction, DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
     use five_protocol::{bytecode, types};
 
-    fn encode_execute_payload(function_index: u32, param_count: u32, typed_params: &[u8]) -> Vec<u8> {
+    fn encode_execute_payload(
+        function_index: u32,
+        param_count: u32,
+        typed_params: &[u8],
+    ) -> Vec<u8> {
         let mut payload = Vec::new();
         payload.extend_from_slice(&function_index.to_le_bytes());
         payload.extend_from_slice(&param_count.to_le_bytes());
@@ -134,7 +142,10 @@ mod comprehensive_instruction_tests {
             exec_data.extend_from_slice(&payload);
 
             let result = FIVEInstruction::try_from(&exec_data[..]);
-            assert!(result.is_ok(), "should parse canonical payload for count={param_count}");
+            assert!(
+                result.is_ok(),
+                "should parse canonical payload for count={param_count}"
+            );
         }
     }
 }

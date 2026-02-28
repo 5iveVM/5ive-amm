@@ -15,9 +15,13 @@
 //! - PUSH_STRING (0x67) - Push string with length encoding
 
 use five_dsl_compiler::DslCompiler;
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage, AccountInfo};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
-fn execute_test(bytecode: &[u8], input: &[u8], accounts: &[AccountInfo]) -> five_vm_mito::Result<Option<Value>> {
+fn execute_test(
+    bytecode: &[u8],
+    input: &[u8],
+    accounts: &[AccountInfo],
+) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
     MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
 }
@@ -75,7 +79,8 @@ mod array_creation_tests {
         body.push(0x1B);
         body.extend_from_slice(&30u64.to_le_bytes());
 
-        body.push(0x18); body.push(0x03); // PUSH_U8(3)
+        body.push(0x18);
+        body.push(0x03); // PUSH_U8(3)
         body.push(0x60); // CREATE_ARRAY
         body.push(0x00); // HALT
 
@@ -140,9 +145,11 @@ mod array_access_tests {
         body.push(0x1B);
         body.extend_from_slice(&300u64.to_le_bytes());
 
-        body.push(0x18); body.push(0x03); // PUSH_U8(3)
+        body.push(0x18);
+        body.push(0x03); // PUSH_U8(3)
         body.push(0x60); // CREATE_ARRAY
-        body.push(0x18); body.push(0x01); // PUSH_U8(1)
+        body.push(0x18);
+        body.push(0x01); // PUSH_U8(1)
         body.push(0x62); // ARRAY_INDEX
         body.push(0x00); // HALT
 
@@ -187,15 +194,20 @@ mod array_access_tests {
         // Test ARRAY_LENGTH to get array size
         let mut body = vec![];
         // PUSH_U64(10)
-        body.push(0x1B); body.extend_from_slice(&10u64.to_le_bytes());
+        body.push(0x1B);
+        body.extend_from_slice(&10u64.to_le_bytes());
         // PUSH_U64(20)
-        body.push(0x1B); body.extend_from_slice(&20u64.to_le_bytes());
+        body.push(0x1B);
+        body.extend_from_slice(&20u64.to_le_bytes());
         // PUSH_U64(30)
-        body.push(0x1B); body.extend_from_slice(&30u64.to_le_bytes());
+        body.push(0x1B);
+        body.extend_from_slice(&30u64.to_le_bytes());
         // PUSH_U64(40)
-        body.push(0x1B); body.extend_from_slice(&40u64.to_le_bytes());
+        body.push(0x1B);
+        body.extend_from_slice(&40u64.to_le_bytes());
 
-        body.push(0x18); body.push(0x04); // PUSH_U8(4)
+        body.push(0x18);
+        body.push(0x04); // PUSH_U8(4)
         body.push(0x60); // CREATE_ARRAY
         body.push(0x63); // ARRAY_LENGTH
         body.push(0x00); // HALT
@@ -222,16 +234,21 @@ mod array_access_tests {
         // Test ARRAY_SET for element modification
         let mut body = vec![];
         // PUSH_U64(10)
-        body.push(0x1B); body.extend_from_slice(&10u64.to_le_bytes());
+        body.push(0x1B);
+        body.extend_from_slice(&10u64.to_le_bytes());
         // PUSH_U64(20)
-        body.push(0x1B); body.extend_from_slice(&20u64.to_le_bytes());
+        body.push(0x1B);
+        body.extend_from_slice(&20u64.to_le_bytes());
 
-        body.push(0x18); body.push(0x02); // PUSH_U8(2)
+        body.push(0x18);
+        body.push(0x02); // PUSH_U8(2)
         body.push(0x60); // CREATE_ARRAY
 
-        body.push(0x18); body.push(0x01); // PUSH_U8(1)
-        // PUSH_U64(100)
-        body.push(0x1B); body.extend_from_slice(&100u64.to_le_bytes());
+        body.push(0x18);
+        body.push(0x01); // PUSH_U8(1)
+                         // PUSH_U64(100)
+        body.push(0x1B);
+        body.extend_from_slice(&100u64.to_le_bytes());
 
         body.push(0x64); // ARRAY_SET
         body.push(0x00); // HALT
@@ -456,11 +473,14 @@ mod array_edge_cases_tests {
         // Test array access with out-of-bounds index
         let mut body = vec![];
         // PUSH_U64(1)
-        body.push(0x1B); body.extend_from_slice(&1u64.to_le_bytes());
-        body.push(0x18); body.push(0x01); // PUSH_U8(1)
+        body.push(0x1B);
+        body.extend_from_slice(&1u64.to_le_bytes());
+        body.push(0x18);
+        body.push(0x01); // PUSH_U8(1)
         body.push(0x60); // CREATE_ARRAY
 
-        body.push(0x18); body.push(0x05); // PUSH_U8(5)
+        body.push(0x18);
+        body.push(0x05); // PUSH_U8(5)
         body.push(0x62); // ARRAY_INDEX
         body.push(0x00); // HALT
 

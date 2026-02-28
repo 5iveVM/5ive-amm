@@ -1,5 +1,5 @@
 // Test MitoVM with simple arithmetic operations
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
 fn main() {
     println!("Testing MitoVM with fixed values...");

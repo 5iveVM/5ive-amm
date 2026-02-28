@@ -12,11 +12,11 @@ pub struct FIVEVMState {
     pub script_count: u64,
     pub deploy_fee_lamports: u32,  // Flat deploy fee in lamports
     pub execute_fee_lamports: u32, // Flat execute fee in lamports
-    pub is_initialized: u8,   // Using u8 instead of bool for bytemuck compatibility
+    pub is_initialized: u8,        // Using u8 instead of bool for bytemuck compatibility
     pub version: u8,
     pub fee_vault_shard_count: u8,
-    pub vm_state_bump: u8,    // Canonical vm_state PDA bump for O(1) validation
-    pub _padding: [u8; 4],    // Align to 8 bytes
+    pub vm_state_bump: u8, // Canonical vm_state PDA bump for O(1) validation
+    pub _padding: [u8; 4], // Align to 8 bytes
 }
 
 impl FIVEVMState {
@@ -106,19 +106,18 @@ impl Default for FIVEVMState {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct ScriptAccountHeader {
-    pub magic: [u8; 4],        // 4 bytes: b"5IVE"
-    pub version: u8,           // 1 byte: header version (4)
-    pub permissions: u8,       // 1 byte: permission bitmask (NEW)
-    pub _reserved0: [u8; 2],   // 2 bytes: reserved
-    pub owner: Pubkey,         // 32 bytes: deployer/authority
-    pub script_id: u64,        // 8 bytes: script id
-    pub bytecode_len: u32,     // 4 bytes: bytecode size
-    pub metadata_len: u32,     // 4 bytes: metadata length
-    pub func_count: u16,       // 2 bytes: total functions count
-    pub _reserved1: [u8; 6],   // 6 bytes: reserved for future use
-    // Total: 4+1+1+2+32+8+4+4+2+6 = 64 bytes (exactly)
+    pub magic: [u8; 4],      // 4 bytes: b"5IVE"
+    pub version: u8,         // 1 byte: header version (4)
+    pub permissions: u8,     // 1 byte: permission bitmask (NEW)
+    pub _reserved0: [u8; 2], // 2 bytes: reserved
+    pub owner: Pubkey,       // 32 bytes: deployer/authority
+    pub script_id: u64,      // 8 bytes: script id
+    pub bytecode_len: u32,   // 4 bytes: bytecode size
+    pub metadata_len: u32,   // 4 bytes: metadata length
+    pub func_count: u16,     // 2 bytes: total functions count
+    pub _reserved1: [u8; 6], // 6 bytes: reserved for future use
+                             // Total: 4+1+1+2+32+8+4+4+2+6 = 64 bytes (exactly)
 }
-
 
 // Legacy alias retained for integration tests while the runtime migrates
 #[allow(dead_code)]
@@ -274,12 +273,12 @@ impl ScriptAccountHeader {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct NamespaceRegistry {
-    pub magic: [u8; 4],        // 4 bytes: b"NSRG"
-    pub script_count: u32,     // 4 bytes: total bytecode accounts under namespace
-    pub owner: Pubkey,         // 32 bytes: namespace owner
-    pub registered_at: i64,    // 8 bytes: registration timestamp
-    pub expires_at: i64,       // 8 bytes: expiration timestamp
-    // Total: 4+4+32+8+8 = 56 bytes
+    pub magic: [u8; 4],     // 4 bytes: b"NSRG"
+    pub script_count: u32,  // 4 bytes: total bytecode accounts under namespace
+    pub owner: Pubkey,      // 32 bytes: namespace owner
+    pub registered_at: i64, // 8 bytes: registration timestamp
+    pub expires_at: i64,    // 8 bytes: expiration timestamp
+                            // Total: 4+4+32+8+8 = 56 bytes
 }
 
 impl NamespaceRegistry {
@@ -361,7 +360,10 @@ mod tests {
 
     #[test]
     fn header_roundtrip() {
-        eprintln!("ScriptAccountHeader size: {}", std::mem::size_of::<ScriptAccountHeader>());
+        eprintln!(
+            "ScriptAccountHeader size: {}",
+            std::mem::size_of::<ScriptAccountHeader>()
+        );
         eprintln!("LEN constant: {}", ScriptAccountHeader::LEN);
 
         let owner = Pubkey::from([1u8; 32]);
@@ -414,10 +416,7 @@ mod tests {
         // Create header with permissions
         let bytecode = vec![0x35, 0x49, 0x56, 0x45]; // 5IVE magic
         let header_with_perms = ScriptAccountHeader::create_from_bytecode(
-            &bytecode,
-            owner,
-            42,
-            0x04, // PERMISSION_PDA_SPECIAL_CHARS
+            &bytecode, owner, 42, 0x04, // PERMISSION_PDA_SPECIAL_CHARS
         );
 
         assert_eq!(header_with_perms.permissions, 0x04);
@@ -466,18 +465,17 @@ mod tests {
 
         // Test all 3 permission bits individually
         for perm in &[0x01u8, 0x02, 0x04] {
-            let header = ScriptAccountHeader::create_from_bytecode(
-                &bytecode,
-                owner,
-                100,
-                *perm,
-            );
+            let header = ScriptAccountHeader::create_from_bytecode(&bytecode, owner, 100, *perm);
 
             let mut data = vec![0u8; ScriptAccountHeader::LEN + bytecode.len()];
             header.copy_into_account(&mut data).unwrap();
 
             let loaded = ScriptAccountHeader::from_account_data(&data).unwrap();
-            assert_eq!(loaded.permissions, *perm, "Permission {} not preserved", perm);
+            assert_eq!(
+                loaded.permissions, *perm,
+                "Permission {} not preserved",
+                perm
+            );
         }
     }
 
@@ -546,25 +544,40 @@ mod tests {
     #[test]
     fn test_script_account_header_failures() {
         let short_data = vec![0u8; ScriptAccountHeader::LEN - 1];
-        assert_eq!(ScriptAccountHeader::from_account_data(&short_data).err(), Some(ProgramError::Custom(8003)));
+        assert_eq!(
+            ScriptAccountHeader::from_account_data(&short_data).err(),
+            Some(ProgramError::Custom(8003))
+        );
 
         let mut short_data_mut = vec![0u8; ScriptAccountHeader::LEN - 1];
-        assert_eq!(ScriptAccountHeader::from_account_data_mut(&mut short_data_mut).err(), Some(ProgramError::Custom(8003)));
+        assert_eq!(
+            ScriptAccountHeader::from_account_data_mut(&mut short_data_mut).err(),
+            Some(ProgramError::Custom(8003))
+        );
 
         let invalid_magic_data = vec![0u8; ScriptAccountHeader::LEN];
         // Default init is all zeros, so magic is invalid
-        assert_eq!(ScriptAccountHeader::from_account_data(&invalid_magic_data).err(), Some(ProgramError::Custom(8002)));
+        assert_eq!(
+            ScriptAccountHeader::from_account_data(&invalid_magic_data).err(),
+            Some(ProgramError::Custom(8002))
+        );
 
         let header = ScriptAccountHeader::new(10, Pubkey::default(), 1);
         let mut short_dst = vec![0u8; ScriptAccountHeader::LEN - 1];
-        assert_eq!(header.copy_into_account(&mut short_dst), Err(ProgramError::Custom(8004)));
+        assert_eq!(
+            header.copy_into_account(&mut short_dst),
+            Err(ProgramError::Custom(8004))
+        );
 
         // Bytecode slice error
         let mut data = vec![0u8; ScriptAccountHeader::LEN];
         header.copy_into_account(&mut data).unwrap();
         // data has length LEN (64), but bytecode_len is 10.
         // bytecode_slice expects data.len() >= LEN + metadata + bytecode
-        assert_eq!(header.bytecode_slice(&data).err(), Some(ProgramError::Custom(8005)));
+        assert_eq!(
+            header.bytecode_slice(&data).err(),
+            Some(ProgramError::Custom(8005))
+        );
 
         // is_valid checks
         assert!(!ScriptAccountHeader::is_valid(&short_data));
@@ -573,21 +586,33 @@ mod tests {
 
     #[test]
     fn test_namespace_registry_failures() {
-         let short_data = vec![0u8; NamespaceRegistry::LEN - 1];
-         assert_eq!(NamespaceRegistry::from_account_data(&short_data).err(), Some(ProgramError::Custom(8006)));
+        let short_data = vec![0u8; NamespaceRegistry::LEN - 1];
+        assert_eq!(
+            NamespaceRegistry::from_account_data(&short_data).err(),
+            Some(ProgramError::Custom(8006))
+        );
 
-         let mut short_data_mut = vec![0u8; NamespaceRegistry::LEN - 1];
-         assert_eq!(NamespaceRegistry::from_account_data_mut(&mut short_data_mut).err(), Some(ProgramError::Custom(8006)));
+        let mut short_data_mut = vec![0u8; NamespaceRegistry::LEN - 1];
+        assert_eq!(
+            NamespaceRegistry::from_account_data_mut(&mut short_data_mut).err(),
+            Some(ProgramError::Custom(8006))
+        );
 
-         let invalid_magic_data = vec![0u8; NamespaceRegistry::LEN];
-         assert_eq!(NamespaceRegistry::from_account_data(&invalid_magic_data).err(), Some(ProgramError::Custom(8007)));
+        let invalid_magic_data = vec![0u8; NamespaceRegistry::LEN];
+        assert_eq!(
+            NamespaceRegistry::from_account_data(&invalid_magic_data).err(),
+            Some(ProgramError::Custom(8007))
+        );
 
-         let registry = NamespaceRegistry::new(Pubkey::default(), 0, 0);
-         let mut short_dst = vec![0u8; NamespaceRegistry::LEN - 1];
-         assert_eq!(registry.copy_into_account(&mut short_dst), Err(ProgramError::Custom(8008)));
+        let registry = NamespaceRegistry::new(Pubkey::default(), 0, 0);
+        let mut short_dst = vec![0u8; NamespaceRegistry::LEN - 1];
+        assert_eq!(
+            registry.copy_into_account(&mut short_dst),
+            Err(ProgramError::Custom(8008))
+        );
 
-         // is_valid checks
-         assert!(!NamespaceRegistry::is_valid(&short_data));
-         assert!(!NamespaceRegistry::is_valid(&invalid_magic_data));
+        // is_valid checks
+        assert!(!NamespaceRegistry::is_valid(&short_data));
+        assert!(!NamespaceRegistry::is_valid(&invalid_magic_data));
     }
 }

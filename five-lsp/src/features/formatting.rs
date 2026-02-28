@@ -74,7 +74,6 @@ pub fn format_document(source: &str) -> Vec<TextEdit> {
                 current_indent += 1;
             }
         }
-
     }
 
     edits
@@ -179,7 +178,10 @@ mod tests {
         let source = "pub instruction test() {\n    let x = 5;\n}";
         let edits = format_document(source);
 
-        assert!(edits.is_empty(), "No edits expected for already formatted source");
+        assert!(
+            edits.is_empty(),
+            "No edits expected for already formatted source"
+        );
     }
 
     #[test]

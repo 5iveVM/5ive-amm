@@ -76,7 +76,10 @@ impl ModuleScope {
     /// Create a new module scope
     pub fn new(entry_module: String) -> Self {
         let mut module_tables = HashMap::new();
-        module_tables.insert(entry_module.clone(), ModuleSymbolTable::new(entry_module.clone()));
+        module_tables.insert(
+            entry_module.clone(),
+            ModuleSymbolTable::new(entry_module.clone()),
+        );
 
         Self {
             module_tables,
@@ -117,11 +120,7 @@ impl ModuleScope {
     }
 
     /// Look up a symbol respecting visibility rules across modules
-    pub fn resolve_symbol(
-        &self,
-        name: &str,
-        requesting_module: &str,
-    ) -> Option<ModuleSymbol> {
+    pub fn resolve_symbol(&self, name: &str, requesting_module: &str) -> Option<ModuleSymbol> {
         // First, check in the requesting module
         if let Some(table) = self.module_tables.get(requesting_module) {
             if let Some(symbol) = table.lookup(name) {

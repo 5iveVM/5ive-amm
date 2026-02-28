@@ -14,7 +14,10 @@ fn main() {
         .unwrap_or_else(|| "../five-tree-sitter/grammar.js".to_string());
 
     println!("🔨 Generating grammar.js from node_metadata.toml...");
-    println!("   Registry loaded with {} AST nodes", NODE_REGISTRY.nodes.len());
+    println!(
+        "   Registry loaded with {} AST nodes",
+        NODE_REGISTRY.nodes.len()
+    );
 
     match generate_grammar(&output_path) {
         Ok(size) => {
@@ -97,12 +100,16 @@ fn generate_grammar_content(
     output.push_str("    type_argument_list: ($) => seq($._type_expression, repeat(seq(',', $._type_expression)), optional(',')),\n");
 
     // Additional required rules
-    output.push_str("    parameter_list: ($) => seq($.identifier, repeat(seq(',', $.identifier))),\n");
+    output.push_str(
+        "    parameter_list: ($) => seq($.identifier, repeat(seq(',', $.identifier))),\n",
+    );
     output.push_str("    tuple_pattern: ($) => seq('(', $.pattern_list, ')'),\n");
-    output.push_str("    generic_type: ($) => seq($.identifier, '<', $.type_argument_list, '>'),\n");
+    output
+        .push_str("    generic_type: ($) => seq($.identifier, '<', $.type_argument_list, '>'),\n");
     output.push_str("    array_type: ($) => seq('[', $._type_expression, ']'),\n");
     output.push_str("    tuple_type: ($) => seq('(', $.type_argument_list, ')'),\n");
-    output.push_str("    _top_level_item: ($) => choice($._statement, $.instruction_definition),\n");
+    output
+        .push_str("    _top_level_item: ($) => choice($._statement, $.instruction_definition),\n");
 
     // Placeholder expressions and statements (would be generated from category data)
     output.push('\n');
@@ -153,7 +160,10 @@ fn generate_grammar_content(
     output.push_str("});\n");
 
     // Print summary
-    eprintln!("   Generated {} grammar rules from metadata", rules_generated);
+    eprintln!(
+        "   Generated {} grammar rules from metadata",
+        rules_generated
+    );
 
     Ok(output)
 }

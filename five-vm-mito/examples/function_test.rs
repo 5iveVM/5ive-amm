@@ -2,7 +2,7 @@
 //!
 //! This demonstrates MitoVM's basic arithmetic capabilities
 
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing MitoVM arithmetic...");

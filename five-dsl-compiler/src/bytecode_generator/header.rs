@@ -14,7 +14,12 @@ impl DslBytecodeGenerator {
     /// 4..8   - features (u32 little-endian)
     /// 8      - public_function_count (u8)
     /// 9      - total_function_count (u8)
-    pub fn emit_optimized_header_v2_with_imports(&mut self, public_count: u8, total_count: u8, has_imports: bool) {
+    pub fn emit_optimized_header_v2_with_imports(
+        &mut self,
+        public_count: u8,
+        total_count: u8,
+        has_imports: bool,
+    ) {
         // Build feature bitmap as u32.
         let mut production_features = five_protocol::FEATURE_FUSED_BRANCH
             | five_protocol::FEATURE_NO_VALIDATION
@@ -54,7 +59,8 @@ impl DslBytecodeGenerator {
         // Emit header bytes according to agreed layout (store separately from code).
         self.header_bytes.clear();
         self.header_bytes.extend_from_slice(&header.magic); // 0..4
-        self.header_bytes.extend_from_slice(&header.features.to_le_bytes()); // 4..8
+        self.header_bytes
+            .extend_from_slice(&header.features.to_le_bytes()); // 4..8
         self.header_bytes.push(header.public_function_count); // 8
         self.header_bytes.push(header.total_function_count); // 9
         self.header_features = production_features;

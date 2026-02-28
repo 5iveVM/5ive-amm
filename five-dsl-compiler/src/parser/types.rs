@@ -1,6 +1,6 @@
 use crate::ast::{StructField, TypeNode};
 use crate::parser::DslParser;
-use crate::tokenizer::{Token};
+use crate::tokenizer::Token;
 use five_vm_mito::error::VMError;
 
 fn parse_sized_suffix(parser: &mut DslParser, base_type: String) -> Result<TypeNode, VMError> {
@@ -291,7 +291,6 @@ pub(crate) fn parse_type(parser: &mut DslParser) -> Result<TypeNode, VMError> {
             parser.advance();
             Ok(TypeNode::Account)
         }
-
 
         // Handle custom/named types
         Token::Identifier(name) => {

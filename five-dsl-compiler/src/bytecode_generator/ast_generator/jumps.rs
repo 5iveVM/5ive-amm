@@ -155,16 +155,16 @@ impl ASTGenerator {
 
         // Patch function calls with correct addresses
         for patch in &self.function_patches {
-            let function_address = if let Some(addr) = self.function_positions.get(&patch.function_name) {
+            let function_address = if let Some(addr) =
+                self.function_positions.get(&patch.function_name)
+            {
                 *addr
             } else {
                 let suffix = format!("::{}", patch.function_name);
                 let mut candidates: Vec<(&String, &usize)> = self
                     .function_positions
                     .iter()
-                    .filter(|(name, _)| {
-                        *name == &patch.function_name || name.ends_with(&suffix)
-                    })
+                    .filter(|(name, _)| *name == &patch.function_name || name.ends_with(&suffix))
                     .collect();
                 candidates.sort_by(|a, b| a.0.cmp(b.0));
 

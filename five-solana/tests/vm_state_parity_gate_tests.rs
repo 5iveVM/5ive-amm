@@ -13,7 +13,8 @@ const DEFAULT_EXECUTE_FEE_LAMPORTS: u32 = 85_734;
 #[test]
 #[ignore = "requires localnet validator with cloned vm program/state"]
 fn vm_state_parity_gate_localnet() {
-    let rpc_url = std::env::var("FIVE_PARITY_RPC_URL").unwrap_or_else(|_| DEFAULT_RPC_URL.to_string());
+    let rpc_url =
+        std::env::var("FIVE_PARITY_RPC_URL").unwrap_or_else(|_| DEFAULT_RPC_URL.to_string());
     let program_id = Pubkey::from_str(
         &std::env::var("FIVE_PARITY_PROGRAM_ID").unwrap_or_else(|_| DEFAULT_PROGRAM_ID.to_string()),
     )
@@ -52,8 +53,7 @@ fn vm_state_parity_gate_localnet() {
 
     let rpc = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
 
-    let (canonical_vm_state, bump) =
-        Pubkey::find_program_address(&[b"vm_state"], &program_id);
+    let (canonical_vm_state, bump) = Pubkey::find_program_address(&[b"vm_state"], &program_id);
     assert_eq!(
         vm_state, canonical_vm_state,
         "vm_state mismatch: expected canonical {}, got {}",
@@ -82,8 +82,8 @@ fn vm_state_parity_gate_localnet() {
         vm_account.data.len()
     );
 
-    let vm_state_data = FIVEVMState::from_account_data(&vm_account.data)
-        .expect("failed to decode FIVEVMState");
+    let vm_state_data =
+        FIVEVMState::from_account_data(&vm_account.data).expect("failed to decode FIVEVMState");
     let authority_bytes: [u8; 32] = vm_state_data
         .authority
         .as_ref()
@@ -99,8 +99,14 @@ fn vm_state_parity_gate_localnet() {
     println!("  owner: {}", vm_account.owner);
     println!("  authority: {}", authority);
     println!("  script_count: {}", vm_state_data.script_count);
-    println!("  deploy_fee_lamports: {}", vm_state_data.deploy_fee_lamports);
-    println!("  execute_fee_lamports: {}", vm_state_data.execute_fee_lamports);
+    println!(
+        "  deploy_fee_lamports: {}",
+        vm_state_data.deploy_fee_lamports
+    );
+    println!(
+        "  execute_fee_lamports: {}",
+        vm_state_data.execute_fee_lamports
+    );
     println!("  is_initialized: {}", vm_state_data.is_initialized());
 
     assert_eq!(

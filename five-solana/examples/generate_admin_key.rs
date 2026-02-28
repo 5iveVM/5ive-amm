@@ -4,7 +4,6 @@
 ///
 /// This will generate a random keypair and save it to admin_key.json
 /// The public key will be printed to stdout for use in the program.
-
 use std::fs;
 use std::path::Path;
 
@@ -50,8 +49,7 @@ fn main() {
     );
 
     let path = Path::new("admin_key.json");
-    fs::write(path, content)
-        .expect("Failed to write admin_key.json");
+    fs::write(path, content).expect("Failed to write admin_key.json");
 
     println!("\nAdmin key saved to admin_key.json");
 }

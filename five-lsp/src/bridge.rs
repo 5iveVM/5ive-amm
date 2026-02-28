@@ -4,9 +4,9 @@
 //! type information, and symbol resolution for the LSP.
 
 use five_dsl_compiler::{
+    ast::{AstNode, TypeNode},
     parser::DslParser,
     tokenizer::DslTokenizer,
-    ast::{AstNode, TypeNode},
     type_checker::DslTypeChecker,
 };
 use lsp_types::Url;
@@ -185,14 +185,21 @@ impl CompilerBridge {
 
                 // Only add if we could extract a meaningful position
                 if line > 0 || char_pos > 0 {
-                    diagnostics.push(self.create_diagnostic(
-                        "Type error",
-                        &error_msg,
-                        line,
-                        char_pos,
-                        char_pos.saturating_add(error_msg.split_whitespace().next().map_or(1, |s| s.len() as u32)),
-                        lsp_types::DiagnosticSeverity::ERROR,
-                    ));
+                    diagnostics.push(
+                        self.create_diagnostic(
+                            "Type error",
+                            &error_msg,
+                            line,
+                            char_pos,
+                            char_pos.saturating_add(
+                                error_msg
+                                    .split_whitespace()
+                                    .next()
+                                    .map_or(1, |s| s.len() as u32),
+                            ),
+                            lsp_types::DiagnosticSeverity::ERROR,
+                        ),
+                    );
                 } else {
                     // Generic type error without position
                     diagnostics.push(self.create_diagnostic(
@@ -214,7 +221,10 @@ impl CompilerBridge {
 
         // Sort diagnostics by position for stable ordering
         diagnostics.sort_by(|a, b| {
-            a.range.start.line.cmp(&b.range.start.line)
+            a.range
+                .start
+                .line
+                .cmp(&b.range.start.line)
                 .then(a.range.start.character.cmp(&b.range.start.character))
         });
 
@@ -316,11 +326,7 @@ impl CompilerBridge {
     ///
     /// Returns a list of all symbol names currently defined in the source.
     /// Useful for code completion and other features that need project symbols.
-    pub fn get_all_symbols(
-        &self,
-        uri: &Url,
-        source: &str,
-    ) -> Option<Vec<String>> {
+    pub fn get_all_symbols(&self, uri: &Url, source: &str) -> Option<Vec<String>> {
         let hash = Self::hash_source(source);
         self.symbol_cache
             .get(uri)
@@ -338,7 +344,12 @@ impl CompilerBridge {
     ///
     /// Returns the definition location if available.
     /// Requires that compile_to_ast or get_diagnostics was called first.
-    pub fn get_definition(&mut self, uri: &Url, source: &str, symbol_name: &str) -> Option<DefinitionInfo> {
+    pub fn get_definition(
+        &mut self,
+        uri: &Url,
+        source: &str,
+        symbol_name: &str,
+    ) -> Option<DefinitionInfo> {
         if let Ok(ast) = self.compile_to_ast(uri, source) {
             let mut type_checker = DslTypeChecker::new();
             let _ = type_checker.check_types(&ast);
@@ -378,11 +389,7 @@ impl CompilerBridge {
         if let Ok(ast) = self.compile_to_ast(uri, source) {
             let mut type_checker = DslTypeChecker::new();
             if let Ok(()) = type_checker.check_types(&ast) {
-                return type_checker
-                    .get_all_definitions()
-                    .keys()
-                    .cloned()
-                    .collect();
+                return type_checker.get_all_definitions().keys().cloned().collect();
             }
         }
         vec![]
@@ -403,9 +410,7 @@ impl CompilerBridge {
                 return type_checker
                     .get_all_definitions()
                     .iter()
-                    .map(|(name, def)| {
-                        (name.clone(), def.type_info.clone(), def.is_mutable)
-                    })
+                    .map(|(name, def)| (name.clone(), def.type_info.clone(), def.is_mutable))
                     .collect();
             }
         }

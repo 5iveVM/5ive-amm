@@ -116,7 +116,6 @@ pub fn handle_advanced(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             }
         }
 
-
         _ => {
             debug_log!(
                 "MitoVM: Invalid advanced operation opcode {} in 0xF0-0xFF range",

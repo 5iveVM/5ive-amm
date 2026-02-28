@@ -383,7 +383,7 @@ macro_rules! wrapping_op_impl {
 macro_rules! checked_op_impl {
     (u64, $a:expr, $b:expr, $ctx:expr, $op_name:literal, $method:ident) => {{
         if $b == 0 {
-             return Err($crate::error::VMErrorCode::DivisionByZero.into());
+            return Err($crate::error::VMErrorCode::DivisionByZero.into());
         }
         let result = $a.$method($b);
         debug_log!("Result (u64): {}", result);
@@ -391,7 +391,7 @@ macro_rules! checked_op_impl {
     }};
     (u128, $a:expr, $b:expr, $ctx:expr, $op_name:literal, $method:ident) => {{
         if $b == 0 {
-             return Err($crate::error::VMErrorCode::DivisionByZero.into());
+            return Err($crate::error::VMErrorCode::DivisionByZero.into());
         }
         let result = $a.$method($b);
         debug_log!("Result (u128): {}", result);
@@ -473,7 +473,14 @@ macro_rules! polymorphic_binary_op_checked_overflow {
         debug_log!("Stack before: {}", $ctx.len() as u32);
         let b = $ctx.pop()?;
         let a = $ctx.pop()?;
-        $crate::dispatch_polymorphic_op!($ctx, a, b, $crate::checked_overflow_op_impl, $op_name, $op);
+        $crate::dispatch_polymorphic_op!(
+            $ctx,
+            a,
+            b,
+            $crate::checked_overflow_op_impl,
+            $op_name,
+            $op
+        );
         debug_log!("Stack after: {}", $ctx.len() as u32);
     }};
 }
@@ -488,28 +495,28 @@ macro_rules! polymorphic_comparison_op {
         #[cfg(feature = "debug-logs")]
         {
             debug_log!("LTE DEBUG: Comparing types...");
-            
+
             // Explicitly verify U64/U8 match
             if let (five_protocol::ValueRef::U64(av), five_protocol::ValueRef::U8(bv)) = (&a, &b) {
-                 debug_log!("LTE DEBUG: MATCHED U64({}) / U8({})", *av, *bv);
+                debug_log!("LTE DEBUG: MATCHED U64({}) / U8({})", *av, *bv);
             } else {
-                 debug_log!("LTE DEBUG: DATA MISMATCH or OTHER TYPE");
-                 // Attempt to identify type of A (limited)
-                 if let five_protocol::ValueRef::U64(v) = &a {
-                     debug_log!("  A is U64: {}", *v);
-                 } else if let five_protocol::ValueRef::U8(v) = &a {
-                     debug_log!("  A is U8: {}", *v);
-                 } else {
-                     debug_log!("  A is OTHER (Ref/Enum?)");
-                 }
-                 
-                 if let five_protocol::ValueRef::U64(v) = &b {
-                     debug_log!("  B is U64: {}", *v);
-                 } else if let five_protocol::ValueRef::U8(v) = &b {
-                     debug_log!("  B is U8: {}", *v);
-                 } else {
-                     debug_log!("  B is OTHER");
-                 }
+                debug_log!("LTE DEBUG: DATA MISMATCH or OTHER TYPE");
+                // Attempt to identify type of A (limited)
+                if let five_protocol::ValueRef::U64(v) = &a {
+                    debug_log!("  A is U64: {}", *v);
+                } else if let five_protocol::ValueRef::U8(v) = &a {
+                    debug_log!("  A is U8: {}", *v);
+                } else {
+                    debug_log!("  A is OTHER (Ref/Enum?)");
+                }
+
+                if let five_protocol::ValueRef::U64(v) = &b {
+                    debug_log!("  B is U64: {}", *v);
+                } else if let five_protocol::ValueRef::U8(v) = &b {
+                    debug_log!("  B is U8: {}", *v);
+                } else {
+                    debug_log!("  B is OTHER");
+                }
             }
         }
         $crate::dispatch_polymorphic_op!($ctx, a, b, $crate::comparison_op_impl, $op_name, $op);
@@ -551,8 +558,14 @@ macro_rules! shift_op {
 #[macro_export]
 macro_rules! rotate_op {
     ($ctx:expr, $op_name:expr, $method:ident) => {{
-        let rotate_amount = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
-        let value = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
+        let rotate_amount = $ctx
+            .pop()?
+            .as_u64()
+            .ok_or($crate::error::VMErrorCode::TypeMismatch)?;
+        let value = $ctx
+            .pop()?
+            .as_u64()
+            .ok_or($crate::error::VMErrorCode::TypeMismatch)?;
         // Rotate amount modulo 64 for circular rotation
         let safe_rotate = (rotate_amount % 64) as u32;
         let result = value.$method(safe_rotate);
@@ -570,13 +583,25 @@ macro_rules! rotate_op {
 
 #[cfg(test)]
 mod tests {
-    use crate::{debug_log, stack::StackStorage, error::CompactResult, ExecutionContext, Pubkey};
+    use crate::{debug_log, error::CompactResult, stack::StackStorage, ExecutionContext, Pubkey};
 
     #[test]
     fn test_pop_push_macros() -> CompactResult<()> {
         let mut storage = StackStorage::new();
-        let mut ctx =
-            ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0, 0, 0, 0, 0);
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &[],
+            Pubkey::default(),
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
 
         vm_push_u64!(ctx, 42);
         push_u8!(ctx, 7);
@@ -597,8 +622,20 @@ mod tests {
     #[test]
     fn test_binary_op_macro() -> CompactResult<()> {
         let mut storage = StackStorage::new();
-        let mut ctx =
-            ExecutionContext::new(&[], &[], Pubkey::default(), &[], 0, &mut storage, 0, 0, 0, 0, 0, 0);
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &[],
+            Pubkey::default(),
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
 
         vm_push_u64!(ctx, 10);
         vm_push_u64!(ctx, 5);

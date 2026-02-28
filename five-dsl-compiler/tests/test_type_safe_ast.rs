@@ -1,6 +1,6 @@
 //! Tests for type-safe AST structures.
 
-use five_dsl_compiler::ast::{AstNode, generated::*, BlockKind};
+use five_dsl_compiler::ast::{generated::*, AstNode, BlockKind};
 use five_protocol::Value;
 
 // ============================================================================
@@ -29,7 +29,11 @@ fn test_expression_enum_completeness() {
         "BinaryExpression",
     ];
 
-    assert_eq!(expr_variants.len(), 16, "Expression should have 16 variants");
+    assert_eq!(
+        expr_variants.len(),
+        16,
+        "Expression should have 16 variants"
+    );
 }
 
 #[test]
@@ -52,7 +56,11 @@ fn test_binary_expression_construction_and_conversion() {
 
     // Verify it's an AstNode::BinaryExpression
     match ast_node {
-        AstNode::BinaryExpression { operator, left, right } => {
+        AstNode::BinaryExpression {
+            operator,
+            left,
+            right,
+        } => {
             assert_eq!(operator, "+");
             assert!(matches!(*left, AstNode::Literal(_)));
             assert!(matches!(*right, AstNode::Literal(_)));
@@ -189,7 +197,12 @@ fn test_let_statement_construction_and_conversion() {
     let ast_node: AstNode = stmt.into();
 
     match ast_node {
-        AstNode::LetStatement { name, value, is_mutable, .. } => {
+        AstNode::LetStatement {
+            name,
+            value,
+            is_mutable,
+            ..
+        } => {
             assert_eq!(name, "amount");
             assert!(is_mutable);
             assert!(matches!(*value, AstNode::Literal(_)));
@@ -232,7 +245,11 @@ fn test_if_statement_construction() {
     let ast_node: AstNode = stmt.into();
 
     match ast_node {
-        AstNode::IfStatement { condition, then_branch, else_branch } => {
+        AstNode::IfStatement {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
             assert!(matches!(*condition, AstNode::Literal(_)));
             assert!(matches!(*then_branch, AstNode::Block { .. }));
             assert_eq!(else_branch, None);
@@ -326,7 +343,9 @@ fn test_definition_enum_completeness() {
 fn test_field_definition_construction() {
     let field_def = FieldDefinitionNode {
         name: "balance".to_string(),
-        field_type: Box::new(five_dsl_compiler::ast::TypeNode::Primitive("u64".to_string())),
+        field_type: Box::new(five_dsl_compiler::ast::TypeNode::Primitive(
+            "u64".to_string(),
+        )),
         is_mutable: true,
         is_optional: false,
         default_value: None,
@@ -337,7 +356,9 @@ fn test_field_definition_construction() {
     let ast_node: AstNode = def.into();
 
     match ast_node {
-        AstNode::FieldDefinition { name, is_mutable, .. } => {
+        AstNode::FieldDefinition {
+            name, is_mutable, ..
+        } => {
             assert_eq!(name, "balance");
             assert!(is_mutable);
         }
@@ -406,9 +427,7 @@ fn test_expression_roundtrip_conversion() {
 #[test]
 fn test_statement_roundtrip_conversion() {
     // Test that Statement -> AstNode conversion is consistent
-    let return_stmt = Statement::ReturnStatement(ReturnStatementNode {
-        value: None,
-    });
+    let return_stmt = Statement::ReturnStatement(ReturnStatementNode { value: None });
 
     let ast_node: AstNode = return_stmt.into();
 
@@ -478,7 +497,9 @@ fn test_node_registry_categories() {
 
     // BinaryExpression should be in expressions
     assert!(
-        expression_nodes.iter().any(|n| n.name == "BinaryExpression"),
+        expression_nodes
+            .iter()
+            .any(|n| n.name == "BinaryExpression"),
         "BinaryExpression should be categorized as expression"
     );
 
@@ -545,7 +566,11 @@ fn test_astnode_still_works_with_pattern_matching() {
     };
 
     match node {
-        AstNode::BinaryExpression { operator, left, right } => {
+        AstNode::BinaryExpression {
+            operator,
+            left,
+            right,
+        } => {
             assert_eq!(operator, "+");
             assert!(matches!(*left, AstNode::Literal(_)));
             assert!(matches!(*right, AstNode::Literal(_)));
@@ -568,7 +593,11 @@ fn test_can_mix_old_and_new_ast_types() {
 
     // Use with existing code
     match ast_node {
-        AstNode::BinaryExpression { operator, left, right } => {
+        AstNode::BinaryExpression {
+            operator,
+            left,
+            right,
+        } => {
             assert_eq!(operator, "*");
             assert!(matches!(*left, AstNode::Literal(_)));
             assert!(matches!(*right, AstNode::Literal(_)));

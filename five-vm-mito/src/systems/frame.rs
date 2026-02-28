@@ -1,8 +1,8 @@
-use crate::types::CallFrame;
-use five_protocol::ValueRef;
-use crate::error::{CompactResult, Result, VMErrorCode, VMError};
-use crate::{MAX_CALL_DEPTH, MAX_LOCALS, MAX_PARAMETERS};
 use crate::debug_log;
+use crate::error::{CompactResult, Result, VMError, VMErrorCode};
+use crate::types::CallFrame;
+use crate::{MAX_CALL_DEPTH, MAX_LOCALS, MAX_PARAMETERS};
+use five_protocol::ValueRef;
 
 const SHARED_PARAM_SIZE: usize = MAX_PARAMETERS + 1;
 
@@ -23,7 +23,10 @@ pub struct FrameManager<'a> {
 
 impl<'a> FrameManager<'a> {
     #[inline(always)]
-    pub fn new(call_stack: &'a mut [CallFrame], locals: &'a mut [core::mem::MaybeUninit<ValueRef>]) -> Self {
+    pub fn new(
+        call_stack: &'a mut [CallFrame],
+        locals: &'a mut [core::mem::MaybeUninit<ValueRef>],
+    ) -> Self {
         Self {
             call_stack,
             locals,
@@ -95,7 +98,11 @@ impl<'a> FrameManager<'a> {
     #[inline]
     pub fn get_local(&self, index: u8) -> CompactResult<ValueRef> {
         if index >= self.local_count {
-            debug_log!("LOCAL_DEBUG: get_local index out of bounds: {} >= {}", index, self.local_count);
+            debug_log!(
+                "LOCAL_DEBUG: get_local index out of bounds: {} >= {}",
+                index,
+                self.local_count
+            );
             return Err(VMErrorCode::LocalsOverflow);
         }
         // SAFETY: Slots in [local_base, local_base+local_count) are initialized either by:

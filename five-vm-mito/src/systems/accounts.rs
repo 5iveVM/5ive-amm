@@ -1,11 +1,7 @@
+use crate::debug_log;
 use crate::error::{CompactResult, VMErrorCode};
 use crate::lazy_validation::{LazyAccountValidator, ValidationStats};
-use crate::debug_log;
-use pinocchio::{
-    account_info::AccountInfo,
-    instruction::Signer,
-    pubkey::Pubkey,
-};
+use pinocchio::{account_info::AccountInfo, instruction::Signer, pubkey::Pubkey};
 
 #[cfg(target_os = "solana")]
 use pinocchio::instruction::{AccountMeta, Instruction, Seed};
@@ -162,13 +158,11 @@ impl<'a> AccountManager<'a> {
             allocate_data[0..4].copy_from_slice(&8u32.to_le_bytes());
             allocate_data[4..12].copy_from_slice(&space.to_le_bytes());
 
-            let allocate_metas = [
-                AccountMeta {
-                    pubkey: new_account.key(),
-                    is_signer: true,
-                    is_writable: true,
-                },
-            ];
+            let allocate_metas = [AccountMeta {
+                pubkey: new_account.key(),
+                is_signer: true,
+                is_writable: true,
+            }];
 
             let allocate_instruction = Instruction {
                 program_id: system_program.key(),
@@ -188,13 +182,11 @@ impl<'a> AccountManager<'a> {
             assign_data[0..4].copy_from_slice(&1u32.to_le_bytes());
             assign_data[4..36].copy_from_slice(owner.as_ref());
 
-            let assign_metas = [
-                AccountMeta {
-                    pubkey: new_account.key(),
-                    is_signer: true,
-                    is_writable: true,
-                },
-            ];
+            let assign_metas = [AccountMeta {
+                pubkey: new_account.key(),
+                is_signer: true,
+                is_writable: true,
+            }];
 
             let assign_instruction = Instruction {
                 program_id: system_program.key(),
@@ -202,12 +194,8 @@ impl<'a> AccountManager<'a> {
                 data: &assign_data,
             };
 
-            invoke_signed::<2>(
-                &assign_instruction,
-                &[new_account, system_program],
-                signers,
-            )
-            .map_err(|_| VMErrorCode::InvokeError)?;
+            invoke_signed::<2>(&assign_instruction, &[new_account, system_program], signers)
+                .map_err(|_| VMErrorCode::InvokeError)?;
         }
 
         #[cfg(not(target_os = "solana"))]
@@ -253,7 +241,7 @@ impl<'a> AccountManager<'a> {
         }
 
         if !payer_found {
-             debug_log!("CreateAccount: WARNING - No valid payer found!");
+            debug_log!("CreateAccount: WARNING - No valid payer found!");
         }
 
         let system_program_id = Pubkey::from(SYSTEM_PROGRAM_ID);
@@ -295,7 +283,8 @@ impl<'a> AccountManager<'a> {
             return Err(VMErrorCode::InvalidAccountIndex);
         }
 
-        self.lazy_validator.ensure_validated(payer_idx, self.accounts)?;
+        self.lazy_validator
+            .ensure_validated(payer_idx, self.accounts)?;
 
         let new_account = self.get_unchecked(account_idx)?;
         let payer = self.get_unchecked(payer_idx)?;
@@ -408,7 +397,10 @@ impl<'a> AccountManager<'a> {
     }
 
     #[inline]
-    pub fn refresh_account_pointers_after_cpi(&self, account_indices: &[usize]) -> CompactResult<()> {
+    pub fn refresh_account_pointers_after_cpi(
+        &self,
+        account_indices: &[usize],
+    ) -> CompactResult<()> {
         for &idx in account_indices {
             if idx >= self.accounts.len() {
                 continue;
@@ -442,14 +434,7 @@ mod tests {
         let mut lamports = 1_000;
         let mut data = [0u8; 8];
 
-        let account = create_account_info(
-            &key,
-            false,
-            true,
-            &mut lamports,
-            &mut data,
-            &program_id,
-        );
+        let account = create_account_info(&key, false, true, &mut lamports, &mut data, &program_id);
         let accounts = [account];
         let manager = AccountManager::new(&accounts, program_id);
 

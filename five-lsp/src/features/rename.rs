@@ -5,7 +5,7 @@
 
 use crate::bridge::CompilerBridge;
 use crate::features::find_references;
-use lsp_types::{WorkspaceEdit, TextEdit, Url};
+use lsp_types::{TextEdit, Url, WorkspaceEdit};
 use std::collections::HashMap;
 
 /// Prepare a rename operation
@@ -141,7 +141,9 @@ fn is_valid_identifier(name: &str) -> bool {
     }
 
     // Rest must be alphanumeric or underscore
-    name.chars().skip(1).all(|c| c.is_alphanumeric() || c == '_')
+    name.chars()
+        .skip(1)
+        .all(|c| c.is_alphanumeric() || c == '_')
 }
 
 #[cfg(test)]
@@ -232,6 +234,10 @@ pub increment() {
 
         // Should only rename the local counter occurrences (line 3 definition and line 4 uses)
         // NOT the global counter on line 0
-        assert_eq!(edits.len(), 3, "Should rename 3 occurrences of local counter (def + 2 uses)");
+        assert_eq!(
+            edits.len(),
+            3,
+            "Should rename 3 occurrences of local counter (def + 2 uses)"
+        );
     }
 }

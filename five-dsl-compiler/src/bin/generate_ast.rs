@@ -15,7 +15,10 @@ fn main() {
         .unwrap_or_else(|| "src/ast/generated.rs".to_string());
 
     println!("🔨 Generating new AST structures from node_metadata.toml...");
-    println!("   Registry loaded with {} AST nodes", NODE_REGISTRY.nodes.len());
+    println!(
+        "   Registry loaded with {} AST nodes",
+        NODE_REGISTRY.nodes.len()
+    );
 
     match generate_ast(&output_path) {
         Ok(size) => {
@@ -68,9 +71,13 @@ fn generate_ast_code(
     }
 
     // Generate individual node structs
-    output.push_str("// ============================================================================\n");
+    output.push_str(
+        "// ============================================================================\n",
+    );
     output.push_str("// INDIVIDUAL NODE STRUCTS\n");
-    output.push_str("// ============================================================================\n\n");
+    output.push_str(
+        "// ============================================================================\n\n",
+    );
 
     let mut struct_names = Vec::new();
 
@@ -88,19 +95,20 @@ fn generate_ast_code(
 
         // Generate fields
         for (field_name, field) in &node.fields {
-            output.push_str(&format!(
-                "    pub {}: {},\n",
-                field_name, field.field_type
-            ));
+            output.push_str(&format!("    pub {}: {},\n", field_name, field.field_type));
         }
 
         output.push_str("}\n\n");
     }
 
     // Generate category enums
-    output.push_str("// ============================================================================\n");
+    output.push_str(
+        "// ============================================================================\n",
+    );
     output.push_str("// CATEGORY ENUMS (Type-safe AST organization)\n");
-    output.push_str("// ============================================================================\n\n");
+    output.push_str(
+        "// ============================================================================\n\n",
+    );
 
     for (category, _nodes) in categories.iter() {
         if category == "program" {
@@ -115,10 +123,7 @@ fn generate_ast_code(
             _ => category.as_str(),
         };
 
-        output.push_str(&format!(
-            "/// {} nodes grouped for type safety\n",
-            category
-        ));
+        output.push_str(&format!("/// {} nodes grouped for type safety\n", category));
         output.push_str("#[derive(Debug, Clone, PartialEq)]\n");
         output.push_str(&format!("pub enum {} {{\n", enum_name));
 
@@ -140,9 +145,13 @@ fn generate_ast_code(
     }
 
     // Generate From/Into conversions from new types to old AstNode
-    output.push_str("// ============================================================================\n");
+    output.push_str(
+        "// ============================================================================\n",
+    );
     output.push_str("// BACKWARD COMPATIBILITY CONVERSIONS\n");
-    output.push_str("// ============================================================================\n\n");
+    output.push_str(
+        "// ============================================================================\n\n",
+    );
 
     output.push_str("impl From<Expression> for AstNode {\n");
     output.push_str("    fn from(expr: Expression) -> Self {\n");
@@ -151,7 +160,9 @@ fn generate_ast_code(
     // Generate match arms
     for node in registry.get_by_category("expression") {
         if node.name == "Identifier" {
-            output.push_str("            Expression::Identifier(name) => AstNode::Identifier(name),\n");
+            output.push_str(
+                "            Expression::Identifier(name) => AstNode::Identifier(name),\n",
+            );
         } else if node.name == "Literal" {
             output.push_str("            Expression::Literal(value) => AstNode::Literal(value),\n");
         } else {
@@ -179,9 +190,13 @@ fn generate_ast_code(
     output.push_str("}\n\n");
 
     // Generate From/Into for Statement
-    output.push_str("\n// ============================================================================\n");
+    output.push_str(
+        "\n// ============================================================================\n",
+    );
     output.push_str("// STATEMENT CATEGORY CONVERSIONS\n");
-    output.push_str("// ============================================================================\n\n");
+    output.push_str(
+        "// ============================================================================\n\n",
+    );
     output.push_str("impl From<Statement> for AstNode {\n");
     output.push_str("    fn from(stmt: Statement) -> Self {\n");
     output.push_str("        match stmt {\n");
@@ -210,9 +225,13 @@ fn generate_ast_code(
     output.push_str("}\n\n");
 
     // Generate From/Into for Definition
-    output.push_str("// ============================================================================\n");
+    output.push_str(
+        "// ============================================================================\n",
+    );
     output.push_str("// DEFINITION CATEGORY CONVERSIONS\n");
-    output.push_str("// ============================================================================\n\n");
+    output.push_str(
+        "// ============================================================================\n\n",
+    );
     output.push_str("impl From<Definition> for AstNode {\n");
     output.push_str("    fn from(def: Definition) -> Self {\n");
     output.push_str("        match def {\n");
@@ -248,9 +267,13 @@ fn generate_ast_code(
     output.push_str("}\n\n");
 
     // Generate From/Into for Block structure
-    output.push_str("// ============================================================================\n");
+    output.push_str(
+        "// ============================================================================\n",
+    );
     output.push_str("// STRUCTURE CONVERSIONS\n");
-    output.push_str("// ============================================================================\n\n");
+    output.push_str(
+        "// ============================================================================\n\n",
+    );
     output.push_str("impl From<BlockNode> for AstNode {\n");
     output.push_str("    fn from(node: BlockNode) -> Self {\n");
     output.push_str("        AstNode::Block {\n");
@@ -275,8 +298,14 @@ fn generate_ast_code(
     output.push_str("    }\n");
     output.push_str("}\n");
 
-    eprintln!("   Generated {} individual node structs", registry.nodes.len() - 2);
-    eprintln!("   Generated {} category enums with From conversions", categories.len() - 1);
+    eprintln!(
+        "   Generated {} individual node structs",
+        registry.nodes.len() - 2
+    );
+    eprintln!(
+        "   Generated {} category enums with From conversions",
+        categories.len() - 1
+    );
     eprintln!("   Generated complete bidirectional conversion system");
 
     Ok(output)

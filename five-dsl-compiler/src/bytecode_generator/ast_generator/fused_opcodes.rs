@@ -1,8 +1,8 @@
 // Fused opcode optimizations.
 
-use crate::ast::AstNode;
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
+use crate::ast::AstNode;
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
@@ -17,7 +17,10 @@ impl ASTGenerator {
         // Pattern 1: field.gte(param) - balance >= amount (REQUIRE_GTE_U64)
         if let Some((acc_idx, offset, param_idx)) = self.match_field_gte_param(condition) {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING REQUIRE_GTE_U64! acc={} offset={} param={}", acc_idx, offset, param_idx);
+            println!(
+                "FUSED_DEBUG: EMITTING REQUIRE_GTE_U64! acc={} offset={} param={}",
+                acc_idx, offset, param_idx
+            );
             emitter.emit_opcode(REQUIRE_GTE_U64);
             emitter.emit_u8(acc_idx);
             emitter.emit_u32(offset);
@@ -28,7 +31,10 @@ impl ASTGenerator {
         // Pattern 2: not(field) - !is_frozen (REQUIRE_NOT_BOOL)
         if let Some((acc_idx, offset)) = self.match_not_bool_field(condition) {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING REQUIRE_NOT_BOOL! acc={} offset={}", acc_idx, offset);
+            println!(
+                "FUSED_DEBUG: EMITTING REQUIRE_NOT_BOOL! acc={} offset={}",
+                acc_idx, offset
+            );
             emitter.emit_opcode(REQUIRE_NOT_BOOL);
             emitter.emit_u8(acc_idx);
             emitter.emit_u32(offset);
@@ -38,7 +44,10 @@ impl ASTGenerator {
         // Pattern 3: param.gt(0) - amount > 0 (REQUIRE_PARAM_GT_ZERO)
         if let Some(param_idx) = self.match_param_gt_zero(condition) {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING REQUIRE_PARAM_GT_ZERO! param={}", param_idx);
+            println!(
+                "FUSED_DEBUG: EMITTING REQUIRE_PARAM_GT_ZERO! param={}",
+                param_idx
+            );
             emitter.emit_opcode(REQUIRE_PARAM_GT_ZERO);
             emitter.emit_u8(param_idx);
             return Ok(true);
@@ -47,14 +56,19 @@ impl ASTGenerator {
         // Pattern 3b: local.gt(0) / local >= 1 (REQUIRE_LOCAL_GT_ZERO)
         if let Some(local_idx) = self.match_local_gt_zero(condition) {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING REQUIRE_LOCAL_GT_ZERO! local={}", local_idx);
+            println!(
+                "FUSED_DEBUG: EMITTING REQUIRE_LOCAL_GT_ZERO! local={}",
+                local_idx
+            );
             emitter.emit_opcode(REQUIRE_LOCAL_GT_ZERO);
             emitter.emit_u8(local_idx);
             return Ok(true);
         }
 
         // Pattern 4: pubkey field == account.key (REQUIRE_OWNER)
-        if let Some((acc_idx, signer_idx, offset)) = self.match_pubkey_field_eq_account_key(condition) {
+        if let Some((acc_idx, signer_idx, offset)) =
+            self.match_pubkey_field_eq_account_key(condition)
+        {
             #[cfg(debug_assertions)]
             println!(
                 "FUSED_DEBUG: EMITTING REQUIRE_OWNER! acc={} signer={} offset={}",
@@ -70,7 +84,10 @@ impl ASTGenerator {
         // Pattern 5: pubkey field == pubkey field
         if let Some((acc1_idx, offset1, acc2_idx, offset2)) = self.match_pubkey_eq_any(condition) {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING REQUIRE_EQ_PUBKEY! acc1={} offset1={} acc2={} offset2={}", acc1_idx, offset1, acc2_idx, offset2);
+            println!(
+                "FUSED_DEBUG: EMITTING REQUIRE_EQ_PUBKEY! acc1={} offset1={} acc2={} offset2={}",
+                acc1_idx, offset1, acc2_idx, offset2
+            );
             emitter.emit_opcode(REQUIRE_EQ_PUBKEY);
             emitter.emit_u8(acc1_idx);
             emitter.emit_u32(offset1);
@@ -86,7 +103,12 @@ impl ASTGenerator {
     /// Also matches BinaryExpression with operator=">=" for backwards compat
     fn match_field_gte_param(&self, condition: &AstNode) -> Option<(u8, u32, u8)> {
         // Try MethodCall pattern first: field.gte(param)
-        if let AstNode::MethodCall { object, method, args } = condition {
+        if let AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } = condition
+        {
             if method == "gte" && args.len() == 1 {
                 // Object should be field access
                 let (acc_idx, offset) = self.match_u64_field_access(object)?;
@@ -95,9 +117,14 @@ impl ASTGenerator {
                 return Some((acc_idx, offset, param_idx));
             }
         }
-        
+
         // Fallback to BinaryExpression pattern
-        if let AstNode::BinaryExpression { left, operator, right } = condition {
+        if let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = condition
+        {
             if operator == ">=" {
                 let (acc_idx, offset) = self.match_u64_field_access(left)?;
                 let param_idx = self.match_parameter(right)?;
@@ -110,7 +137,12 @@ impl ASTGenerator {
     /// Match pattern: account.pubkey_field == signer.key (or reversed)
     /// Returns: (account_idx, signer_idx, field_offset)
     fn match_pubkey_field_eq_account_key(&self, condition: &AstNode) -> Option<(u8, u8, u32)> {
-        if let AstNode::MethodCall { object, method, args } = condition {
+        if let AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } = condition
+        {
             if method == "eq" && args.len() == 1 {
                 if let (Some((acc_idx, offset)), Some(signer_idx)) = (
                     self.match_pubkey_field_access(object),
@@ -121,7 +153,12 @@ impl ASTGenerator {
             }
         }
 
-        let AstNode::BinaryExpression { left, operator, right } = condition else {
+        let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = condition
+        else {
             return None;
         };
         if operator != "==" {
@@ -159,7 +196,12 @@ impl ASTGenerator {
     /// Match pattern: param.gt(0) - MethodCall with method="gt" and arg=Literal(0)
     fn match_param_gt_zero(&self, condition: &AstNode) -> Option<u8> {
         // Try MethodCall pattern: param.gt(0)
-        if let AstNode::MethodCall { object, method, args } = condition {
+        if let AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } = condition
+        {
             if method == "gt" && args.len() == 1 {
                 // Object should be a parameter identifier
                 let param_idx = self.match_parameter(object)?;
@@ -169,9 +211,14 @@ impl ASTGenerator {
                 }
             }
         }
-        
+
         // Fallback to BinaryExpression
-        if let AstNode::BinaryExpression { left, operator, right } = condition {
+        if let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = condition
+        {
             if operator == ">" {
                 let param_idx = self.match_parameter(left)?;
                 if self.is_literal_zero(right) {
@@ -185,7 +232,12 @@ impl ASTGenerator {
     /// Match pattern: local.gt(0) or local >= 1 (non-zero locals)
     fn match_local_gt_zero(&self, condition: &AstNode) -> Option<u8> {
         // MethodCall patterns
-        if let AstNode::MethodCall { object, method, args } = condition {
+        if let AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } = condition
+        {
             if args.len() == 1 {
                 if method == "gt" && self.is_literal_zero(&args[0]) {
                     return self.match_local_identifier(object);
@@ -197,7 +249,12 @@ impl ASTGenerator {
         }
 
         // BinaryExpression patterns
-        if let AstNode::BinaryExpression { left, operator, right } = condition {
+        if let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = condition
+        {
             if operator == ">" && self.is_literal_zero(right) {
                 return self.match_local_identifier(left);
             }
@@ -245,7 +302,7 @@ impl ASTGenerator {
             if let AstNode::Identifier(account_name) = object.as_ref() {
                 if let Some(field_info) = self.local_symbol_table.get(account_name) {
                     let account_type = &field_info.field_type;
-                    
+
                     // We could check if it's a bool field, but for simplicity just emit
                     // and let runtime handle type checking
                     if let Ok(offset) = self.calculate_account_field_offset(account_type, field) {
@@ -308,30 +365,43 @@ impl ASTGenerator {
         // Pattern: FIELD_SUB_ADD_PARAM
         // stmt1: acc1.field -= param (or acc1.field = acc1.field - param)
         // stmt2: acc2.field += param (or acc2.field = acc2.field + param)
-        
+
         let stmt1 = &statements[index];
         let stmt2 = &statements[index + 1];
 
         if let (
-            AstNode::FieldAssignment { object: obj1, field: field1, value: val1 },
-            AstNode::FieldAssignment { object: obj2, field: field2, value: val2 }
-        ) = (stmt1, stmt2) {
+            AstNode::FieldAssignment {
+                object: obj1,
+                field: field1,
+                value: val1,
+            },
+            AstNode::FieldAssignment {
+                object: obj2,
+                field: field2,
+                value: val2,
+            },
+        ) = (stmt1, stmt2)
+        {
             // Check first statement is SUB using param
-            if let Some((acc1_idx, offset1, param1_idx)) = self.match_field_sub_param(obj1, field1, val1) {
+            if let Some((acc1_idx, offset1, param1_idx)) =
+                self.match_field_sub_param(obj1, field1, val1)
+            {
                 // Check second statement is ADD using SAME param
-                if let Some((acc2_idx, offset2, param2_idx)) = self.match_field_add_param(obj2, field2, val2) {
+                if let Some((acc2_idx, offset2, param2_idx)) =
+                    self.match_field_add_param(obj2, field2, val2)
+                {
                     if param1_idx == param2_idx {
                         #[cfg(debug_assertions)]
                         println!("FUSED_DEBUG: EMITTING FIELD_SUB_ADD_PARAM! acc1={} off1={} acc2={} off2={} param={}", 
                             acc1_idx, offset1, acc2_idx, offset2, param1_idx);
-                        
+
                         emitter.emit_opcode(FIELD_SUB_ADD_PARAM);
                         emitter.emit_u8(acc1_idx);
                         emitter.emit_u32(offset1);
                         emitter.emit_u8(acc2_idx);
                         emitter.emit_u32(offset2);
                         emitter.emit_u8(param1_idx);
-                        
+
                         return Ok(Some(2)); // Consumed 2 statements
                     }
                 }
@@ -342,24 +412,34 @@ impl ASTGenerator {
     }
 
     /// Match field assignment with SUB param pattern: field -= param
-    fn match_field_sub_param(&self, object: &AstNode, field: &str, value: &AstNode) -> Option<(u8, u32, u8)> {
+    fn match_field_sub_param(
+        &self,
+        object: &AstNode,
+        field: &str,
+        value: &AstNode,
+    ) -> Option<(u8, u32, u8)> {
         // Resolve target account/field first
         let (acc_idx, offset) = self.resolve_account_field(object, field)?;
-        
+
         // Match value expression: field - param
         let param_idx = self.match_field_arithmetic_pattern(object, field, value, "sub")?;
-        
+
         Some((acc_idx, offset, param_idx))
     }
 
     /// Match field assignment with ADD param pattern: field += param
-    fn match_field_add_param(&self, object: &AstNode, field: &str, value: &AstNode) -> Option<(u8, u32, u8)> {
+    fn match_field_add_param(
+        &self,
+        object: &AstNode,
+        field: &str,
+        value: &AstNode,
+    ) -> Option<(u8, u32, u8)> {
         // Resolve target account/field first
         let (acc_idx, offset) = self.resolve_account_field(object, field)?;
-        
+
         // Match value expression: field + param
         let param_idx = self.match_field_arithmetic_pattern(object, field, value, "add")?;
-        
+
         Some((acc_idx, offset, param_idx))
     }
 
@@ -369,9 +449,10 @@ impl ASTGenerator {
             if let Some(field_info) = self.local_symbol_table.get(account_name) {
                 let account_type = &field_info.field_type;
                 if let Ok(offset) = self.calculate_account_field_offset(account_type, field) {
-                    let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
-                        field_info.offset
-                    );
+                    let acc_idx =
+                        crate::bytecode_generator::account_utils::account_index_from_param_offset(
+                            field_info.offset,
+                        );
                     return Some((acc_idx, offset));
                 }
             }
@@ -380,7 +461,7 @@ impl ASTGenerator {
     }
 
     // ===== TIER 2: Field Assignment Fused Opcodes =====
-    
+
     /// Try to emit a fused opcode for a field assignment.
     /// Matches patterns like: account.field = account.field + param
     /// Returns Ok(true) if a fused opcode was emitted, Ok(false) if not.
@@ -392,8 +473,12 @@ impl ASTGenerator {
         value: &AstNode,
     ) -> Result<bool, VMError> {
         #[cfg(debug_assertions)]
-        println!("FUSED_T2_DEBUG: try_emit_fused_field_assignment for field='{}' value={:?}", field, std::mem::discriminant(value));
-        
+        println!(
+            "FUSED_T2_DEBUG: try_emit_fused_field_assignment for field='{}' value={:?}",
+            field,
+            std::mem::discriminant(value)
+        );
+
         // Get target account and field info
         let (target_acc_idx, target_offset) = match object {
             AstNode::Identifier(account_name) => {
@@ -414,11 +499,13 @@ impl ASTGenerator {
             _ => return Ok(false),
         };
 
-
         // Pattern: field = field.add(param) -> FIELD_ADD_PARAM
         if let Some(param_idx) = self.match_field_arithmetic_pattern(object, field, value, "add") {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING FIELD_ADD_PARAM! acc={} offset={} param={}", target_acc_idx, target_offset, param_idx);
+            println!(
+                "FUSED_DEBUG: EMITTING FIELD_ADD_PARAM! acc={} offset={} param={}",
+                target_acc_idx, target_offset, param_idx
+            );
             emitter.emit_opcode(FIELD_ADD_PARAM);
             emitter.emit_u8(target_acc_idx);
             emitter.emit_u32(target_offset);
@@ -429,7 +516,10 @@ impl ASTGenerator {
         // Pattern: field = field.sub(param) -> FIELD_SUB_PARAM
         if let Some(param_idx) = self.match_field_arithmetic_pattern(object, field, value, "sub") {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING FIELD_SUB_PARAM! acc={} offset={} param={}", target_acc_idx, target_offset, param_idx);
+            println!(
+                "FUSED_DEBUG: EMITTING FIELD_SUB_PARAM! acc={} offset={} param={}",
+                target_acc_idx, target_offset, param_idx
+            );
             emitter.emit_opcode(FIELD_SUB_PARAM);
             emitter.emit_u8(target_acc_idx);
             emitter.emit_u32(target_offset);
@@ -442,7 +532,10 @@ impl ASTGenerator {
         // Pattern: field = 0 -> STORE_FIELD_ZERO
         if self.is_literal_zero(value) {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING STORE_FIELD_ZERO! acc={} offset={}", target_acc_idx, target_offset);
+            println!(
+                "FUSED_DEBUG: EMITTING STORE_FIELD_ZERO! acc={} offset={}",
+                target_acc_idx, target_offset
+            );
             emitter.emit_opcode(STORE_FIELD_ZERO);
             emitter.emit_u8(target_acc_idx);
             emitter.emit_u32(target_offset);
@@ -452,7 +545,10 @@ impl ASTGenerator {
         // Pattern: field = param -> STORE_PARAM_TO_FIELD
         if let Some(param_idx) = self.match_parameter(value) {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING STORE_PARAM_TO_FIELD! acc={} offset={} param={}", target_acc_idx, target_offset, param_idx);
+            println!(
+                "FUSED_DEBUG: EMITTING STORE_PARAM_TO_FIELD! acc={} offset={} param={}",
+                target_acc_idx, target_offset, param_idx
+            );
             emitter.emit_opcode(STORE_PARAM_TO_FIELD);
             emitter.emit_u8(target_acc_idx);
             emitter.emit_u32(target_offset);
@@ -460,11 +556,13 @@ impl ASTGenerator {
             return Ok(true);
         }
 
-
         // Pattern: field = account.key -> STORE_KEY_TO_FIELD
         if let Some(key_acc_idx) = self.match_account_key_access(value) {
             #[cfg(debug_assertions)]
-            println!("FUSED_DEBUG: EMITTING STORE_KEY_TO_FIELD! acc={} offset={} key_acc={}", target_acc_idx, target_offset, key_acc_idx);
+            println!(
+                "FUSED_DEBUG: EMITTING STORE_KEY_TO_FIELD! acc={} offset={} key_acc={}",
+                target_acc_idx, target_offset, key_acc_idx
+            );
             emitter.emit_opcode(STORE_KEY_TO_FIELD);
             emitter.emit_u8(target_acc_idx);
             emitter.emit_u32(target_offset);
@@ -474,7 +572,6 @@ impl ASTGenerator {
 
         Ok(false)
     }
-
 
     /// Match pattern: object.field.{add|sub}(param) OR object.field +/- param
     /// Where the value is either a MethodCall or BinaryExpression operating on same account.field
@@ -486,12 +583,25 @@ impl ASTGenerator {
         operation: &str, // "add" or "sub"
     ) -> Option<u8> {
         // Pattern 1: MethodCall - object.field.add/sub(param)
-        if let AstNode::MethodCall { object: method_obj, method, args } = value {
+        if let AstNode::MethodCall {
+            object: method_obj,
+            method,
+            args,
+        } = value
+        {
             if method == operation && args.len() == 1 {
                 // The MethodCall object should be a FieldAccess to same account.field
-                if let AstNode::FieldAccess { object: field_obj, field: field_name } = method_obj.as_ref() {
+                if let AstNode::FieldAccess {
+                    object: field_obj,
+                    field: field_name,
+                } = method_obj.as_ref()
+                {
                     if field_name == target_field {
-                        if let (AstNode::Identifier(target_name), AstNode::Identifier(source_name)) = (target_object, field_obj.as_ref()) {
+                        if let (
+                            AstNode::Identifier(target_name),
+                            AstNode::Identifier(source_name),
+                        ) = (target_object, field_obj.as_ref())
+                        {
                             if target_name == source_name {
                                 return self.match_parameter(&args[0]);
                             }
@@ -500,22 +610,33 @@ impl ASTGenerator {
                 }
             }
         }
-        
+
         // Pattern 2: BinaryExpression - object.field +/- param
-        if let AstNode::BinaryExpression { left, operator, right } = value {
+        if let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = value
+        {
             // Check operator matches
             let expected_op = if operation == "add" { "+" } else { "-" };
             if operator != expected_op {
                 return None;
             }
-            
+
             // Left side should be FieldAccess to same account.field
-            if let AstNode::FieldAccess { object: field_obj, field: field_name } = left.as_ref() {
+            if let AstNode::FieldAccess {
+                object: field_obj,
+                field: field_name,
+            } = left.as_ref()
+            {
                 if field_name != target_field {
                     return None;
                 }
-                
-                if let (AstNode::Identifier(target_name), AstNode::Identifier(source_name)) = (target_object, field_obj.as_ref()) {
+
+                if let (AstNode::Identifier(target_name), AstNode::Identifier(source_name)) =
+                    (target_object, field_obj.as_ref())
+                {
                     if target_name == source_name {
                         // Right side should be a parameter
                         return self.match_parameter(right);
@@ -523,7 +644,7 @@ impl ASTGenerator {
                 }
             }
         }
-        
+
         None
     }
 
@@ -533,20 +654,30 @@ impl ASTGenerator {
     /// Returns: (acc1_idx, offset1, acc2_idx, offset2)
     fn match_pubkey_eq_any(&self, condition: &AstNode) -> Option<(u8, u32, u8, u32)> {
         // Pattern 1: MethodCall - field.eq(other)
-        if let AstNode::MethodCall { object, method, args } = condition {
+        if let AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } = condition
+        {
             if method == "eq" && args.len() == 1 {
                 // Left side: pubkey field
                 let (acc1_idx, offset1) = self.match_pubkey_field_access(object)?;
-                
+
                 // Right side: pubkey field
                 if let Some((acc2_idx, offset2)) = self.match_pubkey_field_access(&args[0]) {
-                     return Some((acc1_idx, offset1, acc2_idx, offset2));
+                    return Some((acc1_idx, offset1, acc2_idx, offset2));
                 }
             }
         }
-        
+
         // Pattern 2: BinaryExpression - field == other
-        if let AstNode::BinaryExpression { left, operator, right } = condition {
+        if let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = condition
+        {
             if operator == "==" {
                 #[cfg(debug_assertions)]
                 println!("FUSED_DEBUG: Check BinaryExpression == for PUBKEY_EQ");
@@ -554,13 +685,19 @@ impl ASTGenerator {
                 // Left side: pubkey field
                 if let Some((acc1_idx, offset1)) = self.match_pubkey_field_access(left) {
                     #[cfg(debug_assertions)]
-                    println!("FUSED_DEBUG: Left side matched pubkey field: acc={} offset={}", acc1_idx, offset1);
+                    println!(
+                        "FUSED_DEBUG: Left side matched pubkey field: acc={} offset={}",
+                        acc1_idx, offset1
+                    );
 
                     // Right side: pubkey field
                     if let Some((acc2_idx, offset2)) = self.match_pubkey_field_access(right) {
-                         #[cfg(debug_assertions)]
-                         println!("FUSED_DEBUG: Right side matched pubkey field: acc={} offset={}", acc2_idx, offset2);
-                         return Some((acc1_idx, offset1, acc2_idx, offset2));
+                        #[cfg(debug_assertions)]
+                        println!(
+                            "FUSED_DEBUG: Right side matched pubkey field: acc={} offset={}",
+                            acc2_idx, offset2
+                        );
+                        return Some((acc1_idx, offset1, acc2_idx, offset2));
                     }
                     #[cfg(debug_assertions)]
                     println!("FUSED_DEBUG: Right side did NOT match key or pubkey field");
@@ -570,7 +707,7 @@ impl ASTGenerator {
                 }
             }
         }
-        
+
         None
     }
 
@@ -580,11 +717,13 @@ impl ASTGenerator {
             if let AstNode::Identifier(account_name) = object.as_ref() {
                 if let Some(field_info) = self.local_symbol_table.get(account_name) {
                     let account_type = &field_info.field_type;
-                    
+
                     // Check if this is a pubkey field - owner, mint, delegate, authority, etc.
-                    let pubkey_fields = ["owner", "mint", "delegate", "authority", "freeze_authority"];
+                    let pubkey_fields =
+                        ["owner", "mint", "delegate", "authority", "freeze_authority"];
                     if pubkey_fields.contains(&field.as_str()) {
-                        if let Ok(offset) = self.calculate_account_field_offset(account_type, field) {
+                        if let Ok(offset) = self.calculate_account_field_offset(account_type, field)
+                        {
                             let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
                                 field_info.offset
                             );

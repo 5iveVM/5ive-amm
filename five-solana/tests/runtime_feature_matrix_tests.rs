@@ -134,9 +134,11 @@ fn typed_params(params: &[serde_json::Value]) -> Vec<TypedParam> {
     params
         .iter()
         .map(|param| match param {
-            serde_json::Value::Number(number) => {
-                TypedParam::U64(number.as_u64().expect("runtime matrix numeric param must be u64"))
-            }
+            serde_json::Value::Number(number) => TypedParam::U64(
+                number
+                    .as_u64()
+                    .expect("runtime matrix numeric param must be u64"),
+            ),
             serde_json::Value::Bool(value) => TypedParam::Bool(*value),
             other => panic!("unsupported runtime matrix param: {}", other),
         })
@@ -356,8 +358,9 @@ async fn runtime_feature_matrix_generic_executes_manifest_scenarios() {
             && !scenario.requires_cpi
     }) {
         let source = fs::read_to_string(source_path(&root, scenario)).expect("read matrix source");
-        let bytecode = DslCompiler::compile_dsl(&source)
-            .unwrap_or_else(|error| panic!("scenario {} failed to compile: {}", scenario.id, error));
+        let bytecode = DslCompiler::compile_dsl(&source).unwrap_or_else(|error| {
+            panic!("scenario {} failed to compile: {}", scenario.id, error)
+        });
         let params = scenario_params(&source, scenario);
         let typed = typed_params(&params);
         let payload = canonical_execute_payload(scenario.function.unwrap_or(0), &typed);
@@ -388,8 +391,7 @@ async fn runtime_feature_matrix_generic_executes_manifest_scenarios() {
         assert!(
             deploy.success,
             "scenario {} deploy failed: {:?}",
-            scenario.id,
-            deploy.error
+            scenario.id, deploy.error
         );
 
         let execute = simulate_and_process(
@@ -401,8 +403,7 @@ async fn runtime_feature_matrix_generic_executes_manifest_scenarios() {
         assert!(
             execute.success,
             "scenario {} execute failed: {:?}",
-            scenario.id,
-            execute.error
+            scenario.id, execute.error
         );
     }
 }
@@ -421,9 +422,21 @@ fn runtime_feature_matrix_template_fixtures_exist_and_parse() {
                 .as_ref()
                 .expect("template_fixture scenario runtime_fixture"),
         );
-        let content = fs::read_to_string(&fixture)
-            .unwrap_or_else(|error| panic!("scenario {} missing fixture {}: {}", scenario.id, fixture.display(), error));
-        serde_json::from_str::<serde_json::Value>(&content)
-            .unwrap_or_else(|error| panic!("scenario {} fixture {} invalid JSON: {}", scenario.id, fixture.display(), error));
+        let content = fs::read_to_string(&fixture).unwrap_or_else(|error| {
+            panic!(
+                "scenario {} missing fixture {}: {}",
+                scenario.id,
+                fixture.display(),
+                error
+            )
+        });
+        serde_json::from_str::<serde_json::Value>(&content).unwrap_or_else(|error| {
+            panic!(
+                "scenario {} fixture {} invalid JSON: {}",
+                scenario.id,
+                fixture.display(),
+                error
+            )
+        });
     }
 }

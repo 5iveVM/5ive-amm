@@ -3,7 +3,7 @@
 mod support;
 
 use five_protocol::opcodes::*;
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Value, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Value, FIVE_VM_PROGRAM_ID};
 use support::script_builder::ScriptBuilder;
 
 fn run_script(build: impl FnOnce(&mut ScriptBuilder)) -> Option<Value> {

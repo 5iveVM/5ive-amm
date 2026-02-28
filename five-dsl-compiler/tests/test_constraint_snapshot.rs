@@ -1,6 +1,6 @@
+use five_dsl_compiler::bytecode_generator::disassembler::Instruction;
 use five_dsl_compiler::*;
 use five_protocol::opcodes::*;
-use five_dsl_compiler::bytecode_generator::disassembler::Instruction;
 
 #[test]
 fn test_constraint_bytecode_optimality_and_ordering() {
@@ -31,11 +31,14 @@ fn test_constraint_bytecode_optimality_and_ordering() {
 
     // Get structured disassembly
     let instructions = generator.get_structured_disassembly();
-    
+
     // Find where the function starts (after header)
     // We look for LOAD_PARAM opcodes which start the function body
-    let start_index = instructions.iter().position(|i| matches!(i, Instruction::Opcode(op) if *op == LOAD_PARAM)).unwrap_or(0);
-    
+    let start_index = instructions
+        .iter()
+        .position(|i| matches!(i, Instruction::Opcode(op) if *op == LOAD_PARAM))
+        .unwrap_or(0);
+
     // We expect a sequence of validations after parameter loading
     // The compiler emits constraints in this order for each param:
     // 1. @mut (CHECK_WRITABLE)
@@ -44,7 +47,7 @@ fn test_constraint_bytecode_optimality_and_ordering() {
     // 4. @signer (CHECK_SIGNER)
     //
     // Params are processed in order.
-    
+
     // Scan for `vault` constraints (param index 0)
     let mut found_vault_mut = false;
     let mut found_vault_has_owner = false;
@@ -62,14 +65,18 @@ fn test_constraint_bytecode_optimality_and_ordering() {
                 if *account_index == 1 {
                     found_vault_mut = true;
                 }
-            },
+            }
             Instruction::CheckSigner { account_index, .. } => {
                 // owner is param 1, with ACCOUNT_INDEX_OFFSET=1, so account_index=2
                 if *account_index == 2 {
                     found_owner_signer = true;
                 }
-            },
-            Instruction::LoadField { account_index, field_offset, .. } => {
+            }
+            Instruction::LoadField {
+                account_index,
+                field_offset,
+                ..
+            } => {
                 // Detected a @has check start.
                 // vault is param 0, with ACCOUNT_INDEX_OFFSET=1, so account_index=1
                 if *account_index == 1 {
@@ -77,16 +84,17 @@ fn test_constraint_bytecode_optimality_and_ordering() {
                     // For `owner` field (offset 0 likely, as it's first)
                     // For `mint` field (offset 32 likely, as it's second)
                     if *field_offset == 0 {
-                         // Expect check against owner param (index 1)
-                         // We can't verify exact target load easily without complex matching,
-                         // but we can verify the structure: LOAD_FIELD -> GET_KEY/LOCAL -> EQ -> REQUIRE
-                         if verify_check_pattern(&instructions, i) {
-                             found_vault_has_owner = true;
-                         }
-                    } else if *field_offset == 32 { // Pubkey is 32 bytes
-                         if verify_check_pattern(&instructions, i) {
-                             found_vault_has_mint = true;
-                         }
+                        // Expect check against owner param (index 1)
+                        // We can't verify exact target load easily without complex matching,
+                        // but we can verify the structure: LOAD_FIELD -> GET_KEY/LOCAL -> EQ -> REQUIRE
+                        if verify_check_pattern(&instructions, i) {
+                            found_vault_has_owner = true;
+                        }
+                    } else if *field_offset == 32 {
+                        // Pubkey is 32 bytes
+                        if verify_check_pattern(&instructions, i) {
+                            found_vault_has_mint = true;
+                        }
                     }
                 }
             }
@@ -103,24 +111,27 @@ fn test_constraint_bytecode_optimality_and_ordering() {
 
 fn verify_check_pattern(instrs: &[Instruction], start_idx: usize) -> bool {
     // Expected: LOAD_FIELD (at start_idx) -> (GET_KEY or GET_LOCAL) -> EQ -> REQUIRE
-    if start_idx + 3 >= instrs.len() { return false; }
-    
+    if start_idx + 3 >= instrs.len() {
+        return false;
+    }
+
     // index + 1: Load Target
     let load_target = &instrs[start_idx + 1];
-    let is_load_target = matches!(load_target, 
-        Instruction::GetLocal { .. } | 
-        Instruction::GetKey { .. } |
-        Instruction::Opcode(GET_KEY) | 
-        Instruction::Opcode(GET_LOCAL)
+    let is_load_target = matches!(
+        load_target,
+        Instruction::GetLocal { .. }
+            | Instruction::GetKey { .. }
+            | Instruction::Opcode(GET_KEY)
+            | Instruction::Opcode(GET_LOCAL)
     );
-    
+
     // index + 2: EQ
     let eq_op = &instrs[start_idx + 2];
     let is_eq = matches!(eq_op, Instruction::Opcode(op) if *op == EQ);
-    
+
     // index + 3: REQUIRE
     let req_op = &instrs[start_idx + 3];
     let is_req = matches!(req_op, Instruction::Opcode(op) if *op == REQUIRE);
-    
+
     is_load_target && is_eq && is_req
 }

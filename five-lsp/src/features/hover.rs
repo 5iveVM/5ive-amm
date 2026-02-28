@@ -195,7 +195,9 @@ mod tests {
     fn test_format_generic_type() {
         let type_node = five_dsl_compiler::ast::TypeNode::Generic {
             base: "Option".to_string(),
-            args: vec![five_dsl_compiler::ast::TypeNode::Primitive("u64".to_string())],
+            args: vec![five_dsl_compiler::ast::TypeNode::Primitive(
+                "u64".to_string(),
+            )],
         };
         assert_eq!(format_type_node(&type_node), "Option<u64>");
     }

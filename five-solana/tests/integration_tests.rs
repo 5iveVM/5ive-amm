@@ -30,7 +30,12 @@ mod tests {
 
         let deploy_ix = FIVEInstruction::try_from(&deploy_data[..]).unwrap();
         match deploy_ix {
-            FIVEInstruction::Deploy { bytecode: bc, metadata, permissions: perms, .. } => {
+            FIVEInstruction::Deploy {
+                bytecode: bc,
+                metadata,
+                permissions: perms,
+                ..
+            } => {
                 assert_eq!(bc, &bytecode[..]);
                 assert!(metadata.is_empty());
                 assert_eq!(perms, permissions);

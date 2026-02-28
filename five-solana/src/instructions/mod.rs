@@ -4,13 +4,13 @@ pub mod fees;
 pub mod verify;
 
 // Re-export functions to maintain compatibility with lib.rs usage
-pub use deploy::{deploy, initialize, init_large_program, append_bytecode, finalize_script_upload};
+pub use deploy::{append_bytecode, deploy, finalize_script_upload, init_large_program, initialize};
 pub use execute::execute;
 pub use fees::{init_fee_vault, set_fees, withdraw_script_fees};
 pub use verify::verify_bytecode_content;
 
 use pinocchio::{
-    account_info::AccountInfo, program_error::ProgramError, ProgramResult, sysvars::Sysvar,
+    account_info::AccountInfo, program_error::ProgramError, sysvars::Sysvar, ProgramResult,
 };
 
 // Script deployment and execution instructions
@@ -63,19 +63,39 @@ pub fn safe_realloc(account: &AccountInfo, payer: &AccountInfo, new_size: usize)
 
 /// Instruction enum
 pub enum FIVEInstruction<'a> {
-    Initialize { bump: u8 },
-    InitLargeProgram { expected_size: u32, chunk_data: Option<&'a [u8]> },
-    AppendBytecode { data: &'a [u8] },
-    SetFees { deploy_fee_lamports: u32, execute_fee_lamports: u32 },
-    InitFeeVault { shard_index: u8, bump: u8 },
-    WithdrawScriptFees { script: [u8; 32], shard_index: u8, lamports: u64 },
+    Initialize {
+        bump: u8,
+    },
+    InitLargeProgram {
+        expected_size: u32,
+        chunk_data: Option<&'a [u8]>,
+    },
+    AppendBytecode {
+        data: &'a [u8],
+    },
+    SetFees {
+        deploy_fee_lamports: u32,
+        execute_fee_lamports: u32,
+    },
+    InitFeeVault {
+        shard_index: u8,
+        bump: u8,
+    },
+    WithdrawScriptFees {
+        script: [u8; 32],
+        shard_index: u8,
+        lamports: u64,
+    },
     Deploy {
         bytecode: &'a [u8],
         metadata: &'a [u8],
         permissions: u8,
         fee_shard_index: u8,
     },
-    Execute { params: &'a [u8], fee_shard_index: u8 },
+    Execute {
+        params: &'a [u8],
+        fee_shard_index: u8,
+    },
     FinalizeScript,
 }
 
@@ -100,8 +120,15 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 }
                 let expected_size = u32::from_le_bytes(data[1..5].try_into().unwrap());
                 // Check if chunk data is present (InitLargeProgramWithChunk optimization)
-                let chunk_data = if data.len() > 5 { Some(&data[5..]) } else { None };
-                Ok(FIVEInstruction::InitLargeProgram { expected_size, chunk_data })
+                let chunk_data = if data.len() > 5 {
+                    Some(&data[5..])
+                } else {
+                    None
+                };
+                Ok(FIVEInstruction::InitLargeProgram {
+                    expected_size,
+                    chunk_data,
+                })
             }
             5 => {
                 if data.len() < 2 {
@@ -115,7 +142,10 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 }
                 let deploy_fee_lamports = u32::from_le_bytes(data[1..5].try_into().unwrap());
                 let execute_fee_lamports = u32::from_le_bytes(data[5..9].try_into().unwrap());
-                Ok(FIVEInstruction::SetFees { deploy_fee_lamports, execute_fee_lamports })
+                Ok(FIVEInstruction::SetFees {
+                    deploy_fee_lamports,
+                    execute_fee_lamports,
+                })
             }
             11 => {
                 if data.len() < 3 {
@@ -178,12 +208,8 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                     })
                 }
             }
-            7 => {
-                Ok(FIVEInstruction::FinalizeScript)
-            }
-            _ => {
-                Err(ProgramError::InvalidInstructionData)
-            }
+            7 => Ok(FIVEInstruction::FinalizeScript),
+            _ => Err(ProgramError::InvalidInstructionData),
         }
     }
 }

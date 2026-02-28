@@ -10,6 +10,8 @@ use crate::{
     error::{CompactResult, VMErrorCode},
 };
 use five_protocol::{opcodes::*, ValueRef};
+#[cfg(target_os = "solana")]
+use pinocchio::pubkey::create_program_address;
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{AccountMeta, Instruction, Seed, Signer},
@@ -17,8 +19,6 @@ use pinocchio::{
     program_error::ProgramError,
     pubkey::Pubkey,
 };
-#[cfg(target_os = "solana")]
-use pinocchio::pubkey::create_program_address;
 
 const MAX_CPI_DATA_LEN: usize = 255;
 const MAX_CPI_ACCOUNTS: usize = 16;
@@ -87,10 +87,14 @@ fn mark_matching_signer_meta(
     false
 }
 
-fn derive_pda_from_seed_slices(seed_slices: &[&[u8]], program_id: &Pubkey) -> CompactResult<Pubkey> {
+fn derive_pda_from_seed_slices(
+    seed_slices: &[&[u8]],
+    program_id: &Pubkey,
+) -> CompactResult<Pubkey> {
     #[cfg(target_os = "solana")]
     {
-        create_program_address(seed_slices, program_id).map_err(|_| VMErrorCode::PdaDerivationFailed)
+        create_program_address(seed_slices, program_id)
+            .map_err(|_| VMErrorCode::PdaDerivationFailed)
     }
     #[cfg(not(target_os = "solana"))]
     {
@@ -192,9 +196,13 @@ fn derive_and_mark_workspace_group_signer(
         seed_slices[seed_idx] = &seed_storage[seed_idx][..seed_lengths[seed_idx]];
     }
 
-    let signer_pubkey =
-        derive_pda_from_seed_slices(&seed_slices[..seed_count], caller_program_id)?;
-    if !mark_matching_signer_meta(account_metas, invoke_accounts, accounts_count, &signer_pubkey) {
+    let signer_pubkey = derive_pda_from_seed_slices(&seed_slices[..seed_count], caller_program_id)?;
+    if !mark_matching_signer_meta(
+        account_metas,
+        invoke_accounts,
+        accounts_count,
+        &signer_pubkey,
+    ) {
         return Err(VMErrorCode::ConstraintViolation);
     }
 
@@ -241,7 +249,6 @@ fn materialize_grouped_signer_workspace(
                 .copy_from_slice(&seed_buf[..written]);
             cursor += written as u32;
         }
-
     }
 
     Ok((workspace_base, group_count))
@@ -257,7 +264,7 @@ fn mark_grouped_signer_metas(
     account_metas: &mut [AccountMeta; MAX_CPI_ACCOUNTS],
     invoke_accounts: &[&AccountInfo; MAX_CPI_ACCOUNTS + 1],
     accounts_count: usize,
- ) -> CompactResult<()> {
+) -> CompactResult<()> {
     for group_idx in 0..group_count {
         derive_and_mark_workspace_group_signer(
             ctx,

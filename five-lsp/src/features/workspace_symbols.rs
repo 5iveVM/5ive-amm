@@ -168,9 +168,7 @@ fn extract_matching_symbols(ast: &AstNode, query: &str, uri: &Url) -> Vec<Symbol
         // Extract interfaces
         for interface in interface_definitions {
             if let AstNode::InterfaceDefinition {
-                name,
-                functions,
-                ..
+                name, functions, ..
             } = interface
             {
                 if name.to_lowercase().contains(&query_lower) {
@@ -187,7 +185,10 @@ fn extract_matching_symbols(ast: &AstNode, query: &str, uri: &Url) -> Vec<Symbol
 
                 // Also search interface functions
                 for func in functions {
-                    if let AstNode::InterfaceFunction { name: func_name, .. } = func {
+                    if let AstNode::InterfaceFunction {
+                        name: func_name, ..
+                    } = func
+                    {
                         if func_name.to_lowercase().contains(&query_lower) {
                             let location = Location {
                                 uri: uri.clone(),

@@ -8,9 +8,7 @@ pub mod types;
 pub mod verification;
 
 pub use call_decoder::*;
-pub use decoder::{
-    read_byte, read_le_u16, read_le_u32, read_le_u64, read_utf8_string,
-};
+pub use decoder::{read_byte, read_le_u16, read_le_u32, read_le_u64, read_utf8_string};
 pub use disasm::{disassemble, get_disassembly, inspect_failure};
 pub use inspector::BytecodeInspector;
 pub use types::*;

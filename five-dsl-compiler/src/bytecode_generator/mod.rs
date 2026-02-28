@@ -47,10 +47,10 @@ pub use bytecode_analyzer::AdvancedBytecodeAnalyzer;
 pub use call::*;
 // pub use compression::*;
 
+pub use constant_pool::*;
 pub use function_dispatch::*;
 pub use import_table::*;
 pub use module_merger::*;
-pub use constant_pool::*;
 pub use opcodes::*;
 pub use performance::*;
 pub use scope_analyzer::*;
@@ -103,7 +103,6 @@ pub struct DslBytecodeGenerator {
     pub(crate) include_debug_info: bool,
 
     constant_pool: constant_pool::ConstantPoolBuilder,
-
 }
 
 impl DslBytecodeGenerator {
@@ -166,7 +165,6 @@ impl DslBytecodeGenerator {
 
     /// Create a new bytecode generator instance with mode and features
     pub fn with_mode_and_features(mode: CompilationMode, _enable_constraint_cache: bool) -> Self {
-        
         // Configure features as needed
         // Note: constraint cache is now handled by the performance module
         Self::with_mode(mode)
@@ -315,8 +313,8 @@ impl DslBytecodeGenerator {
 
         let count = sorted.len() as u8;
         let section_size = 1usize + (count as usize) * 2;
-        let section_size_u16 =
-            u16::try_from(section_size).map_err(|_| "Public entry section too large".to_string())?;
+        let section_size_u16 = u16::try_from(section_size)
+            .map_err(|_| "Public entry section too large".to_string())?;
 
         self.metadata_bytes
             .extend_from_slice(&section_size_u16.to_le_bytes());
@@ -364,256 +362,251 @@ impl DslBytecodeGenerator {
 
     /// Internal generation logic extracted from generate() to reduce complexity
     fn generate_internal(&mut self, ast: &AstNode) -> Result<Vec<u8>, VMError> {
-            // Check if we need function dispatch to determine header format
-            let mut dispatcher = FunctionDispatcher::new();
-            let has_functions = dispatcher.has_callable_functions(ast);
+        // Check if we need function dispatch to determine header format
+        let mut dispatcher = FunctionDispatcher::new();
+        let has_functions = dispatcher.has_callable_functions(ast);
 
-            // Collect function count for OptimizedHeader
-            let (public_count, total_count, has_imports) = if has_functions {
-                // Pre-collect function information for count
-                dispatcher.collect_function_info(ast)?;
-                let functions = dispatcher.get_functions();
+        // Collect function count for OptimizedHeader
+        let (public_count, total_count, has_imports) = if has_functions {
+            // Pre-collect function information for count
+            dispatcher.collect_function_info(ast)?;
+            let functions = dispatcher.get_functions();
 
-                // Check if imports exist (for feature flag)
-                let has_imports = !dispatcher.get_import_table().is_empty();
+            // Check if imports exist (for feature flag)
+            let has_imports = !dispatcher.get_import_table().is_empty();
 
-                let public_count = functions.iter().filter(|f| f.is_public).count();
-                let total_count = functions.len();
+            let public_count = functions.iter().filter(|f| f.is_public).count();
+            let total_count = functions.len();
 
-                // Validate function counts fit in OptimizedHeader (u8 limit = 255)
-                if total_count > 255 {
-                    eprintln!(
-                        "ERROR: Program has {} functions but OptimizedHeader supports max 255",
-                        total_count
-                    );
-                    eprintln!(
-                        "Consider splitting into modules or using a different header format."
-                    );
-                    return Err(VMError::InvalidScript);
-                }
-
-                let public_function_count = public_count as u8;
-                let total_function_count = total_count as u8;
-
-                println!(
-                    "DEBUG: Collected {} public functions, {} total functions for optimized header",
-                    public_function_count, total_function_count
+            // Validate function counts fit in OptimizedHeader (u8 limit = 255)
+            if total_count > 255 {
+                eprintln!(
+                    "ERROR: Program has {} functions but OptimizedHeader supports max 255",
+                    total_count
                 );
+                eprintln!("Consider splitting into modules or using a different header format.");
+                return Err(VMError::InvalidScript);
+            }
 
-                // CRITICAL: Validate that at least one public function exists
-                // This prevents generating bytecode that cannot be called on-chain
-                if total_count > 0 && public_count == 0 {
-                    eprintln!("ERROR: Script must have at least one public function");
-                    eprintln!("All {} functions are internal. Use 'pub fn' to make at least one function callable on-chain.", total_count);
-                    eprintln!("Help: Add 'pub' keyword before your main function: 'pub fn test(...) {{ ... }}'");
-                    // Temporary debug: return StackError to identify "No Public Functions" case
-                    return Err(VMError::StackError);
-                }
+            let public_function_count = public_count as u8;
+            let total_function_count = total_count as u8;
 
-                // Compiler MUST enforce ordering invariant
-                // Public functions at indices 0..(public_count-1)
-                // Private functions at indices public_count..(total_count-1)
-                // This is validated below in the function emission phase
+            println!(
+                "DEBUG: Collected {} public functions, {} total functions for optimized header",
+                public_function_count, total_function_count
+            );
 
-                // Store functions for metadata emission (copy slice into owned Vec)
-                self.functions = functions.to_vec();
+            // CRITICAL: Validate that at least one public function exists
+            // This prevents generating bytecode that cannot be called on-chain
+            if total_count > 0 && public_count == 0 {
+                eprintln!("ERROR: Script must have at least one public function");
+                eprintln!("All {} functions are internal. Use 'pub fn' to make at least one function callable on-chain.", total_count);
+                eprintln!("Help: Add 'pub' keyword before your main function: 'pub fn test(...) {{ ... }}'");
+                // Temporary debug: return StackError to identify "No Public Functions" case
+                return Err(VMError::StackError);
+            }
 
-                (public_function_count, total_function_count, has_imports)
+            // Compiler MUST enforce ordering invariant
+            // Public functions at indices 0..(public_count-1)
+            // Private functions at indices public_count..(total_count-1)
+            // This is validated below in the function emission phase
+
+            // Store functions for metadata emission (copy slice into owned Vec)
+            self.functions = functions.to_vec();
+
+            (public_function_count, total_function_count, has_imports)
+        } else {
+            (0, 0, false)
+        };
+
+        // Use OptimizedHeader V2.
+        self.emit_optimized_header_v2_with_imports(public_count, total_count, has_imports);
+
+        // Emit function name metadata if there are public functions AND debug info is enabled
+        if public_count > 0 && self.include_debug_info {
+            self.emit_function_name_metadata()
+                .map_err(|_| VMError::InvalidInstruction)?;
+        }
+        // Save import table for later emission after main bytecode
+        let import_table = dispatcher.get_import_table().clone();
+
+        let mut ast_generator = if has_functions {
+            // Use coordinated AST and function dispatcher for multi-function scripts
+            // This ensures CALL opcodes are properly coordinated with function indices
+
+            // Process field definitions first to populate symbol table
+            self.process_field_definitions(ast)?;
+
+            // Initialize AccountSystem with account definitions from AST
+            let mut account_system = AccountSystem::new();
+            account_system.process_account_definitions(ast)?;
+            // Sync discovered account types into generator-level registry for ABI
+            self.account_registry = account_system.get_account_registry().clone();
+
+            let mut scope_analyzer = scope_analyzer::ScopeAnalyzer::new();
+            let mut ast_generator = ASTGenerator::with_optimization_level(self.optimization_level);
+
+            // Pass interface registry to AST generator if available
+            if let Some(ref interface_registry) = self.interface_registry {
+                ast_generator.set_interface_registry(interface_registry.clone());
             } else {
-                (0, 0, false)
-            };
+                // Fallback: Process interface definitions to populate the interface registry
+                if let AstNode::Program {
+                    interface_definitions,
+                    ..
+                } = ast
+                {
+                    ast_generator.process_interface_definitions(interface_definitions)?;
+                }
+            }
 
-            // Use OptimizedHeader V2.
-            self.emit_optimized_header_v2_with_imports(public_count, total_count, has_imports);
+            dispatcher.generate_dispatcher(
+                self,
+                ast,
+                &mut account_system,
+                &mut scope_analyzer,
+                &mut ast_generator,
+                &self.symbol_table.clone(),
+            )?;
 
-            // Emit function name metadata if there are public functions AND debug info is enabled
-            if public_count > 0 && self.include_debug_info {
-                self.emit_function_name_metadata()
+            if public_count > 0 {
+                self.emit_public_entry_table_metadata(dispatcher.get_public_entry_points())
                     .map_err(|_| VMError::InvalidInstruction)?;
             }
-            // Save import table for later emission after main bytecode
-            let import_table = dispatcher.get_import_table().clone();
 
-            let mut ast_generator = if has_functions {
-                // Use coordinated AST and function dispatcher for multi-function scripts
-                // This ensures CALL opcodes are properly coordinated with function indices
+            // No header metadata patching needed.
 
-                // Process field definitions first to populate symbol table
-                self.process_field_definitions(ast)?;
+            ast_generator
+        } else {
+            // Use direct AST generation for simple scripts
+            let mut ast_generator = ASTGenerator::with_optimization_level(self.optimization_level);
 
-                // Initialize AccountSystem with account definitions from AST
-                let mut account_system = AccountSystem::new();
-                account_system.process_account_definitions(ast)?;
-                // Sync discovered account types into generator-level registry for ABI
-                self.account_registry = account_system.get_account_registry().clone();
-
-                let mut scope_analyzer = scope_analyzer::ScopeAnalyzer::new();
-                let mut ast_generator =
-                    ASTGenerator::with_optimization_level(self.optimization_level);
-
-                // Pass interface registry to AST generator if available
-                if let Some(ref interface_registry) = self.interface_registry {
-                    ast_generator.set_interface_registry(interface_registry.clone());
-                } else {
-                    // Fallback: Process interface definitions to populate the interface registry
-                    if let AstNode::Program {
-                        interface_definitions,
-                        ..
-                    } = ast
-                    {
-                        ast_generator.process_interface_definitions(interface_definitions)?;
-                    }
-                }
-
-                dispatcher.generate_dispatcher(
-                    self,
-                    ast,
-                    &mut account_system,
-                    &mut scope_analyzer,
-                    &mut ast_generator,
-                    &self.symbol_table.clone(),
-                )?;
-
-                if public_count > 0 {
-                    self.emit_public_entry_table_metadata(dispatcher.get_public_entry_points())
-                        .map_err(|_| VMError::InvalidInstruction)?;
-                }
-
-                // No header metadata patching needed.
-
-                ast_generator
+            // Pass interface registry to AST generator if available
+            if let Some(ref interface_registry) = self.interface_registry {
+                ast_generator.set_interface_registry(interface_registry.clone());
             } else {
-                // Use direct AST generation for simple scripts
-                let mut ast_generator =
-                    ASTGenerator::with_optimization_level(self.optimization_level);
-
-                // Pass interface registry to AST generator if available
-                if let Some(ref interface_registry) = self.interface_registry {
-                    ast_generator.set_interface_registry(interface_registry.clone());
-                } else {
-                    // Fallback: Process interface definitions to populate the interface registry
-                    if let AstNode::Program {
-                        interface_definitions,
-                        ..
-                    } = ast
-                    {
-                        ast_generator.process_interface_definitions(interface_definitions)?;
-                    }
-                }
-
-                self.generate_node(ast)?;
-                ast_generator
-            };
-
-            // Finalize instruction stream (code only)
-            self.finalize_bytecode();
-
-            // Emit import verification metadata if imports exist (appended after string blob)
-            self.emit_import_metadata(&import_table)
-                .map_err(|_| VMError::InvalidScript)?;
-
-            // Compute layout offsets
-            let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
-            let header_len = self.header_bytes.len();
-            let metadata_len = self.metadata_bytes.len();
-            let base_offset = header_len + metadata_len + desc_size;
-            let pool_offset = (base_offset + 7) & !7; // 8-byte alignment
-            let padding_len = pool_offset - base_offset;
-
-            let pool_slots = self.constant_pool.pool_slots();
-            let pool_size = pool_slots as usize * 8;
-            let code_offset = pool_offset + pool_size;
-
-            // Patch dispatcher jump/call offsets with absolute base
-            dispatcher.patch_dispatch_logic_with_base(self, code_offset)?;
-
-            // Patch all jumps and function calls with their correct offsets (absolute)
-            ast_generator.patch_with_base(self, code_offset)?;
-
-            let string_blob = self.constant_pool.string_blob();
-            let string_blob_offset = code_offset + self.bytecode.len();
-            let string_blob_len = string_blob.len();
-
-            // Update header features to include constant pool flags
-            self.header_features |= five_protocol::FEATURE_CONSTANT_POOL;
-            if string_blob_len > 0 {
-                self.header_features |= five_protocol::FEATURE_CONSTANT_POOL_STRINGS;
-            }
-            let feature_bytes = self.header_features.to_le_bytes();
-            if self.header_bytes.len() >= 8 {
-                self.header_bytes[4..8].copy_from_slice(&feature_bytes);
-            }
-
-            // Build descriptor bytes
-            let desc = five_protocol::ConstantPoolDescriptor {
-                pool_offset: pool_offset as u32,
-                string_blob_offset: string_blob_offset as u32,
-                string_blob_len: string_blob_len as u32,
-                pool_slots,
-                reserved: 0,
-            };
-            let mut desc_bytes = Vec::with_capacity(desc_size);
-            desc_bytes.extend_from_slice(&desc.pool_offset.to_le_bytes());
-            desc_bytes.extend_from_slice(&desc.string_blob_offset.to_le_bytes());
-            desc_bytes.extend_from_slice(&desc.string_blob_len.to_le_bytes());
-            desc_bytes.extend_from_slice(&desc.pool_slots.to_le_bytes());
-            desc_bytes.extend_from_slice(&desc.reserved.to_le_bytes());
-
-            // Assemble final bytecode
-            let mut final_bytecode = Vec::new();
-            final_bytecode.extend_from_slice(&self.header_bytes);
-            final_bytecode.extend_from_slice(&self.metadata_bytes);
-            final_bytecode.extend_from_slice(&desc_bytes);
-            if padding_len > 0 {
-                final_bytecode.extend_from_slice(&vec![0u8; padding_len]);
-            }
-            final_bytecode.extend_from_slice(&self.constant_pool.pool_bytes());
-            final_bytecode.extend_from_slice(&self.bytecode);
-            final_bytecode.extend_from_slice(string_blob);
-
-            // CRITICAL: Verify bytecode JUMP targets before deployment
-            // Import verification metadata is appended after executable code and may contain
-            // arbitrary bytes that look like opcodes, so validate only the executable region.
-            let verification_result = disassembler::verify_jump_targets(&final_bytecode);
-            if !verification_result.is_valid {
-                eprintln!("BYTECODE VERIFICATION FAILED:");
-                eprintln!("{}", verification_result.error_summary());
-                #[cfg(debug_assertions)]
+                // Fallback: Process interface definitions to populate the interface registry
+                if let AstNode::Program {
+                    interface_definitions,
+                    ..
+                } = ast
                 {
-                    panic!("Bytecode contains invalid JUMP targets - check disassembler/verification.rs or jumps.rs");
+                    ast_generator.process_interface_definitions(interface_definitions)?;
                 }
-                #[cfg(not(debug_assertions))]
-                {
-                    return Err(VMError::InvalidInstructionPointer);
-                }
-            } else {
-                eprintln!(
-                    "BYTECODE VERIFICATION: {} jumps validated, all within {} bytes",
-                    verification_result.jump_count, verification_result.bytecode_length
-                );
             }
 
-            final_bytecode.extend_from_slice(&self.import_metadata_bytes);
-            self.bytecode = final_bytecode;
+            self.generate_node(ast)?;
+            ast_generator
+        };
 
-            // Debug: print final bytecode summary to help diagnose missing opcodes in tests
+        // Finalize instruction stream (code only)
+        self.finalize_bytecode();
+
+        // Emit import verification metadata if imports exist (appended after string blob)
+        self.emit_import_metadata(&import_table)
+            .map_err(|_| VMError::InvalidScript)?;
+
+        // Compute layout offsets
+        let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
+        let header_len = self.header_bytes.len();
+        let metadata_len = self.metadata_bytes.len();
+        let base_offset = header_len + metadata_len + desc_size;
+        let pool_offset = (base_offset + 7) & !7; // 8-byte alignment
+        let padding_len = pool_offset - base_offset;
+
+        let pool_slots = self.constant_pool.pool_slots();
+        let pool_size = pool_slots as usize * 8;
+        let code_offset = pool_offset + pool_size;
+
+        // Patch dispatcher jump/call offsets with absolute base
+        dispatcher.patch_dispatch_logic_with_base(self, code_offset)?;
+
+        // Patch all jumps and function calls with their correct offsets (absolute)
+        ast_generator.patch_with_base(self, code_offset)?;
+
+        let string_blob = self.constant_pool.string_blob();
+        let string_blob_offset = code_offset + self.bytecode.len();
+        let string_blob_len = string_blob.len();
+
+        // Update header features to include constant pool flags
+        self.header_features |= five_protocol::FEATURE_CONSTANT_POOL;
+        if string_blob_len > 0 {
+            self.header_features |= five_protocol::FEATURE_CONSTANT_POOL_STRINGS;
+        }
+        let feature_bytes = self.header_features.to_le_bytes();
+        if self.header_bytes.len() >= 8 {
+            self.header_bytes[4..8].copy_from_slice(&feature_bytes);
+        }
+
+        // Build descriptor bytes
+        let desc = five_protocol::ConstantPoolDescriptor {
+            pool_offset: pool_offset as u32,
+            string_blob_offset: string_blob_offset as u32,
+            string_blob_len: string_blob_len as u32,
+            pool_slots,
+            reserved: 0,
+        };
+        let mut desc_bytes = Vec::with_capacity(desc_size);
+        desc_bytes.extend_from_slice(&desc.pool_offset.to_le_bytes());
+        desc_bytes.extend_from_slice(&desc.string_blob_offset.to_le_bytes());
+        desc_bytes.extend_from_slice(&desc.string_blob_len.to_le_bytes());
+        desc_bytes.extend_from_slice(&desc.pool_slots.to_le_bytes());
+        desc_bytes.extend_from_slice(&desc.reserved.to_le_bytes());
+
+        // Assemble final bytecode
+        let mut final_bytecode = Vec::new();
+        final_bytecode.extend_from_slice(&self.header_bytes);
+        final_bytecode.extend_from_slice(&self.metadata_bytes);
+        final_bytecode.extend_from_slice(&desc_bytes);
+        if padding_len > 0 {
+            final_bytecode.extend_from_slice(&vec![0u8; padding_len]);
+        }
+        final_bytecode.extend_from_slice(&self.constant_pool.pool_bytes());
+        final_bytecode.extend_from_slice(&self.bytecode);
+        final_bytecode.extend_from_slice(string_blob);
+
+        // CRITICAL: Verify bytecode JUMP targets before deployment
+        // Import verification metadata is appended after executable code and may contain
+        // arbitrary bytes that look like opcodes, so validate only the executable region.
+        let verification_result = disassembler::verify_jump_targets(&final_bytecode);
+        if !verification_result.is_valid {
+            eprintln!("BYTECODE VERIFICATION FAILED:");
+            eprintln!("{}", verification_result.error_summary());
+            #[cfg(debug_assertions)]
             {
-                let contains_require = self
-                    .bytecode.contains(&five_protocol::opcodes::REQUIRE);
-                eprintln!(
-                    "DEBUG: final bytecode len = {}, contains REQUIRE = {}",
-                    self.bytecode.len(),
-                    contains_require
-                );
-                let dump_len = std::cmp::min(self.bytecode.len(), 256);
-                eprintln!(
-                    "DEBUG: final bytecode (first {} bytes) = {:?}",
-                    dump_len,
-                    &self.bytecode[..dump_len]
-                );
+                panic!("Bytecode contains invalid JUMP targets - check disassembler/verification.rs or jumps.rs");
             }
+            #[cfg(not(debug_assertions))]
+            {
+                return Err(VMError::InvalidInstructionPointer);
+            }
+        } else {
+            eprintln!(
+                "BYTECODE VERIFICATION: {} jumps validated, all within {} bytes",
+                verification_result.jump_count, verification_result.bytecode_length
+            );
+        }
 
-            Ok(self.bytecode.clone())
+        final_bytecode.extend_from_slice(&self.import_metadata_bytes);
+        self.bytecode = final_bytecode;
+
+        // Debug: print final bytecode summary to help diagnose missing opcodes in tests
+        {
+            let contains_require = self.bytecode.contains(&five_protocol::opcodes::REQUIRE);
+            eprintln!(
+                "DEBUG: final bytecode len = {}, contains REQUIRE = {}",
+                self.bytecode.len(),
+                contains_require
+            );
+            let dump_len = std::cmp::min(self.bytecode.len(), 256);
+            eprintln!(
+                "DEBUG: final bytecode (first {} bytes) = {:?}",
+                dump_len,
+                &self.bytecode[..dump_len]
+            );
+        }
+
+        Ok(self.bytecode.clone())
     }
 
     /// Reset generator state for new compilation
@@ -832,7 +825,6 @@ impl DslBytecodeGenerator {
     pub fn push_compilation_log(&mut self, entry: String) {
         self.compilation_log.push(entry);
     }
-
 }
 
 impl Default for DslBytecodeGenerator {

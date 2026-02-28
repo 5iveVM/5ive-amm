@@ -97,13 +97,14 @@ impl LanguageServer for FiveLanguageServer {
                         SemanticTokensOptions {
                             legend: SemanticTokensLegend {
                                 token_types: features::semantic::SEMANTIC_TOKEN_TYPES.to_vec(),
-                                token_modifiers: features::semantic::SEMANTIC_TOKEN_MODIFIERS.to_vec(),
+                                token_modifiers: features::semantic::SEMANTIC_TOKEN_MODIFIERS
+                                    .to_vec(),
                             },
                             full: Some(SemanticTokensFullOptions::Bool(true)),
                             range: None, // Delta mode not yet implemented
                             ..Default::default()
-                        }
-                    )
+                        },
+                    ),
                 ),
                 code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
                 rename_provider: Some(OneOf::Left(true)),
@@ -120,7 +121,7 @@ impl LanguageServer for FiveLanguageServer {
                     InlayHintOptions {
                         resolve_provider: Some(false),
                         ..Default::default()
-                    }
+                    },
                 ))),
                 document_formatting_provider: Some(OneOf::Left(true)),
 
@@ -136,7 +137,6 @@ impl LanguageServer for FiveLanguageServer {
                 // - folding_range_provider
                 // - selection_range_provider
                 // - document_highlight_provider
-
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -244,7 +244,11 @@ impl LanguageServer for FiveLanguageServer {
 
     // Phase 1-2 features
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        let uri = params.text_document_position_params.text_document.uri.clone();
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .clone();
         let position = params.text_document_position_params.position;
 
         let documents = self.documents.read().await;
@@ -256,12 +260,7 @@ impl LanguageServer for FiveLanguageServer {
 
         // Use write lock to ensure AST is compiled and cached
         let mut bridge = self.bridge.write().await;
-        let hover_info = features::hover::get_hover(
-            &bridge,
-            &doc.content,
-            position,
-            &uri,
-        );
+        let hover_info = features::hover::get_hover(&bridge, &doc.content, position, &uri);
 
         Ok(hover_info)
     }
@@ -297,7 +296,11 @@ impl LanguageServer for FiveLanguageServer {
         &self,
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        let uri = params.text_document_position_params.text_document.uri.clone();
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .clone();
         let position = params.text_document_position_params.position;
 
         // Get source code
@@ -343,7 +346,11 @@ impl LanguageServer for FiveLanguageServer {
             position.character as usize,
         );
 
-        Ok(if references.is_empty() { None } else { Some(references) })
+        Ok(if references.is_empty() {
+            None
+        } else {
+            Some(references)
+        })
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
@@ -387,11 +394,7 @@ impl LanguageServer for FiveLanguageServer {
         drop(documents);
 
         let bridge = self.bridge.read().await;
-        let semantic_tokens = features::semantic::get_semantic_tokens(
-            &bridge,
-            &doc.content,
-            &uri,
-        );
+        let semantic_tokens = features::semantic::get_semantic_tokens(&bridge, &doc.content, &uri);
 
         // Convert SerializableSemanticToken to SemanticToken format (flat array)
         let mut data = Vec::new();
@@ -426,11 +429,12 @@ impl LanguageServer for FiveLanguageServer {
         })))
     }
 
-    async fn signature_help(
-        &self,
-        params: SignatureHelpParams,
-    ) -> Result<Option<SignatureHelp>> {
-        let uri = params.text_document_position_params.text_document.uri.clone();
+    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .clone();
         let position = params.text_document_position_params.position;
 
         let documents = self.documents.read().await;
@@ -465,11 +469,7 @@ impl LanguageServer for FiveLanguageServer {
         drop(documents);
 
         let bridge = self.bridge.read().await;
-        let symbols = features::document_symbols::get_document_symbols(
-            &bridge,
-            &doc.content,
-            &uri,
-        );
+        let symbols = features::document_symbols::get_document_symbols(&bridge, &doc.content, &uri);
 
         Ok(if symbols.is_empty() {
             None
@@ -486,11 +486,8 @@ impl LanguageServer for FiveLanguageServer {
         let mut all_symbols = Vec::new();
 
         for (uri, doc) in documents.iter() {
-            let symbols = features::workspace_symbols::workspace_symbols(
-                &doc.content,
-                &params.query,
-                uri,
-            );
+            let symbols =
+                features::workspace_symbols::workspace_symbols(&doc.content, &params.query, uri);
             all_symbols.extend(symbols);
         }
 
@@ -501,10 +498,7 @@ impl LanguageServer for FiveLanguageServer {
         })
     }
 
-    async fn formatting(
-        &self,
-        params: DocumentFormattingParams,
-    ) -> Result<Option<Vec<TextEdit>>> {
+    async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
         let uri = params.text_document.uri.clone();
 
         let documents = self.documents.read().await;
@@ -516,17 +510,10 @@ impl LanguageServer for FiveLanguageServer {
 
         let edits = features::formatting::format_document(&doc.content);
 
-        Ok(if edits.is_empty() {
-            None
-        } else {
-            Some(edits)
-        })
+        Ok(if edits.is_empty() { None } else { Some(edits) })
     }
 
-    async fn inlay_hint(
-        &self,
-        params: InlayHintParams,
-    ) -> Result<Option<Vec<InlayHint>>> {
+    async fn inlay_hint(&self, params: InlayHintParams) -> Result<Option<Vec<InlayHint>>> {
         let uri = params.text_document.uri.clone();
 
         let documents = self.documents.read().await;
@@ -536,19 +523,13 @@ impl LanguageServer for FiveLanguageServer {
         };
         drop(documents);
 
-        let hints = features::inlay_hints::get_inlay_hints(&doc.content, params.range.start.line as usize);
+        let hints =
+            features::inlay_hints::get_inlay_hints(&doc.content, params.range.start.line as usize);
 
-        Ok(if hints.is_empty() {
-            None
-        } else {
-            Some(hints)
-        })
+        Ok(if hints.is_empty() { None } else { Some(hints) })
     }
 
-    async fn code_action(
-        &self,
-        params: CodeActionParams,
-    ) -> Result<Option<CodeActionResponse>> {
+    async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
         let uri = params.text_document.uri.clone();
 
         let documents = self.documents.read().await;
@@ -568,7 +549,12 @@ impl LanguageServer for FiveLanguageServer {
         Ok(if actions.is_empty() {
             None
         } else {
-            Some(actions.into_iter().map(CodeActionOrCommand::CodeAction).collect())
+            Some(
+                actions
+                    .into_iter()
+                    .map(CodeActionOrCommand::CodeAction)
+                    .collect(),
+            )
         })
     }
 }

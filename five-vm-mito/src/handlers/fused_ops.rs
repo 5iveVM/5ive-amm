@@ -66,12 +66,12 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             // Load field value directly from account data
             let account = ctx.get_account_for_read(acc_idx)?;
             let data = unsafe { account.borrow_data_unchecked() };
-            
+
             if (field_offset as usize) + 8 > data.len() {
                 debug_log!("MitoVM: REQUIRE_GTE_U64 field offset out of bounds");
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            
+
             let field_value = read_u64_le(&data, field_offset as usize);
 
             // Load param value using same pattern as locals.rs
@@ -79,10 +79,18 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
 
             // GTE + REQUIRE fused
             if field_value < param_value {
-                debug_log!("MitoVM: REQUIRE_GTE_U64 failed: {} < {}", field_value, param_value);
+                debug_log!(
+                    "MitoVM: REQUIRE_GTE_U64 failed: {} < {}",
+                    field_value,
+                    param_value
+                );
                 return Err(VMErrorCode::ConstraintViolation);
             }
-            debug_log!("MitoVM: REQUIRE_GTE_U64 passed: {} >= {}", field_value, param_value);
+            debug_log!(
+                "MitoVM: REQUIRE_GTE_U64 passed: {} >= {}",
+                field_value,
+                param_value
+            );
         }
 
         // REQUIRE_NOT_BOOL: LOAD_FIELD + NOT + REQUIRE fused
@@ -94,12 +102,12 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
 
             let account = ctx.get_account_for_read(acc_idx)?;
             let data = unsafe { account.borrow_data_unchecked() };
-            
+
             if (field_offset as usize) >= data.len() {
                 debug_log!("MitoVM: REQUIRE_NOT_BOOL field offset out of bounds");
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            
+
             let bool_value = data[field_offset as usize] != 0;
 
             // NOT + REQUIRE: require the field is false
@@ -124,20 +132,25 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             // Get account for write
             let account = ctx.get_account_for_write(acc_idx)?;
             let data = unsafe { account.borrow_mut_data_unchecked() };
-            
+
             if (field_offset as usize) + 8 > data.len() {
                 debug_log!("MitoVM: FIELD_ADD_PARAM field offset out of bounds");
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            
+
             // Read current value
             let current_value = read_u64_le(&data, field_offset as usize);
 
             // Add and store
             let new_value = current_value.wrapping_add(param_value);
             write_u64_le(data, field_offset as usize, new_value);
-            
-            debug_log!("MitoVM: FIELD_ADD_PARAM: {} + {} = {}", current_value, param_value, new_value);
+
+            debug_log!(
+                "MitoVM: FIELD_ADD_PARAM: {} + {} = {}",
+                current_value,
+                param_value,
+                new_value
+            );
         }
 
         // FIELD_SUB_PARAM: LOAD_FIELD + LOAD_PARAM + SUB + STORE_FIELD fused
@@ -154,20 +167,25 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             // Get account for write
             let account = ctx.get_account_for_write(acc_idx)?;
             let data = unsafe { account.borrow_mut_data_unchecked() };
-            
+
             if (field_offset as usize) + 8 > data.len() {
                 debug_log!("MitoVM: FIELD_SUB_PARAM field offset out of bounds");
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            
+
             // Read current value
             let current_value = read_u64_le(&data, field_offset as usize);
 
             // Sub and store
             let new_value = current_value.wrapping_sub(param_value);
             write_u64_le(data, field_offset as usize, new_value);
-            
-            debug_log!("MitoVM: FIELD_SUB_PARAM: {} - {} = {}", current_value, param_value, new_value);
+
+            debug_log!(
+                "MitoVM: FIELD_SUB_PARAM: {} - {} = {}",
+                current_value,
+                param_value,
+                new_value
+            );
         }
 
         // REQUIRE_PARAM_GT_ZERO: LOAD_PARAM + PUSH_0 + GT + REQUIRE fused
@@ -221,8 +239,8 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let data1 = unsafe { account1.borrow_data_unchecked() };
             if (offset1 as usize) + 32 > data1.len() {
                 debug_log!(
-                    "MitoVM: REQUIRE_EQ_PUBKEY acc1 bounds check failed: offset={} + 32 > len={}", 
-                    offset1, 
+                    "MitoVM: REQUIRE_EQ_PUBKEY acc1 bounds check failed: offset={} + 32 > len={}",
+                    offset1,
                     data1.len()
                 );
                 return Err(VMErrorCode::InvalidAccountData);
@@ -232,8 +250,8 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let data2 = unsafe { account2.borrow_data_unchecked() };
             if (offset2 as usize) + 32 > data2.len() {
                 debug_log!(
-                    "MitoVM: REQUIRE_EQ_PUBKEY acc2 bounds check failed: offset={} + 32 > len={}", 
-                    offset2, 
+                    "MitoVM: REQUIRE_EQ_PUBKEY acc2 bounds check failed: offset={} + 32 > len={}",
+                    offset2,
                     data2.len()
                 );
                 return Err(VMErrorCode::InvalidAccountData);
@@ -252,7 +270,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         CHECK_SIGNER_WRITABLE => {
             let acc_idx = ctx.fetch_byte()?;
             let account = ctx.get_account_for_read(acc_idx)?;
-            
+
             if !account.is_signer() {
                 debug_log!("MitoVM: CHECK_SIGNER_WRITABLE failed: not signer");
                 return Err(VMErrorCode::ConstraintViolation);
@@ -261,7 +279,10 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                 debug_log!("MitoVM: CHECK_SIGNER_WRITABLE failed: not writable");
                 return Err(VMErrorCode::ConstraintViolation);
             }
-            debug_log!("MitoVM: CHECK_SIGNER_WRITABLE passed for account {}", acc_idx);
+            debug_log!(
+                "MitoVM: CHECK_SIGNER_WRITABLE passed for account {}",
+                acc_idx
+            );
         }
 
         // ===== TIER 3 UNIVERSAL FUSED OPCODES =====
@@ -281,16 +302,20 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             // Store to field
             let account = ctx.get_account_for_write(acc_idx)?;
             let data = unsafe { account.borrow_mut_data_unchecked() };
-            
+
             // Use generic store function from memory handler to support all types (U64, Pubkey, String, etc.)
             crate::handlers::memory::store_value_into_buffer(
-                data, 
-                field_offset as usize, 
-                param_value, 
-                ctx
+                data,
+                field_offset as usize,
+                param_value,
+                ctx,
             )?;
-            
-            debug_log!("MitoVM: STORE_PARAM_TO_FIELD stored param {} at offset {}", param_idx, field_offset);
+
+            debug_log!(
+                "MitoVM: STORE_PARAM_TO_FIELD stored param {} at offset {}",
+                param_idx,
+                field_offset
+            );
         }
 
         // STORE_FIELD_ZERO: PUSH_0 + STORE_FIELD fused
@@ -302,15 +327,15 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
 
             let account = ctx.get_account_for_write(acc_idx)?;
             let data = unsafe { account.borrow_mut_data_unchecked() };
-            
+
             if (field_offset as usize) + 8 > data.len() {
                 debug_log!("MitoVM: STORE_FIELD_ZERO offset out of bounds");
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            
+
             // Store zero (8 bytes for u64)
             write_u64_le(data, field_offset as usize, 0);
-            
+
             debug_log!("MitoVM: STORE_FIELD_ZERO at offset {}", field_offset);
         }
 
@@ -329,16 +354,18 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             // Store to field
             let account = ctx.get_account_for_write(acc_idx)?;
             let data = unsafe { account.borrow_mut_data_unchecked() };
-            
+
             if (field_offset as usize) + 32 > data.len() {
                 debug_log!("MitoVM: STORE_KEY_TO_FIELD offset out of bounds");
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            
-            data[field_offset as usize..field_offset as usize + 32]
-                .copy_from_slice(&key_bytes);
-            
-            debug_log!("MitoVM: STORE_KEY_TO_FIELD stored key at offset {}", field_offset);
+
+            data[field_offset as usize..field_offset as usize + 32].copy_from_slice(&key_bytes);
+
+            debug_log!(
+                "MitoVM: STORE_KEY_TO_FIELD stored key at offset {}",
+                field_offset
+            );
         }
 
         // REQUIRE_EQ_FIELDS: Compare two u64 fields (field-to-field)
@@ -386,11 +413,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             {
                 let account1 = ctx.get_account_for_write(acc1_idx)?;
                 let data1 = unsafe { account1.borrow_mut_data_unchecked() };
-                
+
                 if (off1 as usize) + 8 > data1.len() {
                     return Err(VMErrorCode::InvalidAccountData);
                 }
-                
+
                 let current1 = read_u64_le(&data1, off1 as usize);
                 // Use wrapping sub for consistency with other ops, could use checked if desired
                 let new_val1 = current1.wrapping_sub(param_value);
@@ -401,17 +428,22 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             {
                 let account2 = ctx.get_account_for_write(acc2_idx)?;
                 let data2 = unsafe { account2.borrow_mut_data_unchecked() };
-                
+
                 if (off2 as usize) + 8 > data2.len() {
                     return Err(VMErrorCode::InvalidAccountData);
                 }
-                
+
                 let current2 = read_u64_le(&data2, off2 as usize);
                 let new_val2 = current2.wrapping_add(param_value);
                 write_u64_le(data2, off2 as usize, new_val2);
             }
-            
-            debug_log!("MitoVM: FIELD_SUB_ADD_PARAM transferred {} from acc{} to acc{}", param_value, acc1_idx, acc2_idx);
+
+            debug_log!(
+                "MitoVM: FIELD_SUB_ADD_PARAM transferred {} from acc{} to acc{}",
+                param_value,
+                acc1_idx,
+                acc2_idx
+            );
         }
 
         // REQUIRE_PARAM_LTE_IMM: param <= immediate
@@ -423,7 +455,11 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let param_value = param_u64(ctx, param_idx)?;
 
             if param_value > imm {
-                debug_log!("MitoVM: REQUIRE_PARAM_LTE_IMM failed: {} > {}", param_value, imm);
+                debug_log!(
+                    "MitoVM: REQUIRE_PARAM_LTE_IMM failed: {} > {}",
+                    param_value,
+                    imm
+                );
                 return Err(VMErrorCode::ConstraintViolation);
             }
         }
@@ -437,15 +473,19 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
 
             let account = ctx.get_account_for_read(acc_idx)?;
             let data = unsafe { account.borrow_data_unchecked() };
-            
+
             if (offset as usize) + 8 > data.len() {
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            
+
             let field_val = read_u64_le(&data, offset as usize);
 
             if field_val != imm {
-                debug_log!("MitoVM: REQUIRE_FIELD_EQ_IMM failed: {} != {}", field_val, imm);
+                debug_log!(
+                    "MitoVM: REQUIRE_FIELD_EQ_IMM failed: {} != {}",
+                    field_val,
+                    imm
+                );
                 return Err(VMErrorCode::ConstraintViolation);
             }
         }

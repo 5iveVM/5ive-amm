@@ -48,9 +48,9 @@ impl ASTGenerator {
                         .as_ref()
                         .is_some_and(|n| Self::contains_identifier(n, ident))
             }
-            AstNode::Block { statements, .. } => {
-                statements.iter().any(|n| Self::contains_identifier(n, ident))
-            }
+            AstNode::Block { statements, .. } => statements
+                .iter()
+                .any(|n| Self::contains_identifier(n, ident)),
             AstNode::Assignment { target, value } => {
                 target == ident || Self::contains_identifier(value, ident)
             }
@@ -138,7 +138,8 @@ impl ASTGenerator {
                 Self::contains_identifier(iterable, ident) || Self::contains_identifier(body, ident)
             }
             AstNode::WhileLoop { condition, body } | AstNode::DoWhileLoop { condition, body } => {
-                Self::contains_identifier(condition, ident) || Self::contains_identifier(body, ident)
+                Self::contains_identifier(condition, ident)
+                    || Self::contains_identifier(body, ident)
             }
             AstNode::SwitchStatement {
                 discriminant,
@@ -160,9 +161,9 @@ impl ASTGenerator {
             AstNode::AssertStatement { args, .. } => {
                 args.iter().any(|n| Self::contains_identifier(n, ident))
             }
-            AstNode::InterfaceDefinition { functions, .. } => {
-                functions.iter().any(|n| Self::contains_identifier(n, ident))
-            }
+            AstNode::InterfaceDefinition { functions, .. } => functions
+                .iter()
+                .any(|n| Self::contains_identifier(n, ident)),
             AstNode::InterfaceFunction { .. }
             | AstNode::ImportStatement { .. }
             | AstNode::Literal(_)
@@ -214,18 +215,26 @@ impl ASTGenerator {
         match node {
             AstNode::Assignment { target, .. } => target == ident,
             AstNode::LetStatement { name, .. } => name == ident,
-            AstNode::TupleAssignment { targets, .. } => targets.iter().any(|t| {
-                matches!(t, AstNode::Identifier(name) if name == ident)
-            }),
+            AstNode::TupleAssignment { targets, .. } => targets
+                .iter()
+                .any(|t| matches!(t, AstNode::Identifier(name) if name == ident)),
             AstNode::TupleDestructuring { targets, .. } => targets.iter().any(|t| t == ident),
-            AstNode::Block { statements, .. } => statements.iter().any(|s| Self::assigns_to(s, ident)),
-            AstNode::IfStatement { then_branch, else_branch, .. } => {
+            AstNode::Block { statements, .. } => {
+                statements.iter().any(|s| Self::assigns_to(s, ident))
+            }
+            AstNode::IfStatement {
+                then_branch,
+                else_branch,
+                ..
+            } => {
                 Self::assigns_to(then_branch, ident)
                     || else_branch
                         .as_ref()
                         .is_some_and(|n| Self::assigns_to(n, ident))
             }
-            AstNode::MatchExpression { arms, .. } => arms.iter().any(|arm| Self::assigns_to(&arm.body, ident)),
+            AstNode::MatchExpression { arms, .. } => {
+                arms.iter().any(|arm| Self::assigns_to(&arm.body, ident))
+            }
             AstNode::WhileLoop { body, .. }
             | AstNode::DoWhileLoop { body, .. }
             | AstNode::ForInLoop { body, .. }
@@ -233,7 +242,9 @@ impl ASTGenerator {
             | AstNode::ArrowFunction { body, .. }
             | AstNode::TestFunction { body, .. }
             | AstNode::TestModule { body, .. } => Self::assigns_to(body, ident),
-            AstNode::ForLoop { init, update, body, .. } => {
+            AstNode::ForLoop {
+                init, update, body, ..
+            } => {
                 init.as_ref().is_some_and(|n| Self::assigns_to(n, ident))
                     || update.as_ref().is_some_and(|n| Self::assigns_to(n, ident))
                     || Self::assigns_to(body, ident)
@@ -288,12 +299,14 @@ impl ASTGenerator {
                 AstNode::Identifier(name) => (name.as_str(), right.as_ref()),
                 _ => return None,
             },
-            AstNode::MethodCall { object, method, args } if method == "lt" && args.len() == 1 => {
-                match object.as_ref() {
-                    AstNode::Identifier(name) => (name.as_str(), &args[0]),
-                    _ => return None,
-                }
-            }
+            AstNode::MethodCall {
+                object,
+                method,
+                args,
+            } if method == "lt" && args.len() == 1 => match object.as_ref() {
+                AstNode::Identifier(name) => (name.as_str(), &args[0]),
+                _ => return None,
+            },
             _ => return None,
         };
 
@@ -760,7 +773,7 @@ impl ASTGenerator {
         });
 
         // Emit placeholder for the branch offset (patched later).
-        emitter.emit_u16(0); 
+        emitter.emit_u16(0);
     }
 
     /// Generate match expression with constructor pattern matching

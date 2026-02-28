@@ -1,5 +1,4 @@
 /// Module resolution for multi-file compilation.
-
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 // use five_vm_mito::error::VMError;
@@ -35,9 +34,7 @@ pub enum ImportTarget {
         resolved_file: Option<PathBuf>,
     },
     /// Registry name: `use "token"::{...};`
-    RegistryName {
-        name: String,
-    },
+    RegistryName { name: String },
     /// Structured scoped namespace target: `@domain/subprogram`.
     ScopedNamespace {
         symbol: char,
@@ -46,9 +43,7 @@ pub enum ImportTarget {
         canonical: String,
     },
     /// Direct Solana address: `use "HMxPuYGdU7..."::{...};`
-    SolanaPubkey {
-        address: String,
-    },
+    SolanaPubkey { address: String },
 }
 
 const NAMESPACE_SYMBOLS: [char; 5] = ['!', '@', '#', '$', '%'];
@@ -105,7 +100,9 @@ impl ModuleGraph {
     pub fn add_module(&mut self, descriptor: ModuleDescriptor) {
         let module_path = descriptor.module_path.clone();
         self.modules.insert(module_path.clone(), descriptor);
-        self.dependency_edges.entry(module_path).or_insert_with(Vec::new);
+        self.dependency_edges
+            .entry(module_path)
+            .or_insert_with(Vec::new);
     }
 
     pub fn add_dependency(&mut self, from_module: String, to_module: String) {
@@ -161,7 +158,9 @@ impl ModuleGraph {
                 if !visited.contains(dep) {
                     self.dfs_cycle_detect(dep, visited, rec_stack)?;
                 } else if rec_stack.contains(dep) {
-                    return Err(ModuleResolutionError::CircularDependency(module.to_string()));
+                    return Err(ModuleResolutionError::CircularDependency(
+                        module.to_string(),
+                    ));
                 }
             }
         }
@@ -211,7 +210,10 @@ impl ModuleGraph {
         }
 
         if order.len() != self.modules.len() {
-            return Err(ModuleResolutionError::Generic("Topological sort failed: graph has cycles or unresolvable dependencies".to_string()));
+            return Err(ModuleResolutionError::Generic(
+                "Topological sort failed: graph has cycles or unresolvable dependencies"
+                    .to_string(),
+            ));
         }
 
         self.compilation_order = order;
@@ -237,7 +239,10 @@ impl ModuleDiscoverer {
     }
 
     /// Discover all modules starting from an entry point file
-    pub fn discover_modules(&self, entry_point: &Path) -> Result<ModuleGraph, ModuleResolutionError> {
+    pub fn discover_modules(
+        &self,
+        entry_point: &Path,
+    ) -> Result<ModuleGraph, ModuleResolutionError> {
         let mut graph = ModuleGraph::new();
         let mut visited_files = HashSet::new();
         let mut warned_local_stdlib = false;
@@ -253,11 +258,12 @@ impl ModuleDiscoverer {
             visited_files.insert(file_path.clone());
 
             // Load and parse module
-            let source_code = std::fs::read_to_string(&file_path)
-                .map_err(|_e| ModuleResolutionError::ModuleNotFound {
+            let source_code = std::fs::read_to_string(&file_path).map_err(|_e| {
+                ModuleResolutionError::ModuleNotFound {
                     module_path: file_path.to_string_lossy().to_string(),
                     searched_paths: vec![file_path.clone()], // Only one path tried here
-                })?;
+                }
+            })?;
 
             let module_path = self.file_path_to_module_path(&file_path)?;
 
@@ -284,7 +290,10 @@ impl ModuleDiscoverer {
                 if is_stdlib_module(&dep) {
                     if graph.get_module(&dep).is_none() {
                         if let Some(src) = bundled_stdlib_source(&dep) {
-                            let local_candidate = self.source_dir.join(dep.replace("::", "/")).with_extension("v");
+                            let local_candidate = self
+                                .source_dir
+                                .join(dep.replace("::", "/"))
+                                .with_extension("v");
                             if local_candidate.exists() && !warned_local_stdlib {
                                 warned_local_stdlib = true;
                                 eprintln!(
@@ -366,7 +375,10 @@ impl ModuleDiscoverer {
     }
 
     /// Convert module path to file path
-    fn module_path_to_file_path(&self, module_path: &str) -> Result<PathBuf, ModuleResolutionError> {
+    fn module_path_to_file_path(
+        &self,
+        module_path: &str,
+    ) -> Result<PathBuf, ModuleResolutionError> {
         let path_parts: Vec<&str> = module_path.split("::").collect();
         let mut file_path = self.source_dir.clone();
 
@@ -395,7 +407,10 @@ impl ModuleDiscoverer {
         };
 
         let mut out = Vec::new();
-        if let AstNode::Program { import_statements, .. } = ast {
+        if let AstNode::Program {
+            import_statements, ..
+        } = ast
+        {
             for import in import_statements {
                 if let AstNode::ImportStatement {
                     module_specifier,
@@ -419,7 +434,10 @@ impl ModuleDiscoverer {
     }
 }
 
-pub fn canonical_module_name(path: &Path, source_root: &Path) -> Result<String, ModuleResolutionError> {
+pub fn canonical_module_name(
+    path: &Path,
+    source_root: &Path,
+) -> Result<String, ModuleResolutionError> {
     let relative = path
         .strip_prefix(source_root)
         .map_err(|e| ModuleResolutionError::InvalidModulePath(e.to_string()))?;

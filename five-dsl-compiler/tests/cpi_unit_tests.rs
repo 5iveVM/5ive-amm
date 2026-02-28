@@ -20,7 +20,11 @@ mod cpi_compilation_tests {
         // SPL Token interface with 3 pubkey accounts + 1 u64 data
         let account_count = 3;
         let data_count = 1;
-        assert_eq!(account_count + data_count, 4, "Should have 4 total parameters");
+        assert_eq!(
+            account_count + data_count,
+            4,
+            "Should have 4 total parameters"
+        );
     }
 
     #[test]
@@ -122,7 +126,11 @@ mod cpi_compilation_tests {
         let value = 1000u64;
         let bytes = value.to_le_bytes();
         assert_eq!(bytes.len(), 8, "u64 is 8 bytes");
-        assert_eq!(bytes, [232, 3, 0, 0, 0, 0, 0, 0], "u64 little-endian encoding");
+        assert_eq!(
+            bytes,
+            [232, 3, 0, 0, 0, 0, 0, 0],
+            "u64 little-endian encoding"
+        );
     }
 
     #[test]

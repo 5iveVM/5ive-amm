@@ -10,6 +10,7 @@ mod control_flow;
 mod expressions;
 mod fields;
 mod functions;
+mod fused_opcodes;
 mod helpers;
 mod initialization;
 mod jumps;
@@ -17,11 +18,10 @@ mod resources;
 mod symbol_table;
 pub mod types;
 mod utilities;
-mod fused_opcodes;
 
 // New modules
-mod program;
 mod assignments;
+mod program;
 
 // Test modules
 // #[cfg(test)]
@@ -46,7 +46,6 @@ impl ASTGenerator {
         emitter: &mut T,
         node: &AstNode,
     ) -> Result<(), VMError> {
-        
         #[cfg(debug_assertions)]
         println!("Processing node: {:?}", std::mem::discriminant(node));
 
@@ -61,17 +60,15 @@ impl ASTGenerator {
                 account_definitions: _,
                 interface_definitions,
                 import_statements,
-            } => {
-                self.generate_program(
-                    emitter,
-                    import_statements,
-                    field_definitions,
-                    interface_definitions,
-                    init_block,
-                    constraints_block,
-                    instruction_definitions,
-                )
-            }
+            } => self.generate_program(
+                emitter,
+                import_statements,
+                field_definitions,
+                interface_definitions,
+                init_block,
+                constraints_block,
+                instruction_definitions,
+            ),
 
             AstNode::Block { statements, .. } => {
                 self.generate_statement_block(emitter, statements)?;
@@ -83,9 +80,7 @@ impl ASTGenerator {
                 type_annotation,
                 is_mutable,
                 value,
-            } => {
-                self.generate_let_statement(emitter, name, type_annotation, is_mutable, value)
-            }
+            } => self.generate_let_statement(emitter, name, type_annotation, is_mutable, value),
             AstNode::TupleDestructuring { targets, value } => {
                 self.generate_tuple_destructuring(emitter, targets, value)
             }
@@ -361,22 +356,25 @@ impl ASTGenerator {
                         match field.as_str() {
                             "lamports" | "owner" | "key" | "data" => {
                                 if let Some(account_system) = &self.account_system {
-                                    return account_system.generate_builtin_account_property_access(
-                                        emitter,
-                                        account_name,
-                                        field,
-                                        &self.local_symbol_table,
-                                    );
+                                    return account_system
+                                        .generate_builtin_account_property_access(
+                                            emitter,
+                                            account_name,
+                                            field,
+                                            &self.local_symbol_table,
+                                        );
                                 }
                                 return Err(VMError::InvalidScript);
                             }
                             "bump" => {
                                 let alias = Self::init_ctx_bump_alias(account_name);
-                                return self.generate_ast_node(emitter, &AstNode::Identifier(alias));
+                                return self
+                                    .generate_ast_node(emitter, &AstNode::Identifier(alias));
                             }
                             "space" => {
                                 let alias = Self::init_ctx_space_alias(account_name);
-                                return self.generate_ast_node(emitter, &AstNode::Identifier(alias));
+                                return self
+                                    .generate_ast_node(emitter, &AstNode::Identifier(alias));
                             }
                             _ => return Err(VMError::UndefinedField),
                         }
@@ -413,7 +411,10 @@ impl ASTGenerator {
                                 .account_types
                                 .get(account_type)
                                 .or_else(|| {
-                                    account_system.get_account_registry().account_types.iter()
+                                    account_system
+                                        .get_account_registry()
+                                        .account_types
+                                        .iter()
                                         .find(|(k, _)| k.ends_with(&namespace_suffix))
                                         .map(|(_, v)| v)
                                 });
@@ -442,12 +443,10 @@ impl ASTGenerator {
                         } else {
                             emitter.emit_opcode(LOAD_FIELD); // Zero-copy u64 read (8 bytes)
                         }
-                        
-                        emitter.emit_u8(
-                            super::account_utils::account_index_from_param_offset(
-                                field_info.offset,
-                            ),
-                        ); // Account index from symbol table
+
+                        emitter.emit_u8(super::account_utils::account_index_from_param_offset(
+                            field_info.offset,
+                        )); // Account index from symbol table
                         emitter.emit_u32(field_offset); // Field offset (fixed format for consistency)
 
                         if is_optional {
@@ -519,7 +518,8 @@ impl ASTGenerator {
                         offset,
                         field_type: self.type_node_to_string(&param.param_type),
                         // Implicit mutability: @init implies mutable, or explicit @mut
-                        is_mutable: param.is_init || param.attributes.iter().any(|a| a.name == "mut"),
+                        is_mutable: param.is_init
+                            || param.attributes.iter().any(|a| a.name == "mut"),
                         is_optional: param.is_optional,
                         is_parameter: true, // Mark as parameter to generate LOAD_PARAM instead of GET_LOCAL
                     };
@@ -536,9 +536,12 @@ impl ASTGenerator {
                             if let Some(condition) = attr.args.first() {
                                 // Generate require statement for validity check
                                 // This will behave exactly like 'require(condition);' at the start of the function
-                                self.generate_ast_node(emitter, &AstNode::RequireStatement { 
-                                    condition: Box::new(condition.clone()) 
-                                })?;
+                                self.generate_ast_node(
+                                    emitter,
+                                    &AstNode::RequireStatement {
+                                        condition: Box::new(condition.clone()),
+                                    },
+                                )?;
                             }
                         }
                     }
@@ -553,7 +556,8 @@ impl ASTGenerator {
                         if attr.name != "close" {
                             continue;
                         }
-                        let Some(crate::ast::AstNode::Identifier(target_name)) = attr.args.first() else {
+                        let Some(crate::ast::AstNode::Identifier(target_name)) = attr.args.first()
+                        else {
                             return Err(VMError::InvalidInstruction);
                         };
 

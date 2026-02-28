@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod deployment_tests {
-    use five::instructions::{
-        append_bytecode, deploy, finalize_script_upload, init_large_program,
-    };
+    use five::instructions::{append_bytecode, deploy, finalize_script_upload, init_large_program};
     use five::state::{FIVEVMState, ScriptAccountHeader};
     use five_protocol::bytecode;
     use pinocchio::account_info::AccountInfo;
@@ -27,15 +25,18 @@ mod deployment_tests {
     }
 
     fn canonical_vm_key(program_id: &Pubkey) -> Pubkey {
-        let (pda, _bump) = five_vm_mito::utils::find_program_address_offchain(&[b"vm_state"], program_id)
-            .expect("canonical vm_state pda");
+        let (pda, _bump) =
+            five_vm_mito::utils::find_program_address_offchain(&[b"vm_state"], program_id)
+                .expect("canonical vm_state pda");
         pda
     }
 
     fn fee_vault_key(program_id: &Pubkey) -> Pubkey {
-        let (pda, _bump) =
-            five_vm_mito::utils::find_program_address_offchain(&[b"\xFFfive_vm_fee_vault_v1", &[0u8]], program_id)
-                .expect("fee vault pda");
+        let (pda, _bump) = five_vm_mito::utils::find_program_address_offchain(
+            &[b"\xFFfive_vm_fee_vault_v1", &[0u8]],
+            program_id,
+        )
+        .expect("fee vault pda");
         pda
     }
 
@@ -132,8 +133,8 @@ mod deployment_tests {
             &accounts,
             &test_bytecode,
             &[], // Empty metadata
-            0, // No permissions
-            0
+            0,   // No permissions
+            0,
         );
         assert!(result.is_ok());
 
@@ -232,9 +233,9 @@ mod deployment_tests {
             &program_id,
             &accounts,
             &test_bytecode,
-            &[], // Empty metadata
+            &[],  // Empty metadata
             0x01, // PERMISSION_PRE_BYTECODE
-            0
+            0,
         );
         assert!(matches!(result, Err(ProgramError::NotEnoughAccountKeys)));
 
@@ -265,7 +266,7 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0x01,
-            0
+            0,
         );
         assert_eq!(result, Err(ProgramError::MissingRequiredSignature));
 
@@ -278,7 +279,7 @@ mod deployment_tests {
             &mut admin_data,
             &program_id,
         );
-         let accounts_valid = [
+        let accounts_valid = [
             script_account.clone(),
             vm_account.clone(),
             owner_account.clone(),
@@ -293,7 +294,7 @@ mod deployment_tests {
             &test_bytecode,
             &[], // Empty metadata
             0x01,
-            0
+            0,
         );
         assert!(result.is_ok());
 
@@ -385,7 +386,7 @@ mod deployment_tests {
             &bad_bytecode,
             &[], // Empty metadata
             0,
-            0
+            0,
         );
         // Should fail due to size checks or magic bytes
         assert!(result.is_err());
@@ -466,12 +467,7 @@ mod deployment_tests {
             system_program_account.clone(),
         ];
 
-        let result = init_large_program(
-            &program_id,
-            &accounts,
-            expected_size,
-            None,
-        );
+        let result = init_large_program(&program_id, &accounts, expected_size, None);
         assert!(result.is_ok());
 
         let script_data_ref = script_account.try_borrow_data().unwrap();
@@ -566,11 +562,7 @@ mod deployment_tests {
             fee_vault_account.clone(),
             system_program_account.clone(),
         ];
-        let result = append_bytecode(
-            &program_id,
-            &accounts_append,
-            &test_bytecode,
-        );
+        let result = append_bytecode(&program_id, &accounts_append, &test_bytecode);
         assert!(result.is_ok());
 
         // 3. Verify Finalization
@@ -660,11 +652,7 @@ mod deployment_tests {
         init_large_program(&program_id, &accounts, expected_size, None).unwrap();
 
         let large_chunk = vec![0u8; 10];
-        let result = append_bytecode(
-            &program_id,
-            &accounts,
-            &large_chunk,
-        );
+        let result = append_bytecode(&program_id, &accounts, &large_chunk);
 
         // Error 8202: Chunk exceeds expected size
         assert_eq!(result, Err(ProgramError::Custom(8202)));
@@ -744,12 +732,7 @@ mod deployment_tests {
         ];
 
         let chunk = vec![1, 2, 3, 4, 5];
-        let result = init_large_program(
-            &program_id,
-            &accounts,
-            expected_size,
-            Some(&chunk),
-        );
+        let result = init_large_program(&program_id, &accounts, expected_size, Some(&chunk));
         assert!(result.is_ok());
 
         let script_data_ref = script_account.try_borrow_data().unwrap();
@@ -761,7 +744,8 @@ mod deployment_tests {
         assert_eq!(header.bytecode_len(), expected_size as usize);
 
         // Verify chunk data written
-        let written_chunk = &script_data_ref[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + 5];
+        let written_chunk =
+            &script_data_ref[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + 5];
         assert_eq!(written_chunk, &chunk[..]);
     }
 
@@ -844,8 +828,8 @@ mod deployment_tests {
             let mut script_data_ref = script_account.try_borrow_mut_data().unwrap();
             let header = ScriptAccountHeader::from_account_data_mut(&mut script_data_ref).unwrap();
             header.set_upload_len(expected_size);
-            script_data_ref[ScriptAccountHeader::LEN
-                ..ScriptAccountHeader::LEN + expected_size as usize]
+            script_data_ref
+                [ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + expected_size as usize]
                 .copy_from_slice(&test_bytecode);
         }
 

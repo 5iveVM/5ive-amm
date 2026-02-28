@@ -4,17 +4,17 @@ use pinocchio::{
 
 use crate::{
     common::{
-        has_permission, verify_hardcoded_vm_state_account, verify_hardcoded_fee_vault_account,
+        has_permission, verify_hardcoded_fee_vault_account, verify_hardcoded_vm_state_account,
         verify_program_owned, PERMISSION_POST_BYTECODE,
     },
     error,
     state::{FIVEVMState, ScriptAccountHeader},
 };
-use five_vm_mito::{MitoVM, StackStorage};
-#[cfg(feature = "debug-logs")]
-use five_vm_mito::VMError;
 #[cfg(feature = "debug-logs")]
 use five_vm_mito::error::VMErrorCode;
+#[cfg(feature = "debug-logs")]
+use five_vm_mito::VMError;
+use five_vm_mito::{MitoVM, StackStorage};
 
 use super::{
     fees::{should_bypass_fee_path, transfer_fee, validate_fee_transfer_accounts},
@@ -43,8 +43,8 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
 
     // SAFETY: state account was verified program-owned and read-only here.
     let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
-    let vm_state = FIVEVMState::from_account_data(&vm_state_data)
-        .map_err(|_| ProgramError::Custom(7804))?;
+    let vm_state =
+        FIVEVMState::from_account_data(&vm_state_data).map_err(|_| ProgramError::Custom(7804))?;
     if !vm_state.is_initialized() {
         return Err(error::program_not_initialized_error());
     }
@@ -97,7 +97,9 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     // Initialize VM Storage using optimized heap allocation
     // Uses new_on_heap() which constructs directly in heap memory to avoid stack overflow
     let mut storage = StackStorage::new_on_heap();
-    if let Err(vm_error) = MitoVM::execute_direct(bytecode, vm_params, vm_accounts, program_id, &mut *storage) {
+    if let Err(vm_error) =
+        MitoVM::execute_direct(bytecode, vm_params, vm_accounts, program_id, &mut *storage)
+    {
         #[cfg(feature = "debug-logs")]
         debug_log!(
             "MitoVM MAIN execution failed code={}",

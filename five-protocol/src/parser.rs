@@ -99,10 +99,10 @@ pub fn parse_code_bounds(bytecode: &[u8]) -> Result<(OptimizedHeader, usize, usi
 
     if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0 {
         if offset + 2 > bytecode.len() {
-             return Ok((header, offset, bytecode.len()));
+            return Ok((header, offset, bytecode.len()));
         }
 
-        let section_size = u16::from_le_bytes([bytecode[offset], bytecode[offset+1]]);
+        let section_size = u16::from_le_bytes([bytecode[offset], bytecode[offset + 1]]);
         offset += 2;
         offset += section_size as usize;
     }
@@ -190,7 +190,7 @@ pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode<'_> {
         Ok(res) => res,
         Err(e) => {
             errors.push(e);
-             return ParsedBytecode {
+            return ParsedBytecode {
                 header: OptimizedHeader {
                     magic: [0u8; 4],
                     features: 0,
@@ -527,8 +527,8 @@ pub fn parse_instruction_with_features(
                 bytecode[offset + total_size + 3],
             ]) as u64;
             total_size += 4;
-            
-            // Pack into args for inspection if needed: 
+
+            // Pack into args for inspection if needed:
             // arg1 = (acc1 << 32) | off1
             // arg2 = (acc2 << 32) | off2
             arg1 = (acc1 << 32) | off1;
@@ -536,11 +536,15 @@ pub fn parse_instruction_with_features(
         }
         ArgType::FusedSubAdd => {
             // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
-            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
             let acc1 = bytecode[offset + total_size] as u64;
             total_size += 1;
-            
-            if offset + total_size + 4 > bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+
+            if offset + total_size + 4 > bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
             let off1 = u32::from_le_bytes([
                 bytecode[offset + total_size],
                 bytecode[offset + total_size + 1],
@@ -548,12 +552,16 @@ pub fn parse_instruction_with_features(
                 bytecode[offset + total_size + 3],
             ]) as u64;
             total_size += 4;
-            
-            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
             let acc2 = bytecode[offset + total_size] as u64;
             total_size += 1;
-            
-            if offset + total_size + 4 > bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+
+            if offset + total_size + 4 > bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
             let off2 = u32::from_le_bytes([
                 bytecode[offset + total_size],
                 bytecode[offset + total_size + 1],
@@ -561,29 +569,37 @@ pub fn parse_instruction_with_features(
                 bytecode[offset + total_size + 3],
             ]) as u64;
             total_size += 4;
-            
-            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
             let param = bytecode[offset + total_size] as u64;
             total_size += 1;
-            
+
             // Pack: Arg1 = (param << 56) | (acc1 << 32) | off1
             // Arg2 = (acc2 << 32) | off2
             arg1 = (param << 56) | (acc1 << 32) | off1;
             arg2 = (acc2 << 32) | off2;
         }
         ArgType::ParamImm => {
-            if offset + total_size + 1 >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            if offset + total_size + 1 >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
             arg1 = bytecode[offset + total_size] as u64;
             arg2 = bytecode[offset + total_size + 1] as u64;
             total_size += 2;
         }
         ArgType::FieldImm => {
             // acc(u8) + off(u32) + imm(u8)
-            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
             let acc = bytecode[offset + total_size] as u64;
             total_size += 1;
-            
-            if offset + total_size + 4 > bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+
+            if offset + total_size + 4 > bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
             let off = u32::from_le_bytes([
                 bytecode[offset + total_size],
                 bytecode[offset + total_size + 1],
@@ -591,11 +607,13 @@ pub fn parse_instruction_with_features(
                 bytecode[offset + total_size + 3],
             ]) as u64;
             total_size += 4;
-            
-            if offset + total_size >= bytecode.len() { return Err(ParseError::InstructionOutOfBounds); }
+
+            if offset + total_size >= bytecode.len() {
+                return Err(ParseError::InstructionOutOfBounds);
+            }
             let imm = bytecode[offset + total_size] as u64;
             total_size += 1;
-            
+
             arg1 = (acc << 32) | off;
             arg2 = imm;
         }
@@ -763,9 +781,7 @@ pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String>
         match parse_instruction_with_features(bytecode, offset, header.features) {
             Ok((inst, size)) => {
                 // Validate CALL targets (arg1 is function address/offset)
-                if inst.opcode == crate::opcodes::CALL
-                    && inst.arg1 as usize >= bytecode.len()
-                {
+                if inst.opcode == crate::opcodes::CALL && inst.arg1 as usize >= bytecode.len() {
                     return Err("CALL target out of bounds".to_string());
                 }
                 instructions.push(inst);

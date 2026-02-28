@@ -11,7 +11,11 @@ use five_vm_mito::metadata::ImportMetadata;
 
 /// Build bytecode with import verification metadata
 /// Returns (bytecode, metadata_offset)
-fn build_bytecode_with_import_metadata(import_type: u8, import_data: &[u8], function_name: &str) -> Vec<u8> {
+fn build_bytecode_with_import_metadata(
+    import_type: u8,
+    import_data: &[u8],
+    function_name: &str,
+) -> Vec<u8> {
     let mut bytecode = Vec::new();
 
     // Header (10 bytes)
@@ -44,14 +48,14 @@ fn test_call_external_import_verification_with_valid_address() {
 
     // Build main bytecode WITH import verification metadata for test_key
     let bytecode = build_bytecode_with_import_metadata(
-        0, // type = address
+        0,         // type = address
         &test_key, // 32-byte address
         "test_func",
     );
 
     let metadata_offset = 11; // After header (10) + HALT (1)
-    let import_metadata = ImportMetadata::new(&bytecode, metadata_offset)
-        .expect("Should create import metadata");
+    let import_metadata =
+        ImportMetadata::new(&bytecode, metadata_offset).expect("Should create import metadata");
 
     // Verify the account matches (this is what CALL_EXTERNAL will check)
     let program_id: [u8; 32] = [0u8; 32];
@@ -61,10 +65,7 @@ fn test_call_external_import_verification_with_valid_address() {
         None, // No PDA derivation needed for address mode
     );
 
-    assert!(
-        matches,
-        "Account should match import verification metadata"
-    );
+    assert!(matches, "Account should match import verification metadata");
 
     println!("✅ CALL_EXTERNAL with valid address import test passed!");
     println!("  - Import metadata parsed successfully");
@@ -90,16 +91,12 @@ fn test_call_external_import_verification_with_wrong_address() {
     );
 
     let metadata_offset = 11;
-    let import_metadata = ImportMetadata::new(&bytecode, metadata_offset)
-        .expect("Should create import metadata");
+    let import_metadata =
+        ImportMetadata::new(&bytecode, metadata_offset).expect("Should create import metadata");
 
     // Try to verify attacker_key (should fail)
     let program_id: [u8; 32] = [0u8; 32];
-    let matches = import_metadata.verify_account(
-        &attacker_key,
-        &program_id,
-        None,
-    );
+    let matches = import_metadata.verify_account(&attacker_key, &program_id, None);
 
     assert!(
         !matches,
@@ -144,11 +141,7 @@ fn test_call_external_backward_compatibility_no_metadata() {
     let any_key: [u8; 32] = [99u8; 32];
     let program_id: [u8; 32] = [0u8; 32];
 
-    let matches = import_metadata.verify_account(
-        &any_key,
-        &program_id,
-        None,
-    );
+    let matches = import_metadata.verify_account(&any_key, &program_id, None);
 
     assert!(
         matches,
@@ -179,13 +172,12 @@ fn test_call_external_verification_skipped_with_pda_no_callback() {
 
     let bytecode = build_bytecode_with_import_metadata(
         1, // type = PDA seeds
-        &pda_data,
-        "pda_func",
+        &pda_data, "pda_func",
     );
 
     let metadata_offset = 11;
-    let import_metadata = ImportMetadata::new(&bytecode, metadata_offset)
-        .expect("Should create import metadata");
+    let import_metadata =
+        ImportMetadata::new(&bytecode, metadata_offset).expect("Should create import metadata");
 
     // Try to verify without PDA derivation callback
     let test_key: [u8; 32] = [1u8; 32];
@@ -243,36 +235,22 @@ fn test_import_metadata_multiple_imports() {
     bytecode.extend_from_slice(b"func2");
 
     let metadata_offset = 11;
-    let import_metadata = ImportMetadata::new(&bytecode, metadata_offset)
-        .expect("Should create import metadata");
+    let import_metadata =
+        ImportMetadata::new(&bytecode, metadata_offset).expect("Should create import metadata");
 
     assert!(!import_metadata.is_empty(), "Metadata should not be empty");
 
     // Verify first import (address) matches
     let program_id: [u8; 32] = [0u8; 32];
-    let matches = import_metadata.verify_account(
-        &addr1,
-        &program_id,
-        None,
-    );
+    let matches = import_metadata.verify_account(&addr1, &program_id, None);
 
-    assert!(
-        matches,
-        "First import (address) should match"
-    );
+    assert!(matches, "First import (address) should match");
 
     // Verify different address doesn't match
     let other_addr = [99u8; 32];
-    let matches = import_metadata.verify_account(
-        &other_addr,
-        &program_id,
-        None,
-    );
+    let matches = import_metadata.verify_account(&other_addr, &program_id, None);
 
-    assert!(
-        !matches,
-        "Different address should not match"
-    );
+    assert!(!matches, "Different address should not match");
 
     println!("✅ Multiple imports test passed!");
     println!("  - Parsed 2 imports (address + PDA)");
@@ -295,21 +273,17 @@ fn test_import_metadata_bounds_checking() {
 
     // Malformed metadata: import_count = 1, but no data follows
     bytecode.push(1); // import_count = 1
-    // Missing: import_type, address/seeds, name
+                      // Missing: import_type, address/seeds, name
 
     let metadata_offset = 11;
-    let import_metadata = ImportMetadata::new(&bytecode, metadata_offset)
-        .expect("Should create import metadata");
+    let import_metadata =
+        ImportMetadata::new(&bytecode, metadata_offset).expect("Should create import metadata");
 
     // Try to verify (should handle malformed data gracefully)
     let test_key: [u8; 32] = [1u8; 32];
     let program_id: [u8; 32] = [0u8; 32];
 
-    let matches = import_metadata.verify_account(
-        &test_key,
-        &program_id,
-        None,
-    );
+    let matches = import_metadata.verify_account(&test_key, &program_id, None);
 
     // Malformed metadata should return false (not panic)
     assert!(

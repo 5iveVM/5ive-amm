@@ -10,9 +10,9 @@ pub fn bundled_stdlib_source(module_path: &str) -> Option<&'static str> {
     match module_path {
         "std::prelude" => Some(include_str!("../../five-stdlib/std/prelude.v")),
         "std::builtins" => Some(include_str!("../../five-stdlib/std/builtins.v")),
-        "std::interfaces::system_program" => {
-            Some(include_str!("../../five-stdlib/std/interfaces/system_program.v"))
-        }
+        "std::interfaces::system_program" => Some(include_str!(
+            "../../five-stdlib/std/interfaces/system_program.v"
+        )),
         "std::interfaces::spl_token" => {
             Some(include_str!("../../five-stdlib/std/interfaces/spl_token.v"))
         }

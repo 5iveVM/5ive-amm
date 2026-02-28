@@ -4,7 +4,7 @@
 //! with proper temp buffer management and type safety.
 
 use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{FIVE_VM_PROGRAM_ID, MitoVM, Result as VmResult, stack::StackStorage};
+use five_vm_mito::{stack::StackStorage, MitoVM, Result as VmResult, FIVE_VM_PROGRAM_ID};
 
 fn execute(build: impl FnOnce(&mut Vec<u8>)) -> VmResult<Option<Value>> {
     let script = build_script(build);
@@ -25,8 +25,6 @@ fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
     build(&mut script);
     script
 }
-
-
 
 fn push_u64_instr(script: &mut Vec<u8>, value: u64) {
     script.push(PUSH_U64);

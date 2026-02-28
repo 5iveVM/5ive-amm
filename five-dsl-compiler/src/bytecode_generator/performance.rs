@@ -572,7 +572,6 @@ impl PerformanceOptimizer {
         Ok(total_savings)
     }
 
-
     /// Optimize constraint checking
     fn optimize_constraints<T: OpcodeEmitter>(
         &mut self,
@@ -733,7 +732,6 @@ impl PerformanceOptimizer {
 
         report
     }
-
 
     /// Get constraint optimizer reference
     pub fn get_constraint_optimizer(&self) -> &AdvancedConstraintOptimization {
