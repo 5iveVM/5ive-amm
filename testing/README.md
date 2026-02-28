@@ -1,13 +1,21 @@
-# DSL Feature Matrix
+# DSL Coverage Contracts
 
-`dsl-feature-matrix.json` is the shared coverage contract for DSL feature testing.
+The `testing/` directory now holds three related coverage contracts:
+
+- `dsl-feature-matrix.json`: representative scenario-oriented coverage used by the existing end-to-end runners.
+- `dsl-builtin-matrix.json`: exhaustive builtin-level inventory with explicit per-layer expectations.
+- `dsl-feature-inventory.json`: tracked classification of uncataloged fixtures and feature families.
 
 ## Source Of Truth
 
 - Canonical DSL fixtures live under `five-cli/test-scripts/`.
 - Numbered category directories are the shared corpus.
 - `five-wasm/test-scripts/bin`, `dex_project`, and `temp_check` remain WASM-local and are intentionally outside this matrix.
-- Loose root-level `five-cli/test-scripts/*.v` fixtures are reported as uncataloged until added here.
+- Loose root-level `five-cli/test-scripts/*.v` fixtures are reported through the feature inventory until they are promoted into the feature matrix.
+
+## `dsl-feature-matrix.json`
+
+`dsl-feature-matrix.json` is the shared coverage contract for representative DSL feature testing.
 
 ## Top-Level Shape
 
@@ -58,3 +66,83 @@ Valid layer names:
 - Node runners use it for CLI execution and validator orchestration.
 - The parity report derives category status from this manifest rather than hard-coded category heuristics.
 - When a DSL construct is supported in compiler/local execution layers but not yet deployable on the Solana runtime, keep that limitation explicit by splitting the category across a direct DSL scenario and a separate runtime/validator bridge scenario.
+
+## `dsl-builtin-matrix.json`
+
+`dsl-builtin-matrix.json` makes stdlib builtin coverage explicit at the wrapper level.
+
+Top-level fields:
+
+- `version`
+- `builtin_groups`
+- `builtins`
+
+Builtin group fields:
+
+- `id`: builtin category key.
+- `description`: short human description.
+
+Builtin fields:
+
+- `id`: stable builtin inventory key.
+- `name`: wrapper name exported by `std::builtins`.
+- `module`: usually `std::builtins`.
+- `category`: builtin group id.
+- `wrapper_of`: underlying compiler builtin or syscall.
+- `arity`: wrapper parameter count.
+- `requires_accounts`
+- `requires_runtime_buffers`
+- `requires_runtime_sysvar`
+- `requires_signature_material`
+- `runtime_applicable`
+- `validator_applicable`
+- `layers`: builtin-level coverage expectations.
+- `unit_suites`: owned test files or modules.
+- `matrix_scenario`: representative feature-matrix scenario, when one exists.
+- `expected_limitations`: explicit gap or phase note, when applicable.
+
+Builtin layer names:
+
+- `compiler`
+- `bytecode_unit`
+- `vm_unit`
+- `runtime_unit`
+- `cli_matrix`
+- `wasm_matrix`
+- `lsp_matrix`
+- `runtime_matrix`
+- `validator_localnet`
+
+## `dsl-feature-inventory.json`
+
+`dsl-feature-inventory.json` tracks the larger fixture surface so uncataloged files do not silently disappear behind a green representative report.
+
+Top-level fields:
+
+- `version`
+- `feature_families`
+- `fixtures`
+
+Feature family fields:
+
+- `id`
+- `description`
+- `owned_by_category`
+- `priority`: `A` or `B`
+- `required_layers`
+- `phase`
+
+Fixture fields:
+
+- `path`: relative to `five-cli/test-scripts/`, or `__root__/...` for loose root-level fixtures.
+- `family`
+- `status`: `uncataloged`, `matrix_candidate`, `unit_only`, or `covered`
+- `coverage_notes`
+- `preferred_runner`
+
+## Intended Usage Across All Three Contracts
+
+- Representative end-to-end suites continue to use `dsl-feature-matrix.json`.
+- Exhaustive reporting and builtin/fixture expansion use `dsl-builtin-matrix.json` and `dsl-feature-inventory.json`.
+- Validation scripts should fail fast if a builtin, promoted fixture, or inventory entry references a missing DSL file or invalid layer name.
+- Reports should distinguish “representative category health” from “builtin completeness” and “fixture inventory classification”.

@@ -1,0 +1,850 @@
+{
+  "version": 1,
+  "feature_families": [
+    {
+      "id": "basics",
+      "description": "Function dispatch, locals, nested calls, and simple returns",
+      "owned_by_category": "01-language-basics",
+      "priority": "A",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp"
+      ],
+      "phase": 1
+    },
+    {
+      "id": "operators",
+      "description": "Arithmetic, boolean, comparison, and checked arithmetic semantics",
+      "owned_by_category": "02-operators-expressions",
+      "priority": "A",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp"
+      ],
+      "phase": 1
+    },
+    {
+      "id": "control_flow",
+      "description": "Nested conditionals and loop-oriented control flow",
+      "owned_by_category": "03-control-flow",
+      "priority": "A",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp"
+      ],
+      "phase": 1
+    },
+    {
+      "id": "accounts",
+      "description": "Account constraints, state access, and PDA initialization",
+      "owned_by_category": "04-account-system",
+      "priority": "A",
+      "required_layers": [
+        "compiler",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ],
+      "phase": 1
+    },
+    {
+      "id": "blockchain_integration",
+      "description": "Clock access, PDA ops, signer validation, and token CPI flows",
+      "owned_by_category": "05-blockchain-integration",
+      "priority": "A",
+      "required_layers": [
+        "compiler",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ],
+      "phase": 1
+    },
+    {
+      "id": "advanced",
+      "description": "Arrays, strings, tuples, and multi-parameter features",
+      "owned_by_category": "06-advanced-features",
+      "priority": "A",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp"
+      ],
+      "phase": 1
+    },
+    {
+      "id": "diagnostics",
+      "description": "Parser and diagnostic regressions",
+      "owned_by_category": "07-error-system",
+      "priority": "B",
+      "required_layers": [
+        "compiler",
+        "lsp"
+      ],
+      "phase": 2
+    },
+    {
+      "id": "match",
+      "description": "Option, Result, and structured match coverage",
+      "owned_by_category": "08-match-expressions",
+      "priority": "A",
+      "required_layers": [
+        "compiler",
+        "vm",
+        "cli",
+        "wasm",
+        "lsp"
+      ],
+      "phase": 1
+    },
+    {
+      "id": "featured_examples",
+      "description": "AMM, escrow, vault, and interface example fixtures",
+      "owned_by_category": "10-featured-examples",
+      "priority": "A",
+      "required_layers": [
+        "compiler",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ],
+      "phase": 1
+    },
+    {
+      "id": "token_examples",
+      "description": "Native token and SPL token example fixtures",
+      "owned_by_category": "11-token-examples",
+      "priority": "A",
+      "required_layers": [
+        "compiler",
+        "lsp",
+        "solana_runtime",
+        "validator_localnet"
+      ],
+      "phase": 1
+    },
+    {
+      "id": "root_regressions",
+      "description": "Loose root-level fixtures, docs snippets, and debug regressions",
+      "owned_by_category": "unscoped",
+      "priority": "B",
+      "required_layers": [
+        "compiler"
+      ],
+      "phase": 2
+    }
+  ],
+  "fixtures": [
+    {
+      "path": "01-language-basics/empty-function.v",
+      "family": "basics",
+      "status": "matrix_candidate",
+      "coverage_notes": "Simple no-op function smoke that can be promoted after dispatch ordering is stabilized.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "01-language-basics/integration-complex.v",
+      "family": "basics",
+      "status": "unit_only",
+      "coverage_notes": "Broad integration fixture kept in subsystem tests first to avoid making the fast matrix brittle.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "01-language-basics/local-variable-isolation.v",
+      "family": "basics",
+      "status": "covered",
+      "coverage_notes": "Promoted to the feature matrix for explicit call-frame isolation coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "01-language-basics/multiple-functions.v",
+      "family": "basics",
+      "status": "matrix_candidate",
+      "coverage_notes": "Good candidate for dispatch coverage once function-index assertions are tightened.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "01-language-basics/nested-calls-4-levels.v",
+      "family": "basics",
+      "status": "matrix_candidate",
+      "coverage_notes": "Useful for deeper stack-frame coverage after representative additions settle.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "01-language-basics/nested-calls-with-locals.v",
+      "family": "basics",
+      "status": "matrix_candidate",
+      "coverage_notes": "Combines nested calls with locals and should graduate after local-variable isolation stays green.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "01-language-basics/parameter-window-preservation.v",
+      "family": "basics",
+      "status": "unit_only",
+      "coverage_notes": "Best exercised in VM/compiler unit tests while parameter-window internals remain in flux.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "01-language-basics/return-from-nested-context.v",
+      "family": "basics",
+      "status": "matrix_candidate",
+      "coverage_notes": "Promote after deeper call-stack fixtures are stabilized.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "01-language-basics/simple-multiply.v",
+      "family": "basics",
+      "status": "matrix_candidate",
+      "coverage_notes": "Low-risk arithmetic smoke that is currently redundant with representative basics coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "01-language-basics/simple-return.v",
+      "family": "basics",
+      "status": "matrix_candidate",
+      "coverage_notes": "Low-risk return-only smoke retained for future dispatch expansion.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "01-language-basics/stress-test-max-depth.v",
+      "family": "basics",
+      "status": "unit_only",
+      "coverage_notes": "Stress-oriented recursion/depth fixture belongs in dedicated performance or VM suites, not the representative matrix.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "01-language-basics/variables-local.v",
+      "family": "basics",
+      "status": "matrix_candidate",
+      "coverage_notes": "Generic locals smoke retained as a lower-priority matrix candidate.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "02-operators-expressions/arithmetic-operations.v",
+      "family": "operators",
+      "status": "matrix_candidate",
+      "coverage_notes": "Broader arithmetic coverage remains queued behind boolean and comparison promotions.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "02-operators-expressions/boolean-logic.v",
+      "family": "operators",
+      "status": "covered",
+      "coverage_notes": "Promoted to the feature matrix for explicit boolean expression coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "02-operators-expressions/checked-arithmetic-in-functions.v",
+      "family": "operators",
+      "status": "unit_only",
+      "coverage_notes": "Better kept in compiler/VM edge-case suites until overflow diagnostics are fully normalized.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "02-operators-expressions/checked-arithmetic-mixed.v",
+      "family": "operators",
+      "status": "unit_only",
+      "coverage_notes": "Mixed checked arithmetic is tracked as a subsystem-level regression, not a matrix scenario yet.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "02-operators-expressions/checked-arithmetic-overflow.v",
+      "family": "operators",
+      "status": "unit_only",
+      "coverage_notes": "Negative overflow expectations need stable diagnostic normalization before promotion.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "02-operators-expressions/comparison-logic.v",
+      "family": "operators",
+      "status": "matrix_candidate",
+      "coverage_notes": "Comparison logic is a next-step feature matrix candidate after boolean logic.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "03-control-flow/nested-conditionals.v",
+      "family": "control_flow",
+      "status": "covered",
+      "coverage_notes": "Promoted to the feature matrix for non-trivial branching coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "03-control-flow/while-loops.v",
+      "family": "control_flow",
+      "status": "matrix_candidate",
+      "coverage_notes": "Retained as a follow-up matrix candidate once loop execution is stabilized across all runners.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "04-account-system/account-definition.v",
+      "family": "accounts",
+      "status": "unit_only",
+      "coverage_notes": "Structure-only account definitions are better kept in compiler/typechecker suites.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "04-account-system/combined-constraints.v",
+      "family": "accounts",
+      "status": "matrix_candidate",
+      "coverage_notes": "Constraint combination coverage is valuable but still needs a runtime harness fixture.",
+      "preferred_runner": "runtime_unit"
+    },
+    {
+      "path": "04-account-system/init-constraint-advanced.v",
+      "family": "accounts",
+      "status": "unit_only",
+      "coverage_notes": "Advanced init constraints remain in compiler and bytecode suites until runtime setup is less bespoke.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "04-account-system/init-constraint.v",
+      "family": "accounts",
+      "status": "covered",
+      "coverage_notes": "Promoted as explicit compile/LSP coverage for init constraints.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "04-account-system/init-pda-seeds.v",
+      "family": "accounts",
+      "status": "matrix_candidate",
+      "coverage_notes": "Strong localnet candidate once PDA template setup is shared with the validator matrix.",
+      "preferred_runner": "validator_matrix"
+    },
+    {
+      "path": "04-account-system/mut-constraint-advanced.v",
+      "family": "accounts",
+      "status": "unit_only",
+      "coverage_notes": "Advanced mut constraint coverage remains in bytecode-focused tests first.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "04-account-system/mut-constraint.v",
+      "family": "accounts",
+      "status": "covered",
+      "coverage_notes": "Promoted as explicit compile/LSP coverage for mut constraints.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "04-account-system/signer-constraint-advanced.v",
+      "family": "accounts",
+      "status": "unit_only",
+      "coverage_notes": "Advanced signer coverage remains in compiler suites first.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "04-account-system/signer-constraint.v",
+      "family": "accounts",
+      "status": "covered",
+      "coverage_notes": "Promoted as explicit compile/LSP coverage for signer constraints.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "04-account-system/state-access.v",
+      "family": "accounts",
+      "status": "covered",
+      "coverage_notes": "Promoted for explicit state-access compile/LSP coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "04-account-system/state-arithmetic.v",
+      "family": "accounts",
+      "status": "matrix_candidate",
+      "coverage_notes": "Good follow-up candidate once state-access execution fixtures are shared.",
+      "preferred_runner": "runtime_unit"
+    },
+    {
+      "path": "04-account-system/state-parameter.v",
+      "family": "accounts",
+      "status": "unit_only",
+      "coverage_notes": "Tracked in compiler suites while account parameter lowering continues to evolve.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "05-blockchain-integration/bump-management.v",
+      "family": "blockchain_integration",
+      "status": "covered",
+      "coverage_notes": "Promoted for explicit compile/LSP coverage of PDA bump handling.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "05-blockchain-integration/fixed-pda-operations.v",
+      "family": "blockchain_integration",
+      "status": "unit_only",
+      "coverage_notes": "Fixed-seed PDA coverage remains in dedicated PDA suites first.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "05-blockchain-integration/generic-types.v",
+      "family": "blockchain_integration",
+      "status": "unit_only",
+      "coverage_notes": "Type-system-heavy fixture is better kept in compiler suites.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "05-blockchain-integration/pda-operations.v",
+      "family": "blockchain_integration",
+      "status": "matrix_candidate",
+      "coverage_notes": "Tracked as the next PDA execution candidate once validator setup is shared.",
+      "preferred_runner": "validator_matrix"
+    },
+    {
+      "path": "05-blockchain-integration/signer-validation.v",
+      "family": "blockchain_integration",
+      "status": "covered",
+      "coverage_notes": "Promoted for explicit signer-validation compile/LSP coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "05-blockchain-integration/simple-tuple-test.v",
+      "family": "blockchain_integration",
+      "status": "unit_only",
+      "coverage_notes": "Tuple semantics are already represented elsewhere; this stays in compiler/VM suites.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "05-blockchain-integration/spl-token-cpi.v",
+      "family": "blockchain_integration",
+      "status": "matrix_candidate",
+      "coverage_notes": "Good validator/devnet candidate once token fixture setup is reused directly from the SDK suites.",
+      "preferred_runner": "validator_matrix"
+    },
+    {
+      "path": "05-blockchain-integration/tuple-destructuring-test.v",
+      "family": "blockchain_integration",
+      "status": "unit_only",
+      "coverage_notes": "Tuple destructuring belongs in compiler/VM unit suites, not the high-level matrix.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "06-advanced-features/array-operations.v",
+      "family": "advanced",
+      "status": "covered",
+      "coverage_notes": "Promoted to the feature matrix for explicit array support coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "06-advanced-features/string-operations.v",
+      "family": "advanced",
+      "status": "covered",
+      "coverage_notes": "Promoted to the feature matrix as compile/LSP coverage for strings.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "07-error-system/enhanced-error-messages.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Diagnostic normalization still belongs in targeted compiler/LSP suites.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "07-error-system/missing-closing-brace.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Parser recovery regression remains diagnostics-focused.",
+      "preferred_runner": "lsp_matrix"
+    },
+    {
+      "path": "07-error-system/simple-syntax-error.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Representative syntax failure stays outside the execution matrix.",
+      "preferred_runner": "lsp_matrix"
+    },
+    {
+      "path": "08-match-expressions/basic-test.v",
+      "family": "match",
+      "status": "unit_only",
+      "coverage_notes": "Low-signal match smoke kept behind the more specific Option/Result fixtures.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "08-match-expressions/boolean-match.v",
+      "family": "match",
+      "status": "matrix_candidate",
+      "coverage_notes": "Boolean match is a follow-up candidate after Option/Result remain stable.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "08-match-expressions/complex-match.v",
+      "family": "match",
+      "status": "unit_only",
+      "coverage_notes": "Complex match deployability still diverges from local execution, so this remains unit-focused.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "08-match-expressions/comprehensive-match.v",
+      "family": "match",
+      "status": "unit_only",
+      "coverage_notes": "Broad match coverage stays in VM/compiler suites until runtime support is less divergent.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "08-match-expressions/malformed-match-arms.v",
+      "family": "match",
+      "status": "unit_only",
+      "coverage_notes": "Malformed match diagnostics remain in compiler/LSP suites.",
+      "preferred_runner": "lsp_matrix"
+    },
+    {
+      "path": "08-match-expressions/option-match.v",
+      "family": "match",
+      "status": "covered",
+      "coverage_notes": "Promoted to the feature matrix for Option match coverage outside the deploy bridge.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "08-match-expressions/result-match.v",
+      "family": "match",
+      "status": "covered",
+      "coverage_notes": "Promoted to the feature matrix for Result match coverage outside the deploy bridge.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "08-match-expressions/simple-match-test.v",
+      "family": "match",
+      "status": "matrix_candidate",
+      "coverage_notes": "Simple match coverage remains a lower-priority follow-up candidate.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "08-match-expressions/simple-option.v",
+      "family": "match",
+      "status": "unit_only",
+      "coverage_notes": "Redundant with option-match for the current phase.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "08-match-expressions/simple-result-test.v",
+      "family": "match",
+      "status": "unit_only",
+      "coverage_notes": "Redundant with result-match for the current phase.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "08-match-expressions/test-lowercase-error.v",
+      "family": "match",
+      "status": "unit_only",
+      "coverage_notes": "Diagnostic-only regression retained in compiler/LSP suites.",
+      "preferred_runner": "lsp_matrix"
+    },
+    {
+      "path": "08-match-expressions/working-option-result.v",
+      "family": "match",
+      "status": "matrix_candidate",
+      "coverage_notes": "Combined Option/Result fixture is a strong phase-2 matrix candidate after the simpler promotions settle.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "10-featured-examples/amm.v",
+      "family": "featured_examples",
+      "status": "covered",
+      "coverage_notes": "Promoted as compile/LSP example coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "10-featured-examples/escrow.v",
+      "family": "featured_examples",
+      "status": "covered",
+      "coverage_notes": "Promoted as compile/LSP example coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "10-featured-examples/simple_interface.v",
+      "family": "featured_examples",
+      "status": "covered",
+      "coverage_notes": "Promoted as compile/LSP example coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "10-featured-examples/token_interface.v",
+      "family": "featured_examples",
+      "status": "unit_only",
+      "coverage_notes": "Interface-heavy example stays in compiler suites first.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "10-featured-examples/token_program.v",
+      "family": "featured_examples",
+      "status": "unit_only",
+      "coverage_notes": "Token program example remains runtime-heavy and is tracked through template suites first.",
+      "preferred_runner": "runtime_unit"
+    },
+    {
+      "path": "10-featured-examples/vault.v",
+      "family": "featured_examples",
+      "status": "covered",
+      "coverage_notes": "Promoted as compile/LSP example coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "11-token-examples/five_native_token.v",
+      "family": "token_examples",
+      "status": "covered",
+      "coverage_notes": "Promoted as compile/LSP token example coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "11-token-examples/five_spl_token_amm.v",
+      "family": "token_examples",
+      "status": "covered",
+      "coverage_notes": "Promoted as compile/LSP token example coverage.",
+      "preferred_runner": "feature_matrix"
+    },
+    {
+      "path": "99-diagnostic/test-a-simple-add.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Diagnostic fixture stays in targeted compiler/LSP coverage.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "99-diagnostic/test-b-single-nested.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Diagnostic fixture stays in targeted compiler/LSP coverage.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "99-diagnostic/test-c-no-params.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Diagnostic fixture stays in targeted compiler/LSP coverage.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "99-diagnostic/test-d-three-params.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Diagnostic fixture stays in targeted compiler/LSP coverage.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "99-diagnostic/test-e-nested-no-params.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Diagnostic fixture stays in targeted compiler/LSP coverage.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "99-diagnostic/test-f-nested-private.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Diagnostic fixture stays in targeted compiler/LSP coverage.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/arithmetic_demo.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Legacy root-level fixture retained as a docs/debug regression.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/boolean_logic.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Redundant with categorized boolean logic fixture; keep as regression only.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/br-eq-u8-selector-dispatch.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Low-level selector-dispatch regression remains outside the shared matrix.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/conditionals_if.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Redundant with categorized conditionals fixture; keep as regression only.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/constraints_test.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Legacy constraints smoke retained as a compiler regression.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/counter.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Legacy example retained for targeted runtime debugging, not the shared matrix.",
+      "preferred_runner": "runtime_unit"
+    },
+    {
+      "path": "__root__/counter_debug.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Debug-only fixture retained outside the matrix.",
+      "preferred_runner": "runtime_unit"
+    },
+    {
+      "path": "__root__/debug-return-value.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Debug-only regression retained outside the matrix.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/debug-simple-assign.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Debug-only regression retained outside the matrix.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/debug_local_function.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Debug-only regression retained outside the matrix.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/debug_minimal.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Debug-only regression retained outside the matrix.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/debug_simple_local.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Debug-only regression retained outside the matrix.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/debug_step_by_step.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Debug-only regression retained outside the matrix.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/debug_working.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Debug-only regression retained outside the matrix.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/docs-counter-test.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Documentation-derived fixture retained as a copy-check regression.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/get_clock_test.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Legacy root-level clock test is superseded by categorized blockchain fixtures.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/minimal_test.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Minimal debug smoke retained outside the matrix.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/mixed_visibility_example.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Visibility-specific fixture belongs in compiler visibility tests.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/multiple_functions.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Superseded by categorized multiple-functions fixture.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/multiple_functions_fixed.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Superseded by categorized multiple-functions fixture.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/parameter_test_examples.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Parameter coverage is already represented by categorized fixtures and VM tests.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/simple.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Legacy smoke fixture retained outside the matrix.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/simple_vault.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Superseded by categorized vault example coverage.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/state_modification.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Superseded by categorized account-state coverage.",
+      "preferred_runner": "runtime_unit"
+    },
+    {
+      "path": "__root__/step2_function.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Debug-only regression retained outside the matrix.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/temp-field-test.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Low-level temp-field regression stays in VM/compiler suites.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/test_minimal.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Legacy minimal smoke retained outside the matrix.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "__root__/test_simple_params.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Parameter smoke is already represented by categorized fixtures and VM tests.",
+      "preferred_runner": "vm_unit"
+    },
+    {
+      "path": "__root__/ultra-simple.v",
+      "family": "root_regressions",
+      "status": "unit_only",
+      "coverage_notes": "Legacy minimal smoke retained outside the matrix.",
+      "preferred_runner": "compiler_unit"
+    }
+  ]
+}

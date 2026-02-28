@@ -5,7 +5,7 @@
     
 pub authorize_user(authority: account @signer, state: SignerState @mut, user: pubkey) -> bool {
         // Only the authority can authorize new users
-require(authority.key == state.last_signer);
+require(authority.ctx.key == state.last_signer);
         
         state.authorized_users = state.authorized_users + 1;
         state.last_signer = user;

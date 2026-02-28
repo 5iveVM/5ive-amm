@@ -37,7 +37,7 @@ pub init_mint(
     decimals: u8,
     name: string
 ) -> pubkey {
-    mint_account.authority = authority.key;
+    mint_account.authority = authority.ctx.key;
     mint_account.freeze_authority = freeze_authority;
     mint_account.supply = 0;
     mint_account.decimals = decimals;
@@ -52,7 +52,7 @@ pub init_token_account(
     owner: account @signer,
     mint: pubkey
 ) -> pubkey {
-    token_account.owner = owner.key;
+    token_account.owner = owner.ctx.key;
     token_account.mint = mint;
     token_account.balance = 0;
     token_account.is_frozen = false;
@@ -75,7 +75,7 @@ pub mint_to(
     amount: u64
 ) {
     // Verify the mint authority is correct
-    require(mint_state.authority == mint_authority.key, "Only mint authority can mint");
+    require(mint_state.authority == mint_authority.ctx.key, "Only mint authority can mint");
 
     // Verify the destination account belongs to this mint
     require(destination_account.mint == get_key(mint_state), "Destination account mint mismatch");
@@ -100,7 +100,7 @@ pub burn(
     amount: u64
 ) {
     // Verify ownership
-    require(source_account.owner == owner.key, "Only owner can burn tokens");
+    require(source_account.owner == owner.ctx.key, "Only owner can burn tokens");
 
     // Verify sufficient balance
     require(source_account.balance >= amount, "Insufficient balance to burn");
@@ -132,7 +132,7 @@ pub transfer(
     amount: u64
 ) {
     // Verify ownership of source account
-    require(source_account.owner == owner.key, "Only account owner can initiate transfer");
+    require(source_account.owner == owner.ctx.key, "Only account owner can initiate transfer");
 
     // Verify sufficient balance
     require(source_account.balance >= amount, "Insufficient balance");
@@ -164,8 +164,8 @@ pub transfer_from(
     amount: u64
 ) {
     // Verify the authority is either the owner or a delegated authority
-    let is_owner = source_account.owner == authority.key;
-    let is_delegated = source_account.delegate == authority.key &&
+    let is_owner = source_account.owner == authority.ctx.key;
+    let is_delegated = source_account.delegate == authority.ctx.key &&
                       source_account.delegated_amount >= amount;
 
     require(is_owner || is_delegated, "Unauthorized transfer");
@@ -208,7 +208,7 @@ pub approve(
     amount: u64
 ) {
     // Verify ownership
-    require(source_account.owner == owner.key, "Only owner can approve delegation");
+    require(source_account.owner == owner.ctx.key, "Only owner can approve delegation");
 
     // Set the delegate and amount
     source_account.delegate = delegate;
@@ -221,7 +221,7 @@ pub revoke(
     owner: account @signer
 ) {
     // Verify ownership
-    require(source_account.owner == owner.key, "Only owner can revoke delegation");
+    require(source_account.owner == owner.ctx.key, "Only owner can revoke delegation");
 
     // Clear the delegation
     source_account.delegate = 0;
@@ -236,7 +236,7 @@ pub freeze_account(
 ) {
     // Verify freeze authority
     require(
-        mint_state.freeze_authority == freeze_authority.key,
+        mint_state.freeze_authority == freeze_authority.ctx.key,
         "Only freeze authority can freeze accounts"
     );
 
@@ -255,7 +255,7 @@ pub thaw_account(
 ) {
     // Verify freeze authority
     require(
-        mint_state.freeze_authority == freeze_authority.key,
+        mint_state.freeze_authority == freeze_authority.ctx.key,
         "Only freeze authority can thaw accounts"
     );
 
@@ -278,7 +278,7 @@ pub set_mint_authority(
 ) {
     // Verify current authority
     require(
-        mint_state.authority == current_authority.key,
+        mint_state.authority == current_authority.ctx.key,
         "Only current mint authority can change authority"
     );
 
@@ -294,7 +294,7 @@ pub set_freeze_authority(
 ) {
     // Verify current freeze authority
     require(
-        mint_state.freeze_authority == current_freeze_authority.key,
+        mint_state.freeze_authority == current_freeze_authority.ctx.key,
         "Only current freeze authority can change authority"
     );
 

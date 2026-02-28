@@ -4,9 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-echo "[1/4] Generate feature parity matrix report"
+echo "[1/4] Validate DSL coverage contracts and generate reports"
 node scripts/validate-dsl-feature-matrix.mjs
 cargo run -q -p five-dsl-compiler --bin feature_parity_report
+node scripts/generate-dsl-exhaustive-report.mjs
 
 echo "[2/4] Run manifest-backed compiler and execution suites"
 cargo test -q -p five-dsl-compiler --test dsl_feature_matrix
@@ -35,3 +36,5 @@ fi
 
 echo "Feature parity audit completed."
 echo "Report: $ROOT_DIR/target/feature-parity/matrix.md"
+echo "Builtin report: $ROOT_DIR/target/feature-parity/builtin-matrix.md"
+echo "Feature inventory: $ROOT_DIR/target/feature-parity/feature-inventory.json"

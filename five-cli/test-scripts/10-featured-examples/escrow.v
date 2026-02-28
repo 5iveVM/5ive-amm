@@ -12,40 +12,40 @@ account EscrowState {
     is_settled: bool;
 }
 
-init_escrow(state: EscrowState @mut, maker: account @signer, taker: pubkey, amount: u64) {
-    state.maker = maker.key;
+pub init_escrow(state: EscrowState @mut, maker: account @signer, taker: pubkey, amount: u64) {
+    state.maker = maker.ctx.key;
     state.taker = taker;
     state.amount = amount;
     state.is_funded = false;
     state.is_settled = false;
 }
 
-fund_escrow(state: EscrowState @mut, maker: account @signer, amount: u64) {
-    require(state.maker == maker.key);
+pub fund_escrow(state: EscrowState @mut, maker: account @signer, amount: u64) {
+    require(state.maker == maker.ctx.key);
     require(amount == state.amount);
     state.is_funded = true;
 }
 
-claim_escrow(state: EscrowState @mut, taker: account @signer) {
+pub claim_escrow(state: EscrowState @mut, taker: account @signer) {
     require(state.is_funded);
     require(!state.is_settled);
-    require(state.taker == taker.key);
+    require(state.taker == taker.ctx.key);
     state.is_settled = true;
 }
 
-cancel_escrow(state: EscrowState @mut, maker: account @signer) {
+pub cancel_escrow(state: EscrowState @mut, maker: account @signer) {
     require(!state.is_settled);
-    require(state.maker == maker.key);
+    require(state.maker == maker.ctx.key);
     state.is_funded = false;
 }
 
 // Reset escrow state (for demo/testing)
-reset(state: EscrowState @mut) {
+pub reset(state: EscrowState @mut) {
     state.is_funded = false;
     state.is_settled = false;
 }
 
 // Read-only helper: whether escrow is claimable
-is_claimable(state: EscrowState) -> bool {
+pub is_claimable(state: EscrowState) -> bool {
     return (state.is_funded) && (!state.is_settled);
 }

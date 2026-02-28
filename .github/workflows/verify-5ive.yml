@@ -73,3 +73,34 @@ jobs:
         run: npm install
       - name: Verify devnet matrix (tracked)
         run: ./scripts/verify-5ive-devnet.sh
+
+  verify-dsl-exhaustive:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install root dependencies
+        run: npm install
+      - name: Install CLI dependencies
+        run: npm --prefix five-cli install
+      - name: Validate DSL coverage contracts
+        run: node scripts/validate-dsl-feature-matrix.mjs
+      - name: Generate exhaustive DSL coverage reports
+        run: node scripts/generate-dsl-exhaustive-report.mjs
+      - name: Run compiler builtin coverage suites
+        run: |
+          cargo test -q -p five-dsl-compiler --test stdlib_builtin_imports
+          cargo test -q -p five-dsl-compiler --test stdlib_builtin_negative
+          cargo test -q -p five-dsl-compiler --test stdlib_builtin_lowering
+      - name: Run VM builtin coverage suites
+        run: |
+          cargo test -q -p five-vm-mito --test stdlib_logging_tests
+          cargo test -q -p five-vm-mito --test stdlib_memory_tests
+          cargo test -q -p five-vm-mito --test stdlib_return_data_tests
+          cargo test -q -p five-vm-mito --test stdlib_sysvar_tests
+      - name: Run builtin CLI matrix
+        run: node scripts/run-dsl-builtin-matrix-cli.mjs

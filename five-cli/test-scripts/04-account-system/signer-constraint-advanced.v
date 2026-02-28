@@ -8,17 +8,17 @@
 pub multi_sig_operation(primary: account @signer, secondary: account @signer, state: AdvancedSignerState @mut, amount: u64) -> u64 {
         require(amount > 0);
         require(amount <= 10000);
-        require(primary.key != secondary.key);
-        require(primary.key == state.owner);
+        require(primary.ctx.key != secondary.ctx.key);
+        require(primary.ctx.key == state.owner);
 
         state.transaction_count = state.transaction_count + 1;
-        state.last_signer = secondary.key;
+        state.last_signer = secondary.ctx.key;
 
         return amount * state.transaction_count;
     }
 
 pub authorize_signer(owner: account @signer, new_signer: pubkey, state: AdvancedSignerState @mut) -> u64 {
-        require(owner.key == state.owner);
+        require(owner.ctx.key == state.owner);
 
         state.authorized_signers = state.authorized_signers + 1;
         state.last_signer = new_signer;
@@ -31,9 +31,9 @@ pub delegated_operation(delegate: account @signer, state: AdvancedSignerState @m
         require(amount <= 5000);
 
         state.transaction_count = state.transaction_count + 1;
-        state.last_signer = delegate.key;
+        state.last_signer = delegate.ctx.key;
 
-        return (state.transaction_count, delegate.key);
+        return (state.transaction_count, delegate.ctx.key);
     }
 
 pub get_signer_state(state: AdvancedSignerState) -> (u64, u64, pubkey, pubkey) {

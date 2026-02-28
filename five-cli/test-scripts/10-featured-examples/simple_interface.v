@@ -6,8 +6,7 @@ interface ExampleProgram @program("11111111111111111111111111111111") {
 }
 
 // Demonstrate calling into the interface
-call_example(target: account @signer, value: u64) {
+pub call_example(target: account @signer, value: u64) {
     // In interfaces, account parameters are passed as pubkeys (account.key)
     ExampleProgram.do_thing(value);
 }
-

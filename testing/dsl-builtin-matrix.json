@@ -1,0 +1,970 @@
+{
+  "version": 1,
+  "builtin_groups": [
+    {
+      "id": "time",
+      "description": "Clock/time wrappers and compute-unit helpers"
+    },
+    {
+      "id": "account_io",
+      "description": "Account read helpers and account builtin properties"
+    },
+    {
+      "id": "program_control",
+      "description": "Abort, panic, and account-closing wrappers"
+    },
+    {
+      "id": "crypto",
+      "description": "Hashing, signature verification, and key recovery wrappers"
+    },
+    {
+      "id": "pda",
+      "description": "Program-derived address helpers"
+    },
+    {
+      "id": "return_data",
+      "description": "Return-data get/set wrappers"
+    },
+    {
+      "id": "logging",
+      "description": "Logging and compute-unit visibility wrappers"
+    },
+    {
+      "id": "memory",
+      "description": "Buffer copy, compare, and concat wrappers"
+    },
+    {
+      "id": "sysvar",
+      "description": "Explicit sysvar fetch wrappers"
+    }
+  ],
+  "builtins": [
+    {
+      "id": "builtin_now_seconds",
+      "name": "now_seconds",
+      "module": "std::builtins",
+      "category": "time",
+      "wrapper_of": "get_clock",
+      "arity": 0,
+      "requires_accounts": false,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": true,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": true,
+        "runtime_matrix": true,
+        "validator_localnet": true
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_sysvar_tests.rs"
+      ],
+      "matrix_scenario": "blockchain_cpi_tuple",
+      "expected_limitations": null
+    },
+    {
+      "id": "builtin_load_account_u64_word",
+      "name": "load_account_u64_word",
+      "module": "std::builtins",
+      "category": "account_io",
+      "wrapper_of": "load_account_u64",
+      "arity": 2,
+      "requires_accounts": true,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": true,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": false,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": true,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-dsl-compiler/src/compiler/mod.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Runtime and validator coverage still need a purpose-built account-read scenario."
+    },
+    {
+      "id": "builtin_abort_now",
+      "name": "abort_now",
+      "module": "std::builtins",
+      "category": "program_control",
+      "wrapper_of": "abort",
+      "arity": 0,
+      "requires_accounts": false,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": false,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": false,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Abort semantics are tracked at compiler level first; direct VM/runtime probes are still missing."
+    },
+    {
+      "id": "builtin_panic_now",
+      "name": "panic_now",
+      "module": "std::builtins",
+      "category": "program_control",
+      "wrapper_of": "panic",
+      "arity": 1,
+      "requires_accounts": false,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": false,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": false,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Panic wrappers compile through stdlib, but VM/runtime negative-path assertions are not yet exhaustive."
+    },
+    {
+      "id": "builtin_hash_sha256_into",
+      "name": "hash_sha256_into",
+      "module": "std::builtins",
+      "category": "crypto",
+      "wrapper_of": "sha256",
+      "arity": 2,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/crypto_capability_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Localnet coverage needs buffer-oriented DSL fixtures before it can be promoted."
+    },
+    {
+      "id": "builtin_hash_sha256",
+      "name": "hash_sha256",
+      "module": "std::builtins",
+      "category": "crypto",
+      "wrapper_of": "sha256",
+      "arity": 2,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/crypto_capability_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Deprecated alias shares VM coverage with hash_sha256_into; validator coverage is not yet fixture-backed."
+    },
+    {
+      "id": "builtin_hash_keccak256_into",
+      "name": "hash_keccak256_into",
+      "module": "std::builtins",
+      "category": "crypto",
+      "wrapper_of": "keccak256",
+      "arity": 2,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/crypto_capability_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Validator coverage is deferred until buffer fixtures are stable across CLI and runtime."
+    },
+    {
+      "id": "builtin_hash_keccak256",
+      "name": "hash_keccak256",
+      "module": "std::builtins",
+      "category": "crypto",
+      "wrapper_of": "keccak256",
+      "arity": 2,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/crypto_capability_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Deprecated alias shares coverage with hash_keccak256_into."
+    },
+    {
+      "id": "builtin_hash_blake3_into",
+      "name": "hash_blake3_into",
+      "module": "std::builtins",
+      "category": "crypto",
+      "wrapper_of": "blake3",
+      "arity": 2,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/crypto_capability_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Buffer-oriented runtime fixtures are still missing."
+    },
+    {
+      "id": "builtin_hash_blake3",
+      "name": "hash_blake3",
+      "module": "std::builtins",
+      "category": "crypto",
+      "wrapper_of": "blake3",
+      "arity": 2,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/crypto_capability_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Deprecated alias shares coverage with hash_blake3_into."
+    },
+    {
+      "id": "builtin_bytes_concat",
+      "name": "bytes_concat",
+      "module": "std::builtins",
+      "category": "memory",
+      "wrapper_of": "string_concat",
+      "arity": 2,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": false,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/crypto_capability_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Concat is covered in VM byte operations; end-to-end DSL fixtures are still tracked separately."
+    },
+    {
+      "id": "builtin_verify_ed25519_instruction",
+      "name": "verify_ed25519_instruction",
+      "module": "std::builtins",
+      "category": "crypto",
+      "wrapper_of": "__verify_ed25519_instruction",
+      "arity": 4,
+      "requires_accounts": true,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": true,
+      "requires_signature_material": true,
+      "runtime_applicable": true,
+      "validator_applicable": true,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": true,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": true
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/crypto_capability_tests.rs",
+        "five-solana/tests/runtime_validator_crypto_probe_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Validator coverage exists via a dedicated probe, not yet through the shared DSL matrix."
+    },
+    {
+      "id": "builtin_remaining_cu",
+      "name": "remaining_cu",
+      "module": "std::builtins",
+      "category": "time",
+      "wrapper_of": "remaining_compute_units",
+      "arity": 0,
+      "requires_accounts": false,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_sysvar_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "The wrapper is VM-covered, but runtime and validator assertions are not yet stable enough to gate."
+    },
+    {
+      "id": "builtin_derive_program_address",
+      "name": "derive_program_address",
+      "module": "std::builtins",
+      "category": "pda",
+      "wrapper_of": "create_program_address",
+      "arity": 2,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": true,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": true,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/pda_operations_tests.rs"
+      ],
+      "matrix_scenario": "blockchain_cpi_tuple",
+      "expected_limitations": "PDA validators are currently covered through broader template flows, not a dedicated builtin fixture."
+    },
+    {
+      "id": "builtin_find_program_address",
+      "name": "find_program_address",
+      "module": "std::builtins",
+      "category": "pda",
+      "wrapper_of": "try_find_program_address",
+      "arity": 2,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": true,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": true,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/pda_operations_tests.rs"
+      ],
+      "matrix_scenario": "blockchain_cpi_tuple",
+      "expected_limitations": "PDA validators are tracked via broader integration suites first."
+    },
+    {
+      "id": "builtin_clock_sysvar",
+      "name": "clock_sysvar",
+      "module": "std::builtins",
+      "category": "sysvar",
+      "wrapper_of": "get_clock_sysvar",
+      "arity": 0,
+      "requires_accounts": false,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": true,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": true,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": true,
+        "runtime_matrix": true,
+        "validator_localnet": true
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_sysvar_tests.rs"
+      ],
+      "matrix_scenario": "blockchain_cpi_tuple",
+      "expected_limitations": null
+    },
+    {
+      "id": "builtin_epoch_schedule_sysvar",
+      "name": "epoch_schedule_sysvar",
+      "module": "std::builtins",
+      "category": "sysvar",
+      "wrapper_of": "get_epoch_schedule_sysvar",
+      "arity": 0,
+      "requires_accounts": false,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": true,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": true,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_sysvar_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "The VM currently provides a placeholder epoch-schedule syscall implementation, so runtime promotion stays deferred."
+    },
+    {
+      "id": "builtin_rent_sysvar",
+      "name": "rent_sysvar",
+      "module": "std::builtins",
+      "category": "sysvar",
+      "wrapper_of": "get_rent_sysvar",
+      "arity": 0,
+      "requires_accounts": false,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": true,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": true,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_sysvar_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Rent wrapper is VM-covered; validator coverage still needs a stable fixture path."
+    },
+    {
+      "id": "builtin_return_data_get",
+      "name": "return_data_get",
+      "module": "std::builtins",
+      "category": "return_data",
+      "wrapper_of": "get_return_data",
+      "arity": 0,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_return_data_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Runtime propagation is not yet exposed through a stable DSL fixture."
+    },
+    {
+      "id": "builtin_return_data_set",
+      "name": "return_data_set",
+      "module": "std::builtins",
+      "category": "return_data",
+      "wrapper_of": "set_return_data",
+      "arity": 1,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_return_data_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Runtime propagation is not yet exposed through a stable DSL fixture."
+    },
+    {
+      "id": "builtin_log_message",
+      "name": "log_message",
+      "module": "std::builtins",
+      "category": "logging",
+      "wrapper_of": "log",
+      "arity": 1,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_logging_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Validator logging coverage is intentionally non-brittle and remains tracked, not required."
+    },
+    {
+      "id": "builtin_log_words",
+      "name": "log_words",
+      "module": "std::builtins",
+      "category": "logging",
+      "wrapper_of": "log_64",
+      "arity": 5,
+      "requires_accounts": false,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_logging_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Validator log assertions remain intentionally shallow."
+    },
+    {
+      "id": "builtin_log_cu",
+      "name": "log_cu",
+      "module": "std::builtins",
+      "category": "logging",
+      "wrapper_of": "log_compute_units",
+      "arity": 0,
+      "requires_accounts": false,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_logging_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Validator log assertions remain intentionally shallow."
+    },
+    {
+      "id": "builtin_log_bytes",
+      "name": "log_bytes",
+      "module": "std::builtins",
+      "category": "logging",
+      "wrapper_of": "log_data",
+      "arity": 1,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_logging_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Validator log assertions remain intentionally shallow."
+    },
+    {
+      "id": "builtin_log_key",
+      "name": "log_key",
+      "module": "std::builtins",
+      "category": "logging",
+      "wrapper_of": "log_pubkey",
+      "arity": 1,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_logging_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Validator log assertions remain intentionally shallow."
+    },
+    {
+      "id": "builtin_close_account_now",
+      "name": "close_account_now",
+      "module": "std::builtins",
+      "category": "program_control",
+      "wrapper_of": "close_account",
+      "arity": 2,
+      "requires_accounts": true,
+      "requires_runtime_buffers": false,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": true,
+      "validator_applicable": true,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/src/tests/account_system.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Close-account still needs a shared runtime/validator fixture instead of only low-level VM tests."
+    },
+    {
+      "id": "builtin_memory_copy",
+      "name": "memory_copy",
+      "module": "std::builtins",
+      "category": "memory",
+      "wrapper_of": "memcpy",
+      "arity": 3,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": false,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_memory_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Memory-copy is currently exercised at VM level only."
+    },
+    {
+      "id": "builtin_memory_compare",
+      "name": "memory_compare",
+      "module": "std::builtins",
+      "category": "memory",
+      "wrapper_of": "memcmp",
+      "arity": 3,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": false,
+      "runtime_applicable": false,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/stdlib_memory_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Memory-compare is currently exercised at VM level only."
+    },
+    {
+      "id": "builtin_recover_secp256k1",
+      "name": "recover_secp256k1",
+      "module": "std::builtins",
+      "category": "crypto",
+      "wrapper_of": "secp256k1_recover",
+      "arity": 4,
+      "requires_accounts": false,
+      "requires_runtime_buffers": true,
+      "requires_runtime_sysvar": false,
+      "requires_signature_material": true,
+      "runtime_applicable": true,
+      "validator_applicable": false,
+      "layers": {
+        "compiler": true,
+        "bytecode_unit": true,
+        "vm_unit": true,
+        "runtime_unit": false,
+        "cli_matrix": false,
+        "wasm_matrix": false,
+        "lsp_matrix": false,
+        "runtime_matrix": false,
+        "validator_localnet": false
+      },
+      "unit_suites": [
+        "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
+        "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
+        "five-vm-mito/tests/syscall_coverage_tests.rs"
+      ],
+      "matrix_scenario": null,
+      "expected_limitations": "Validator fixtures for deterministic secp256k1 recovery are still phase-2 work."
+    }
+  ]
+}

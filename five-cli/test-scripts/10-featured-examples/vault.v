@@ -11,12 +11,12 @@
     
     // Set authorized user (requires signer authority)
 set_authorized_user(authority: account @signer) {
-        authorized_user = authority.key;
+        authorized_user = authority.ctx.key;
     }
     
     // Withdraw requires authorization
 withdraw(authority: account @signer, amount: u64) {
-require(authority.key == authorized_user);
+require(authority.ctx.key == authorized_user);
 require(balance >= amount);
         balance = balance - amount;
     }

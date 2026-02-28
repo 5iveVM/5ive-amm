@@ -102,7 +102,7 @@ pub init_pool(
     pool.fee_bps = fee_bps;
     pool.token_a_mint = token_a_mint;
     pool.token_b_mint = token_b_mint;
-    pool.pool_authority = authority.key;
+    pool.pool_authority = authority.ctx.key;
     pool.lp_token_mint = lp_token_mint;
     pool.last_k = 0;
 
@@ -115,7 +115,7 @@ pub init_lp_account(
     owner: account @signer,
     pool: pubkey
 ) -> pubkey {
-    lp_account.owner = owner.key;
+    lp_account.owner = owner.ctx.key;
     lp_account.pool = pool;
     lp_account.lp_shares = 0;
 
@@ -141,7 +141,7 @@ pub add_liquidity(
     require(amount_b > 0, "Amount B must be greater than zero");
 
     // Verify LP account ownership
-    require(lp_account.owner == owner.key, "LP account owner mismatch");
+    require(lp_account.owner == owner.ctx.key, "LP account owner mismatch");
 
     // Verify LP account belongs to this pool
     require(lp_account.pool == get_key(pool), "LP account pool mismatch");
@@ -203,7 +203,7 @@ pub remove_liquidity(
     require(lp_shares > 0, "LP shares must be greater than zero");
 
     // Verify ownership
-    require(lp_account.owner == owner.key, "LP account owner mismatch");
+    require(lp_account.owner == owner.ctx.key, "LP account owner mismatch");
 
     // Verify sufficient shares
     require(lp_account.lp_shares >= lp_shares, "Insufficient LP shares");
@@ -326,8 +326,8 @@ pub create_spl_mint(
     SPLToken.initialize_mint(
         get_key(mint),
         decimals,
-        payer.key,
-        payer.key
+        payer.ctx.key,
+        payer.ctx.key
     );
 
     return get_key(mint);
@@ -344,7 +344,7 @@ pub mint_spl_tokens(
     SPLToken.mint_to(
         get_key(mint),
         get_key(destination),
-        authority.key,
+        authority.ctx.key,
         amount
     );
 }
@@ -360,7 +360,7 @@ pub transfer_spl_tokens(
     SPLToken.transfer(
         get_key(source),
         get_key(destination),
-        authority.key,
+        authority.ctx.key,
         amount
     );
 }
@@ -376,7 +376,7 @@ pub burn_spl_tokens(
     SPLToken.burn(
         get_key(mint),
         get_key(token_account),
-        authority.key,
+        authority.ctx.key,
         amount
     );
 }
