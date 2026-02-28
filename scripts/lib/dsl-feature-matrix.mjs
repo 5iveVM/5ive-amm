@@ -38,6 +38,12 @@ export const VALID_BUILTIN_LAYERS = new Set([
   'runtime_matrix',
   'validator_localnet',
 ]);
+export const VALID_BUILTIN_VALIDATOR_MODES = new Set([
+  'none',
+  'feature_matrix',
+  'cli_localnet',
+  'cargo_test',
+]);
 export const VALID_FEATURE_PRIORITIES = new Set(['A', 'B']);
 export const VALID_FEATURE_INVENTORY_STATUSES = new Set([
   'uncataloged',
@@ -294,6 +300,26 @@ export function validateDslBuiltinMatrix(matrix, repoRoot) {
 
     if (builtin.matrix_scenario != null && typeof builtin.matrix_scenario !== 'string') {
       throw new Error(`builtin ${builtin.id} matrix_scenario must be a string or null`);
+    }
+    if (builtin.validator_mode != null && !VALID_BUILTIN_VALIDATOR_MODES.has(builtin.validator_mode)) {
+      throw new Error(
+        `builtin ${builtin.id} has invalid validator_mode ${builtin.validator_mode}`
+      );
+    }
+    if (builtin.validator_target != null && typeof builtin.validator_target !== 'string') {
+      throw new Error(`builtin ${builtin.id} validator_target must be a string or null`);
+    }
+    if (builtin.layers.validator_localnet === true) {
+      if (!builtin.validator_mode || builtin.validator_mode === 'none') {
+        throw new Error(
+          `builtin ${builtin.id} enables validator_localnet without validator_mode`
+        );
+      }
+      if (!builtin.validator_target) {
+        throw new Error(
+          `builtin ${builtin.id} enables validator_localnet without validator_target`
+        );
+      }
     }
     if (
       builtin.expected_limitations != null &&

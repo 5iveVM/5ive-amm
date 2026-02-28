@@ -34,6 +34,15 @@ if [[ "${FIVE_REQUIRE_LOCALNET_MATRIX:-0}" == "1" ]]; then
     --keypair "${FIVE_KEYPAIR_PATH:-$HOME/.config/solana/id.json}"
 fi
 
+if [[ "${FIVE_REQUIRE_LOCALNET_BUILTIN_MATRIX:-0}" == "1" ]]; then
+  echo "[extra] Run builtin localnet validator matrix"
+  node scripts/run-dsl-builtin-validator-matrix.mjs \
+    --network localnet \
+    --program-id "${FIVE_PROGRAM_ID:-}" \
+    --vm-state "${VM_STATE_PDA:-}" \
+    --keypair "${FIVE_KEYPAIR_PATH:-$HOME/.config/solana/id.json}"
+fi
+
 echo "Feature parity audit completed."
 echo "Report: $ROOT_DIR/target/feature-parity/matrix.md"
 echo "Builtin report: $ROOT_DIR/target/feature-parity/builtin-matrix.md"

@@ -77,6 +77,8 @@ jobs:
   verify-dsl-exhaustive:
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      FIVE_REQUIRE_LOCALNET_BUILTIN_MATRIX: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -87,6 +89,34 @@ jobs:
         run: npm install
       - name: Install CLI dependencies
         run: npm --prefix five-cli install
+      - name: Install Solana toolchain
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v1.18.26/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Start local validator
+        run: |
+          solana-test-validator -r > /tmp/solana-test-validator-exhaustive.log 2>&1 &
+          echo $! > /tmp/solana-test-validator-exhaustive.pid
+          sleep 10
+      - name: Build and deploy Five VM for exhaustive localnet builtins
+        run: |
+          ./scripts/build-five-solana-cluster.sh --cluster localnet
+          PROGRAM_ID="$(solana-keygen pubkey target/deploy/five-keypair.json)"
+          solana program deploy target/deploy/five.so --program-id target/deploy/five-keypair.json
+          node scripts/init-localnet-vm-state.mjs --network localnet --program-id "${PROGRAM_ID}"
+          VM_STATE_PDA="$(PROGRAM_ID="${PROGRAM_ID}" node - <<'EOF'
+          const web3 = require('./five-cli/node_modules/@solana/web3.js/lib/index.cjs.js');
+          const programId = new web3.PublicKey(process.env.PROGRAM_ID);
+          const [vmState] = web3.PublicKey.findProgramAddressSync([Buffer.from('vm_state')], programId);
+          process.stdout.write(vmState.toBase58());
+          EOF
+          )"
+          {
+            echo "FIVE_PROGRAM_ID=${PROGRAM_ID}"
+            echo "VM_STATE_PDA=${VM_STATE_PDA}"
+            echo "FIVE_KEYPAIR_PATH=$HOME/.config/solana/id.json"
+            echo "FIVE_RPC_URL=http://127.0.0.1:8899"
+          } >> "$GITHUB_ENV"
       - name: Validate DSL coverage contracts
         run: node scripts/validate-dsl-feature-matrix.mjs
       - name: Generate exhaustive DSL coverage reports
@@ -104,3 +134,11 @@ jobs:
           cargo test -q -p five-vm-mito --test stdlib_sysvar_tests
       - name: Run builtin CLI matrix
         run: node scripts/run-dsl-builtin-matrix-cli.mjs
+      - name: Run builtin localnet validator matrix
+        run: node scripts/run-dsl-builtin-validator-matrix.mjs --network localnet --program-id "$FIVE_PROGRAM_ID" --vm-state "$VM_STATE_PDA" --keypair "$FIVE_KEYPAIR_PATH"
+      - name: Stop local validator
+        if: always()
+        run: |
+          if [[ -f /tmp/solana-test-validator-exhaustive.pid ]]; then
+            kill "$(cat /tmp/solana-test-validator-exhaustive.pid)" || true
+          fi

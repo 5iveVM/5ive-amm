@@ -68,7 +68,9 @@
         "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
         "five-vm-mito/tests/stdlib_sysvar_tests.rs"
       ],
-      "matrix_scenario": "blockchain_cpi_tuple",
+      "matrix_scenario": null,
+      "validator_mode": "cargo_test",
+      "validator_target": "runtime_validator_stdlib_probe_tests::validator_stdlib_time_and_sysvar_onchain",
       "expected_limitations": null
     },
     {
@@ -411,7 +413,7 @@
         "wasm_matrix": false,
         "lsp_matrix": false,
         "runtime_matrix": false,
-        "validator_localnet": true
+        "validator_localnet": false
       },
       "unit_suites": [
         "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
@@ -420,7 +422,9 @@
         "five-solana/tests/runtime_validator_crypto_probe_tests.rs"
       ],
       "matrix_scenario": null,
-      "expected_limitations": "Validator coverage exists via a dedicated probe, not yet through the shared DSL matrix."
+      "validator_mode": "cargo_test",
+      "validator_target": "runtime_validator_crypto_probe_tests::validator_crypto_probe_onchain",
+      "expected_limitations": "Tracked for localnet, but the current on-chain deploy verifier rejects the compiled PUSH_BYTES-based probe bytecode with custom error 0x69."
     },
     {
       "id": "builtin_remaining_cu",
@@ -547,7 +551,9 @@
         "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
         "five-vm-mito/tests/stdlib_sysvar_tests.rs"
       ],
-      "matrix_scenario": "blockchain_cpi_tuple",
+      "matrix_scenario": null,
+      "validator_mode": "cargo_test",
+      "validator_target": "runtime_validator_stdlib_probe_tests::validator_stdlib_time_and_sysvar_onchain",
       "expected_limitations": null
     },
     {

@@ -18,6 +18,7 @@ function parseArgs(argv) {
     programId: process.env.FIVE_PROGRAM_ID || '',
     vmState: process.env.VM_STATE_PDA || '',
     keypair: process.env.FIVE_KEYPAIR_PATH || path.join(process.env.HOME || '', '.config/solana/id.json'),
+    scenarioIds: [],
   };
 
   for (let i = 2; i < argv.length; i += 1) {
@@ -27,6 +28,12 @@ function parseArgs(argv) {
     else if (value === '--program-id' && argv[i + 1]) args.programId = argv[++i];
     else if (value === '--vm-state' && argv[i + 1]) args.vmState = argv[++i];
     else if (value === '--keypair' && argv[i + 1]) args.keypair = argv[++i];
+    else if (value === '--scenario-ids' && argv[i + 1]) {
+      args.scenarioIds = argv[++i]
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
   }
 
   return args;
@@ -111,7 +118,24 @@ const report = {
 const validatorLayer =
   args.network === 'devnet' ? 'validator_devnet_tracked' : 'validator_localnet';
 
-const scenarios = matrix.scenarios.filter((scenario) => scenario.layers[validatorLayer] === true);
+const requestedScenarioIds = new Set(args.scenarioIds);
+const scenarios = matrix.scenarios.filter((scenario) => {
+  if (scenario.layers[validatorLayer] !== true) {
+    return false;
+  }
+  if (requestedScenarioIds.size === 0) {
+    return true;
+  }
+  return requestedScenarioIds.has(scenario.id);
+});
+
+if (requestedScenarioIds.size > 0) {
+  const foundIds = new Set(scenarios.map((scenario) => scenario.id));
+  const missingIds = [...requestedScenarioIds].filter((id) => !foundIds.has(id));
+  if (missingIds.length > 0) {
+    throw new Error(`unknown or non-validator scenarios requested: ${missingIds.join(', ')}`);
+  }
+}
 const genericScenarios = scenarios.filter((scenario) => scenario.validator_mode === 'localnet_generic');
 const suiteScenarios = scenarios.filter((scenario) => scenario.validator_mode === 'sdk_suite');
 
