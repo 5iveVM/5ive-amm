@@ -11,11 +11,11 @@ fn docs_quick_start_snippet_compiles() {
 
         pub init_counter(counter: Counter @mut @init, authority: account @signer) {
             counter.value = 0;
-            counter.authority = authority.key;
+            counter.authority = authority.ctx.key;
         }
 
         pub increment(counter: Counter @mut, authority: account @signer) {
-            require(counter.authority == authority.key);
+            require(counter.authority == authority.ctx.key);
             counter.value = counter.value + 1;
         }
     "#;
@@ -86,15 +86,15 @@ fn docs_interface_cpi_snippet_compiles() {
 #[test]
 fn docs_imported_interface_snippet_compiles_to_call_external() {
     let source = r#"
-        use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{interface TokenOps};
+        use @5ive-tech/program::{transfer};
 
         pub route_call(
-            TokenOps: account,
             from: account @mut,
             to: account @mut,
-            authority: account @signer
+            authority: account @signer,
+            token_program: account
         ) {
-            TokenOps.transfer(from, to, authority, 100);
+            transfer(from, to, authority, 100);
         }
     "#;
 
@@ -111,22 +111,22 @@ fn docs_imported_interface_snippet_compiles_to_call_external() {
 }
 
 #[test]
-fn docs_imported_interface_requires_explicit_target_account_param() {
+fn docs_scoped_import_snippet_compiles_without_explicit_target_account_param() {
     let source = r#"
-        use "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"::{interface TokenOps};
+        use @5ive-tech/program::{transfer};
 
         pub route_call(
             from: account @mut,
             to: account @mut,
             authority: account @signer
         ) {
-            TokenOps.transfer(from, to, authority, 100);
+            transfer(from, to, authority, 100);
         }
     "#;
 
     let result = DslCompiler::compile_dsl(source);
     assert!(
-        result.is_err(),
-        "imported interface calls must fail compile when matching target account param is missing"
+        result.is_ok(),
+        "scoped namespace imports should compile without an explicit target account parameter"
     );
 }

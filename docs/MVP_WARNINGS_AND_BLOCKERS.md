@@ -33,6 +33,20 @@
 - Detection: `runtime_template_fixture_tests` failure.
 - Enforcement: `scripts/mvp-release-gate.sh` stage `E2E Smoke Validation`.
 
+5. Mainnet program ID placeholder or accidental devnet reuse.
+- Impact: Mainnet artifacts may be built against the wrong address set and release constants become untrustworthy.
+- Detection:
+  - `five-solana/constants.vm.toml` `[clusters.mainnet].program_id`
+  - value is empty, clearly marked placeholder, or unintentionally copied from devnet.
+- Enforcement: Pre-release config review before any `--cluster mainnet` build.
+
+6. Mainnet gate mode mismatch.
+- Impact: Operators may invoke `--cluster mainnet` and get an inconsistent result unless the gate explicitly treats mainnet as dry-run only.
+- Detection:
+  - `scripts/mvp-release-gate.sh --cluster mainnet`
+  - E2E smoke must auto-skip with an explicit report note.
+- Enforcement: `scripts/mvp-release-gate.sh` stage `E2E Smoke Validation`.
+
 ## Non-Blocking Warnings
 
 1. Rust warnings (`dead_code`, `deprecated`) that do not cause test/build failures.

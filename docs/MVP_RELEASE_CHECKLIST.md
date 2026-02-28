@@ -1,9 +1,21 @@
 # MVP Full Engineering Gate Checklist
 
-Canonical command:
+Canonical localnet command:
 
 ```bash
 ./scripts/mvp-release-gate.sh --cluster localnet
+```
+
+Canonical devnet command:
+
+```bash
+./scripts/mvp-release-gate.sh --cluster devnet
+```
+
+Canonical mainnet dry-run command:
+
+```bash
+./scripts/mvp-release-gate.sh --cluster mainnet
 ```
 
 Optional strict prebuilt-artifact mode (fail instead of auto-build):
@@ -31,10 +43,14 @@ Optional strict prebuilt-artifact mode (fail instead of auto-build):
 - `cargo test -p five --test runtime_bpf_opcode_micro_cu_tests -- --nocapture`
 - `cargo test -p five --test runtime_bpf_cu_tests -- --nocapture`
 
-5. End-to-end smoke validation passes:
+5. End-to-end smoke validation passes on localnet and devnet:
 - `cargo test -p five --test runtime_template_fixture_tests -- --nocapture`
 
-6. Gate report generated:
+6. Mainnet uses dry-run semantics only:
+- `--cluster mainnet` auto-skips E2E smoke.
+- Localnet + devnet evidence must already be attached before any mainnet release decision.
+
+7. Gate report generated:
 - `target/mvp-gate/report.json`
 - `target/mvp-gate/report.md`
 
@@ -56,10 +72,19 @@ The two program IDs must match. The gate now auto-repairs this drift unless `--n
 
 ## Required Signoff Evidence
 
-1. Attach `target/mvp-gate/report.json` to release decision.
-2. Confirm report `overall_status` is `pass`.
-3. Confirm report stage list includes all four gate stages with `status = pass`.
-4. Record cluster used (`localnet`, `devnet`, or `mainnet`) in release notes.
+1. Attach a fresh localnet report from `./scripts/mvp-release-gate.sh --cluster localnet`.
+2. Attach a fresh devnet report from `./scripts/mvp-release-gate.sh --cluster devnet`.
+3. Attach a fresh mainnet dry-run report from `./scripts/mvp-release-gate.sh --cluster mainnet`.
+4. Confirm each report `overall_status` is `pass`.
+5. For mainnet, confirm the E2E stage notes that smoke was intentionally skipped.
+6. Record cluster used (`localnet`, `devnet`, or `mainnet`) in release notes.
+
+## Mainnet-Specific Prerequisite
+
+Before any `--cluster mainnet` build or deploy:
+
+1. `five-solana/constants.vm.toml` `[clusters.mainnet].program_id` must be the reserved production program ID, not a copied devnet placeholder.
+2. The reserved program ID must be intentionally reviewed before release-candidate tagging.
 
 ## Environment and Toolchain Prerequisites
 

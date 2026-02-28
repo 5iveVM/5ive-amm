@@ -119,9 +119,17 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
         .expect("missing target/deploy/five-keypair.json; run cargo-build-sbf --manifest-path five-solana/Cargo.toml")
         .pubkey();
 
-    let token_bytecode_path = repo_root.join("five-templates/token/src/token.bin");
-    let token_bytecode = harness::compile::load_or_compile_bytecode(&token_bytecode_path)
-        .expect("token bytecode should be readable for micro external benchmark");
+    let callee_source = r#"
+        pub transfer(
+            source_account: account @mut,
+            destination_account: account @mut,
+            owner: account @signer,
+            amount: u64
+        ) {
+        }
+    "#;
+    let token_bytecode =
+        DslCompiler::compile_dsl(callee_source).expect("micro external callee should compile");
 
     let mut accounts = base_accounts(program_id, 40_000_000);
 
@@ -177,43 +185,29 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
         },
     );
 
-    let owner_pubkey = accounts["owner"].pubkey;
-    let mint_pubkey = Pubkey::new_unique();
     let source_token_pubkey = Pubkey::new_unique();
     let destination_token_pubkey = Pubkey::new_unique();
-
-    let mut source_data = vec![0u8; 192];
-    source_data[0..32].copy_from_slice(owner_pubkey.as_ref());
-    source_data[32..64].copy_from_slice(mint_pubkey.as_ref());
-    source_data[64..72].copy_from_slice(&500u64.to_le_bytes());
-    source_data[72] = 0;
     accounts.insert(
         "source_token".to_string(),
         RuntimeAccount {
             pubkey: source_token_pubkey,
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(source_data.len()),
-            data: source_data,
+            lamports: Rent::default().minimum_balance(0),
+            data: vec![],
             is_signer: false,
             is_writable: true,
             executable: false,
         },
     );
-
-    let mut destination_data = vec![0u8; 192];
-    destination_data[0..32].copy_from_slice(destination_token_pubkey.as_ref());
-    destination_data[32..64].copy_from_slice(mint_pubkey.as_ref());
-    destination_data[64..72].copy_from_slice(&100u64.to_le_bytes());
-    destination_data[72] = 0;
     accounts.insert(
         "destination_token".to_string(),
         RuntimeAccount {
             pubkey: destination_token_pubkey,
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(destination_data.len()),
-            data: destination_data,
+            lamports: Rent::default().minimum_balance(0),
+            data: vec![],
             is_signer: false,
             is_writable: true,
             executable: false,

@@ -1150,6 +1150,7 @@ mod tests {
     use crate::{
         context::ExecutionContext, error::VMErrorCode, stack::StackStorage, MAX_PARAMETERS,
     };
+    use five_dsl_compiler::DslCompiler;
     use five_protocol::ValueRef;
     use five_protocol::{BytecodeBuilder, FEATURE_FUNCTION_CONSTRAINTS, FEATURE_FUNCTION_NAMES};
     use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
@@ -1278,6 +1279,18 @@ mod tests {
         let selector = 41u16;
         let err = resolve_external_function_target(&script, selector).unwrap_err();
         assert_eq!(err, VMErrorCode::InvalidInstructionPointer);
+    }
+
+    #[test]
+    fn resolve_external_function_target_for_token_template_transfer() {
+        let source = include_str!("../../../five-templates/token/src/token.v");
+        let bytecode = DslCompiler::compile_dsl(source).expect("token template should compile");
+        let selector = external_selector("transfer");
+        let (offset, function_index) =
+            resolve_external_function_target(&bytecode, selector).expect("transfer should resolve");
+
+        assert_eq!(function_index, Some(3));
+        assert!(offset > 0);
     }
 
     fn create_account_info<'a>(

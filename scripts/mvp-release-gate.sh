@@ -22,6 +22,9 @@ Canonical full engineering gate sequence:
 Artifacts:
   - JSON report: target/mvp-gate/report.json
   - Markdown report: target/mvp-gate/report.md
+  
+Notes:
+  - mainnet runs as a dry-run gate; E2E smoke is skipped automatically and must be proven on localnet + devnet.
 USAGE
 }
 
@@ -68,6 +71,7 @@ STAGES=()
 FAILED_STAGE=""
 SBF_PARITY_NOTE=""
 BPF_RUNTIME_NOTE=""
+E2E_SMOKE_NOTE=""
 
 append_sbf_note() {
   local note="$1"
@@ -116,6 +120,9 @@ run_stage() {
   fi
   if [[ "${name}" == "BPF Runtime CU Suites" && -n "${BPF_RUNTIME_NOTE}" ]]; then
     effective_details="${effective_details}; ${BPF_RUNTIME_NOTE}"
+  fi
+  if [[ "${name}" == "E2E Smoke Validation" && -n "${E2E_SMOKE_NOTE}" ]]; then
+    effective_details="${effective_details}; ${E2E_SMOKE_NOTE}"
   fi
 
   if [[ $rc -eq 0 ]]; then
@@ -282,6 +289,12 @@ run_bpf_runtime_suites() {
 run_e2e_smoke_validation() {
   if [[ "${RUN_E2E_SMOKE}" != "1" ]]; then
     echo "Skipping E2E smoke by request (--skip-e2e-smoke)."
+    return 0
+  fi
+
+  if [[ "${CLUSTER}" == "mainnet" ]]; then
+    E2E_SMOKE_NOTE="mainnet E2E intentionally disabled; localnet and devnet evidence required instead"
+    echo "Skipping E2E smoke for mainnet. ${E2E_SMOKE_NOTE}"
     return 0
   fi
 

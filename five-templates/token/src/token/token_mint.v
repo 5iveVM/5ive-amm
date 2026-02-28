@@ -8,8 +8,8 @@ pub mint_to(
     authority: account @signer,
     amount: u64
 ) {
-    require(mint.authority == authority.key);
-    require(destination.mint == mint.key);
+    require(mint.authority == authority.ctx.key);
+    require(destination.mint == mint.ctx.key);
     require(!destination.is_frozen);
     require(mint.supply <= 18446744073709551615 - amount);
     require(destination.balance <= 18446744073709551615 - amount);
@@ -24,8 +24,8 @@ pub burn(
     owner: account @signer,
     amount: u64
 ) {
-    require(source.owner == owner.key);
-    require(source.mint == mint.key);
+    require(source.owner == owner.ctx.key);
+    require(source.mint == mint.ctx.key);
     require(source.balance >= amount);
     require(mint.supply >= amount);
 

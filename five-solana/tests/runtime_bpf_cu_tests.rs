@@ -79,6 +79,17 @@ fn print_external_call_opcode_mix(label: &str, bytecode: &[u8]) {
     println!("BPF_CU {} call_external={}", label, call_external);
 }
 
+fn load_token_template_bytecode(repo_root: &Path) -> Vec<u8> {
+    let token_source_path = repo_root.join("five-templates/token/src/token.v");
+    load_or_compile_bytecode(&token_source_path).unwrap_or_else(|e| {
+        panic!(
+            "failed loading or compiling {}: {}",
+            token_source_path.display(),
+            e
+        )
+    })
+}
+
 #[derive(Debug, Deserialize)]
 struct RuntimeFixture {
     name: String,
@@ -314,9 +325,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
         .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
         .pubkey();
 
-    let token_bytecode_path = repo_root.join("five-templates/token/src/token.bin");
-    let token_bytecode = fs::read(&token_bytecode_path)
-        .unwrap_or_else(|e| panic!("failed reading {}: {}", token_bytecode_path.display(), e));
+    let token_bytecode = load_token_template_bytecode(&repo_root);
 
     let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
     let owner_signer = Keypair::new();
@@ -1438,9 +1447,7 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
         .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
         .pubkey();
 
-    let token_bytecode_path = repo_root.join("five-templates/token/src/token.bin");
-    let token_bytecode = fs::read(&token_bytecode_path)
-        .unwrap_or_else(|e| panic!("failed reading {}: {}", token_bytecode_path.display(), e));
+    let token_bytecode = load_token_template_bytecode(&repo_root);
 
     let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
     let owner_signer = Keypair::new();
@@ -1787,9 +1794,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
         .pubkey();
 
-    let token_bytecode_path = repo_root.join("five-templates/token/src/token.bin");
-    let token_bytecode = fs::read(&token_bytecode_path)
-        .unwrap_or_else(|e| panic!("failed reading {}: {}", token_bytecode_path.display(), e));
+    let token_bytecode = load_token_template_bytecode(&repo_root);
 
     // Maximize transfers: 11 pairs (22 accounts) + owner + ext0 = 24 params (at limit)
     let transfer_amounts: Vec<u64> = (1u64..=11).map(|n| n * 10).collect();
@@ -3127,9 +3132,7 @@ async fn run_external_token_all_public_profile(
         .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
         .pubkey();
 
-    let token_bytecode_path = repo_root.join("five-templates/token/src/token.bin");
-    let token_bytecode = fs::read(&token_bytecode_path)
-        .unwrap_or_else(|e| panic!("failed reading {}: {}", token_bytecode_path.display(), e));
+    let token_bytecode = load_token_template_bytecode(&repo_root);
 
     let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
     let payer_signer = Keypair::new();

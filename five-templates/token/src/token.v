@@ -31,14 +31,14 @@ pub init_mint(
     uri: string<32>
 ) -> pubkey {
     require(decimals <= 20);
-    mint_account.authority = authority.key;
+    mint_account.authority = authority.ctx.key;
     mint_account.freeze_authority = freeze_authority;
     mint_account.supply = 0;
     mint_account.decimals = decimals;
     mint_account.name = name;
     mint_account.symbol = symbol;
     mint_account.uri = uri;
-    return mint_account.key;
+    return mint_account.ctx.key;
 }
 
 pub init_token_account(
@@ -46,14 +46,14 @@ pub init_token_account(
     owner: account @signer,
     mint: pubkey
 ) -> pubkey {
-    token_account.owner = owner.key;
+    token_account.owner = owner.ctx.key;
     token_account.mint = mint;
     token_account.balance = 0;
     token_account.is_frozen = false;
     token_account.delegated_amount = 0;
     token_account.delegate = 0;
     token_account.initialized = true;
-    return token_account.key;
+    return token_account.ctx.key;
 }
 
 pub mint_to(
@@ -62,8 +62,8 @@ pub mint_to(
     mint_authority: account @signer,
     amount: u64
 ) {
-    require(mint_state.authority == mint_authority.key);
-    require(destination_account.mint == mint_state.key);
+    require(mint_state.authority == mint_authority.ctx.key);
+    require(destination_account.mint == mint_state.ctx.key);
     require(!destination_account.is_frozen);
     require(amount > 0);
     mint_state.supply = mint_state.supply + amount;
@@ -76,7 +76,7 @@ pub transfer(
     owner: account @signer,
     amount: u64
 ) {
-    require(source_account.owner == owner.key);
+    require(source_account.owner == owner.ctx.key);
     require(source_account.balance >= amount);
     require(source_account.mint == destination_account.mint);
     require(!source_account.is_frozen);
@@ -92,9 +92,9 @@ pub transfer_from(
     authority: account @signer,
     amount: u64
 ) {
-    let is_owner = source_account.owner == authority.key;
+    let is_owner = source_account.owner == authority.ctx.key;
     if (!is_owner) {
-        require(source_account.delegate == authority.key);
+        require(source_account.delegate == authority.ctx.key);
         require(source_account.delegated_amount >= amount);
     }
     require(source_account.balance >= amount);
@@ -115,7 +115,7 @@ pub approve(
     delegate: pubkey,
     amount: u64
 ) {
-    require(source_account.owner == owner.key);
+    require(source_account.owner == owner.ctx.key);
     source_account.delegate = delegate;
     source_account.delegated_amount = amount;
 }
@@ -124,7 +124,7 @@ pub revoke(
     source_account: TokenAccount @mut,
     owner: account @signer
 ) {
-    require(source_account.owner == owner.key);
+    require(source_account.owner == owner.ctx.key);
     source_account.delegate = 0;
     source_account.delegated_amount = 0;
 }
@@ -135,9 +135,9 @@ pub burn(
     owner: account @signer,
     amount: u64
 ) {
-    require(source_account.owner == owner.key);
+    require(source_account.owner == owner.ctx.key);
     require(source_account.balance >= amount);
-    require(source_account.mint == mint_state.key);
+    require(source_account.mint == mint_state.ctx.key);
     require(!source_account.is_frozen);
     require(amount > 0);
     mint_state.supply = mint_state.supply - amount;
@@ -149,8 +149,8 @@ pub freeze_account(
     account_to_freeze: TokenAccount @mut,
     freeze_authority: account @signer
 ) {
-    require(mint_state.freeze_authority == freeze_authority.key);
-    require(account_to_freeze.mint == mint_state.key);
+    require(mint_state.freeze_authority == freeze_authority.ctx.key);
+    require(account_to_freeze.mint == mint_state.ctx.key);
     account_to_freeze.is_frozen = true;
 }
 
@@ -159,8 +159,8 @@ pub thaw_account(
     account_to_thaw: TokenAccount @mut,
     freeze_authority: account @signer
 ) {
-    require(mint_state.freeze_authority == freeze_authority.key);
-    require(account_to_thaw.mint == mint_state.key);
+    require(mint_state.freeze_authority == freeze_authority.ctx.key);
+    require(account_to_thaw.mint == mint_state.ctx.key);
     account_to_thaw.is_frozen = false;
 }
 
@@ -169,7 +169,7 @@ pub set_mint_authority(
     current_authority: account @signer,
     new_authority: pubkey
 ) {
-    require(mint_state.authority == current_authority.key);
+    require(mint_state.authority == current_authority.ctx.key);
     mint_state.authority = new_authority;
 }
 
@@ -178,7 +178,7 @@ pub set_freeze_authority(
     current_freeze_authority: account @signer,
     new_freeze_authority: pubkey
 ) {
-    require(mint_state.freeze_authority == current_freeze_authority.key);
+    require(mint_state.freeze_authority == current_freeze_authority.ctx.key);
     mint_state.freeze_authority = new_freeze_authority;
 }
 
@@ -186,7 +186,7 @@ pub disable_mint(
     mint_state: Mint @mut,
     current_authority: account @signer
 ) {
-    require(mint_state.authority == current_authority.key);
+    require(mint_state.authority == current_authority.ctx.key);
     mint_state.authority = 0;
 }
 
@@ -194,6 +194,6 @@ pub disable_freeze(
     mint_state: Mint @mut,
     current_freeze_authority: account @signer
 ) {
-    require(mint_state.freeze_authority == current_freeze_authority.key);
+    require(mint_state.freeze_authority == current_freeze_authority.ctx.key);
     mint_state.freeze_authority = 0;
 }

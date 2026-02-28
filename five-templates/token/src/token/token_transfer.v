@@ -8,7 +8,7 @@ pub transfer(
     owner: account @signer,
     amount: u64
 ) {
-    require(source.owner == owner.key);
+    require(source.owner == owner.ctx.key);
     require(source.mint == destination.mint);
     require(!source.is_frozen);
     require(!destination.is_frozen);
@@ -25,7 +25,7 @@ pub approve(
     delegate: pubkey,
     amount: u64
 ) {
-    require(source.owner == owner.key);
+    require(source.owner == owner.ctx.key);
     source.delegate = delegate;
     source.delegated_amount = amount;
 }
@@ -36,7 +36,7 @@ pub transfer_from(
     delegate: account @signer,
     amount: u64
 ) {
-    require(source.delegate == delegate.key);
+    require(source.delegate == delegate.ctx.key);
     require(source.delegated_amount >= amount);
     require(source.mint == destination.mint);
     require(!source.is_frozen);

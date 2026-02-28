@@ -1834,13 +1834,6 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: -1,
         compute_cost: 2,
     },
-    OpcodeInfo {
-        opcode: ARRAY_CONCAT,
-        name: "ARRAY_CONCAT",
-        arg_type: ArgType::None,
-        stack_effect: -1,
-        compute_cost: 3,
-    },
     // Constraint fused owner check
     OpcodeInfo {
         opcode: REQUIRE_OWNER,

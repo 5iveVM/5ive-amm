@@ -11,6 +11,6 @@ program_id = "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
 fee_vault_shard_count = 2
 
 [clusters.mainnet]
-# Replace with the production-deployed Five VM program ID before mainnet build/deploy.
-program_id = "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
+# Reserved production program ID for the current release train.
+program_id = "FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb"
 fee_vault_shard_count = 2

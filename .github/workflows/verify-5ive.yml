@@ -45,8 +45,10 @@ jobs:
           )"
           {
             echo "FIVE_PROGRAM_ID=${PROGRAM_ID}"
+            echo "FIVE_VM_PROGRAM_ID=${PROGRAM_ID}"
             echo "VM_STATE_PDA=${VM_STATE_PDA}"
             echo "FIVE_KEYPAIR_PATH=$HOME/.config/solana/id.json"
+            echo "FIVE_PAYER_PATH=$HOME/.config/solana/id.json"
             echo "FIVE_RPC_URL=http://127.0.0.1:8899"
           } >> "$GITHUB_ENV"
       - name: Verify local matrix (required)
@@ -62,7 +64,12 @@ jobs:
 
   verify-devnet:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    env:
+      FIVE_RPC_URL: https://api.devnet.solana.com
+      FIVE_PROGRAM_ID: 4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d
+      FIVE_VM_PROGRAM_ID: 4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d
+      FIVE_KEYPAIR_PATH: /home/runner/.config/solana/id.json
+      FIVE_PAYER_PATH: /home/runner/.config/solana/id.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -113,8 +120,10 @@ jobs:
           )"
           {
             echo "FIVE_PROGRAM_ID=${PROGRAM_ID}"
+            echo "FIVE_VM_PROGRAM_ID=${PROGRAM_ID}"
             echo "VM_STATE_PDA=${VM_STATE_PDA}"
             echo "FIVE_KEYPAIR_PATH=$HOME/.config/solana/id.json"
+            echo "FIVE_PAYER_PATH=$HOME/.config/solana/id.json"
             echo "FIVE_RPC_URL=http://127.0.0.1:8899"
           } >> "$GITHUB_ENV"
       - name: Validate DSL coverage contracts
