@@ -1,10 +1,26 @@
 {
-  "generatedAt": "2026-02-18T15:13:13.905Z",
+  "generatedAt": "2026-03-01T00:24:09.557Z",
   "phase": "local-required",
+  "artifacts": {
+    "logDir": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs"
+  },
   "summary": {
-    "pass": 18,
+    "pass": 31,
     "fail": 0,
-    "skip": 13
+    "skip": 0,
+    "total": 31
+  },
+  "blockingSummary": {
+    "pass": 22,
+    "fail": 0,
+    "skip": 0,
+    "total": 22
+  },
+  "informationalSummary": {
+    "pass": 9,
+    "fail": 0,
+    "skip": 0,
+    "total": 9
   },
   "allGreen": true,
   "results": [
@@ -12,200 +28,404 @@
       "project": "5ive-amm",
       "network": "localnet",
       "step": "build",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-amm.build.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-amm",
       "network": "localnet",
       "step": "test",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-amm.test.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-amm",
       "network": "localnet",
       "step": "test:onchain:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-amm.test_onchain_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-cfd",
       "network": "localnet",
       "step": "build",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-cfd.build.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-cfd",
       "network": "localnet",
       "step": "test",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-cfd.test.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-cfd",
       "network": "localnet",
       "step": "test:onchain:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-cfd.test_onchain_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-cfd",
       "network": "localnet",
       "step": "client:run:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-cfd.client_run_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-esccrow",
       "network": "localnet",
       "step": "build",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-esccrow.build.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-esccrow",
       "network": "localnet",
       "step": "test",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-esccrow.test.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-esccrow",
       "network": "localnet",
       "step": "test:onchain:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-esccrow.test_onchain_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-esccrow",
       "network": "localnet",
       "step": "client:run:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
-    },
-    {
-      "project": "5ive-lending",
-      "network": "localnet",
-      "step": "build",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending",
-      "network": "localnet",
-      "step": "test",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending",
-      "network": "localnet",
-      "step": "test:onchain:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-esccrow.client_run_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-lending-2",
       "network": "localnet",
       "step": "build",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending-2.build.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-lending-2",
       "network": "localnet",
       "step": "test",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending-2.test.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-lending-2",
       "network": "localnet",
       "step": "test:onchain:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
-    },
-    {
-      "project": "5ive-lending-3",
-      "network": "localnet",
-      "step": "build",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-3",
-      "network": "localnet",
-      "step": "test",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-3",
-      "network": "localnet",
-      "step": "test:onchain:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
-    },
-    {
-      "project": "5ive-lending-4",
-      "network": "localnet",
-      "step": "build",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-4",
-      "network": "localnet",
-      "step": "test",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-lending-4",
-      "network": "localnet",
-      "step": "test:onchain:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending-2.test_onchain_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-token",
       "network": "localnet",
       "step": "build",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-token.build.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-token",
       "network": "localnet",
       "step": "test",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-token.test.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-token",
       "network": "localnet",
       "step": "test:onchain:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-token.test_onchain_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-token",
       "network": "localnet",
       "step": "client:run:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-token.client_run_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": "gCpf8e6BcidzUsB7f52eJ8ewHtJuZhqFiqiCuahanaiiuipyhZY7dxN6shmNk8y7CAuDu5pz2NGxejqNCZnheC8",
+      "metaErr": null,
+      "computeUnits": 9159
     },
     {
       "project": "5ive-token-2",
       "network": "localnet",
       "step": "build",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-token-2.build.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-token-2",
       "network": "localnet",
       "step": "test",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-token-2.test.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-token-2",
       "network": "localnet",
       "step": "test:onchain:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-token-2.test_onchain_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-token-2",
       "network": "localnet",
       "step": "client:run:local",
-      "status": "skip",
-      "blocker": "VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-token-2.client_run_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending.build.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending",
+      "network": "localnet",
+      "step": "test",
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending.test.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending",
+      "network": "localnet",
+      "step": "test:onchain:local",
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending.test_onchain_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending-3",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending-3.build.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending-3",
+      "network": "localnet",
+      "step": "test",
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending-3.test.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending-3",
+      "network": "localnet",
+      "step": "test:onchain:local",
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending-3.test_onchain_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending-4",
+      "network": "localnet",
+      "step": "build",
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending-4.build.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending-4",
+      "network": "localnet",
+      "step": "test",
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending-4.test.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending-4",
+      "network": "localnet",
+      "step": "test:onchain:local",
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/local/20260228-191350/logs/5ive-lending-4.test_onchain_local.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     }
   ]
 }

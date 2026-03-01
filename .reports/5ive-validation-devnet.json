@@ -1,91 +1,194 @@
 {
-  "generatedAt": "2026-02-18T05:03:59.547Z",
+  "generatedAt": "2026-03-01T00:58:41.024Z",
   "phase": "devnet-tracked",
-  "summary": {
-    "pass": 10,
-    "blocked": 3
+  "artifacts": {
+    "logDir": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs"
   },
+  "summary": {
+    "pass": 2,
+    "blocked": 11,
+    "total": 13
+  },
+  "blockingSummary": {
+    "pass": 1,
+    "blocked": 9,
+    "total": 10
+  },
+  "informationalSummary": {
+    "pass": 1,
+    "blocked": 2,
+    "total": 3
+  },
+  "allGreen": false,
   "results": [
     {
       "project": "5ive-amm",
       "network": "devnet",
       "step": "test:onchain:devnet",
-      "status": "pass"
+      "status": "blocked",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-amm.test_onchain_devnet.log",
+      "blocker": "test:onchain:devnet failed on devnet",
+      "failureClass": "unknown",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-cfd",
       "network": "devnet",
       "step": "test:onchain:devnet",
-      "status": "pass"
+      "status": "blocked",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-cfd.test_onchain_devnet.log",
+      "blocker": "test:onchain:devnet failed on devnet",
+      "failureClass": "unknown",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-cfd",
       "network": "devnet",
       "step": "client:run:devnet",
       "status": "blocked",
-      "blocker": "client:run:devnet failed on devnet (inspect logs and funding/program-id/rpc)"
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-cfd.client_run_devnet.log",
+      "blocker": "client:run:devnet failed on devnet",
+      "failureClass": "compile_or_build",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-esccrow",
       "network": "devnet",
       "step": "test:onchain:devnet",
-      "status": "pass"
+      "status": "blocked",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-esccrow.test_onchain_devnet.log",
+      "blocker": "test:onchain:devnet failed on devnet",
+      "failureClass": "rpc",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-esccrow",
       "network": "devnet",
       "step": "client:run:devnet",
       "status": "blocked",
-      "blocker": "client:run:devnet failed on devnet (inspect logs and funding/program-id/rpc)"
-    },
-    {
-      "project": "5ive-lending",
-      "network": "devnet",
-      "step": "test:onchain:devnet",
-      "status": "pass"
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-esccrow.client_run_devnet.log",
+      "blocker": "client:run:devnet failed on devnet",
+      "failureClass": "compile_or_build",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-lending-2",
       "network": "devnet",
       "step": "test:onchain:devnet",
-      "status": "pass"
+      "status": "blocked",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-lending-2.test_onchain_devnet.log",
+      "blocker": "test:onchain:devnet failed on devnet",
+      "failureClass": "unknown",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-token",
+      "network": "devnet",
+      "step": "test:onchain:devnet",
+      "status": "blocked",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-token.test_onchain_devnet.log",
+      "blocker": "test:onchain:devnet failed on devnet",
+      "failureClass": "unknown",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-token",
+      "network": "devnet",
+      "step": "client:run:devnet",
+      "status": "pass",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-token.client_run_devnet.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-token-2",
+      "network": "devnet",
+      "step": "test:onchain:devnet",
+      "status": "blocked",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-token-2.test_onchain_devnet.log",
+      "blocker": "test:onchain:devnet failed on devnet",
+      "failureClass": "unknown",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-token-2",
+      "network": "devnet",
+      "step": "client:run:devnet",
+      "status": "blocked",
+      "releaseBlocking": true,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-token-2.client_run_devnet.log",
+      "blocker": "client:run:devnet failed on devnet",
+      "failureClass": "program_id",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
+    },
+    {
+      "project": "5ive-lending",
+      "network": "devnet",
+      "step": "test:onchain:devnet",
+      "status": "blocked",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-lending.test_onchain_devnet.log",
+      "blocker": "test:onchain:devnet failed on devnet",
+      "failureClass": "unknown",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-lending-3",
       "network": "devnet",
       "step": "test:onchain:devnet",
-      "status": "pass"
+      "status": "pass",
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-lending-3.test_onchain_devnet.log",
+      "blocker": "",
+      "failureClass": null,
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     },
     {
       "project": "5ive-lending-4",
       "network": "devnet",
       "step": "test:onchain:devnet",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-token",
-      "network": "devnet",
-      "step": "test:onchain:devnet",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-token",
-      "network": "devnet",
-      "step": "client:run:devnet",
       "status": "blocked",
-      "blocker": "client:run:devnet failed on devnet (inspect logs and funding/program-id/rpc)"
-    },
-    {
-      "project": "5ive-token-2",
-      "network": "devnet",
-      "step": "test:onchain:devnet",
-      "status": "pass"
-    },
-    {
-      "project": "5ive-token-2",
-      "network": "devnet",
-      "step": "client:run:devnet",
-      "status": "pass"
+      "releaseBlocking": false,
+      "logPath": "/Users/ivmidable/Development/five-mono/.reports/devnet/20260228-195523/logs/5ive-lending-4.test_onchain_devnet.log",
+      "blocker": "test:onchain:devnet failed on devnet",
+      "failureClass": "unknown",
+      "signature": null,
+      "metaErr": null,
+      "computeUnits": null
     }
   ]
 }

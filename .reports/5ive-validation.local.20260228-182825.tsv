@@ -1,0 +1,31 @@
+5ive-amm	localnet	build	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-amm.build.log	
+5ive-amm	localnet	test	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-amm.test.log	
+5ive-amm	localnet	test:onchain:local	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-amm.test_onchain_local.log	
+5ive-cfd	localnet	build	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-cfd.build.log	
+5ive-cfd	localnet	test	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-cfd.test.log	
+5ive-cfd	localnet	test:onchain:local	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-cfd.test_onchain_local.log	
+5ive-cfd	localnet	client:run:local	fail	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-cfd.client_run_local.log	client:run:local failed
+5ive-esccrow	localnet	build	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-esccrow.build.log	
+5ive-esccrow	localnet	test	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-esccrow.test.log	
+5ive-esccrow	localnet	test:onchain:local	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-esccrow.test_onchain_local.log	
+5ive-esccrow	localnet	client:run:local	fail	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-esccrow.client_run_local.log	client:run:local failed
+5ive-lending-2	localnet	build	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending-2.build.log	
+5ive-lending-2	localnet	test	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending-2.test.log	
+5ive-lending-2	localnet	test:onchain:local	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending-2.test_onchain_local.log	
+5ive-token	localnet	build	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-token.build.log	
+5ive-token	localnet	test	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-token.test.log	
+5ive-token	localnet	test:onchain:local	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-token.test_onchain_local.log	
+5ive-token	localnet	client:run:local	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-token.client_run_local.log	
+5ive-token-2	localnet	build	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-token-2.build.log	
+5ive-token-2	localnet	test	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-token-2.test.log	
+5ive-token-2	localnet	test:onchain:local	pass	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-token-2.test_onchain_local.log	
+5ive-token-2	localnet	client:run:local	fail	true	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-token-2.client_run_local.log	client:run:local failed
+5ive-lending	localnet	build	pass	false	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending.build.log	
+5ive-lending	localnet	test	pass	false	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending.test.log	
+5ive-lending	localnet	test:onchain:local	pass	false	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending.test_onchain_local.log	
+5ive-lending-3	localnet	build	pass	false	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending-3.build.log	
+5ive-lending-3	localnet	test	pass	false	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending-3.test.log	
+5ive-lending-3	localnet	test:onchain:local	pass	false	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending-3.test_onchain_local.log	
+5ive-lending-4	localnet	build	pass	false	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending-4.build.log	
+5ive-lending-4	localnet	test	pass	false	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending-4.test.log	
+5ive-lending-4	localnet	test:onchain:local	pass	false	/Users/ivmidable/Development/five-mono/.reports/local/20260228-182825/logs/5ive-lending-4.test_onchain_local.log	
