@@ -39,6 +39,11 @@ const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
   0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x76, 0x31,
 ]);
 
+function clampShardCount(rawCount: number): number {
+  const normalized = rawCount > 0 ? rawCount : DEFAULT_FEE_VAULT_SHARD_COUNT;
+  return Math.max(1, Math.min(DEFAULT_FEE_VAULT_SHARD_COUNT, normalized));
+}
+
 async function readVMStateFeeConfig(
   connection: any,
   vmStateAddress: string,
@@ -63,7 +68,7 @@ async function readVMStateFeeConfig(
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
     const deployFeeLamports = view.getUint32(40, true);
     const shardCountRaw = data.length > 50 ? data[50] : 0;
-    const shardCount = shardCountRaw > 0 ? shardCountRaw : DEFAULT_FEE_VAULT_SHARD_COUNT;
+    const shardCount = clampShardCount(shardCountRaw);
     return { deployFeeLamports, shardCount };
   } catch {
     return { shardCount: DEFAULT_FEE_VAULT_SHARD_COUNT };
@@ -97,7 +102,8 @@ async function initProgramFeeVaultShards(
   const { PublicKey, Transaction, TransactionInstruction, SystemProgram } =
     await import("@solana/web3.js");
   const signatures: string[] = [];
-  for (let shardIndex = 0; shardIndex < shardCount; shardIndex++) {
+  const effectiveShardCount = clampShardCount(shardCount);
+  for (let shardIndex = 0; shardIndex < effectiveShardCount; shardIndex++) {
     const vault = await deriveProgramFeeVault(programId, shardIndex);
     const tx = new Transaction().add(
       new TransactionInstruction({

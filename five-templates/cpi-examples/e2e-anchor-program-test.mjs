@@ -38,7 +38,9 @@ const CFG = loadSdkValidatorConfig({
 const RPC_URL = CFG.rpcUrl;
 const PAYER_KEYPAIR_PATH = CFG.keypairPath;
 const FIVE_PROGRAM_ID = new PublicKey(CFG.programId);
-const VM_STATE_PDA = CFG.vmStatePda ? new PublicKey(CFG.vmStatePda) : null;
+const VM_STATE_PDA = CFG.vmStatePda
+    ? new PublicKey(CFG.vmStatePda)
+    : PublicKey.findProgramAddressSync([Buffer.from('vm_state')], FIVE_PROGRAM_ID)[0];
 
 // ============================================================================
 // LOGGING UTILITIES

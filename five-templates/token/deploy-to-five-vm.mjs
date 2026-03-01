@@ -9,9 +9,19 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8899';
-const FIVE_PROGRAM_ID = new PublicKey(process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || 'FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb');
-const VM_STATE_PDA = process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || 'GMQFFG9iy63CyUTq1pbXrAK9AcWYLbtcx5vm6KUT7CDY';
+const RPC_URL = process.env.FIVE_RPC_URL || process.env.RPC_URL || '';
+if (!RPC_URL) {
+  throw new Error('Missing FIVE_RPC_URL (or legacy RPC_URL). Deployment must target an explicit cluster.');
+}
+const FIVE_PROGRAM_ID_RAW = process.env.FIVE_PROGRAM_ID || process.env.FIVE_VM_PROGRAM_ID || '';
+if (!FIVE_PROGRAM_ID_RAW) {
+  throw new Error('Missing FIVE_PROGRAM_ID (or legacy FIVE_VM_PROGRAM_ID). Deployment must target an explicit VM program.');
+}
+const FIVE_PROGRAM_ID = new PublicKey(FIVE_PROGRAM_ID_RAW);
+const VM_STATE_PDA = process.env.VM_STATE_PDA || process.env.FIVE_VM_STATE_PDA || '';
+if (!VM_STATE_PDA) {
+  throw new Error('Missing VM_STATE_PDA (or legacy FIVE_VM_STATE_PDA). Deployment must target an explicit VM state account.');
+}
 const FEE_VAULT_SEED_PREFIX = Buffer.from([0xff, ...Buffer.from('five_vm_fee_vault_v1')]);
 const FEE_VAULT_0 = process.env.FEE_VAULT_ACCOUNT
   ? new PublicKey(process.env.FEE_VAULT_ACCOUNT)
@@ -93,15 +103,10 @@ async function deployProgram() {
     await confirmTx(appendSig, `Chunk ${Math.floor(i / CHUNK_SIZE) + 1} append`);
   }
 
-  const config = {
-    tokenScriptAccount: scriptKeypair.publicKey.toBase58(),
-    fiveProgramId: FIVE_PROGRAM_ID.toBase58(),
-    vmStatePda: vmStatePda.toBase58(),
-    rpcUrl: RPC_URL,
-    timestamp: new Date().toISOString(),
-  };
-  fs.writeFileSync(path.join(__dirname, 'deployment-config.json'), JSON.stringify(config, null, 2));
   console.log(`tokenScriptAccount=${scriptKeypair.publicKey.toBase58()}`);
+  console.log(`fiveProgramId=${FIVE_PROGRAM_ID.toBase58()}`);
+  console.log(`vmStatePda=${vmStatePda.toBase58()}`);
+  console.log(`rpcUrl=${RPC_URL}`);
 }
 
 deployProgram().catch((e) => { console.error(e.message || e); process.exit(1); });

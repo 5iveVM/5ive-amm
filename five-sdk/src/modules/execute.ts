@@ -36,6 +36,11 @@ const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
 const EXECUTE_FEE_HEADER_A = 0xff;
 const EXECUTE_FEE_HEADER_B = 0x53;
 
+function clampShardCount(rawCount: number): number {
+  const normalized = rawCount > 0 ? rawCount : DEFAULT_FEE_VAULT_SHARD_COUNT;
+  return Math.max(1, Math.min(DEFAULT_FEE_VAULT_SHARD_COUNT, normalized));
+}
+
 async function deriveProgramFeeVault(
   programId: string,
   shardIndex: number,
@@ -63,8 +68,7 @@ async function readVMStateShardCount(
     if (!info) return DEFAULT_FEE_VAULT_SHARD_COUNT;
     const data = new Uint8Array(info.data);
     if (data.length <= 50) return DEFAULT_FEE_VAULT_SHARD_COUNT;
-    const shardCount = data[50];
-    return shardCount > 0 ? shardCount : DEFAULT_FEE_VAULT_SHARD_COUNT;
+    return clampShardCount(data[50]);
   } catch {
     return DEFAULT_FEE_VAULT_SHARD_COUNT;
   }

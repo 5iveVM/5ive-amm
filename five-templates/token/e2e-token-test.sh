@@ -49,7 +49,10 @@ VERBOSE=false
 DEPLOY=false
 CLEAN=false
 SKIP_BUILD=false
-RPC_URL="${FIVE_RPC_URL:-http://127.0.0.1:8899}"
+RPC_URL="${FIVE_RPC_URL:-}"
+PROGRAM_ID="${FIVE_PROGRAM_ID:-}"
+VM_STATE_PDA="${VM_STATE_PDA:-}"
+TOKEN_SCRIPT_ACCOUNT="${FIVE_TOKEN_SCRIPT_ACCOUNT:-${TOKEN_SCRIPT_ACCOUNT:-}}"
 SHOW_HELP=false
 
 # Counters & Status
@@ -103,15 +106,19 @@ ${CYAN}Options:${NC}
   --clean               Remove build artifacts and reports
   --skip-build          Skip build step, use existing artifacts
   --verbose, -v         Show detailed output from build and test
-  --rpc-url URL         Custom RPC URL (default: http://127.0.0.1:8899)
+  --rpc-url URL         Explicit RPC URL
+  --program-id PUBKEY   Explicit Five VM program ID
+  --vm-state PUBKEY     Explicit VM state PDA
+  --token-script-account PUBKEY
+                       Explicit deployed token script account
   --help, -h            Show this help message
 
 ${CYAN}Examples:${NC}
-  # Build and test locally (no deployment)
-  $0
+  # Build and test with explicit cluster inputs
+  FIVE_RPC_URL=http://127.0.0.1:8899 FIVE_PROGRAM_ID=<pubkey> VM_STATE_PDA=<pubkey> FIVE_TOKEN_SCRIPT_ACCOUNT=<pubkey> $0
 
   # Build, deploy to localnet, and test
-  $0 --deploy
+  FIVE_RPC_URL=http://127.0.0.1:8899 FIVE_PROGRAM_ID=<pubkey> VM_STATE_PDA=<pubkey> $0 --deploy
 
   # Clean all artifacts
   $0 --clean
@@ -132,7 +139,7 @@ ${CYAN}Requirements:${NC}
   - Solana CLI (solana --version)
   - Five CLI (five --version)
   - Node.js 18+ (node --version)
-  - Running Solana validator (solana-test-validator)
+  - Running target validator at the explicit RPC URL
   - @solana/web3.js installed (npm install)
 
 ${CYAN}Output:${NC}
@@ -159,10 +166,15 @@ check_prerequisites() {
     #     exit 1
     # fi
 
-    export FIVE_RPC_URL="$RPC_URL"
-    if [ -n "${RPC_URL:-}" ] && [ -z "${FIVE_RPC_URL:-}" ]; then
-        print_warning "Using legacy RPC_URL flow; prefer FIVE_RPC_URL"
+    if [ "$CLEAN" = false ] && [ -z "${RPC_URL:-}" ]; then
+        print_error "Missing explicit RPC URL. Set FIVE_RPC_URL or pass --rpc-url."
+        exit 1
     fi
+
+    export FIVE_RPC_URL="$RPC_URL"
+    export FIVE_PROGRAM_ID="$PROGRAM_ID"
+    export VM_STATE_PDA="$VM_STATE_PDA"
+    export FIVE_TOKEN_SCRIPT_ACCOUNT="$TOKEN_SCRIPT_ACCOUNT"
 
     # Check Solana CLI
     print_step "Checking Solana CLI..."
@@ -198,10 +210,10 @@ check_prerequisites() {
         print_step "Checking RPC connection..."
         if solana cluster-version --url "$RPC_URL" &> /dev/null; then
             SLOT=$(solana slot --url "$RPC_URL" || echo "unknown")
-            print_success "Connected to localnet (slot: $SLOT)"
+            print_success "Connected to validator (slot: $SLOT)"
         else
             print_warning "Cannot connect to $RPC_URL"
-            print_warning "Make sure solana-test-validator is running"
+            print_warning "Make sure the target validator is running"
             if [ "$DEPLOY" = true ]; then
                 echo ""
                 print_error "Cannot deploy without a running validator"
@@ -292,6 +304,7 @@ build_template() {
 
 deploy_to_localnet() {
     print_header "Deploying to Localnet"
+    DEPLOY_OUTPUT_FILE="/tmp/deploy_token_out.txt"
 
     if [ ! -f "$COMPILED_FILE" ]; then
         print_error "Compiled file not found: $COMPILED_FILE"
@@ -301,7 +314,7 @@ deploy_to_localnet() {
     print_step "Deploying $COMPILED_FILE..."
 
     if [ "$VERBOSE" = true ]; then
-        if node deploy-to-five-vm.mjs; then
+        if node deploy-to-five-vm.mjs | tee "${DEPLOY_OUTPUT_FILE}"; then
             DEPLOYMENT_SUCCESSFUL=true
             print_success "Deployment successful"
         else
@@ -310,13 +323,24 @@ deploy_to_localnet() {
         fi
     else
         # Capture output but show minimal success
-        if node deploy-to-five-vm.mjs > /tmp/deploy_token_out.json 2>&1; then
+        if node deploy-to-five-vm.mjs > "${DEPLOY_OUTPUT_FILE}" 2>&1; then
             DEPLOYMENT_SUCCESSFUL=true
             print_success "Deployment successful"
-            print_info "Deployment output captured in /tmp/deploy_token_out.json"
+            print_info "Deployment output captured in ${DEPLOY_OUTPUT_FILE}"
         else
             print_error "Deployment failed"
-            cat /tmp/deploy_token_out.json
+            cat "${DEPLOY_OUTPUT_FILE}"
+            exit 1
+        fi
+    fi
+    if [ -f "${DEPLOY_OUTPUT_FILE}" ]; then
+        DEPLOYED_SCRIPT=$(grep -E '^tokenScriptAccount=' "${DEPLOY_OUTPUT_FILE}" | tail -1 | cut -d= -f2- || true)
+        if [ -n "${DEPLOYED_SCRIPT}" ]; then
+            TOKEN_SCRIPT_ACCOUNT="${DEPLOYED_SCRIPT}"
+            export FIVE_TOKEN_SCRIPT_ACCOUNT="${TOKEN_SCRIPT_ACCOUNT}"
+            print_info "Using deployed token script account: ${TOKEN_SCRIPT_ACCOUNT}"
+        else
+            print_error "Deployment completed but did not return tokenScriptAccount"
             exit 1
         fi
     fi
@@ -336,6 +360,9 @@ run_e2e_test() {
 
     print_step "Running: $TEST_SCRIPT"
     print_info "RPC URL: $RPC_URL"
+    print_info "Program ID: $PROGRAM_ID"
+    print_info "VM State: $VM_STATE_PDA"
+    print_info "Token Script: $TOKEN_SCRIPT_ACCOUNT"
     print_separator
 
     if [ "$VERBOSE" = true ]; then
@@ -464,6 +491,18 @@ main() {
                 RPC_URL="$2"
                 shift 2
                 ;;
+            --program-id)
+                PROGRAM_ID="$2"
+                shift 2
+                ;;
+            --vm-state)
+                VM_STATE_PDA="$2"
+                shift 2
+                ;;
+            --token-script-account)
+                TOKEN_SCRIPT_ACCOUNT="$2"
+                shift 2
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -484,7 +523,10 @@ main() {
     echo "  Project Root:   $PROJECT_ROOT"
     echo "  Source:         $SOURCE_FILE"
     echo "  Build Output:   $COMPILED_FILE"
-    echo "  RPC URL:        $RPC_URL"
+    echo "  RPC URL:        ${RPC_URL:-<unset>}"
+    echo "  Program ID:     ${PROGRAM_ID:-<unset>}"
+    echo "  VM State:       ${VM_STATE_PDA:-<unset>}"
+    echo "  Token Script:   ${TOKEN_SCRIPT_ACCOUNT:-<unset>}"
     [ "$VERBOSE" = true ] && echo "  Verbose:        true"
     [ "$DEPLOY" = true ] && echo "  Deploy:         true"
     [ "$SKIP_BUILD" = true ] && echo "  Skip Build:     true"
@@ -510,7 +552,14 @@ main() {
     fi
 
     if [ "$DEPLOY" = true ]; then
+        if [ -z "${PROGRAM_ID:-}" ] || [ -z "${VM_STATE_PDA:-}" ]; then
+            print_error "Deploy requires explicit FIVE_PROGRAM_ID and VM_STATE_PDA (or --program-id/--vm-state)."
+            exit 1
+        fi
         deploy_to_localnet
+    elif [ -z "${TOKEN_SCRIPT_ACCOUNT:-}" ]; then
+        print_error "Test requires explicit FIVE_TOKEN_SCRIPT_ACCOUNT (or --token-script-account) when not deploying."
+        exit 1
     fi
 
     run_e2e_test

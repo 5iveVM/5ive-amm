@@ -18,6 +18,13 @@ Canonical mainnet dry-run command:
 ./scripts/mvp-release-gate.sh --cluster mainnet
 ```
 
+Canonical end-user confidence commands:
+
+```bash
+./scripts/run-user-journey-suites.sh --network localnet --program-id <local-program-id> --vm-state <local-vm-state> --token-script-account <local-token-script-account> --amm-script-account <local-amm-script-account> --lending-script-account <local-lending-script-account> --lending-oracle-script-account <local-lending-oracle-script-account>
+./scripts/run-user-journey-suites.sh --network devnet --program-id <devnet-program-id> --token-script-account <devnet-token-script-account> --amm-script-account <devnet-amm-script-account> --lending-script-account <devnet-lending-script-account> --lending-oracle-script-account <devnet-lending-oracle-script-account>
+```
+
 Optional strict prebuilt-artifact mode (fail instead of auto-build):
 
 ```bash
@@ -54,6 +61,24 @@ Optional strict prebuilt-artifact mode (fail instead of auto-build):
 - `target/mvp-gate/report.json`
 - `target/mvp-gate/report.md`
 
+8. End-user confidence journey suites pass on localnet and devnet:
+- `./scripts/run-user-journey-suites.sh --network localnet --program-id <local-program-id> --vm-state <local-vm-state> --token-script-account <local-token-script-account> --amm-script-account <local-amm-script-account> --lending-script-account <local-lending-script-account> --lending-oracle-script-account <local-lending-oracle-script-account>`
+- `./scripts/run-user-journey-suites.sh --network devnet --program-id <devnet-program-id> --token-script-account <devnet-token-script-account> --amm-script-account <devnet-amm-script-account> --lending-script-account <devnet-lending-script-account> --lending-oracle-script-account <devnet-lending-oracle-script-account>`
+- All eleven blocking scenarios must pass:
+  - `wallet_onboarding`
+  - `token_lifecycle_two_users`
+  - `failure_recovery`
+  - `resume_existing_state`
+  - `duplicate_submit_safety`
+  - `amm_pool_onboarding`
+  - `amm_two_user_swap_lifecycle`
+  - `amm_failure_recovery`
+  - `lending_market_onboarding`
+  - `lending_borrow_repay_lifecycle`
+  - `lending_failure_recovery`
+- All script accounts are cluster-specific and must be passed explicitly.
+- No deployment-config fallback is allowed; missing any required script account is release-blocking.
+
 ## Preflight Parity Check
 
 Before running the full gate, verify artifacts/constants parity:
@@ -75,9 +100,15 @@ The two program IDs must match. The gate now auto-repairs this drift unless `--n
 1. Attach a fresh localnet report from `./scripts/mvp-release-gate.sh --cluster localnet`.
 2. Attach a fresh devnet report from `./scripts/mvp-release-gate.sh --cluster devnet`.
 3. Attach a fresh mainnet dry-run report from `./scripts/mvp-release-gate.sh --cluster mainnet`.
-4. Confirm each report `overall_status` is `pass`.
-5. For mainnet, confirm the E2E stage notes that smoke was intentionally skipped.
-6. Record cluster used (`localnet`, `devnet`, or `mainnet`) in release notes.
+4. Run SDK validator suites with explicit token script accounts whenever `token_full_e2e` is included:
+- `./scripts/run-sdk-validator-suites.sh --network localnet --program-id <local-program-id> --vm-state <local-vm-state> --token-script-account <local-token-script-account>`
+- `./scripts/run-sdk-validator-suites.sh --network devnet --program-id <devnet-program-id> --token-script-account <devnet-token-script-account>`
+5. Attach a fresh localnet user-journey report from `target/user-journey-runs/<timestamp>/user-journey-report.json`.
+6. Attach a fresh devnet user-journey report from `target/user-journey-runs/<timestamp>/user-journey-report.json`.
+7. Confirm each engineering gate report `overall_status` is `pass`.
+8. Confirm each user-journey report has `allGreen: true` and `PASS: 11`.
+9. For mainnet, confirm the E2E stage notes that smoke was intentionally skipped.
+10. Record cluster used (`localnet`, `devnet`, or `mainnet`) in release notes.
 
 ## Mainnet-Specific Prerequisite
 

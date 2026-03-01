@@ -1,41 +1,36 @@
 #!/usr/bin/env node
 
 import { Connection, PublicKey } from '@solana/web3.js';
-import * as fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const RPC_URL = process.env.FIVE_RPC_URL || '';
+const PROGRAM_ID_RAW = process.env.FIVE_PROGRAM_ID || '';
+const VM_STATE_PDA_RAW = process.env.VM_STATE_PDA || '';
+const TOKEN_SCRIPT_ACCOUNT_RAW = process.env.FIVE_TOKEN_SCRIPT_ACCOUNT || process.env.TOKEN_SCRIPT_ACCOUNT || '';
 
-const RPC_URL = 'http://127.0.0.1:8899';
+if (!RPC_URL || !PROGRAM_ID_RAW || !VM_STATE_PDA_RAW || !TOKEN_SCRIPT_ACCOUNT_RAW) {
+    console.error('❌ Missing explicit configuration.');
+    console.error('   Required env vars: FIVE_RPC_URL, FIVE_PROGRAM_ID, VM_STATE_PDA, FIVE_TOKEN_SCRIPT_ACCOUNT');
+    process.exit(1);
+}
 
 async function debugOwnership() {
     const connection = new Connection(RPC_URL, 'confirmed');
+    const PROGRAM_ID = new PublicKey(PROGRAM_ID_RAW);
+    const VM_STATE_PDA = new PublicKey(VM_STATE_PDA_RAW);
+    const TOKEN_SCRIPT_ACCOUNT = new PublicKey(TOKEN_SCRIPT_ACCOUNT_RAW);
 
     console.log('\n═══════════════════════════════════════════════════════════');
     console.log('Debug: Account Ownership Analysis');
     console.log('═══════════════════════════════════════════════════════════\n');
 
-    // Load deployment config
-    const configPath = path.join(__dirname, 'deployment-config.json');
-    if (!fs.existsSync(configPath)) {
-        console.error('❌ deployment-config.json not found');
-        console.error('   Please run: npm run deploy');
-        process.exit(1);
-    }
-
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    const PROGRAM_ID = new PublicKey(config.fiveProgramId);
-
     console.log('Checking account ownership...\n');
 
     // Check script account
-    const scriptAccount = await connection.getAccountInfo(
-        new PublicKey(config.tokenScriptAccount)
-    );
+    const scriptAccount = await connection.getAccountInfo(TOKEN_SCRIPT_ACCOUNT);
 
-    console.log(`Script Account: ${config.tokenScriptAccount}`);
+    console.log(`RPC URL: ${RPC_URL}`);
+    console.log(`Program ID: ${PROGRAM_ID.toBase58()}`);
+    console.log(`Script Account: ${TOKEN_SCRIPT_ACCOUNT.toBase58()}`);
     if (!scriptAccount) {
         console.log(`  ❌ NOT FOUND on-chain!`);
     } else {
@@ -46,11 +41,9 @@ async function debugOwnership() {
     console.log();
 
     // Check VM state PDA
-    const vmState = await connection.getAccountInfo(
-        new PublicKey(config.vmStatePda)
-    );
+    const vmState = await connection.getAccountInfo(VM_STATE_PDA);
 
-    console.log(`VM State PDA: ${config.vmStatePda}`);
+    console.log(`VM State PDA: ${VM_STATE_PDA.toBase58()}`);
     if (!vmState) {
         console.log(`  ❌ NOT FOUND on-chain!`);
     } else {
@@ -70,8 +63,7 @@ async function debugOwnership() {
     } else if (!scriptAccount.owner.equals(PROGRAM_ID)) {
         console.error('❌ ISSUE FOUND: Script account is not owned by Five VM program!');
         console.error('   This causes "Provided owner is not allowed" / "IllegalOwner" error\n');
-        console.error('   FIX: Redeploy script account with correct owner:\n');
-        console.error('   npm run deploy\n');
+        console.error('   FIX: Redeploy the script against this explicit cluster/program, then rerun with the new script account.\n');
         hasIssues = true;
     }
 

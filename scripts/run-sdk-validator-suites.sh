@@ -6,12 +6,13 @@ NETWORK="localnet"
 PROGRAM_ID="${FIVE_PROGRAM_ID:-}"
 VM_STATE="${VM_STATE_PDA:-}"
 KEYPAIR_PATH="${FIVE_KEYPAIR_PATH:-${HOME}/.config/solana/id.json}"
+TOKEN_SCRIPT_ACCOUNT="${FIVE_TOKEN_SCRIPT_ACCOUNT:-${TOKEN_SCRIPT_ACCOUNT:-}}"
 SCENARIOS="${FIVE_SCENARIOS:-token_full_e2e,cpi_spl_mint,cpi_pda_invoke,cpi_anchor_program,cpi_integration}"
 RESULTS_DIR=""
 
 usage() {
   cat <<USAGE
-Usage: $0 [--network localnet|devnet] [--program-id <pubkey>] [--vm-state <pubkey>] [--keypair <path>] [--scenarios csv] [--results-dir path]
+Usage: $0 [--network localnet|devnet] [--program-id <pubkey>] [--vm-state <pubkey>] [--keypair <path>] [--token-script-account <pubkey>] [--scenarios csv] [--results-dir path]
 USAGE
 }
 
@@ -21,6 +22,7 @@ while [[ $# -gt 0 ]]; do
     --program-id) PROGRAM_ID="${2:-}"; shift 2 ;;
     --vm-state) VM_STATE="${2:-}"; shift 2 ;;
     --keypair) KEYPAIR_PATH="${2:-}"; shift 2 ;;
+    --token-script-account) TOKEN_SCRIPT_ACCOUNT="${2:-}"; shift 2 ;;
     --scenarios) SCENARIOS="${2:-}"; shift 2 ;;
     --results-dir) RESULTS_DIR="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
@@ -43,6 +45,11 @@ if [[ ! -f "${KEYPAIR_PATH}" ]]; then
   exit 1
 fi
 
+if [[ ",${SCENARIOS}," == *",token_full_e2e,"* && -z "${TOKEN_SCRIPT_ACCOUNT}" ]]; then
+  echo "Missing --token-script-account (or FIVE_TOKEN_SCRIPT_ACCOUNT) for token_full_e2e." >&2
+  exit 1
+fi
+
 TS="$(date +%Y%m%d-%H%M%S)"
 if [[ -z "${RESULTS_DIR}" ]]; then
   RESULTS_DIR="${ROOT_DIR}/target/sdk-validator-runs/${TS}"
@@ -54,6 +61,7 @@ export FIVE_NETWORK="${NETWORK}"
 export FIVE_PROGRAM_ID="${PROGRAM_ID}"
 export VM_STATE_PDA="${VM_STATE}"
 export FIVE_KEYPAIR_PATH="${KEYPAIR_PATH}"
+export FIVE_TOKEN_SCRIPT_ACCOUNT="${TOKEN_SCRIPT_ACCOUNT}"
 if [[ "${NETWORK}" == "devnet" ]]; then
   export FIVE_RPC_URL="https://api.devnet.solana.com"
 else

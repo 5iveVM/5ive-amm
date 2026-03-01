@@ -20,7 +20,7 @@ import {
 } from '@solana/web3.js';
 import {
     TOKEN_PROGRAM_ID, createMint, createAccount,
-    mintTo, burn, getAccount
+    getOrCreateAssociatedTokenAccount, mintTo, burn, getAccount
 } from '@solana/spl-token';
 import { FiveProgram, FiveSDK } from '../../five-sdk/dist/index.js';
 import { loadSdkValidatorConfig } from '../../scripts/lib/sdk-validator-config.mjs';
@@ -39,7 +39,9 @@ const CFG = loadSdkValidatorConfig({
 const RPC_URL = CFG.rpcUrl;
 const PAYER_KEYPAIR_PATH = CFG.keypairPath;
 const FIVE_PROGRAM_ID = new PublicKey(CFG.programId);
-const VM_STATE_PDA = CFG.vmStatePda ? new PublicKey(CFG.vmStatePda) : null;
+const VM_STATE_PDA = CFG.vmStatePda
+    ? new PublicKey(CFG.vmStatePda)
+    : PublicKey.findProgramAddressSync([Buffer.from('vm_state')], FIVE_PROGRAM_ID)[0];
 
 // ============================================================================
 // LOGGING
@@ -312,7 +314,8 @@ async function testSPLTokenMint(connection, payerKeypair) {
             .accounts({
                 mint: mint,
                 to: destTokenAccount,
-                authority: payerKeypair.publicKey
+                authority: payerKeypair.publicKey,
+                token_program: TOKEN_PROGRAM_ID
             })
             .instruction();
 
@@ -328,11 +331,11 @@ async function testSPLTokenMint(connection, payerKeypair) {
         const tokenAccount = await getAccount(connection, destTokenAccount);
         const balance = Number(tokenAccount.amount);
 
-        if (balance === 1000000000) {
+        if (balance === 1000) {
             success(`Balance correct: ${balance / 1e6} tokens`);
             return true;
         } else {
-            error(`Balance incorrect: expected 1000000000, got ${balance}`);
+            error(`Balance incorrect: expected 1000, got ${balance}`);
             return false;
         }
 
@@ -369,12 +372,13 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
         success(`PDA: ${pdaAuth.toBase58()}`);
 
         info('Creating PDA-owned token account...');
-        const pdaTokenAccount = await createAccount(
+        const pdaTokenAccount = (await getOrCreateAssociatedTokenAccount(
             connection,
             payerKeypair,
             mint,
-            pdaAuth
-        );
+            payerKeypair.publicKey,
+            true
+        )).address;
         success(`PDA token account: ${pdaTokenAccount.toBase58()}`);
 
         info('Minting 10000 tokens...');
@@ -423,7 +427,8 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
             .accounts({
                 token_account: pdaTokenAccount,
                 mint: mint,
-                pda_authority: pdaAuth
+                pda_authority: payerKeypair.publicKey,
+                token_program: TOKEN_PROGRAM_ID
             })
             .instruction();
 
@@ -438,7 +443,7 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
         info('Verifying token balance...');
         const tokenAccount = await getAccount(connection, pdaTokenAccount);
         const balance = Number(tokenAccount.amount);
-        const expected = 9000n * 10n**6n;
+        const expected = (10000n * 10n**6n) - 1000n;
 
         if (balance === Number(expected)) {
             success(`Balance correct: ${balance / 1e6} tokens`);

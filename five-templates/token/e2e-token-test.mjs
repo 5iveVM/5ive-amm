@@ -41,8 +41,17 @@ const CFG = loadSdkValidatorConfig({
 let RPC_URL = CFG.rpcUrl;
 const PAYER_KEYPAIR_PATH = CFG.keypairPath;
 let FIVE_PROGRAM_ID = new PublicKey(CFG.programId);
-let VM_STATE_PDA = CFG.vmStatePda ? new PublicKey(CFG.vmStatePda) : null;
-let TOKEN_SCRIPT_ACCOUNT = new PublicKey(process.env.TOKEN_SCRIPT_ACCOUNT || process.env.SCRIPT_ACCOUNT || 'GvB7xAifdP5uBkSuDReuqQo3UoyMBPnNb45VD7CobrbZ');
+let VM_STATE_PDA = CFG.vmStatePda
+    ? new PublicKey(CFG.vmStatePda)
+    : PublicKey.findProgramAddressSync([Buffer.from('vm_state')], FIVE_PROGRAM_ID)[0];
+const TOKEN_SCRIPT_ACCOUNT_RAW = process.env.FIVE_TOKEN_SCRIPT_ACCOUNT || process.env.TOKEN_SCRIPT_ACCOUNT || process.env.SCRIPT_ACCOUNT || '';
+if (!TOKEN_SCRIPT_ACCOUNT_RAW) {
+    throw new Error(
+        'Missing FIVE_TOKEN_SCRIPT_ACCOUNT (or TOKEN_SCRIPT_ACCOUNT). ' +
+        'Token E2E no longer auto-loads deployment-config.json because hidden network fallbacks are disabled.'
+    );
+}
+let TOKEN_SCRIPT_ACCOUNT = new PublicKey(TOKEN_SCRIPT_ACCOUNT_RAW);
 const FEE_VAULT_SEED_PREFIX = Buffer.from([0xff, ...Buffer.from('five_vm_fee_vault_v1')]);
 const FEE_VAULT_ACCOUNT = process.env.FEE_VAULT_ACCOUNT
     ? new PublicKey(process.env.FEE_VAULT_ACCOUNT)
@@ -60,20 +69,6 @@ const warn = (msg) => console.log(`⚠️  ${msg}`);
 const header = (msg) => console.log(`\n${'='.repeat(80)}\n${msg}\n${'='.repeat(80)}`);
 const subheader = (msg) => console.log(`\n── ${msg}`);
 
-// Load config overrides if present
-const deploymentConfigPath = path.join(__dirname, 'deployment-config.json');
-if (fs.existsSync(deploymentConfigPath)) {
-    try {
-        const deploymentConfig = JSON.parse(fs.readFileSync(deploymentConfigPath, 'utf-8'));
-        if (deploymentConfig.rpcUrl) RPC_URL = deploymentConfig.rpcUrl;
-        if (deploymentConfig.fiveProgramId) FIVE_PROGRAM_ID = new PublicKey(deploymentConfig.fiveProgramId);
-        if (deploymentConfig.vmStatePda) VM_STATE_PDA = new PublicKey(deploymentConfig.vmStatePda);
-        if (deploymentConfig.tokenScriptAccount) TOKEN_SCRIPT_ACCOUNT = new PublicKey(deploymentConfig.tokenScriptAccount);
-        info('Loaded deployment-config.json overrides');
-    } catch (e) {
-        warn(`Failed to load deployment-config.json: ${e.message}`);
-    }
-}
 if (process.env.RPC_URL && !process.env.FIVE_RPC_URL) warn('Deprecated env RPC_URL detected; prefer FIVE_RPC_URL');
 
 // ============================================================================
@@ -358,7 +353,7 @@ async function assertDeploymentOwnership(connection) {
                 `${check.label} owner mismatch for ${check.pubkey.toBase58()}\n` +
                 `Expected owner: ${FIVE_PROGRAM_ID.toBase58()}\n` +
                 `Actual owner:   ${accountInfo.owner.toBase58()}\n` +
-                `Redeploy with deploy-to-five-vm.mjs and ensure deployment-config.json is current.`
+                `Redeploy with deploy-to-five-vm.mjs and pass the returned tokenScriptAccount explicitly.`
             );
         }
 
