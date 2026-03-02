@@ -141,6 +141,30 @@ fn test_local_base_four_level_nesting() {
 }
 
 #[test]
+fn test_caller_parameters_are_restored_after_internal_call() {
+    let result = run_script(|script| {
+        script
+            .public_function("main", |f| {
+                f.push_u64(99)
+                    .call("callee", 1)
+                    .load_param(1)
+                    .return_value();
+            })
+            .unwrap();
+        script
+            .private_function("callee", |f| {
+                f.push_u64(7)
+                    .emit(SET_LOCAL)
+                    .emit(0)
+                    .ret();
+            })
+            .unwrap();
+    });
+
+    assert_eq!(result, Some(Value::U64(99)));
+}
+
+#[test]
 fn test_parameter_window_isolation() {
     let result = run_script(|script| {
         script

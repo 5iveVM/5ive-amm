@@ -1000,6 +1000,8 @@ fn prepare_callee_frame(
 ) -> CompactResult<()> {
     let current_local_count = ctx.local_count();
     let current_local_base = ctx.local_base();
+    let mut saved_parameters = [ValueRef::Empty; MAX_PARAMETERS + 1];
+    saved_parameters.copy_from_slice(ctx.parameters());
 
     let new_local_base = current_local_base
         .checked_add(current_local_count)
@@ -1015,6 +1017,7 @@ fn prepare_callee_frame(
         current_local_base,
         caller_start,
         caller_len,
+        saved_parameters,
         context_id,
         remap,
         script_ptr,

@@ -28,6 +28,7 @@ pub struct CallFrame {
     pub local_base: u8,  // Base offset for this frame's locals in shared array
     pub param_start: u8, // Start index of caller parameters in shared array
     pub param_len: u8,   // Length of caller parameter slice
+    pub saved_parameters: [ValueRef; MAX_PARAMETERS + 1], // Full caller parameter values
     pub bytecode_context: u8, // Context identifier: u8::MAX = Root, otherwise account index
     pub account_remap: [u8; MAX_PARAMETERS + 1], // External-call account remap snapshot
     pub caller_script_ptr: usize, // Raw pointer to caller bytecode slice for fast restore on RETURN
@@ -130,6 +131,7 @@ impl CallFrame {
             local_base,
             param_start: 0,
             param_len: 0,
+            saved_parameters: [ValueRef::Empty; MAX_PARAMETERS + 1],
             bytecode_context,
             account_remap: [u8::MAX; MAX_PARAMETERS + 1],
             caller_script_ptr: 0,
@@ -144,6 +146,7 @@ impl CallFrame {
         local_base: u8,
         param_start: u8,
         param_len: u8,
+        saved_parameters: [ValueRef; MAX_PARAMETERS + 1],
         bytecode_context: u8,
         account_remap: [u8; MAX_PARAMETERS + 1],
         caller_script_ptr: usize,
@@ -155,6 +158,7 @@ impl CallFrame {
             local_base,
             param_start,
             param_len,
+            saved_parameters,
             bytecode_context,
             account_remap,
             caller_script_ptr,

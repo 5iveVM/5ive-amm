@@ -26,6 +26,9 @@ const MAX_CPI_ACCOUNTS: usize = 16;
 const MAX_SIGNER_GROUPS: usize = 4;
 const MAX_SIGNER_SEEDS: usize = 8;
 const MAX_SIGNER_SEED_LEN: usize = 32;
+const MAX_CPI_SERIALIZE_DEPTH: u8 = 8;
+const ACCOUNT_REF_ERR: u8 = 254;
+const ACCOUNT_REF_NONE: u8 = 255;
 const GROUPED_SIGNER_WORKSPACE_CAPACITY: usize =
     1 + MAX_SIGNER_GROUPS * (1 + MAX_SIGNER_SEEDS * (1 + MAX_SIGNER_SEED_LEN));
 
@@ -430,7 +433,22 @@ fn append_serialized_value(
     out: &mut [u8; MAX_CPI_DATA_LEN],
     write_offset: &mut usize,
 ) -> CompactResult<()> {
+    append_serialized_value_with_depth(ctx, value_ref, out, write_offset, 0)
+}
+
+fn append_serialized_value_with_depth(
+    ctx: &ExecutionManager,
+    value_ref: ValueRef,
+    out: &mut [u8; MAX_CPI_DATA_LEN],
+    write_offset: &mut usize,
+    depth: u8,
+) -> CompactResult<()> {
+    if depth > MAX_CPI_SERIALIZE_DEPTH {
+        return Err(VMErrorCode::StackOverflow);
+    }
+
     match value_ref {
+        ValueRef::Empty => {}
         ValueRef::U8(byte) => {
             if *write_offset + 1 > out.len() {
                 return Err(VMErrorCode::InvalidOperation);
@@ -460,6 +478,16 @@ fn append_serialized_value(
             *write_offset += 8;
         }
         ValueRef::U128(_) => return Err(VMErrorCode::TypeMismatch),
+        ValueRef::InputRef(offset) => {
+            let start = offset as usize;
+            let end = start.saturating_add(8);
+            let data = ctx.instruction_data();
+            if end > data.len() || *write_offset + 8 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + 8].copy_from_slice(&data[start..end]);
+            *write_offset += 8;
+        }
         ValueRef::PubkeyRef(_) => {
             let bytes = ctx.extract_pubkey(&value_ref)?;
             if *write_offset + bytes.len() > out.len() {
@@ -469,7 +497,27 @@ fn append_serialized_value(
             *write_offset += bytes.len();
         }
         ValueRef::AccountRef(account_idx, account_offset) => {
+            if account_idx == 0 && account_offset != 0 {
+                let nested = ctx
+                    .read_value_from_temp(account_offset)
+                    .map_err(|_| VMErrorCode::ProtocolError)?;
+                return append_serialized_value_with_depth(
+                    ctx,
+                    nested,
+                    out,
+                    write_offset,
+                    depth + 1,
+                );
+            }
+            if account_idx == ACCOUNT_REF_ERR || account_idx == ACCOUNT_REF_NONE {
+                return Ok(());
+            }
             if account_offset != 0 {
+                error_log!(
+                    "MitoVM: append_serialized_value rejected AccountRef({}, {})",
+                    account_idx as u32,
+                    account_offset as u32
+                );
                 return Err(VMErrorCode::TypeMismatch);
             }
             let account = ctx
@@ -502,10 +550,106 @@ fn append_serialized_value(
             out[*write_offset..*write_offset + len].copy_from_slice(bytes);
             *write_offset += len;
         }
+        ValueRef::TupleRef(offset, size) => {
+            return append_serialized_temp_range(
+                ctx,
+                offset as usize,
+                size as usize,
+                out,
+                write_offset,
+                depth + 1,
+            );
+        }
+        ValueRef::OptionalRef(offset, size) => {
+            return append_serialized_optional_like(
+                ctx,
+                offset as usize,
+                size as usize,
+                true,
+                out,
+                write_offset,
+                depth + 1,
+            );
+        }
+        ValueRef::ResultRef(offset, size) => {
+            return append_serialized_optional_like(
+                ctx,
+                offset as usize,
+                size as usize,
+                false,
+                out,
+                write_offset,
+                depth + 1,
+            );
+        }
         _ => return Err(VMErrorCode::TypeMismatch),
     }
 
     Ok(())
+}
+
+fn append_serialized_temp_range(
+    ctx: &ExecutionManager,
+    start: usize,
+    size: usize,
+    out: &mut [u8; MAX_CPI_DATA_LEN],
+    write_offset: &mut usize,
+    depth: u8,
+) -> CompactResult<()> {
+    let end = start.saturating_add(size);
+    let temp = ctx.temp_buffer();
+    if end > temp.len() {
+        return Err(VMErrorCode::MemoryViolation);
+    }
+    let mut cursor = start;
+    while cursor < end {
+        let value_ref = ValueRef::deserialize_from(&temp[cursor..end]).map_err(|_| {
+            error_log!(
+                "MitoVM: append_serialized_temp_range failed to deserialize at {}",
+                cursor as u32
+            );
+            VMErrorCode::TypeMismatch
+        })?;
+        append_serialized_value_with_depth(ctx, value_ref, out, write_offset, depth)?;
+        cursor += value_ref.serialized_size();
+    }
+    Ok(())
+}
+
+fn append_serialized_optional_like(
+    ctx: &ExecutionManager,
+    start: usize,
+    size: usize,
+    is_optional: bool,
+    out: &mut [u8; MAX_CPI_DATA_LEN],
+    write_offset: &mut usize,
+    depth: u8,
+) -> CompactResult<()> {
+    let end = start.saturating_add(size);
+    let temp = ctx.temp_buffer();
+    if end > temp.len() || size == 0 {
+        return Err(VMErrorCode::MemoryViolation);
+    }
+
+    let tag = temp[start];
+    if tag == 0 {
+        return Ok(());
+    }
+    if size <= 1 {
+        if is_optional {
+            return Err(VMErrorCode::ProtocolError);
+        }
+        return Ok(());
+    }
+
+    let nested = ValueRef::deserialize_from(&temp[start + 1..end]).map_err(|_| {
+        error_log!(
+            "MitoVM: append_serialized_optional_like failed to deserialize at {}",
+            (start + 1) as u32
+        );
+        VMErrorCode::TypeMismatch
+    })?;
+    append_serialized_value_with_depth(ctx, nested, out, write_offset, depth)
 }
 
 fn materialize_instruction_data(
@@ -577,14 +721,43 @@ fn materialize_instruction_data(
                 }
 
                 let value_ref = ValueRef::deserialize_from(&temp[offset..])
-                    .map_err(|_| VMErrorCode::TypeMismatch)?;
+                    .map_err(|_| {
+                        error_log!(
+                            "MitoVM: INVOKE failed to deserialize array element at offset {}",
+                            offset as u32
+                        );
+                        VMErrorCode::TypeMismatch
+                    })?;
                 append_serialized_value(ctx, value_ref, instruction_data_owned, &mut write_offset)?;
                 offset += value_ref.serialized_size();
             }
 
             Ok(write_offset)
         }
-        _ => Err(VMErrorCode::TypeMismatch),
+        other => {
+            error_log!(
+                "MitoVM: INVOKE unsupported instruction data value kind {}",
+                value_ref_kind(&other)
+            );
+            Err(VMErrorCode::TypeMismatch)
+        }
+    }
+}
+
+fn value_ref_kind(value_ref: &ValueRef) -> u32 {
+    match value_ref {
+        ValueRef::U8(_) => 1,
+        ValueRef::U64(_) => 2,
+        ValueRef::I64(_) => 3,
+        ValueRef::Bool(_) => 4,
+        ValueRef::TempRef(_, _) => 5,
+        ValueRef::StringRef(_) => 6,
+        ValueRef::HeapString(_) => 7,
+        ValueRef::ArrayRef(_) => 8,
+        ValueRef::PubkeyRef(_) => 9,
+        ValueRef::AccountRef(_, _) => 10,
+        ValueRef::U128(_) => 11,
+        _ => 255,
     }
 }
 
@@ -940,7 +1113,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 
 #[cfg(test)]
 mod tests {
-    use super::handle_invoke_ops;
+    use super::{handle_invoke_ops, materialize_instruction_data, MAX_CPI_DATA_LEN};
     use crate::{context::ExecutionContext, stack::StackStorage};
     use five_protocol::{opcodes::INVOKE_SIGNED, ValueRef};
     use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
@@ -1194,5 +1367,53 @@ mod tests {
 
         let result = handle_invoke_ops(INVOKE_SIGNED, &mut ctx);
         assert_eq!(result, Err(crate::error::VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn materialize_instruction_data_flattens_optional_array_elements() {
+        let program_id = Pubkey::from([98u8; 32]);
+        let mut lamports = 1;
+        let mut account_data = [];
+        let account = create_account_info(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        let optional_offset = 64usize;
+        ctx.temp_buffer_mut()[optional_offset] = 1;
+        let inner = ValueRef::U64(42);
+        let inner_size = inner
+            .serialize_into(&mut ctx.temp_buffer_mut()[optional_offset + 1..])
+            .expect("serialize inner value");
+        let optional = ValueRef::OptionalRef(optional_offset as u8, (1 + inner_size) as u8);
+        let data_ref = store_array(&mut ctx, 0, &[optional]);
+
+        let mut instruction_data = [0u8; MAX_CPI_DATA_LEN];
+        let len = materialize_instruction_data(&ctx, data_ref, &mut instruction_data)
+            .expect("materialize instruction data");
+
+        assert_eq!(len, 8);
+        assert_eq!(&instruction_data[..8], &42u64.to_le_bytes());
     }
 }

@@ -33,10 +33,15 @@
 use crate::{
     context::ExecutionManager,
     debug_log,
+    error_log,
     error::{CompactResult, VMErrorCode},
     utils::ValueRefUtils,
 };
 use five_protocol::{opcodes::*, ValueRef};
+
+const MAX_RAW_BYTES_DEPTH: u8 = 8;
+const ACCOUNT_REF_ERR: u8 = 254;
+const ACCOUNT_REF_NONE: u8 = 255;
 
 /// Handle unified array and string operations (0x60-0x6F range)
 /// 🎯 LOGICAL REORGANIZATION: All array and string operations consolidated
@@ -70,7 +75,23 @@ fn extract_raw_bytes<'a>(
     value_ref: &ValueRef,
 ) -> CompactResult<(usize, [u8; 256])> {
     let mut out = [0u8; 256];
+    let len = append_raw_bytes_with_depth(ctx, value_ref, &mut out, 0)?;
+    Ok((len, out))
+}
+
+fn append_raw_bytes_with_depth(
+    ctx: &mut ExecutionManager,
+    value_ref: &ValueRef,
+    out: &mut [u8],
+    depth: u8,
+) -> CompactResult<usize> {
+    if depth > MAX_RAW_BYTES_DEPTH {
+        error_log!("MitoVM: extract_raw_bytes exceeded max recursion depth");
+        return Err(VMErrorCode::TypeMismatch);
+    }
+
     match value_ref {
+        ValueRef::Empty => Ok(0),
         ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
             let (len, bytes) = ctx.extract_string_slice(value_ref)?;
             let len = len as usize;
@@ -78,7 +99,7 @@ fn extract_raw_bytes<'a>(
                 return Err(VMErrorCode::OutOfMemory);
             }
             out[..len].copy_from_slice(bytes);
-            Ok((len, out))
+            Ok(len)
         }
         ValueRef::TempRef(offset, len) => {
             let start = *offset as usize;
@@ -89,31 +110,55 @@ fn extract_raw_bytes<'a>(
                 return Err(VMErrorCode::MemoryViolation);
             }
             out[..len].copy_from_slice(&temp[start..end]);
-            Ok((len, out))
+            Ok(len)
+        }
+        ValueRef::InputRef(offset) => {
+            let start = *offset as usize;
+            let end = start.saturating_add(8);
+            let instruction_data = ctx.instruction_data();
+            if end > instruction_data.len() || end > out.len() {
+                return Err(VMErrorCode::MemoryViolation);
+            }
+            out[..8].copy_from_slice(&instruction_data[start..end]);
+            Ok(8)
         }
         ValueRef::U8(byte) => {
             out[0] = *byte;
-            Ok((1, out))
+            Ok(1)
         }
         ValueRef::Bool(flag) => {
             out[0] = u8::from(*flag);
-            Ok((1, out))
+            Ok(1)
         }
         ValueRef::U64(word) => {
             out[..8].copy_from_slice(&word.to_le_bytes());
-            Ok((8, out))
+            Ok(8)
         }
         ValueRef::I64(word) => {
             out[..8].copy_from_slice(&word.to_le_bytes());
-            Ok((8, out))
+            Ok(8)
         }
         ValueRef::PubkeyRef(_) => {
             let bytes = ctx.extract_pubkey(value_ref)?;
             out[..bytes.len()].copy_from_slice(&bytes);
-            Ok((bytes.len(), out))
+            Ok(bytes.len())
         }
         ValueRef::AccountRef(account_idx, account_offset) => {
+            if *account_idx == ACCOUNT_REF_ERR || *account_idx == ACCOUNT_REF_NONE {
+                return Ok(0);
+            }
+
+            if *account_idx == 0 && *account_offset != 0 {
+                let nested = ctx.read_value_from_temp(*account_offset)?;
+                return append_raw_bytes_with_depth(ctx, &nested, out, depth + 1);
+            }
+
             if *account_offset != 0 {
+                error_log!(
+                    "MitoVM: extract_raw_bytes rejected AccountRef({}, {}) with non-zero offset",
+                    *account_idx as u32,
+                    *account_offset as u32
+                );
                 return Err(VMErrorCode::TypeMismatch);
             }
             let account = ctx
@@ -122,17 +167,50 @@ fn extract_raw_bytes<'a>(
                 .ok_or(VMErrorCode::InvalidAccountIndex)?;
             let bytes = account.key().as_ref();
             out[..bytes.len()].copy_from_slice(bytes);
-            Ok((bytes.len(), out))
+            Ok(bytes.len())
+        }
+        ValueRef::TupleRef(offset, len) => {
+            append_raw_temp_range(ctx, *offset as usize, *len as usize, out, depth + 1)
+        }
+        ValueRef::OptionalRef(offset, len) => append_raw_optional_like(
+            ctx,
+            *offset as usize,
+            *len as usize,
+            out,
+            depth + 1,
+            true,
+        ),
+        ValueRef::ResultRef(offset, len) => append_raw_optional_like(
+            ctx,
+            *offset as usize,
+            *len as usize,
+            out,
+            depth + 1,
+            false,
+        ),
+        ValueRef::HeapArray(heap_id) => {
+            let len_bytes = ctx.get_heap_data(*heap_id, 4)?;
+            let payload_len = u32::from_le_bytes(
+                len_bytes
+                    .try_into()
+                    .map_err(|_| VMErrorCode::MemoryViolation)?,
+            ) as usize;
+            let payload = ctx.get_heap_data(*heap_id + 4, payload_len as u32)?;
+            if payload.len() > out.len() {
+                return Err(VMErrorCode::OutOfMemory);
+            }
+            out[..payload.len()].copy_from_slice(payload);
+            Ok(payload.len())
         }
         ValueRef::ArrayRef(id) => {
             let start = *id as usize;
-            let temp = ctx.temp_buffer();
-            if start + 2 > temp.len() {
+            let temp_len = ctx.temp_buffer().len();
+            if start + 2 > temp_len {
                 return Err(VMErrorCode::MemoryViolation);
             }
 
-            let element_count = temp[start] as usize;
-            let element_type = temp[start + 1];
+            let element_count = ctx.temp_buffer()[start] as usize;
+            let element_type = ctx.temp_buffer()[start + 1];
             if element_count > out.len() {
                 return Err(VMErrorCode::OutOfMemory);
             }
@@ -141,128 +219,140 @@ fn extract_raw_bytes<'a>(
             if element_type == 0 {
                 let data_start = start + 2;
                 let data_end = data_start.saturating_add(element_count);
-                if data_end > temp.len() {
+                if data_end > temp_len {
                     return Err(VMErrorCode::MemoryViolation);
                 }
-                out[..element_count].copy_from_slice(&temp[data_start..data_end]);
-                return Ok((element_count, out));
+                out[..element_count].copy_from_slice(&ctx.temp_buffer()[data_start..data_end]);
+                return Ok(element_count);
             }
 
             let mut cursor = start + 2;
             let mut write_offset = 0usize;
             for _ in 0..element_count {
-                if cursor >= temp.len() {
+                if cursor >= temp_len {
                     return Err(VMErrorCode::MemoryViolation);
                 }
 
-                match ValueRef::deserialize_from(&temp[cursor..]) {
+                let value = {
+                    let temp = ctx.temp_buffer();
+                    ValueRef::deserialize_from(&temp[cursor..])
+                };
+                match value {
                     Ok(v) => {
-                        match v {
-                            ValueRef::U8(byte) => {
-                                if write_offset + 1 > out.len() {
-                                    return Err(VMErrorCode::OutOfMemory);
-                                }
-                                out[write_offset] = byte;
-                                write_offset += 1;
-                            }
-                            ValueRef::Bool(flag) => {
-                                if write_offset + 1 > out.len() {
-                                    return Err(VMErrorCode::OutOfMemory);
-                                }
-                                out[write_offset] = u8::from(flag);
-                                write_offset += 1;
-                            }
-                            ValueRef::U64(word) => {
-                                if write_offset + 8 > out.len() {
-                                    return Err(VMErrorCode::OutOfMemory);
-                                }
-                                out[write_offset..write_offset + 8]
-                                    .copy_from_slice(&word.to_le_bytes());
-                                write_offset += 8;
-                            }
-                            ValueRef::I64(word) => {
-                                if write_offset + 8 > out.len() {
-                                    return Err(VMErrorCode::OutOfMemory);
-                                }
-                                out[write_offset..write_offset + 8]
-                                    .copy_from_slice(&word.to_le_bytes());
-                                write_offset += 8;
-                            }
-                            ValueRef::U128(word) => {
-                                if write_offset + 16 > out.len() {
-                                    return Err(VMErrorCode::OutOfMemory);
-                                }
-                                out[write_offset..write_offset + 16]
-                                    .copy_from_slice(&word.to_le_bytes());
-                                write_offset += 16;
-                            }
-                            ValueRef::PubkeyRef(_) => {
-                                let bytes = ctx.extract_pubkey(&v)?;
-                                if write_offset + bytes.len() > out.len() {
-                                    return Err(VMErrorCode::OutOfMemory);
-                                }
-                                out[write_offset..write_offset + bytes.len()]
-                                    .copy_from_slice(&bytes);
-                                write_offset += bytes.len();
-                            }
-                            ValueRef::AccountRef(account_idx, account_offset) => {
-                                if account_offset != 0 {
-                                    return Err(VMErrorCode::TypeMismatch);
-                                }
-                                let accounts = ctx.accounts();
-                                let account = accounts
-                                    .get(account_idx as usize)
-                                    .ok_or(VMErrorCode::InvalidAccountIndex)?;
-                                let bytes = account.key().as_ref();
-                                if write_offset + bytes.len() > out.len() {
-                                    return Err(VMErrorCode::OutOfMemory);
-                                }
-                                out[write_offset..write_offset + bytes.len()]
-                                    .copy_from_slice(bytes);
-                                write_offset += bytes.len();
-                            }
-                            ValueRef::TempRef(offset, len) => {
-                                let start = offset as usize;
-                                let len = len as usize;
-                                let end = start.saturating_add(len);
-                                let temp = ctx.temp_buffer();
-                                if end > temp.len() || write_offset + len > out.len() {
-                                    return Err(VMErrorCode::MemoryViolation);
-                                }
-                                out[write_offset..write_offset + len]
-                                    .copy_from_slice(&temp[start..end]);
-                                write_offset += len;
-                            }
-                            ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
-                                let (len, bytes) = ctx.extract_string_slice(&v)?;
-                                let len = len as usize;
-                                if write_offset + len > out.len() {
-                                    return Err(VMErrorCode::OutOfMemory);
-                                }
-                                out[write_offset..write_offset + len].copy_from_slice(bytes);
-                                write_offset += len;
-                            }
-                            _ => {
-                                out[write_offset] = ValueRefUtils::as_u8(v)?;
-                                write_offset += 1;
-                            }
-                        }
+                        let written = append_raw_bytes_with_depth(
+                            ctx,
+                            &v,
+                            &mut out[write_offset..],
+                            depth + 1,
+                        )?;
+                        write_offset = write_offset.saturating_add(written);
                         cursor += v.serialized_size();
                     }
                     Err(_) => {
                         let end = cursor.saturating_add(element_count);
-                        if end > temp.len() {
+                        if end > temp_len {
                             return Err(VMErrorCode::MemoryViolation);
                         }
-                        out[..element_count].copy_from_slice(&temp[cursor..end]);
-                        return Ok((element_count, out));
+                        out[..element_count].copy_from_slice(&ctx.temp_buffer()[cursor..end]);
+                        return Ok(element_count);
                     }
                 }
             }
 
-            Ok((write_offset, out))
+            Ok(write_offset)
         }
-        _ => Err(VMErrorCode::TypeMismatch),
+        other => {
+            error_log!(
+                "MitoVM: extract_raw_bytes type mismatch for value kind {}",
+                value_ref_kind(other)
+            );
+            Err(VMErrorCode::TypeMismatch)
+        }
+    }
+}
+
+fn append_raw_temp_range(
+    ctx: &mut ExecutionManager,
+    offset: usize,
+    len: usize,
+    out: &mut [u8],
+    depth: u8,
+) -> CompactResult<usize> {
+    let end = offset.saturating_add(len);
+    let temp_len = ctx.temp_buffer().len();
+    if end > temp_len {
+        return Err(VMErrorCode::MemoryViolation);
+    }
+
+    let mut cursor = offset;
+    let mut write_offset = 0usize;
+    while cursor < end {
+        let value = {
+            let temp = ctx.temp_buffer();
+            ValueRef::deserialize_from(&temp[cursor..end])
+        }
+        .map_err(|_| VMErrorCode::TypeMismatch)?;
+        let mut chunk = [0u8; 256];
+        let written = append_raw_bytes_with_depth(ctx, &value, &mut chunk, depth)?;
+        if write_offset + written > out.len() {
+            return Err(VMErrorCode::OutOfMemory);
+        }
+        out[write_offset..write_offset + written].copy_from_slice(&chunk[..written]);
+        write_offset += written;
+        cursor += value.serialized_size();
+    }
+
+    Ok(write_offset)
+}
+
+fn append_raw_optional_like(
+    ctx: &mut ExecutionManager,
+    offset: usize,
+    len: usize,
+    out: &mut [u8],
+    depth: u8,
+    is_optional: bool,
+) -> CompactResult<usize> {
+    let end = offset.saturating_add(len);
+    let temp = ctx.temp_buffer();
+    if end > temp.len() || len == 0 {
+        return Err(VMErrorCode::MemoryViolation);
+    }
+
+    let tag = temp[offset];
+    if tag == 0 {
+        return Ok(0);
+    }
+
+    let inner_start = offset + 1;
+    if inner_start >= end {
+        return Err(VMErrorCode::MemoryViolation);
+    }
+
+    if !is_optional && tag > 1 {
+        error_log!("MitoVM: extract_raw_bytes invalid result tag {}", tag as u32);
+        return Err(VMErrorCode::TypeMismatch);
+    }
+
+    let inner = ValueRef::deserialize_from(&temp[inner_start..end])
+        .map_err(|_| VMErrorCode::TypeMismatch)?;
+    append_raw_bytes_with_depth(ctx, &inner, out, depth)
+}
+
+fn value_ref_kind(value_ref: &ValueRef) -> u32 {
+    match value_ref {
+        ValueRef::U8(_) => 1,
+        ValueRef::U64(_) => 2,
+        ValueRef::I64(_) => 3,
+        ValueRef::Bool(_) => 4,
+        ValueRef::TempRef(_, _) => 5,
+        ValueRef::StringRef(_) => 6,
+        ValueRef::HeapString(_) => 7,
+        ValueRef::ArrayRef(_) => 8,
+        ValueRef::PubkeyRef(_) => 9,
+        ValueRef::AccountRef(_, _) => 10,
+        ValueRef::U128(_) => 11,
+        _ => 255,
     }
 }
 
