@@ -8,8 +8,8 @@ pub liquidate(
     liquidator: account @signer,
     repay_amount: u64
 ) {
-    require(liquidator.key != 0);
-    require(obligation.reserve == reserve.key);
+    require(liquidator.ctx.key != 0);
+    require(obligation.reserve == reserve.ctx.key);
     require(obligation.borrowed_amount >= repay_amount);
 
     let threshold_borrow: u64 = (obligation.deposited_collateral * reserve.liquidation_threshold_bps) / 10000;

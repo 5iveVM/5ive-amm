@@ -1,7 +1,15 @@
 import fs from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath, pathToFileURL } from 'url';
-import {
+import { FiveProgram } from '../../../five-sdk/dist/index.js';
+import { loadSdkValidatorConfig } from '../../../scripts/lib/sdk-validator-config.mjs';
+import { emitUserJourneyStep } from '../../../scripts/lib/user-journey-reporter.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
+const {
   Connection,
   Keypair,
   PublicKey,
@@ -10,13 +18,7 @@ import {
   SystemProgram,
   LAMPORTS_PER_SOL,
   sendAndConfirmTransaction,
-} from '@solana/web3.js';
-import { FiveProgram } from '../../../five-sdk/dist/index.js';
-import { loadSdkValidatorConfig } from '../../../scripts/lib/sdk-validator-config.mjs';
-import { emitUserJourneyStep } from '../../../scripts/lib/user-journey-reporter.mjs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+} = require('../../../five-sdk/node_modules/@solana/web3.js');
 const SPL_TOKEN_ENTRY = pathToFileURL(
   path.join(__dirname, '..', '..', 'cpi-examples', 'node_modules', '@solana', 'spl-token', 'lib', 'esm', 'index.js')
 ).href;

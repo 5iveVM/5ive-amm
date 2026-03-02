@@ -1,17 +1,12 @@
 {
-  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/lending/build/five-lending-template.five",
+  "artifact_path": "/Users/ivmidable/Development/five-mono/five-templates/lending/build/five-lending-template.five",
   "compiler_version": "unknown",
   "source_files": [
-    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/lending/src/main.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/lending/src/types/lending_types.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/lending/src/lending/lending_liquidation.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/lending/src/lending/lending_deposit.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/lending/src/lending/lending_core.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/lending/src/lending/lending_borrow.v"
+    "/Users/ivmidable/Development/five-mono/five-templates/lending/src/main.v"
   ],
   "target": "vm",
-  "timestamp": "2026-01-13T05:13:17.600Z",
-  "hash": "08f16b35cb82020be75fa403ddc33d3898a2dcf505f26980555361e86d877122",
+  "timestamp": "2026-03-01T23:53:45.797Z",
+  "hash": "cb0a9d3592e61a7799b5f5ca848cfb7c9eb413d5687e88fc69c08926cbcd43ad",
   "format": "five",
   "entry_point": "src/main.v",
   "source_dir": "src"

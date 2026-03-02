@@ -7,12 +7,12 @@ pub init_obligation(
     owner: account @signer,
     reserve: pubkey
 ) -> pubkey {
-    obligation.owner = owner.key;
+    obligation.owner = owner.ctx.key;
     obligation.reserve = reserve;
     obligation.deposited_collateral = 0;
     obligation.borrowed_amount = 0;
     obligation.last_update_slot = get_clock();
-    return obligation.key;
+    return obligation.ctx.key;
 }
 
 pub deposit_collateral(
@@ -22,8 +22,8 @@ pub deposit_collateral(
     amount: u64
 ) {
     require(!reserve.is_paused);
-    require(obligation.owner == owner.key);
-    require(obligation.reserve == reserve.key);
+    require(obligation.owner == owner.ctx.key);
+    require(obligation.reserve == reserve.ctx.key);
     require(amount > 0);
 
     reserve.total_deposits = reserve.total_deposits + amount;

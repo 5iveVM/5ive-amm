@@ -125,6 +125,12 @@ export async function createSplMintAndAccount(connection, payer, owner, decimals
   return { mint, tokenAccount };
 }
 
+export async function createStandaloneSplAccount(connection, payer, mint, owner) {
+  const spl = await loadSplTokenModule();
+  const keypair = Keypair.generate();
+  return spl.createAccount(connection, payer, mint, owner.publicKey, keypair);
+}
+
 export async function mintSplTo(connection, payer, mint, destination, authority, amount) {
   const spl = await loadSplTokenModule();
   return spl.mintTo(connection, payer, mint, destination, authority, amount);
@@ -248,13 +254,13 @@ export async function prepareAmmFixture(ctx, labelPrefix = 'amm') {
   const { mint: tokenAMint, tokenAccount: authorityTokenA } = await createSplMintAndAccount(ctx.connection, ctx.payer, authority);
   const { mint: tokenBMint, tokenAccount: authorityTokenB } = await createSplMintAndAccount(ctx.connection, ctx.payer, authority);
   const lpMint = await (await loadSplTokenModule()).createMint(ctx.connection, ctx.payer, authority.publicKey, null, 6);
-  const authorityLpAccount = await (await loadSplTokenModule()).createAccount(ctx.connection, ctx.payer, lpMint, authority.publicKey);
-  const poolTokenAVault = await (await loadSplTokenModule()).createAccount(ctx.connection, ctx.payer, tokenAMint, authority.publicKey);
-  const poolTokenBVault = await (await loadSplTokenModule()).createAccount(ctx.connection, ctx.payer, tokenBMint, authority.publicKey);
-  const traderTokenA = await (await loadSplTokenModule()).createAccount(ctx.connection, ctx.payer, tokenAMint, trader.publicKey);
-  const traderTokenB = await (await loadSplTokenModule()).createAccount(ctx.connection, ctx.payer, tokenBMint, trader.publicKey);
-  const swapSourceA = await (await loadSplTokenModule()).createAccount(ctx.connection, ctx.payer, tokenAMint, authority.publicKey);
-  const swapSourceB = await (await loadSplTokenModule()).createAccount(ctx.connection, ctx.payer, tokenBMint, authority.publicKey);
+  const authorityLpAccount = await createStandaloneSplAccount(ctx.connection, ctx.payer, lpMint, authority);
+  const poolTokenAVault = await createStandaloneSplAccount(ctx.connection, ctx.payer, tokenAMint, authority);
+  const poolTokenBVault = await createStandaloneSplAccount(ctx.connection, ctx.payer, tokenBMint, authority);
+  const traderTokenA = await createStandaloneSplAccount(ctx.connection, ctx.payer, tokenAMint, trader);
+  const traderTokenB = await createStandaloneSplAccount(ctx.connection, ctx.payer, tokenBMint, trader);
+  const swapSourceA = await createStandaloneSplAccount(ctx.connection, ctx.payer, tokenAMint, authority);
+  const swapSourceB = await createStandaloneSplAccount(ctx.connection, ctx.payer, tokenBMint, authority);
 
   await mintSplTo(ctx.connection, ctx.payer, tokenAMint, authorityTokenA, authority, 1_000_000n);
   await mintSplTo(ctx.connection, ctx.payer, tokenBMint, authorityTokenB, authority, 1_000_000n);

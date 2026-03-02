@@ -9,8 +9,8 @@ pub borrow(
     amount: u64
 ) {
     require(!reserve.is_paused);
-    require(obligation.owner == borrower.key);
-    require(obligation.reserve == reserve.key);
+    require(obligation.owner == borrower.ctx.key);
+    require(obligation.reserve == reserve.ctx.key);
     require(amount > 0);
     require(reserve.available_liquidity >= amount);
 
@@ -30,8 +30,8 @@ pub repay(
     payer: account @signer,
     amount: u64
 ) {
-    require(payer.key != 0);
-    require(obligation.reserve == reserve.key);
+    require(payer.ctx.key != 0);
+    require(obligation.reserve == reserve.ctx.key);
     require(obligation.borrowed_amount >= amount);
     require(reserve.total_borrows >= amount);
 

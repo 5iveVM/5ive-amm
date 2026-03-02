@@ -8,12 +8,12 @@ pub init_lending_market(
     quote_mint: pubkey,
     name: string
 ) -> pubkey {
-    market.authority = authority.key;
+    market.authority = authority.ctx.key;
     market.quote_mint = quote_mint;
     market.is_paused = false;
     market.name = name;
     market.created_slot = get_clock();
-    return market.key;
+    return market.ctx.key;
 }
 
 pub init_reserve(
@@ -27,12 +27,12 @@ pub init_reserve(
     liquidation_threshold_bps: u64,
     name: string
 ) -> pubkey {
-    require(market.authority == authority.key);
+    require(market.authority == authority.ctx.key);
     require(borrow_rate_bps <= 10000);
     require(liquidation_threshold_bps <= 10000);
     require(collateral_factor_bps <= liquidation_threshold_bps);
 
-    reserve.market = market.key;
+    reserve.market = market.ctx.key;
     reserve.liquidity_mint = liquidity_mint;
     reserve.collateral_mint = collateral_mint;
     reserve.total_deposits = 0;
@@ -44,5 +44,5 @@ pub init_reserve(
     reserve.last_update_slot = get_clock();
     reserve.is_paused = false;
     reserve.name = name;
-    return reserve.key;
+    return reserve.ctx.key;
 }
