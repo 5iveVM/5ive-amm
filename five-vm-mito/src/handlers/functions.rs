@@ -147,6 +147,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     let caller_start = ctx.param_start();
     let caller_len = ctx.param_len();
+    let caller_temp_offset = ctx.temp_offset() as u16;
 
     if ctx.size() < param_count as usize {
         debug_log!(
@@ -183,6 +184,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
         param_count,
         caller_start,
         caller_len,
+        caller_temp_offset,
         current_ip,
         current_context,
         remap,
@@ -879,6 +881,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     let caller_start = ctx.param_start();
     let caller_len = ctx.param_len();
+    let caller_temp_offset = ctx.temp_offset() as u16;
 
     let return_address = ctx.ip();
 
@@ -909,6 +912,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         param_count,
         caller_start,
         caller_len,
+        caller_temp_offset,
         return_address,
         current_context,
         remap_for_callee,
@@ -992,6 +996,7 @@ fn prepare_callee_frame(
     param_count: u8,
     caller_start: u8,
     caller_len: u8,
+    caller_temp_offset: u16,
     return_address: usize,
     context_id: u8,
     remap: [u8; MAX_PARAMETERS + 1],
@@ -1017,6 +1022,7 @@ fn prepare_callee_frame(
         current_local_base,
         caller_start,
         caller_len,
+        caller_temp_offset,
         saved_parameters,
         context_id,
         remap,

@@ -122,6 +122,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
                 }
                 ctx.current_context = frame.bytecode_context;
+                ctx.set_temp_offset(frame.saved_temp_offset as usize);
 
                 // Verify IP against restored script
                 if ctx.ip() >= ctx.script().len() {
@@ -192,6 +193,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
                 }
                 ctx.current_context = frame.bytecode_context;
+                ctx.set_temp_offset(frame.saved_temp_offset as usize);
 
                 // Verify IP against restored script
                 if ctx.ip() > ctx.script().len() {
