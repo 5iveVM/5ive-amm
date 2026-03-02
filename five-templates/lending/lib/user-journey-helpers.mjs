@@ -37,6 +37,15 @@ const LENDING_ABI = {
       ],
     },
     {
+      name: 'transfer_market_admin',
+      index: 2,
+      parameters: [
+        { name: 'market', type: 'LendingMarket', is_account: true, attributes: ['mut'] },
+        { name: 'admin', type: 'account', is_account: true, attributes: ['signer'] },
+        { name: 'new_admin', type: 'pubkey' },
+      ],
+    },
+    {
       name: 'init_reserve',
       index: 3,
       parameters: [
@@ -53,6 +62,18 @@ const LENDING_ABI = {
       ],
     },
     {
+      name: 'set_reserve_config',
+      index: 4,
+      parameters: [
+        { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
+        { name: 'market', type: 'LendingMarket', is_account: true },
+        { name: 'admin', type: 'account', is_account: true, attributes: ['signer'] },
+        { name: 'new_reserve_factor', type: 'u8' },
+        { name: 'new_supply_cap', type: 'u64' },
+        { name: 'new_loan_to_value', type: 'u8' },
+      ],
+    },
+    {
       name: 'init_obligation',
       index: 5,
       parameters: [
@@ -62,8 +83,26 @@ const LENDING_ABI = {
       ],
     },
     {
+      name: 'refresh_reserve',
+      index: 6,
+      parameters: [
+        { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
+      ],
+    },
+    {
+      name: 'refresh_obligation',
+      index: 7,
+      parameters: [
+        { name: 'market', type: 'LendingMarket', is_account: true },
+        { name: 'obligation', type: 'Obligation', is_account: true, attributes: ['mut'] },
+        { name: 'reserve', type: 'Reserve', is_account: true },
+        { name: 'liquidity_mint', type: 'account', is_account: true },
+        { name: 'oracle', type: 'pubkey' },
+      ],
+    },
+    {
       name: 'refresh_obligation_with_oracle',
-      index: 9,
+      index: 8,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'obligation', type: 'Obligation', is_account: true, attributes: ['mut'] },
@@ -73,7 +112,7 @@ const LENDING_ABI = {
     },
     {
       name: 'deposit_reserve_liquidity',
-      index: 10,
+      index: 9,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
@@ -83,13 +122,13 @@ const LENDING_ABI = {
         { name: 'collateral_mint', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'market_authority', type: 'account', is_account: true, attributes: ['signer'] },
         { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
-        { name: 'token_program', type: 'account', is_account: true },
+        { name: 'token_program', type: 'pubkey' },
         { name: 'amount', type: 'u64' },
       ],
     },
     {
       name: 'withdraw_reserve_liquidity',
-      index: 11,
+      index: 10,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
@@ -100,13 +139,13 @@ const LENDING_ABI = {
         { name: 'collateral_mint', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'market_authority', type: 'account', is_account: true, attributes: ['signer'] },
         { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
-        { name: 'token_program', type: 'account', is_account: true },
+        { name: 'token_program', type: 'pubkey' },
         { name: 'collateral_amount', type: 'u64' },
       ],
     },
     {
       name: 'borrow_obligation_liquidity',
-      index: 12,
+      index: 11,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
@@ -115,13 +154,13 @@ const LENDING_ABI = {
         { name: 'liquidity_supply', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'market_authority', type: 'account', is_account: true, attributes: ['signer'] },
         { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
-        { name: 'token_program', type: 'account', is_account: true },
+        { name: 'token_program', type: 'pubkey' },
         { name: 'amount', type: 'u64' },
       ],
     },
     {
       name: 'repay_obligation_liquidity',
-      index: 13,
+      index: 12,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
@@ -129,7 +168,7 @@ const LENDING_ABI = {
         { name: 'user_liquidity', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'liquidity_supply', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
-        { name: 'token_program', type: 'account', is_account: true },
+        { name: 'token_program', type: 'pubkey' },
         { name: 'amount', type: 'u64' },
       ],
     },
@@ -317,8 +356,8 @@ export async function depositReserveLiquidity(ctx, admin, borrower, marketPubkey
     collateral_mint: setup.collateralMint,
     market_authority: admin.publicKey,
     user_authority: borrower.publicKey,
-    token_program: spl.TOKEN_PROGRAM_ID,
   }, {
+    token_program: spl.TOKEN_PROGRAM_ID,
     amount,
   });
   return submitInstruction(ctx, ix, [ctx.payer, admin, borrower], step, options);
@@ -334,8 +373,8 @@ export async function borrowObligationLiquidity(ctx, admin, borrower, marketPubk
     liquidity_supply: setup.liquiditySupply,
     market_authority: admin.publicKey,
     user_authority: borrower.publicKey,
-    token_program: spl.TOKEN_PROGRAM_ID,
   }, {
+    token_program: spl.TOKEN_PROGRAM_ID,
     amount,
   });
   return submitInstruction(ctx, ix, [ctx.payer, admin, borrower], step, options);
@@ -350,8 +389,8 @@ export async function repayObligationLiquidity(ctx, borrower, marketPubkey, rese
     user_liquidity: setup.borrowerLiquidity,
     liquidity_supply: setup.liquiditySupply,
     user_authority: borrower.publicKey,
-    token_program: spl.TOKEN_PROGRAM_ID,
   }, {
+    token_program: spl.TOKEN_PROGRAM_ID,
     amount,
   });
   return submitInstruction(ctx, ix, [ctx.payer, borrower], step, options);
@@ -369,8 +408,8 @@ export async function withdrawReserveLiquidity(ctx, admin, borrower, marketPubke
     collateral_mint: setup.collateralMint,
     market_authority: admin.publicKey,
     user_authority: borrower.publicKey,
-    token_program: spl.TOKEN_PROGRAM_ID,
   }, {
+    token_program: spl.TOKEN_PROGRAM_ID,
     collateral_amount: collateralAmount,
   });
   return submitInstruction(ctx, ix, [ctx.payer, admin, borrower], step, options);
