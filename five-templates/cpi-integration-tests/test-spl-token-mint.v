@@ -1,8 +1,8 @@
 interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
     mint_to @discriminator(7) (
-        mint: Account,
-        to: Account,
-        authority: Account,
+        mint: account,
+        to: account,
+        authority: account,
         amount: u64
     );
 }

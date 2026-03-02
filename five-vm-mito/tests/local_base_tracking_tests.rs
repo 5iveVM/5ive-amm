@@ -146,7 +146,13 @@ fn test_caller_parameters_are_restored_after_internal_call() {
         script
             .public_function("main", |f| {
                 f.push_u64(99)
-                    .call("callee", 1)
+                    .call("wrapper", 1)
+                    .return_value();
+            })
+            .unwrap();
+        script
+            .private_function("wrapper", |f| {
+                f.call("callee", 0)
                     .load_param(1)
                     .return_value();
             })

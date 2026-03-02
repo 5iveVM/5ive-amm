@@ -408,7 +408,8 @@ export async function refreshObligationWithOracle(ctx, borrower, marketPubkey, o
 }
 
 export async function depositReserveLiquidity(ctx, admin, borrower, marketPubkey, reservePubkey, setup, amount, step = 'lending_deposit_reserve_liquidity', options = {}) {
-  const ix = await buildFiveInstruction(ctx, 'deposit_reserve_liquidity', {
+  const spl = await loadSplTokenModule();
+  const ix = appendReadonlyExtra(await buildFiveInstruction(ctx, 'deposit_reserve_liquidity', {
     market: marketPubkey,
     reserve: reservePubkey,
     user_liquidity: setup.borrowerLiquidity,
@@ -421,7 +422,7 @@ export async function depositReserveLiquidity(ctx, admin, borrower, marketPubkey
     amount,
   }, {
     payerAccount: admin.publicKey,
-  });
+  }), spl.TOKEN_PROGRAM_ID);
   return submitInstruction(ctx, ix, [ctx.payer, admin, borrower], step, options);
 }
 

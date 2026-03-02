@@ -13,7 +13,7 @@ fn builder_patches_call_addresses() -> Result<(), ScriptBuilderError> {
             f.push_u64(5).push_u64(7).call("add", 2).return_value();
         })?
         .private_function("add", |f| {
-            f.load_param(1).load_param(2).emit(ADD).ret();
+            f.load_param(1).load_param(2).emit(ADD).return_value();
         })?;
 
     let script = builder.build()?;

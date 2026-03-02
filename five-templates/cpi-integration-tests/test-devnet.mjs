@@ -25,6 +25,7 @@ import {
 import { FiveProgram, FiveSDK } from '../../five-sdk/dist/index.js';
 import { loadSdkValidatorConfig } from '../../scripts/lib/sdk-validator-config.mjs';
 import { emitStepEvent } from '../../scripts/lib/sdk-validator-reporter.mjs';
+import { compileWithRustFiveCompiler } from '../../scripts/lib/rust-five-compiler.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -282,9 +283,8 @@ async function testSPLTokenMint(connection, payerKeypair) {
         info('Compiling and deploying contract...');
         const contractPath = path.join(__dirname, 'test-spl-token-mint.v');
         const source = fs.readFileSync(contractPath, 'utf-8');
-
         const compilation = await FiveSDK.compile(source);
-        const bytecode = compilation?.bytecode;
+        const { bytecode } = compileWithRustFiveCompiler(contractPath);
         const runtimeAbi = normalizeAbiForFiveProgram(compilation?.abi, source);
         if (!bytecode || !runtimeAbi) {
             throw new Error(`compile failed: ${compilation?.error || 'missing bytecode/abi'}`);
@@ -395,9 +395,8 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
         info('Compiling and deploying contract...');
         const contractPath = path.join(__dirname, 'test-pda-burn.v');
         const source = fs.readFileSync(contractPath, 'utf-8');
-
         const compilation = await FiveSDK.compile(source);
-        const bytecode = compilation?.bytecode;
+        const { bytecode } = compileWithRustFiveCompiler(contractPath);
         const runtimeAbi = normalizeAbiForFiveProgram(compilation?.abi, source);
         if (!bytecode || !runtimeAbi) {
             throw new Error(`compile failed: ${compilation?.error || 'missing bytecode/abi'}`);

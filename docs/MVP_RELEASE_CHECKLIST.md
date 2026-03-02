@@ -103,6 +103,7 @@ The two program IDs must match. The gate now auto-repairs this drift unless `--n
 4. Run SDK validator suites with explicit token script accounts whenever `token_full_e2e` is included:
 - `./scripts/run-sdk-validator-suites.sh --network localnet --program-id <local-program-id> --vm-state <local-vm-state> --token-script-account <local-token-script-account>`
 - `./scripts/run-sdk-validator-suites.sh --network devnet --program-id <devnet-program-id> --token-script-account <devnet-token-script-account>`
+ - Only one canonical token example is required for release signoff (`5ive-token`); `5ive-token-2` is informational and must not block launch.
 5. Attach a fresh localnet user-journey report from `target/user-journey-runs/<timestamp>/user-journey-report.json`.
 6. Attach a fresh devnet user-journey report from `target/user-journey-runs/<timestamp>/user-journey-report.json`.
 7. Confirm each engineering gate report `overall_status` is `pass`.

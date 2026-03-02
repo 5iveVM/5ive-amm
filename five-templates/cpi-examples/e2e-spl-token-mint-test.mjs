@@ -25,6 +25,7 @@ import {
 import { FiveSDK, FiveProgram } from '../../five-sdk/dist/index.js';
 import { loadSdkValidatorConfig } from '../../scripts/lib/sdk-validator-config.mjs';
 import { emitStepEvent } from '../../scripts/lib/sdk-validator-reporter.mjs';
+import { compileWithRustFiveCompiler } from '../../scripts/lib/rust-five-compiler.mjs';
 import {
     TOKEN_PROGRAM_ID, createMint, createAccount,
     mintTo, getAccount
@@ -287,7 +288,7 @@ async function main() {
         info(`Compiling ${scriptPath}...`);
         const source = fs.readFileSync(scriptPath, 'utf-8');
         const compilation = await FiveSDK.compile(source);
-        const bytecode = compilation?.bytecode;
+        const { bytecode } = compileWithRustFiveCompiler(scriptPath);
         if (!bytecode) {
             throw new Error(`Compile failed: ${compilation?.error || 'missing bytecode'}`);
         }

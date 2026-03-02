@@ -505,7 +505,7 @@ export async function generateExecuteInstruction(
     const metadata = passedMetadata || abiMetadata;
     const isSigner = metadata ? metadata.isSigner : false;
     const isWritable = metadata
-      ? !metadata.isSystemAccount
+      ? (metadata.isSystemAccount ? false : metadata.isWritable)
       : true;
 
     return {

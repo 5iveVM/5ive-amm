@@ -1,8 +1,8 @@
 interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
     burn @discriminator(8) (
-        token_account: Account,
-        mint: Account,
-        authority: Account,
+        token_account: account,
+        mint: account,
+        authority: account,
         amount: u64
     );
 }

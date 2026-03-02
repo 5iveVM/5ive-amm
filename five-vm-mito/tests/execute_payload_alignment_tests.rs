@@ -93,7 +93,7 @@ fn parse_parameters_decodes_fixed_width_execute_envelope() {
     assert_eq!(params[2], ValueRef::Bool(true));
     assert!(matches!(params[3], ValueRef::StringRef(_)));
     assert!(matches!(params[4], ValueRef::TempRef(_, 32)));
-    assert_eq!(params[5], ValueRef::AccountRef(3, 0));
+    assert_eq!(params[5], ValueRef::Empty);
 }
 
 #[test]
@@ -158,8 +158,8 @@ fn parse_parameters_token_shape_parses_without_panicking() {
     assert!(matches!(params[3], ValueRef::StringRef(_)));
     assert!(matches!(params[4], ValueRef::StringRef(_)));
     assert!(matches!(params[5], ValueRef::StringRef(_)));
-    assert_eq!(params[6], ValueRef::AccountRef(0, 0));
-    assert_eq!(params[7], ValueRef::AccountRef(1, 0));
+    assert_eq!(params[6], ValueRef::Empty);
+    assert_eq!(params[7], ValueRef::Empty);
 }
 
 #[test]

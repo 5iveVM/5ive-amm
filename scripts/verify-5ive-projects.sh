@@ -17,10 +17,10 @@ BLOCKING_PROJECTS=(
   "5ive-esccrow"
   "5ive-lending-2"
   "5ive-token"
-  "5ive-token-2"
 )
 
 INFORMATIONAL_PROJECTS=(
+  "5ive-token-2"
   "5ive-lending"
   "5ive-lending-3"
   "5ive-lending-4"
