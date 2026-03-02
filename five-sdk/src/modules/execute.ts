@@ -443,7 +443,7 @@ export async function generateExecuteInstruction(
     { pubkey: vmState, isSigner: false, isWritable: false },
   ];
 
-  const abiAccountMetadata = new Map<string, { isSigner: boolean; isWritable: boolean }>();
+  const abiAccountMetadata = new Map<string, { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }>();
 
   const hasFullParameterList =
     !!funcDef &&
