@@ -65,14 +65,15 @@ impl DslCompiler {
         );
         let mut pipeline = CompilationPipeline::new(source, None);
 
-        // Execute standard pipeline (no interfaces)
+        // Use the full interface-aware pipeline for all public compile entry points so
+        // native CPI scripts compile the same way in the CLI and test harnesses.
         eprintln!("DEBUG_COMPILER: starting tokenize");
         let tokens = pipeline.tokenize()?;
         eprintln!("DEBUG_COMPILER: starting parse");
         let ast = pipeline.parse(tokens)?;
         eprintln!("DEBUG_COMPILER: starting type_check");
-        pipeline.type_check(&ast)?;
-        let bytecode = pipeline.generate_bytecode(&ast, config)?;
+        let interface_registry = pipeline.type_check_with_interfaces(&ast)?;
+        let bytecode = pipeline.generate_bytecode_with_interfaces(&ast, config, interface_registry)?;
 
         // Finalize metrics
         pipeline.finalize_metrics(&bytecode);
@@ -127,13 +128,14 @@ impl DslCompiler {
     ) -> Result<FiveFile, CompilerError> {
         let mut pipeline = CompilationPipeline::new(source, None);
 
-        // Execute standard pipeline
+        // Keep .five artifacts aligned with the runtime compiler path.
         let tokens = pipeline.tokenize()?;
         let ast = pipeline.parse(tokens)?;
-        pipeline.type_check(&ast)?;
+        let interface_registry = pipeline.type_check_with_interfaces(&ast)?;
 
         // Generate both bytecode and ABI
-        let bytecode = pipeline.generate_bytecode(&ast, config)?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&ast, config, interface_registry)?;
         let abi = pipeline.generate_abi(&ast, config)?;
 
         // Finalize metrics before moving bytecode
@@ -192,11 +194,12 @@ impl DslCompiler {
     ) -> Result<(Vec<u8>, CompilerMetrics), CompilerError> {
         let mut pipeline = CompilationPipeline::new(source, None);
 
-        // Execute standard pipeline
+        // Metrics mode must exercise the same interface-aware pipeline as normal builds.
         let tokens = pipeline.tokenize()?;
         let ast = pipeline.parse(tokens)?;
-        pipeline.type_check(&ast)?;
-        let bytecode = pipeline.generate_bytecode(&ast, config)?;
+        let interface_registry = pipeline.type_check_with_interfaces(&ast)?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&ast, config, interface_registry)?;
 
         // Finalize metrics
         pipeline.finalize_metrics(&bytecode);

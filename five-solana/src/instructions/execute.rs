@@ -10,7 +10,6 @@ use crate::{
     error,
     state::{FIVEVMState, ScriptAccountHeader},
 };
-#[cfg(feature = "debug-logs")]
 use five_vm_mito::error::VMErrorCode;
 #[cfg(feature = "debug-logs")]
 use five_vm_mito::VMError;
@@ -100,11 +99,8 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     if let Err(vm_error) =
         MitoVM::execute_direct(bytecode, vm_params, vm_accounts, program_id, &mut *storage)
     {
-        #[cfg(feature = "debug-logs")]
-        debug_log!(
-            "MitoVM MAIN execution failed code={}",
-            VMErrorCode::from(vm_error.clone()).message()
-        );
+        pinocchio::msg!("MitoVM MAIN execution failed");
+        pinocchio::log::sol_log_64(VMErrorCode::from(vm_error.clone()) as u64, 0, 0, 0, 0);
         return Err(vm_error.to_program_error());
     }
 

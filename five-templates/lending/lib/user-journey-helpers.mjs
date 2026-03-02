@@ -54,11 +54,11 @@ const LENDING_ABI = {
         { name: 'liquidity_mint', type: 'account', is_account: true },
         { name: 'liquidity_supply', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'collateral_mint', type: 'account', is_account: true, attributes: ['mut'] },
+        { name: 'admin', type: 'account', is_account: true, attributes: ['signer'] },
         { name: 'config_optimal_utilization', type: 'u8' },
         { name: 'config_loan_to_value', type: 'u8' },
         { name: 'config_reserve_factor', type: 'u8' },
         { name: 'config_supply_cap', type: 'u64' },
-        { name: 'admin', type: 'account', is_account: true, attributes: ['signer'] },
       ],
     },
     {
@@ -122,7 +122,6 @@ const LENDING_ABI = {
         { name: 'collateral_mint', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'market_authority', type: 'account', is_account: true, attributes: ['signer'] },
         { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
-        { name: 'token_program', type: 'pubkey' },
         { name: 'amount', type: 'u64' },
       ],
     },
@@ -139,7 +138,6 @@ const LENDING_ABI = {
         { name: 'collateral_mint', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'market_authority', type: 'account', is_account: true, attributes: ['signer'] },
         { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
-        { name: 'token_program', type: 'pubkey' },
         { name: 'collateral_amount', type: 'u64' },
       ],
     },
@@ -154,7 +152,6 @@ const LENDING_ABI = {
         { name: 'liquidity_supply', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'market_authority', type: 'account', is_account: true, attributes: ['signer'] },
         { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
-        { name: 'token_program', type: 'pubkey' },
         { name: 'amount', type: 'u64' },
       ],
     },
@@ -168,7 +165,6 @@ const LENDING_ABI = {
         { name: 'user_liquidity', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'liquidity_supply', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
-        { name: 'token_program', type: 'pubkey' },
         { name: 'amount', type: 'u64' },
       ],
     },
@@ -207,6 +203,15 @@ function requireExplicitPubkey(envName, label) {
     throw new Error(`Missing ${envName} for ${label}. Hidden deployment fallbacks are disabled.`);
   }
   return new PublicKey(raw.trim());
+}
+
+function appendReadonlyExtra(ix, pubkey) {
+  ix.keys.push({
+    pubkey: pubkey.toBase58(),
+    isSigner: false,
+    isWritable: false,
+  });
+  return ix;
 }
 
 export async function createSplMintAndAccount(connection, payer, owner, decimals = 6) {
@@ -347,7 +352,7 @@ export async function refreshObligationWithOracle(ctx, marketPubkey, obligationP
 
 export async function depositReserveLiquidity(ctx, admin, borrower, marketPubkey, reservePubkey, setup, amount, step = 'lending_deposit_reserve_liquidity', options = {}) {
   const spl = await loadSplTokenModule();
-  const ix = await buildFiveInstruction(ctx, 'deposit_reserve_liquidity', {
+  const ix = appendReadonlyExtra(await buildFiveInstruction(ctx, 'deposit_reserve_liquidity', {
     market: marketPubkey,
     reserve: reservePubkey,
     user_liquidity: setup.borrowerLiquidity,
@@ -357,15 +362,14 @@ export async function depositReserveLiquidity(ctx, admin, borrower, marketPubkey
     market_authority: admin.publicKey,
     user_authority: borrower.publicKey,
   }, {
-    token_program: spl.TOKEN_PROGRAM_ID,
     amount,
-  });
+  }), spl.TOKEN_PROGRAM_ID);
   return submitInstruction(ctx, ix, [ctx.payer, admin, borrower], step, options);
 }
 
 export async function borrowObligationLiquidity(ctx, admin, borrower, marketPubkey, reservePubkey, obligationPubkey, setup, amount, step = 'lending_borrow_obligation_liquidity', options = {}) {
   const spl = await loadSplTokenModule();
-  const ix = await buildFiveInstruction(ctx, 'borrow_obligation_liquidity', {
+  const ix = appendReadonlyExtra(await buildFiveInstruction(ctx, 'borrow_obligation_liquidity', {
     market: marketPubkey,
     reserve: reservePubkey,
     obligation: obligationPubkey,
@@ -374,15 +378,14 @@ export async function borrowObligationLiquidity(ctx, admin, borrower, marketPubk
     market_authority: admin.publicKey,
     user_authority: borrower.publicKey,
   }, {
-    token_program: spl.TOKEN_PROGRAM_ID,
     amount,
-  });
+  }), spl.TOKEN_PROGRAM_ID);
   return submitInstruction(ctx, ix, [ctx.payer, admin, borrower], step, options);
 }
 
 export async function repayObligationLiquidity(ctx, borrower, marketPubkey, reservePubkey, obligationPubkey, setup, amount, step = 'lending_repay_obligation_liquidity', options = {}) {
   const spl = await loadSplTokenModule();
-  const ix = await buildFiveInstruction(ctx, 'repay_obligation_liquidity', {
+  const ix = appendReadonlyExtra(await buildFiveInstruction(ctx, 'repay_obligation_liquidity', {
     market: marketPubkey,
     reserve: reservePubkey,
     obligation: obligationPubkey,
@@ -390,15 +393,14 @@ export async function repayObligationLiquidity(ctx, borrower, marketPubkey, rese
     liquidity_supply: setup.liquiditySupply,
     user_authority: borrower.publicKey,
   }, {
-    token_program: spl.TOKEN_PROGRAM_ID,
     amount,
-  });
+  }), spl.TOKEN_PROGRAM_ID);
   return submitInstruction(ctx, ix, [ctx.payer, borrower], step, options);
 }
 
 export async function withdrawReserveLiquidity(ctx, admin, borrower, marketPubkey, reservePubkey, obligationPubkey, setup, collateralAmount, step = 'lending_withdraw_reserve_liquidity', options = {}) {
   const spl = await loadSplTokenModule();
-  const ix = await buildFiveInstruction(ctx, 'withdraw_reserve_liquidity', {
+  const ix = appendReadonlyExtra(await buildFiveInstruction(ctx, 'withdraw_reserve_liquidity', {
     market: marketPubkey,
     reserve: reservePubkey,
     obligation: obligationPubkey,
@@ -409,9 +411,8 @@ export async function withdrawReserveLiquidity(ctx, admin, borrower, marketPubke
     market_authority: admin.publicKey,
     user_authority: borrower.publicKey,
   }, {
-    token_program: spl.TOKEN_PROGRAM_ID,
     collateral_amount: collateralAmount,
-  });
+  }), spl.TOKEN_PROGRAM_ID);
   return submitInstruction(ctx, ix, [ctx.payer, admin, borrower], step, options);
 }
 
@@ -516,6 +517,15 @@ export async function prepareLendingFixture(ctx, labelPrefix = 'lending') {
   });
   await initObligation(ctx, borrower, market.publicKey, obligation);
   await initOracle(ctx, admin, oracle, 1_000_000, 6);
+  await setOracle(
+    ctx,
+    admin,
+    oracle.publicKey,
+    1_000_000,
+    await currentSlot(ctx),
+    6,
+    `${labelPrefix}_set_oracle_fresh`
+  );
 
   return {
     admin,

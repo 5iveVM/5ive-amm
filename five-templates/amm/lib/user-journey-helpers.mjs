@@ -91,6 +91,8 @@ const AMM_ABI = {
         { name: 'recipient_a', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'recipient_b', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'authority', type: 'account', is_account: true, attributes: ['signer'] },
+        { name: 'amount_a', type: 'u64' },
+        { name: 'amount_b', type: 'u64' },
       ],
     },
     {
@@ -100,6 +102,23 @@ const AMM_ABI = {
         { name: 'pool', type: 'Pool', is_account: true, attributes: ['mut'] },
         { name: 'authority', type: 'account', is_account: true, attributes: ['signer'] },
         { name: 'paused', type: 'bool' },
+      ],
+    },
+    {
+      name: 'bootstrap_liquidity',
+      index: 8,
+      parameters: [
+        { name: 'pool', type: 'Pool', is_account: true, attributes: ['mut'] },
+        { name: 'user_token_a', type: 'account', is_account: true, attributes: ['mut'] },
+        { name: 'user_token_b', type: 'account', is_account: true, attributes: ['mut'] },
+        { name: 'pool_token_a_vault', type: 'account', is_account: true, attributes: ['mut'] },
+        { name: 'pool_token_b_vault', type: 'account', is_account: true, attributes: ['mut'] },
+        { name: 'lp_mint', type: 'account', is_account: true, attributes: ['mut'] },
+        { name: 'user_lp_account', type: 'account', is_account: true, attributes: ['mut'] },
+        { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
+        { name: 'amount_a', type: 'u64' },
+        { name: 'amount_b', type: 'u64' },
+        { name: 'min_liquidity', type: 'u64' },
       ],
     },
   ],
@@ -245,6 +264,24 @@ export async function addLiquidity(ctx, authority, pool, setup, amountA, amountB
   return submitInstruction(ctx, ix, [ctx.payer, authority], step);
 }
 
+export async function bootstrapLiquidity(ctx, authority, pool, setup, amountA, amountB, minLiquidity, step = 'amm_bootstrap_liquidity') {
+  const ix = appendReadonlyExtra(await buildFiveInstruction(ctx, 'bootstrap_liquidity', {
+    pool: pool.publicKey,
+    user_token_a: setup.authorityTokenA.publicKey || setup.authorityTokenA,
+    user_token_b: setup.authorityTokenB.publicKey || setup.authorityTokenB,
+    pool_token_a_vault: setup.poolTokenAVault.publicKey || setup.poolTokenAVault,
+    pool_token_b_vault: setup.poolTokenBVault.publicKey || setup.poolTokenBVault,
+    lp_mint: setup.lpMint.publicKey || setup.lpMint,
+    user_lp_account: setup.authorityLpAccount.publicKey || setup.authorityLpAccount,
+    user_authority: authority.publicKey,
+  }, {
+    amount_a: amountA,
+    amount_b: amountB,
+    min_liquidity: minLiquidity,
+  }), SPL_TOKEN_PROGRAM_ID);
+  return submitInstruction(ctx, ix, [ctx.payer, authority], step);
+}
+
 export async function swapTokens(ctx, signer, pool, setup, amountIn, minAmountOut, isAToB, step = 'amm_swap') {
   const ix = appendReadonlyExtra(await buildFiveInstruction(ctx, 'swap', {
     pool: pool.publicKey,
@@ -280,6 +317,7 @@ export async function removeLiquidity(ctx, authority, pool, setup, lpAmount, min
 }
 
 export async function collectProtocolFees(ctx, authority, pool, setup, step = 'amm_collect_protocol_fees') {
+  const state = await readPoolState(ctx, pool.publicKey);
   const ix = appendReadonlyExtra(await buildFiveInstruction(ctx, 'collect_protocol_fees', {
     pool: pool.publicKey,
     pool_token_a_vault: setup.poolTokenAVault.publicKey || setup.poolTokenAVault,
@@ -287,6 +325,9 @@ export async function collectProtocolFees(ctx, authority, pool, setup, step = 'a
     recipient_a: setup.authorityTokenA.publicKey || setup.authorityTokenA,
     recipient_b: setup.authorityTokenB.publicKey || setup.authorityTokenB,
     authority: authority.publicKey,
+  }, {
+    amount_a: state.protocolFeesA,
+    amount_b: state.protocolFeesB,
   }), SPL_TOKEN_PROGRAM_ID);
   return submitInstruction(ctx, ix, [ctx.payer, authority], step);
 }
@@ -352,6 +393,7 @@ export async function prepareAmmFixture(ctx, labelPrefix = 'amm') {
   await mintTokens(ctx, tokenBMint, swapSourceB, authority, 200_000, `${labelPrefix}_mint_swap_source_b`);
 
   const pool = Keypair.generate();
+  console.log(`AMM_POOL_PUBKEY=${pool.publicKey.toBase58()}`);
   const setup = {
     tokenAMint,
     tokenBMint,
@@ -367,6 +409,19 @@ export async function prepareAmmFixture(ctx, labelPrefix = 'amm') {
     swapSourceB,
   };
   await initPool(ctx, authority, pool, setup);
-  await addLiquidity(ctx, authority, pool, setup, 500_000, 500_000, 1_000_000);
+  const initialPoolState = await readPoolState(ctx, pool.publicKey);
+  assertOrThrow(
+    initialPoolState.reserveA === 0 &&
+      initialPoolState.reserveB === 0 &&
+      initialPoolState.lpSupply === 0,
+    `Unexpected initial pool state before add liquidity: reserveA=${initialPoolState.reserveA}, reserveB=${initialPoolState.reserveB}, lpSupply=${initialPoolState.lpSupply}`,
+  );
+  emitJourneyStep({
+    step: `${labelPrefix}_initial_pool_state_zero`,
+    status: 'PASS',
+    computeUnits: null,
+    missingCuReason: 'state verification',
+  });
+  await bootstrapLiquidity(ctx, authority, pool, setup, 500_000, 500_000, 1_000_000);
   return { authority, trader, pool, setup };
 }

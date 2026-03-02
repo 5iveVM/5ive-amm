@@ -1,0 +1,94 @@
+{
+  "name": "spl_token_transfer_after_branch",
+  "bytecode_path": "../spl-token-transfer-after-branch.v",
+  "permissions": 0,
+  "skip_deploy": true,
+  "authority": {
+    "name": "user1",
+    "lamports": 20000000
+  },
+  "vm_state_name": "vm_state",
+  "script_name": "script",
+  "extra_accounts": [
+    {
+      "name": "user2",
+      "owner": "system",
+      "lamports": 20000000,
+      "data_len": 0,
+      "is_signer": true,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "mint",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 82,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user1_token",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 165,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user2_token",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 165,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "token_program",
+      "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "owner": "system",
+      "lamports": 1,
+      "data_len": 0,
+      "is_signer": false,
+      "is_writable": false,
+      "executable": false
+    }
+  ],
+  "external_programs": [
+    {
+      "kind": "spl_token"
+    }
+  ],
+  "steps": [
+    {
+      "name": "mint_source",
+      "function_index": 0,
+      "extras": ["mint", "user1_token", "user1", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "transfer_after_branch",
+      "function_index": 1,
+      "extras": ["user1_token", "user2_token", "user1", "token_program"],
+      "params": [
+        {
+          "kind": "u64",
+          "value": 100
+        },
+        {
+          "kind": "u64",
+          "value": 100
+        },
+        {
+          "kind": "u64",
+          "value": 200
+        }
+      ],
+      "expected": "success"
+    }
+  ]
+}

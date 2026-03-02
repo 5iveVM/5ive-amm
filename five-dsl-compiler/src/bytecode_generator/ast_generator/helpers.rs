@@ -13,30 +13,13 @@ impl ASTGenerator {
         index: u32,
         context: &str,
     ) {
-        // Optimization: Use nibble immediate opcodes for indices 0-3
-        if index <= 3 {
-            let opcode = match index {
-                0 => SET_LOCAL_0,
-                1 => SET_LOCAL_1,
-                2 => SET_LOCAL_2,
-                3 => SET_LOCAL_3,
-                _ => unreachable!("Index checked to be 0-3"),
-            };
-            emitter.emit_opcode(opcode);
-            #[cfg(debug_assertions)]
-            println!(
-                "DEBUG: Generated SET_LOCAL_{} (nibble immediate) for {}",
-                index, context
-            );
-        } else {
-            emitter.emit_opcode(SET_LOCAL);
-            emitter.emit_u8(index as u8);
-            #[cfg(debug_assertions)]
-            println!(
-                "DEBUG: Generated SET_LOCAL {} (V1 mode) for {}",
-                index, context
-            );
-        }
+        emitter.emit_opcode(SET_LOCAL);
+        emitter.emit_u8(index as u8);
+        #[cfg(debug_assertions)]
+        println!(
+            "DEBUG: Generated SET_LOCAL {} (V1 mode) for {}",
+            index, context
+        );
     }
 
     /// Emit optimized local variable GET operation
@@ -49,29 +32,13 @@ impl ASTGenerator {
         index: u32,
         context: &str,
     ) {
-        if index <= 3 {
-            let opcode = match index {
-                0 => GET_LOCAL_0,
-                1 => GET_LOCAL_1,
-                2 => GET_LOCAL_2,
-                3 => GET_LOCAL_3,
-                _ => unreachable!("Index checked to be 0-3"),
-            };
-            emitter.emit_opcode(opcode);
-            #[cfg(debug_assertions)]
-            println!(
-                "DEBUG: Generated GET_LOCAL_{} (nibble immediate) for {}",
-                index, context
-            );
-        } else {
-            emitter.emit_opcode(GET_LOCAL);
-            emitter.emit_u8(index as u8);
-            #[cfg(debug_assertions)]
-            println!(
-                "DEBUG: Generated GET_LOCAL {} (V1 mode) for {}",
-                index, context
-            );
-        }
+        emitter.emit_opcode(GET_LOCAL);
+        emitter.emit_u8(index as u8);
+        #[cfg(debug_assertions)]
+        println!(
+            "DEBUG: Generated GET_LOCAL {} (V1 mode) for {}",
+            index, context
+        );
     }
 
     /// Add a local variable to the symbol table

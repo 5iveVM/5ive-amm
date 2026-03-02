@@ -1,0 +1,126 @@
+{
+  "name": "spl_token_transfer_wide_accounts",
+  "bytecode_path": "../spl-token-transfer-wide-accounts.v",
+  "permissions": 0,
+  "skip_deploy": true,
+  "authority": {
+    "name": "user1",
+    "lamports": 20000000
+  },
+  "vm_state_name": "vm_state",
+  "script_name": "script",
+  "extra_accounts": [
+    {
+      "name": "user2",
+      "owner": "system",
+      "lamports": 20000000,
+      "data_len": 0,
+      "is_signer": true,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "mint",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 82,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user1_token",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 165,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "user2_token",
+      "owner": "spl_token_program",
+      "lamports": 5000000,
+      "data_len": 165,
+      "is_signer": false,
+      "is_writable": true,
+      "executable": false
+    },
+    {
+      "name": "pad_a",
+      "owner": "system",
+      "lamports": 1,
+      "data_len": 0,
+      "is_signer": false,
+      "is_writable": false,
+      "executable": false
+    },
+    {
+      "name": "pad_b",
+      "owner": "system",
+      "lamports": 1,
+      "data_len": 0,
+      "is_signer": false,
+      "is_writable": false,
+      "executable": false
+    },
+    {
+      "name": "pad_c",
+      "owner": "system",
+      "lamports": 1,
+      "data_len": 0,
+      "is_signer": false,
+      "is_writable": false,
+      "executable": false
+    },
+    {
+      "name": "pad_d",
+      "owner": "system",
+      "lamports": 1,
+      "data_len": 0,
+      "is_signer": false,
+      "is_writable": false,
+      "executable": false
+    },
+    {
+      "name": "pad_e",
+      "owner": "system",
+      "lamports": 1,
+      "data_len": 0,
+      "is_signer": false,
+      "is_writable": false,
+      "executable": false
+    },
+    {
+      "name": "token_program",
+      "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "owner": "system",
+      "lamports": 1,
+      "data_len": 0,
+      "is_signer": false,
+      "is_writable": false,
+      "executable": false
+    }
+  ],
+  "external_programs": [
+    {
+      "kind": "spl_token"
+    }
+  ],
+  "steps": [
+    {
+      "name": "mint_source",
+      "function_index": 0,
+      "extras": ["mint", "user1_token", "user1", "token_program"],
+      "params": [],
+      "expected": "success"
+    },
+    {
+      "name": "transfer_wide",
+      "function_index": 1,
+      "extras": ["pad_a", "pad_b", "pad_c", "pad_d", "pad_e", "user1_token", "user2_token", "user1", "token_program"],
+      "params": [],
+      "expected": "success"
+    }
+  ]
+}

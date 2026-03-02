@@ -208,8 +208,10 @@ export async function buildFiveInstruction(ctx, functionName, accounts, args) {
 }
 
 function normalizeInstruction(ctx, instructionOrData) {
-  if (instructionOrData instanceof TransactionInstruction) return instructionOrData;
-  const keys = instructionOrData.keys.map((entry) => ({
+  const rawKeys = instructionOrData instanceof TransactionInstruction
+    ? instructionOrData.keys
+    : instructionOrData.keys;
+  const keys = rawKeys.map((entry) => ({
     pubkey: new PublicKey(entry.pubkey),
     isSigner: entry.isSigner,
     isWritable: entry.isWritable,
@@ -276,9 +278,13 @@ function normalizeInstruction(ctx, instructionOrData) {
   }
 
   return new TransactionInstruction({
-    programId: new PublicKey(instructionOrData.programId),
+    programId: instructionOrData instanceof TransactionInstruction
+      ? instructionOrData.programId
+      : new PublicKey(instructionOrData.programId),
     keys,
-    data: Buffer.from(instructionOrData.data, 'base64'),
+    data: instructionOrData instanceof TransactionInstruction
+      ? instructionOrData.data
+      : Buffer.from(instructionOrData.data, 'base64'),
   });
 }
 

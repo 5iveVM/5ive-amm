@@ -326,6 +326,30 @@ async fn spl_token_interface_dynamic_transfer_bpf_compute_units() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn spl_token_interface_wide_account_transfer_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let fixture_path = repo_root
+        .join("five-templates/cpi-examples/runtime-fixtures/spl-token-transfer-wide-accounts.json");
+    run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(40_000)).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn spl_token_interface_transfer_after_branch_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let fixture_path = repo_root
+        .join("five-templates/cpi-examples/runtime-fixtures/spl-token-transfer-after-branch.json");
+    run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(40_000)).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn spl_token_interface_transfer_with_state_account_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let fixture_path = repo_root
+        .join("five-templates/cpi-examples/runtime-fixtures/spl-token-transfer-with-state-account.json");
+    run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(40_000)).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn external_token_transfer_non_cpi_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let bpf_dir = repo_root.join("target/deploy");
@@ -2561,7 +2585,7 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
         println!("BPF_CU deploy={}", deploy_result.units_consumed);
         total_units = deploy_result.units_consumed;
     }
-    if fixture.name == "spl_token_cpi_e2e" {
+    if fixture_uses_spl_token_setup(&fixture) {
         let setup_units =
             initialize_spl_token_accounts(&mut ctx, &accounts, &fixture.authority.name).await;
         total_units = total_units.saturating_add(setup_units);
@@ -2812,6 +2836,14 @@ fn external_program_ids(external_programs: &[ExternalProgramFixture]) -> Vec<Pub
             ExternalProgramKind::AnchorTokenComparison => anchor_token_program_id(),
         })
         .collect()
+}
+
+fn fixture_uses_spl_token_setup(fixture: &RuntimeFixture) -> bool {
+    fixture
+        .external_programs
+        .iter()
+        .any(|program| matches!(program.kind, ExternalProgramKind::SplToken))
+        && fixture.extra_accounts.iter().any(|account| account.name == "mint")
 }
 
 fn anchor_token_comparison_stub_process(

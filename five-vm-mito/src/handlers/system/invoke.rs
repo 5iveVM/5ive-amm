@@ -7,6 +7,7 @@
 use crate::{
     context::ExecutionManager,
     debug_log,
+    error_log,
     error::{CompactResult, VMErrorCode},
 };
 use five_protocol::{opcodes::*, ValueRef};
@@ -549,8 +550,22 @@ fn materialize_instruction_data(
             }
 
             let element_count = temp[start] as usize;
+            let element_type = temp[start + 1];
             if element_count > MAX_CPI_DATA_LEN {
                 return Err(VMErrorCode::InvalidOperation);
+            }
+
+            // Raw byte-array fast path produced by PUSH_BYTES/push_raw_bytes.
+            // Current compiler emits native CPI instruction data this way.
+            if element_type == 0 {
+                let data_start = start + 2;
+                let data_end = data_start.saturating_add(element_count);
+                if data_end > temp.len() {
+                    return Err(VMErrorCode::MemoryViolation);
+                }
+                instruction_data_owned[..element_count]
+                    .copy_from_slice(&temp[data_start..data_end]);
+                return Ok(element_count);
             }
 
             let mut offset = start + 2;
@@ -580,7 +595,13 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
         INVOKE => {
             // Pop parameters from stack
             let count_val = ctx.pop()?;
-            let accounts_count = count_val.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
+            let accounts_count = match count_val.as_u8() {
+                Some(value) => value,
+                None => {
+                    error_log!("MitoVM: INVOKE invalid accounts_count type");
+                    return Err(VMErrorCode::TypeMismatch);
+                }
+            };
 
             // Validate account count
             if accounts_count as usize > MAX_CPI_ACCOUNTS {
@@ -591,7 +612,13 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let mut account_indices: [usize; MAX_CPI_ACCOUNTS] = [0; MAX_CPI_ACCOUNTS];
             for i in 0..accounts_count {
                 let val = ctx.pop()?;
-                let idx = val.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
+                let idx = match val.as_u8() {
+                    Some(value) => value,
+                    None => {
+                        error_log!("MitoVM: INVOKE account index type mismatch at {}", i as u32);
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                };
                 account_indices[(accounts_count - 1 - i) as usize] = idx as usize;
             }
 
@@ -600,16 +627,36 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let program_id_ref = ctx.pop()?;
 
             let mut instruction_data_owned = [0u8; MAX_CPI_DATA_LEN];
-            let instruction_data_len =
-                materialize_instruction_data(ctx, data_ref, &mut instruction_data_owned)?;
+            let instruction_data_len = match materialize_instruction_data(
+                ctx,
+                data_ref,
+                &mut instruction_data_owned,
+            ) {
+                Ok(len) => len,
+                Err(err) => {
+                    error_log!("MitoVM: INVOKE failed to materialize instruction data");
+                    return Err(err);
+                }
+            };
             let instruction_data = &instruction_data_owned[..instruction_data_len];
 
-            let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
+            let program_id_bytes = match ctx.extract_pubkey(&program_id_ref) {
+                Ok(bytes) => bytes,
+                Err(err) => {
+                    error_log!("MitoVM: INVOKE failed to extract program id");
+                    return Err(err);
+                }
+            };
             let program_id = Pubkey::from(program_id_bytes);
 
-            debug_log!(
-                "MitoVM: INVOKE instruction_data len: {}",
-                instruction_data.len() as u32
+            error_log!(
+                "MitoVM: INVOKE diag count={} data_len={} pid0={} pid1={} pid2={} pid3={}",
+                accounts_count as u32,
+                instruction_data.len() as u32,
+                program_id_bytes[0] as u32,
+                program_id_bytes[1] as u32,
+                program_id_bytes[2] as u32,
+                program_id_bytes[3] as u32
             );
 
             // Validate account indices
