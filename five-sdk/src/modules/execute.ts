@@ -504,7 +504,9 @@ export async function generateExecuteInstruction(
     const passedMetadata = options.accountMetadata?.get(acc);
     const metadata = passedMetadata || abiMetadata;
     const isSigner = metadata ? metadata.isSigner : false;
-    const isWritable = metadata ? metadata.isWritable : true;
+    const isWritable = metadata
+      ? !metadata.isSystemAccount
+      : true;
 
     return {
       pubkey: acc,

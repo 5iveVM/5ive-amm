@@ -38,6 +38,7 @@ async function main() {
   );
   await refreshObligationWithOracle(
     ctx,
+    fixture.borrower,
     fixture.market.publicKey,
     fixture.obligation.publicKey,
     fixture.reserve.publicKey,

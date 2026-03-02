@@ -39,6 +39,7 @@ async function main() {
   );
   await refreshObligationWithOracle(
     ctx,
+    fixture.borrower,
     fixture.market.publicKey,
     fixture.obligation.publicKey,
     fixture.reserve.publicKey,
@@ -102,6 +103,7 @@ async function main() {
 
   const staleRefresh = await refreshObligationWithOracle(
     ctx,
+    fixture.borrower,
     fixture.market.publicKey,
     fixture.obligation.publicKey,
     fixture.reserve.publicKey,
@@ -122,6 +124,7 @@ async function main() {
   );
   await refreshObligationWithOracle(
     ctx,
+    fixture.borrower,
     fixture.market.publicKey,
     fixture.obligation.publicKey,
     fixture.reserve.publicKey,

@@ -37,6 +37,7 @@ export class FunctionBuilder {
   private accountsMap: Map<string, string> = new Map();
   private argsMap: Map<string, any> = new Map();
   private resolvedAccounts: Set<string> = new Set();
+  private vmPayerAccount?: string;
 
   constructor(
     functionDef: FunctionDefinition,
@@ -93,6 +94,18 @@ export class FunctionBuilder {
       );
     }
 
+    return this;
+  }
+
+  /**
+   * Override the VM execute-fee payer account for this instruction.
+   * This is distinct from the outer transaction fee payer.
+   */
+  payer(
+    payer: string | { toBase58(): string }
+  ): this {
+    this.vmPayerAccount =
+      typeof payer === 'string' ? payer : payer.toBase58();
     return this;
   }
 
@@ -403,7 +416,6 @@ export class FunctionBuilder {
     >
   ): Promise<SerializedInstruction> {
     // Account list is already passed in
-
     // Dynamically import FiveSDK to avoid circular dependencies
     const { FiveSDK } = await import('../FiveSDK.js');
 
@@ -421,6 +433,9 @@ export class FunctionBuilder {
         fiveVMProgramId: this.options.fiveVMProgramId,
         vmStateAccount: this.options.vmStateAccount,
         adminAccount: this.options.feeReceiverAccount,
+        payerAccount:
+          this.vmPayerAccount ||
+          this.options.provider?.publicKey?.toBase58?.(),
         accountMetadata: accountMetadata,  // Pass account metadata for correct isWritable flags
       }
     );

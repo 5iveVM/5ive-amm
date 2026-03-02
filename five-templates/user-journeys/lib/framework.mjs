@@ -117,6 +117,10 @@ export async function loadProtocolContext({
     fiveVMProgramId: fiveProgramId.toBase58(),
     vmStateAccount: vmState.toBase58(),
     feeReceiverAccount: payer.publicKey.toBase58(),
+    provider: {
+      connection,
+      publicKey: payer.publicKey,
+    },
     debug: false,
   });
 
@@ -195,16 +199,19 @@ export async function recordWalletReadable(ctx, wallet, label) {
   });
 }
 
-export async function buildProgramInstruction(program, functionName, accounts, args) {
+export async function buildProgramInstruction(program, functionName, accounts, args, buildOptions = {}) {
   let builder = program.function(functionName).accounts(accounts);
   if (args && Object.keys(args).length > 0) {
     builder = builder.args(args);
   }
+  if (buildOptions.payerAccount) {
+    builder = builder.payer(buildOptions.payerAccount);
+  }
   return builder.instruction();
 }
 
-export async function buildFiveInstruction(ctx, functionName, accounts, args) {
-  return buildProgramInstruction(ctx.program, functionName, accounts, args);
+export async function buildFiveInstruction(ctx, functionName, accounts, args, buildOptions = {}) {
+  return buildProgramInstruction(ctx.program, functionName, accounts, args, buildOptions);
 }
 
 function normalizeInstruction(ctx, instructionOrData) {
@@ -309,7 +316,12 @@ export function classifyFailure(message, logs = []) {
 
 export async function submitInstruction(ctx, instructionOrData, signers, step, options = {}) {
   const ix = normalizeInstruction(ctx, instructionOrData);
-  if (step === 'lending_deposit_reserve_liquidity') {
+  if (
+    step === 'lending_init_oracle' ||
+    step === 'lending_set_oracle' ||
+    step === 'lending_deposit_reserve_liquidity' ||
+    step === 'lending_refresh_obligation_with_oracle'
+  ) {
     console.log(
       `USER_JOURNEY_NORMALIZED_KEYS:${JSON.stringify(ix.keys.map((key) => ({
         pubkey: key.pubkey.toBase58(),

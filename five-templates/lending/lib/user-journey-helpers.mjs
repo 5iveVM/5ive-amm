@@ -84,14 +84,14 @@ const LENDING_ABI = {
     },
     {
       name: 'refresh_reserve',
-      index: 6,
+      index: 8,
       parameters: [
         { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
       ],
     },
     {
       name: 'refresh_obligation',
-      index: 7,
+      index: 9,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'obligation', type: 'Obligation', is_account: true, attributes: ['mut'] },
@@ -102,17 +102,18 @@ const LENDING_ABI = {
     },
     {
       name: 'refresh_obligation_with_oracle',
-      index: 8,
+      index: 10,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'obligation', type: 'Obligation', is_account: true, attributes: ['mut'] },
         { name: 'reserve', type: 'Reserve', is_account: true },
-        { name: 'oracle_state', type: 'PriceOracle', is_account: true },
+        { name: 'borrower', type: 'account', is_account: true, attributes: ['signer'] },
+        { name: 'oracle_price', type: 'u64' },
       ],
     },
     {
       name: 'deposit_reserve_liquidity',
-      index: 9,
+      index: 11,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
@@ -127,7 +128,7 @@ const LENDING_ABI = {
     },
     {
       name: 'withdraw_reserve_liquidity',
-      index: 10,
+      index: 12,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
@@ -143,7 +144,7 @@ const LENDING_ABI = {
     },
     {
       name: 'borrow_obligation_liquidity',
-      index: 11,
+      index: 13,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
@@ -157,7 +158,7 @@ const LENDING_ABI = {
     },
     {
       name: 'repay_obligation_liquidity',
-      index: 12,
+      index: 14,
       parameters: [
         { name: 'market', type: 'LendingMarket', is_account: true },
         { name: 'reserve', type: 'Reserve', is_account: true, attributes: ['mut'] },
@@ -166,6 +167,27 @@ const LENDING_ABI = {
         { name: 'liquidity_supply', type: 'account', is_account: true, attributes: ['mut'] },
         { name: 'user_authority', type: 'account', is_account: true, attributes: ['signer'] },
         { name: 'amount', type: 'u64' },
+      ],
+    },
+    {
+      name: 'init_oracle',
+      index: 6,
+      parameters: [
+        { name: 'oracle', type: 'PriceOracle', is_account: true, attributes: ['mut', 'init', 'signer'] },
+        { name: 'authority', type: 'account', is_account: true, attributes: ['signer'] },
+        { name: 'price', type: 'u64' },
+        { name: 'decimals', type: 'u8' },
+      ],
+    },
+    {
+      name: 'set_oracle',
+      index: 7,
+      parameters: [
+        { name: 'oracle', type: 'PriceOracle', is_account: true, attributes: ['mut'] },
+        { name: 'authority', type: 'account', is_account: true, attributes: ['signer'] },
+        { name: 'price', type: 'u64' },
+        { name: 'decimals', type: 'u8' },
+        { name: 'last_update', type: 'u64' },
       ],
     },
   ],
@@ -246,12 +268,10 @@ export async function loadLendingContext() {
     abi: LENDING_ABI,
     family: 'lending',
   });
-
   const oracleScriptAccount = requireExplicitPubkey(
     'FIVE_LENDING_ORACLE_SCRIPT_ACCOUNT',
     'lending oracle helper script account'
   );
-
   ctx.oracleScriptAccount = oracleScriptAccount;
   ctx.oracleProgram = FiveProgram.fromABI(oracleScriptAccount.toBase58(), ORACLE_HELPER_ABI, {
     fiveVMProgramId: ctx.fiveProgramId.toBase58(),
@@ -340,19 +360,55 @@ export async function initObligation(ctx, borrower, marketPubkey, obligation, st
   return submitInstruction(ctx, ix, [ctx.payer, borrower, obligation], step);
 }
 
-export async function refreshObligationWithOracle(ctx, marketPubkey, obligationPubkey, reservePubkey, oraclePubkey, step = 'lending_refresh_obligation_with_oracle', options = {}) {
+export async function refreshObligationWithOracle(ctx, borrower, marketPubkey, obligationPubkey, reservePubkey, oraclePubkey, step = 'lending_refresh_obligation_with_oracle', options = {}) {
+  const oracleInfo = await readAccountInfo(ctx, oraclePubkey);
+  assertOrThrow(oracleInfo, `Oracle account not found: ${oraclePubkey.toBase58()}`);
+  const oracleData = oracleInfo.data;
+  const oraclePrice = Number(oracleData.readBigUInt64LE(0));
+  const oracleLastUpdate = Number(oracleData.readBigUInt64LE(9));
+  const slotNow = Number(await ctx.connection.getSlot('confirmed'));
+  const stale = slotNow - oracleLastUpdate > 100;
+  if (stale) {
+    const failureClass = options.expectedFailureClass || 'account_fixture';
+    const error = `Oracle update is stale: last_update=${oracleLastUpdate}, current_slot=${slotNow}`;
+    emitJourneyStep({
+      step,
+      status: 'FAIL',
+      signature: null,
+      computeUnits: null,
+      missingCuReason: 'client-side oracle freshness check',
+      error,
+      failureClass,
+    });
+    const result = { success: false, signature: null, computeUnits: null, error, logs: [], failureClass };
+    if (options.allowFailure) {
+      return result;
+    }
+    const raised = new Error(error);
+    raised.stepAlreadyEmitted = true;
+    throw raised;
+  }
   const ix = await buildFiveInstruction(ctx, 'refresh_obligation_with_oracle', {
     market: marketPubkey,
     obligation: obligationPubkey,
     reserve: reservePubkey,
-    oracle_state: oraclePubkey,
+    borrower: borrower.publicKey,
+  }, {
+    oracle_price: oraclePrice,
+  }, {
+    payerAccount: ctx.payer.publicKey,
   });
-  return submitInstruction(ctx, ix, [ctx.payer], step, options);
+  if (ix.keys.length >= 6) {
+    ix.keys[2].isWritable = false; // market
+    ix.keys[3].isWritable = true; // obligation
+    ix.keys[4].isWritable = false; // reserve
+    ix.keys[5].isWritable = false; // borrower
+  }
+  return submitInstruction(ctx, ix, [ctx.payer, borrower], step, options);
 }
 
 export async function depositReserveLiquidity(ctx, admin, borrower, marketPubkey, reservePubkey, setup, amount, step = 'lending_deposit_reserve_liquidity', options = {}) {
-  const spl = await loadSplTokenModule();
-  const ix = appendReadonlyExtra(await buildFiveInstruction(ctx, 'deposit_reserve_liquidity', {
+  const ix = await buildFiveInstruction(ctx, 'deposit_reserve_liquidity', {
     market: marketPubkey,
     reserve: reservePubkey,
     user_liquidity: setup.borrowerLiquidity,
@@ -363,7 +419,9 @@ export async function depositReserveLiquidity(ctx, admin, borrower, marketPubkey
     user_authority: borrower.publicKey,
   }, {
     amount,
-  }), spl.TOKEN_PROGRAM_ID);
+  }, {
+    payerAccount: admin.publicKey,
+  });
   return submitInstruction(ctx, ix, [ctx.payer, admin, borrower], step, options);
 }
 
