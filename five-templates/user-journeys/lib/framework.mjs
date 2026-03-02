@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { FiveProgram } from '../../../five-sdk/dist/index.js';
+import { FiveProgram, FiveSDK } from '../../../five-sdk/dist/index.js';
 import { loadSdkValidatorConfig } from '../../../scripts/lib/sdk-validator-config.mjs';
 import { emitUserJourneyStep } from '../../../scripts/lib/user-journey-reporter.mjs';
 
@@ -28,6 +28,7 @@ let cachedSplToken = null;
 
 export {
   Connection,
+  FiveSDK,
   FiveProgram,
   Keypair,
   PublicKey,
@@ -214,11 +215,11 @@ function normalizeInstruction(ctx, instructionOrData) {
     isWritable: entry.isWritable,
   }));
 
-  const hasCanonicalTail = (() => {
-    if (keys.length < 3) return false;
-    const tailSystem = keys[keys.length - 1];
-    const tailVault = keys[keys.length - 2];
-    const tailPayer = keys[keys.length - 3];
+  const isCanonicalTailAt = (startIndex) => {
+    if (startIndex < 0 || startIndex + 2 >= keys.length) return false;
+    const tailPayer = keys[startIndex];
+    const tailVault = keys[startIndex + 1];
+    const tailSystem = keys[startIndex + 2];
     return (
       tailSystem.pubkey.equals(SystemProgram.programId) &&
       !tailSystem.isSigner &&
@@ -228,9 +229,35 @@ function normalizeInstruction(ctx, instructionOrData) {
       tailPayer.isSigner &&
       tailPayer.isWritable
     );
-  })();
+  };
 
-  if (!hasCanonicalTail) {
+  const hasCanonicalTail = () => isCanonicalTailAt(keys.length - 3);
+
+  if (!hasCanonicalTail()) {
+    for (let startIndex = keys.length - 4; startIndex >= 0; startIndex -= 1) {
+      if (!isCanonicalTailAt(startIndex)) continue;
+      const existingTail = keys.splice(startIndex, 3);
+      keys.push(...existingTail);
+      break;
+    }
+  }
+
+  if (!hasCanonicalTail() && keys.length >= 2) {
+    const tailSystem = keys[keys.length - 1];
+    const tailVault = keys[keys.length - 2];
+    const hasLegacyBuilderTail =
+      tailSystem.pubkey.equals(SystemProgram.programId) &&
+      !tailSystem.isSigner &&
+      !tailSystem.isWritable &&
+      tailVault.pubkey.equals(ctx.feeVaultAccount) &&
+      !tailVault.isSigner &&
+      tailVault.isWritable;
+    if (hasLegacyBuilderTail) {
+      keys.splice(-2, 2);
+    }
+  }
+
+  if (!hasCanonicalTail()) {
     keys.push({
       pubkey: ctx.payer.publicKey,
       isSigner: true,

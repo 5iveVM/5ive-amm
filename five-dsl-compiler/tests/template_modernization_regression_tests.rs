@@ -12,8 +12,21 @@ fn assert_external_call_compiles(source: &str) {
         "source should not use ext0 namespace"
     );
     assert!(
-        source.contains("token_bytecode: account"),
-        "source should bind token bytecode as explicit account"
+        source.contains("token_bytecode: account") || source.contains("token_program: account"),
+        "source should bind external token program as explicit account"
+    );
+}
+
+fn assert_call_external_uses_account_index(source: &str, expected_account_index: u8) {
+    let bytecode = DslCompiler::compile_dsl(source).expect("source should compile");
+    let call_pos = bytecode
+        .iter()
+        .position(|op| *op == CALL_EXTERNAL)
+        .expect("bytecode should contain CALL_EXTERNAL");
+    assert_eq!(
+        bytecode[call_pos + 1],
+        expected_account_index,
+        "CALL_EXTERNAL should target the explicit external program account"
     );
 }
 
@@ -110,4 +123,23 @@ fn token_template_import_contract_regression() {
         }
     "#;
     assert_external_call_compiles(source);
+}
+
+#[test]
+fn token_program_param_binds_call_external_to_explicit_program_account() {
+    let source = r#"
+        use "11111111111111111111111111111111"::{transfer};
+
+        pub fn smoke(
+            from_account: account @mut,
+            to_account: account @mut,
+            owner: account @signer,
+            amount: u64,
+            token_program: account
+        ) {
+            transfer(from_account, to_account, owner, amount);
+        }
+    "#;
+    assert_external_call_compiles(source);
+    assert_call_external_uses_account_index(source, 4);
 }

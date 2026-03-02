@@ -4,7 +4,10 @@ pub mod fees;
 pub mod verify;
 
 // Re-export functions to maintain compatibility with lib.rs usage
-pub use deploy::{append_bytecode, deploy, finalize_script_upload, init_large_program, initialize};
+pub use deploy::{
+    append_bytecode, deploy, finalize_script_upload, init_large_program, init_large_program_v2,
+    initialize,
+};
 pub use execute::execute;
 pub use fees::{init_fee_vault, set_fees, withdraw_script_fees};
 pub use verify::verify_bytecode_content;
@@ -16,6 +19,7 @@ use pinocchio::{
 // Script deployment and execution instructions
 pub const DEPLOY_INSTRUCTION: u8 = 8;
 pub const EXECUTE_INSTRUCTION: u8 = 9;
+pub const INIT_LARGE_PROGRAM_V2_INSTRUCTION: u8 = 13;
 
 /// Ensure the required number of accounts are present
 #[inline(always)]
@@ -68,6 +72,11 @@ pub enum FIVEInstruction<'a> {
     },
     InitLargeProgram {
         expected_size: u32,
+        chunk_data: Option<&'a [u8]>,
+    },
+    InitLargeProgramV2 {
+        bytecode_size: u32,
+        metadata_len: u32,
         chunk_data: Option<&'a [u8]>,
     },
     AppendBytecode {
@@ -127,6 +136,23 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 };
                 Ok(FIVEInstruction::InitLargeProgram {
                     expected_size,
+                    chunk_data,
+                })
+            }
+            INIT_LARGE_PROGRAM_V2_INSTRUCTION => {
+                if data.len() < 9 {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                let bytecode_size = u32::from_le_bytes(data[1..5].try_into().unwrap());
+                let metadata_len = u32::from_le_bytes(data[5..9].try_into().unwrap());
+                let chunk_data = if data.len() > 9 {
+                    Some(&data[9..])
+                } else {
+                    None
+                };
+                Ok(FIVEInstruction::InitLargeProgramV2 {
+                    bytecode_size,
+                    metadata_len,
                     chunk_data,
                 })
             }

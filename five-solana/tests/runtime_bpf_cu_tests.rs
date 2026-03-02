@@ -318,6 +318,14 @@ async fn spl_token_interface_cpi_bpf_compute_units() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn spl_token_interface_dynamic_transfer_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let fixture_path = repo_root
+        .join("five-templates/cpi-examples/runtime-fixtures/spl-token-transfer-dynamic.json");
+    run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(40_000)).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn external_token_transfer_non_cpi_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let bpf_dir = repo_root.join("target/deploy");

@@ -142,7 +142,7 @@ export class FunctionBuilder {
     this.validateParameters();
 
     // Merge parameters in ABI order (accounts first, then data)
-    const { mergedParams, accountPubkeys } = this.mergeParameters();
+    const { mergedParams, argParams, accountPubkeys } = this.mergeParameters();
 
     // Append system accounts to the account list (they go at the end)
     const allAccountPubkeys = [...accountPubkeys, ...systemAccountsList];
@@ -163,6 +163,7 @@ export class FunctionBuilder {
     // This reuses the proven parameter encoding logic
     const instruction = await this.generateInstructionData(
       mergedParams,
+      argParams,
       allAccountPubkeys,
       accountMetadata
     );
@@ -263,9 +264,11 @@ export class FunctionBuilder {
    */
   private mergeParameters(): {
     mergedParams: (string | number | boolean | bigint)[];
+    argParams: (string | number | boolean | bigint)[];
     accountPubkeys: string[];
   } {
     const mergedParams: (string | number | boolean | bigint)[] = [];
+    const argParams: (string | number | boolean | bigint)[] = [];
     const accountPubkeys: string[] = [];
 
     for (const param of this.functionDef.parameters) {
@@ -284,10 +287,11 @@ export class FunctionBuilder {
           throw new Error(`Missing argument '${param.name}'`);
         }
         mergedParams.push(value);
+        argParams.push(value);
       }
     }
 
-    return { mergedParams, accountPubkeys };
+    return { mergedParams, argParams, accountPubkeys };
   }
 
   /**
@@ -391,6 +395,7 @@ export class FunctionBuilder {
    */
   private async generateInstructionData(
     mergedParams: (string | number | boolean | bigint)[],
+    argParams: (string | number | boolean | bigint)[],
     accountList: string[],
     accountMetadata: Map<
       string,
@@ -407,7 +412,7 @@ export class FunctionBuilder {
     const executionResult = await FiveSDK.generateExecuteInstruction(
       this.scriptAccount,
       this.functionDef.index,  // Use function index directly
-      mergedParams,            // All parameters in merged order
+      argParams,               // Current VM contract encodes non-account args only
       accountList,             // Account pubkey list
       undefined,               // No connection needed - we have ABI
       {

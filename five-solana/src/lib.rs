@@ -104,6 +104,25 @@ fn process_administrative_instruction(
             );
             instructions::init_large_program(program_id, accounts, expected_size, chunk_data)
         }
+        FIVEInstruction::InitLargeProgramV2 {
+            bytecode_size,
+            metadata_len,
+            chunk_data,
+        } => {
+            debug_log!(
+                "Processing InitLargeProgramV2 instruction (bytecode size {}, metadata {}, chunk {})",
+                bytecode_size,
+                metadata_len,
+                chunk_data.map(|c| c.len()).unwrap_or(0)
+            );
+            instructions::init_large_program_v2(
+                program_id,
+                accounts,
+                bytecode_size,
+                metadata_len,
+                chunk_data,
+            )
+        }
         FIVEInstruction::AppendBytecode { data } => {
             debug_log!(
                 "Processing AppendBytecode instruction with {} bytes",

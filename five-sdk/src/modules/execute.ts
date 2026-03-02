@@ -445,7 +445,12 @@ export async function generateExecuteInstruction(
 
   const abiAccountMetadata = new Map<string, { isSigner: boolean; isWritable: boolean }>();
 
-  if (funcDef && funcDef.parameters) {
+  const hasFullParameterList =
+    !!funcDef &&
+    Array.isArray(funcDef.parameters) &&
+    parameters.length === funcDef.parameters.length;
+
+  if (funcDef && funcDef.parameters && hasFullParameterList) {
     // First pass: detect if there's an @init constraint and find the payer
     let hasInit = false;
     let payerPubkey: string | undefined;
@@ -497,7 +502,7 @@ export async function generateExecuteInstruction(
     // Check both derived ABI metadata and passed-in metadata (from FunctionBuilder)
     const abiMetadata = abiAccountMetadata.get(acc);
     const passedMetadata = options.accountMetadata?.get(acc);
-    const metadata = abiMetadata || passedMetadata;
+    const metadata = passedMetadata || abiMetadata;
     const isSigner = metadata ? metadata.isSigner : false;
     const isWritable = metadata ? metadata.isWritable : true;
 

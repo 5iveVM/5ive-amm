@@ -744,6 +744,20 @@ impl ASTGenerator {
                 }
             })
             .collect();
+        let program_param_positions: Vec<usize> = account_params
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, p)| {
+                let name = p.name.as_str();
+                if name == "system_program" {
+                    None
+                } else if name.ends_with("_program") || name.contains("program") {
+                    Some(idx)
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         if let Some((idx, _)) = account_params
             .iter()
@@ -753,11 +767,28 @@ impl ASTGenerator {
             return Ok(account_index_from_param_index(idx as u8));
         }
 
+        if let Some((idx, _)) = account_params
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.name == "token_program")
+        {
+            return Ok(account_index_from_param_index(idx as u8));
+        }
+
         if !bytecode_param_positions.is_empty() {
             let selected = if (default_index as usize) < bytecode_param_positions.len() {
                 bytecode_param_positions[default_index as usize]
             } else {
                 bytecode_param_positions[0]
+            };
+            return Ok(account_index_from_param_index(selected as u8));
+        }
+
+        if !program_param_positions.is_empty() {
+            let selected = if (default_index as usize) < program_param_positions.len() {
+                program_param_positions[default_index as usize]
+            } else {
+                program_param_positions[0]
             };
             return Ok(account_index_from_param_index(selected as u8));
         }
@@ -1073,8 +1104,6 @@ impl ASTGenerator {
                     emitter.emit_const_bytes(&[byte])?;
                 } else {
                     self.generate_ast_node(emitter, arg)?;
-                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
-                    emitter.emit_u8(1);
                 }
                 Ok(())
             }
@@ -1114,13 +1143,9 @@ impl ASTGenerator {
                         emitter.emit_const_bytes(&[u8::from(flag)])?;
                     } else {
                         self.generate_ast_node(emitter, arg)?;
-                        emitter.emit_opcode(PUSH_ARRAY_LITERAL);
-                        emitter.emit_u8(1);
                     }
                 } else {
                     self.generate_ast_node(emitter, arg)?;
-                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
-                    emitter.emit_u8(1);
                 }
                 Ok(())
             }
@@ -1379,6 +1404,76 @@ mod tests {
 
         assert_eq!(emitter.bytes[0], CALL_EXTERNAL);
         assert_eq!(emitter.bytes[1], 4); // token_bytecode parameter is the 4th account argument
+    }
+
+    #[test]
+    fn resolves_external_account_from_token_program_param_name() {
+        let mut gen = ASTGenerator::new();
+        gen.current_function_parameters = Some(vec![
+            InstructionParameter {
+                name: "source".to_string(),
+                param_type: TypeNode::Primitive("Account".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "mut".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+                pda_config: None,
+            },
+            InstructionParameter {
+                name: "destination".to_string(),
+                param_type: TypeNode::Primitive("Account".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "mut".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+                pda_config: None,
+            },
+            InstructionParameter {
+                name: "owner".to_string(),
+                param_type: TypeNode::Primitive("Account".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "signer".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+                pda_config: None,
+            },
+            InstructionParameter {
+                name: "token_program".to_string(),
+                param_type: TypeNode::Primitive("Account".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![],
+                is_init: false,
+                init_config: None,
+                pda_config: None,
+            },
+        ]);
+
+        let mut funcs = HashMap::new();
+        funcs.insert(
+            "transfer".to_string(),
+            ASTGenerator::external_selector("transfer"),
+        );
+        gen.register_external_import("ext0".to_string(), 0, false, funcs);
+
+        let mut emitter = MockEmitter::new();
+        gen.generate_function_call(&mut emitter, "transfer", &[])
+            .expect("call generation should succeed");
+
+        assert_eq!(emitter.bytes[0], CALL_EXTERNAL);
+        assert_eq!(emitter.bytes[1], 4); // token_program parameter is the 4th account argument
     }
 
     #[test]

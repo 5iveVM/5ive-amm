@@ -91,6 +91,39 @@ fn extract_raw_bytes<'a>(
             out[..len].copy_from_slice(&temp[start..end]);
             Ok((len, out))
         }
+        ValueRef::U8(byte) => {
+            out[0] = *byte;
+            Ok((1, out))
+        }
+        ValueRef::Bool(flag) => {
+            out[0] = u8::from(*flag);
+            Ok((1, out))
+        }
+        ValueRef::U64(word) => {
+            out[..8].copy_from_slice(&word.to_le_bytes());
+            Ok((8, out))
+        }
+        ValueRef::I64(word) => {
+            out[..8].copy_from_slice(&word.to_le_bytes());
+            Ok((8, out))
+        }
+        ValueRef::PubkeyRef(_) => {
+            let bytes = ctx.extract_pubkey(value_ref)?;
+            out[..bytes.len()].copy_from_slice(&bytes);
+            Ok((bytes.len(), out))
+        }
+        ValueRef::AccountRef(account_idx, account_offset) => {
+            if *account_offset != 0 {
+                return Err(VMErrorCode::TypeMismatch);
+            }
+            let account = ctx
+                .accounts()
+                .get(*account_idx as usize)
+                .ok_or(VMErrorCode::InvalidAccountIndex)?;
+            let bytes = account.key().as_ref();
+            out[..bytes.len()].copy_from_slice(bytes);
+            Ok((bytes.len(), out))
+        }
         ValueRef::ArrayRef(id) => {
             let start = *id as usize;
             let temp = ctx.temp_buffer();
@@ -229,7 +262,6 @@ fn extract_raw_bytes<'a>(
 
             Ok((write_offset, out))
         }
-        ValueRef::U64(0) => Ok((0, out)),
         _ => Err(VMErrorCode::TypeMismatch),
     }
 }

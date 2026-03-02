@@ -251,6 +251,27 @@ pub fn init_large_program(
     expected_size: u32,
     chunk_data: Option<&[u8]>,
 ) -> ProgramResult {
+    init_large_program_internal(program_id, accounts, expected_size, 0, chunk_data)
+}
+
+/// Initialize a script account for chunked deployment with explicit metadata bytes.
+pub fn init_large_program_v2(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    bytecode_size: u32,
+    metadata_len: u32,
+    chunk_data: Option<&[u8]>,
+) -> ProgramResult {
+    init_large_program_internal(program_id, accounts, bytecode_size, metadata_len, chunk_data)
+}
+
+fn init_large_program_internal(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    bytecode_size: u32,
+    metadata_len: u32,
+    chunk_data: Option<&[u8]>,
+) -> ProgramResult {
     let chunk_len = chunk_data.map(|c| c.len()).unwrap_or(0);
 
     require_min_accounts(accounts, 5)?;
@@ -274,10 +295,15 @@ pub fn init_large_program(
 
     require_signer(owner)?;
 
-    let expected_size = expected_size as usize;
-    if expected_size < 4 || expected_size > five_protocol::MAX_SCRIPT_SIZE {
+    let bytecode_size = bytecode_size as usize;
+    let metadata_len = metadata_len as usize;
+    if bytecode_size < 4 || bytecode_size > five_protocol::MAX_SCRIPT_SIZE {
         return Err(ProgramError::Custom(8206)); // Invalid expected size
     }
+    if metadata_len > five_protocol::MAX_SCRIPT_SIZE {
+        return Err(ProgramError::Custom(8209)); // Invalid metadata size
+    }
+    let expected_size = bytecode_size + metadata_len;
 
     // Validate chunk size if present
     if let Some(chunk) = chunk_data {
@@ -303,7 +329,7 @@ pub fn init_large_program(
     // This closes the fee-bypass path where finalize_script_upload could complete upload
     // without ever entering append_bytecode's completion fee branch.
     if chunk_len == expected_size {
-        let final_size = ScriptAccountHeader::LEN + expected_size;
+        let final_size = ScriptAccountHeader::LEN + metadata_len + bytecode_size;
         collect_deploy_fee(
             program_id,
             vm_state_account,
@@ -320,7 +346,8 @@ pub fn init_large_program(
     let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
     let script_id = vm_state.create_script_id();
 
-    let mut header = ScriptAccountHeader::new(expected_size, *owner.key(), script_id);
+    let mut header = ScriptAccountHeader::new(bytecode_size, *owner.key(), script_id);
+    header.set_metadata_len(metadata_len);
     header.set_upload_len(chunk_len as u32);
     header.set_upload_mode(true);
     header.set_upload_complete(false);
@@ -362,7 +389,7 @@ pub fn append_bytecode(
     validate_vm_and_script_accounts(program_id, script_account, vm_state_account)?;
     require_signer(owner)?;
 
-    let (expected_size, current_len, script_id, permissions) = {
+    let (bytecode_len, metadata_len, current_len, script_id, permissions) = {
         // SAFETY: The script account is program-owned and borrowed mutably for header access.
         let script_data = unsafe { script_account.borrow_mut_data_unchecked() };
         let header = ScriptAccountHeader::from_account_data_mut(script_data)?;
@@ -374,11 +401,13 @@ pub fn append_bytecode(
         }
         (
             header.bytecode_len(),
+            header.metadata_len(),
             header.upload_len() as usize,
             header.script_id,
             header.permissions,
         )
     };
+    let expected_size = bytecode_len + metadata_len;
 
     if current_len + chunk.len() > expected_size {
         return Err(ProgramError::Custom(8202)); // Chunk exceeds expected size
@@ -406,7 +435,8 @@ pub fn append_bytecode(
             return Err(ProgramError::Custom(7006)); // Account size mismatch
         }
 
-        let bytecode = &script_data[ScriptAccountHeader::LEN..bytecode_end];
+        let bytecode_start = ScriptAccountHeader::LEN + metadata_len;
+        let bytecode = &script_data[bytecode_start..bytecode_end];
 
         if bytecode.len() < 4 || bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
             return Err(ProgramError::Custom(8203)); // Invalid bytecode size
@@ -421,7 +451,7 @@ pub fn append_bytecode(
 
         // Collect deployment fee if configured
         {
-            let final_size = ScriptAccountHeader::LEN + expected_size;
+            let final_size = ScriptAccountHeader::LEN + metadata_len + bytecode_len;
             collect_deploy_fee(
                 program_id,
                 vm_state_account,
@@ -439,6 +469,7 @@ pub fn append_bytecode(
             script_id,
             permissions,
         );
+        final_header.set_metadata_len(metadata_len);
         // Set upload flags BEFORE writing to account (single-write pattern)
         final_header.set_upload_len(0);
         final_header.set_upload_mode(false);
@@ -462,7 +493,7 @@ pub fn finalize_script_upload(program_id: &Pubkey, accounts: &[AccountInfo]) -> 
     }
 
     // Load header and check status
-    let (expected_size, current_len, script_id, permissions) = {
+    let (bytecode_len, metadata_len, current_len, script_id, permissions) = {
         let script_data = unsafe { script_account.borrow_data_unchecked() };
         let header = ScriptAccountHeader::from_account_data(&script_data)?;
 
@@ -474,11 +505,13 @@ pub fn finalize_script_upload(program_id: &Pubkey, accounts: &[AccountInfo]) -> 
         }
         (
             header.bytecode_len(),
+            header.metadata_len(),
             header.upload_len() as usize,
             header.script_id,
             header.permissions,
         )
     };
+    let expected_size = bytecode_len + metadata_len;
 
     if current_len != expected_size {
         return Err(ProgramError::Custom(8208)); // Finalize size mismatch
@@ -486,13 +519,16 @@ pub fn finalize_script_upload(program_id: &Pubkey, accounts: &[AccountInfo]) -> 
 
     // Verify bytecode
     let script_data = unsafe { script_account.borrow_mut_data_unchecked() };
-    let bytecode = &script_data[ScriptAccountHeader::LEN..ScriptAccountHeader::LEN + expected_size];
+    let bytecode_start = ScriptAccountHeader::LEN + metadata_len;
+    let bytecode_end = bytecode_start + bytecode_len;
+    let bytecode = &script_data[bytecode_start..bytecode_end];
 
     verify_bytecode_content(bytecode)?;
 
     // Update header
     let mut final_header =
         ScriptAccountHeader::create_from_bytecode(bytecode, *owner.key(), script_id, permissions);
+    final_header.set_metadata_len(metadata_len);
     // Set upload flags BEFORE writing to account (single-write pattern)
     final_header.set_upload_len(0);
     final_header.set_upload_mode(false);
