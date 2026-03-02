@@ -234,6 +234,24 @@ function normalizeInstruction(ctx, instructionOrData) {
   };
 
   const hasCanonicalTail = () => isCanonicalTailAt(keys.length - 3);
+  const stripLegacyBuilderTailPair = () => {
+    for (let startIndex = keys.length - 2; startIndex >= 0; startIndex -= 1) {
+      const tailVault = keys[startIndex];
+      const tailSystem = keys[startIndex + 1];
+      if (
+        tailVault?.pubkey?.equals?.(ctx.feeVaultAccount) &&
+        !tailVault.isSigner &&
+        tailVault.isWritable &&
+        tailSystem?.pubkey?.equals?.(SystemProgram.programId) &&
+        !tailSystem.isSigner &&
+        !tailSystem.isWritable
+      ) {
+        keys.splice(startIndex, 2);
+        return true;
+      }
+    }
+    return false;
+  };
 
   if (!hasCanonicalTail()) {
     for (let startIndex = keys.length - 4; startIndex >= 0; startIndex -= 1) {
@@ -244,19 +262,8 @@ function normalizeInstruction(ctx, instructionOrData) {
     }
   }
 
-  if (!hasCanonicalTail() && keys.length >= 2) {
-    const tailSystem = keys[keys.length - 1];
-    const tailVault = keys[keys.length - 2];
-    const hasLegacyBuilderTail =
-      tailSystem.pubkey.equals(SystemProgram.programId) &&
-      !tailSystem.isSigner &&
-      !tailSystem.isWritable &&
-      tailVault.pubkey.equals(ctx.feeVaultAccount) &&
-      !tailVault.isSigner &&
-      tailVault.isWritable;
-    if (hasLegacyBuilderTail) {
-      keys.splice(-2, 2);
-    }
+  if (!hasCanonicalTail()) {
+    stripLegacyBuilderTailPair();
   }
 
   if (!hasCanonicalTail()) {
@@ -302,6 +309,17 @@ export function classifyFailure(message, logs = []) {
 
 export async function submitInstruction(ctx, instructionOrData, signers, step, options = {}) {
   const ix = normalizeInstruction(ctx, instructionOrData);
+  if (step === 'lending_deposit_reserve_liquidity') {
+    console.log(
+      `USER_JOURNEY_NORMALIZED_KEYS:${JSON.stringify(ix.keys.map((key) => ({
+        pubkey: key.pubkey.toBase58(),
+        isSigner: key.isSigner,
+        isWritable: key.isWritable,
+      })))}`
+    );
+    console.log(`USER_JOURNEY_NORMALIZED_DATA_LEN:${ix.data.length}`);
+    console.log(`USER_JOURNEY_NORMALIZED_DATA_HEX:${Buffer.from(ix.data).toString('hex')}`);
+  }
   const tx = new Transaction().add(ix);
   const allowFailure = options.allowFailure === true;
   const expectedFailureClass = options.expectedFailureClass || null;

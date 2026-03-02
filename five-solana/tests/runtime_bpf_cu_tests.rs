@@ -9,7 +9,7 @@ use std::{
 
 use five::instructions::{DEPLOY_INSTRUCTION, EXECUTE_INSTRUCTION};
 use five::state::{FIVEVMState, ScriptAccountHeader};
-use five_dsl_compiler::DslCompiler;
+use five_dsl_compiler::{bytecode_generator::disassembler::BytecodeInspector, DslCompiler};
 use five_protocol::{
     opcodes::{self, CALL_EXTERNAL, HALT},
     parser::parse_code_bounds,
@@ -347,6 +347,609 @@ async fn spl_token_interface_transfer_with_state_account_bpf_compute_units() {
     let fixture_path = repo_root
         .join("five-templates/cpi-examples/runtime-fixtures/spl-token-transfer-with-state-account.json");
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(40_000)).await;
+}
+
+#[test]
+fn lending_native_spl_deposit_reserve_liquidity_bytecode_shape() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let source_path = repo_root.join("5ive-lending-2/src/main.v");
+    let source = fs::read_to_string(&source_path).unwrap_or_else(|e| {
+        panic!("failed reading {}: {}", source_path.display(), e)
+    });
+    let bytecode = DslCompiler::compile_dsl(&source).unwrap_or_else(|e| {
+        panic!("failed compiling {}: {}", source_path.display(), e)
+    });
+
+    let inspector = BytecodeInspector::new(&bytecode);
+    let call_sites = inspector.find_calls();
+    let (header, mut code_offset, code_end) =
+        parse_code_bounds(&bytecode).expect("lending bytecode should have valid code bounds");
+    let pool_enabled = (header.features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+    let mut invoke_count = 0usize;
+    let mut push_pubkey_count = 0usize;
+    let mut push_bytes_count = 0usize;
+    let mut array_concat_count = 0usize;
+    while code_offset < code_end {
+        let opcode = bytecode[code_offset];
+        match opcode {
+            opcodes::INVOKE => invoke_count += 1,
+            opcodes::PUSH_PUBKEY => push_pubkey_count += 1,
+            opcodes::PUSH_BYTES => push_bytes_count += 1,
+            opcodes::ARRAY_CONCAT => array_concat_count += 1,
+            _ => {}
+        }
+        let size = BytecodeInspector::instruction_size_with_pool(&bytecode, code_offset, pool_enabled);
+        assert!(size > 0, "decoded instruction size should make progress");
+        code_offset += size;
+    }
+
+    let internal_refresh_calls = call_sites
+        .iter()
+        .filter(|call| {
+            call.name_metadata
+                .as_deref()
+                .map(|meta| meta.contains("refresh_reserve_internal"))
+                .unwrap_or(false)
+        })
+        .count();
+
+    println!(
+        "LENDING_DEPOSIT_SHAPE bytes={} calls={} invoke={} push_pubkey={} push_bytes={} array_concat={} refresh_reserve_internal_calls={}",
+        bytecode.len(),
+        call_sites.len(),
+        invoke_count,
+        push_pubkey_count,
+        push_bytes_count,
+        array_concat_count,
+        internal_refresh_calls
+    );
+
+    for call in call_sites.iter().filter(|call| {
+        call.name_metadata
+            .as_deref()
+            .map(|meta| {
+                meta.contains("refresh_reserve_internal")
+                    || meta.contains("deposit_reserve_liquidity")
+            })
+            .unwrap_or(false)
+    }) {
+        println!(
+            "LENDING_DEPOSIT_CALLSITE offset={} params={} target={} meta={:?}",
+            call.offset, call.param_count, call.function_address, call.name_metadata
+        );
+    }
+
+    assert!(
+        invoke_count >= 3,
+        "lending source should emit multiple native SPL INVOKEs; saw {}",
+        invoke_count
+    );
+    assert!(
+        push_pubkey_count >= 1,
+        "lending source should emit native SPL program id pushes"
+    );
+    assert!(
+        push_bytes_count >= invoke_count,
+        "native SPL INVOKE path should emit instruction-data byte payloads; push_bytes={} invoke={}",
+        push_bytes_count,
+        invoke_count
+    );
+    assert!(
+        array_concat_count >= invoke_count,
+        "native SPL INVOKE path should assemble CPI instruction data with ARRAY_CONCAT; array_concat={} invoke={}",
+        array_concat_count,
+        invoke_count
+    );
+    assert_eq!(
+        internal_refresh_calls, 0,
+        "current CALL metadata should not resolve private helper names; if this changes, tighten this regression"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn lending_native_spl_deposit_reserve_liquidity_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let bpf_dir = repo_root.join("target/deploy");
+    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
+
+    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
+        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
+        .pubkey();
+
+    let lending_source_path = repo_root.join("5ive-lending-2/src/main.v");
+    let lending_source = fs::read_to_string(&lending_source_path).unwrap_or_else(|e| {
+        panic!("failed reading {}: {}", lending_source_path.display(), e)
+    });
+    let lending_bytecode = DslCompiler::compile_dsl(&lending_source).unwrap_or_else(|e| {
+        panic!("failed compiling {}: {}", lending_source_path.display(), e)
+    });
+
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
+    let owner_signer = Keypair::new();
+    let user_signer = Keypair::new();
+    let market_signer = Keypair::new();
+    let reserve_signer = Keypair::new();
+    let owner_pubkey = owner_signer.pubkey();
+    let user_pubkey = user_signer.pubkey();
+
+    accounts.insert(
+        "owner".to_string(),
+        RuntimeAccount {
+            pubkey: owner_pubkey,
+            signer: Some(owner_signer),
+            owner: system_program::id(),
+            lamports: 60_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "user".to_string(),
+        RuntimeAccount {
+            pubkey: user_pubkey,
+            signer: Some(user_signer),
+            owner: system_program::id(),
+            lamports: 30_000_000,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    let mut vm_state_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let vm_state = FIVEVMState::from_account_data_mut(&mut vm_state_data)
+            .expect("invalid vm state account layout");
+        vm_state.initialize(owner_pubkey.to_bytes(), vm_state_pda(&program_id).1);
+        vm_state.deploy_fee_lamports = 0;
+        vm_state.execute_fee_lamports = 0;
+    }
+    let (vm_state_pubkey, _vm_state_bump) = vm_state_pda(&program_id);
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: vm_state_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(FIVEVMState::LEN),
+            data: vm_state_data,
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    accounts.insert(
+        "lending_script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + lending_bytecode.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + lending_bytecode.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    accounts.insert(
+        "market".to_string(),
+        RuntimeAccount {
+            pubkey: market_signer.pubkey(),
+            signer: Some(market_signer),
+            owner: system_program::id(),
+            lamports: 0,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "reserve".to_string(),
+        RuntimeAccount {
+            pubkey: reserve_signer.pubkey(),
+            signer: Some(reserve_signer),
+            owner: system_program::id(),
+            lamports: 0,
+            data: vec![],
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+
+    accounts.insert(
+        "quote_currency".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: system_program::id(),
+            lamports: 1_000_000,
+            data: vec![],
+            is_signer: false,
+            is_writable: false,
+            executable: false,
+        },
+    );
+
+    let mint_rent = Rent::default().minimum_balance(spl_token::state::Mint::LEN);
+    let token_rent = Rent::default().minimum_balance(spl_token::state::Account::LEN);
+
+    for name in ["liquidity_mint", "collateral_mint"] {
+        accounts.insert(
+            name.to_string(),
+            RuntimeAccount {
+                pubkey: Pubkey::new_unique(),
+                signer: None,
+                owner: spl_token::id(),
+                lamports: mint_rent,
+                data: vec![0u8; spl_token::state::Mint::LEN],
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
+
+    for name in ["user_liquidity", "user_collateral", "liquidity_supply"] {
+        accounts.insert(
+            name.to_string(),
+            RuntimeAccount {
+                pubkey: Pubkey::new_unique(),
+                signer: None,
+                owner: spl_token::id(),
+                lamports: token_rent,
+                data: vec![0u8; spl_token::state::Account::LEN],
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
+
+    accounts.insert(
+        "system_program".to_string(),
+        RuntimeAccount {
+            pubkey: system_program::id(),
+            signer: None,
+            owner: system_program::id(),
+            lamports: 1,
+            data: vec![],
+            is_signer: false,
+            is_writable: false,
+            executable: true,
+        },
+    );
+    accounts.insert(
+        "spl_token_program".to_string(),
+        RuntimeAccount {
+            pubkey: spl_token::id(),
+            signer: None,
+            owner: system_program::id(),
+            lamports: 1,
+            data: vec![],
+            is_signer: false,
+            is_writable: false,
+            executable: true,
+        },
+    );
+
+    ensure_canonical_fee_vault_account(&mut accounts, program_id);
+    let mut program_test = ProgramTest::default();
+    program_test.prefer_bpf(false);
+    program_test.add_program(
+        "spl_token",
+        spl_token::id(),
+        solana_program_test::processor!(spl_token::processor::Processor::process),
+    );
+    let five_program_data = fs::read(bpf_dir.join("five.so"))
+        .expect("missing target/deploy/five.so; run the local cluster build first");
+    program_test.add_account(
+        program_id,
+        Account {
+            lamports: Rent::default()
+                .minimum_balance(five_program_data.len())
+                .max(1),
+            data: five_program_data,
+            owner: solana_sdk::bpf_loader::id(),
+            executable: true,
+            rent_epoch: 0,
+        },
+    );
+    for account in accounts.values() {
+        if account.pubkey == program_id
+            || account.pubkey == system_program::id()
+            || account.pubkey == spl_token::id()
+        {
+            continue;
+        }
+        program_test.add_account(
+            account.pubkey,
+            Account {
+                lamports: account.lamports,
+                data: account.data.clone(),
+                owner: account.owner,
+                executable: account.executable,
+                rent_epoch: 0,
+            },
+        );
+    }
+    let mut ctx = program_test.start_with_context().await;
+
+    let token_setup_ixs = vec![
+        spl_token::instruction::initialize_mint2(
+            &spl_token::id(),
+            &accounts["liquidity_mint"].pubkey,
+            &owner_pubkey,
+            Some(&owner_pubkey),
+            0,
+        )
+        .expect("initialize liquidity mint"),
+        spl_token::instruction::initialize_mint2(
+            &spl_token::id(),
+            &accounts["collateral_mint"].pubkey,
+            &owner_pubkey,
+            Some(&owner_pubkey),
+            0,
+        )
+        .expect("initialize collateral mint"),
+        spl_token::instruction::initialize_account3(
+            &spl_token::id(),
+            &accounts["user_liquidity"].pubkey,
+            &accounts["liquidity_mint"].pubkey,
+            &user_pubkey,
+        )
+        .expect("initialize user_liquidity"),
+        spl_token::instruction::initialize_account3(
+            &spl_token::id(),
+            &accounts["liquidity_supply"].pubkey,
+            &accounts["liquidity_mint"].pubkey,
+            &owner_pubkey,
+        )
+        .expect("initialize liquidity_supply"),
+        spl_token::instruction::initialize_account3(
+            &spl_token::id(),
+            &accounts["user_collateral"].pubkey,
+            &accounts["collateral_mint"].pubkey,
+            &user_pubkey,
+        )
+        .expect("initialize user_collateral"),
+        spl_token::instruction::mint_to(
+            &spl_token::id(),
+            &accounts["liquidity_mint"].pubkey,
+            &accounts["user_liquidity"].pubkey,
+            &owner_pubkey,
+            &[],
+            500,
+        )
+        .expect("mint_to user_liquidity"),
+    ];
+    let token_setup = simulate_and_process(
+        &mut ctx,
+        token_setup_ixs,
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        token_setup.success,
+        "lending token setup failed: {:?}",
+        token_setup.error
+    );
+
+    let deploy_ix = build_deploy_instruction(
+        program_id,
+        &accounts,
+        "lending_script",
+        "vm_state",
+        "owner",
+        &lending_bytecode,
+        0,
+    );
+    let deploy = simulate_and_process(
+        &mut ctx,
+        vec![deploy_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(deploy.success, "lending deploy failed: {:?}", deploy.error);
+
+    let init_market_step = StepFixture {
+        name: "init_market".to_string(),
+        function_index: 0,
+        extras: vec![
+            "market".to_string(),
+            "quote_currency".to_string(),
+            "owner".to_string(),
+            "system_program".to_string(),
+        ],
+        params: vec![],
+        expected: ExpectedFixture::Success,
+    };
+    let init_market = simulate_and_process(
+        &mut ctx,
+        vec![build_execute_instruction(
+            program_id,
+            &accounts,
+            "lending_script",
+            "vm_state",
+            &init_market_step,
+            build_payload(&accounts, &init_market_step),
+        )],
+        collect_signers(&accounts, &["owner", "market"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        init_market.success,
+        "lending init_market failed: {:?}",
+        init_market.error
+    );
+    accounts
+        .get_mut("market")
+        .expect("market account should exist")
+        .is_signer = false;
+
+    let init_reserve_step = StepFixture {
+        name: "init_reserve".to_string(),
+        function_index: 3,
+        extras: vec![
+            "market".to_string(),
+            "reserve".to_string(),
+            "liquidity_mint".to_string(),
+            "liquidity_supply".to_string(),
+            "collateral_mint".to_string(),
+            "owner".to_string(),
+            "system_program".to_string(),
+        ],
+        params: vec![
+            ParamFixture::U8 { value: 80 },
+            ParamFixture::U8 { value: 75 },
+            ParamFixture::U8 { value: 10 },
+            ParamFixture::U64 { value: 0 },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+    let init_reserve = simulate_and_process(
+        &mut ctx,
+        vec![build_execute_instruction(
+            program_id,
+            &accounts,
+            "lending_script",
+            "vm_state",
+            &init_reserve_step,
+            build_payload(&accounts, &init_reserve_step),
+        )],
+        collect_signers(&accounts, &["owner", "reserve"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        init_reserve.success,
+        "lending init_reserve failed: {:?}",
+        init_reserve.error
+    );
+    let reserve_after_init = ctx
+        .banks_client
+        .get_account(accounts["reserve"].pubkey)
+        .await
+        .expect("fetch reserve after init")
+        .expect("reserve account must exist");
+    println!(
+        "LENDING_RESERVE_AFTER_INIT bytes_128_191={:?}",
+        &reserve_after_init.data[128..191]
+    );
+    accounts
+        .get_mut("reserve")
+        .expect("reserve account should exist")
+        .is_signer = false;
+
+    let refresh_reserve_step = StepFixture {
+        name: "refresh_reserve".to_string(),
+        function_index: 6,
+        extras: vec!["reserve".to_string()],
+        params: vec![],
+        expected: ExpectedFixture::Success,
+    };
+    let refresh_reserve = simulate_and_process(
+        &mut ctx,
+        vec![build_execute_instruction(
+            program_id,
+            &accounts,
+            "lending_script",
+            "vm_state",
+            &refresh_reserve_step,
+            build_payload(&accounts, &refresh_reserve_step),
+        )],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        refresh_reserve.success,
+        "lending refresh_reserve failed: {:?}",
+        refresh_reserve.error
+    );
+
+    let deposit_step = StepFixture {
+        name: "deposit_reserve_liquidity".to_string(),
+        function_index: 9,
+        extras: vec![
+            "market".to_string(),
+            "reserve".to_string(),
+            "user_liquidity".to_string(),
+            "user_collateral".to_string(),
+            "liquidity_supply".to_string(),
+            "collateral_mint".to_string(),
+            "owner".to_string(),
+            "user".to_string(),
+            "spl_token_program".to_string(),
+        ],
+        params: vec![ParamFixture::U64 { value: 100 }],
+        expected: ExpectedFixture::Success,
+    };
+    let deposit_payload = build_payload(&accounts, &deposit_step);
+    let deposit_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "lending_script",
+        "vm_state",
+        &deposit_step,
+        deposit_payload.clone(),
+    );
+    println!(
+        "LENDING_DEPOSIT_RUNTIME payload_len={} metas={:?}",
+        deposit_payload.len(),
+        deposit_ix
+            .accounts
+            .iter()
+            .map(|meta| (meta.pubkey, meta.is_signer, meta.is_writable))
+            .collect::<Vec<_>>()
+    );
+    let deposit = simulate_and_process(
+        &mut ctx,
+        vec![deposit_ix],
+        collect_signers(&accounts, &["owner", "user"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        deposit.success,
+        "lending deposit failed: {:?}",
+        deposit.error
+    );
+    let reserve_after_deposit = ctx
+        .banks_client
+        .get_account(accounts["reserve"].pubkey)
+        .await
+        .expect("fetch reserve after deposit")
+        .expect("reserve account must exist after deposit");
+    println!(
+        "LENDING_RESERVE_AFTER_DEPOSIT bytes_160_176={:?}",
+        &reserve_after_deposit.data[160..176]
+    );
+
+    println!(
+        "BPF_CU lending_native_spl_deposit token_setup={} deploy={} init_market={} init_reserve={} deposit={} total={}",
+        token_setup.units_consumed,
+        deploy.units_consumed,
+        init_market.units_consumed,
+        init_reserve.units_consumed,
+        deposit.units_consumed,
+        token_setup
+            .units_consumed
+            .saturating_add(deploy.units_consumed)
+            .saturating_add(init_market.units_consumed)
+            .saturating_add(init_reserve.units_consumed)
+            .saturating_add(deposit.units_consumed)
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

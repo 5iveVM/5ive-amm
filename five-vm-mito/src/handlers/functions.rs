@@ -148,6 +148,8 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let caller_start = ctx.param_start();
     let caller_len = ctx.param_len();
     let caller_temp_offset = ctx.temp_offset() as u16;
+    let mut saved_caller_parameters = [ValueRef::Empty; MAX_PARAMETERS + 1];
+    saved_caller_parameters.copy_from_slice(ctx.parameters());
 
     if ctx.size() < param_count as usize {
         debug_log!(
@@ -182,6 +184,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     prepare_callee_frame(
         ctx,
         param_count,
+        saved_caller_parameters,
         caller_start,
         caller_len,
         caller_temp_offset,
@@ -882,6 +885,8 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let caller_start = ctx.param_start();
     let caller_len = ctx.param_len();
     let caller_temp_offset = ctx.temp_offset() as u16;
+    let mut saved_caller_parameters = [ValueRef::Empty; MAX_PARAMETERS + 1];
+    saved_caller_parameters.copy_from_slice(ctx.parameters());
 
     let return_address = ctx.ip();
 
@@ -910,6 +915,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     prepare_callee_frame(
         ctx,
         param_count,
+        saved_caller_parameters,
         caller_start,
         caller_len,
         caller_temp_offset,
@@ -994,6 +1000,7 @@ fn materialize_call_args(
 fn prepare_callee_frame(
     ctx: &mut ExecutionManager,
     param_count: u8,
+    saved_parameters: [ValueRef; MAX_PARAMETERS + 1],
     caller_start: u8,
     caller_len: u8,
     caller_temp_offset: u16,
@@ -1005,8 +1012,6 @@ fn prepare_callee_frame(
 ) -> CompactResult<()> {
     let current_local_count = ctx.local_count();
     let current_local_base = ctx.local_base();
-    let mut saved_parameters = [ValueRef::Empty; MAX_PARAMETERS + 1];
-    saved_parameters.copy_from_slice(ctx.parameters());
 
     let new_local_base = current_local_base
         .checked_add(current_local_count)
@@ -1018,6 +1023,7 @@ fn prepare_callee_frame(
 
     ctx.push_call_frame(CallFrame::with_parameters(
         return_address as u16,
+        ctx.stack.sp,
         current_local_count,
         current_local_base,
         caller_start,
@@ -1153,10 +1159,15 @@ fn handle_call_native(ctx: &mut ExecutionManager) -> CompactResult<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        external_selector, handle_call_external, parse_function_constraints,
+        external_selector, handle_call_external, handle_functions, parse_function_constraints,
         resolve_external_function_target,
     };
     use crate::{
+        handlers::{
+            accounts::handle_accounts, arrays::handle_arrays, constraints::handle_constraints,
+            control_flow::handle_control_flow, locals::handle_locals, memory::handle_memory,
+            stack_ops::handle_stack_ops, system::sysvars::handle_sysvar_ops,
+        },
         context::ExecutionContext, error::VMErrorCode, stack::StackStorage, MitoVM,
         MAX_PARAMETERS,
     };
@@ -1510,5 +1521,793 @@ mod tests {
             &mut storage,
         );
         assert!(result.is_ok(), "direct external call failed: {:?}", result);
+    }
+
+    #[test]
+    fn internal_call_then_pubkey_and_concat_preserves_program_id_tempref() {
+        let program_id = Pubkey::from([77u8; 32]);
+        let expected_pubkey = [9u8; 32];
+        let callee_pubkey = [3u8; 32];
+
+        let mut script = vec![
+            b'5', b'I', b'V', b'E', // magic
+            0, 0, 0, 0, // features
+            1, // public count
+            2, // total count
+        ];
+
+        let main_len = 4 + 33 + 1;
+        let callee_addr = (five_protocol::FIVE_HEADER_OPTIMIZED_SIZE + main_len) as u16;
+
+        // main:
+        script.push(five_protocol::opcodes::CALL);
+        script.push(0);
+        script.extend_from_slice(&callee_addr.to_le_bytes());
+        script.push(five_protocol::opcodes::PUSH_PUBKEY);
+        script.extend_from_slice(&expected_pubkey);
+        script.push(five_protocol::opcodes::HALT);
+
+        // callee:
+        script.push(five_protocol::opcodes::PUSH_PUBKEY);
+        script.extend_from_slice(&callee_pubkey);
+        script.push(five_protocol::opcodes::RETURN);
+
+        let mut lamports = 1;
+        let mut account_data = [];
+        let account = create_account_info(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &script,
+            &accounts,
+            program_id,
+            &[],
+            five_protocol::FIVE_HEADER_OPTIMIZED_SIZE as u16,
+            &mut storage,
+            1,
+            2,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        let opcode = ctx.fetch_byte().expect("fetch CALL");
+        handle_functions(opcode, &mut ctx).expect("CALL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch callee PUSH_PUBKEY");
+        handle_stack_ops(opcode, &mut ctx).expect("callee PUSH_PUBKEY should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch RETURN");
+        handle_control_flow(opcode, &mut ctx).expect("RETURN should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch caller PUSH_PUBKEY");
+        handle_stack_ops(opcode, &mut ctx).expect("caller PUSH_PUBKEY should succeed");
+
+        let array_offset = ctx.alloc_temp(3).expect("allocate bytes array");
+        ctx.temp_buffer_mut()[array_offset as usize] = 1;
+        ctx.temp_buffer_mut()[array_offset as usize + 1] = 0;
+        ctx.temp_buffer_mut()[array_offset as usize + 2] = 3;
+        ctx.push(ValueRef::ArrayRef(array_offset))
+            .expect("push fixed byte array");
+        ctx.push(ValueRef::U64(42)).expect("push scalar amount");
+        handle_arrays(five_protocol::opcodes::ARRAY_CONCAT, &mut ctx)
+            .expect("ARRAY_CONCAT should succeed");
+
+        let _data_ref = ctx.pop().expect("pop instruction data");
+        let program_id_ref = ctx.pop().expect("pop program id ref");
+        let extracted = ctx
+            .extract_pubkey(&program_id_ref)
+            .expect("program id tempref should still resolve");
+
+        assert_eq!(extracted, expected_pubkey);
+    }
+
+    #[test]
+    fn internal_call_with_get_clock_preserves_caller_parameters() {
+        let main_len = 2 + 4 + 2 + 1;
+        let func_addr = (five_protocol::FIVE_HEADER_OPTIMIZED_SIZE + main_len) as u16;
+        let main_code = [
+            five_protocol::opcodes::LOAD_PARAM,
+            1,
+            five_protocol::opcodes::CALL,
+            0,
+            (func_addr & 0xff) as u8,
+            (func_addr >> 8) as u8,
+            five_protocol::opcodes::LOAD_PARAM,
+            1,
+            five_protocol::opcodes::HALT,
+        ];
+
+        let function_code = [five_protocol::opcodes::GET_CLOCK, five_protocol::opcodes::RETURN];
+
+        let mut bytecode = vec![b'5', b'I', b'V', b'E'];
+        bytecode.extend_from_slice(&0u32.to_le_bytes());
+        bytecode.push(0);
+        bytecode.push(1);
+        bytecode.extend_from_slice(&main_code);
+        bytecode.extend_from_slice(&function_code);
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &bytecode,
+            &[],
+            Pubkey::default(),
+            &[],
+            five_protocol::FIVE_HEADER_OPTIMIZED_SIZE as u16,
+            &mut storage,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.allocate_params(2).expect("allocate params");
+        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+
+        let opcode = ctx.fetch_byte().expect("fetch initial LOAD_PARAM");
+        handle_locals(opcode, &mut ctx).expect("first LOAD_PARAM should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch CALL");
+        handle_functions(opcode, &mut ctx).expect("CALL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_CLOCK");
+        handle_sysvar_ops(opcode, &mut ctx).expect("GET_CLOCK should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch RETURN");
+        handle_control_flow(opcode, &mut ctx).expect("RETURN should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch second LOAD_PARAM");
+        handle_locals(opcode, &mut ctx).expect("second LOAD_PARAM should succeed");
+
+        let second = ctx.pop().expect("pop second param");
+        let first = ctx.pop().expect("pop first param");
+        assert_eq!(first.as_u64(), Some(100));
+        assert_eq!(second.as_u64(), Some(100));
+    }
+
+    #[test]
+    fn internal_call_with_account_arg_and_get_clock_preserves_caller_parameters() {
+        let main_len = 4 + 2 + 1;
+        let func_addr = (five_protocol::FIVE_HEADER_OPTIMIZED_SIZE + main_len) as u16;
+        let main_code = [
+            five_protocol::opcodes::CALL,
+            1,
+            (func_addr & 0xff) as u8,
+            (func_addr >> 8) as u8,
+            five_protocol::opcodes::LOAD_PARAM,
+            1,
+            five_protocol::opcodes::HALT,
+        ];
+
+        let function_code = [five_protocol::opcodes::GET_CLOCK, five_protocol::opcodes::RETURN];
+
+        let mut bytecode = vec![b'5', b'I', b'V', b'E'];
+        bytecode.extend_from_slice(&0u32.to_le_bytes());
+        bytecode.push(0);
+        bytecode.push(1);
+        bytecode.extend_from_slice(&main_code);
+        bytecode.extend_from_slice(&function_code);
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &bytecode,
+            &[],
+            Pubkey::default(),
+            &[],
+            five_protocol::FIVE_HEADER_OPTIMIZED_SIZE as u16,
+            &mut storage,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.allocate_params(2).expect("allocate params");
+        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.push(ValueRef::AccountRef(0, 0))
+            .expect("push synthetic callee account arg");
+
+        let opcode = ctx.fetch_byte().expect("fetch CALL");
+        handle_functions(opcode, &mut ctx).expect("CALL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_CLOCK");
+        handle_sysvar_ops(opcode, &mut ctx).expect("GET_CLOCK should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch RETURN");
+        handle_control_flow(opcode, &mut ctx).expect("RETURN should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch second LOAD_PARAM");
+        handle_locals(opcode, &mut ctx).expect("second LOAD_PARAM should succeed");
+
+        let second = ctx.pop().expect("pop caller param after return");
+        assert_eq!(second.as_u64(), Some(100));
+    }
+
+    #[test]
+    fn internal_call_with_account_write_and_get_clock_preserves_caller_parameters() {
+        let program_id = Pubkey::from([23u8; 32]);
+        let main_len = 4 + 2 + 1;
+        let func_addr = (five_protocol::FIVE_HEADER_OPTIMIZED_SIZE + main_len) as u16;
+        let main_code = [
+            five_protocol::opcodes::CALL,
+            1,
+            (func_addr & 0xff) as u8,
+            (func_addr >> 8) as u8,
+            five_protocol::opcodes::LOAD_PARAM,
+            1,
+            five_protocol::opcodes::HALT,
+        ];
+
+        let mut function_code = vec![
+            five_protocol::opcodes::GET_CLOCK,
+            five_protocol::opcodes::LOAD_PARAM,
+            1,
+            five_protocol::opcodes::PUSH_U64,
+        ];
+        function_code.extend_from_slice(&0u64.to_le_bytes());
+        function_code.push(five_protocol::opcodes::PUSH_U64);
+        function_code.extend_from_slice(&1u64.to_le_bytes());
+        function_code.push(five_protocol::opcodes::SAVE_ACCOUNT);
+        function_code.push(five_protocol::opcodes::RETURN);
+
+        let mut bytecode = vec![b'5', b'I', b'V', b'E'];
+        bytecode.extend_from_slice(&0u32.to_le_bytes());
+        bytecode.push(0);
+        bytecode.push(1);
+        bytecode.extend_from_slice(&main_code);
+        bytecode.extend_from_slice(&function_code);
+
+        let mut vm_state_lamports = 1;
+        let mut vm_state_data = [0u8; 8];
+        let vm_state = create_account_info(
+            &Pubkey::from([24u8; 32]),
+            false,
+            false,
+            &mut vm_state_lamports,
+            &mut vm_state_data,
+            &program_id,
+        );
+
+        let mut lamports = 1;
+        let mut account_data = [0u8; 8];
+        let writable_account = create_account_info(
+            &Pubkey::from([22u8; 32]),
+            false,
+            true,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [vm_state, writable_account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &bytecode,
+            &accounts,
+            program_id,
+            &[],
+            five_protocol::FIVE_HEADER_OPTIMIZED_SIZE as u16,
+            &mut storage,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.allocate_params(2).expect("allocate params");
+        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.push(ValueRef::AccountRef(1, 0))
+            .expect("push synthetic callee account arg");
+
+        let opcode = ctx.fetch_byte().expect("fetch CALL");
+        handle_functions(opcode, &mut ctx).expect("CALL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_CLOCK");
+        handle_sysvar_ops(opcode, &mut ctx).expect("GET_CLOCK should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch LOAD_PARAM");
+        handle_locals(opcode, &mut ctx).expect("callee LOAD_PARAM should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch PUSH_U64 offset");
+        handle_stack_ops(opcode, &mut ctx).expect("callee PUSH_U64 offset should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch PUSH_U64 value");
+        handle_stack_ops(opcode, &mut ctx).expect("callee PUSH_U64 value should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch SAVE_ACCOUNT");
+        handle_accounts(opcode, &mut ctx).expect("SAVE_ACCOUNT should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch RETURN");
+        handle_control_flow(opcode, &mut ctx).expect("RETURN should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch caller LOAD_PARAM");
+        handle_locals(opcode, &mut ctx).expect("caller LOAD_PARAM should succeed");
+
+        let caller_param = ctx.pop().expect("pop caller param after return");
+        assert_eq!(caller_param.as_u64(), Some(100));
+    }
+
+    #[test]
+    fn internal_call_with_existing_caller_locals_preserves_post_call_local_ops() {
+        let main_len = 4 + 2 + 2 + 2 + 1;
+        let func_addr = (five_protocol::FIVE_HEADER_OPTIMIZED_SIZE + main_len) as u16;
+        let main_code = [
+            five_protocol::opcodes::CALL,
+            0,
+            (func_addr & 0xff) as u8,
+            (func_addr >> 8) as u8,
+            five_protocol::opcodes::LOAD_PARAM,
+            1,
+            five_protocol::opcodes::SET_LOCAL,
+            1,
+            five_protocol::opcodes::GET_LOCAL,
+            1,
+            five_protocol::opcodes::HALT,
+        ];
+
+        let function_code = [five_protocol::opcodes::GET_CLOCK, five_protocol::opcodes::RETURN];
+
+        let mut bytecode = vec![b'5', b'I', b'V', b'E'];
+        bytecode.extend_from_slice(&0u32.to_le_bytes());
+        bytecode.push(0);
+        bytecode.push(1);
+        bytecode.extend_from_slice(&main_code);
+        bytecode.extend_from_slice(&function_code);
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &bytecode,
+            &[],
+            Pubkey::default(),
+            &[],
+            five_protocol::FIVE_HEADER_OPTIMIZED_SIZE as u16,
+            &mut storage,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.allocate_params(2).expect("allocate params");
+        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.allocate_locals(3).expect("allocate caller locals");
+
+        let opcode = ctx.fetch_byte().expect("fetch CALL");
+        handle_functions(opcode, &mut ctx).expect("CALL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_CLOCK");
+        handle_sysvar_ops(opcode, &mut ctx).expect("GET_CLOCK should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch RETURN");
+        handle_control_flow(opcode, &mut ctx).expect("RETURN should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch LOAD_PARAM");
+        handle_locals(opcode, &mut ctx).expect("caller LOAD_PARAM should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch SET_LOCAL");
+        handle_locals(opcode, &mut ctx).expect("SET_LOCAL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_LOCAL");
+        handle_locals(opcode, &mut ctx).expect("GET_LOCAL should succeed");
+
+        let round_tripped = ctx.pop().expect("pop round-tripped local");
+        assert_eq!(round_tripped.as_u64(), Some(100));
+    }
+
+    #[test]
+    fn callee_locals_after_get_clock_do_not_clobber_caller_parameters() {
+        let main_len = 4 + 2 + 1;
+        let func_addr = (five_protocol::FIVE_HEADER_OPTIMIZED_SIZE + main_len) as u16;
+        let main_code = [
+            five_protocol::opcodes::CALL,
+            0,
+            (func_addr & 0xff) as u8,
+            (func_addr >> 8) as u8,
+            five_protocol::opcodes::LOAD_PARAM,
+            1,
+            five_protocol::opcodes::HALT,
+        ];
+
+        let function_code = [
+            five_protocol::opcodes::GET_CLOCK,
+            five_protocol::opcodes::SET_LOCAL,
+            0,
+            five_protocol::opcodes::GET_LOCAL,
+            0,
+            five_protocol::opcodes::RETURN,
+        ];
+
+        let mut bytecode = vec![b'5', b'I', b'V', b'E'];
+        bytecode.extend_from_slice(&0u32.to_le_bytes());
+        bytecode.push(0);
+        bytecode.push(1);
+        bytecode.extend_from_slice(&main_code);
+        bytecode.extend_from_slice(&function_code);
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &bytecode,
+            &[],
+            Pubkey::default(),
+            &[],
+            five_protocol::FIVE_HEADER_OPTIMIZED_SIZE as u16,
+            &mut storage,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.allocate_params(2).expect("allocate params");
+        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.allocate_locals(3).expect("allocate caller locals");
+
+        let opcode = ctx.fetch_byte().expect("fetch CALL");
+        handle_functions(opcode, &mut ctx).expect("CALL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_CLOCK");
+        handle_sysvar_ops(opcode, &mut ctx).expect("GET_CLOCK should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch SET_LOCAL");
+        handle_locals(opcode, &mut ctx).expect("callee SET_LOCAL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_LOCAL");
+        handle_locals(opcode, &mut ctx).expect("callee GET_LOCAL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch RETURN");
+        handle_control_flow(opcode, &mut ctx).expect("RETURN should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch caller LOAD_PARAM");
+        handle_locals(opcode, &mut ctx).expect("caller LOAD_PARAM should succeed");
+
+        let caller_param = ctx.pop().expect("pop caller param");
+        assert_eq!(caller_param.as_u64(), Some(100));
+    }
+
+    #[test]
+    fn nibble_locals_after_internal_call_preserve_caller_parameter() {
+        let main_len = 4 + 1 + 1 + 1 + 1;
+        let func_addr = (five_protocol::FIVE_HEADER_OPTIMIZED_SIZE + main_len) as u16;
+        let main_code = [
+            five_protocol::opcodes::CALL,
+            0,
+            (func_addr & 0xff) as u8,
+            (func_addr >> 8) as u8,
+            five_protocol::opcodes::LOAD_PARAM_1,
+            five_protocol::opcodes::SET_LOCAL_1,
+            five_protocol::opcodes::GET_LOCAL_1,
+            five_protocol::opcodes::HALT,
+        ];
+
+        let function_code = [five_protocol::opcodes::GET_CLOCK, five_protocol::opcodes::RETURN];
+
+        let mut bytecode = vec![b'5', b'I', b'V', b'E'];
+        bytecode.extend_from_slice(&0u32.to_le_bytes());
+        bytecode.push(0);
+        bytecode.push(1);
+        bytecode.extend_from_slice(&main_code);
+        bytecode.extend_from_slice(&function_code);
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &bytecode,
+            &[],
+            Pubkey::default(),
+            &[],
+            five_protocol::FIVE_HEADER_OPTIMIZED_SIZE as u16,
+            &mut storage,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.allocate_params(2).expect("allocate params");
+        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.allocate_locals(3).expect("allocate caller locals");
+
+        let opcode = ctx.fetch_byte().expect("fetch CALL");
+        handle_functions(opcode, &mut ctx).expect("CALL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_CLOCK");
+        handle_sysvar_ops(opcode, &mut ctx).expect("GET_CLOCK should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch RETURN");
+        handle_control_flow(opcode, &mut ctx).expect("RETURN should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch LOAD_PARAM_1");
+        crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)
+            .expect("LOAD_PARAM_1 should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch SET_LOCAL_1");
+        crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)
+            .expect("SET_LOCAL_1 should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_LOCAL_1");
+        crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)
+            .expect("GET_LOCAL_1 should succeed");
+
+        let round_tripped = ctx.pop().expect("pop round-tripped local");
+        assert_eq!(round_tripped.as_u64(), Some(100));
+    }
+
+    #[test]
+    fn handwritten_compiled_shape_preserves_amount_param() {
+        let program_id = Pubkey::from([41u8; 32]);
+        let header_len = five_protocol::FIVE_HEADER_OPTIMIZED_SIZE;
+
+        let main_code = [
+            five_protocol::opcodes::CHECK_WRITABLE,
+            1,
+            five_protocol::opcodes::CALL,
+            0,
+            (header_len as u16 + 16).to_le_bytes()[0],
+            (header_len as u16 + 16).to_le_bytes()[1],
+            five_protocol::opcodes::LOAD_PARAM_1,
+            five_protocol::opcodes::SET_LOCAL_1,
+            five_protocol::opcodes::GET_LOCAL_1,
+            five_protocol::opcodes::STORE_FIELD,
+            1,
+            8,
+            0,
+            0,
+            0,
+            five_protocol::opcodes::RETURN,
+        ];
+
+        let helper_code = [
+            five_protocol::opcodes::CHECK_WRITABLE,
+            1,
+            five_protocol::opcodes::GET_CLOCK,
+            five_protocol::opcodes::SET_LOCAL_0,
+            five_protocol::opcodes::GET_LOCAL_0,
+            five_protocol::opcodes::STORE_FIELD,
+            1,
+            0,
+            0,
+            0,
+            0,
+            five_protocol::opcodes::RETURN,
+        ];
+
+        let mut bytecode = vec![b'5', b'I', b'V', b'E'];
+        bytecode.extend_from_slice(&0u32.to_le_bytes());
+        bytecode.push(1);
+        bytecode.push(2);
+        bytecode.extend_from_slice(&main_code);
+        bytecode.extend_from_slice(&helper_code);
+
+        let mut vm_state_lamports = 1;
+        let mut vm_state_data = [0u8; 8];
+        let vm_state = create_account_info(
+            &Pubkey::from([42u8; 32]),
+            false,
+            false,
+            &mut vm_state_lamports,
+            &mut vm_state_data,
+            &program_id,
+        );
+
+        let mut reserve_lamports = 1;
+        let mut reserve_data = [0u8; 16];
+        let reserve = create_account_info(
+            &Pubkey::from([43u8; 32]),
+            false,
+            true,
+            &mut reserve_lamports,
+            &mut reserve_data,
+            &program_id,
+        );
+
+        let accounts = [vm_state, reserve];
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &bytecode,
+            &accounts,
+            program_id,
+            &[],
+            header_len as u16,
+            &mut storage,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.allocate_params(2).expect("allocate params");
+        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100)).expect("set amount");
+        ctx.allocate_locals(3).expect("allocate caller locals");
+
+        let opcode = ctx.fetch_byte().expect("fetch caller CHECK_WRITABLE");
+        handle_constraints(opcode, &mut ctx).expect("caller CHECK_WRITABLE should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch CALL");
+        handle_functions(opcode, &mut ctx).expect("CALL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch helper CHECK_WRITABLE");
+        handle_constraints(opcode, &mut ctx).expect("helper CHECK_WRITABLE should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_CLOCK");
+        handle_sysvar_ops(opcode, &mut ctx).expect("GET_CLOCK should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch SET_LOCAL_0");
+        crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)
+            .expect("SET_LOCAL_0 should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_LOCAL_0");
+        crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)
+            .expect("GET_LOCAL_0 should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch helper STORE_FIELD");
+        handle_memory(opcode, &mut ctx).expect("helper STORE_FIELD should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch helper RETURN");
+        handle_control_flow(opcode, &mut ctx).expect("helper RETURN should succeed");
+        assert_eq!(
+            ctx.parameters()[1].as_u64(),
+            Some(100),
+            "caller param should survive helper RETURN"
+        );
+
+        let opcode = ctx.fetch_byte().expect("fetch LOAD_PARAM_1");
+        crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)
+            .expect("LOAD_PARAM_1 should succeed");
+        assert_eq!(
+            ctx.peek().expect("peek after LOAD_PARAM_1").as_u64(),
+            Some(100),
+            "LOAD_PARAM_1 should push the original amount"
+        );
+
+        let opcode = ctx.fetch_byte().expect("fetch SET_LOCAL_1");
+        crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)
+            .expect("SET_LOCAL_1 should succeed");
+        assert_eq!(
+            ctx.get_local(1).expect("local 1 after SET_LOCAL_1").as_u64(),
+            Some(100),
+            "SET_LOCAL_1 should preserve the original amount"
+        );
+
+        let opcode = ctx.fetch_byte().expect("fetch GET_LOCAL_1");
+        crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)
+            .expect("GET_LOCAL_1 should succeed");
+        assert_eq!(
+            ctx.peek().expect("peek after GET_LOCAL_1").as_u64(),
+            Some(100),
+            "GET_LOCAL_1 should reload the original amount"
+        );
+
+        let opcode = ctx.fetch_byte().expect("fetch caller STORE_FIELD");
+        handle_memory(opcode, &mut ctx).expect("caller STORE_FIELD should succeed");
+
+        let (_account_last_update, account_protocol_fees) = {
+            let account = ctx
+                .get_account_for_read(1)
+                .expect("get reserve account after STORE_FIELD");
+            let data = unsafe { account.borrow_data_unchecked() };
+            (
+                u64::from_le_bytes(data[0..8].try_into().expect("account last_update bytes")),
+                u64::from_le_bytes(data[8..16].try_into().expect("account protocol_fees bytes")),
+            )
+        };
+        let last_update_slot = u64::from_le_bytes(
+            reserve_data[0..8]
+                .try_into()
+                .expect("last_update_slot bytes"),
+        );
+        let protocol_fees = u64::from_le_bytes(
+            reserve_data[8..16]
+                .try_into()
+                .expect("protocol_fees bytes"),
+        );
+        assert_eq!(account_protocol_fees, 100, "account view should reflect STORE_FIELD");
+        assert_eq!(last_update_slot, 0, "raw backing slice stays stale in host tests");
+        assert_eq!(protocol_fees, 0, "raw backing slice stays stale in host tests");
+    }
+
+    #[test]
+    fn compiled_helper_get_clock_then_field_store_preserves_amount_param() {
+        let source = r#"
+            account Reserve {
+                last_update_slot: u64,
+                protocol_fees: u64,
+            }
+
+            fn refresh_reserve_internal(reserve: Reserve @mut) {
+                let current_time: u64 = get_clock();
+                reserve.last_update_slot = current_time;
+            }
+
+            pub deposit_reserve_liquidity(reserve: Reserve @mut, amount: u64) {
+                refresh_reserve_internal(reserve);
+                let captured_amount: u64 = amount;
+                reserve.protocol_fees = captured_amount;
+                return;
+            }
+        "#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compile reduction");
+        for line in five_dsl_compiler::bytecode_generator::disassembler::disassemble(&bytecode) {
+            println!("DISASM {}", line);
+        }
+        let program_id = Pubkey::from([31u8; 32]);
+
+        let mut vm_state_lamports = 1;
+        let mut vm_state_data = [0u8; 8];
+        let vm_state = create_account_info(
+            &Pubkey::from([32u8; 32]),
+            false,
+            false,
+            &mut vm_state_lamports,
+            &mut vm_state_data,
+            &program_id,
+        );
+
+        let mut reserve_lamports = 1;
+        let mut reserve_data = [0u8; 16];
+        let reserve = create_account_info(
+            &Pubkey::from([33u8; 32]),
+            false,
+            true,
+            &mut reserve_lamports,
+            &mut reserve_data,
+            &program_id,
+        );
+
+        let accounts = [vm_state, reserve];
+        let mut input = Vec::new();
+        input.extend_from_slice(&0u32.to_le_bytes());
+        input.extend_from_slice(&2u32.to_le_bytes());
+        input.push(five_protocol::types::ACCOUNT);
+        input.extend_from_slice(&1u32.to_le_bytes());
+        input.push(five_protocol::types::U64);
+        input.extend_from_slice(&100u64.to_le_bytes());
+
+        let mut storage = StackStorage::new();
+        let result = MitoVM::execute_direct(&bytecode, &input, &accounts, &program_id, &mut storage);
+        assert!(result.is_ok(), "reduction execution failed: {:?}", result);
+
+        let account_protocol_fees = {
+            let account = &accounts[1];
+            let data = unsafe { account.borrow_data_unchecked() };
+            u64::from_le_bytes(data[8..16].try_into().expect("protocol_fees bytes"))
+        };
+        let raw_protocol_fees = u64::from_le_bytes(
+            reserve_data[8..16]
+                .try_into()
+                .expect("protocol_fees bytes"),
+        );
+        assert_eq!(
+            account_protocol_fees,
+            100,
+            "amount param should survive helper call in the account view"
+        );
+        assert_eq!(
+            raw_protocol_fees,
+            0,
+            "raw backing slice is stale in host execute_direct tests"
+        );
     }
 }

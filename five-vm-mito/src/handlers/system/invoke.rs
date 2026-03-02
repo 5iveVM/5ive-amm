@@ -32,6 +32,28 @@ const ACCOUNT_REF_NONE: u8 = 255;
 const GROUPED_SIGNER_WORKSPACE_CAPACITY: usize =
     1 + MAX_SIGNER_GROUPS * (1 + MAX_SIGNER_SEEDS * (1 + MAX_SIGNER_SEED_LEN));
 
+fn value_ref_tag(value: &ValueRef) -> &'static str {
+    match value {
+        ValueRef::Empty => "Empty",
+        ValueRef::U8(_) => "U8",
+        ValueRef::U64(_) => "U64",
+        ValueRef::I64(_) => "I64",
+        ValueRef::U128(_) => "U128",
+        ValueRef::Bool(_) => "Bool",
+        ValueRef::AccountRef(_, _) => "AccountRef",
+        ValueRef::InputRef(_) => "InputRef",
+        ValueRef::TempRef(_, _) => "TempRef",
+        ValueRef::TupleRef(_, _) => "TupleRef",
+        ValueRef::OptionalRef(_, _) => "OptionalRef",
+        ValueRef::ResultRef(_, _) => "ResultRef",
+        ValueRef::PubkeyRef(_) => "PubkeyRef",
+        ValueRef::ArrayRef(_) => "ArrayRef",
+        ValueRef::StringRef(_) => "StringRef",
+        ValueRef::HeapString(_) => "HeapString",
+        ValueRef::HeapArray(_) => "HeapArray",
+    }
+}
+
 fn parse_array_value_refs<const N: usize>(
     ctx: &ExecutionManager,
     array_ref: ValueRef,
@@ -768,6 +790,28 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
         INVOKE => {
             // Pop parameters from stack
             let count_val = ctx.pop()?;
+            error_log!(
+                "MitoVM: INVOKE raw accounts_count tag={}",
+                match &count_val {
+                    ValueRef::Empty => 0,
+                    ValueRef::U8(_) => 1,
+                    ValueRef::U64(_) => 2,
+                    ValueRef::I64(_) => 3,
+                    ValueRef::U128(_) => 4,
+                    ValueRef::Bool(_) => 5,
+                    ValueRef::AccountRef(_, _) => 6,
+                    ValueRef::InputRef(_) => 7,
+                    ValueRef::TempRef(_, _) => 8,
+                    ValueRef::TupleRef(_, _) => 9,
+                    ValueRef::OptionalRef(_, _) => 10,
+                    ValueRef::ResultRef(_, _) => 11,
+                    ValueRef::PubkeyRef(_) => 12,
+                    ValueRef::ArrayRef(_) => 13,
+                    ValueRef::StringRef(_) => 14,
+                    ValueRef::HeapString(_) => 15,
+                    ValueRef::HeapArray(_) => 16,
+                } as u32
+            );
             let accounts_count = match count_val.as_u8() {
                 Some(value) => value,
                 None => {
@@ -785,6 +829,11 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             let mut account_indices: [usize; MAX_CPI_ACCOUNTS] = [0; MAX_CPI_ACCOUNTS];
             for i in 0..accounts_count {
                 let val = ctx.pop()?;
+                error_log!(
+                    "MitoVM: INVOKE raw account_idx pos={} kind={}",
+                    i as u32,
+                    value_ref_tag(&val)
+                );
                 let idx = match val.as_u8() {
                     Some(value) => value,
                     None => {
@@ -798,6 +847,11 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             // Pop instruction data and program ID.
             let data_ref = ctx.pop()?;
             let program_id_ref = ctx.pop()?;
+            error_log!(
+                "MitoVM: INVOKE refs data_kind={} pid_kind={}",
+                value_ref_tag(&data_ref),
+                value_ref_tag(&program_id_ref)
+            );
 
             let mut instruction_data_owned = [0u8; MAX_CPI_DATA_LEN];
             let instruction_data_len = match materialize_instruction_data(

@@ -389,6 +389,26 @@ impl ASTGenerator {
                     .as_ref()
                     .and_then(|types| types.get(arg_idx))
                     .cloned();
+                let skip_account_arg = if builtin_expected_type.is_none() {
+                    if let Some(expected_type) = user_expected_type.as_ref() {
+                        let account_registry = self
+                            .account_system
+                            .as_ref()
+                            .map(|system| system.get_account_registry());
+                        crate::bytecode_generator::account_utils::is_account_parameter(
+                            expected_type,
+                            &[],
+                            account_registry,
+                        )
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+                if skip_account_arg {
+                    continue;
+                }
                 let expected_type = builtin_expected_type.or(user_expected_type);
 
                 if !(Self::builtin_allows_untyped_byte_literal(name, arg_idx)
@@ -673,7 +693,25 @@ impl ASTGenerator {
                 // Legacy mode: emit CALL with direct function offset
                 // The function offset will be resolved by the function dispatcher
                 // during the compilation process when function offsets are known
-                let param_count = args.len() as u8;
+                let param_count = self
+                    .function_parameter_types
+                    .get(name)
+                    .map(|types| {
+                        let account_registry = self
+                            .account_system
+                            .as_ref()
+                            .map(|system| system.get_account_registry());
+                        types.iter()
+                            .filter(|param_type| {
+                                !crate::bytecode_generator::account_utils::is_account_parameter(
+                                    param_type,
+                                    &[],
+                                    account_registry,
+                                )
+                            })
+                            .count() as u8
+                    })
+                    .unwrap_or(args.len() as u8);
 
                 // Standard CALL emission without metadata (VM does not support metadata bytes)
                 emitter.emit_opcode(five_protocol::opcodes::CALL);

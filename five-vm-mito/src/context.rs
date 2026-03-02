@@ -1215,14 +1215,15 @@ impl<'a> ExecutionContext<'a> {
         );
         offset += 4;
 
-        // Limit count to available slots (MAX_PARAMETERS - 1 for func index)
-        // params[0] is func index. params[1..8] are arguments.
+        // Limit total envelope entries to available slots. Account arguments are resolved
+        // through accounts[] and must not consume params[] slots; only scalar/data args are
+        // compacted into params[1..] so public entry matches internal CALL frames.
         let count = (param_count as usize).min(MAX_PARAMETERS - 1);
-        self.frame.param_len = count as u8;
+        let mut scalar_count = 0usize;
 
         // Fixed-size, typed parameter parsing. Type-id sentinel is reserved.
 
-        for i in 0..count {
+        for _ in 0..count {
             if offset >= input_len {
                 return Err(VMErrorCode::InvalidInstructionPointer);
             }
@@ -1272,7 +1273,11 @@ impl<'a> ExecutionContext<'a> {
                         .copy_from_slice(&self.instruction_data[offset..offset + len]);
 
                     offset += len;
-                    self.frame.parameters[i + 1] = ValueRef::StringRef(array_id as u16);
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::StringRef(array_id as u16);
+                    scalar_count += 1;
                 }
                 t if t == types::BOOL => {
                     if offset + 4 > input_len {
@@ -1284,7 +1289,11 @@ impl<'a> ExecutionContext<'a> {
                             .unwrap(),
                     );
                     offset += 4;
-                    self.frame.parameters[i + 1] = ValueRef::Bool(val != 0);
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::Bool(val != 0);
+                    scalar_count += 1;
                 }
                 t if t == types::U8 => {
                     if offset + 4 > input_len {
@@ -1296,7 +1305,11 @@ impl<'a> ExecutionContext<'a> {
                             .unwrap(),
                     );
                     offset += 4;
-                    self.frame.parameters[i + 1] = ValueRef::U8(val as u8);
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::U8(val as u8);
+                    scalar_count += 1;
                 }
                 t if t == types::U32 => {
                     if offset + 4 > input_len {
@@ -1308,7 +1321,11 @@ impl<'a> ExecutionContext<'a> {
                             .unwrap(),
                     );
                     offset += 4;
-                    self.frame.parameters[i + 1] = ValueRef::U64(val as u64);
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::U64(val as u64);
+                    scalar_count += 1;
                 }
                 t if t == types::U64 => {
                     if offset + 8 > input_len {
@@ -1320,7 +1337,11 @@ impl<'a> ExecutionContext<'a> {
                             .unwrap(),
                     );
                     offset += 8;
-                    self.frame.parameters[i + 1] = ValueRef::U64(val);
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::U64(val);
+                    scalar_count += 1;
                 }
                 t if t == types::PUBKEY => {
                     if offset + 32 > input_len {
@@ -1330,7 +1351,11 @@ impl<'a> ExecutionContext<'a> {
                     self.memory.temp_buffer[temp_offset as usize..temp_offset as usize + 32]
                         .copy_from_slice(&self.instruction_data[offset..offset + 32]);
                     offset += 32;
-                    self.frame.parameters[i + 1] = ValueRef::TempRef(temp_offset, 32);
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::TempRef(temp_offset, 32);
+                    scalar_count += 1;
                 }
                 t if t == types::ACCOUNT => {
                     if offset + 4 > input_len {
@@ -1342,8 +1367,8 @@ impl<'a> ExecutionContext<'a> {
                             .unwrap(),
                     );
                     offset += 4;
-                    let idx_u8 = u8::try_from(idx).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
-                    self.frame.parameters[i + 1] = ValueRef::AccountRef(idx_u8, 0);
+                    let _idx_u8 =
+                        u8::try_from(idx).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
                 }
                 _ => {
                     // Fallback to U64 if type unknown or generic (assuming 8 bytes)
@@ -1353,8 +1378,10 @@ impl<'a> ExecutionContext<'a> {
             }
         }
 
+        self.frame.param_len = scalar_count as u8;
+
         // Clear trailing slots so parameters from previous invocations are never reused.
-        for i in (count + 1)..self.frame.parameters.len() {
+        for i in (scalar_count + 1)..self.frame.parameters.len() {
             self.frame.parameters[i] = ValueRef::Empty;
         }
 

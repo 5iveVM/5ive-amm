@@ -92,6 +92,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 // So we need to restore context first.
 
                 // Restore previous state safely including local base offset
+                ctx.stack.sp = frame.stack_sp;
                 ctx.set_ip(frame.return_address as usize);
                 ctx.set_local_count(frame.local_count);
                 ctx.set_local_base(frame.local_base); // Restore per-frame local window
@@ -162,7 +163,10 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 // Pop call stack safely using pop_call_frame instead of manual access
                 let frame = ctx.pop_call_frame()?;
 
-                // Restore previous state safely - CRITICAL: Leave return value on stack untouched
+                let return_value = ctx.pop()?;
+
+                // Restore previous state safely and collapse the callee stack back to the caller frame.
+                ctx.stack.sp = frame.stack_sp;
                 ctx.set_ip(frame.return_address as usize);
                 ctx.set_local_count(frame.local_count);
                 ctx.set_local_base(frame.local_base); // Restore per-frame local window
@@ -203,6 +207,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 ctx.set_external_account_remap(frame.account_remap);
                 ctx.parameters_mut().copy_from_slice(&frame.saved_parameters);
                 ctx.restore_parameters(frame.param_start, frame.param_len); // Restore caller's parameters
+                ctx.push(return_value)?;
 
             // RETURN_VALUE semantics: The return value remains on top of the stack
             // for the calling function to use (e.g., SET_LOCAL, arithmetic operations, etc.)

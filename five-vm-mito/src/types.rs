@@ -24,6 +24,7 @@ pub const ROOT_CONTEXT: u8 = u8::MAX;
 #[derive(Debug, Clone, Copy)]
 pub struct CallFrame {
     pub return_address: u16,
+    pub stack_sp: u8,
     pub local_count: u8,
     pub local_base: u8,  // Base offset for this frame's locals in shared array
     pub param_start: u8, // Start index of caller parameters in shared array
@@ -128,6 +129,7 @@ impl CallFrame {
     pub fn new(return_address: u16, local_count: u8, local_base: u8, bytecode_context: u8) -> Self {
         Self {
             return_address,
+            stack_sp: 0,
             local_count,
             local_base,
             param_start: 0,
@@ -144,6 +146,7 @@ impl CallFrame {
     /// Create call frame with saved caller parameters for restoration on return.
     pub fn with_parameters(
         return_address: u16,
+        stack_sp: u8,
         local_count: u8,
         local_base: u8,
         param_start: u8,
@@ -157,6 +160,7 @@ impl CallFrame {
     ) -> Self {
         Self {
             return_address,
+            stack_sp,
             local_count,
             local_base,
             param_start,

@@ -282,6 +282,43 @@ mod function_call_tests {
                 "Mixed parameter types need proper implementation"
             );
         }
+
+        #[test]
+        fn test_load_param_survives_internal_call_with_get_clock() {
+            let input_data = TestUtils::create_function_input(1, &[Value::U64(100)]);
+
+            let main_code = [
+                LOAD_PARAM,
+                1, // push caller param 100
+                CALL,
+                0,
+                19,
+                0, // call helper at offset 19
+                LOAD_PARAM,
+                1, // caller param must still be 100 after return
+                ADD, // 100 + 100
+                RETURN_VALUE,
+            ];
+
+            let function_code = [
+                GET_CLOCK, // touch temp/sysvar state inside callee
+                RETURN,    // discard callee stack and return
+            ];
+
+            let bytecode = TestUtils::create_function_bytecode(&main_code, &function_code);
+
+            let result = TestUtils::execute_with_input(&bytecode, &input_data);
+            match result {
+                Ok(Some(Value::U64(value))) => {
+                    assert_eq!(
+                        value, 200,
+                        "Caller parameter should remain intact after helper GET_CLOCK call"
+                    );
+                }
+                Ok(other) => panic!("Expected U64(200), got {:?}", other),
+                Err(e) => panic!("Internal get_clock helper corrupted caller param: {:?}", e),
+            }
+        }
     }
 
     /// Test local variable operations
