@@ -98,9 +98,9 @@ Imagine:
 
 This is not about building faster smart contracts. This is about enabling previously impossible architectures where the boundary between computation and consensus dissolves.
 
-## The Genesis: OptimizedHeader and Digital Scripture
+## The Genesis: ScriptBytecodeHeaderV1 and Digital Scripture
 
-Every Five VM program begins with what we call the Genesis Sequence—an `OptimizedHeader` that contains the DNA for how the Foundry should breathe life into static bytes.
+Every Five VM program begins with what we call the Genesis Sequence: a `ScriptBytecodeHeaderV1` that contains the DNA for how the Foundry should breathe life into static bytes.
 
 Unlike traditional program headers that merely describe metadata, the Genesis Sequence encodes the program's essential nature: its functions, its interfaces, its relationship to the broader constellation of on-chain logic.
 

@@ -58,7 +58,7 @@ _unwriter transforms technical infrastructure into visionary statements through 
 - The immutable, final word that the Foundry executes without question
 - "Crystallized Logic" - pure intent compressed into executable form
 
-#### **OptimizedHeader**: The Genesis Sequence
+#### **ScriptBytecodeHeaderV1**: The Genesis Sequence
 - Not "metadata," but **"Genesis Sequence"**
 - The DNA that tells the VM how to breathe life into static bytes
 
