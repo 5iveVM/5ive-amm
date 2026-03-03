@@ -818,39 +818,39 @@ pub fn handle_syscall_alt_bn128_compression(ctx: &mut ExecutionManager) -> Compa
     Ok(())
 }
 
-// Remaining are placeholders for now to save space, but declared
+// Remaining curve syscalls are intentionally unsupported until runtime integration lands.
 #[inline(always)]
 pub fn handle_syscall_alt_bn128_group_op(_ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_ALT_BN128_GROUP_OP - Stub");
-    Ok(())
+    debug_log!("MitoVM: SYSCALL_ALT_BN128_GROUP_OP - runtime integration required");
+    Err(VMErrorCode::RuntimeIntegrationRequired)
 }
 
 #[inline(always)]
 pub fn handle_syscall_big_mod_exp(_ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_BIG_MOD_EXP - Stub");
-    Ok(())
+    debug_log!("MitoVM: SYSCALL_BIG_MOD_EXP - runtime integration required");
+    Err(VMErrorCode::RuntimeIntegrationRequired)
 }
 
 #[inline(always)]
 pub fn handle_syscall_curve_group_op(_ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_CURVE_GROUP_OP - Stub");
-    Ok(())
+    debug_log!("MitoVM: SYSCALL_CURVE_GROUP_OP - runtime integration required");
+    Err(VMErrorCode::RuntimeIntegrationRequired)
 }
 
 #[inline(always)]
 pub fn handle_syscall_curve_multiscalar_mul(_ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_CURVE_MULTISCALAR_MUL - Stub");
-    Ok(())
+    debug_log!("MitoVM: SYSCALL_CURVE_MULTISCALAR_MUL - runtime integration required");
+    Err(VMErrorCode::RuntimeIntegrationRequired)
 }
 
 #[inline(always)]
 pub fn handle_syscall_curve_pairing_map(_ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_CURVE_PAIRING_MAP - Stub");
-    Ok(())
+    debug_log!("MitoVM: SYSCALL_CURVE_PAIRING_MAP - runtime integration required");
+    Err(VMErrorCode::RuntimeIntegrationRequired)
 }
 
 #[inline(always)]
 pub fn handle_syscall_curve_validate_point(_ctx: &mut ExecutionManager) -> CompactResult<()> {
-    debug_log!("MitoVM: SYSCALL_CURVE_VALIDATE_POINT - Stub");
-    Ok(())
+    debug_log!("MitoVM: SYSCALL_CURVE_VALIDATE_POINT - runtime integration required");
+    Err(VMErrorCode::RuntimeIntegrationRequired)
 }

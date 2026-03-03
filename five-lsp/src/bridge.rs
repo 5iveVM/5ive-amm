@@ -419,16 +419,13 @@ impl CompilerBridge {
 
     /// Register a document in the workspace
     ///
-    /// Parses the source and updates the semantic index.
-    /// Used for multi-file workspace analysis.
+    /// Semantic-index-backed workspace registration is not implemented yet.
+    /// The browser client currently aggregates per-file WASM queries instead.
     pub fn register_document(&mut self, uri: &Url, source: &str) -> Result<(), LspError> {
-        // Update semantic index (currently a no-op until AST parsing is integrated)
-        let uri_str = uri.as_str();
-        if let Err(e) = self.semantic_index.update_file(uri_str, source) {
-            tracing::warn!("Failed to update semantic index for {}: {}", uri_str, e);
-        }
-
-        Ok(())
+        let _ = (uri, source);
+        Err(LspError::UnsupportedFeature(
+            "semantic index not integrated; use per-file WASM workspace aggregation".to_string(),
+        ))
     }
 
     /// Unregister a document from the workspace

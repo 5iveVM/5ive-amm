@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, SystemProgram } from '@solana/web3.js';
 import {
   FiveAccountManager,
   AccountUtils,
@@ -16,6 +16,7 @@ import {
   AccountConstraints,
   AccountType
 } from '../../accounts/index.js';
+import { PDAUtils } from '../../crypto/index.js';
 
 describe('Five SDK Account System - Real Implementation Tests', () => {
   let accountManager: FiveAccountManager;
@@ -26,7 +27,7 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
 
   // Use real, valid Solana addresses
   const FIVE_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'; // Valid 44-char base58
-  const SYSTEM_PROGRAM_ID = '11111111111111111111111111111112'; // Valid system program ID
+  const CANONICAL_SYSTEM_PROGRAM_ID = '11111111111111111111111111111111';
   const VALID_USER_ADDRESS = 'SysvarRent111111111111111111111111111111111'; // Valid sysvar
   const ANOTHER_VALID_ADDRESS = 'SysvarC1ock11111111111111111111111111111111'; // Valid clock sysvar
 
@@ -91,8 +92,22 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
         // Verify instruction structure
         expect(result.createInstruction).toHaveProperty('programId');
         expect(result.createInstruction).toHaveProperty('accounts');
-        expect(result.createInstruction.programId).toBe(SYSTEM_PROGRAM_ID);
-        expect(result.createInstruction.accounts.length).toBeGreaterThanOrEqual(2);
+        expect(result.createInstruction.programId).toBe(CANONICAL_SYSTEM_PROGRAM_ID);
+        expect(result.createInstruction.programId).toBe(SystemProgram.programId.toBase58());
+        expect(result.createInstruction.accounts.length).toBe(3);
+
+        const derived = await PDAUtils.deriveScriptAccount(bytecode, VALID_USER_ADDRESS, FIVE_PROGRAM_ID);
+        const expectedInstruction = SystemProgram.createAccountWithSeed({
+          fromPubkey: new PublicKey(VALID_USER_ADDRESS),
+          newAccountPubkey: new PublicKey(derived.address),
+          basePubkey: new PublicKey(VALID_USER_ADDRESS),
+          seed: derived.seed,
+          lamports: result.rentLamports,
+          space: bytecode.length + 256,
+          programId: new PublicKey(FIVE_PROGRAM_ID),
+        });
+
+        expect(result.createInstruction.data).toEqual(new Uint8Array(expectedInstruction.data));
       });
 
       it('should be deterministic for same bytecode', async () => {
@@ -138,11 +153,14 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
         expect(result).toHaveProperty('bump');
         expect(result).toHaveProperty('rentLamports');
         expect(result).toHaveProperty('createInstruction');
+        expect(result).toHaveProperty('creationMode', 'program_init_required');
+        expect(result).toHaveProperty('ownerProgramId', FIVE_PROGRAM_ID);
 
         expect(() => new PublicKey(result.address)).not.toThrow();
         expect(result.bump).toBeGreaterThanOrEqual(0);
         expect(result.bump).toBeLessThanOrEqual(255);
         expect(result.rentLamports).toBeGreaterThan(0);
+        expect(result.createInstruction).toBeNull();
       });
 
       it('should handle complex ABI structures', async () => {
@@ -176,6 +194,8 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
         expect(() => new PublicKey(result.address)).not.toThrow();
         // Complex ABI should require more rent
         expect(result.rentLamports).toBeGreaterThan(1000000);
+        expect(result.creationMode).toBe('program_init_required');
+        expect(result.createInstruction).toBeNull();
       });
     });
 
@@ -190,11 +210,14 @@ describe('Five SDK Account System - Real Implementation Tests', () => {
         expect(result).toHaveProperty('bump');
         expect(result).toHaveProperty('rentLamports');
         expect(result).toHaveProperty('createInstruction');
+        expect(result).toHaveProperty('creationMode', 'program_init_required');
+        expect(result).toHaveProperty('ownerProgramId', FIVE_PROGRAM_ID);
 
         expect(() => new PublicKey(result.address)).not.toThrow();
         expect(result.bump).toBeGreaterThanOrEqual(0);
         expect(result.bump).toBeLessThanOrEqual(255);
         expect(result.rentLamports).toBeGreaterThan(0);
+        expect(result.createInstruction).toBeNull();
       });
 
       it('should be deterministic for same user and script', async () => {

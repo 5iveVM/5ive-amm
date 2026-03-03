@@ -19,6 +19,9 @@ pub enum LspError {
     #[error("Document not found: {0}")]
     DocumentNotFound(String),
 
+    #[error("Unsupported feature: {0}")]
+    UnsupportedFeature(String),
+
     #[error("LSP error: {0}")]
     LspError(String),
 }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest, afterEach } from '@jest/globals';
+import { PublicKey } from '@solana/web3.js';
 import { FiveSDK } from '../../FiveSDK.js';
 import { ProgramIdResolver } from '../../config/ProgramIdResolver.js';
 import { FIVE_VM_PROGRAM_ID } from '../../types.js';
@@ -174,6 +175,17 @@ describe('Five SDK Integration Tests', () => {
 
       const raw = Buffer.from(result.instruction.data, 'base64');
       expect(raw[0]).toBe(8);
+
+      const derivedSeed = result.setupInstructions?.createScriptAccount?.seed;
+      expect(typeof derivedSeed).toBe('string');
+      expect(derivedSeed).toHaveLength(32);
+
+      const expectedScriptAccount = await PublicKey.createWithSeed(
+        new PublicKey(deployer),
+        derivedSeed,
+        new PublicKey(FIVE_VM_PROGRAM_ID)
+      );
+      expect(result.scriptAccount).toBe(expectedScriptAccount.toBase58());
     });
 
     it('encodes export metadata bytes into deploy instruction payload', async () => {
@@ -202,6 +214,45 @@ describe('Five SDK Integration Tests', () => {
       expect(raw[13]).toBe(0x50);
       const bytecodeStart = 10 + metadataLen;
       expect(raw.slice(bytecodeStart, bytecodeStart + bytecode.length)).toEqual(Buffer.from(bytecode));
+    });
+
+    it('honors a validated scriptAccount + scriptSeed override', async () => {
+      const bytecode = new Uint8Array([0x35, 0x49, 0x56, 0x45, 4, 4, 4, 4, 4]);
+      const deployer = TestConstants.TEST_USER_PUBKEY;
+      const scriptSeed = '0123456789abcdef0123456789abcdef';
+      const scriptAccount = (
+        await PublicKey.createWithSeed(
+          new PublicKey(deployer),
+          scriptSeed,
+          new PublicKey(FIVE_VM_PROGRAM_ID)
+        )
+      ).toBase58();
+
+      const result = await FiveSDK.generateDeployInstruction(bytecode, deployer, {
+        scriptAccount,
+        scriptSeed,
+      });
+
+      expect(result.scriptAccount).toBe(scriptAccount);
+      expect(result.setupInstructions?.createScriptAccount?.seed).toBe(scriptSeed);
+    });
+
+    it('rejects scriptAccount overrides without a matching scriptSeed', async () => {
+      const bytecode = new Uint8Array([0x35, 0x49, 0x56, 0x45, 5, 5, 5, 5, 5]);
+      const deployer = TestConstants.TEST_USER_PUBKEY;
+
+      await expect(
+        FiveSDK.generateDeployInstruction(bytecode, deployer, {
+          scriptAccount: TestConstants.TEST_SCRIPT_ACCOUNT,
+        }),
+      ).rejects.toThrow('options.scriptSeed is required');
+
+      await expect(
+        FiveSDK.generateDeployInstruction(bytecode, deployer, {
+          scriptAccount: TestConstants.TEST_SCRIPT_ACCOUNT,
+          scriptSeed: 'fedcba9876543210fedcba9876543210',
+        }),
+      ).rejects.toThrow('options.scriptAccount does not match');
     });
   });
 

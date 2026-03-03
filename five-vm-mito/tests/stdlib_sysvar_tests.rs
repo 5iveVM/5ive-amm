@@ -1,5 +1,6 @@
 use five_protocol::{opcodes::HALT, ValueRef};
 use five_vm_mito::{
+    error::VMErrorCode,
     handlers::system::{
         compute::handle_syscall_remaining_compute_units,
         sysvars::{
@@ -55,10 +56,11 @@ fn rent_sysvar_returns_lamports_per_byte_year() {
 }
 
 #[test]
-fn epoch_schedule_sysvar_placeholder_returns_ok_result() {
+fn epoch_schedule_sysvar_requires_runtime_integration() {
     let mut storage = StackStorage::new();
     let mut ctx = new_context(&mut storage);
 
-    handle_syscall_get_epoch_schedule_sysvar(&mut ctx).expect("epoch schedule syscall");
-    assert!(ctx.pop().unwrap().is_result_ok());
+    let err = handle_syscall_get_epoch_schedule_sysvar(&mut ctx).expect_err("epoch schedule syscall");
+    assert_eq!(err, VMErrorCode::RuntimeIntegrationRequired);
+    assert_eq!(ctx.pop(), Err(VMErrorCode::StackUnderflow));
 }

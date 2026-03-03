@@ -22,7 +22,7 @@ import {
 describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
   // Use real, valid Solana addresses for testing
   const FIVE_PROGRAM_ID = '7wVkyXsUiRcZtAHGZcXbTPCXnE7DBP6juN35H6FEUUZo';
-  const VALID_SOLANA_ADDRESS = '11111111111111111111111111111112'; // System Program
+  const VALID_BASE58_ADDRESS = '11111111111111111111111111111112';
   const ANOTHER_VALID_ADDRESS = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'; // SPL Token Program
 
   describe('PDAUtils - Real PDA Derivation', () => {
@@ -30,7 +30,7 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
       it('should derive real PDA for script account with actual bytecode', async () => {
         const bytecode = new Uint8Array([0x46, 0x49, 0x56, 0x45, 0x01, 0x02, 0x03]); // "FIVE" + data
         
-        const result = await PDAUtils.deriveScriptAccount(bytecode, FIVE_PROGRAM_ID);
+        const result = await PDAUtils.deriveScriptAccount(bytecode, VALID_BASE58_ADDRESS, FIVE_PROGRAM_ID);
         
         // Verify result structure
         expect(result).toHaveProperty('address');
@@ -46,27 +46,48 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
         expect(result.bump).toBeLessThanOrEqual(255);
         
         // Verify deterministic - same bytecode should produce same result
-        const result2 = await PDAUtils.deriveScriptAccount(bytecode, FIVE_PROGRAM_ID);
+        const result2 = await PDAUtils.deriveScriptAccount(bytecode, VALID_BASE58_ADDRESS, FIVE_PROGRAM_ID);
         expect(result.address).toBe(result2.address);
         expect(result.bump).toBe(result2.bump);
       });
 
-      // Skipped because deriveScriptAccount currently uses a hardcoded address stub
-      it.skip('should produce different PDAs for different bytecode', async () => {
+      it('should produce different script accounts for different bytecode', async () => {
         const bytecode1 = new Uint8Array([1, 2, 3, 4, 5]);
         const bytecode2 = new Uint8Array([5, 4, 3, 2, 1]);
         
-        const result1 = await PDAUtils.deriveScriptAccount(bytecode1, FIVE_PROGRAM_ID);
-        const result2 = await PDAUtils.deriveScriptAccount(bytecode2, FIVE_PROGRAM_ID);
+        const result1 = await PDAUtils.deriveScriptAccount(bytecode1, VALID_BASE58_ADDRESS, FIVE_PROGRAM_ID);
+        const result2 = await PDAUtils.deriveScriptAccount(bytecode2, VALID_BASE58_ADDRESS, FIVE_PROGRAM_ID);
         
         // Different bytecode should produce different PDAs
         expect(result1.address).not.toBe(result2.address);
       });
 
+      it('should produce different script accounts for different base public keys', async () => {
+        const bytecode = new Uint8Array([7, 7, 7, 7, 7]);
+
+        const result1 = await PDAUtils.deriveScriptAccount(bytecode, VALID_BASE58_ADDRESS, FIVE_PROGRAM_ID);
+        const result2 = await PDAUtils.deriveScriptAccount(bytecode, ANOTHER_VALID_ADDRESS, FIVE_PROGRAM_ID);
+
+        expect(result1.address).not.toBe(result2.address);
+      });
+
+      it('should match PublicKey.createWithSeed exactly', async () => {
+        const bytecode = new Uint8Array([9, 8, 7, 6, 5, 4]);
+        const result = await PDAUtils.deriveScriptAccount(bytecode, VALID_BASE58_ADDRESS, FIVE_PROGRAM_ID);
+
+        const expected = await PublicKey.createWithSeed(
+          new PublicKey(VALID_BASE58_ADDRESS),
+          result.seed,
+          new PublicKey(FIVE_PROGRAM_ID)
+        );
+
+        expect(result.address).toBe(expected.toBase58());
+      });
+
       it('should handle empty bytecode gracefully', async () => {
         const bytecode = new Uint8Array(0);
         
-        const result = await PDAUtils.deriveScriptAccount(bytecode, FIVE_PROGRAM_ID);
+        const result = await PDAUtils.deriveScriptAccount(bytecode, VALID_BASE58_ADDRESS, FIVE_PROGRAM_ID);
         
         expect(result).toHaveProperty('address');
         expect(result).toHaveProperty('bump');
@@ -76,7 +97,7 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
 
     describe('deriveMetadataAccount', () => {
       it('should derive real metadata PDA for valid script account', async () => {
-        const scriptAccount = VALID_SOLANA_ADDRESS;
+        const scriptAccount = VALID_BASE58_ADDRESS;
         
         const result = await PDAUtils.deriveMetadataAccount(scriptAccount, FIVE_PROGRAM_ID);
         
@@ -88,7 +109,7 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
       });
 
       it('should be deterministic for same script account', async () => {
-        const scriptAccount = VALID_SOLANA_ADDRESS;
+        const scriptAccount = VALID_BASE58_ADDRESS;
         
         const result1 = await PDAUtils.deriveMetadataAccount(scriptAccount, FIVE_PROGRAM_ID);
         const result2 = await PDAUtils.deriveMetadataAccount(scriptAccount, FIVE_PROGRAM_ID);
@@ -100,7 +121,7 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
 
     describe('deriveUserStateAccount', () => {
       it('should derive real user state PDA', async () => {
-        const userPubkey = VALID_SOLANA_ADDRESS;
+        const userPubkey = VALID_BASE58_ADDRESS;
         const scriptAccount = ANOTHER_VALID_ADDRESS;
         
         const result = await PDAUtils.deriveUserStateAccount(userPubkey, scriptAccount, FIVE_PROGRAM_ID);
@@ -226,7 +247,7 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
   describe('SolanaPublicKeyUtils - Real Solana Address Validation', () => {
     describe('isValid', () => {
       it('should validate real Solana addresses correctly', () => {
-        expect(SolanaPublicKeyUtils.isValid(VALID_SOLANA_ADDRESS)).toBe(true);
+        expect(SolanaPublicKeyUtils.isValid(VALID_BASE58_ADDRESS)).toBe(true);
         expect(SolanaPublicKeyUtils.isValid(ANOTHER_VALID_ADDRESS)).toBe(true);
         expect(SolanaPublicKeyUtils.isValid(FIVE_PROGRAM_ID)).toBe(true);
       });
@@ -252,7 +273,7 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
 
     describe('normalize', () => {
       it('should return valid addresses unchanged', () => {
-        expect(SolanaPublicKeyUtils.normalize(VALID_SOLANA_ADDRESS)).toBe(VALID_SOLANA_ADDRESS);
+        expect(SolanaPublicKeyUtils.normalize(VALID_BASE58_ADDRESS)).toBe(VALID_BASE58_ADDRESS);
         expect(SolanaPublicKeyUtils.normalize(ANOTHER_VALID_ADDRESS)).toBe(ANOTHER_VALID_ADDRESS);
       });
 
@@ -381,11 +402,11 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
   describe('AccountValidator - Real Account Validation', () => {
     describe('validateAddress', () => {
       it('should validate real Solana addresses', () => {
-        const result = AccountValidator.validateAddress(VALID_SOLANA_ADDRESS);
+        const result = AccountValidator.validateAddress(VALID_BASE58_ADDRESS);
         
         expect(result.valid).toBe(true);
         expect(result.errors).toHaveLength(0);
-        expect(result.normalizedAddress).toBe(VALID_SOLANA_ADDRESS);
+        expect(result.normalizedAddress).toBe(VALID_BASE58_ADDRESS);
       });
 
       it('should reject invalid addresses with detailed errors', () => {
@@ -400,7 +421,7 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
 
     describe('validateAccountList', () => {
       it('should validate lists of real addresses', () => {
-        const addresses = [VALID_SOLANA_ADDRESS, ANOTHER_VALID_ADDRESS, FIVE_PROGRAM_ID];
+        const addresses = [VALID_BASE58_ADDRESS, ANOTHER_VALID_ADDRESS, FIVE_PROGRAM_ID];
         const result = AccountValidator.validateAccountList(addresses);
         
         expect(result.valid).toBe(true);
@@ -410,12 +431,12 @@ describe('Five SDK Crypto Operations - Real Implementation Tests', () => {
       });
 
       it('should identify mixed valid/invalid addresses', () => {
-        const addresses = [VALID_SOLANA_ADDRESS, 'invalid', ANOTHER_VALID_ADDRESS, 'also-invalid'];
+        const addresses = [VALID_BASE58_ADDRESS, 'invalid', ANOTHER_VALID_ADDRESS, 'also-invalid'];
         const result = AccountValidator.validateAccountList(addresses);
         
         expect(result.valid).toBe(false);
         expect(result.errors.length).toBeGreaterThan(0);
-        expect(result.validAddresses).toEqual([VALID_SOLANA_ADDRESS, ANOTHER_VALID_ADDRESS]);
+        expect(result.validAddresses).toEqual([VALID_BASE58_ADDRESS, ANOTHER_VALID_ADDRESS]);
         expect(result.invalidAddresses).toEqual(['invalid', 'also-invalid']);
       });
     });

@@ -3,7 +3,7 @@
  */
 
 import bs58 from 'bs58';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { PublicKey } from '@solana/web3.js';
 
 /**
@@ -15,10 +15,12 @@ export class PDAUtils {
   /**
    * Derive script account using seed-based derivation compatible with SystemProgram.createAccountWithSeed
    * @param bytecode - The bytecode to derive address for
+   * @param basePublicKey - The deployer/base public key used for createWithSeed
    * @param programId - The Five VM program ID (required - no default to enforce explicit configuration)
    */
   static async deriveScriptAccount(
     bytecode: Uint8Array,
+    basePublicKey: string,
     programId: string
   ): Promise<{
     address: string;
@@ -26,20 +28,16 @@ export class PDAUtils {
     seed: string;
   }> {
     try {
-      // Use a simple seed for compatibility with createAccountWithSeed
-      const seed = 'script';
+      const deployerKey = new PublicKey(basePublicKey);
+      const programKey = new PublicKey(programId);
+      const seed = createHash('sha256')
+        .update(Buffer.from(bytecode))
+        .digest('hex')
+        .slice(0, 32);
+      const address = await PublicKey.createWithSeed(deployerKey, seed, programKey);
 
-      // For seed-based account creation, we need to use PublicKey.createWithSeed approach
-      // This matches what SystemProgram.createAccountWithSeed expects
-      const crypto = await import('crypto');
-
-      // Simulate Solana's createWithSeed logic
-      // address = base58(sha256(base_pubkey + seed + program_id))
-      // Use simplified approach; requires deployer's pubkey
-
-      // Return seed-based result that's compatible with System Program
       return {
-        address: 'EaHahm4bQSg6jkSqQWHZ15LZypaGF9z9Aj5YMiawQwCp', // Temporarily use the expected address from error
+        address: address.toBase58(),
         bump: 0, // Seed-based accounts don't use bumps
         seed: seed
       };

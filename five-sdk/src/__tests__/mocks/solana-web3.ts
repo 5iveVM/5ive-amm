@@ -52,6 +52,21 @@ export class PublicKey {
     // Deterministic mock behavior: treat derived addresses as off-curve.
     return false;
   }
+
+  static async createWithSeed(
+    fromPublicKey: PublicKey,
+    seed: string,
+    programId: PublicKey,
+  ): Promise<PublicKey> {
+    const hash = createHash("sha256")
+      .update(Buffer.concat([
+        bs58.decode(fromPublicKey.toBase58()),
+        Buffer.from(seed, "utf8"),
+        bs58.decode(programId.toBase58()),
+      ]))
+      .digest();
+    return new PublicKey(hash);
+  }
 }
 
 export class TransactionInstruction {
@@ -132,6 +147,25 @@ export const SystemProgram = {
       ],
       programId: new PublicKey("11111111111111111111111111111111"),
       data: Buffer.from([2]),
+    }),
+  createAccountWithSeed: (params: any) =>
+    new TransactionInstruction({
+      keys: [
+        { pubkey: params.fromPubkey, isSigner: true, isWritable: true },
+        { pubkey: params.newAccountPubkey, isSigner: false, isWritable: true },
+        { pubkey: params.basePubkey, isSigner: true, isWritable: false },
+      ],
+      programId: new PublicKey("11111111111111111111111111111111"),
+      data: Buffer.concat([
+        Buffer.from([3]),
+        Buffer.from(params.seed, "utf8"),
+        Buffer.from("|"),
+        Buffer.from(String(params.lamports), "utf8"),
+        Buffer.from("|"),
+        Buffer.from(String(params.space), "utf8"),
+        Buffer.from("|"),
+        Buffer.from(params.programId.toBase58(), "utf8"),
+      ]),
     }),
 };
 

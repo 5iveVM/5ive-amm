@@ -298,6 +298,7 @@ export interface DeploymentOptions {
   space?: number;
   programId?: string;
   scriptAccount?: any;
+  scriptSeed?: string;
   extraLamports?: number;
   debug?: boolean;
   permissions?: number;

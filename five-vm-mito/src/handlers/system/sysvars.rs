@@ -153,29 +153,32 @@ pub fn handle_syscall_get_rent_sysvar(ctx: &mut ExecutionManager) -> CompactResu
     Ok(())
 }
 
-// Placeholders for other sysvar syscalls
-macro_rules! sysvar_syscall_placeholder {
-    ($name:ident, $log_msg:expr) => {
-        pub fn $name(ctx: &mut ExecutionManager) -> CompactResult<()> {
-            debug_log!("MitoVM: {} - placeholder implementation", $log_msg);
-            ctx.push(ValueRef::result_ok(0, 0))?;
-            Ok(())
-        }
-    };
+#[inline(always)]
+fn unsupported_sysvar_syscall(_ctx: &mut ExecutionManager, _name: &str) -> CompactResult<()> {
+    debug_log!("MitoVM: {} - runtime integration required", _name);
+    Err(VMErrorCode::RuntimeIntegrationRequired)
 }
 
-sysvar_syscall_placeholder!(
-    handle_syscall_get_epoch_schedule_sysvar,
-    "SYSCALL_GET_EPOCH_SCHEDULE_SYSVAR"
-);
-sysvar_syscall_placeholder!(
-    handle_syscall_get_epoch_rewards_sysvar,
-    "SYSCALL_GET_EPOCH_REWARDS_SYSVAR"
-);
-sysvar_syscall_placeholder!(handle_syscall_get_epoch_stake, "SYSCALL_GET_EPOCH_STAKE");
-sysvar_syscall_placeholder!(handle_syscall_get_fees_sysvar, "SYSCALL_GET_FEES_SYSVAR");
-sysvar_syscall_placeholder!(
-    handle_syscall_get_last_restart_slot,
-    "SYSCALL_GET_LAST_RESTART_SLOT"
-);
-sysvar_syscall_placeholder!(handle_syscall_get_sysvar, "SYSCALL_GET_SYSVAR");
+pub fn handle_syscall_get_epoch_schedule_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    unsupported_sysvar_syscall(ctx, "SYSCALL_GET_EPOCH_SCHEDULE_SYSVAR")
+}
+
+pub fn handle_syscall_get_epoch_rewards_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    unsupported_sysvar_syscall(ctx, "SYSCALL_GET_EPOCH_REWARDS_SYSVAR")
+}
+
+pub fn handle_syscall_get_epoch_stake(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    unsupported_sysvar_syscall(ctx, "SYSCALL_GET_EPOCH_STAKE")
+}
+
+pub fn handle_syscall_get_fees_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    unsupported_sysvar_syscall(ctx, "SYSCALL_GET_FEES_SYSVAR")
+}
+
+pub fn handle_syscall_get_last_restart_slot(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    unsupported_sysvar_syscall(ctx, "SYSCALL_GET_LAST_RESTART_SLOT")
+}
+
+pub fn handle_syscall_get_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
+    unsupported_sysvar_syscall(ctx, "SYSCALL_GET_SYSVAR")
+}

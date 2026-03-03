@@ -6,17 +6,20 @@
 
 use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
 use five_vm_mito::{
-    stack::StackStorage, AccountInfo, MitoVM, Result as VmResult, FIVE_VM_PROGRAM_ID,
+    stack::StackStorage, AccountInfo, MitoVM, Result as VmResult, VMError, FIVE_VM_PROGRAM_ID,
 };
 
 // Syscall IDs (must match five-vm-mito/src/handlers/syscalls.rs)
 const SYSCALL_REMAINING_COMPUTE_UNITS: u8 = 50;
+const SYSCALL_GET_EPOCH_SCHEDULE_SYSVAR: u8 = 21;
+const SYSCALL_GET_FEES_SYSVAR: u8 = 24;
 const SYSCALL_SHA256: u8 = 80;
 const SYSCALL_KECCAK256: u8 = 81;
 const SYSCALL_BLAKE3: u8 = 82;
 const SYSCALL_POSEIDON: u8 = 83;
 const SYSCALL_SECP256K1_RECOVER: u8 = 84;
 const SYSCALL_VERIFY_ED25519_INSTRUCTION: u8 = 92;
+const SYSCALL_ALT_BN128_GROUP_OP: u8 = 86;
 const ED25519_PROGRAM_ID_BYTES: [u8; 32] = [
     0x03, 0x7d, 0x46, 0xd6, 0x7c, 0x93, 0xfb, 0xbe, 0x12, 0xf9, 0x42, 0x8f, 0x83, 0x8d, 0x40, 0xff,
     0x05, 0x70, 0x74, 0x49, 0x27, 0xf4, 0x8a, 0x64, 0xfc, 0xca, 0x70, 0x44, 0x80, 0x00, 0x00, 0x00,
@@ -273,5 +276,47 @@ fn test_syscall_verify_ed25519_instruction() {
         }
         Ok(result) => panic!("❌ Expected Bool(true), got {:?}", result),
         Err(e) => panic!("❌ Execution failed: {:?}", e),
+    }
+}
+
+#[test]
+fn test_unsupported_sysvar_syscalls_return_runtime_integration_required() {
+    match execute(|script| {
+        script.push(CALL_NATIVE);
+        script.push(SYSCALL_GET_EPOCH_SCHEDULE_SYSVAR);
+        script.push(RETURN_VALUE);
+    }) {
+        Err(VMError::RuntimeIntegrationRequired) => {}
+        other => panic!(
+            "❌ Expected RuntimeIntegrationRequired for epoch schedule syscall, got {:?}",
+            other
+        ),
+    }
+
+    match execute(|script| {
+        script.push(CALL_NATIVE);
+        script.push(SYSCALL_GET_FEES_SYSVAR);
+        script.push(RETURN_VALUE);
+    }) {
+        Err(VMError::RuntimeIntegrationRequired) => {}
+        other => panic!(
+            "❌ Expected RuntimeIntegrationRequired for fees syscall, got {:?}",
+            other
+        ),
+    }
+}
+
+#[test]
+fn test_unsupported_curve_syscalls_return_runtime_integration_required() {
+    match execute(|script| {
+        script.push(CALL_NATIVE);
+        script.push(SYSCALL_ALT_BN128_GROUP_OP);
+        script.push(RETURN_VALUE);
+    }) {
+        Err(VMError::RuntimeIntegrationRequired) => {}
+        other => panic!(
+            "❌ Expected RuntimeIntegrationRequired for alt_bn128_group_op, got {:?}",
+            other
+        ),
     }
 }

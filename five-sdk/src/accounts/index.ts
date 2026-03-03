@@ -7,6 +7,7 @@
 
 import { PDAUtils, SolanaPublicKeyUtils, RentCalculator, AccountValidator } from '../crypto/index.js';
 import { ProgramIdResolver } from '../config/ProgramIdResolver.js';
+import { PublicKey, SystemProgram } from '@solana/web3.js';
 
 /**
  * Account data interface (replaces Web3.js AccountInfo)
@@ -123,20 +124,15 @@ export interface AccountValidationResult {
 /**
  * Account creation parameters
  */
-export interface CreateAccountParams {
-  /** Account size in bytes */
-  size: number;
-  /** Owner program ID */
-  owner: string;
-  /** Whether to make rent-exempt */
-  rentExempt: boolean;
-  /** Additional lamports beyond rent exemption */
-  additionalLamports?: number;
+export interface ProvisioningPlan {
+  address: string;
+  bump: number;
+  rentLamports: number;
+  creationMode: 'program_init_required';
+  ownerProgramId: string;
+  createInstruction: null;
 }
 
-/**
- * Solana transaction instruction interface
- */
 export interface TransactionInstruction {
   /** Program ID to invoke */
   programId: string;
@@ -160,26 +156,24 @@ export class FiveAccountManager {
     this.programId = ProgramIdResolver.resolve(programId);
   }
 
-  /**
-   * Encode System Program CreateAccount instruction
-   */
-  private encodeCreateAccountInstruction(params: CreateAccountParams): Uint8Array {
-    // Encoding for CreateAccount instruction
-    // In a real implementation, this would use proper Solana instruction encoding
-    const buffer = new ArrayBuffer(32);
-    const view = new DataView(buffer);
-    
-    // Instruction discriminator for CreateAccount (0)
-    view.setUint32(0, 0, true);
-    // Account size
-    view.setUint32(4, params.size, true);
-    // Rent lamports (calculated)
-    const rentLamports = params.rentExempt ? RentCalculator.calculateRentExemption(params.size) : 0;
-    view.setBigUint64(8, BigInt(rentLamports), true);
-    
-    // Owner program ID would be encoded here in real implementation
-    // Return the basic instruction data
-    return new Uint8Array(buffer);
+  private serializeInstruction(instruction: {
+    programId: { toBase58(): string };
+    keys: Array<{
+      pubkey: { toBase58(): string };
+      isSigner: boolean;
+      isWritable: boolean;
+    }>;
+    data: Uint8Array;
+  }): TransactionInstruction {
+    return {
+      programId: instruction.programId.toBase58(),
+      accounts: instruction.keys.map((key) => ({
+        pubkey: key.pubkey.toBase58(),
+        isSigner: key.isSigner,
+        isWritable: key.isWritable,
+      })),
+      data: new Uint8Array(instruction.data),
+    };
   }
 
   /**
@@ -191,22 +185,22 @@ export class FiveAccountManager {
     createInstruction: TransactionInstruction;
     rentLamports: number;
   }> {
-    const pda = await PDAUtils.deriveScriptAccount(bytecode, this.programId);
+    const pda = await PDAUtils.deriveScriptAccount(bytecode, payerAddress, this.programId);
     const rentLamports = RentCalculator.getScriptAccountRent(bytecode.length);
-
-    // Create serialized instruction for System Program CreateAccount
-    const createInstruction: TransactionInstruction = {
-      programId: '11111111111111111111111111111112', // System Program
-      accounts: [
-        { pubkey: payerAddress, isSigner: true, isWritable: true },
-        { pubkey: pda.address, isSigner: false, isWritable: true }
-      ],
-      data: this.encodeCreateAccountInstruction({
-          size: bytecode.length + 256, // Bytecode + metadata
-          owner: this.programId,
-          rentExempt: true
-        })
-    };
+    const payerPubkey = new PublicKey(payerAddress);
+    const scriptPubkey = new PublicKey(pda.address);
+    const programPubkey = new PublicKey(this.programId);
+    const createInstruction = this.serializeInstruction(
+      SystemProgram.createAccountWithSeed({
+        fromPubkey: payerPubkey,
+        newAccountPubkey: scriptPubkey,
+        basePubkey: payerPubkey,
+        seed: pda.seed,
+        lamports: rentLamports,
+        space: bytecode.length + 256,
+        programId: programPubkey,
+      })
+    );
 
     return {
       address: pda.address,
@@ -219,33 +213,17 @@ export class FiveAccountManager {
   /**
    * Create metadata account for script
    */
-  async createMetadataAccount(scriptAccount: string, payerAddress: string): Promise<{
-    address: string;
-    bump: number;
-    createInstruction: TransactionInstruction;
-    rentLamports: number;
-  }> {
+  async createMetadataAccount(scriptAccount: string, _payerAddress: string): Promise<ProvisioningPlan> {
     const pda = await PDAUtils.deriveMetadataAccount(scriptAccount, this.programId);
     const rentLamports = RentCalculator.getMetadataAccountRent();
-
-    const createInstruction: TransactionInstruction = {
-      programId: '11111111111111111111111111111112', // System Program
-      accounts: [
-        { pubkey: payerAddress, isSigner: true, isWritable: true },
-        { pubkey: pda.address, isSigner: false, isWritable: true }
-      ],
-      data: this.encodeCreateAccountInstruction({
-        size: 1024, // 1KB for metadata
-        owner: this.programId,
-        rentExempt: true
-      })
-    };
 
     return {
       address: pda.address,
       bump: pda.bump,
-      createInstruction,
-      rentLamports
+      rentLamports,
+      creationMode: 'program_init_required',
+      ownerProgramId: this.programId,
+      createInstruction: null,
     };
   }
 
@@ -255,12 +233,7 @@ export class FiveAccountManager {
   async createUserStateAccount(
     userPublicKey: string,
     scriptAccount: string
-  ): Promise<{
-    address: string;
-    bump: number;
-    createInstruction: any;
-    rentLamports: number;
-  }> {
+  ): Promise<ProvisioningPlan> {
     const pda = await PDAUtils.deriveUserStateAccount(
       userPublicKey,
       scriptAccount,
@@ -271,20 +244,10 @@ export class FiveAccountManager {
     return {
       address: pda.address,
       bump: pda.bump,
-      createInstruction: {
-        programId: '11111111111111111111111111111112', // System Program
-        accounts: [
-          { pubkey: pda.address, isSigner: false, isWritable: true },
-          { pubkey: userPublicKey, isSigner: true, isWritable: true },
-          { pubkey: this.programId, isSigner: false, isWritable: false }
-        ],
-        data: this.encodeCreateAccountInstruction({
-          size: 512, // 512 bytes for user state
-          owner: this.programId,
-          rentExempt: true
-        })
-      },
-      rentLamports
+      rentLamports,
+      creationMode: 'program_init_required',
+      ownerProgramId: this.programId,
+      createInstruction: null,
     };
   }
 

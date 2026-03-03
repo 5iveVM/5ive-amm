@@ -43,6 +43,7 @@ export class FiveLspClient {
   private wasmModule: any = null;
   private lsp: any = null;
   private initialized = false;
+  private readonly trackedDocuments = new Map<string, string>();
 
   /**
    * Initialize the LSP client
@@ -428,11 +429,8 @@ export class FiveLspClient {
     this.ensureInitialized();
 
     try {
-      // For now, we store this in the LSP context for future cross-file analysis
-      // This is a placeholder for multi-file workspace tracking
-      // The actual implementation will use the semantic index in Phase 1 Track A
+      this.trackedDocuments.set(uri, source);
       console.log(`[FiveLspClient] setDocument: ${uri} (${source.length} chars)`);
-      // TODO: Call actual WASM method when available (set_document)
     } catch (error) {
       console.error('[FiveLspClient] Error setting document:', error);
       throw new Error(`Failed to set document: ${error}`);
@@ -456,8 +454,8 @@ export class FiveLspClient {
     this.ensureInitialized();
 
     try {
+      this.trackedDocuments.delete(uri);
       console.log(`[FiveLspClient] removeDocument: ${uri}`);
-      // TODO: Call actual WASM method when available (remove_document)
     } catch (error) {
       console.error('[FiveLspClient] Error removing document:', error);
       throw new Error(`Failed to remove document: ${error}`);
@@ -485,10 +483,60 @@ export class FiveLspClient {
     this.ensureInitialized();
 
     try {
-      // TODO: Call actual WASM method when available (get_workspace_symbols)
-      // For now, return empty array
       console.log(`[FiveLspClient] getWorkspaceSymbols: "${query}"`);
-      return [];
+      if (!query) {
+        return [];
+      }
+
+      const deduped = new Map<string, LspSymbolInformation>();
+      for (const [uri, source] of this.trackedDocuments.entries()) {
+        try {
+          const result = await this.lsp.get_workspace_symbols(uri, source, query);
+          const symbols = JSON.parse(result) as LspSymbolInformation[];
+          if (!Array.isArray(symbols)) {
+            continue;
+          }
+          for (const symbol of symbols) {
+            const range = symbol.location?.range?.start;
+            const key = [
+              symbol.name,
+              symbol.kind ?? '',
+              symbol.location?.uri ?? '',
+              range?.line ?? '',
+              range?.character ?? '',
+            ].join(':');
+            if (!deduped.has(key)) {
+              deduped.set(key, symbol);
+            }
+          }
+        } catch (error) {
+          console.warn(`[FiveLspClient] Skipping workspace symbol scan for ${uri}:`, error);
+        }
+      }
+
+      return Array.from(deduped.values()).sort((left, right) => {
+        const nameCompare = left.name.localeCompare(right.name);
+        if (nameCompare !== 0) {
+          return nameCompare;
+        }
+
+        const leftUri = left.location?.uri ?? '';
+        const rightUri = right.location?.uri ?? '';
+        const uriCompare = leftUri.localeCompare(rightUri);
+        if (uriCompare !== 0) {
+          return uriCompare;
+        }
+
+        const leftLine = left.location?.range?.start?.line ?? 0;
+        const rightLine = right.location?.range?.start?.line ?? 0;
+        if (leftLine !== rightLine) {
+          return leftLine - rightLine;
+        }
+
+        const leftCharacter = left.location?.range?.start?.character ?? 0;
+        const rightCharacter = right.location?.range?.start?.character ?? 0;
+        return leftCharacter - rightCharacter;
+      });
     } catch (error) {
       console.error('[FiveLspClient] Error getting workspace symbols:', error);
       throw new Error(`Failed to get workspace symbols: ${error}`);
@@ -515,10 +563,16 @@ export class FiveLspClient {
     this.ensureInitialized();
 
     try {
-      // TODO: Call actual WASM method when available (get_workspace_diagnostics)
-      // For now, return empty map
       console.log('[FiveLspClient] getWorkspaceDiagnostics');
-      return new Map();
+      const diagnosticsByUri = new Map<string, LspDiagnostic[]>();
+      for (const [uri, source] of this.trackedDocuments.entries()) {
+        try {
+          diagnosticsByUri.set(uri, this.getDiagnostics(uri, source));
+        } catch (error) {
+          console.warn(`[FiveLspClient] Skipping workspace diagnostics for ${uri}:`, error);
+        }
+      }
+      return diagnosticsByUri;
     } catch (error) {
       console.error('[FiveLspClient] Error getting workspace diagnostics:', error);
       throw new Error(`Failed to get workspace diagnostics: ${error}`);
@@ -538,6 +592,7 @@ export class FiveLspClient {
    */
   clearCaches(): void {
     this.ensureInitialized();
+    this.trackedDocuments.clear();
     this.lsp.clear_caches();
   }
 

@@ -8,9 +8,9 @@
 //! five-lsp  # Waits for LSP messages on stdin
 //! ```
 //!
-//! NOTE: This binary is currently disabled pending tower-lsp transport implementation.
-//! The LSP library is fully functional and can be used via WASM or by implementing
-//! a custom transport layer.
+//! NOTE: Native stdio transport is intentionally deferred.
+//! The browser/WASM path is the supported integration, including workspace symbol
+//! aggregation via per-file queries in the frontend.
 
 #[cfg(feature = "native")]
 use five_lsp::FiveLanguageServer;
@@ -25,9 +25,9 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 fn main() {
-    // Disabled for now - native binary transport pending
+    // Native transport remains intentionally disabled in this pass.
     eprintln!("Five LSP native binary is not yet enabled.");
-    eprintln!("The LSP library is available for use via WASM or custom transport.");
+    eprintln!("Use the WASM/browser integration path for active language features.");
     std::process::exit(1);
 }
 

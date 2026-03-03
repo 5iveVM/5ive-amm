@@ -87,6 +87,48 @@ async function deriveProgramFeeVault(
   return { address: pda.toBase58(), bump };
 }
 
+async function resolveScriptAccountDerivation(
+  bytecode: FiveBytecode,
+  deployer: string,
+  programId: string,
+  options: DeploymentOptions,
+): Promise<{ address: string; bump: number; seed: string }> {
+  const { PublicKey } = await import("@solana/web3.js");
+
+  if (options.scriptAccount) {
+    validator.validateBase58Address(
+      options.scriptAccount,
+      "options.scriptAccount",
+    );
+
+    if (!options.scriptSeed) {
+      throw new Error(
+        "options.scriptSeed is required when options.scriptAccount is provided",
+      );
+    }
+
+    const expectedAccount = await PublicKey.createWithSeed(
+      new PublicKey(deployer),
+      options.scriptSeed,
+      new PublicKey(programId),
+    );
+
+    if (expectedAccount.toBase58() !== options.scriptAccount) {
+      throw new Error(
+        "options.scriptAccount does not match the derived address for the provided deployer, scriptSeed, and programId",
+      );
+    }
+
+    return {
+      address: options.scriptAccount,
+      bump: 0,
+      seed: options.scriptSeed,
+    };
+  }
+
+  return PDAUtils.deriveScriptAccount(bytecode, deployer, programId);
+}
+
 function createInitFeeVaultInstructionData(shardIndex: number, bump: number): Uint8Array {
   return Uint8Array.from([11, shardIndex & 0xff, bump & 0xff]);
 }
@@ -152,12 +194,6 @@ export async function generateDeployInstruction(
   Validators.bytecode(bytecode);
   validator.validateBase58Address(deployer, "deployer");
   Validators.options(options);
-  if (options.scriptAccount) {
-    validator.validateBase58Address(
-      options.scriptAccount,
-      "options.scriptAccount",
-    );
-  }
 
   // Resolve program ID with consistent precedence
   const programId = ProgramIdResolver.resolve(
@@ -175,9 +211,11 @@ export async function generateDeployInstruction(
     console.log(`[FiveSDK] Using program ID: ${programId}`);
   }
 
-  const scriptResult = await PDAUtils.deriveScriptAccount(
+  const scriptResult = await resolveScriptAccountDerivation(
     bytecode,
+    deployer,
     programId,
+    options,
   );
   const scriptAccount = scriptResult.address;
   const scriptSeed = scriptResult.seed;

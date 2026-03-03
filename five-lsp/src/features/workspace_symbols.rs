@@ -225,9 +225,60 @@ fn make_location_range() -> Range {
 
 #[cfg(test)]
 mod tests {
+    use super::workspace_symbols;
+    use crate::bridge::CompilerBridge;
+    use lsp_types::Url;
+
+    fn test_uri(name: &str) -> Url {
+        Url::parse(&format!("file:///workspace/{}", name)).expect("valid test uri")
+    }
+
     #[test]
-    fn test_placeholder() {
-        // Placeholder test - AST compilation tested in integration tests
-        assert!(true);
+    fn finds_instruction_names_case_insensitively() {
+        let mut bridge = CompilerBridge::new();
+        let uri = test_uri("instructions.v");
+        let source = r#"
+transfer() -> u64 {
+    return 1;
+}
+
+mint_tokens() -> u64 {
+    return 2;
+}
+"#;
+
+        let symbols = workspace_symbols(&mut bridge, source, "TrAnS", &uri);
+        assert_eq!(symbols.len(), 1);
+        assert_eq!(symbols[0].name, "transfer");
+    }
+
+    #[test]
+    fn finds_account_names_and_fields() {
+        let mut bridge = CompilerBridge::new();
+        let uri = test_uri("accounts.v");
+        let source = r#"
+account VaultAccount {
+    balance: u64;
+    owner: pubkey;
+}
+"#;
+
+        let account_symbols = workspace_symbols(&mut bridge, source, "vault", &uri);
+        assert_eq!(account_symbols.len(), 1);
+        assert_eq!(account_symbols[0].name, "VaultAccount");
+
+        let field_symbols = workspace_symbols(&mut bridge, source, "bal", &uri);
+        assert_eq!(field_symbols.len(), 1);
+        assert_eq!(field_symbols[0].name, "balance");
+    }
+
+    #[test]
+    fn returns_empty_on_parse_failure() {
+        let mut bridge = CompilerBridge::new();
+        let uri = test_uri("broken.v");
+        let source = "account Broken {";
+
+        let symbols = workspace_symbols(&mut bridge, source, "broken", &uri);
+        assert!(symbols.is_empty());
     }
 }

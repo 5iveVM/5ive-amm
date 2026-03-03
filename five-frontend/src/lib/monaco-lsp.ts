@@ -212,19 +212,25 @@ function registerDiagnosticsProvider(
     500 // Debounce after 500ms of inactivity
   );
 
-  // Listen for content changes on all Five files
-  const onCreateModelDisposable = monaco.editor.onDidCreateModel((model) => {
+  const registerModel = (model: monaco.editor.ITextModel) => {
     if (model.getLanguageId() !== 'five') {
       return;
     }
 
     console.log(`[Monaco LSP] Monitoring ${model.uri.toString()}`);
 
+    void lspClient.setDocument(model.uri.toString(), model.getValue()).catch((error) => {
+      console.error('[Monaco LSP] Error registering document:', error);
+    });
+
     // Initial diagnostic pass
     updateDiagnostics(model);
 
     // Re-analyze on every change (debounced)
     const listener = model.onDidChangeContent(() => {
+      void lspClient.setDocument(model.uri.toString(), model.getValue()).catch((error) => {
+        console.error('[Monaco LSP] Error updating document:', error);
+      });
       updateDiagnostics(model);
     });
 
@@ -233,19 +239,25 @@ function registerDiagnosticsProvider(
     // Clean up listener when model is disposed
     model.onWillDispose(() => {
       listener.dispose();
+      void lspClient.removeDocument(model.uri.toString()).catch((error) => {
+        console.error('[Monaco LSP] Error removing document:', error);
+      });
       monaco.editor.setModelMarkers(model, 'five-lsp', []);
       const index = modelListeners.indexOf(listener);
       if (index > -1) {
         modelListeners.splice(index, 1);
       }
     });
+  };
+
+  // Listen for content changes on all Five files
+  const onCreateModelDisposable = monaco.editor.onDidCreateModel((model) => {
+    registerModel(model);
   });
 
   // Analyze any already-open models
   for (const model of monaco.editor.getModels()) {
-    if (model.getLanguageId() === 'five') {
-      updateDiagnostics(model);
-    }
+    registerModel(model);
   }
 
   // Return composite disposable
