@@ -34,7 +34,11 @@ echo "[build-five-solana-cluster] generating constants for ${CLUSTER}"
 node scripts/generate-vm-constants.mjs --cluster "${CLUSTER}"
 
 echo "[build-five-solana-cluster] building SBF artifact"
-cargo-build-sbf --manifest-path five-solana/Cargo.toml --no-default-features --features production --sbf-out-dir target/deploy
+cargo-build-sbf \
+  --manifest-path five-solana/Cargo.toml \
+  --no-default-features \
+  --features production,cluster-hardcoded-pdas \
+  --sbf-out-dir target/deploy
 
 if [[ ! -f "${ROOT_DEPLOY_DIR}/five-keypair.json" || ! -f "${ROOT_DEPLOY_DIR}/five.so" ]]; then
   echo "[build-five-solana-cluster] missing expected output artifact(s) in target/deploy" >&2
