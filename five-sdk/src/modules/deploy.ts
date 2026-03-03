@@ -232,7 +232,10 @@ export async function generateDeployInstruction(
 
   const SCRIPT_HEADER_SIZE = 64; // ScriptAccountHeader size from Rust program
   const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
-  const rentLamports = await RentCalculator.calculateRentExemption(totalAccountSize);
+  const rentLamports = await RentCalculator.calculateRentExemptionWithConnection(
+    totalAccountSize,
+    connection,
+  );
 
   const { deployFeeLamports } = await readVMStateFeeConfig(connection, vmStatePDA);
   const deployShardIndex = 0;

@@ -120,6 +120,12 @@ export declare class RentCalculator {
      */
     static calculateRentExemption(accountSize: number): number;
     /**
+     * Query rent from RPC when available and fall back to local estimation otherwise.
+     */
+    static calculateRentExemptionWithConnection(accountSize: number, connection?: {
+        getMinimumBalanceForRentExemption?: (size: number) => Promise<number>;
+    }): Promise<number>;
+    /**
      * Get estimated rent for script account based on bytecode size
      */
     static getScriptAccountRent(bytecodeSize: number): number;

@@ -94,12 +94,14 @@ export class FiveProgram {
         if (typeof prop === 'string') {
           return (...args: any[]) => {
             const builder = target.function(prop);
-            // TODO: Robust argument mapping based on ABI types
-            // Simple map: if args[0] is object, assume named params
             if (args.length === 1 && typeof args[0] === 'object' && !Array.isArray(args[0])) {
               builder.args(args[0]);
+            } else if (args.length > 0) {
+              throw new Error(
+                `FiveProgram.methods.${prop} only supports a single named-arguments object. ` +
+                `Use program.function("${prop}").args({...}) for now.`
+              );
             }
-            // Logic for positional args would go here
             return builder;
           }
         }

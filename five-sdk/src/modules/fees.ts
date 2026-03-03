@@ -37,7 +37,10 @@ export async function calculateDeployFee(
 ): Promise<FeeInformation> {
   try {
     const accountSize = 64 + bytecodeSize;
-    const rentLamports = await RentCalculator.calculateRentExemption(accountSize);
+    const rentLamports = await RentCalculator.calculateRentExemptionWithConnection(
+      accountSize,
+      connection,
+    );
 
     const vmState = await getVMState(connection, fiveVMProgramId);
     const deployFeeLamports = vmState.deployFeeLamports;
@@ -55,7 +58,10 @@ export async function calculateDeployFee(
     };
   } catch (error) {
     const accountSize = 64 + bytecodeSize;
-    const rentLamports = await RentCalculator.calculateRentExemption(accountSize);
+    const rentLamports = await RentCalculator.calculateRentExemptionWithConnection(
+      accountSize,
+      connection,
+    );
 
     return {
       feeBps: 0,

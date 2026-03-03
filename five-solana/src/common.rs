@@ -10,8 +10,9 @@ pub const VM_STATE_SEED: &[u8] = b"vm_state";
 // This namespace is blocked from VM bytecode PDA creation paths.
 pub const FEE_VAULT_SEED: &[u8] = b"\xFFfive_vm_fee_vault_v1";
 
+#[cfg(feature = "cluster-hardcoded-pdas")]
 use crate::generated_constants::HARDCODED_VM_STATE_PDA;
-#[cfg(not(test))]
+#[cfg(all(not(test), feature = "cluster-hardcoded-pdas"))]
 use crate::generated_constants::{HARDCODED_VM_STATE_BUMP, VM_PROGRAM_ID_BYTES};
 
 #[cfg(not(target_os = "solana"))]
@@ -537,7 +538,14 @@ pub fn verify_program_matches_generated_constants(program_id: &Pubkey) -> Progra
 }
 
 #[inline(always)]
-#[cfg(not(test))]
+#[cfg(all(not(test), not(feature = "cluster-hardcoded-pdas")))]
+pub fn verify_program_matches_generated_constants(program_id: &Pubkey) -> ProgramResult {
+    let _ = program_id;
+    Ok(())
+}
+
+#[inline(always)]
+#[cfg(all(not(test), feature = "cluster-hardcoded-pdas"))]
 pub fn verify_program_matches_generated_constants(program_id: &Pubkey) -> ProgramResult {
     if program_id.as_ref() != &VM_PROGRAM_ID_BYTES {
         return Err(ProgramError::InvalidArgument);
@@ -555,9 +563,9 @@ pub fn verify_hardcoded_fee_vault_account(
     if let Err(_err) = verify_program_matches_generated_constants(program_id) {
         return Err(ProgramError::Custom(7851));
     }
-    #[cfg(not(test))]
+    #[cfg(all(not(test), feature = "cluster-hardcoded-pdas"))]
     let expected_key = get_hardcoded_fee_vault(shard_index).ok_or(ProgramError::Custom(7852))?;
-    #[cfg(test)]
+    #[cfg(any(test, not(feature = "cluster-hardcoded-pdas")))]
     let expected_key = derive_fee_vault_pda(program_id, shard_index)?.0;
     if fee_vault_account.key() != &expected_key {
         return Err(ProgramError::Custom(7853));
@@ -577,8 +585,11 @@ pub fn verify_hardcoded_fee_vault_account_with_bump(
     expected_bump: u8,
 ) -> ProgramResult {
     verify_hardcoded_fee_vault_account(fee_vault_account, program_id, shard_index)?;
+    #[cfg(all(not(test), feature = "cluster-hardcoded-pdas"))]
     let hardcoded_bump =
         get_hardcoded_fee_vault_bump(shard_index).ok_or(ProgramError::InvalidInstructionData)?;
+    #[cfg(any(test, not(feature = "cluster-hardcoded-pdas")))]
+    let hardcoded_bump = derive_fee_vault_pda(program_id, shard_index)?.1;
     if expected_bump != hardcoded_bump {
         return Err(ProgramError::InvalidArgument);
     }
@@ -588,6 +599,9 @@ pub fn verify_hardcoded_fee_vault_account_with_bump(
 /// Get hardcoded VM state PDA address
 #[inline(always)]
 pub fn get_hardcoded_vm_state_pda() -> Pubkey {
+    #[cfg(not(feature = "cluster-hardcoded-pdas"))]
+    unreachable!("hardcoded VM state PDA requires the cluster-hardcoded-pdas feature");
+    #[cfg(feature = "cluster-hardcoded-pdas")]
     Pubkey::from(HARDCODED_VM_STATE_PDA)
 }
 
@@ -598,9 +612,9 @@ pub fn verify_hardcoded_vm_state_account(
     program_id: &Pubkey,
 ) -> ProgramResult {
     verify_program_matches_generated_constants(program_id)?;
-    #[cfg(not(test))]
+    #[cfg(all(not(test), feature = "cluster-hardcoded-pdas"))]
     let expected_vm_state = get_hardcoded_vm_state_pda();
-    #[cfg(test)]
+    #[cfg(any(test, not(feature = "cluster-hardcoded-pdas")))]
     let expected_vm_state = derive_canonical_vm_state_pda(program_id)?.0;
     if vm_state_account.key() != &expected_vm_state {
         return Err(ProgramError::InvalidArgument);
@@ -615,9 +629,9 @@ pub fn verify_hardcoded_vm_state_account_with_bump(
     bump: u8,
 ) -> ProgramResult {
     verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
-    #[cfg(not(test))]
+    #[cfg(all(not(test), feature = "cluster-hardcoded-pdas"))]
     let expected_bump = HARDCODED_VM_STATE_BUMP;
-    #[cfg(test)]
+    #[cfg(any(test, not(feature = "cluster-hardcoded-pdas")))]
     let expected_bump = derive_canonical_vm_state_pda(program_id)?.1;
     if bump != expected_bump {
         return Err(ProgramError::InvalidArgument);

@@ -1032,15 +1032,16 @@ type AbiParameter = {
   type?: string;
 };
 
-const DEVNET_RPC_URL = 'https://api.devnet.solana.com';
-const DEVNET_FIVE_VM_PROGRAM_ID = '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d';
+const RPC_URL = process.env.FIVE_RPC_URL;
+const FIVE_VM_PROGRAM_ID = process.env.FIVE_VM_PROGRAM_ID;
+const SCRIPT_ACCOUNT_ENV = process.env.FIVE_SCRIPT_ACCOUNT;
 const SCRIPT_ACCOUNT_FILE = join(process.cwd(), 'script-account.json');
 const FALLBACK_PAYER_FILE = join(process.cwd(), 'payer.json');
 const ACCOUNT_OVERRIDES: Record<string, Record<string, string>> = {
-  // Example:
+  // TODO: Provide real account addresses before running this client.
   // init_counter: {
-  //   counter: '<COUNTER_PUBKEY>',
-  //   authority: '<AUTHORITY_PUBKEY>'
+  //   counter: 'REAL_COUNTER_PUBKEY',
+  //   authority: 'REAL_AUTHORITY_PUBKEY'
   // }
 };
 
@@ -1069,31 +1070,26 @@ async function loadPayer(): Promise<Keypair> {
   }
 }
 
-async function loadOrCreateScriptAccount(): Promise<string> {
+function requireEnv(name: string, value: string | undefined): string {
+  if (!value) {
+    throw new Error(
+      \`Missing required environment variable: \${name}. Set it before running this scaffold.\`
+    );
+  }
+  return value;
+}
+
+async function loadScriptAccount(): Promise<string> {
+  if (SCRIPT_ACCOUNT_ENV) return SCRIPT_ACCOUNT_ENV;
   try {
     const saved = JSON.parse(await readFile(SCRIPT_ACCOUNT_FILE, 'utf8')) as { pubkey?: string };
     if (saved.pubkey) return saved.pubkey;
   } catch {
-    // create below
+    // fall through to explicit error below
   }
-  const kp = Keypair.generate();
-  const { writeFile } = await import('fs/promises');
-  await writeFile(
-    SCRIPT_ACCOUNT_FILE,
-    JSON.stringify(
-      {
-        pubkey: kp.publicKey.toBase58(),
-        secretKey: Array.from(kp.secretKey)
-      },
-      null,
-      2
-    ) + '\\n'
+  throw new Error(
+    'Missing script account. Set FIVE_SCRIPT_ACCOUNT or provide script-account.json with an existing pubkey.'
   );
-  return kp.publicKey.toBase58();
-}
-
-function placeholderPubkey(): string {
-  return Keypair.generate().publicKey.toBase58();
 }
 
 function getAccountOverrides(functionName: string): Record<string, string> {
@@ -1110,11 +1106,10 @@ function parseComputeUnitsFromLogs(logs: string[] | null | undefined): number | 
 }
 
 function defaultValueForType(typeName: string | undefined): any {
-  const normalized = (typeName || '').toLowerCase();
-  if (normalized === 'bool' || normalized === 'boolean') return true;
-  if (normalized.startsWith('string')) return 'demo';
-  if (normalized === 'pubkey') return placeholderPubkey();
-  return 1;
+  const normalized = (typeName || 'unknown').toLowerCase();
+  throw new Error(
+    \`No safe default for parameter type "\${normalized}". Update the generated client to provide real args.\`
+  );
 }
 
 async function run(): Promise<void> {
@@ -1122,13 +1117,14 @@ async function run(): Promise<void> {
   const artifactText = await readFile(artifactPath, 'utf8');
   const { abi } = await FiveSDK.loadFiveFile(artifactText);
 
-  const connection = new Connection(DEVNET_RPC_URL, 'confirmed');
+  const rpcUrl = requireEnv('FIVE_RPC_URL', RPC_URL);
+  const fiveVmProgramId = requireEnv('FIVE_VM_PROGRAM_ID', FIVE_VM_PROGRAM_ID);
+  const connection = new Connection(rpcUrl, 'confirmed');
   const payer = await loadPayer();
-  const scriptAccount = await loadOrCreateScriptAccount();
+  const scriptAccount = await loadScriptAccount();
   const program = FiveProgram.fromABI(scriptAccount, abi, {
-    fiveVMProgramId: DEVNET_FIVE_VM_PROGRAM_ID
+    fiveVMProgramId
   });
-  const fiveVmProgramId = program.getFiveVMProgramId();
 
   const preferred = ${preferredArray} as string[];
   const available = program.getFunctions();
@@ -1142,10 +1138,10 @@ async function run(): Promise<void> {
   }
 
   console.log('[client] Loaded ABI from ../build/main.five');
-  console.log('[client] RPC:', DEVNET_RPC_URL);
+  console.log('[client] RPC:', rpcUrl);
   console.log('[client] Payer:', payer.publicKey.toBase58());
   console.log('[client] Script account:', scriptAccount);
-  console.log('[client] Five VM program id:', fiveVmProgramId);
+  console.log('[client] Five VM program id:', program.getFiveVMProgramId());
   console.log('[client] Mode: on-chain');
   console.log('[client] Target functions:', targets.join(', '));
 
@@ -1161,7 +1157,9 @@ async function run(): Promise<void> {
         if (Array.isArray(attributes) && attributes.includes('signer')) {
           accountArgs[param.name] = payer.publicKey.toBase58();
         } else {
-          accountArgs[param.name] = placeholderPubkey();
+          throw new Error(
+            \`Missing required account override for "\${functionName}.\${param.name}". Provide a real pubkey in ACCOUNT_OVERRIDES.\`
+          );
         }
       } else {
         dataArgs[param.name] = defaultValueForType(param.param_type || param.type);

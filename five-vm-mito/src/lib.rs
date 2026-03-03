@@ -110,6 +110,47 @@ pub use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubk
 
 pub use five_protocol::{FIVE_DEPLOY_MAGIC, FIVE_MAGIC};
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UnsupportedVmCapability {
+    AltBn128GroupOp,
+    BigModExp,
+    CurveGroupOp,
+    CurveMultiscalarMul,
+    CurvePairingMap,
+    CurveValidatePoint,
+    EpochScheduleSysvar,
+    EpochRewardsSysvar,
+    EpochStakeSysvar,
+    FeesSysvar,
+    LastRestartSlotSysvar,
+    GenericSysvar,
+}
+
+pub const UNSUPPORTED_VM_CAPABILITIES: &[UnsupportedVmCapability] = &[
+    UnsupportedVmCapability::AltBn128GroupOp,
+    UnsupportedVmCapability::BigModExp,
+    UnsupportedVmCapability::CurveGroupOp,
+    UnsupportedVmCapability::CurveMultiscalarMul,
+    UnsupportedVmCapability::CurvePairingMap,
+    UnsupportedVmCapability::CurveValidatePoint,
+    UnsupportedVmCapability::EpochScheduleSysvar,
+    UnsupportedVmCapability::EpochRewardsSysvar,
+    UnsupportedVmCapability::EpochStakeSysvar,
+    UnsupportedVmCapability::FeesSysvar,
+    UnsupportedVmCapability::LastRestartSlotSysvar,
+    UnsupportedVmCapability::GenericSysvar,
+];
+
+#[inline(always)]
+pub fn unsupported_vm_capabilities() -> &'static [UnsupportedVmCapability] {
+    UNSUPPORTED_VM_CAPABILITIES
+}
+
+#[inline(always)]
+pub fn supports_vm_capability(capability: UnsupportedVmCapability) -> bool {
+    !UNSUPPORTED_VM_CAPABILITIES.contains(&capability)
+}
+
 /// Default program ID bytes used by off-chain tests and local VM execution helpers.
 pub const FIVE_VM_PROGRAM_ID: [u8; 32] = [
     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,

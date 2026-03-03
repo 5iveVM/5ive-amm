@@ -56,8 +56,8 @@ export class PDAUtils {
     const crypto = await import('crypto');
     const programIdBytes = Base58Utils.decode(programId);
 
-    // Try bump values from 255 down to 1
-    for (let bump = 255; bump >= 1; bump--) {
+    // Try the full Solana bump range from 255 down to 0.
+    for (let bump = 255; bump >= 0; bump--) {
       const seedsWithBump = [...seeds, Buffer.from([bump])];
 
       // Create the hash input
@@ -340,6 +340,25 @@ export class RentCalculator {
     const rentExemption = Math.ceil((rentPerYear * this.RENT_EXEMPTION_THRESHOLD) / (365 * 24 * 60 * 60));
 
     return rentExemption;
+  }
+
+  /**
+   * Query rent from RPC when possible and fall back to local estimation otherwise.
+   */
+  static async calculateRentExemptionWithConnection(
+    accountSize: number,
+    connection?: {
+      getMinimumBalanceForRentExemption?: (size: number) => Promise<number>;
+    }
+  ): Promise<number> {
+    if (connection?.getMinimumBalanceForRentExemption) {
+      try {
+        return await connection.getMinimumBalanceForRentExemption(accountSize);
+      } catch {
+        // Fall back to local estimation below.
+      }
+    }
+    return this.calculateRentExemption(accountSize);
   }
 
   /**

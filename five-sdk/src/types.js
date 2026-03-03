@@ -14,6 +14,7 @@
  * Five VM Program ID - the actual Solana program that executes Five bytecode
  */
 // Updated to current localnet deployment
+/** @deprecated Use ProgramIdResolver with explicit config or cluster config instead. */
 export const FIVE_VM_PROGRAM_ID = "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d";
 // ==================== Error Types ====================
 /**
