@@ -12,9 +12,9 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
     let (header, start_pc) = match five_protocol::parse_header(bytes) {
         Ok(res) => res,
         Err(_) => {
-            // Fallback for legacy V1 or invalid scripts: just start at 0
+            // Fallback for invalid scripts: just start at 0.
             (
-                five_protocol::OptimizedHeader {
+                five_protocol::ScriptBytecodeHeaderV1 {
                     magic: [0; 4],
                     features: 0,
                     public_function_count: 0,

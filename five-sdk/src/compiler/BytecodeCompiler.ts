@@ -121,7 +121,7 @@ export class BytecodeCompiler {
         target: options.target || "vm",
         debug: options.debug || false,
         maxSize: options.maxSize || 1048576, // 1MB default
-        optimizationLevel: options.optimizationLevel || "production", // Default to Production
+        optimizationLevel: "production", // Public SDK surface is locked to production
         sourceFile: sourceFilename,
         // Pass through metrics options
         metricsFormat: (options as any).metricsFormat,

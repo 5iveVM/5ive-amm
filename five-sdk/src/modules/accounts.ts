@@ -406,7 +406,7 @@ export async function validateBytecodeEncoding(
       };
     }
 
-    // Optimized Header V3:
+    // ScriptBytecodeHeaderV1:
     // 0-3: Magic
     // 4-7: Features (u32 LE)
     // 8: Public Function Count (u8)

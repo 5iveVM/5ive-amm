@@ -37,11 +37,11 @@ serde_json = "1.0"
 default = []
 # Feature for debugging support (adds execution tracing)
 debug-logs = ["dep:pinocchio-log"]
-# Feature for granular execution tracing (opcode-by-opcode) - VERY VERBOSE
+# Development-only feature for granular execution tracing (opcode-by-opcode)
 trace-execution = ["debug-logs"]
-# Feature for enhanced error diagnostics (development only - not for production)
+# Development-only feature for enhanced error diagnostics
 enhanced-errors = []
-# Feature for test utilities and Mollusk-style testing (development only)
+# Development-only feature for test utilities and Mollusk-style testing
 test-utils = []
 # Feature for sol_remaining_compute_units syscall (not available on devnet v3.1.6 or earlier)
 remaining-cu-syscall = []

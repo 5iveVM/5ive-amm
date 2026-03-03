@@ -55,12 +55,12 @@ Runtime value representation and operations:
 
 ### 4. Headers (`lib.rs`)
 Bytecode header structures for program metadata:
-- **`OptimizedHeader`** (7 bytes) - Production header format
+- **`ScriptBytecodeHeaderV1`** (10 bytes) - Locked v1 bytecode header format
   - Magic bytes: `5IVE` (4 bytes)
-  - Features: Optimization flags (1 byte)
+  - Features: Optimization flags (`u32`, 4 bytes)
   - Function counts: public + total (2 bytes)
-- **`ScriptHeader`** - Legacy header format
-- **`FIVEScriptHeaderV2/V3`** - Versioned headers with extended metadata
+- **`OptimizedHeader`** - Deprecated compatibility alias for `ScriptBytecodeHeaderV1`
+- **`FIVEScriptHeaderV2/V3`** - Legacy compatibility headers with extended metadata
 - Header validation and parsing logic
 
 ### 5. Call Convention (`call_convention.rs`)
@@ -82,14 +82,14 @@ Cross-program invocation (CPI) utilities:
 ### In Compiler (five-dsl-compiler)
 
 ```rust
-use five_protocol::{opcodes::*, OptimizedHeader, Value};
+use five_protocol::{opcodes::*, ScriptBytecodeHeaderV1, Value};
 
 // Emit opcodes
 bytecode.push(PUSH);
 bytecode.push(42);
 
 // Emit header
-let header = OptimizedHeader {
+let header = ScriptBytecodeHeaderV1 {
     magic: [b'5', b'I', b'V', b'E'],
     features: FEATURE_FUSED_BRANCH | FEATURE_COLD_START_OPT,
     public_function_count: 2,
@@ -105,12 +105,12 @@ bytecode.extend_from_slice(&address.to_le_bytes());
 ```rust
 use five_protocol::{
     opcodes::*,
-    OptimizedHeader,
+    ScriptBytecodeHeaderV1,
     Value,
 };
 
 // Parse header
-let header = OptimizedHeader::parse(&bytecode)?;
+let (header, code_start) = five_protocol::parse_header(&bytecode)?;
 
 // Execute opcodes
 match opcode {
@@ -129,7 +129,7 @@ match opcode {
 1. **Zero-Copy Where Possible**: Headers and structures are `repr(C, packed)` for direct memory mapping
 2. **Const Functions**: Many functions are `const fn` for compile-time evaluation
 3. **No Allocations**: Core protocol types avoid heap allocations for performance
-4. **Backward Compatibility**: Supports multiple header versions for seamless upgrades
+4. **Backward Compatibility**: Keeps compatibility aliases while the v1 header naming becomes canonical
 5. **Comprehensive Coverage**: Defines everything needed for bytecode generation and execution
 
 ## Feature Flags
@@ -137,8 +137,9 @@ match opcode {
 ```toml
 [features]
 default = []
-std = []          # Enable std library (off by default for no_std compatibility)
 serde = ["dep:serde"]  # Enable serde serialization support
+debug-logs = []        # Optional debug logging integration hook
+test-fixtures = []     # Test-only payload fixtures
 ```
 
 ## Versioning
@@ -147,7 +148,7 @@ five-protocol uses semantic versioning. Breaking changes to opcodes or protocol 
 
 ### Current Version
 - **Opcode Set**: Stable v1.0
-- **Header Format**: OptimizedHeader v2 (production)
+- **Header Format**: ScriptBytecodeHeaderV1 (production)
 - **Encoding**: Fixed-width immediates
 
 ## Testing
@@ -160,13 +161,11 @@ cargo test -p five-protocol
 ## Dependencies
 
 Minimal dependencies for portability:
-- `borsh` - Binary serialization (optional)
 - `serde` - Serialization framework (optional)
-- `solana-program` - Solana SDK types (for Pubkey, etc.)
 
 ## Performance
 
-- **Header Size**: 7 bytes (OptimizedHeader) vs 115 bytes (legacy) - 94% smaller
+- **Header Size**: 10 bytes (`ScriptBytecodeHeaderV1`) vs 23+ bytes (legacy versioned headers)
 - **Encoding**: Fixed-width immediates for predictable decoding
 - **Parse Speed**: Zero-copy header parsing in <10ns
 - **Validation**: Const-time opcode validation

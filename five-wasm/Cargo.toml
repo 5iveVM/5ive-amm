@@ -42,9 +42,9 @@ features = [
 
 [features]
 default = []
-# Enable debug logging (passed through to MitoVM)
+# Development-only debug logging passthrough to MitoVM.
 debug-logs = ["five-vm-mito/debug-logs"]
-# Enable enhanced error diagnostics (development only - passed through to MitoVM)
+# Development-only enhanced error diagnostics passthrough to MitoVM.
 enhanced-errors = ["five-vm-mito/enhanced-errors"]
 
 [dev-dependencies]

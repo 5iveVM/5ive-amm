@@ -4,6 +4,8 @@ use bytemuck::{Pod, Zeroable};
 use pinocchio::program_error::ProgramError;
 use pinocchio::pubkey::Pubkey;
 
+pub const SCRIPT_ACCOUNT_HEADER_LEN: usize = 64;
+
 /// VM state account that tracks initialization and deployed scripts.
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -102,12 +104,12 @@ impl Default for FIVEVMState {
     }
 }
 
-/// Script account header stored at the beginning of each deployed script.
+/// Canonical deployed script account envelope for the locked v1 release train.
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct ScriptAccountHeader {
     pub magic: [u8; 4],      // 4 bytes: b"5IVE"
-    pub version: u8,         // 1 byte: header version (4)
+    pub version: u8,         // 1 byte: retained wire version marker
     pub permissions: u8,     // 1 byte: permission bitmask (NEW)
     pub _reserved0: [u8; 2], // 2 bytes: reserved
     pub owner: Pubkey,       // 32 bytes: deployer/authority
@@ -119,13 +121,10 @@ pub struct ScriptAccountHeader {
                              // Total: 4+1+1+2+32+8+4+4+2+6 = 64 bytes (exactly)
 }
 
-// Legacy alias retained for integration tests while the runtime migrates
-#[allow(dead_code)]
-pub type FIVEScriptHeader = ScriptAccountHeader;
-
 impl ScriptAccountHeader {
-    pub const LEN: usize = 64;
+    pub const LEN: usize = SCRIPT_ACCOUNT_HEADER_LEN;
     pub const MAGIC: [u8; 4] = [b'5', b'I', b'V', b'E'];
+    pub const WIRE_VERSION: u8 = 4;
 
     pub fn create_from_bytecode(
         bytecode: &[u8],
@@ -139,7 +138,7 @@ impl ScriptAccountHeader {
 
         Self {
             magic: Self::MAGIC,
-            version: 4,
+            version: Self::WIRE_VERSION,
             permissions,
             _reserved0: [0; 2],
             owner,
@@ -154,7 +153,7 @@ impl ScriptAccountHeader {
     pub fn new(bytecode_len: usize, owner: Pubkey, script_id: u64) -> Self {
         Self {
             magic: Self::MAGIC,
-            version: 4,
+            version: Self::WIRE_VERSION,
             permissions: 0,
             _reserved0: [0; 2],
             owner,

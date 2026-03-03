@@ -54,8 +54,10 @@ test-sbf = []
 cu-bypass-fees = []
 # Compile validator RPC harness and validator-gated tests.
 validator-harness = []
-# Compile legacy in-process RuntimeHarness helpers.
-legacy-runtime-harness = []
+# Compile canonical in-process RuntimeHarness helpers.
+inprocess-test-harness = []
+# Legacy compatibility alias retained for one release.
+legacy-runtime-harness = ["inprocess-test-harness"]
 # Production builds with minimal dependencies
 production = ["five-vm-mito/unchecked-execution"]
 

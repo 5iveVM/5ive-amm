@@ -49,10 +49,9 @@ name = "feature_parity_report"
 path = "src/bin/feature_parity_report.rs"
 
 [features]
-default = ["abi-pack"]
+default = []
 call-metadata = []
 security-audit = []
-abi-pack = []
 
 [dependencies]
 grammar_macros = { path = "./grammar_macros" }

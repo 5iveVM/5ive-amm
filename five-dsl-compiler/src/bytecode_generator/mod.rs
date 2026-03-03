@@ -366,7 +366,7 @@ impl DslBytecodeGenerator {
         let mut dispatcher = FunctionDispatcher::new();
         let has_functions = dispatcher.has_callable_functions(ast);
 
-        // Collect function count for OptimizedHeader
+        // Collect function counts for the canonical v1 bytecode header.
         let (public_count, total_count, has_imports) = if has_functions {
             // Pre-collect function information for count
             dispatcher.collect_function_info(ast)?;
@@ -378,10 +378,10 @@ impl DslBytecodeGenerator {
             let public_count = functions.iter().filter(|f| f.is_public).count();
             let total_count = functions.len();
 
-            // Validate function counts fit in OptimizedHeader (u8 limit = 255)
+            // Validate function counts fit in the v1 bytecode header (u8 limit = 255)
             if total_count > 255 {
                 eprintln!(
-                    "ERROR: Program has {} functions but OptimizedHeader supports max 255",
+                    "ERROR: Program has {} functions but ScriptBytecodeHeaderV1 supports max 255",
                     total_count
                 );
                 eprintln!("Consider splitting into modules or using a different header format.");
@@ -419,8 +419,8 @@ impl DslBytecodeGenerator {
             (0, 0, false)
         };
 
-        // Use OptimizedHeader V2.
-        self.emit_optimized_header_v2_with_imports(public_count, total_count, has_imports);
+        // Use the canonical ScriptBytecodeHeaderV1.
+        self.emit_script_bytecode_header_v1_with_imports(public_count, total_count, has_imports);
 
         // Emit function name metadata if there are public functions AND debug info is enabled
         if public_count > 0 && self.include_debug_info {

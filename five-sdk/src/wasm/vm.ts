@@ -8,6 +8,10 @@ import {
   CLIError
 } from '../types.js';
 
+import {
+  SCRIPT_ACCOUNT_HEADER_LEN,
+  SCRIPT_BYTECODE_HEADER_V1_LEN,
+} from '../constants/headers.js';
 import { getWasmModule } from './loader.js';
 
 let FiveVMWasm: any;
@@ -15,8 +19,6 @@ let WasmAccount: any;
 let ParameterEncoder: any;
 let wrap_with_script_header: undefined | ((bytecode: Uint8Array) => Uint8Array);
 
-const SCRIPT_HEADER_LEN = 64; // ScriptHeader::LEN
-const OPTIMIZED_HEADER_LEN = 7; // OptimizedHeader V2 size
 const FIVE_MAGIC = [0x35, 0x49, 0x56, 0x45];
 
 export class FiveVM {
@@ -67,18 +69,18 @@ export class FiveVM {
     return FIVE_MAGIC.every((byte, index) => data[index] === byte);
   }
 
-  private looksLikeScriptHeader(data: Uint8Array): boolean {
-    if (data.length < SCRIPT_HEADER_LEN) return false;
+  private looksLikeScriptAccountHeader(data: Uint8Array): boolean {
+    if (data.length < SCRIPT_ACCOUNT_HEADER_LEN) return false;
     if (!this.hasFiveMagic(data)) return false;
     const encodedLen = data[4] + (data[5] << 8) + (data[6] << 16);
-    const payloadLen = data.length - SCRIPT_HEADER_LEN;
+    const payloadLen = data.length - SCRIPT_ACCOUNT_HEADER_LEN;
     return encodedLen === payloadLen;
   }
 
-  private looksLikeOptimizedHeader(data: Uint8Array): boolean {
-    if (data.length < OPTIMIZED_HEADER_LEN) return false;
+  private looksLikeScriptBytecodeHeaderV1(data: Uint8Array): boolean {
+    if (data.length < SCRIPT_BYTECODE_HEADER_V1_LEN) return false;
     if (!this.hasFiveMagic(data)) return false;
-    return !this.looksLikeScriptHeader(data);
+    return !this.looksLikeScriptAccountHeader(data);
   }
 
   async execute(options: VMExecutionOptions): Promise<VMExecutionResult> {
@@ -89,10 +91,10 @@ export class FiveVM {
 
     try {
       let scriptData: Uint8Array;
-      const hasScriptHeader = this.looksLikeScriptHeader(options.bytecode);
-      const hasOptimizedHeader = this.looksLikeOptimizedHeader(options.bytecode);
+      const hasScriptAccountHeader = this.looksLikeScriptAccountHeader(options.bytecode);
+      const hasScriptBytecodeHeaderV1 = this.looksLikeScriptBytecodeHeaderV1(options.bytecode);
 
-      if (hasScriptHeader || hasOptimizedHeader) {
+      if (hasScriptAccountHeader || hasScriptBytecodeHeaderV1) {
         scriptData = options.bytecode;
       } else {
         if (!wrap_with_script_header) {

@@ -30,7 +30,7 @@ export interface ProjectConfig {
 export interface ProjectOptimizations {
   enableCompression?: boolean;
   enableConstraintOptimization?: boolean;
-  optimizationLevel?: 'production' | 'development';
+  optimizationLevel?: 'production';
 }
 
 export interface ProjectDependency {
@@ -58,7 +58,7 @@ export interface CompilationOptions {
   optimize?: boolean;
 
   /** Optimization level */
-  optimizationLevel?: 'production' | 'development';
+  optimizationLevel?: 'production';
 
   /** Target environment */
   target?: CompilationTarget;

@@ -155,7 +155,7 @@ describe('Five SDK Account Fetching and Deserialization', () => {
     });
     describe('Encoding validation', () => {
         it('should validate Five VM bytecode header', async () => {
-            // Valid Five VM bytecode with "5IVE" magic bytes + Optimized Header V3
+            // Valid Five VM bytecode with "5IVE" magic bytes + ScriptBytecodeHeaderV1
             // Magic(4) + Features(4) + PubCount(1) + TotalCount(1) = 10 bytes
             const validBytecode = new Uint8Array([
                 0x35, 0x49, 0x56, 0x45, // Magic

@@ -11,7 +11,7 @@ pub fn disassemble_bytecode(bytecode: &[u8]) {
                 0
             };
             (
-                five_protocol::OptimizedHeader {
+                five_protocol::ScriptBytecodeHeaderV1 {
                     magic: [0; 4],
                     features: 0,
                     public_function_count: 0,

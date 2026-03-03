@@ -63,7 +63,7 @@ impl CompilationConfig {
             mode,
             v2_preview: false,
             enable_constraint_cache: true,
-            optimization_level: OptimizationLevel::V2,
+            optimization_level: OptimizationLevel::Production,
             include_debug_info: matches!(mode, CompilationMode::Testing),
 
             enable_module_namespaces: true,
@@ -102,6 +102,18 @@ impl CompilationConfig {
 
     /// Parse optimization level from string (for CLI integration)
     pub fn parse_optimization_level(level_str: &str) -> Result<OptimizationLevel, String> {
+        if level_str.eq_ignore_ascii_case("production") {
+            return Ok(OptimizationLevel::Production);
+        }
+
+        Err(format!(
+            "Invalid optimization level '{}'. Valid option: production",
+            level_str
+        ))
+    }
+
+    #[cfg(test)]
+    fn parse_optimization_level_internal(level_str: &str) -> Result<OptimizationLevel, String> {
         match level_str.to_lowercase().as_str() {
             "v1" => Ok(OptimizationLevel::V1),
             "v2" => Ok(OptimizationLevel::V2),
@@ -450,7 +462,7 @@ mod tests {
         assert_eq!(config.mode, CompilationMode::Testing);
         assert!(!config.v2_preview);
         assert!(config.enable_constraint_cache);
-        assert_eq!(config.optimization_level, OptimizationLevel::V2);
+        assert_eq!(config.optimization_level, OptimizationLevel::Production);
     }
 
     #[test]
@@ -469,21 +481,22 @@ mod tests {
     #[test]
     fn test_parse_optimization_level() {
         assert_eq!(
-            CompilationConfig::parse_optimization_level("v1").unwrap(),
+            CompilationConfig::parse_optimization_level_internal("v1").unwrap(),
             OptimizationLevel::V1
         );
         assert_eq!(
-            CompilationConfig::parse_optimization_level("V2").unwrap(),
+            CompilationConfig::parse_optimization_level_internal("V2").unwrap(),
             OptimizationLevel::V2
         );
         assert_eq!(
-            CompilationConfig::parse_optimization_level("v3").unwrap(),
+            CompilationConfig::parse_optimization_level_internal("v3").unwrap(),
             OptimizationLevel::V3
         );
         assert_eq!(
             CompilationConfig::parse_optimization_level("production").unwrap(),
             OptimizationLevel::Production
         );
+        assert!(CompilationConfig::parse_optimization_level("v1").is_err());
         assert!(CompilationConfig::parse_optimization_level("invalid").is_err());
     }
 

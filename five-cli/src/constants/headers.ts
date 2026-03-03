@@ -1,0 +1,2 @@
+export const SCRIPT_BYTECODE_HEADER_V1_LEN = 10;
+export const SCRIPT_ACCOUNT_HEADER_LEN = 64;

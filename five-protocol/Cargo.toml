@@ -8,8 +8,6 @@ license = "UNLICENSED"
 [features]
 default = []
 debug-logs = []
-# LEGACY: Static precompile system (replaced by library accounts)
-precompiles = []
 test-fixtures = []
 
 [dependencies]

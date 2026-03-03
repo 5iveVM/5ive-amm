@@ -7,7 +7,7 @@
 - Build artifacts land in `target/`. Avoid committing anything from there.
 
 ## Build, Test, and Development
-- `cargo build` — compile the library and all binaries with default features (`abi-pack` enabled).
+- `cargo build` — compile the library and all binaries with the default, production-oriented feature set.
 - `cargo test` — run unit and integration tests; pass `-- --nocapture` to see DSL compiler output.
 - `cargo run --bin five -- <args>` — main compiler CLI. Use `--features call-metadata` or `--features security-audit` to exercise optional code paths.
 - `cargo fmt` and `cargo clippy --all-targets --all-features` — format and lint before opening a PR.
@@ -28,7 +28,7 @@
 - Pull requests: describe the behavior change, note affected binaries/flags, and list tests or reproduction steps. Link issues when present; attach snippets or logs if touching error reporting or diagnostics.
 
 ## Security & Configuration Notes
-- The compiler supports feature flags: `call-metadata`, `security-audit`, and `abi-pack` (default). Document why a flag is enabled when adding tests or examples.
+- The compiler supports internal feature flags `call-metadata` and `security-audit`. Document why a flag is enabled when adding tests or examples.
 - Be cautious with filesystem access in new CLI options—keep paths relative and validate input to avoid executing untrusted DSL payloads.
 
 ## Current Code Review Notes (2025-12-13)

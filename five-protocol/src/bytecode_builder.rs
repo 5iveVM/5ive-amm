@@ -43,7 +43,7 @@ impl BytecodeBuilder {
         self
     }
 
-    /// Emit optimized header (V3 format).
+    /// Emit the canonical `ScriptBytecodeHeaderV1` (10-byte format).
     #[inline]
     pub fn emit_header(&mut self, public_count: u8, total_count: u8) -> &mut Self {
         self.emit_magic();

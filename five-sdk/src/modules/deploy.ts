@@ -16,6 +16,7 @@ import {
 } from "../utils/transaction.js";
 import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
 import { VmClusterConfigResolver } from "../config/VmClusterConfigResolver.js";
+import { SCRIPT_ACCOUNT_HEADER_LEN } from "../constants/headers.js";
 
 interface ExportMetadataInterfaceInput {
   name: string;
@@ -230,8 +231,8 @@ export async function generateDeployInstruction(
     console.log(`[FiveSDK] VM State PDA: ${vmStatePDA}`);
   }
 
-  const SCRIPT_HEADER_SIZE = 64; // ScriptAccountHeader size from Rust program
-  const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
+  const totalAccountSize =
+    SCRIPT_ACCOUNT_HEADER_LEN + exportMetadata.length + bytecode.length;
   const rentLamports = await RentCalculator.calculateRentExemptionWithConnection(
     totalAccountSize,
     connection,
@@ -358,9 +359,9 @@ export async function createDeploymentTransaction(
   const scriptAccount = scriptKeypair.publicKey.toString();
 
   // Calculate account size and rent
-  const SCRIPT_HEADER_SIZE = 64; // ScriptHeader::LEN
   const exportMetadata = encodeExportMetadata(options.exportMetadata);
-  const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
+  const totalAccountSize =
+    SCRIPT_ACCOUNT_HEADER_LEN + exportMetadata.length + bytecode.length;
   const rentLamports = await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 
   const vmStatePDA = await PDAUtils.deriveVMStatePDA(programIdStr);
@@ -496,9 +497,9 @@ export async function deployToSolana(
     }
 
     // Calculate account size and rent
-    const SCRIPT_HEADER_SIZE = 64; // ScriptHeader::LEN (five-protocol)
     const exportMetadata = encodeExportMetadata(options.exportMetadata);
-    const totalAccountSize = SCRIPT_HEADER_SIZE + exportMetadata.length + bytecode.length;
+    const totalAccountSize =
+      SCRIPT_ACCOUNT_HEADER_LEN + exportMetadata.length + bytecode.length;
     const rentLamports =
       await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 
@@ -773,8 +774,7 @@ export async function deployLargeProgramToSolana(
     const scriptAccount = scriptKeypair.publicKey.toString();
 
     // Calculate account size and rent
-    const SCRIPT_HEADER_SIZE = 64; // ScriptHeader::LEN (five-protocol)
-    const totalAccountSize = SCRIPT_HEADER_SIZE + bytecode.length;
+    const totalAccountSize = SCRIPT_ACCOUNT_HEADER_LEN + bytecode.length;
     const rentLamports =
       await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 
@@ -848,7 +848,7 @@ export async function deployLargeProgramToSolana(
       fromPubkey: deployerKeypair.publicKey,
       newAccountPubkey: scriptKeypair.publicKey,
       lamports: rentLamports,
-      space: SCRIPT_HEADER_SIZE, // Start with just header space
+      space: SCRIPT_ACCOUNT_HEADER_LEN, // Start with just the ScriptAccountHeader
       programId: programId,
     });
     initTransaction.add(createAccountInstruction);
@@ -1054,7 +1054,7 @@ export async function deployLargeProgramToSolana(
     if (!finalInfo) {
       throw new Error("Script account not found during final verification");
     }
-    const expectedSize = SCRIPT_HEADER_SIZE + bytecode.length;
+    const expectedSize = SCRIPT_ACCOUNT_HEADER_LEN + bytecode.length;
 
     if (options.debug) {
       console.log(`[FiveSDK] 🔍 Final verification:`);
@@ -1173,8 +1173,7 @@ export async function deployLargeProgramOptimizedToSolana(
     const scriptAccount = scriptKeypair.publicKey.toString();
 
     // Calculate full account size upfront
-    const SCRIPT_HEADER_SIZE = 64; // ScriptAccountHeader::LEN
-    const totalAccountSize = SCRIPT_HEADER_SIZE + bytecode.length;
+    const totalAccountSize = SCRIPT_ACCOUNT_HEADER_LEN + bytecode.length;
     const rentLamports =
       await connection.getMinimumBalanceForRentExemption(totalAccountSize);
 

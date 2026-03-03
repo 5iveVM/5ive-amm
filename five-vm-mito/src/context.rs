@@ -118,7 +118,7 @@ impl FromLeBytes<16> for u128 {
 }
 
 impl<'a> ExecutionContext<'a> {
-    /// Create new execution context with OptimizedHeader V2.
+    /// Create a new execution context using the canonical ScriptBytecodeHeaderV1 layout.
     #[inline]
     pub fn new(
         bytecode: &'a [u8],

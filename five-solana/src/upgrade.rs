@@ -5,10 +5,10 @@ use bytemuck::{Pod, Zeroable};
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 use solana_nostd_sha256::hashv;
 
-/// Enhanced script header with upgrade support
+/// Upgrade metadata header for version-history aware script accounts.
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
-pub struct FIVEScriptHeaderV2 {
+pub struct ScriptUpgradeHeader {
     // Existing fields
     pub owner: Pubkey,
     pub script_id: u64,
@@ -23,7 +23,7 @@ pub struct FIVEScriptHeaderV2 {
     pub _padding: [u8; 7], // Align to 8 bytes
 }
 
-impl FIVEScriptHeaderV2 {
+impl ScriptUpgradeHeader {
     pub const LEN: usize = 32 + 8 + 4 + 4 + 32 + 32 + 8 + 1 + 7; // 128 bytes
 
     pub fn validate(&self, account_data_len: usize) -> Result<(), ProgramError> {
@@ -78,6 +78,10 @@ impl FIVEScriptHeaderV2 {
         Ok(&data[bytecode_start..bytecode_start + bytecode_len])
     }
 }
+
+/// Legacy compatibility alias retained for one release.
+#[deprecated(note = "Use ScriptUpgradeHeader")]
+pub type FIVEScriptHeaderV2 = ScriptUpgradeHeader;
 
 /// Version history tracking
 #[repr(C)]
@@ -191,11 +195,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_script_header_v2_validation() {
-        let mut data = vec![0u8; FIVEScriptHeaderV2::LEN + 100];
+    fn test_script_upgrade_header_validation() {
+        let mut data = vec![0u8; ScriptUpgradeHeader::LEN + 100];
 
         // Create valid header
-        let header = FIVEScriptHeaderV2 {
+        let header = ScriptUpgradeHeader {
             owner: Pubkey::default(),
             script_id: 1,
             bytecode_len: 100,
@@ -208,10 +212,10 @@ mod tests {
         };
 
         // Write header to data
-        data[..FIVEScriptHeaderV2::LEN].copy_from_slice(bytemuck::bytes_of(&header));
+        data[..ScriptUpgradeHeader::LEN].copy_from_slice(bytemuck::bytes_of(&header));
 
         // Test deserialization
-        let parsed = FIVEScriptHeaderV2::from_account_data(&data).unwrap();
+        let parsed = ScriptUpgradeHeader::from_account_data(&data).unwrap();
         assert_eq!(parsed.version, 1);
         assert_eq!(parsed.bytecode_len, 100);
         assert_eq!(parsed.is_immutable, 0);
@@ -363,9 +367,9 @@ mod tests {
     }
 
     #[test]
-    fn test_script_header_v2_validation_failures() {
-        let mut data = vec![0u8; FIVEScriptHeaderV2::LEN + 100];
-        let mut header = FIVEScriptHeaderV2 {
+    fn test_script_upgrade_header_validation_failures() {
+        let mut data = vec![0u8; ScriptUpgradeHeader::LEN + 100];
+        let mut header = ScriptUpgradeHeader {
             owner: Pubkey::default(),
             script_id: 1,
             bytecode_len: 100,
@@ -380,7 +384,7 @@ mod tests {
         // 1. Bytecode too large
         header.bytecode_len = five_vm_mito::MAX_SCRIPT_SIZE as u32 + 1;
         // Actually we can use bytemuck::bytes_of but we need to mutate the buffer
-        data[..FIVEScriptHeaderV2::LEN].copy_from_slice(bytemuck::bytes_of(&header));
+        data[..ScriptUpgradeHeader::LEN].copy_from_slice(bytemuck::bytes_of(&header));
 
         // validate is called on the struct itself, passing account_data_len
         assert_eq!(header.validate(data.len()), Err(ProgramError::Custom(9101)));
@@ -388,7 +392,7 @@ mod tests {
 
         // 2. Account too small
         assert_eq!(
-            header.validate(FIVEScriptHeaderV2::LEN + 50),
+            header.validate(ScriptUpgradeHeader::LEN + 50),
             Err(ProgramError::Custom(9102))
         );
 
@@ -398,27 +402,27 @@ mod tests {
         header.version = 1; // Reset
 
         // 4. from_account_data short data
-        let short_data = vec![0u8; FIVEScriptHeaderV2::LEN - 1];
+        let short_data = vec![0u8; ScriptUpgradeHeader::LEN - 1];
         assert_eq!(
-            FIVEScriptHeaderV2::from_account_data(&short_data).err(),
+            ScriptUpgradeHeader::from_account_data(&short_data).err(),
             Some(ProgramError::Custom(9104))
         );
 
         // 5. from_account_data_mut short data
-        let mut short_data_mut = vec![0u8; FIVEScriptHeaderV2::LEN - 1];
+        let mut short_data_mut = vec![0u8; ScriptUpgradeHeader::LEN - 1];
         assert_eq!(
-            FIVEScriptHeaderV2::from_account_data_mut(&mut short_data_mut).err(),
+            ScriptUpgradeHeader::from_account_data_mut(&mut short_data_mut).err(),
             Some(ProgramError::Custom(9105))
         );
 
         // 6. get_bytecode short data
         // Restore valid header in data
-        data[..FIVEScriptHeaderV2::LEN].copy_from_slice(bytemuck::bytes_of(&header));
+        data[..ScriptUpgradeHeader::LEN].copy_from_slice(bytemuck::bytes_of(&header));
         // Truncate data to cut off bytecode
-        let truncated_data = &data[..FIVEScriptHeaderV2::LEN + 50]; // Bytecode len is 100
+        let truncated_data = &data[..ScriptUpgradeHeader::LEN + 50]; // Bytecode len is 100
 
         // get_bytecode is called on &self.
-        let valid_header = FIVEScriptHeaderV2::from_account_data(&data).unwrap();
+        let valid_header = ScriptUpgradeHeader::from_account_data(&data).unwrap();
         assert_eq!(
             valid_header.get_bytecode(truncated_data).err(),
             Some(ProgramError::Custom(9106))

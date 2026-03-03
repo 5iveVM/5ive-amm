@@ -30,6 +30,7 @@ export function parseProjectConfig(parsedToml: Record<string, any>): ProjectConf
         optimizations: {
             enableCompression: optimizations.enable_compression ?? true,
             enableConstraintOptimization: optimizations.enable_constraint_optimization ?? true,
+            // Public SDK config is locked to the canonical production mode.
             optimizationLevel: 'production'
         },
         dependencies: []

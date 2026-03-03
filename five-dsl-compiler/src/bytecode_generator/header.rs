@@ -1,5 +1,5 @@
 use super::DslBytecodeGenerator;
-use five_protocol::{OptimizedHeader, FEATURE_IMPORT_VERIFICATION};
+use five_protocol::{ScriptBytecodeHeaderV1, FEATURE_IMPORT_VERIFICATION};
 
 impl DslBytecodeGenerator {
     /// Emit 5IVE magic bytes at the beginning (legacy V1 format).
@@ -7,14 +7,14 @@ impl DslBytecodeGenerator {
         self.emit_bytes(b"5IVE");
     }
 
-    /// Emit optimized V2 header with explicit public/total function counts.
+    /// Emit the canonical v1 bytecode header with explicit public/total function counts.
     ///
     /// Header layout (10 bytes):
     /// 0..4   - magic "5IVE"
     /// 4..8   - features (u32 little-endian)
     /// 8      - public_function_count (u8)
     /// 9      - total_function_count (u8)
-    pub fn emit_optimized_header_v2_with_imports(
+    pub fn emit_script_bytecode_header_v1_with_imports(
         &mut self,
         public_count: u8,
         total_count: u8,
@@ -41,7 +41,7 @@ impl DslBytecodeGenerator {
         }
 
         self.log_header(
-            "OptimizedHeaderV2",
+            "ScriptBytecodeHeaderV1",
             &format!(
                 "10 bytes: magic='5IVE', features=0x{:08X}, public_functions={}, total_functions={}",
                 production_features, public_count, total_count
@@ -49,7 +49,7 @@ impl DslBytecodeGenerator {
         );
 
         // Build header struct (in-memory representation).
-        let header = OptimizedHeader {
+        let header = ScriptBytecodeHeaderV1 {
             magic: [b'5', b'I', b'V', b'E'],
             features: production_features,
             public_function_count: public_count,
@@ -84,9 +84,27 @@ impl DslBytecodeGenerator {
         );
     }
 
-    /// Legacy wrapper for backward compatibility.
-    /// Calls emit_optimized_header_v2_with_imports with has_imports = false.
+    /// Legacy wrapper retained for one release.
+    /// Calls `emit_script_bytecode_header_v1_with_imports` with `has_imports = false`.
+    #[deprecated(note = "Use emit_script_bytecode_header_v1")]
     pub fn emit_optimized_header_v2(&mut self, public_count: u8, total_count: u8) {
-        self.emit_optimized_header_v2_with_imports(public_count, total_count, false);
+        self.emit_script_bytecode_header_v1_with_imports(public_count, total_count, false);
+    }
+
+    /// Legacy wrapper retained for one release.
+    /// Calls `emit_script_bytecode_header_v1_with_imports`.
+    #[deprecated(note = "Use emit_script_bytecode_header_v1_with_imports")]
+    pub fn emit_optimized_header_v2_with_imports(
+        &mut self,
+        public_count: u8,
+        total_count: u8,
+        has_imports: bool,
+    ) {
+        self.emit_script_bytecode_header_v1_with_imports(public_count, total_count, has_imports);
+    }
+
+    /// Emit the canonical v1 bytecode header without import metadata.
+    pub fn emit_script_bytecode_header_v1(&mut self, public_count: u8, total_count: u8) {
+        self.emit_script_bytecode_header_v1_with_imports(public_count, total_count, false);
     }
 }

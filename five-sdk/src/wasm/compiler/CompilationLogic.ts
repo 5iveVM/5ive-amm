@@ -36,7 +36,7 @@ export async function compile(
 
     const compilationOptions = new WasmCompilationOptions()
       .with_mode(options?.target || "deployment")
-      .with_optimization_level(options?.optimizationLevel || "production")
+      .with_optimization_level("production")
       .with_v2_preview(true)
       .with_constraint_cache(false)
       .with_enhanced_errors(true)
@@ -152,7 +152,7 @@ export async function compileFile(
       const comprehensiveMetrics = (options as any).comprehensiveMetrics || Boolean((options as any).metricsOutput);
       const compilationOptions = new WasmCompilationOptions()
         .with_mode(options.target || "deployment")
-        .with_optimization_level((options as any).optimizationLevel || "production")
+        .with_optimization_level("production")
         .with_v2_preview(true)
         .with_constraint_cache(
           (options as any).enable_constraint_cache !== false,
@@ -328,7 +328,7 @@ export async function compileWithDiscovery(
 
     const compilationOptions = new WasmCompilationOptions()
       .with_mode(options?.target || "deployment")
-      .with_optimization_level(options?.optimizationLevel || "production")
+      .with_optimization_level("production")
       .with_v2_preview(true)
       .with_constraint_cache(false)
       .with_enhanced_errors(true)

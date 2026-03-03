@@ -1,7 +1,7 @@
-//! Bytecode parser for the optimized header and fixed-size immediates.
+//! Bytecode parser for the canonical v1 bytecode header and fixed-size immediates.
 
 use crate::opcodes::{get_opcode_info, operand_size, ArgType};
-use crate::{ConstantPoolDescriptor, OptimizedHeader};
+use crate::{ConstantPoolDescriptor, ScriptBytecodeHeaderV1};
 use crate::{FunctionNameEntry, FunctionNameMetadata};
 use alloc::format;
 use alloc::string::String;
@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 /// Parsed bytecode result containing header and instructions with validation.
 #[derive(Debug, Clone)]
 pub struct ParsedBytecode<'a> {
-    pub header: OptimizedHeader,
+    pub header: ScriptBytecodeHeaderV1,
     pub instructions: alloc::vec::Vec<ParsedInstruction>,
     pub errors: alloc::vec::Vec<ParseError>,
     pub total_size: usize,
@@ -21,7 +21,7 @@ pub struct ParsedBytecode<'a> {
 /// Parsed script result for optimized bytecode with metadata sections.
 #[derive(Debug, Clone)]
 pub struct ParsedScript {
-    pub header: OptimizedHeader,
+    pub header: ScriptBytecodeHeaderV1,
     pub function_names: Option<FunctionNameMetadata>,
     pub instructions: Vec<ParsedInstruction>,
     pub bytecode_start: usize,
@@ -66,14 +66,16 @@ impl ParseError {
 }
 
 /// Parse header and return basic info + instruction start offset.
-pub fn parse_header(bytecode: &[u8]) -> Result<(OptimizedHeader, usize), ParseError> {
+pub fn parse_header(bytecode: &[u8]) -> Result<(ScriptBytecodeHeaderV1, usize), ParseError> {
     let (header, code_start, _) = parse_code_bounds(bytecode)?;
     Ok((header, code_start))
 }
 
 /// Parse header and return validated code bounds `[code_start, code_end)`.
-pub fn parse_code_bounds(bytecode: &[u8]) -> Result<(OptimizedHeader, usize, usize), ParseError> {
-    if bytecode.len() < crate::FIVE_HEADER_OPTIMIZED_SIZE {
+pub fn parse_code_bounds(
+    bytecode: &[u8],
+) -> Result<(ScriptBytecodeHeaderV1, usize, usize), ParseError> {
+    if bytecode.len() < crate::SCRIPT_BYTECODE_HEADER_V1_SIZE {
         return Err(ParseError::HeaderTooShort);
     }
 
@@ -84,7 +86,7 @@ pub fn parse_code_bounds(bytecode: &[u8]) -> Result<(OptimizedHeader, usize, usi
 
     let features = u32::from_le_bytes([bytecode[4], bytecode[5], bytecode[6], bytecode[7]]);
 
-    let header = OptimizedHeader {
+    let header = ScriptBytecodeHeaderV1 {
         magic,
         features,
         public_function_count: bytecode[8],
@@ -95,7 +97,7 @@ pub fn parse_code_bounds(bytecode: &[u8]) -> Result<(OptimizedHeader, usize, usi
         return Err(ParseError::InvalidFunctionCount);
     }
 
-    let mut offset = crate::FIVE_HEADER_OPTIMIZED_SIZE;
+    let mut offset = crate::SCRIPT_BYTECODE_HEADER_V1_SIZE;
 
     if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0 {
         if offset + 2 > bytecode.len() {
@@ -191,7 +193,7 @@ pub fn parse_bytecode(bytecode: &[u8]) -> ParsedBytecode<'_> {
         Err(e) => {
             errors.push(e);
             return ParsedBytecode {
-                header: OptimizedHeader {
+                header: ScriptBytecodeHeaderV1 {
                     magic: [0u8; 4],
                     features: 0,
                     public_function_count: 0,
@@ -743,12 +745,12 @@ fn parse_function_names(
     ))
 }
 
-/// Parse optimized bytecode with metadata sections
+/// Parse canonical v1 bytecode with optional metadata sections.
 pub fn parse_optimized_bytecode(bytecode: &[u8]) -> Result<ParsedScript, String> {
     let (header, start_offset, code_end) =
         parse_code_bounds(bytecode).map_err(|e| e.message().to_string())?;
 
-    let mut metadata_offset = crate::FIVE_HEADER_OPTIMIZED_SIZE;
+    let mut metadata_offset = crate::SCRIPT_BYTECODE_HEADER_V1_SIZE;
     let function_names = if (header.features & crate::FEATURE_FUNCTION_NAMES) != 0 {
         let (metadata, final_offset) = parse_function_names(bytecode, &mut metadata_offset)?;
         metadata_offset = final_offset;

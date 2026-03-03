@@ -27,12 +27,13 @@ pub use parser::*;
 pub use transport::*;
 pub use types::*;
 pub use value::*;
-// Five script header V3.
+// Canonical bytecode header for the locked v1 release train.
 
 /// Magic: "5IVE" = 0x45564935
 pub const SCRIPT_MAGIC: u32 = 0x45564935;
 
-/// Version 3
+/// Legacy compatibility constant for the pre-v1 versioned header line.
+#[deprecated(note = "Legacy compatibility constant; use ScriptBytecodeHeaderV1 as the canonical header format")]
 pub const SCRIPT_VERSION: u8 = 3;
 
 /// Opcode surface compatibility marker.
@@ -45,8 +46,10 @@ pub const MAX_FUNCTION_PARAMS: usize = 24;
 pub const MAX_LOCALS: usize = 32;
 pub const MAX_FUNCTIONS: usize = 255;
 
-// Optimized header constants
-pub const FIVE_HEADER_OPTIMIZED_SIZE: usize = 10;
+// Canonical bytecode header constants
+pub const SCRIPT_BYTECODE_HEADER_V1_SIZE: usize = 10;
+// Legacy compatibility alias retained for one release.
+pub const FIVE_HEADER_OPTIMIZED_SIZE: usize = SCRIPT_BYTECODE_HEADER_V1_SIZE;
 pub const FIVE_MAGIC: [u8; 4] = *b"5IVE";
 pub const FIVE_DEPLOY_MAGIC: [u8; 4] = *b"5DEP";
 pub const TEMP_BUFFER_SIZE: usize = 512;
@@ -91,12 +94,16 @@ impl U24 {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct OptimizedHeader {
+pub struct ScriptBytecodeHeaderV1 {
     pub magic: [u8; 4],
     pub features: u32,
     pub public_function_count: u8,
     pub total_function_count: u8,
 }
+
+/// Legacy compatibility alias retained for one release.
+#[deprecated(note = "Use ScriptBytecodeHeaderV1")]
+pub type OptimizedHeader = ScriptBytecodeHeaderV1;
 
 /// Constant pool descriptor (aligned to 16 bytes).
 #[repr(C)]
@@ -180,7 +187,7 @@ pub struct ResourceRequirements {
 // Legacy type aliases for backward compatibility.
 pub type LegacyResourceRequirements = ResourceRequirements;
 
-/// Production-optimized header V2.
+/// Legacy compatibility header from the pre-v1 versioned header line.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct FIVEScriptHeaderV2 {
@@ -201,8 +208,8 @@ impl Default for FIVEScriptHeaderV2 {
     }
 }
 
-/// Legacy Five bytecode header V3 for compatibility
-/// 🚀 PRODUCTION: Use OptimizedHeader for new development (94% smaller)
+/// Legacy compatibility header with extended resource hints.
+/// New development should use `ScriptBytecodeHeaderV1`.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct FIVEScriptHeaderV3 {
@@ -254,7 +261,8 @@ impl FIVEScriptHeaderV3 {
 pub const FEATURE_FUNCTION_METADATA: u32 = 1 << 6; // Function metadata in production
 pub const FEATURE_RESOURCE_HINTS: u32 = 1 << 7; // Resource hints in production
 pub const FEATURE_FUNCTION_NAMES: u32 = 1 << 8; // Function name metadata
-pub const FIVE_HEADER_V3_SIZE: usize = 23; // V3 header size for compatibility
+#[deprecated(note = "Legacy compatibility constant for FIVEScriptHeaderV3")]
+pub const FIVE_HEADER_V3_SIZE: usize = 23;
 
 /// Debug logging macro (only active with debug-logs feature)
 #[cfg(feature = "debug-logs")]

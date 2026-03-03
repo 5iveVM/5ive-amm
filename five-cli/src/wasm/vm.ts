@@ -11,14 +11,16 @@ import { existsSync, readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { ConfigManager } from '../config/ConfigManager.js';
+import {
+  SCRIPT_ACCOUNT_HEADER_LEN,
+  SCRIPT_BYTECODE_HEADER_V1_LEN,
+} from '../constants/headers.js';
 
 let FiveVMWasm: any;
 let WasmAccount: any;
 let ParameterEncoder: any;
 let wrap_with_script_header: undefined | ((bytecode: Uint8Array) => Uint8Array);
 
-const SCRIPT_HEADER_LEN = 64; // ScriptHeader::LEN (see five-protocol)
-const OPTIMIZED_HEADER_LEN = 7; // OptimizedHeader V2 size (magic + features + counts)
 const FIVE_MAGIC = [0x35, 0x49, 0x56, 0x45];
 
 export class FiveVM {
@@ -143,7 +145,7 @@ export class FiveVM {
         );
       }
       wrap_with_script_header = (wasmModule as any).wrap_with_script_header;
-      console.log('[WASM VM] Using Rust header wrapper for ScriptHeader generation');
+      console.log('[WASM VM] Using Rust header wrapper for ScriptAccountHeader generation');
 
       this.initialized = true;
     } catch (error) {
@@ -176,8 +178,8 @@ export class FiveVM {
     return FIVE_MAGIC.every((byte, index) => data[index] === byte);
   }
 
-  private looksLikeScriptHeader(data: Uint8Array): boolean {
-    if (data.length < SCRIPT_HEADER_LEN) {
+  private looksLikeScriptAccountHeader(data: Uint8Array): boolean {
+    if (data.length < SCRIPT_ACCOUNT_HEADER_LEN) {
       return false;
     }
 
@@ -186,12 +188,12 @@ export class FiveVM {
     }
 
     const encodedLen = data[4] + (data[5] << 8) + (data[6] << 16);
-    const payloadLen = data.length - SCRIPT_HEADER_LEN;
+    const payloadLen = data.length - SCRIPT_ACCOUNT_HEADER_LEN;
     return encodedLen === payloadLen;
   }
 
-  private looksLikeOptimizedHeader(data: Uint8Array): boolean {
-    if (data.length < OPTIMIZED_HEADER_LEN) {
+  private looksLikeScriptBytecodeHeaderV1(data: Uint8Array): boolean {
+    if (data.length < SCRIPT_BYTECODE_HEADER_V1_LEN) {
       return false;
     }
 
@@ -199,7 +201,7 @@ export class FiveVM {
       return false;
     }
 
-    return !this.looksLikeScriptHeader(data);
+    return !this.looksLikeScriptAccountHeader(data);
   }
 
   async execute(options: VMExecutionOptions): Promise<VMExecutionResult> {
@@ -212,14 +214,14 @@ export class FiveVM {
     try {
       let scriptData: Uint8Array;
       
-      const hasScriptHeader = this.looksLikeScriptHeader(options.bytecode);
-      const hasOptimizedHeader = this.looksLikeOptimizedHeader(options.bytecode);
+      const hasScriptAccountHeader = this.looksLikeScriptAccountHeader(options.bytecode);
+      const hasScriptBytecodeHeaderV1 = this.looksLikeScriptBytecodeHeaderV1(options.bytecode);
 
-      if (hasScriptHeader || hasOptimizedHeader) {
+      if (hasScriptAccountHeader || hasScriptBytecodeHeaderV1) {
         scriptData = options.bytecode;
-        if (hasOptimizedHeader) {
+        if (hasScriptBytecodeHeaderV1) {
           console.log(
-            `[WASM VM] Detected optimized header (${options.bytecode.length} bytes); executing without re-wrapping`
+            `[WASM VM] Detected ScriptBytecodeHeaderV1 (${options.bytecode.length} bytes); executing without re-wrapping`
           );
         }
       } else if (this.isWasmOnlyExecution()) {
@@ -232,7 +234,7 @@ export class FiveVM {
       } else {
         // Network execution requires proper deployment
         throw this.createVMError(
-          'Network execution requires deployed bytecode with ScriptHeader. Use deployment flow for localnet/devnet/mainnet.'
+          'Network execution requires deployed bytecode with ScriptAccountHeader. Use deployment flow for localnet/devnet/mainnet.'
         );
       }
 
