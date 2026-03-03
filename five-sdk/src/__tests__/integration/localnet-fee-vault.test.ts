@@ -6,6 +6,7 @@ import {
   Connection,
   Keypair,
   PublicKey,
+  sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
   TransactionInstruction,
@@ -17,9 +18,15 @@ const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
   0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x76, 0x31,
 ]);
 
-function minimalHaltBytecode(): Uint8Array {
-  // 5IVE magic + features(0) + public_count(1) + total_count(1) + HALT(0x2f)
-  return Uint8Array.from([0x35, 0x49, 0x56, 0x45, 0, 0, 0, 0, 1, 1, 0x2f]);
+async function compileExecutableTestBytecode(): Promise<Uint8Array> {
+  const compiled = await FiveSDK.compile(
+    { filename: "localnet-fee-vault-test.v", content: "pub instruction run() -> u64 { return 0; }" },
+    { debug: false },
+  );
+  if (!compiled.success || !compiled.bytecode) {
+    throw new Error(`Failed to compile executable test bytecode: ${compiled.error || "unknown error"}`);
+  }
+  return compiled.bytecode;
 }
 
 function loadKeypairFromPath(filePath: string): Keypair {
@@ -68,6 +75,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
   let vmStateBump: number;
   let feeVaultAddress: PublicKey;
   let feeVaultBump: number;
+  let testBytecode: Uint8Array;
 
   beforeAll(async () => {
     fiveVmProgramId = process.env.FIVE_VM_PROGRAM_ID || "";
@@ -77,6 +85,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
 
     const rpcUrl = process.env.LOCALNET_RPC_URL || "http://127.0.0.1:8899";
     connection = new Connection(rpcUrl, "confirmed");
+    testBytecode = await compileExecutableTestBytecode();
 
     const keypairPath =
       process.env.FIVE_TEST_KEYPAIR_PATH ||
@@ -99,11 +108,11 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
 
     // Warmup deploy to initialize canonical vm_state and fee vault shards if needed.
     const warmup = await FiveSDK.deployToSolana(
-      minimalHaltBytecode(),
+      testBytecode,
       connection,
       payer,
       {
-        fiveVMProgramId,
+        fiveVmProgramId,
         debug: false,
       },
     );
@@ -126,10 +135,10 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
 
     const before = await connection.getBalance(feeVaultAddress, "confirmed");
     const result = await FiveSDK.deployToSolana(
-      minimalHaltBytecode(),
+      testBytecode,
       connection,
       payer,
-      { fiveVMProgramId, debug: false },
+      { fiveVmProgramId, debug: false },
     );
     expect(result.success).toBe(true);
     expect(result.transactionId).toBeTruthy();
@@ -158,7 +167,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
       [],
       [],
       {
-        fiveVMProgramId,
+        fiveVmProgramId,
         feeShardIndex: 0,
         payerAccount: payer.publicKey.toBase58(),
         debug: false,

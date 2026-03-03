@@ -45,6 +45,26 @@ function clampShardCount(rawCount: number): number {
   return Math.max(1, Math.min(DEFAULT_FEE_VAULT_SHARD_COUNT, normalized));
 }
 
+function normalizeRpcEndpoint(connection: any): string {
+  return String(connection?.rpcEndpoint || connection?._rpcEndpoint || "").toLowerCase();
+}
+
+function isLocalnetBootstrapConnection(connection: any, network?: string): boolean {
+  const normalizedNetwork = String(network || "").toLowerCase();
+  if (normalizedNetwork === "localnet") {
+    return true;
+  }
+  const endpoint = normalizeRpcEndpoint(connection);
+  return endpoint.includes("127.0.0.1") || endpoint.includes("localhost");
+}
+
+function selectBootstrapCommitment(
+  connection: any,
+  network?: string,
+): "confirmed" | "finalized" {
+  return isLocalnetBootstrapConnection(connection, network) ? "confirmed" : "finalized";
+}
+
 async function readVMStateFeeConfig(
   connection: any,
   vmStateAddress: string,
@@ -140,17 +160,35 @@ async function initProgramFeeVaultShards(
   vmStateAccount: string,
   shardCount: number,
   payer: any,
-  options: { debug?: boolean; maxRetries?: number } = {},
+  options: { debug?: boolean; maxRetries?: number; network?: string } = {},
 ): Promise<string[]> {
   const { PublicKey, Transaction, TransactionInstruction, SystemProgram } =
     await import("@solana/web3.js");
   const signatures: string[] = [];
   const effectiveShardCount = clampShardCount(shardCount);
+  const programPubkey = new PublicKey(programId);
+  const bootstrapCommitment = selectBootstrapCommitment(connection);
   for (let shardIndex = 0; shardIndex < effectiveShardCount; shardIndex++) {
     const vault = await deriveProgramFeeVault(programId, shardIndex);
+    const existingVault = await getAccountInfoWithRetry(
+      connection,
+      new PublicKey(vault.address),
+      {
+        commitment: bootstrapCommitment,
+        retries: 1,
+        delayMs: 500,
+        debug: options.debug,
+      },
+    );
+    if (existingVault?.owner && new PublicKey(existingVault.owner).equals(programPubkey)) {
+      if (options.debug) {
+        console.log(`[FiveSDK] Fee vault shard ${shardIndex} already initialized: ${vault.address}`);
+      }
+      continue;
+    }
     const tx = new Transaction().add(
       new TransactionInstruction({
-        programId: new PublicKey(programId),
+        programId: programPubkey,
         keys: [
           { pubkey: new PublicKey(vmStateAccount), isSigner: false, isWritable: false },
           { pubkey: payer.publicKey, isSigner: true, isWritable: true },
@@ -170,7 +208,7 @@ async function initProgramFeeVaultShards(
       maxRetries: options.maxRetries || 3,
     });
     const shardConfirm = await confirmTransactionRobust(connection, sig, {
-      commitment: "finalized",
+      commitment: bootstrapCommitment,
       timeoutMs: 120000,
       debug: options.debug,
     });
@@ -386,7 +424,8 @@ export async function createDeploymentTransaction(
   }
 
   // 1. Initialize canonical VM State if missing
-  const vmStateInfo = await connection.getAccountInfo(vmStatePubkey, "finalized");
+  const bootstrapCommitment = selectBootstrapCommitment(connection);
+  const vmStateInfo = await connection.getAccountInfo(vmStatePubkey, bootstrapCommitment);
   if (!vmStateInfo) {
     tx.add(
       new TransactionInstruction({
@@ -511,10 +550,12 @@ export async function deployToSolana(
         vmStateAccount: options.vmStateAccount,
         maxRetries: options.maxRetries,
         debug: options.debug,
+        network: options.network,
       },
     );
     const vmStatePubkey = vmStateResolution.vmStatePubkey;
     const vmStateRent = vmStateResolution.vmStateRent;
+    const bootstrapCommitment = selectBootstrapCommitment(connection, options.network);
     const vmStateFeeConfig = await readVMStateFeeConfig(
       connection,
       vmStatePubkey.toString(),
@@ -546,7 +587,7 @@ export async function deployToSolana(
       vmStatePubkey.toString(),
       vmStateFeeConfig.shardCount,
       deployerKeypair,
-      { debug: options.debug, maxRetries: options.maxRetries },
+      { debug: options.debug, maxRetries: options.maxRetries, network: options.network },
     );
 
     // SINGLE TRANSACTION: create script account + deploy bytecode
@@ -789,10 +830,12 @@ export async function deployLargeProgramToSolana(
         vmStateAccount: options.vmStateAccount,
         maxRetries: options.maxRetries,
         debug: options.debug,
+        network: options.network,
       },
     );
     const vmStatePubkey = vmStateResolution.vmStatePubkey;
     const vmStateRent = vmStateResolution.vmStateRent;
+    const bootstrapCommitment = selectBootstrapCommitment(connection, options.network);
     const vmStateFeeConfig = await readVMStateFeeConfig(
       connection,
       vmStatePubkey.toString(),
@@ -828,7 +871,7 @@ export async function deployLargeProgramToSolana(
       vmStatePubkey.toString(),
       vmStateFeeConfig.shardCount,
       deployerKeypair,
-      { debug: options.debug, maxRetries: options.maxRetries },
+      { debug: options.debug, maxRetries: options.maxRetries, network: options.network },
     );
 
     const transactionIds: string[] = [];
@@ -899,7 +942,7 @@ export async function deployLargeProgramToSolana(
     );
 
     const initConfirm = await confirmTransactionRobust(connection, initSignature, {
-      commitment: "finalized",
+      commitment: bootstrapCommitment,
       timeoutMs: 120000,
       debug: options.debug,
     });
@@ -936,7 +979,7 @@ export async function deployLargeProgramToSolana(
       const currentInfo = await getAccountInfoWithRetry(
         connection,
         scriptKeypair.publicKey,
-        { commitment: "finalized", retries: 2, delayMs: 1000, debug: options.debug },
+        { commitment: bootstrapCommitment, retries: 2, delayMs: 1000, debug: options.debug },
       );
       if (!currentInfo) throw new Error("Script account not found after initialization");
       const newSize = currentInfo.data.length + chunk.length;
@@ -1028,7 +1071,7 @@ export async function deployLargeProgramToSolana(
       );
 
       const appendConfirm = await confirmTransactionRobust(connection, appendSignature, {
-        commitment: "finalized",
+        commitment: bootstrapCommitment,
         timeoutMs: 120000,
         debug: options.debug,
       });
@@ -1046,7 +1089,7 @@ export async function deployLargeProgramToSolana(
 
     // Final verification
     let finalInfo = await getAccountInfoWithRetry(connection, scriptKeypair.publicKey, {
-      commitment: "finalized",
+      commitment: bootstrapCommitment,
       retries: 2,
       delayMs: 1000,
       debug: options.debug,
@@ -1188,10 +1231,12 @@ export async function deployLargeProgramOptimizedToSolana(
         vmStateAccount: options.vmStateAccount,
         maxRetries: options.maxRetries,
         debug: options.debug,
+        network: options.network,
       },
     );
     const vmStatePubkey = vmStateResolution.vmStatePubkey;
     const vmStateRent = vmStateResolution.vmStateRent;
+    const bootstrapCommitment = selectBootstrapCommitment(connection, options.network);
     const vmStateFeeConfig = await readVMStateFeeConfig(
       connection,
       vmStatePubkey.toString(),
@@ -1229,7 +1274,7 @@ export async function deployLargeProgramOptimizedToSolana(
       vmStatePubkey.toString(),
       vmStateFeeConfig.shardCount,
       deployerKeypair,
-      { debug: options.debug, maxRetries: options.maxRetries },
+      { debug: options.debug, maxRetries: options.maxRetries, network: options.network },
     );
 
     const transactionIds: string[] = [];
@@ -1445,7 +1490,7 @@ export async function deployLargeProgramOptimizedToSolana(
         const appendConfirmation = await pollForConfirmation(
           connection,
           appendSignature,
-          "finalized",
+          bootstrapCommitment,
           120000,
           options.debug
         );
@@ -1510,7 +1555,7 @@ export async function deployLargeProgramOptimizedToSolana(
     const finalizeConfirmation = await pollForConfirmation(
       connection,
       finalizeSignature,
-      "finalized",
+      bootstrapCommitment,
       120000, // 120 second timeout
       options.debug
     );
@@ -1674,6 +1719,7 @@ async function ensureCanonicalVmStateAccount(
     vmStateAccount?: string;
     maxRetries?: number;
     debug?: boolean;
+    network?: string;
   } = {},
 ): Promise<{ vmStatePubkey: any; vmStateRent: number; created: boolean; bump: number }> {
   const { PublicKey, Transaction, TransactionInstruction, SystemProgram } =
@@ -1687,7 +1733,8 @@ async function ensureCanonicalVmStateAccount(
   }
 
   const vmStatePubkey = new PublicKey(canonical.address);
-  const existing = await connection.getAccountInfo(vmStatePubkey, "finalized");
+  const bootstrapCommitment = selectBootstrapCommitment(connection, options.network);
+  const existing = await connection.getAccountInfo(vmStatePubkey, bootstrapCommitment);
   if (existing) {
     if (existing.owner.toBase58() !== programId.toBase58()) {
       throw new Error(

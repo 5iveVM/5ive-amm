@@ -24,8 +24,7 @@ use solana_sdk::{
     system_program,
     transaction::Transaction,
 };
-use solana_transaction_status::option_serializer::OptionSerializer;
-use solana_transaction_status::UiTransactionEncoding;
+use solana_transaction_status::{option_serializer::OptionSerializer, UiTransactionEncoding};
 
 use super::addresses::{canonical_execute_fee_header, fee_vault_pda, fee_vault_shard0_pda};
 use super::compile::{load_or_compile_bytecode, maybe_write_generated_v};
@@ -352,6 +351,13 @@ impl ValidatorHarness {
         shard_index: u8,
     ) -> Result<Pubkey, String> {
         let (fee_vault, bump) = fee_vault_pda(&self.program_id, shard_index);
+
+        if let Ok(existing) = self.rpc.get_account(&fee_vault) {
+            if existing.owner == self.program_id {
+                return Ok(fee_vault);
+            }
+        }
+
         let init_ix = Instruction {
             program_id: self.program_id,
             accounts: vec![
@@ -437,23 +443,55 @@ impl ValidatorHarness {
                 label, sim.value.err, logs
             ));
         }
+        let sim_units = parse_cu_from_logs(sim.value.logs.as_deref());
 
         let sig = self
             .rpc
-            .send_and_confirm_transaction_with_spinner(&tx)
-            .map_err(|e| format!("{}: send/confirm failed: {}", label, e))?;
+            .send_transaction(&tx)
+            .map_err(|e| format!("{}: send failed: {}", label, e))?;
 
-        let tx_info = self
-            .rpc
-            .get_transaction_with_config(
-                &sig,
-                RpcTransactionConfig {
-                    encoding: Some(UiTransactionEncoding::Json),
-                    commitment: Some(CommitmentConfig::confirmed()),
-                    max_supported_transaction_version: Some(0),
-                },
+        let confirmed = wait_for_confirmed_commitment(&self.rpc, &sig, Duration::from_secs(45))
+            .map_err(|e| format!("{}: confirmation polling failed for {}: {}", label, sig, e))?;
+
+        let tx_info = fetch_confirmed_transaction(&self.rpc, &sig, 5, Duration::from_millis(500));
+        if !confirmed && tx_info.is_none() {
+            let status = self
+                .rpc
+                .get_signature_statuses(&[sig])
+                .map_err(|e| format!("{}: status check failed for {}: {}", label, sig, e))?;
+            let Some(Some(status)) = status.value.into_iter().next() else {
+                return Err(format!(
+                    "{}: send/confirm failed: transaction {} was not observed before timeout",
+                    label, sig
+                ));
+            };
+            if let Some(err) = status.err {
+                return Err(format!("{}: tx {} status.err={:?}", label, sig, err));
+            }
+            if status.satisfies_commitment(CommitmentConfig::confirmed()) {
+                let units = sim_units.ok_or_else(|| {
+                    format!(
+                        "{}: tx {} confirmed after timeout but compute units were unavailable",
+                        label, sig
+                    )
+                })?;
+                return Ok(TxCuResult {
+                    signature: sig,
+                    units_consumed: units,
+                });
+            }
+            return Err(format!(
+                "{}: send/confirm failed: transaction {} did not reach confirmed before timeout",
+                label, sig
+            ));
+        }
+
+        let tx_info = tx_info.ok_or_else(|| {
+            format!(
+                "{}: fetch tx {} failed after confirmation (transaction metadata unavailable)",
+                label, sig
             )
-            .map_err(|e| format!("{}: fetch tx {} failed: {}", label, sig, e))?;
+        })?;
 
         let meta = tx_info
             .transaction
@@ -542,6 +580,49 @@ fn parse_cu_from_logs(logs: Option<&[String]>) -> Option<u64> {
                     }
                 }
             }
+        }
+    }
+    None
+}
+
+fn wait_for_confirmed_commitment(
+    rpc: &RpcClient,
+    sig: &Signature,
+    timeout: Duration,
+) -> Result<bool, String> {
+    let started = Instant::now();
+    while started.elapsed() < timeout {
+        if rpc
+            .confirm_transaction_with_commitment(sig, CommitmentConfig::confirmed())
+            .map_err(|e| e.to_string())?
+            .value
+        {
+            return Ok(true);
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    Ok(false)
+}
+
+fn fetch_confirmed_transaction(
+    rpc: &RpcClient,
+    sig: &Signature,
+    attempts: usize,
+    delay: Duration,
+) -> Option<solana_transaction_status::EncodedConfirmedTransactionWithStatusMeta> {
+    for attempt in 0..attempts {
+        if let Ok(tx_info) = rpc.get_transaction_with_config(
+            sig,
+            RpcTransactionConfig {
+                encoding: Some(UiTransactionEncoding::Json),
+                commitment: Some(CommitmentConfig::confirmed()),
+                max_supported_transaction_version: Some(0),
+            },
+        ) {
+            return Some(tx_info);
+        }
+        if attempt + 1 < attempts {
+            std::thread::sleep(delay);
         }
     }
     None

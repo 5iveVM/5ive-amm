@@ -439,8 +439,8 @@ export async function generateExecuteInstruction(
   const feeVault = await deriveProgramFeeVault(programId, feeShardIndex);
 
   const instructionAccounts = [
-    { pubkey: scriptAccount, isSigner: false, isWritable: false },
-    { pubkey: vmState, isSigner: false, isWritable: false },
+    { pubkey: scriptAccount, isSigner: false, isWritable: true },
+    { pubkey: vmState, isSigner: false, isWritable: true },
   ];
 
   const abiAccountMetadata = new Map<string, { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }>();
