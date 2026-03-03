@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile, mkdir } from 'fs/promises';
+import { mkdtemp, writeFile, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -35,6 +35,62 @@ jest.mock('ora', () => {
 
 // Mock SDK and managers to avoid real WASM/network calls
 jest.mock('five-sdk', () => ({
+  normalizeAbiFunctions: (abiFunctions: any) => {
+    if (!abiFunctions) return [];
+    const functionsArray = Array.isArray(abiFunctions)
+      ? abiFunctions
+      : Object.entries(abiFunctions).map(([name, func]) => ({ name, ...(func as any || {}) }));
+
+    return functionsArray.map((func: any, idx: number) => {
+      const rawParameters = Array.isArray(func.parameters) ? func.parameters : [];
+      const existingNames = new Set(rawParameters.map((param: any) => param.name));
+      const accountParameters = Array.isArray(func.accounts)
+        ? func.accounts
+            .map((account: any, accountIdx: number) => ({
+              name: account.name ?? `account${accountIdx}`,
+              type: 'pubkey',
+              param_type: 'pubkey',
+              optional: false,
+              is_account: true,
+              isAccount: true,
+              attributes: [
+                ...(account.writable ? ['mut'] : []),
+                ...(account.signer ? ['signer'] : []),
+              ],
+            }))
+            .filter((param: any) => !existingNames.has(param.name))
+        : [];
+
+      return {
+        name: func.name ?? `function_${idx}`,
+        index: typeof func.index === 'number' ? func.index : idx,
+        parameters: [
+          ...accountParameters,
+          ...rawParameters.map((param: any) => ({
+            name: param.name,
+            type: param.type ?? param.param_type ?? '',
+            param_type: param.param_type,
+            optional: param.optional ?? false,
+            is_account: param.is_account ?? param.isAccount ?? false,
+            isAccount: param.isAccount ?? param.is_account ?? false,
+            attributes: Array.isArray(param.attributes) ? [...param.attributes] : [],
+          })),
+        ],
+        accounts: func.accounts ?? [],
+        visibility: func.visibility ?? 'public',
+        returnType: func.returnType ?? func.return_type,
+      };
+    });
+  },
+  TypeGenerator: class {
+    private abi: any;
+    constructor(abi: any) {
+      this.abi = abi;
+    }
+    generate() {
+      return `// generated for ${Array.isArray(this.abi?.functions) ? this.abi.functions.length : 0} functions\n`;
+    }
+  },
   FiveSDK: {
     compile: jest.fn().mockResolvedValue({
       success: true,
@@ -124,6 +180,7 @@ import { deployCommand } from '../deploy.js';
 import { executeCommand } from '../execute.js';
 import { testCommand } from '../test.js';
 import { buildCommand } from '../build.js';
+import { artifactCommand } from '../artifact.js';
 
 // Mock logger
 const logger = {
@@ -234,6 +291,91 @@ describe('project-aware commands', () => {
     expect(discoverySpy).toHaveBeenCalledTimes(1);
     expect(discoverySpy.mock.calls[0][0]).toMatch(/src\/main\.v$/);
     discoverySpy.mockRestore();
+  });
+
+  it('build emits packaged artifacts with ABI-derived account parameters and types', async () => {
+    const root = await createProject();
+    const ctx = createContext();
+
+    await buildCommand.handler([], { project: root }, ctx as any);
+
+    const artifact = JSON.parse(await readFile(join(root, 'build', 'demo.five'), 'utf8'));
+    expect(Array.isArray(artifact.abi.functions)).toBe(true);
+    expect(artifact.abi.functions[0].parameters[0]).toMatchObject({
+      name: 'state',
+      is_account: true,
+      attributes: ['mut'],
+    });
+    expect(artifact.abi.functions[0].parameters[1]).toMatchObject({
+      name: 'payer',
+      is_account: true,
+      attributes: ['mut', 'signer'],
+    });
+
+    const typeDefs = await readFile(join(root, 'build', 'demo.d.ts'), 'utf8');
+    expect(typeDefs).toContain('generated for 1 functions');
+  });
+
+  it('compile writes abi output using the normalized packaged ABI', async () => {
+    const root = await createProject();
+    const ctx = createContext();
+    const inputPath = join(root, 'src', 'main.v');
+    const abiPath = join(root, 'build', 'demo.abi.json');
+
+    await compileCommand.handler([inputPath], { project: root, abi: abiPath }, ctx as any);
+
+    const abi = JSON.parse(await readFile(abiPath, 'utf8'));
+    expect(Array.isArray(abi.functions)).toBe(true);
+    expect(abi.functions[0].parameters[0]).toMatchObject({
+      name: 'state',
+      is_account: true,
+    });
+  });
+
+  it('artifact pack normalizes object ABI functions and emits optional types', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'five-cli-artifact-pack-'));
+    const ctx = createContext();
+    const bytecodePath = join(root, 'script.bin');
+    const abiPath = join(root, 'script.abi.json');
+    const outputPath = join(root, 'build', 'main.five');
+
+    await writeFile(bytecodePath, Buffer.from([0xde, 0xad, 0xbe, 0xef]));
+    await writeFile(
+      abiPath,
+      JSON.stringify({
+        name: 'PackDemo',
+        functions: {
+          settle: {
+            index: 2,
+            parameters: [{ name: 'amount', type: 'u64' }],
+            accounts: [{ name: 'vault', writable: true, signer: false }],
+          },
+        },
+      }),
+    );
+
+    await artifactCommand.handler(['pack'], {
+      bytecode: bytecodePath,
+      abi: abiPath,
+      output: outputPath,
+      encoding: 'binary',
+      types: true,
+    }, ctx as any);
+
+    const artifact = JSON.parse(await readFile(outputPath, 'utf8'));
+    expect(Array.isArray(artifact.abi.functions)).toBe(true);
+    expect(artifact.abi.functions[0]).toMatchObject({
+      name: 'settle',
+      index: 2,
+    });
+    expect(artifact.abi.functions[0].parameters[0]).toMatchObject({
+      name: 'vault',
+      is_account: true,
+      attributes: ['mut'],
+    });
+
+    const typeDefs = await readFile(join(root, 'build', 'main.d.ts'), 'utf8');
+    expect(typeDefs).toContain('generated for 1 functions');
   });
 
   it('compile handler reports import-resolution requirement when discovery API is unavailable', async () => {

@@ -11,9 +11,8 @@ export class FiveCompilerWasm {
   async compile(_source: string, _options?: any): Promise<any> {
     return {
       success: true,
-      fiveFile: {},
-      bytecode: new Uint8Array(),
-      metadata: {},
+      bytecode: new Uint8Array([1, 2, 3]),
+      metadata: { compilerVersion: 'mock' },
       metrics: {}
     };
   }
@@ -21,10 +20,27 @@ export class FiveCompilerWasm {
   async compileWithDiscovery(_entryPoint: string, _options?: any): Promise<any> {
     return {
       success: true,
-      fiveFile: {},
-      bytecode: new Uint8Array(),
-      metadata: {},
+      bytecode: new Uint8Array([1, 2, 3]),
+      metadata: { compilerVersion: 'mock' },
       metrics: {}
+    };
+  }
+
+  async generateABI(_source: string): Promise<any> {
+    return {
+      name: 'MockProgram',
+      functions: {
+        initialize: {
+          index: 0,
+          parameters: [
+            { name: 'amount', type: 'u64' }
+          ],
+          accounts: [
+            { name: 'state', writable: true, signer: false },
+            { name: 'payer', writable: true, signer: true }
+          ]
+        }
+      }
     };
   }
 
