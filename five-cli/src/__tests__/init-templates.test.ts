@@ -2,13 +2,19 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
 describe('init-generated templates', () => {
-  it('documents the bundled CLI/SDK toolchain as the supported end-user path', async () => {
+  it('keeps AGENTS self-contained for the public build and local test path', async () => {
     const agents = await readFile(
       '/Users/ivmidable/Development/five-mono/five-cli/templates/AGENTS.md',
       'utf8',
     );
 
+    expect(agents).toContain('This file is the complete minimum contract for building and locally validating a 5IVE project.');
     expect(agents).toContain('the installed `5ive` CLI, bundled SDK, and bundled compiler are the supported toolchain');
+    expect(agents).toContain('Node.js `>=18`');
+    expect(agents).toContain('docs/STDLIB.md');
+    expect(agents).toContain('Build with `5ive build` as the preferred project build command.');
+    expect(agents).toContain('Project builds require `project.entry_point` in `five.toml`.');
+    expect(agents).toContain('Run local tests with `5ive test --sdk-runner`.');
     expect(agents).not.toContain('Rust compiler');
   });
 
