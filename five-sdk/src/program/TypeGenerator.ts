@@ -22,6 +22,7 @@
  */
 
 import type { ScriptABI, FunctionDefinition, ParameterDefinition } from '../metadata/index.js';
+import { normalizeAbiFunctions } from '../utils/abi.js';
 
 export interface TypeGeneratorOptions {
   /** Name of the generated program interface */
@@ -42,7 +43,13 @@ export class TypeGenerator {
   private options: TypeGeneratorOptions;
 
   constructor(abi: ScriptABI, options?: TypeGeneratorOptions) {
-    this.abi = abi;
+    this.abi = {
+      ...abi,
+      functions: normalizeAbiFunctions((abi as any).functions ?? abi).map((func) => ({
+        ...func,
+        visibility: func.visibility ?? 'public',
+      })) as FunctionDefinition[],
+    };
     this.options = {
       scriptName: abi.name || 'Program',
       debug: false,

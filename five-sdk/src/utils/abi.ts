@@ -33,20 +33,42 @@ export function normalizeAbiFunctions(abiFunctions: unknown): NormalizedABIFunct
 
   return functionsArray
     .map((func: any, idx: number) => {
-      const parameters = Array.isArray(func.parameters) ? func.parameters : [];
+      const rawParameters = Array.isArray(func.parameters) ? func.parameters : [];
+      const normalizedParameters = rawParameters.map((param: any, paramIdx: number) => ({
+        name: param.name ?? `param${paramIdx}`,
+        type: param.type ?? param.param_type ?? param.paramType ?? '',
+        param_type: param.param_type ?? param.paramType,
+        optional: param.optional ?? false,
+        is_account: param.is_account ?? param.isAccount ?? false,
+        isAccount: param.isAccount ?? param.is_account ?? false,
+        attributes: Array.isArray(param.attributes) ? [...param.attributes] : [],
+      }));
+      const existingParameterNames = new Set(normalizedParameters.map((param) => param.name));
+      const accountParameters = Array.isArray(func.accounts)
+        ? func.accounts
+            .map((account: any, accountIdx: number) => {
+              const attributes: string[] = [];
+              if (account?.writable) attributes.push('mut');
+              if (account?.signer) attributes.push('signer');
+
+              return {
+                name: account?.name ?? `account${accountIdx}`,
+                type: 'pubkey',
+                param_type: 'pubkey',
+                optional: false,
+                is_account: true,
+                isAccount: true,
+                attributes,
+              };
+            })
+            .filter((param) => !existingParameterNames.has(param.name))
+        : [];
+      const parameters = [...accountParameters, ...normalizedParameters];
 
       return {
         name: func.name ?? `function_${func.index ?? idx}`,
         index: typeof func.index === 'number' ? func.index : idx,
-        parameters: parameters.map((param: any, paramIdx: number) => ({
-          name: param.name ?? `param${paramIdx}`,
-          type: param.type ?? param.param_type ?? param.paramType ?? '',
-          param_type: param.param_type ?? param.paramType,
-          optional: param.optional ?? false,
-          is_account: param.is_account ?? param.isAccount ?? false,
-          isAccount: param.isAccount ?? param.is_account ?? false,
-          attributes: Array.isArray(param.attributes) ? [...param.attributes] : [],
-        })),
+        parameters,
         returnType: func.returnType ?? func.return_type,
         accounts: func.accounts ?? [],
         visibility:

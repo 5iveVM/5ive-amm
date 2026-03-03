@@ -5,10 +5,17 @@ import { join, dirname, extname, basename, isAbsolute, resolve } from 'path';
 import { glob } from 'glob';
 
 import { CommandDefinition, CommandContext, ProjectConfig } from '../types.js';
-import { FiveSDK, TypeGenerator } from '@5ive-tech/sdk';
+import { FiveSDK } from '@5ive-tech/sdk';
 import { computeHash, loadProjectConfig, writeBuildManifest, LoadedProjectConfig } from '../project/ProjectLoader.js';
 import { success as uiSuccess, error as uiError, section } from '../utils/cli-ui.js';
 import { FiveCompilerWasm } from '../wasm/compiler.js';
+import {
+  createFiveArtifact,
+  normalizeArtifactAbi,
+  writeAbiFile,
+  writePackagedArtifact,
+  writeTypeDefinitions,
+} from '../utils/artifacts.js';
 
 export const compileCommand: CommandDefinition = {
   name: 'compile',
@@ -180,6 +187,79 @@ async function resolveInputFiles(args: string[]): Promise<string[]> {
   return [...new Set(inputFiles)];
 }
 
+async function finalizeCompilationOutput(params: {
+  result: any;
+  sourceText: string;
+  outputFile: string;
+  abiOutputFile?: string;
+  compiler: FiveCompilerWasm;
+  logger: CommandContext['logger'];
+  verbose: boolean;
+}): Promise<{
+  bytecodeBytes: Uint8Array;
+  normalizedAbi?: any;
+  artifactBuffer: Buffer;
+}> {
+  const bytecodeBytes = params.result.bytecode instanceof Uint8Array
+    ? params.result.bytecode
+    : new Uint8Array(params.result.bytecode || []);
+  const writesPackagedArtifact = params.outputFile.endsWith('.five');
+  const needsAbi = writesPackagedArtifact || Boolean(params.abiOutputFile);
+  let normalizedAbi = normalizeArtifactAbi(params.result.abi);
+
+  if (needsAbi && !normalizedAbi) {
+    const generatedAbi = await params.compiler.generateABI(params.sourceText);
+    normalizedAbi = normalizeArtifactAbi(generatedAbi);
+  }
+
+  if (needsAbi && !normalizedAbi) {
+    throw new Error('Compilation succeeded but no ABI could be generated for packaged artifact output');
+  }
+
+  let artifactBuffer: Buffer;
+
+  if (writesPackagedArtifact) {
+    params.result.fiveFile = createFiveArtifact({
+      bytecode: bytecodeBytes,
+      abi: normalizedAbi,
+      metadata: params.result.metadata || {},
+    });
+
+    const written = await writePackagedArtifact(params.outputFile, params.result.fiveFile, {
+      emitTypes: Boolean(normalizedAbi),
+    });
+    artifactBuffer = written.artifactBuffer;
+    if (params.verbose && written.typeFile) {
+      params.logger.info(`Types generated at ${written.typeFile}`);
+    }
+  } else {
+    await writeFile(params.outputFile, Buffer.from(bytecodeBytes));
+    artifactBuffer = Buffer.from(bytecodeBytes);
+
+    if (normalizedAbi) {
+      try {
+        const typeFile = await writeTypeDefinitions(params.outputFile, normalizedAbi);
+        if (params.verbose) {
+          params.logger.info(`Types generated at ${typeFile}`);
+        }
+      } catch (err) {
+        params.logger.warn(`Failed to generate types: ${err}`);
+      }
+    }
+  }
+
+  if (params.abiOutputFile && normalizedAbi) {
+    await writeAbiFile(params.abiOutputFile, normalizedAbi);
+    params.logger.info(`ABI written to ${params.abiOutputFile}`);
+  }
+
+  return {
+    bytecodeBytes,
+    normalizedAbi,
+    artifactBuffer,
+  };
+}
+
 async function compileProject(
   projectContext: LoadedProjectConfig,
   options: any,
@@ -255,47 +335,17 @@ async function compileProject(
   }
 
   const sourceText = await readFile(entryPointAbs, 'utf8');
-  const bytecodeBytes = result.bytecode instanceof Uint8Array
-    ? result.bytecode
-    : new Uint8Array(result.bytecode || []);
-
-  if (!result.fiveFile && bytecodeBytes.length > 0) {
-    result.fiveFile = {
-      bytecode: Buffer.from(bytecodeBytes).toString('base64'),
-      abi: result.abi || { functions: {}, fields: [], version: '1.0' },
-      version: '1.0',
-      metadata: result.metadata || {}
-    };
-  }
-
-  if (outputFile.endsWith('.five') && result.fiveFile) {
-    await writeFile(outputFile, JSON.stringify(result.fiveFile, null, 2));
-  } else {
-    await writeFile(outputFile, Buffer.from(bytecodeBytes));
-  }
-
-  if (options.abi && (result.metadata || result.abi)) {
-    await writeFile(options.abi, JSON.stringify(result.metadata || result.abi, null, 2));
-    logger.info(`ABI written to ${options.abi}`);
-  }
-
-  if (result.metadata || result.abi) {
-    try {
-      const generator = new TypeGenerator(result.metadata || result.abi);
-      const typeDefs = generator.generate();
-      const typeFile = outputFile.replace(/(\.five|\.bin|\.fbin)$/, '') + '.d.ts';
-      await writeFile(typeFile, typeDefs);
-      if (context.options.verbose) logger.info(`Types generated at ${typeFile}`);
-    } catch (err) {
-      logger.warn(`Failed to generate types: ${err}`);
-    }
-  }
+  const { bytecodeBytes, artifactBuffer } = await finalizeCompilationOutput({
+    result,
+    sourceText,
+    outputFile,
+    abiOutputFile: options.abi,
+    compiler,
+    logger,
+    verbose: Boolean(context.options.verbose),
+  });
 
   const format: 'five' | 'bin' = outputFile.endsWith('.five') ? 'five' : 'bin';
-  const artifactBuffer =
-    format === 'five'
-      ? Buffer.from(JSON.stringify(result.fiveFile ?? {}))
-      : Buffer.from(bytecodeBytes);
 
   const manifest = {
     artifact_path: outputFile,
@@ -476,18 +526,6 @@ async function compileSingleFile(
     result = await compiler.compile(sourceCode, compilationOptions);
   }
 
-  if (result.success && !result.fiveFile && result.bytecode) {
-    const bytecodeBytes = result.bytecode instanceof Uint8Array
-      ? result.bytecode
-      : new Uint8Array(result.bytecode);
-    result.fiveFile = {
-      bytecode: Buffer.from(bytecodeBytes).toString('base64'),
-      abi: result.abi || { functions: {}, fields: [], version: '1.0' },
-      version: '1.0',
-      metadata: result.metadata || {}
-    };
-  }
-
   if (options.metricsOutput && result.metricsReport?.exported) {
     const metricsPath = isAbsolute(options.metricsOutput)
       ? options.metricsOutput
@@ -500,23 +538,18 @@ async function compileSingleFile(
   }
 
   if (result.success) {
-    if (outputFile.endsWith('.five') && result.fiveFile) {
-      await writeFile(outputFile, JSON.stringify(result.fiveFile, null, 2));
-    } else if (result.bytecode) {
-      await writeFile(outputFile, result.bytecode);
-    }
-
-    if (options.abi && (result.metadata || result.abi)) {
-      await writeFile(options.abi, JSON.stringify(result.metadata || result.abi, null, 2));
-      logger.info(`ABI written to ${options.abi}`);
-    }
+    const { artifactBuffer } = await finalizeCompilationOutput({
+      result,
+      sourceText: sourceCode,
+      outputFile,
+      abiOutputFile: options.abi,
+      compiler,
+      logger,
+      verbose: Boolean(context.options.verbose),
+    });
 
     if (projectContext) {
       const format: 'five' | 'bin' = outputFile.endsWith('.five') ? 'five' : 'bin';
-      const artifactBuffer =
-        format === 'five'
-          ? Buffer.from(JSON.stringify(result.fiveFile ?? {}))
-          : Buffer.from(result.bytecode ?? []);
       const manifest = {
         artifact_path: outputFile,
         abi_path: options.abi,
@@ -534,18 +567,6 @@ async function compileSingleFile(
       const manifestPath = await writeBuildManifest(projectContext.rootDir, manifest);
       if (context.options.verbose) {
         logger.info(`Build manifest written to ${manifestPath}`);
-      }
-    }
-
-    if (result.metadata || result.abi) {
-      try {
-        const generator = new TypeGenerator(result.metadata || result.abi);
-        const typeDefs = generator.generate();
-        const typeFile = outputFile.replace(/(\.five|\.bin|\.fbin)$/, '') + '.d.ts';
-        await writeFile(typeFile, typeDefs);
-        if (context.options.verbose) logger.info(`Types generated at ${typeFile}`);
-      } catch (err) {
-        logger.warn(`Failed to generate types: ${err}`);
       }
     }
   }

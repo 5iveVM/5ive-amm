@@ -74,12 +74,9 @@ echo -e "${GREEN}✅ Rust/Cargo found${NC}"
 # Check if Five CLI is built
 FIVE_CLI_PATH="../five-cli/dist/index.js"
 if [ ! -f "$FIVE_CLI_PATH" ]; then
-    echo -e "${YELLOW}⚠️  Five CLI not built. Building now...${NC}"
-    cd ../five-cli
-    npm install
-    npm run build
-    cd ../five-wasm
-    echo -e "${GREEN}✅ Five CLI built${NC}"
+    echo -e "${RED}❌ Five CLI not built at ${FIVE_CLI_PATH}.${NC}"
+    echo -e "   Build it first with: ${CYAN}npm --prefix ../five-cli run build${NC}"
+    exit 1
 else
     echo -e "${GREEN}✅ Five CLI found${NC}"
 fi

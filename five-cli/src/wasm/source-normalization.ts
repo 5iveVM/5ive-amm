@@ -1,12 +1,29 @@
 const SPL_TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 
 function normalizeAccountContextAccess(source: string): string {
-  return source
-    .replace(/(\b[A-Za-z_][A-Za-z0-9_]*)\.ctx\.key\b/g, '$1.key')
-    .replace(/(\b[A-Za-z_][A-Za-z0-9_]*)\.ctx\.lamports\b/g, '$1.lamports')
-    .replace(/(\b[A-Za-z_][A-Za-z0-9_]*)\.ctx\.owner\b/g, '$1.owner')
-    .replace(/(\b[A-Za-z_][A-Za-z0-9_]*)\.ctx\.data\b/g, '$1.data')
-    .replace(/(\b[A-Za-z_][A-Za-z0-9_]*)\.ctx\.bump\b/g, '$1.bump');
+  const placeholders = new Map<string, string>();
+  let nextId = 0;
+  const protect = (match: string) => {
+    const token = `__FIVE_CTX_${nextId++}__`;
+    placeholders.set(token, match);
+    return token;
+  };
+
+  let normalized = source.replace(
+    /(\b[A-Za-z_][A-Za-z0-9_]*)\.ctx\.(key|lamports|owner|data|bump)\b/g,
+    protect,
+  );
+
+  normalized = normalized.replace(
+    /(\b[A-Za-z_][A-Za-z0-9_]*)\.(key|lamports|owner|data|bump)\b/g,
+    '$1.ctx.$2',
+  );
+
+  for (const [token, original] of placeholders.entries()) {
+    normalized = normalized.split(token).join(original);
+  }
+
+  return normalized;
 }
 
 function normalizeSplTokenModule(source: string): string {

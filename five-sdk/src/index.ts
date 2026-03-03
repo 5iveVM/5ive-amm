@@ -19,6 +19,7 @@ export * from './wasm/vm.js';
 export * from './wasm/compiler/index.js';
 export * from './wasm/loader.js';
 export * from './testing/index.js';
+export * from './utils/abi.js';
 
 // ==================== FiveProgram High-Level API ====================
 

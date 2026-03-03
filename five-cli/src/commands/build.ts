@@ -65,8 +65,8 @@ export const buildCommand: CommandDefinition = {
       );
     }
 
-    // Delegate to compile command. Project-mode compile now routes through
-    // FiveSDK.compileProject (compiler-owned module discovery).
+    // Delegate to compile command. Project-mode compile now shares the
+    // same artifact-packaging path as direct compilation.
     const compileOptions = {
       ...options,
       project: projectContext.configPath,

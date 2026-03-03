@@ -470,7 +470,7 @@ export class FiveCompilerWasm {
     }
 
     try {
-      const abi = this.compiler.generate_abi(sourceCode);
+      const abi = this.compiler.generate_abi(normalizeWasmCompilerSource(sourceCode));
       return JSON.parse(abi);
     } catch (error) {
       throw this.createCompilerError("ABI generation failed", error as Error);
