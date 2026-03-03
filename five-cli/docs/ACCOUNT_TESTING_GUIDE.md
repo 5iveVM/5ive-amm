@@ -211,8 +211,8 @@ pub batch_transfer(
     amount: u64
 ) -> bool {
     // Multiple @mut accounts in one transaction
-    require(authority.key != from.key);
-    require(from.key != to.key);
+    require(authority.ctx.key != from.ctx.key);
+    require(from.ctx.key != to.ctx.key);
 
     // Atomic: both accounts modified together
     state.transfer_count = state.transfer_count + 1;

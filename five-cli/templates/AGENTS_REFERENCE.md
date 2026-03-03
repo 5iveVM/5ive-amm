@@ -9,7 +9,7 @@ Use with `./AGENTS.md` and `./AGENTS_CHECKLIST.md`.
 2. Build artifact: `.five` (bytecode + ABI)
 3. CLI: `@5ive-tech/cli` commands `5ive` or `five`
 4. SDK: `@5ive-tech/sdk`
-5. Pinned monorepo compiler/runtime behavior is authoritative when installed CLI/docs drift.
+5. For end users, the installed CLI/SDK behavior is authoritative. Treat maintainer-only compiler workflows as internal parity tooling, not part of the supported user path.
 
 ## 2) Online and Offline Working Modes
 

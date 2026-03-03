@@ -12,6 +12,7 @@ import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { ConfigManager } from "../config/ConfigManager.js";
 import { createRequire } from "module";
+import { normalizeWasmCompilerSource } from "./source-normalization.js";
 
 const require = createRequire(import.meta.url);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -127,6 +128,7 @@ export class FiveCompilerWasm {
     const metricsFormat = options?.metricsFormat || "json";
 
     try {
+      const normalizedSource = normalizeWasmCompilerSource(source);
       // Compile source silently
 
       // Use enhanced WASM compiler methods with rich error messages
@@ -159,7 +161,7 @@ export class FiveCompilerWasm {
           .with_source_file(options?.sourceFile || "input.v");
 
         // Execute compilation
-        result = this.compiler.compile(source, compilationOptions);
+        result = this.compiler.compile(normalizedSource, compilationOptions);
 
         // Process compilation result silently
 
@@ -254,6 +256,7 @@ export class FiveCompilerWasm {
     try {
       // Read source file
       const sourceCode = await readFile(options.sourceFile, "utf8");
+      const normalizedSource = normalizeWasmCompilerSource(sourceCode);
 
       this.logger.debug(`Compiling source file: ${options.sourceFile}`);
 
@@ -287,7 +290,7 @@ export class FiveCompilerWasm {
           .with_source_file(options.sourceFile);
 
         // Execute compilation
-        result = this.compiler.compile(sourceCode, compilationOptions);
+        result = this.compiler.compile(normalizedSource, compilationOptions);
 
         // Process compilation result silently
 

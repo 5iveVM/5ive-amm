@@ -21,6 +21,7 @@ Offline-first fallback:
 1. If source/docs are unavailable, continue with local CLI behavior and generated artifacts.
 2. Never block waiting for external docs when compile/test feedback is available.
 3. Treat compiler and runtime output as the immediate truth source.
+4. For end users, the installed `5ive` CLI, bundled SDK, and bundled compiler are the supported toolchain. Do not assume access to maintainer-only compilers or internal build scripts.
 
 ## 3) Non-Negotiable Workflow
 

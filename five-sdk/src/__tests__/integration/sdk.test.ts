@@ -33,6 +33,28 @@ describe('Five SDK Integration Tests', () => {
   });
 
   describe('Script Compilation Workflow', () => {
+    it('passes current DSL source through to the public compiler unchanged', async () => {
+      const source = `account Counter {\n  authority: pubkey;\n}\n\npub init(counter: Counter @mut, authority: account @signer) {\n  counter.authority = authority.ctx.key;\n}`;
+
+      mockCompiler.compile.mockResolvedValue({
+        success: true,
+        bytecode: TestConstants.SAMPLE_BYTECODE,
+        abi: {
+          functions: [
+            { name: 'init', index: 0, parameters: [], visibility: 'public' },
+          ],
+        },
+      });
+      mockCompiler.getFunctionNames.mockResolvedValue([
+        { name: 'init', function_index: 0 },
+      ]);
+
+      const result = await FiveSDK.compile(source);
+
+      expect(result.success).toBe(true);
+      expect(mockCompiler.compile).toHaveBeenCalledWith(source, {});
+    });
+
     it('compiles source and preserves normalized function names', async () => {
       mockCompiler.compile.mockResolvedValue({
         success: true,

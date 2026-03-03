@@ -21,6 +21,7 @@ import {
   CompilationTarget,
 } from "../types.js";
 import { normalizeAbiFunctions } from "../utils/abi.js";
+import { normalizeWasmCompilerSource } from "./source-normalization.js";
 
 /**
  * Compiler configuration
@@ -103,6 +104,7 @@ export class BytecodeCompiler {
   ): Promise<CompilationResult> {
     const startTime = Date.now();
     const sourceContent = typeof source === 'string' ? source : source.content;
+    const normalizedSourceContent = normalizeWasmCompilerSource(sourceContent);
     const sourceFilename = typeof source === 'string' ? 'unknown.v' : source.filename || 'unknown.v';
 
     // Compile source (debug info available in this.debug mode)
@@ -130,7 +132,7 @@ export class BytecodeCompiler {
       };
 
       // Perform compilation
-      const result = await this.wasmCompiler!.compile(sourceContent, compilerOptions);
+      const result = await this.wasmCompiler!.compile(normalizedSourceContent, compilerOptions);
 
       const compilationTime = Date.now() - startTime;
 
@@ -219,7 +221,7 @@ export class BytecodeCompiler {
         `Compilation error: ${error instanceof Error ? error.message : "Unknown error"}`,
         {
           ...(inheritedDetails || {}),
-          source: sourceContent.substring(0, 200),
+          source: normalizedSourceContent.substring(0, 200),
           options,
         },
       );
@@ -357,6 +359,7 @@ export class BytecodeCompiler {
     errors?: CompilationError[];
   }> {
     const code = typeof source === 'string' ? source : source.content;
+    const normalizedCode = normalizeWasmCompilerSource(code);
 
     if (this.debug) {
       console.log(
@@ -369,7 +372,7 @@ export class BytecodeCompiler {
         await this.loadWasmCompiler();
       }
 
-      const result = await this.wasmCompiler!.validateSource(code);
+      const result = await this.wasmCompiler!.validateSource(normalizedCode);
 
       return {
         valid: result.valid,
@@ -544,6 +547,7 @@ export class BytecodeCompiler {
    */
   async generateABI(source: FiveScriptSource | string): Promise<any> {
     const code = typeof source === 'string' ? source : source.content;
+    const normalizedCode = normalizeWasmCompilerSource(code);
 
     if (this.debug) {
       console.log(
@@ -556,7 +560,7 @@ export class BytecodeCompiler {
         await this.loadWasmCompiler();
       }
 
-      const abi = await this.wasmCompiler!.generateABI(code);
+      const abi = await this.wasmCompiler!.generateABI(normalizedCode);
       const normalizedFunctions = normalizeAbiFunctions(
         (abi as any)?.functions ?? abi,
       );
@@ -568,7 +572,7 @@ export class BytecodeCompiler {
       }
       throw new CompilationSDKError(
         `ABI generation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-        { source: code.substring(0, 100) },
+        { source: normalizedCode.substring(0, 100) },
       );
     }
   }

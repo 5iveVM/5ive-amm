@@ -55,6 +55,8 @@ Use this checklist during execution. Do not skip gates.
 
 ## C) Compile Gate
 
+Use the installed `5ive` CLI / bundled SDK compiler as the public validation path. Do not assume access to maintainer-only compilers.
+
 1. Run:
 ```bash
 5ive build
