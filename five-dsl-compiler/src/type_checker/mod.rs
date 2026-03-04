@@ -431,7 +431,7 @@ impl types::TypeCheckerContext {
                 if self.imported_interface_symbols.contains_key(symbol_name)
                     || self.imported_type_symbols.contains(symbol_name)
                 {
-                    return Err(VMError::InvalidOperation);
+                    return Err(VMError::duplicate_import(symbol_name, "type"));
                 }
                 self.imported_interface_symbols
                     .insert(symbol_name.to_string(), symbol_name.to_string());
@@ -441,14 +441,14 @@ impl types::TypeCheckerContext {
                 if self.imported_interface_symbols.contains_key(symbol_name)
                     || self.imported_type_symbols.contains(symbol_name)
                 {
-                    return Err(VMError::InvalidOperation);
+                    return Err(VMError::duplicate_import(symbol_name, "type"));
                 }
                 self.imported_type_symbols.insert(symbol_name.to_string());
                 Ok(())
             }
             ImportedSymbolKind::Value => {
                 if self.imported_value_symbols.contains(symbol_name) {
-                    return Err(VMError::InvalidOperation);
+                    return Err(VMError::duplicate_import(symbol_name, "value"));
                 }
                 self.imported_value_symbols.insert(symbol_name.to_string());
                 Ok(())

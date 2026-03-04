@@ -183,6 +183,35 @@ pub fn convert_vm_error_to_compiler_error(
 
             return builder.build();
         }
+        VMError::DuplicateImport { symbol, namespace } => {
+            let symbol_text = symbol.to_string();
+            let namespace_text = namespace.to_string();
+            let location = find_identifier_location(source, &symbol_text, &file_path);
+            let context = ErrorContext::new()
+                .with_identifier(symbol_text.clone())
+                .add_data("namespace".to_string(), namespace_text.clone());
+
+            let mut builder = ErrorBuilder::new(
+                ErrorCode::INVALID_OPERATION,
+                format!(
+                    "duplicate imported {} symbol `{}`",
+                    namespace_text, symbol_text
+                ),
+            )
+            .severity(ErrorSeverity::Error)
+            .category(category)
+            .description(
+                "Each imported symbol name must be unique within its namespace. Rename one import or use the module path explicitly."
+                    .to_string(),
+            )
+            .context(context);
+
+            if let Some(loc) = location {
+                builder = builder.location(loc);
+            }
+
+            return builder.build();
+        }
         VMError::UndefinedIdentifier => (
             ErrorCode::UNDEFINED_VARIABLE,
             "undefined variable or identifier".to_string(),

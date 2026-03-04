@@ -415,6 +415,11 @@ pub enum VMError {
         identifier: Str64,
         did_you_mean: Option<Str64>,
     },
+    /// Duplicate imported symbol within a single namespace.
+    DuplicateImport {
+        symbol: Str64,
+        namespace: Str16,
+    },
     /// Invalid parameter count (legacy - specific version below)
     InvalidParameterCount,
     IndexOutOfBounds,
@@ -499,6 +504,7 @@ impl VMError {
             VMError::UndefinedIdentifier | VMError::UndefinedIdentifierWithContext { .. } => {
                 ProgramError::InvalidInstructionData
             }
+            VMError::DuplicateImport { .. } => ProgramError::InvalidInstructionData,
             VMError::InvalidParameterCount => ProgramError::Custom(9014),
             VMError::IndexOutOfBounds => ProgramError::InvalidInstructionData,
             VMError::OutOfMemory => ProgramError::Custom(9012),
@@ -567,6 +573,7 @@ impl From<VMError> for VMErrorCode {
             VMError::UndefinedIdentifier | VMError::UndefinedIdentifierWithContext { .. } => {
                 VMErrorCode::UndefinedIdentifier
             }
+            VMError::DuplicateImport { .. } => VMErrorCode::InvalidOperation,
             VMError::InvalidParameterCount => VMErrorCode::InvalidParameterCount,
             VMError::IndexOutOfBounds => VMErrorCode::IndexOutOfBounds,
             VMError::OutOfMemory => VMErrorCode::OutOfMemory,
@@ -864,6 +871,13 @@ impl std::fmt::Display for VMError {
                     write!(f, "Cannot find value '{}' in this scope", identifier)
                 }
             }
+            VMError::DuplicateImport { symbol, namespace } => {
+                write!(
+                    f,
+                    "Duplicate imported {} symbol '{}' in the same namespace",
+                    namespace, symbol
+                )
+            }
             VMError::InvalidParameterCount => msg("Invalid parameter count"),
             VMError::IndexOutOfBounds => msg("Index out of bounds"),
             VMError::OutOfMemory => msg("Out of memory"),
@@ -1075,6 +1089,20 @@ impl VMError {
         Self::UndefinedIdentifierWithContext {
             identifier: identifier_buf,
             did_you_mean: did_you_mean_buf,
+        }
+    }
+
+    /// Create a duplicate-import error with namespace context.
+    pub fn duplicate_import(symbol: &str, namespace: &str) -> Self {
+        let mut symbol_buf = Str64::new();
+        let _ = symbol_buf.push_str(symbol);
+
+        let mut namespace_buf = Str16::new();
+        let _ = namespace_buf.push_str(namespace);
+
+        Self::DuplicateImport {
+            symbol: symbol_buf,
+            namespace: namespace_buf,
         }
     }
 }

@@ -188,6 +188,7 @@ impl ErrorUtils {
             VMError::UndefinedIdentifier | VMError::UndefinedIdentifierWithContext { .. } => {
                 "Attempt to access an undefined identifier"
             }
+            VMError::DuplicateImport { .. } => "Duplicate imported symbol",
             VMError::InvalidParameterCount => "Invalid parameter count",
             VMError::IndexOutOfBounds => "Index out of bounds",
             VMError::OutOfMemory => "Out of memory",

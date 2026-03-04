@@ -254,6 +254,7 @@ impl DslCompiler {
             .clone();
 
         let mut module_scope = ModuleScope::new(entry_module.clone());
+        let entry_source_for_errors = std::fs::read_to_string(entry_point).unwrap_or_default();
 
         // Add all non-entry modules
         for module_name in graph.compilation_order() {
@@ -321,11 +322,12 @@ impl DslCompiler {
             let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(entry_module);
             type_checker.check_types(&merged_ast).map_err(|e| {
-                CompilerError::new(
-                    ErrorCode::TYPE_MISMATCH,
-                    ErrorSeverity::Error,
+                crate::compiler::error_handling::convert_vm_error_to_compiler_error(
+                    e,
                     ErrorCategory::Type,
-                    format!("Type checking failed: {}", e),
+                    "type checking",
+                    &entry_source_for_errors,
+                    entry_point.to_str(),
                 )
             })?;
         }
@@ -385,6 +387,7 @@ impl DslCompiler {
         })?;
 
         let mut module_scope = ModuleScope::new(main_module_name.clone());
+        let entry_source_for_errors = std::fs::read_to_string(entry_point).unwrap_or_default();
 
         // First pass: Parse all modules and populate ModuleScope
         for file_path in &module_files {
@@ -459,11 +462,12 @@ impl DslCompiler {
             let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(main_module_name);
             type_checker.check_types(&merged_ast).map_err(|e| {
-                CompilerError::new(
-                    ErrorCode::TYPE_MISMATCH,
-                    ErrorSeverity::Error,
+                crate::compiler::error_handling::convert_vm_error_to_compiler_error(
+                    e,
                     ErrorCategory::Type,
-                    format!("Type checking failed: {}", e),
+                    "type checking",
+                    &entry_source_for_errors,
+                    Some(entry_point),
                 )
             })?;
         }
@@ -654,6 +658,7 @@ impl DslCompiler {
             .clone();
 
         let mut module_scope = ModuleScope::new(entry_module.clone());
+        let entry_source_for_errors = std::fs::read_to_string(entry_point).unwrap_or_default();
 
         // Add all non-entry modules
         for module_name in graph.compilation_order() {
@@ -721,11 +726,12 @@ impl DslCompiler {
             let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(entry_module);
             type_checker.check_types(&merged_ast).map_err(|e| {
-                CompilerError::new(
-                    ErrorCode::TYPE_MISMATCH,
-                    ErrorSeverity::Error,
+                crate::compiler::error_handling::convert_vm_error_to_compiler_error(
+                    e,
                     ErrorCategory::Type,
-                    format!("Type checking failed: {}", e),
+                    "type checking",
+                    &entry_source_for_errors,
+                    entry_point.to_str(),
                 )
             })?;
         }
@@ -788,6 +794,7 @@ impl DslCompiler {
         })?;
 
         let mut module_scope = ModuleScope::new(main_module_name.clone());
+        let entry_source_for_errors = std::fs::read_to_string(entry_point).unwrap_or_default();
 
         // First pass: Parse all modules and populate ModuleScope
         for file_path in &module_files {
@@ -864,11 +871,12 @@ impl DslCompiler {
             let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(main_module_name);
             type_checker.check_types(&merged_ast).map_err(|e| {
-                CompilerError::new(
-                    ErrorCode::TYPE_MISMATCH,
-                    ErrorSeverity::Error,
+                crate::compiler::error_handling::convert_vm_error_to_compiler_error(
+                    e,
                     ErrorCategory::Type,
-                    format!("Type checking failed: {}", e),
+                    "type checking",
+                    &entry_source_for_errors,
+                    Some(entry_point),
                 )
             })?;
         }

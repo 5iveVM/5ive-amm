@@ -609,8 +609,10 @@ fn test_duplicate_imported_type_symbol_in_same_namespace_fails() {
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files).unwrap();
     let config = CompilationConfig::new(CompilationMode::Testing);
-    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
-    assert!(result.is_err(), "duplicate type imports should fail");
+    let err = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)
+        .expect_err("duplicate type imports should fail");
+    let err_text = err.to_string();
+    assert!(err_text.contains("duplicate imported type symbol `Pool`"));
 }
 
 #[test]
@@ -641,8 +643,10 @@ fn test_duplicate_imported_value_symbol_in_same_namespace_fails() {
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files).unwrap();
     let config = CompilationConfig::new(CompilationMode::Testing);
-    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
-    assert!(result.is_err(), "duplicate value imports should fail");
+    let err = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)
+        .expect_err("duplicate value imports should fail");
+    let err_text = err.to_string();
+    assert!(err_text.contains("duplicate imported value symbol `submit`"));
 }
 
 #[test]
