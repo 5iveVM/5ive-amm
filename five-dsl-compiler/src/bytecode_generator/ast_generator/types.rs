@@ -115,6 +115,8 @@ pub struct ASTGenerator {
     /// External imports for CALL_EXTERNAL generation
     /// Maps module name to ExternalImport info
     pub(crate) external_imports: HashMap<String, ExternalImport>,
+    /// Module alias/full-path -> canonical module path for module-qualified value calls.
+    pub(crate) module_path_aliases: HashMap<String, String>,
     /// Module alias/full-path -> interface name for module-qualified interface calls.
     pub(crate) module_interface_aliases: HashMap<String, String>,
 }

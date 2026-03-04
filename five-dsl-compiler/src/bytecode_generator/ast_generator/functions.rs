@@ -355,10 +355,13 @@ impl ASTGenerator {
             }
         }
 
+        let resolved_name = self.resolve_qualified_function_name(name);
+        let effective_name = resolved_name.as_deref().unwrap_or(name);
+
         // Most built-ins consume pre-generated arguments.
         // A few have custom argument lowering and must not pre-generate here.
         let has_custom_arg_lowering = matches!(
-            name,
+            effective_name,
             "derive_pda"
                 | "invoke_signed"
                 | "transfer_lamports"
@@ -369,8 +372,11 @@ impl ASTGenerator {
 
         if !has_custom_arg_lowering {
             let user_defined_param_types = self.function_parameter_types.get(name).cloned();
+            let user_defined_param_types = user_defined_param_types
+                .or_else(|| self.function_parameter_types.get(effective_name).cloned());
             for (arg_idx, arg) in args.iter().enumerate() {
-                let builtin_expected_type = Self::builtin_expected_arg_type(name, arg_idx);
+                let builtin_expected_type =
+                    Self::builtin_expected_arg_type(effective_name, arg_idx);
                 let user_expected_type = user_defined_param_types
                     .as_ref()
                     .and_then(|types| types.get(arg_idx))
@@ -397,21 +403,24 @@ impl ASTGenerator {
                 }
                 let expected_type = builtin_expected_type.or(user_expected_type);
 
-                if !(Self::builtin_allows_untyped_byte_literal(name, arg_idx)
+                let allow_untyped_byte_literal =
+                    Self::builtin_allows_untyped_byte_literal(name, arg_idx)
+                        || Self::builtin_allows_untyped_byte_literal(effective_name, arg_idx);
+                if !(allow_untyped_byte_literal
                     && self.emit_untyped_byte_array_literal(emitter, arg)?)
                 {
                     self.emit_argument_with_expected_type(
                         emitter,
                         arg,
                         expected_type.as_ref(),
-                        &format!("call argument {} for `{}`", arg_idx, name),
+                        &format!("call argument {} for `{}`", arg_idx, effective_name),
                     )?;
                 }
             }
         }
 
         // Handle built-in functions (these don't use function dispatch)
-        match name {
+        match effective_name {
             "require" => {
                 emitter.emit_opcode(REQUIRE);
             }
@@ -635,7 +644,7 @@ impl ASTGenerator {
             _ => {
                 // Check for qualified function names like "math_lib::add"
                 // If the module is registered as external, emit CALL_EXTERNAL instead of CALL
-                if let Some((module_name, func_name)) = Self::parse_qualified_name(name) {
+                if let Some((module_name, func_name)) = Self::parse_qualified_name(effective_name) {
                     if let Some(ext_import) = self.external_imports.get(module_name) {
                         let selector = if let Some(sel) = ext_import.functions.get(func_name) {
                             *sel
@@ -665,7 +674,7 @@ impl ASTGenerator {
                 // Example:
                 //   use "<address>"::{transfer};
                 //   transfer(...)
-                if self.try_emit_unqualified_external_call(emitter, name, args.len())? {
+                if self.try_emit_unqualified_external_call(emitter, effective_name, args.len())? {
                     return Ok(());
                 }
 
@@ -681,7 +690,7 @@ impl ASTGenerator {
                 // during the compilation process when function offsets are known
                 let param_count = self
                     .function_parameter_types
-                    .get(name)
+                    .get(effective_name)
                     .map(|types| {
                         let account_registry = self
                             .account_system
@@ -707,7 +716,7 @@ impl ASTGenerator {
                 let patch_position = emitter.get_position();
                 emitter.emit_u16(0x0000); // Placeholder offset
 
-                self.record_function_patch_at_position(patch_position, name.to_string());
+                self.record_function_patch_at_position(patch_position, effective_name.to_string());
 
                 // Track return from function call (for proper call depth management)
                 self.track_function_return();
@@ -731,6 +740,35 @@ impl ASTGenerator {
         self.interface_registry
             .contains_key(interface_name)
             .then(|| interface_name.to_string())
+    }
+
+    fn resolve_qualified_function_name(&self, name: &str) -> Option<String> {
+        let (qualifier, function_name) = Self::parse_qualified_name(name)?;
+
+        if self.resolve_qualified_interface_name(qualifier).is_some() {
+            return None;
+        }
+
+        let canonical_module = self
+            .module_path_aliases
+            .get(qualifier)
+            .cloned()
+            .unwrap_or_else(|| qualifier.to_string());
+        let canonical_name = format!("{}::{}", canonical_module, function_name);
+
+        if self.function_parameter_types.contains_key(&canonical_name) {
+            return Some(canonical_name);
+        }
+
+        if self.function_parameter_types.contains_key(name) {
+            return Some(name.to_string());
+        }
+
+        if self.function_parameter_types.contains_key(function_name) {
+            return Some(function_name.to_string());
+        }
+
+        None
     }
 
     fn resolve_external_account_index(

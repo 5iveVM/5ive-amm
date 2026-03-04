@@ -44,6 +44,7 @@ impl ASTGenerator {
             precomputed_allocations: None,
             // External imports for CALL_EXTERNAL generation
             external_imports: HashMap::new(),
+            module_path_aliases: HashMap::new(),
             module_interface_aliases: HashMap::new(),
         }
     }
@@ -90,6 +91,7 @@ impl ASTGenerator {
         self.interface_registry.clear();
         self.name_deduplication = super::super::types::NameDeduplication::new();
         self.external_imports.clear();
+        self.module_path_aliases.clear();
         self.module_interface_aliases.clear();
         // Reset resource tracking
         self.reset_resource_tracking();
@@ -161,6 +163,15 @@ impl ASTGenerator {
     ) {
         self.module_interface_aliases
             .insert(module_namespace, interface_name);
+    }
+
+    pub fn register_module_path_alias(
+        &mut self,
+        module_namespace: String,
+        module_path: String,
+    ) {
+        self.module_path_aliases
+            .insert(module_namespace, module_path);
     }
 
     pub fn find_interface_for_module_alias(&self, alias: &str) -> Option<String> {

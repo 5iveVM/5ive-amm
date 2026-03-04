@@ -635,13 +635,16 @@ impl TypeCheckerContext {
             return Ok(method_return_type.unwrap_or(TypeNode::Primitive("unit".to_string())));
         }
 
+        let resolved_name = self.resolve_qualified_value_call(name);
+        let effective_name = resolved_name.as_deref().unwrap_or(name);
+
         // Type check all arguments first
         for arg in args {
             self.infer_type(arg)?;
         }
 
         // Built-in function type checking with argument validation
-        match name {
+        match effective_name {
             "Some" => {
                 if args.len() != 1 {
                     return Err(VMError::InvalidOperation); // Some expects exactly one argument
@@ -826,7 +829,7 @@ impl TypeCheckerContext {
                 for arg in args {
                     let _ = self.infer_type(arg)?;
                 }
-                if let Some(ret) = self.function_return_types.get(name) {
+                if let Some(ret) = self.function_return_types.get(effective_name) {
                     Ok(ret
                         .clone()
                         .unwrap_or(TypeNode::Primitive("void".to_string())))
@@ -877,5 +880,40 @@ impl TypeCheckerContext {
         self.interface_registry
             .contains_key(interface_name)
             .then(|| (interface_name.to_string(), method_name.to_string()))
+    }
+
+    fn resolve_qualified_value_call(&self, name: &str) -> Option<String> {
+        let (qualifier, function_name) = Self::parse_module_qualified_call(name)?;
+
+        if self.resolve_qualified_interface_call(name).is_some() {
+            return None;
+        }
+
+        let canonical_module = self
+            .imported_module_aliases
+            .get(qualifier)
+            .cloned()
+            .unwrap_or_else(|| qualifier.to_string());
+
+        let scope = self.module_scope.as_ref()?;
+        let symbol = scope.resolve_symbol_in_module(&canonical_module, function_name)?;
+        if matches!(symbol.type_info, TypeNode::Account)
+            || scope.module_exports_interface(&canonical_module, function_name)
+        {
+            return None;
+        }
+
+        let canonical_name = format!("{}::{}", canonical_module, function_name);
+        if self.function_return_types.contains_key(&canonical_name) {
+            return Some(canonical_name);
+        }
+        if self.function_return_types.contains_key(name) {
+            return Some(name.to_string());
+        }
+        if self.function_return_types.contains_key(function_name) {
+            return Some(function_name.to_string());
+        }
+
+        Some(function_name.to_string())
     }
 }

@@ -247,7 +247,7 @@ fn test_call_external_generation_via_auto_discovery() -> Result<(), Box<dyn std:
 }
 
 #[test]
-fn test_bundled_stdlib_named_import_auto_discovery_currently_rejected(
+fn test_bundled_stdlib_named_import_auto_discovery_compile(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
@@ -259,13 +259,13 @@ fn test_bundled_stdlib_named_import_auto_discovery_currently_rejected(
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
     let config = CompilationConfig::new(CompilationMode::Testing).with_module_namespaces(false);
 
-    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
-    assert!(result.is_err());
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
     Ok(())
 }
 
 #[test]
-fn test_bundled_stdlib_module_qualified_auto_discovery_currently_rejected(
+fn test_bundled_stdlib_module_qualified_auto_discovery_compile(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
@@ -277,13 +277,13 @@ fn test_bundled_stdlib_module_qualified_auto_discovery_currently_rejected(
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
     let config = CompilationConfig::new(CompilationMode::Testing);
 
-    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
-    assert!(result.is_err());
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
     Ok(())
 }
 
 #[test]
-fn test_bundled_stdlib_full_qualified_auto_discovery_currently_rejected(
+fn test_bundled_stdlib_full_qualified_auto_discovery_compile(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
@@ -295,8 +295,8 @@ fn test_bundled_stdlib_full_qualified_auto_discovery_currently_rejected(
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
     let config = CompilationConfig::new(CompilationMode::Testing);
 
-    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
-    assert!(result.is_err());
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
     Ok(())
 }
 
@@ -332,7 +332,7 @@ fn test_ambiguous_unqualified_call_fails() -> Result<(), Box<dyn std::error::Err
 }
 
 #[test]
-fn test_bundled_stdlib_extended_builtin_wrappers_currently_rejected(
+fn test_bundled_stdlib_extended_builtin_wrappers_compile(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
@@ -353,13 +353,13 @@ fn test_bundled_stdlib_extended_builtin_wrappers_currently_rejected(
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
     let config = CompilationConfig::new(CompilationMode::Testing);
-    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
-    assert!(result.is_err());
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
     Ok(())
 }
 
 #[test]
-fn test_bundled_stdlib_spl_token_extended_interface_currently_rejected(
+fn test_bundled_stdlib_spl_token_extended_interface_compile(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
@@ -370,15 +370,15 @@ fn test_bundled_stdlib_spl_token_extended_interface_currently_rejected(
                 source: Account,
                 destination: Account,
                 mint: Account,
-                authority: Account,
+                authority: Account @signer,
                 delegate: Account
             ) {
-                spl_token::transfer(source, destination, authority, 1);
-                spl_token::approve(source, delegate, authority, 1);
-                spl_token::revoke(source, authority);
-                spl_token::mint_to(mint, destination, authority, 1);
-                spl_token::burn(source, mint, authority, 1);
-                spl_token::close_account(source, destination, authority);
+                spl_token::SPLToken::transfer(source, destination, authority, 1);
+                spl_token::SPLToken::approve(source, delegate, authority, 1);
+                spl_token::SPLToken::revoke(source, authority);
+                spl_token::SPLToken::mint_to(mint, destination, authority, 1);
+                spl_token::SPLToken::burn(source, mint, authority, 1);
+                spl_token::SPLToken::close_account(source, destination, authority);
             }
         }"
         .to_string(),
@@ -386,8 +386,8 @@ fn test_bundled_stdlib_spl_token_extended_interface_currently_rejected(
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
     let config = CompilationConfig::new(CompilationMode::Testing);
-    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
-    assert!(result.is_err());
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
     Ok(())
 }
 

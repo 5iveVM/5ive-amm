@@ -106,6 +106,7 @@ Anchor-porting default:
 
 1. Use module imports, then call stdlib interfaces with an explicit interface segment:
 - `use std::builtins;` then `builtins::now_seconds()`
+- `use std::builtins::now_seconds;` then `now_seconds()`
 - `use std::interfaces::spl_token;` then `spl_token::SPLToken::transfer(...)`
 - `use std::interfaces::system_program;` then `system_program::SystemProgram::transfer(...)`
 2. Interface symbol imports are supported:

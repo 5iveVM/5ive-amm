@@ -144,9 +144,13 @@ use remote::RemoteSink;
 use remote::{Pool, submit};
 use std::interfaces::spl_token;
 use std::interfaces::spl_token::SPLToken;
+use std::builtins;
+use std::builtins::now_seconds;
 
 pub fn run(pool: Pool @mut, mint: account, destination: account, authority: account @signer) {
   submit();
+  let ts = now_seconds();
+  let ts_again = builtins::now_seconds();
   remote::RemoteSink::submit(pool, "vault");
   RemoteSink::submit(pool, "vault");
   spl_token::SPLToken::mint_to(mint, destination, authority, 1);
