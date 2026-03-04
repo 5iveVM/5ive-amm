@@ -21,6 +21,70 @@ use pinocchio::pubkey::Pubkey;
 use support_accounts::{create_test_accounts, derive_pda_real};
 
 #[test]
+fn test_init_account_success() {
+    let program_id = Pubkey::from([0xAB; 32]);
+    let new_account_key = Pubkey::from([0xBC; 32]);
+
+    let mut lamports = 0u64;
+    let mut data = [0u8; 1024];
+    let mut payer_lamports = 1_000_000_000;
+    let mut payer_data = [0u8; 0];
+    let mut sys_lamports = 0u64;
+    let mut sys_data = [0u8; 0];
+    let accounts_storage = create_test_accounts(
+        &program_id,
+        &new_account_key,
+        &mut lamports,
+        &mut data,
+        &mut payer_lamports,
+        &mut payer_data,
+        &mut sys_lamports,
+        &mut sys_data,
+    );
+    let accounts = &accounts_storage;
+
+    let mut bytecode = vec![
+        0x35, 0x49, 0x56, 0x45, // Magic
+        0x00, 0x00, 0x00, 0x00, // Features
+        0x00, 0x00, // Counts
+    ];
+
+    // Push owner (0 => current program)
+    bytecode.push(0x1B);
+    bytecode.extend_from_slice(&0u64.to_le_bytes());
+    // Push lamports
+    bytecode.push(0x1B);
+    bytecode.extend_from_slice(&1_000_000u64.to_le_bytes());
+    // Push payer_idx (0)
+    bytecode.push(0x18);
+    bytecode.push(0x00);
+    // Push space (128)
+    bytecode.push(0x1B);
+    bytecode.extend_from_slice(&128u64.to_le_bytes());
+    // Push account_idx (1)
+    bytecode.push(0x18);
+    bytecode.push(0x01);
+    // Call INIT_ACCOUNT
+    bytecode.push(0x84);
+    bytecode.push(0x00);
+
+    let result = execute_test(&bytecode, &[], accounts, &program_id);
+
+    match result {
+        Ok(_) => {
+            assert_eq!(accounts[0].lamports(), 999_000_000);
+            assert_eq!(accounts[1].lamports(), 1_000_000);
+            assert_eq!(accounts[1].data_len(), 128);
+            assert_eq!(accounts[1].owner(), &program_id);
+            println!("✅ INIT_ACCOUNT success test passed");
+        }
+        Err(e) => {
+            panic!("INIT_ACCOUNT failed unexpected: {:?}", e);
+        }
+    }
+}
+
+#[test]
 fn test_init_pda_account_success() {
     // 1. Setup: Define seeds and derive valid PDA
     let program_id = Pubkey::from([0xAA; 32]);
@@ -89,6 +153,10 @@ fn test_init_pda_account_success() {
 
     match result {
         Ok(_) => {
+            assert_eq!(accounts[0].lamports(), 999_000_000);
+            assert_eq!(accounts[1].lamports(), 1_000_000);
+            assert_eq!(accounts[1].data_len(), 100);
+            assert_eq!(accounts[1].owner(), &program_id);
             println!("✅ INIT_PDA_ACCOUNT success test passed");
         }
         Err(e) => {
