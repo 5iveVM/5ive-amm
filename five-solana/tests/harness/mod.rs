@@ -4,6 +4,16 @@
 //! - `ValidatorHarness` is for RPC/integration/perf and network-gated checks.
 //! - If behavior can be covered in BPF, keep it in BPF and trim in-process duplicates.
 
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+use solana_sdk::{
+    pubkey::Pubkey as SolanaPubkey,
+    signature::{read_keypair_file, Signer},
+};
+
 #[cfg(feature = "inprocess-test-harness")]
 use std::collections::BTreeMap;
 
@@ -22,6 +32,88 @@ pub mod instruction_builders;
 pub mod perf;
 #[cfg(feature = "validator-harness")]
 pub mod validator;
+
+const LOCALNET_BUILD_CMD: &str = "./scripts/build-five-solana-cluster.sh --cluster localnet";
+
+pub fn validate_target_deploy_program_id_parity(expected: &str, actual: &str) -> Result<(), String> {
+    if expected == actual {
+        return Ok(());
+    }
+
+    Err(format!(
+        "stale or mismatched target/deploy SBF artifact set: generated_constants.rs VM_PROGRAM_ID: {}, target/deploy/five-keypair.json pubkey: {}. Rebuild the localnet SBF artifact with `{}`",
+        expected, actual, LOCALNET_BUILD_CMD
+    ))
+}
+
+pub fn target_deploy_dir(repo_root: &Path) -> PathBuf {
+    repo_root.join("target/deploy")
+}
+
+pub fn load_target_deploy_program_id_checked(repo_root: &Path) -> Result<SolanaPubkey, String> {
+    let bpf_dir = target_deploy_dir(repo_root);
+    let keypair_path = bpf_dir.join("five-keypair.json");
+    let program_path = bpf_dir.join("five.so");
+    let generated_constants_path = repo_root.join("five-solana/src/generated_constants.rs");
+
+    if !program_path.exists() {
+        return Err(format!(
+            "missing {}. Build the localnet SBF artifact with `{}`",
+            program_path.display(),
+            LOCALNET_BUILD_CMD
+        ));
+    }
+    if !keypair_path.exists() {
+        return Err(format!(
+            "missing {}. Build the localnet SBF artifact with `{}`",
+            keypair_path.display(),
+            LOCALNET_BUILD_CMD
+        ));
+    }
+
+    let generated_constants = fs::read_to_string(&generated_constants_path).map_err(|e| {
+        format!(
+            "failed reading {}: {}",
+            generated_constants_path.display(),
+            e
+        )
+    })?;
+    let expected_program_id = extract_generated_vm_program_id(&generated_constants)?;
+
+    let actual_program_id = read_keypair_file(&keypair_path)
+        .map_err(|e| format!("failed reading {}: {}", keypair_path.display(), e))?
+        .pubkey()
+        .to_string();
+
+    validate_target_deploy_program_id_parity(&expected_program_id, &actual_program_id)?;
+    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
+
+    actual_program_id.parse().map_err(|e| {
+        format!(
+            "failed parsing target/deploy program id {}: {}",
+            actual_program_id, e
+        )
+    })
+}
+
+fn extract_generated_vm_program_id(source: &str) -> Result<String, String> {
+    let prefix = r#"pub const VM_PROGRAM_ID: &str = ""#;
+    let line = source
+        .lines()
+        .find(|line| line.trim_start().starts_with(prefix))
+        .ok_or_else(|| "missing VM_PROGRAM_ID in five-solana/src/generated_constants.rs".to_string())?;
+    let trimmed = line.trim_start();
+    let without_prefix = trimmed
+        .strip_prefix(prefix)
+        .ok_or_else(|| "failed parsing VM_PROGRAM_ID line in five-solana/src/generated_constants.rs".to_string())?;
+    let value = without_prefix
+        .strip_suffix("\";")
+        .ok_or_else(|| "failed parsing VM_PROGRAM_ID terminator in five-solana/src/generated_constants.rs".to_string())?;
+    if value.is_empty() {
+        return Err("empty VM_PROGRAM_ID in five-solana/src/generated_constants.rs".to_string());
+    }
+    Ok(value.to_string())
+}
 
 #[cfg(feature = "inprocess-test-harness")]
 #[derive(Clone, Debug)]

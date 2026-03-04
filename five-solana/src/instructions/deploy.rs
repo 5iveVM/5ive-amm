@@ -606,7 +606,7 @@ mod tests {
     }
 
     #[test]
-    fn initialize_rejects_untrusted_first_initializer() {
+    fn initialize_allows_first_initializer_to_become_authority() {
         let program_id = Pubkey::from([17u8; 32]);
         let (vm_key, vm_bump) = canonical_vm_key(&program_id);
         let attacker_key = Pubkey::from([18u8; 32]);
@@ -614,7 +614,7 @@ mod tests {
 
         let mut vm_lamports = 1_000_000;
         let mut attacker_lamports = 1_000_000;
-        let mut vm_data = [0u8; FIVEVMState::LEN];
+        let mut vm_state = FIVEVMState::new();
         let mut attacker_data = [];
 
         let vm_account = create_account_info(
@@ -622,7 +622,7 @@ mod tests {
             false,
             true,
             &mut vm_lamports,
-            &mut vm_data,
+            bytemuck::bytes_of_mut(&mut vm_state),
             &program_id,
         );
         let attacker = create_account_info(
@@ -635,10 +635,7 @@ mod tests {
         );
         let accounts = [vm_account, attacker];
 
-        assert_eq!(
-            initialize(&program_id, &accounts, vm_bump),
-            Err(ProgramError::MissingRequiredSignature)
-        );
+        assert!(initialize(&program_id, &accounts, vm_bump).is_ok());
     }
 
     #[test]

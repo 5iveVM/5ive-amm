@@ -1,7 +1,7 @@
 {
   "name": "token_full_e2e",
   "program_seed": 61,
-  "bytecode_path": "../src/token.bin",
+  "bytecode_path": "../src/token.v",
   "permissions": 0,
   "authority": {
     "name": "payer",

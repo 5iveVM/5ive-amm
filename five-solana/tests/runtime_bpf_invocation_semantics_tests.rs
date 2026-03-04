@@ -17,18 +17,15 @@ use solana_sdk::{
     account::Account,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    signature::{read_keypair_file, Keypair, Signer},
+    signature::{Keypair, Signer},
     system_program,
     transaction::Transaction,
 };
 
 fn bpf_program_id() -> Pubkey {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let bpf_dir = repo_root.join("target/deploy");
-    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
-    read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run cargo build-sbf first")
-        .pubkey()
+    harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed")
 }
 
 async fn init_vm(
@@ -294,8 +291,8 @@ async fn execute_fails_when_fee_tail_misordered() {
         .expect_err("execute must fail with misordered fee tail");
     let msg = format!("{err:?}");
     assert!(
-        msg.contains("MissingRequiredSignature") || msg.contains("InvalidArgument"),
-        "expected strict signer/order validation failure, got {msg}"
+        msg.contains("Custom(7853)"),
+        "expected fee vault ordering validation failure Custom(7853), got {msg}"
     );
 }
 
@@ -339,8 +336,8 @@ async fn execute_rejects_readonly_signer_as_fee_payer() {
         .expect_err("readonly signer must not be accepted as execute payer");
 
     assert!(
-        format!("{err:?}").contains("MissingRequiredSignature"),
-        "expected MissingRequiredSignature, got {err:?}"
+        format!("{err:?}").contains("Custom(7807)"),
+        "expected execute fee account validation failure Custom(7807), got {err:?}"
     );
 
     // Also assert canonical path still succeeds in the same test context.

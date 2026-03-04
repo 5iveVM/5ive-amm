@@ -8,6 +8,22 @@ Client-agnostic TypeScript SDK for interacting with 5ive DSL programs on Solana.
 npm install @5ive-tech/sdk @solana/web3.js
 ```
 
+## Localnet Validator Integration Test
+
+The localnet integration suite is intentionally environment-gated. Before running:
+
+1. Rebuild the localnet SBF artifact:
+   - `./scripts/build-five-solana-cluster.sh --cluster localnet`
+2. Start a local validator and deploy the rebuilt localnet-compatible program.
+3. Export the deployed VM program id:
+   - `export FIVE_VM_PROGRAM_ID=<local-program-id>`
+
+Then run:
+
+```bash
+npm run test:localnet
+```
+
 ## Quick Start
 
 ### 1) Compile to `.five`

@@ -21,7 +21,7 @@ use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     rent::Rent,
-    signature::{read_keypair_file, Keypair, Signer},
+    signature::{Keypair, Signer},
     system_program,
     transaction::Transaction,
 };
@@ -147,20 +147,18 @@ fn typed_params(params: &[serde_json::Value]) -> Vec<TypedParam> {
 
 fn load_program_id() -> Option<Pubkey> {
     let root = repo_root();
-    let bpf_dir = root.join("target/deploy");
+    let bpf_dir = harness::target_deploy_dir(&root);
     let keypair = bpf_dir.join("five-keypair.json");
     let program = bpf_dir.join("five.so");
     if !keypair.exists() || !program.exists() {
         eprintln!(
-            "SKIP runtime_feature_matrix_generic_executes_manifest_scenarios: build BPF first with cargo-build-sbf --manifest-path five-solana/Cargo.toml"
+            "SKIP runtime_feature_matrix_generic_executes_manifest_scenarios: build the localnet SBF artifact first with ./scripts/build-five-solana-cluster.sh --cluster localnet"
         );
         return None;
     }
-    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
     Some(
-        read_keypair_file(keypair)
-            .expect("read five-keypair.json")
-            .pubkey(),
+        harness::load_target_deploy_program_id_checked(&root)
+            .expect("target/deploy artifact parity preflight failed"),
     )
 }
 

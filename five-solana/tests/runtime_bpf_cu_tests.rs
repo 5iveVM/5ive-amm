@@ -33,7 +33,7 @@ use solana_sdk::{
     program_pack::Pack,
     pubkey::Pubkey,
     rent::Rent,
-    signature::{read_keypair_file, Keypair, Signer},
+    signature::{Keypair, Signer},
     system_program,
     transaction::Transaction,
 };
@@ -452,9 +452,8 @@ async fn lending_native_spl_deposit_reserve_liquidity_bpf_compute_units() {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let lending_source_path = repo_root.join("5ive-lending-2/src/main.v");
     let lending_source = fs::read_to_string(&lending_source_path).unwrap_or_else(|e| {
@@ -813,7 +812,7 @@ async fn lending_native_spl_deposit_reserve_liquidity_bpf_compute_units() {
             ParamFixture::U8 { value: 80 },
             ParamFixture::U8 { value: 75 },
             ParamFixture::U8 { value: 10 },
-            ParamFixture::U64 { value: 0 },
+            ParamFixture::U64 { value: 1_000 },
         ],
         expected: ExpectedFixture::Success,
     };
@@ -853,7 +852,7 @@ async fn lending_native_spl_deposit_reserve_liquidity_bpf_compute_units() {
 
     let refresh_reserve_step = StepFixture {
         name: "refresh_reserve".to_string(),
-        function_index: 6,
+        function_index: 8,
         extras: vec!["reserve".to_string()],
         params: vec![],
         expected: ExpectedFixture::Success,
@@ -880,7 +879,7 @@ async fn lending_native_spl_deposit_reserve_liquidity_bpf_compute_units() {
 
     let deposit_step = StepFixture {
         name: "deposit_reserve_liquidity".to_string(),
-        function_index: 9,
+        function_index: 11,
         extras: vec![
             "market".to_string(),
             "reserve".to_string(),
@@ -958,9 +957,8 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let token_bytecode = load_token_template_bytecode(&repo_root);
 
@@ -1259,9 +1257,8 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
     let owner_signer = Keypair::new();
@@ -1582,9 +1579,8 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let namespace_source_path = repo_root.join("five-templates/namespace-manager/src/main.v");
     let namespace_source = fs::read_to_string(&namespace_source_path)
@@ -2090,9 +2086,8 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let token_bytecode = load_token_template_bytecode(&repo_root);
 
@@ -2446,9 +2441,8 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let token_bytecode = load_token_template_bytecode(&repo_root);
 
@@ -2946,9 +2940,8 @@ async fn run_fixture_bpf_compute_units(
     let bytecode = load_or_compile_bytecode(&bytecode_path)
         .unwrap_or_else(|e| panic!("failed loading bytecode {}: {}", bytecode_path.display(), e));
 
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
 
@@ -3499,9 +3492,8 @@ async fn minimal_execute_floor_bpf_compute_units() {
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run cargo-build-sbf first")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
     let authority_signer = Keypair::new();
@@ -3799,9 +3791,8 @@ async fn run_external_token_all_public_profile(
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
 
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run `cargo-build-sbf --manifest-path five-solana/Cargo.toml`")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let token_bytecode = load_token_template_bytecode(&repo_root);
 

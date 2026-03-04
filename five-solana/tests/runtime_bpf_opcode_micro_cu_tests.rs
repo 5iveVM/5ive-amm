@@ -20,7 +20,7 @@ use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     rent::Rent,
-    signature::{read_keypair_file, Keypair, Signer},
+    signature::{Keypair, Signer},
     system_program,
     transaction::Transaction,
 };
@@ -112,12 +112,8 @@ async fn opcode_micro_nibble_set_local_hot_loop_bpf_cu() {
 #[tokio::test(flavor = "multi_thread")]
 async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let bpf_dir = repo_root.join("target/deploy");
-    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
-
-    let program_id = read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run cargo-build-sbf --manifest-path five-solana/Cargo.toml")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
 
     let callee_source = r#"
         pub transfer(
@@ -936,11 +932,8 @@ async fn run_single_script_case(
 
 fn load_program_id() -> Pubkey {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let bpf_dir = repo_root.join("target/deploy");
-    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
-    read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run cargo-build-sbf --manifest-path five-solana/Cargo.toml")
-        .pubkey()
+    harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed")
 }
 
 fn base_accounts(program_id: Pubkey, owner_lamports: u64) -> BTreeMap<String, RuntimeAccount> {

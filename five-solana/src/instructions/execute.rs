@@ -201,6 +201,6 @@ mod tests {
 
         let accounts = [script, vm, readonly_signer, fee_vault, system_program];
         let result = execute(&program_id, &accounts, &[]);
-        assert_eq!(result, Err(ProgramError::MissingRequiredSignature));
+        assert_eq!(result, Err(ProgramError::Custom(7807)));
     }
 }

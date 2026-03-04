@@ -1,6 +1,6 @@
 {
   "name": "anchor_token_cpi_e2e_manual",
-  "bytecode_path": "../anchor-program-call-e2e-manual.bin",
+  "bytecode_path": "../anchor-program-call-e2e-manual.v",
   "permissions": 0,
   "skip_deploy": true,
   "authority": {

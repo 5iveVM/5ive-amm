@@ -47,6 +47,8 @@ Optional strict prebuilt-artifact mode (fail instead of auto-build):
 - `cargo test --workspace --exclude five --quiet`
 
 4. BPF runtime CU suites pass:
+- Prerequisite: rebuild the localnet SBF artifact first so `target/deploy` matches `five-solana/src/generated_constants.rs`:
+  - `./scripts/build-five-solana-cluster.sh --cluster localnet`
 - `cargo test -p five --test runtime_bpf_opcode_micro_cu_tests -- --nocapture`
 - `cargo test -p five --test runtime_bpf_cu_tests -- --nocapture`
 
@@ -104,6 +106,7 @@ The two program IDs must match. The gate now auto-repairs this drift unless `--n
 - `./scripts/run-sdk-validator-suites.sh --network localnet --program-id <local-program-id> --vm-state <local-vm-state> --token-script-account <local-token-script-account>`
 - `./scripts/run-sdk-validator-suites.sh --network devnet --program-id <devnet-program-id> --token-script-account <devnet-token-script-account>`
  - Only one canonical token example is required for release signoff (`5ive-token`); `5ive-token-2` is informational and must not block launch.
+ - If running `npm --prefix five-sdk run test:localnet` directly, set `FIVE_VM_PROGRAM_ID=<local-program-id>` and ensure a local validator is running against the rebuilt localnet artifact.
 5. Attach a fresh localnet user-journey report from `target/user-journey-runs/<timestamp>/user-journey-report.json`.
 6. Attach a fresh devnet user-journey report from `target/user-journey-runs/<timestamp>/user-journey-report.json`.
 7. Confirm each engineering gate report `overall_status` is `pass`.

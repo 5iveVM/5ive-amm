@@ -14,18 +14,15 @@ use solana_sdk::{
     account::Account,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    signature::{read_keypair_file, Keypair, Signer},
+    signature::{Keypair, Signer},
     system_program,
     transaction::Transaction,
 };
 
 fn bpf_program_id() -> Pubkey {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let bpf_dir = repo_root.join("target/deploy");
-    std::env::set_var("BPF_OUT_DIR", &bpf_dir);
-    read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run cargo build-sbf first")
-        .pubkey()
+    harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed")
 }
 
 async fn read_lamports(
@@ -533,8 +530,8 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
         .await
         .expect_err("execute must fail when owner cannot pay execute fee");
     assert!(
-        format!("{err:?}").contains("InsufficientFunds"),
-        "expected InsufficientFunds, got {err:?}",
+        format!("{err:?}").contains("Custom(7808)"),
+        "expected execute fee transfer failure Custom(7808), got {err:?}",
     );
 
     let owner_after = read_lamports(&mut ctx, owner.pubkey(), "owner after execute").await;

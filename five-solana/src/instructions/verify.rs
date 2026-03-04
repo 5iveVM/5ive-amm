@@ -158,9 +158,9 @@ mod tests {
     #[test]
     fn verify_rejects_invalid_opcode_with_opcode_code() {
         let mut bytecode = header(1, 1);
-        bytecode.push(0x68); // currently unassigned
+        bytecode.push(0x6F); // currently unassigned
         let err = verify_bytecode_content(&bytecode).unwrap_err();
-        assert_eq!(err, ProgramError::Custom(0x68));
+        assert_eq!(err, ProgramError::Custom(0x6F));
     }
 
     #[test]

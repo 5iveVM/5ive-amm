@@ -92,9 +92,8 @@ async fn run_fee_path_case(
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let bpf_dir = repo_root.join("target/deploy");
     std::env::set_var("BPF_OUT_DIR", &bpf_dir);
-    let program_id = solana_sdk::signature::read_keypair_file(bpf_dir.join("five-keypair.json"))
-        .expect("missing target/deploy/five-keypair.json; run cargo build-sbf first")
-        .pubkey();
+    let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
+        .expect("target/deploy artifact parity preflight failed");
     let mut program_test = ProgramTest::new("five", program_id, None);
 
     let owner = Keypair::new();
