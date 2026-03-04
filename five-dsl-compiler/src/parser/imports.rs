@@ -145,7 +145,7 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
         }
     };
 
-    // Parse optional member imports: ::function_name or ::{method foo, interface Bar, baz}
+    // Parse optional member imports: ::function_name or ::{foo, Bar, baz}
     let imported_items = if matches!(parser.current_token, Token::DoubleColon) {
         parser.advance(); // consume '::'
 
@@ -158,38 +158,13 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
                 && !matches!(parser.current_token, Token::Eof)
             {
                 let item = match &parser.current_token {
-                    // Explicit interface import: interface Name
-                    Token::Interface => {
-                        parser.advance();
-                        if let Token::Identifier(name) = &parser.current_token {
-                            let out = ImportItem::Interface(name.clone());
-                            parser.advance();
-                            out
-                        } else {
-                            return Err(parser.parse_error("interface name after 'interface'"));
-                        }
-                    }
-                    // Explicit method import: method foo
-                    Token::Identifier(kind) if kind == "method" => {
-                        parser.advance();
-                        if let Token::Identifier(name) = &parser.current_token {
-                            let out = ImportItem::Method(name.clone());
-                            parser.advance();
-                            out
-                        } else {
-                            return Err(parser.parse_error("method name after 'method'"));
-                        }
-                    }
-                    // Backward compatible unqualified symbol import.
                     Token::Identifier(name) => {
                         let out = ImportItem::Unqualified(name.clone());
                         parser.advance();
                         out
                     }
                     _ => {
-                        return Err(parser.parse_error(
-                            "import member (identifier, 'method <name>', or 'interface <name>')",
-                        ));
+                        return Err(parser.parse_error("import member identifier"));
                     }
                 };
                 items.push(item);

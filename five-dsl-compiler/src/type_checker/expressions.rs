@@ -11,6 +11,42 @@ impl TypeCheckerContext {
         arg: &AstNode,
         expected_type: &TypeNode,
     ) -> Result<bool, VMError> {
+        if let (AstNode::Literal(value), TypeNode::Primitive(expected_name)) = (arg, expected_type) {
+            match expected_name.as_str() {
+                "u8" => {
+                    if value
+                        .as_u64()
+                        .or_else(|| value.as_i64().filter(|v| *v >= 0).map(|v| v as u64))
+                        .filter(|v| *v <= u8::MAX as u64)
+                        .is_some()
+                    {
+                        return Ok(true);
+                    }
+                }
+                "u16" => {
+                    if value
+                        .as_u64()
+                        .or_else(|| value.as_i64().filter(|v| *v >= 0).map(|v| v as u64))
+                        .filter(|v| *v <= u16::MAX as u64)
+                        .is_some()
+                    {
+                        return Ok(true);
+                    }
+                }
+                "u32" => {
+                    if value
+                        .as_u64()
+                        .or_else(|| value.as_i64().filter(|v| *v >= 0).map(|v| v as u64))
+                        .filter(|v| *v <= u32::MAX as u64)
+                        .is_some()
+                    {
+                        return Ok(true);
+                    }
+                }
+                _ => {}
+            }
+        }
+
         let arg_type = self.infer_type(arg)?;
         if self.types_are_compatible(&arg_type, expected_type) {
             return Ok(true);
@@ -575,46 +611,28 @@ impl TypeCheckerContext {
         name: &str,
         args: &[AstNode],
     ) -> Result<TypeNode, VMError> {
-        // Module-qualified interface call:
-        //   alias::method(...)
-        //   full::module::path::method(...)
-        if let Some((module_ns, method_name)) = Self::parse_module_qualified_call(name) {
-            let interface_name = self
-                .interface_module_aliases
-                .get(module_ns)
-                .cloned()
-                .or_else(|| {
-                    module_ns
-                        .rsplit("::")
-                        .next()
-                        .and_then(|last| self.interface_module_aliases.get(last).cloned())
-                });
+        if let Some((interface_name, method_name)) = self.resolve_qualified_interface_call(name) {
+            let Some(interface_info) = self.interface_registry.get(&interface_name) else {
+                return Err(self.undefined_identifier_error(&interface_name));
+            };
+            let Some(interface_method) = interface_info.methods.get(&method_name) else {
+                return Err(VMError::InvalidOperation);
+            };
 
-            if let Some(interface_name) = interface_name {
-                let Some(interface_info) = self.interface_registry.get(&interface_name) else {
-                    return Err(self.undefined_identifier_error(&interface_name));
-                };
-                let Some(interface_method) = interface_info.methods.get(method_name) else {
-                    return Err(VMError::InvalidOperation);
-                };
+            let method_params = interface_method.parameters.clone();
+            let method_return_type = interface_method.return_type.clone();
 
-                let method_params = interface_method.parameters.clone();
-                let method_return_type = interface_method.return_type.clone();
-
-                if args.len() != method_params.len() {
-                    return Err(VMError::InvalidOperation);
-                }
-
-                for (i, arg) in args.iter().enumerate() {
-                    if !self.argument_matches_expected_type(arg, &method_params[i].param_type)? {
-                        return Err(VMError::TypeMismatch);
-                    }
-                }
-
-                return Ok(method_return_type.unwrap_or(TypeNode::Primitive("unit".to_string())));
+            if args.len() != method_params.len() {
+                return Err(VMError::InvalidOperation);
             }
 
-            return Err(self.undefined_identifier_error(module_ns));
+            for (i, arg) in args.iter().enumerate() {
+                if !self.argument_matches_expected_type(arg, &method_params[i].param_type)? {
+                    return Err(VMError::TypeMismatch);
+                }
+            }
+
+            return Ok(method_return_type.unwrap_or(TypeNode::Primitive("unit".to_string())));
         }
 
         // Type check all arguments first
@@ -827,5 +845,37 @@ impl TypeCheckerContext {
             return None;
         }
         Some((module_ns, method))
+    }
+
+    fn resolve_qualified_interface_call(&self, name: &str) -> Option<(String, String)> {
+        let (qualifier, method_name) = Self::parse_module_qualified_call(name)?;
+
+        if let Some(interface_name) = self.imported_interface_symbols.get(qualifier) {
+            return Some((interface_name.clone(), method_name.to_string()));
+        }
+
+        if self.interface_registry.contains_key(qualifier) {
+            return Some((qualifier.to_string(), method_name.to_string()));
+        }
+
+        let split_idx = qualifier.rfind("::")?;
+        let module_ref = &qualifier[..split_idx];
+        let interface_name = &qualifier[split_idx + 2..];
+        let canonical_module = self
+            .imported_module_aliases
+            .get(module_ref)
+            .cloned()
+            .unwrap_or_else(|| module_ref.to_string());
+
+        let scope = self.module_scope.as_ref()?;
+        if !scope.has_module(&canonical_module)
+            || !scope.module_exports_interface(&canonical_module, interface_name)
+        {
+            return None;
+        }
+
+        self.interface_registry
+            .contains_key(interface_name)
+            .then(|| (interface_name.to_string(), method_name.to_string()))
     }
 }

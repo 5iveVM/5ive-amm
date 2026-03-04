@@ -266,9 +266,9 @@ async function getTemplateContent(name: TemplateName): Promise<string> {
     case 'system-lamports':
       return `quote_transfer(from: account, to: account, amount: u64) -> (u64, u64) { require(amount > 0); require(from.ctx.lamports >= amount); let nf = from.ctx.lamports - amount; let nt = to.ctx.lamports + amount; return (nf, nt); }\ncheck_min_balance(acc: account, min: u64) -> bool { return acc.ctx.lamports >= min; }\ntopup_needed(acc: account, min: u64) -> u64 { if (acc.ctx.lamports >= min) { return 0; } return min - acc.ctx.lamports; }\n`;
     case 'interface':
-      return `interface ExampleProgram @program("11111111111111111111111111111111") @serializer(raw) {\n    do_thing @discriminator_bytes([1]) (authority: account, value: u64);\n}\n\npub call_example(authority: account @signer, value: u64) {\n    ExampleProgram.do_thing(authority, value);\n}\n`;
+      return `interface ExampleProgram @program("11111111111111111111111111111111") @serializer(raw) {\n    do_thing @discriminator_bytes([1]) (authority: account, value: u64);\n}\n\npub call_example(authority: account @signer, value: u64) {\n    ExampleProgram::do_thing(authority, value);\n}\n`;
     case 'spl-token':
-      return `use std::interfaces::spl_token;\n\npub mint_tokens(mint: account @mut, destination: account @mut, authority: account @signer, amount: u64) {\n    require(amount > 0);\n    spl_token::mint_to(mint, destination, authority, amount);\n}\n\npub transfer_tokens(source: account @mut, destination: account @mut, authority: account @signer, amount: u64) {\n    require(amount > 0);\n    spl_token::transfer(source, destination, authority, amount);\n}\n`;
+      return `use std::interfaces::spl_token;\n\npub mint_tokens(mint: account @mut, destination: account @mut, authority: account @signer, amount: u64) {\n    require(amount > 0);\n    spl_token::SPLToken::mint_to(mint, destination, authority, amount);\n}\n\npub transfer_tokens(source: account @mut, destination: account @mut, authority: account @signer, amount: u64) {\n    require(amount > 0);\n    spl_token::SPLToken::transfer(source, destination, authority, amount);\n}\n`;
     
   }
 }
@@ -302,7 +302,7 @@ init_vault(state: VaultState @mut, authority: account @signer) {
 // Updates internal balance for accounting
 deposit(state: VaultState @mut, payer: account @signer @mut, vault_account: account @mut, amount: u64) {
     require(amount > 0);
-    system_program::transfer(payer, vault_account, amount);
+    system_program::SystemProgram::transfer(payer, vault_account, amount);
     state.balance = state.balance + amount;
 }
 
@@ -314,7 +314,7 @@ withdraw(state: VaultState @mut, authority: account @signer, vault_account: acco
     require(state.authorized_user == authority.ctx.key);
     require(amount > 0);
     require(state.balance >= amount);
-    system_program::transfer(vault_account, recipient, amount);
+    system_program::SystemProgram::transfer(vault_account, recipient, amount);
     state.balance = state.balance - amount;
 }
 `;

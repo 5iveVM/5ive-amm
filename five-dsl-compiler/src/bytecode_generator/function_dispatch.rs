@@ -895,15 +895,23 @@ impl FunctionDispatcher {
                     }
                 }
 
-                if let (Some(alias), Some(full_path)) = (&local_module_alias, &local_module_path) {
-                    if let Some(interface_name) =
-                        ast_generator.find_interface_for_module_alias(alias)
-                    {
-                        ast_generator
-                            .register_module_interface_alias(alias.clone(), interface_name.clone());
-                        ast_generator
-                            .register_module_interface_alias(full_path.clone(), interface_name);
+                if imported_items.is_none() {
+                    if let Some(full_path) = &local_module_path {
+                        if let Some(split_idx) = full_path.rfind("::") {
+                            let interface_name = &full_path[split_idx + 2..];
+                            if ast_generator.get_interface_info(interface_name).is_some() {
+                                ast_generator.register_module_interface_alias(
+                                    interface_name.to_string(),
+                                    interface_name.to_string(),
+                                );
+                                ast_generator.register_module_interface_alias(
+                                    full_path.clone(),
+                                    interface_name.to_string(),
+                                );
+                            }
+                        }
                     }
+
                 }
 
                 if is_external_import {

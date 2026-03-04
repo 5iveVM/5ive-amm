@@ -537,6 +537,7 @@ impl DslCompiler {
             instruction_definitions,
             field_definitions,
             account_definitions,
+            interface_definitions,
             ..
         } = ast
         {
@@ -599,6 +600,12 @@ impl DslCompiler {
                             visibility: *visibility,
                         },
                     );
+                }
+            }
+
+            for interface_def in interface_definitions {
+                if let AstNode::InterfaceDefinition { name, .. } = interface_def {
+                    scope.register_interface(module_name.to_string(), name.clone());
                 }
             }
         }
@@ -1230,6 +1237,79 @@ pub send(sink: account) {
         assert!(inspector.contains_opcode(opcodes::PUSH_BYTES));
         assert!(inspector.contains_opcode(opcodes::ARRAY_CONCAT));
         assert!(inspector.contains_opcode(opcodes::INVOKE));
+    }
+
+    #[test]
+    fn local_interface_string_calls_work_in_full_interface_pipeline() {
+        let source = r#"
+interface StringSink @program("11111111111111111111111111111111") @serializer(raw) {
+    submit @discriminator_bytes([]) (
+        sink: Account,
+        payload: string<32>
+    );
+}
+
+pub send(sink: account) {
+    StringSink.submit(sink, "vault");
+}
+"#;
+
+        let config = CompilationConfig::new(CompilationMode::Testing);
+        let (bytecode, _log) =
+            DslCompiler::compile_with_config_and_log(source, &config).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+
+        assert!(
+            inspector.contains_opcode(opcodes::PUSH_STRING)
+                || inspector.contains_opcode(opcodes::PUSH_STRING_W)
+        );
+        assert!(inspector.contains_opcode(opcodes::ARRAY_CONCAT));
+        assert!(inspector.contains_opcode(opcodes::INVOKE));
+    }
+
+    #[test]
+    fn length_prefixed_interface_string_calls_compile_for_borsh_and_bincode() {
+        for serializer in ["borsh", "bincode"] {
+            let source = format!(
+                r#"
+interface StringSink @program("11111111111111111111111111111111") @serializer({serializer}) {{
+    submit @discriminator_bytes([]) (
+        sink: Account,
+        payload: string<32>
+    );
+}}
+
+pub send(sink: account) {{
+    StringSink.submit(sink, "vault");
+}}
+"#
+            );
+
+            let bytecode = DslCompiler::compile_dsl(&source).expect("compilation failed");
+            let inspector = BytecodeInspector::new(&bytecode);
+
+            assert!(inspector.contains_opcode(opcodes::INVOKE));
+            assert!(inspector.contains_opcode(opcodes::ARRAY_CONCAT));
+            assert!(inspector.contains_opcode(opcodes::ARRAY_LENGTH));
+        }
+    }
+
+    #[test]
+    fn oversized_bounded_interface_string_literal_is_rejected() {
+        let source = r#"
+interface StringSink @program("11111111111111111111111111111111") @serializer(raw) {
+    submit @discriminator_bytes([]) (
+        sink: Account,
+        payload: string<4>
+    );
+}
+
+pub send(sink: account) {
+    StringSink.submit(sink, "hello");
+}
+"#;
+
+        assert!(DslCompiler::compile_dsl(source).is_err());
     }
 
     #[test]

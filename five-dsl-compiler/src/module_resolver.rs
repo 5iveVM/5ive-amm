@@ -5,9 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::ast::AstNode;
 use crate::error::ModuleResolutionError;
 use crate::parser::DslParser;
-use crate::stdlib_registry::{
-    bundled_stdlib_source, bundled_stdlib_virtual_path, is_stdlib_module,
-};
+use crate::stdlib_registry::{bundled_stdlib_source, bundled_stdlib_virtual_path};
 use crate::tokenizer::DslTokenizer;
 
 /// Represents a single module in the project.
@@ -287,7 +285,7 @@ impl ModuleDiscoverer {
                     continue;
                 }
 
-                if is_stdlib_module(&dep) {
+                if bundled_stdlib_source(&dep).is_some() {
                     if graph.get_module(&dep).is_none() {
                         if let Some(src) = bundled_stdlib_source(&dep) {
                             let local_candidate = self
@@ -414,12 +412,46 @@ impl ModuleDiscoverer {
             for import in import_statements {
                 if let AstNode::ImportStatement {
                     module_specifier,
-                    imported_items: _,
+                    imported_items,
                 } = import
                 {
                     match module_specifier {
                         crate::ast::ModuleSpecifier::Local(name) => out.push(name),
-                        crate::ast::ModuleSpecifier::Nested(path) => out.push(path.join("::")),
+                        crate::ast::ModuleSpecifier::Nested(path) => {
+                            if let Some(items) = imported_items {
+                                if !items.is_empty() {
+                                    out.push(path.join("::"));
+                                    continue;
+                                }
+                            }
+
+                            let full = path.join("::");
+                            let full_is_module = bundled_stdlib_source(&full).is_some()
+                                || self
+                                    .module_path_to_file_path(&full)
+                                    .map(|p| p.exists())
+                                    .unwrap_or(false);
+
+                            if full_is_module {
+                                out.push(full);
+                                continue;
+                            }
+
+                            if path.len() > 1 {
+                                let parent = path[..path.len() - 1].join("::");
+                                let parent_is_module = bundled_stdlib_source(&parent).is_some()
+                                    || self
+                                        .module_path_to_file_path(&parent)
+                                        .map(|p| p.exists())
+                                        .unwrap_or(false);
+                                if parent_is_module {
+                                    out.push(parent);
+                                    continue;
+                                }
+                            }
+
+                            out.push(full);
+                        }
                         crate::ast::ModuleSpecifier::External(addr) => {
                             out.push(format!("\"{}\"", addr))
                         }
@@ -430,6 +462,8 @@ impl ModuleDiscoverer {
                 }
             }
         }
+        out.sort();
+        out.dedup();
         out
     }
 }

@@ -63,6 +63,12 @@ pub struct TypeCheckerContext {
     pub(crate) imported_external_interfaces: HashSet<String>,
     /// Canonical module alias/full-path -> interface name mapping used for module-qualified CPI calls.
     pub(crate) interface_module_aliases: HashMap<String, String>,
+    /// Imported interface symbols available for `Interface::method(...)`.
+    pub(crate) imported_interface_symbols: HashMap<String, String>,
+    /// Imported non-interface type symbols available by local name (e.g. `use mod::Pool;`).
+    pub(crate) imported_type_symbols: HashSet<String>,
+    /// Imported value symbols available by local name (e.g. `use mod::submit;`).
+    pub(crate) imported_value_symbols: HashSet<String>,
     /// Canonical imported module alias -> full module path (for diagnostics/suggestions).
     pub(crate) imported_module_aliases: HashMap<String, String>,
     /// Account parameter names that have seeded @init and therefore expose `account.ctx.bump`.
@@ -92,6 +98,9 @@ impl TypeCheckerContext {
             current_module: None,
             imported_external_interfaces: HashSet::new(),
             interface_module_aliases: HashMap::new(),
+            imported_interface_symbols: HashMap::new(),
+            imported_type_symbols: HashSet::new(),
+            imported_value_symbols: HashSet::new(),
             imported_module_aliases: HashMap::new(),
             init_bump_accounts: HashSet::new(),
             init_space_accounts: HashSet::new(),
@@ -230,6 +239,9 @@ impl TypeCheckerContext {
             .chain(self.interface_registry.keys().map(String::as_str))
             .chain(self.imported_external_interfaces.iter().map(String::as_str))
             .chain(self.interface_module_aliases.keys().map(String::as_str))
+            .chain(self.imported_interface_symbols.keys().map(String::as_str))
+            .chain(self.imported_type_symbols.iter().map(String::as_str))
+            .chain(self.imported_value_symbols.iter().map(String::as_str))
             .chain(self.imported_module_aliases.keys().map(String::as_str))
             .chain(self.function_return_types.keys().map(String::as_str))
         {

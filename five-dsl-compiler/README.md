@@ -134,6 +134,32 @@ five execute build/project.five --function "math::add" --args "[5, 3]"
 five execute build/project.five --function "initialize"
 ```
 
+## Imports and Interface Calls
+
+Five now supports Rust-like symbol imports alongside module imports.
+
+```five
+use remote;
+use remote::RemoteSink;
+use remote::{Pool, submit};
+use std::interfaces::spl_token;
+use std::interfaces::spl_token::SPLToken;
+
+pub fn run(pool: Pool @mut, mint: account, destination: account, authority: account @signer) {
+  submit();
+  remote::RemoteSink::submit(pool, "vault");
+  RemoteSink::submit(pool, "vault");
+  spl_token::SPLToken::mint_to(mint, destination, authority, 1);
+  SPLToken::transfer(mint, destination, authority, 1);
+}
+```
+
+Canonical interface forms:
+- `InterfaceName::method(...)`
+- `module::InterfaceName::method(...)`
+
+Legacy in-file dot-call syntax (`InterfaceName.method(...)`) remains accepted for local compatibility, but new authored code should prefer `::`.
+
 ## Visibility Rules
 
 Functions can be marked with visibility modifiers:

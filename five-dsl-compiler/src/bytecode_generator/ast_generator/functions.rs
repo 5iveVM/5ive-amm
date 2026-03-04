@@ -5,7 +5,7 @@ use super::assignments::{collect_byte_array_literal_bytes, fixed_u8_array_len};
 use super::types::ASTGenerator;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::bytecode_generator::account_utils::account_index_from_param_index;
-use crate::type_checker::{InterfaceInfo, InterfaceMethod};
+use crate::type_checker::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 use core::cmp::Ordering;
 use five_protocol::opcodes::*;
 use five_protocol::Value;
@@ -255,7 +255,7 @@ impl ASTGenerator {
         object: &AstNode,
         args: &[AstNode],
     ) -> Result<(), VMError> {
-        // Imported interface from `use "<account>"::{interface Name}`.
+        // Imported interface from an explicit interface symbol path.
         // These calls execute callee bytecode via CALL_EXTERNAL rather than
         // synthesizing caller-side INVOKE payloads.
         if let AstNode::Identifier(import_name) = object {
@@ -342,22 +342,8 @@ impl ASTGenerator {
         name: &str,
         args: &[AstNode],
     ) -> Result<(), VMError> {
-        // Module-qualified interface call:
-        //   alias::method(...)
-        //   full::module::path::method(...)
-        if let Some((module_name, method_name)) = Self::parse_qualified_name(name) {
-            let interface_name = self
-                .module_interface_aliases
-                .get(module_name)
-                .cloned()
-                .or_else(|| {
-                    module_name
-                        .rsplit("::")
-                        .next()
-                        .and_then(|last| self.module_interface_aliases.get(last).cloned())
-                });
-
-            if let Some(interface_name) = interface_name {
+        if let Some((qualifier, method_name)) = Self::parse_qualified_name(name) {
+            if let Some(interface_name) = self.resolve_qualified_interface_name(qualifier) {
                 if let Some(interface_info) = self.interface_registry.get(&interface_name) {
                     if let Some(interface_method) = interface_info.methods.get(method_name) {
                         let info = interface_info.clone();
@@ -731,6 +717,22 @@ impl ASTGenerator {
         Ok(())
     }
 
+    fn resolve_qualified_interface_name(&self, qualifier: &str) -> Option<String> {
+        if let Some(interface_name) = self.module_interface_aliases.get(qualifier) {
+            return Some(interface_name.clone());
+        }
+
+        if self.interface_registry.contains_key(qualifier) {
+            return Some(qualifier.to_string());
+        }
+
+        let split_idx = qualifier.rfind("::")?;
+        let interface_name = &qualifier[split_idx + 2..];
+        self.interface_registry
+            .contains_key(interface_name)
+            .then(|| interface_name.to_string())
+    }
+
     fn resolve_external_account_index(
         &self,
         module_name: &str,
@@ -922,6 +924,7 @@ impl ASTGenerator {
             emitter.emit_const_pubkey(&program_id_bytes)?;
             self.emit_instruction_data_construction(
                 emitter,
+                interface_info,
                 interface_method,
                 &data_arg_indices,
                 args,
@@ -944,6 +947,7 @@ impl ASTGenerator {
             emitter.emit_const_pubkey(&program_id_bytes)?;
             self.emit_instruction_data_construction(
                 emitter,
+                interface_info,
                 interface_method,
                 &data_arg_indices,
                 args,
@@ -1077,6 +1081,7 @@ impl ASTGenerator {
     fn emit_instruction_data_construction<T: OpcodeEmitter>(
         &mut self,
         emitter: &mut T,
+        interface_info: &InterfaceInfo,
         interface_method: &InterfaceMethod,
         data_arg_indices: &[usize],
         args: &[AstNode],
@@ -1096,7 +1101,7 @@ impl ASTGenerator {
             };
 
             let arg = &args[arg_idx];
-            self.emit_argument_serialization(emitter, param_type, arg)?;
+            self.emit_argument_serialization(emitter, &interface_info.serializer, param_type, arg)?;
             emitter.emit_opcode(ARRAY_CONCAT);
         }
 
@@ -1108,6 +1113,7 @@ impl ASTGenerator {
     fn emit_argument_serialization<T: OpcodeEmitter>(
         &mut self,
         emitter: &mut T,
+        serializer: &InterfaceSerializer,
         param_type: &TypeNode,
         arg: &AstNode,
     ) -> Result<(), VMError> {
@@ -1142,6 +1148,21 @@ impl ASTGenerator {
                     emitter.emit_const_bytes(&[byte])?;
                 } else {
                     self.generate_ast_node(emitter, arg)?;
+                }
+                Ok(())
+            }
+            TypeNode::Primitive(name) if name == "u16" => {
+                if let AstNode::Literal(val) = arg {
+                    let word = val
+                        .as_u64()
+                        .or_else(|| val.as_i64().filter(|v| *v >= 0).map(|v| v as u64))
+                        .filter(|v| *v <= u16::MAX as u64)
+                        .ok_or(VMError::TypeMismatch)? as u16;
+                    emitter.emit_const_bytes(&word.to_le_bytes())?;
+                } else {
+                    self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+                    emitter.emit_u8(1);
                 }
                 Ok(())
             }
@@ -1187,11 +1208,70 @@ impl ASTGenerator {
                 }
                 Ok(())
             }
+            TypeNode::Primitive(name) if name == "string" => {
+                self.emit_string_argument_serialization(emitter, serializer, None, arg)
+            }
+            TypeNode::Sized { base_type, size } if base_type == "string" => {
+                self.emit_string_argument_serialization(emitter, serializer, Some(*size), arg)
+            }
             _ => {
                 eprintln!("DEBUG: unsupported CPI serialization for {:?}", param_type);
                 Err(VMError::TypeMismatch)
             }
         }
+    }
+
+    fn emit_string_argument_serialization<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        serializer: &InterfaceSerializer,
+        max_len: Option<u64>,
+        arg: &AstNode,
+    ) -> Result<(), VMError> {
+        if let AstNode::StringLiteral { value } = arg {
+            if let Some(limit) = max_len {
+                if value.len() as u64 > limit {
+                    return Err(VMError::TypeMismatch);
+                }
+            }
+        }
+
+        match serializer {
+            InterfaceSerializer::Raw => {
+                self.generate_ast_node(emitter, arg)?;
+            }
+            InterfaceSerializer::Borsh | InterfaceSerializer::Bincode => {
+                self.emit_length_prefixed_string_bytes(emitter, arg)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn emit_length_prefixed_string_bytes<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        arg: &AstNode,
+    ) -> Result<(), VMError> {
+        // Convert the string reference into a raw byte array first so ARRAY_LENGTH can
+        // read the header. Empty bytes + string concatenation preserves the string bytes.
+        self.generate_ast_node(emitter, arg)?;
+        emitter.emit_const_bytes(&[])?;
+        emitter.emit_opcode(SWAP);
+        emitter.emit_opcode(ARRAY_CONCAT);
+
+        // Duplicate the byte array so one copy can be measured and the other appended.
+        emitter.emit_opcode(DUP);
+        emitter.emit_opcode(ARRAY_LENGTH);
+        emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+        emitter.emit_u8(1);
+
+        // The VM currently exposes array length as a single byte. Extend it to LE u32.
+        emitter.emit_const_bytes(&[0, 0, 0])?;
+        emitter.emit_opcode(ARRAY_CONCAT);
+        emitter.emit_opcode(SWAP);
+        emitter.emit_opcode(ARRAY_CONCAT);
+        Ok(())
     }
 }
 

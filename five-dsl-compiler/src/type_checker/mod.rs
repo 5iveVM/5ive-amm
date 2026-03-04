@@ -19,7 +19,7 @@ mod type_safe_example;
 mod types;
 mod validation;
 
-use crate::ast::{AstNode, TypeNode};
+use crate::ast::{AstNode, ModuleSpecifier, TypeNode};
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
@@ -29,6 +29,12 @@ pub use types::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 
 // Type alias for backward compatibility
 pub type DslTypeChecker = types::TypeCheckerContext;
+
+enum ImportedSymbolKind {
+    Interface,
+    Type,
+    Value,
+}
 
 impl types::TypeCheckerContext {
     pub fn check_types(&mut self, ast: &AstNode) -> Result<(), VMError> {
@@ -47,8 +53,10 @@ impl types::TypeCheckerContext {
                 // Capture imported interface module aliases for module-qualified CPI validation.
                 self.imported_external_interfaces.clear();
                 self.interface_module_aliases.clear();
+                self.imported_interface_symbols.clear();
+                self.imported_type_symbols.clear();
+                self.imported_value_symbols.clear();
                 self.imported_module_aliases.clear();
-                let mut pending_module_aliases: Vec<(String, String)> = Vec::new();
                 for import_stmt in import_statements {
                     if let AstNode::ImportStatement {
                         module_specifier,
@@ -61,24 +69,30 @@ impl types::TypeCheckerContext {
                             continue;
                         };
 
+                        if let Some(items) = imported_items {
+                            let module_path = full_module_path.clone();
+                            for item in items {
+                                let name = item.name().to_string();
+                                if let Some(kind) =
+                                    self.resolve_exported_symbol_kind(&module_path, &name)
+                                {
+                                    self.register_imported_symbol(&name, kind);
+                                }
+                            }
+                            continue;
+                        }
+
+                        if let Some((symbol_name, kind)) =
+                            self.resolve_nested_symbol_import(module_specifier)?
+                        {
+                            self.register_imported_symbol(&symbol_name, kind);
+                            continue;
+                        }
+
                         self.imported_module_aliases
                             .insert(alias.clone(), full_module_path.clone());
                         self.imported_module_aliases
                             .insert(full_module_path.clone(), full_module_path.clone());
-
-                        if let Some(items) = imported_items {
-                            for item in items {
-                                if let crate::ast::ImportItem::Interface(name) = item {
-                                    self.imported_external_interfaces.insert(name.clone());
-                                    self.interface_module_aliases
-                                        .insert(alias.clone(), name.clone());
-                                    self.interface_module_aliases
-                                        .insert(full_module_path.clone(), name.clone());
-                                }
-                            }
-                        } else {
-                            pending_module_aliases.push((alias, full_module_path));
-                        }
                     }
                 }
 
@@ -97,19 +111,6 @@ impl types::TypeCheckerContext {
 
                 // Process interface definitions (now account definitions are available)
                 self.process_interface_definitions(interface_definitions)?;
-
-                // Resolve implicit `use module;` interface mappings using convention:
-                // module alias/full path -> interface with matching snake_case name.
-                for (alias, full_path) in pending_module_aliases {
-                    if let Some(interface_name) = self.find_interface_for_module_alias(&alias) {
-                        self.imported_external_interfaces
-                            .insert(interface_name.clone());
-                        self.interface_module_aliases
-                            .insert(alias.clone(), interface_name.clone());
-                        self.interface_module_aliases
-                            .insert(full_path, interface_name);
-                    }
-                }
 
                 // Pre-register function return types for user-defined functions
                 for instruction_def in instruction_definitions {
@@ -361,59 +362,77 @@ impl types::TypeCheckerContext {
     }
 
     fn module_path_and_alias(
-        module_specifier: &crate::ast::ModuleSpecifier,
+        module_specifier: &ModuleSpecifier,
     ) -> Option<(String, String)> {
         match module_specifier {
-            crate::ast::ModuleSpecifier::Local(name) => Some((name.clone(), name.clone())),
-            crate::ast::ModuleSpecifier::Nested(path) if !path.is_empty() => {
+            ModuleSpecifier::Local(name) => Some((name.clone(), name.clone())),
+            ModuleSpecifier::Nested(path) if !path.is_empty() => {
                 Some((path.join("::"), path[path.len() - 1].clone()))
             }
             _ => None,
         }
     }
 
-    fn find_interface_for_module_alias(&self, alias: &str) -> Option<String> {
-        let mut matches: Vec<String> = self
-            .interface_registry
-            .keys()
-            .filter(|name| {
-                let snake = Self::to_snake_case(name);
-                snake == alias || name.as_str() == alias
-            })
-            .cloned()
-            .collect();
-
-        if matches.len() == 1 {
-            return matches.pop();
+    fn resolve_nested_symbol_import(
+        &self,
+        module_specifier: &ModuleSpecifier,
+    ) -> Result<Option<(String, ImportedSymbolKind)>, VMError> {
+        let ModuleSpecifier::Nested(path) = module_specifier else {
+            return Ok(None);
+        };
+        if path.len() < 2 {
+            return Ok(None);
         }
-        None
+
+        let full_path = path.join("::");
+        let symbol_name = path[path.len() - 1].clone();
+        let parent_path = path[..path.len() - 1].join("::");
+        let Some(kind) = self.resolve_exported_symbol_kind(&parent_path, &symbol_name) else {
+            return Ok(None);
+        };
+        let full_is_module = self
+            .module_scope
+            .as_ref()
+            .map(|s| s.has_module(&full_path))
+            .unwrap_or(false);
+
+        if full_is_module {
+            return Err(VMError::InvalidOperation);
+        }
+
+        Ok(Some((symbol_name, kind)))
     }
 
-    fn to_snake_case(name: &str) -> String {
-        let mut out = String::new();
-        let chars: Vec<char> = name.chars().collect();
-        for (i, ch) in chars.iter().enumerate() {
-            let ch = *ch;
-            if ch.is_uppercase() {
-                let prev = if i > 0 { Some(chars[i - 1]) } else { None };
-                let next = chars.get(i + 1).copied();
-                let needs_sep = i != 0
-                    && prev
-                        .map(|p| p.is_lowercase() || p.is_ascii_digit())
-                        .unwrap_or(false)
-                    || (i != 0
-                        && prev.map(|p| p.is_uppercase()).unwrap_or(false)
-                        && next.map(|n| n.is_lowercase()).unwrap_or(false));
-                if needs_sep {
-                    out.push('_');
-                }
-                for lower in ch.to_lowercase() {
-                    out.push(lower);
-                }
-            } else {
-                out.push(ch);
+    fn resolve_exported_symbol_kind(
+        &self,
+        module_path: &str,
+        symbol_name: &str,
+    ) -> Option<ImportedSymbolKind> {
+        let scope = self.module_scope.as_ref()?;
+        if scope.module_exports_interface(module_path, symbol_name) {
+            return Some(ImportedSymbolKind::Interface);
+        }
+
+        let symbol = scope.resolve_symbol_in_module(module_path, symbol_name)?;
+        if matches!(symbol.type_info, TypeNode::Account) {
+            Some(ImportedSymbolKind::Type)
+        } else {
+            Some(ImportedSymbolKind::Value)
+        }
+    }
+
+    fn register_imported_symbol(&mut self, symbol_name: &str, kind: ImportedSymbolKind) {
+        match kind {
+            ImportedSymbolKind::Interface => {
+                self.imported_interface_symbols
+                    .insert(symbol_name.to_string(), symbol_name.to_string());
+            }
+            ImportedSymbolKind::Type => {
+                self.imported_type_symbols.insert(symbol_name.to_string());
+            }
+            ImportedSymbolKind::Value => {
+                self.imported_value_symbols.insert(symbol_name.to_string());
             }
         }
-        out
     }
 }

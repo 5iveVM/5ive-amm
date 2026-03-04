@@ -75,7 +75,7 @@ fn docs_interface_cpi_snippet_compiles() {
         }
 
         pub cpi_transfer(from: account @mut, to: account @mut, authority: account @signer) {
-            SPLToken.transfer(from, to, authority, 100);
+            SPLToken::transfer(from, to, authority, 100);
         }
     "#;
 

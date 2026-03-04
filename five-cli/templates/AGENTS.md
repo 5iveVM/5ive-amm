@@ -104,19 +104,23 @@ Anchor-porting default:
 
 ## 8) Stdlib and Import Contract (Mandatory)
 
-1. Use module imports, then call via module alias:
+1. Use module imports, then call stdlib interfaces with an explicit interface segment:
 - `use std::builtins;` then `builtins::now_seconds()`
-- `use std::interfaces::spl_token;` then `spl_token::transfer(...)`
-2. Full-path calls are valid:
-- `std::interfaces::spl_token::transfer(...)`
+- `use std::interfaces::spl_token;` then `spl_token::SPLToken::transfer(...)`
+- `use std::interfaces::system_program;` then `system_program::SystemProgram::transfer(...)`
+2. Interface symbol imports are supported:
+- `use std::interfaces::spl_token::SPLToken;` then `SPLToken::transfer(...)`
+- `use payments::MemoProgram;` then `MemoProgram::write(...)`
+3. Full-path calls are valid:
+- `std::interfaces::spl_token::SPLToken::transfer(...)`
+- `std::interfaces::system_program::SystemProgram::transfer(...)`
 - `std::builtins::now_seconds()`
-3. Imported stdlib/interface modules should be called with module syntax:
-- `spl_token::transfer(...)`
-4. Local interfaces declared in the same source file use dot-call syntax:
-- `MemoProgram.write(...)`
-5. Missing import for alias calls should be fixed by adding `use <module path>;`.
-6. Prefer interface `@authority` parameters plus caller-side `account @pda(seeds=[...])` metadata over explicit `invoke_signed(...)` calls.
-7. If an interface authority arg is a normal signer account, the compiler should emit plain `INVOKE`; if it is a PDA account, the compiler should emit signed CPI automatically.
+4. Legacy local dot-call syntax may still compile for in-file interfaces, but canonical authored syntax is:
+- `MemoProgram::write(...)`
+5. `module::method(...)` is not the canonical interface form; include the interface name segment.
+6. Missing import for alias calls should be fixed by adding `use <module path>;` or `use <module path>::<Symbol>;`.
+7. Prefer interface `@authority` parameters plus caller-side `account @pda(seeds=[...])` metadata over explicit `invoke_signed(...)` calls.
+8. If an interface authority arg is a normal signer account, the compiler should emit plain `INVOKE`; if it is a PDA account, the compiler should emit signed CPI automatically.
 
 ## 8.1) Crypto Capability Contract (Mandatory)
 

@@ -70,6 +70,8 @@ pub struct ModuleScope {
     current_module: String,
     /// Import relationships (module -> list of imported modules)
     imports: HashMap<String, Vec<String>>,
+    /// Interface names exported by module.
+    module_interfaces: HashMap<String, Vec<String>>,
 }
 
 impl ModuleScope {
@@ -85,6 +87,7 @@ impl ModuleScope {
             module_tables,
             current_module: entry_module,
             imports: HashMap::new(),
+            module_interfaces: HashMap::new(),
         }
     }
 
@@ -100,6 +103,13 @@ impl ModuleScope {
             .entry(from_module)
             .or_default()
             .push(imported_module);
+    }
+
+    pub fn register_interface(&mut self, module_name: String, interface_name: String) {
+        self.module_interfaces
+            .entry(module_name)
+            .or_default()
+            .push(interface_name);
     }
 
     /// Set the current module context
@@ -181,6 +191,23 @@ impl ModuleScope {
     /// Get all imported modules for a given module
     pub fn get_imports(&self, module_name: &str) -> Option<&Vec<String>> {
         self.imports.get(module_name)
+    }
+
+    pub fn get_module_interfaces(&self, module_name: &str) -> Option<&Vec<String>> {
+        self.module_interfaces.get(module_name)
+    }
+
+    pub fn module_exports_interface(&self, module_name: &str, interface_name: &str) -> bool {
+        self.module_interfaces
+            .get(module_name)
+            .map(|interfaces| interfaces.iter().any(|name| name == interface_name))
+            .unwrap_or(false)
+    }
+
+    pub fn resolve_symbol_in_module(&self, module_name: &str, symbol_name: &str) -> Option<ModuleSymbol> {
+        self.module_tables
+            .get(module_name)
+            .and_then(|table| table.lookup(symbol_name).cloned())
     }
 }
 

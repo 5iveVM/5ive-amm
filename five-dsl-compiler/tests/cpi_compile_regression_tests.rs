@@ -101,6 +101,86 @@ fn amm_like_cpi_program_compiles_and_emits_invoke() {
 }
 
 #[test]
+fn raw_interface_with_bounded_string_data_compiles_and_emits_invoke() {
+    let source = r#"
+        interface StringSink @program("11111111111111111111111111111111") @serializer(raw) {
+            submit @discriminator_bytes([]) (
+                sink: Account,
+                payload: string<32>
+            );
+        }
+
+        pub send(sink: account) {
+            StringSink.submit(sink, "vault");
+        }
+    "#;
+
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("raw string-bearing interface call should compile");
+    assert!(
+        bytecode.iter().any(|op| *op == opcodes::INVOKE),
+        "string-bearing interface call should emit INVOKE opcode"
+    );
+    assert!(
+        bytecode
+            .iter()
+            .any(|op| *op == opcodes::PUSH_STRING || *op == opcodes::PUSH_STRING_W),
+        "string-bearing interface call should materialize string data"
+    );
+}
+
+#[test]
+fn metaplex_like_raw_interface_shape_with_multiple_bounded_strings_compiles() {
+    let source = r#"
+        interface MetadataProgram @program("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s") @serializer(raw) {
+            create_metadata_account_v3 @discriminator_bytes([33]) (
+                metadata: Account,
+                mint: Account,
+                mint_authority: Account,
+                payer: Account,
+                update_authority: Account,
+                system_program_account: Account,
+                name: string<32>,
+                symbol: string<10>,
+                uri: string<200>,
+                seller_fee_basis_points: u16,
+                creators_is_some: bool
+            );
+        }
+
+        pub create(
+            metadata: account @mut,
+            mint: account @mut,
+            mint_authority: account @signer,
+            payer: account @signer,
+            update_authority: account @signer,
+            system_program_account: account
+        ) {
+            MetadataProgram.create_metadata_account_v3(
+                metadata,
+                mint,
+                mint_authority,
+                payer,
+                update_authority,
+                system_program_account,
+                "Five Pool",
+                "5IVE",
+                "https://example.com/meta.json",
+                0,
+                false
+            );
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source)
+        .expect("Metaplex-shaped raw interface call should compile");
+    assert!(
+        bytecode.iter().any(|op| *op == opcodes::INVOKE),
+        "Metaplex-shaped interface call should emit INVOKE opcode"
+    );
+}
+
+#[test]
 fn one_shot_amm_fixture_compiles_when_present() {
     let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()

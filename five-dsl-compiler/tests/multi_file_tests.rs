@@ -405,10 +405,10 @@ fn test_bundled_stdlib_system_program_extended_interface_compile(
                 base: Account,
                 owner: Account
             ) {
-                system_program::transfer(payer, new_account, 1);
-                system_program::assign(new_account, owner);
-                system_program::create_account(payer, new_account, 1, 8, owner);
-                system_program::create_account_with_seed(payer, new_account, base, 0, 1, 8, owner);
+                system_program::SystemProgram::transfer(payer, new_account, 1);
+                system_program::SystemProgram::assign(new_account, owner);
+                system_program::SystemProgram::create_account(payer, new_account, 1, 8, owner);
+                system_program::SystemProgram::create_account_with_seed(payer, new_account, base, 0, 1, 8, owner);
             }
         }"
         .to_string(),
@@ -448,10 +448,177 @@ fn test_bundled_stdlib_legacy_object_style_interface_call_fails() {
         err_text.contains("Undefined")
             || err_text.contains("undefined")
             || err_text.contains("Cannot find value")
-            || err_text.contains("cannot find value"),
+            || err_text.contains("cannot find value")
+            || err_text.contains("Constraint")
+            || err_text.contains("constraint"),
         "unexpected error: {}",
         err
     );
+}
+
+#[test]
+fn test_local_module_interface_symbol_import_and_call_compile(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use remote::RemoteSink;
+            pub fn run(target: Account) {
+                RemoteSink::submit(target, \"vault\");
+            }
+        }"
+        .to_string(),
+    );
+    files.insert(
+        "remote.v".to_string(),
+        "script remote {
+            interface RemoteSink @program(\"11111111111111111111111111111111\") @serializer(raw) {
+                submit @discriminator_bytes([]) (target: Account, label: string<32>);
+            }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_local_module_namespace_import_with_explicit_interface_path_compile(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use remote;
+            pub fn run(target: Account) {
+                remote::RemoteSink::submit(target, \"vault\");
+            }
+        }"
+        .to_string(),
+    );
+    files.insert(
+        "remote.v".to_string(),
+        "script remote {
+            interface RemoteSink @program(\"11111111111111111111111111111111\") @serializer(raw) {
+                submit @discriminator_bytes([]) (target: Account, label: string<32>);
+            }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_local_module_value_symbol_import_and_call_compile(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use remote::submit;
+            pub fn run() {
+                submit();
+            }
+        }"
+        .to_string(),
+    );
+    files.insert(
+        "remote.v".to_string(),
+        "script remote {
+            pub fn submit() { }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_local_module_brace_type_and_value_import_compile(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use remote::{Pool, submit};
+            pub fn run(pool: Pool @mut) {
+                submit();
+                pool.balance = 1;
+            }
+        }"
+        .to_string(),
+    );
+    files.insert(
+        "remote.v".to_string(),
+        "script remote {
+            account Pool {
+                balance: u64;
+            }
+
+            pub fn submit() { }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_old_explicit_interface_import_syntax_rejected() {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use remote::{interface RemoteSink};
+        }"
+        .to_string(),
+    );
+    files.insert("remote.v".to_string(), "script remote { }".to_string());
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files).unwrap();
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_bundled_stdlib_interface_symbol_import_compile(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use std::interfaces::spl_token::SPLToken;
+            pub fn run(mint: Account, destination: Account, authority: Account @signer) {
+                SPLToken::mint_to(mint, destination, authority, 1);
+            }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
 }
 
 #[test]

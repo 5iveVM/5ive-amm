@@ -383,11 +383,11 @@ impl NamespaceSpecifier {
 /// Import member for use/import statements.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ImportItem {
-    /// Backward compatible unresolved symbol kind (defaults to method import today).
+    /// Inferred symbol import (resolved later as a value/type/interface export).
     Unqualified(String),
-    /// Explicit method import (used for function/CALL_EXTERNAL paths).
+    /// Explicit method import (legacy external import selector).
     Method(String),
-    /// Explicit interface import (used for method-style external execution paths).
+    /// Explicit interface import (legacy external interface selector).
     Interface(String),
 }
 

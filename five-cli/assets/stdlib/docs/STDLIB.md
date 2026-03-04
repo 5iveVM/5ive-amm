@@ -23,7 +23,7 @@ pub transfer_tokens(
   destination: account @mut,
   authority: account @signer,
 ) {
-  spl_token::transfer(source, destination, authority, 1);
+  spl_token::SPLToken::transfer(source, destination, authority, 1);
 }
 ```
 
@@ -42,12 +42,14 @@ Documented import forms:
 
 1. `use std::builtins::{now_seconds};` then call `now_seconds()`
 2. `use std::builtins;` then call `builtins::now_seconds()`
-3. `use std::interfaces::spl_token;` then call `spl_token::...`
-4. `use std::interfaces::system_program;` then call `system_program::...`
-5. Full path calls are also supported, e.g. `std::interfaces::spl_token::transfer(...)`
+3. `use std::interfaces::spl_token;` then call `spl_token::SPLToken::...`
+4. `use std::interfaces::system_program;` then call `system_program::SystemProgram::...`
+5. `use std::interfaces::spl_token::SPLToken;` then call `SPLToken::...`
+6. Full path calls are also supported, e.g. `std::interfaces::spl_token::SPLToken::transfer(...)`
 
-Imported stdlib interfaces use module calls like `spl_token::transfer(...)`.
-Locally declared interfaces may use dot-call syntax like `ExampleProgram.do_thing(...)`.
+Imported stdlib interfaces use explicit interface paths like `spl_token::SPLToken::transfer(...)`.
+Locally declared interfaces should prefer `ExampleProgram::do_thing(...)`.
+Legacy in-file dot-call syntax like `ExampleProgram.do_thing(...)` may still compile for compatibility.
 Authority-aware CPI guidance:
 1. mark interface authority account params with `@authority`
 2. declare PDA authorities on caller params with `account @pda(seeds=[...])`

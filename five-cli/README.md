@@ -162,6 +162,22 @@ If none are set, on-chain commands fail fast with a program ID setup error.
 
 `@5ive-tech/cli` and `@5ive-tech/sdk` work best with `.five` artifacts.
 
+## Import and Interface Syntax
+
+Current authored syntax prefers Rust-like imports and explicit interface paths:
+
+```five
+use std::interfaces::spl_token;
+use std::interfaces::spl_token::SPLToken;
+
+pub mint_tokens(mint: account, destination: account, authority: account @signer, amount: u64) {
+  spl_token::SPLToken::mint_to(mint, destination, authority, amount);
+  SPLToken::transfer(mint, destination, authority, amount);
+}
+```
+
+Prefer `InterfaceName::method(...)` or `module::InterfaceName::method(...)` over the older implicit `module::method(...)` style.
+
 ## Common Commands
 
 ```bash
