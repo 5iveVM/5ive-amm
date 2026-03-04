@@ -417,6 +417,7 @@ pub fn validate_import_security(imports: &[AstNode]) -> Result<(), VMError> {
         if let AstNode::ImportStatement {
             module_specifier,
             imported_items,
+            ..
         } = import
         {
             // Extract account address or module path for reporting

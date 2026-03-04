@@ -202,5 +202,6 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
     Ok(AstNode::ImportStatement {
         module_specifier,
         imported_items,
+        location: None,
     })
 }

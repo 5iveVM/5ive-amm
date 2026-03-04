@@ -419,6 +419,7 @@ pub enum VMError {
     DuplicateImport {
         symbol: Str64,
         namespace: Str16,
+        import_ordinal: u32,
     },
     /// Invalid parameter count (legacy - specific version below)
     InvalidParameterCount,
@@ -871,7 +872,11 @@ impl std::fmt::Display for VMError {
                     write!(f, "Cannot find value '{}' in this scope", identifier)
                 }
             }
-            VMError::DuplicateImport { symbol, namespace } => {
+            VMError::DuplicateImport {
+                symbol,
+                namespace,
+                ..
+            } => {
                 write!(
                     f,
                     "Duplicate imported {} symbol '{}' in the same namespace",
@@ -1093,7 +1098,7 @@ impl VMError {
     }
 
     /// Create a duplicate-import error with namespace context.
-    pub fn duplicate_import(symbol: &str, namespace: &str) -> Self {
+    pub fn duplicate_import(symbol: &str, namespace: &str, import_ordinal: u32) -> Self {
         let mut symbol_buf = Str64::new();
         let _ = symbol_buf.push_str(symbol);
 
@@ -1103,6 +1108,7 @@ impl VMError {
         Self::DuplicateImport {
             symbol: symbol_buf,
             namespace: namespace_buf,
+            import_ordinal,
         }
     }
 }

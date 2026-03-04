@@ -71,6 +71,7 @@ fn test_import_parsing() {
         if let AstNode::ImportStatement {
             module_specifier,
             imported_items,
+            ..
         } = &import_statements[0]
         {
             // vault_scripts is an identifier, so it parses as Local

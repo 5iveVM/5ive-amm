@@ -336,6 +336,7 @@ pub enum AstNode {
     ImportStatement {
         module_specifier: ModuleSpecifier,
         imported_items: Option<Vec<ImportItem>>, // Specific members to import (None = all)
+        location: Option<SourceLocation>,
     },
 
     Identifier(String),

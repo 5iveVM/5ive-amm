@@ -413,6 +413,7 @@ impl ModuleDiscoverer {
                 if let AstNode::ImportStatement {
                     module_specifier,
                     imported_items,
+                    ..
                 } = import
                 {
                     match module_specifier {

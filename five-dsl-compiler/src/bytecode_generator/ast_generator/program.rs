@@ -39,6 +39,7 @@ impl ASTGenerator {
             let AstNode::ImportStatement {
                 module_specifier,
                 imported_items,
+                ..
             } = import_stmt
             else {
                 continue;

@@ -183,7 +183,8 @@ impl<'a> CompilationPipeline<'a> {
         self.metrics.start_phase("parsing");
         let result: Result<AstNode, VMError> = DslParser::new(tokens).parse();
         match result {
-            Ok(ast) => {
+            Ok(mut ast) => {
+                Self::annotate_import_locations(&mut ast, self.source);
                 self.metrics.end_phase();
                 Ok(ast)
             }
@@ -202,23 +203,67 @@ impl<'a> CompilationPipeline<'a> {
         }
     }
 
+    fn annotate_import_locations(ast: &mut AstNode, source: &str) {
+        let AstNode::Program {
+            import_statements, ..
+        } = ast
+        else {
+            return;
+        };
+
+        let mut import_locations = source.lines().enumerate().filter_map(|(line_idx, line)| {
+            let trimmed = line.trim_start();
+            if !(trimmed.starts_with("use ") || trimmed.starts_with("import ")) {
+                return None;
+            }
+
+            let indent = line.len().saturating_sub(trimmed.len());
+            Some(crate::ast::SourceLocation::new(
+                line_idx as u32,
+                indent as u32,
+                trimmed.len() as u32,
+            ))
+        });
+
+        for import_stmt in import_statements {
+            if let AstNode::ImportStatement { location, .. } = import_stmt {
+                *location = import_locations.next();
+            }
+        }
+    }
+
     /// Execute the type checking phase (simple version without interfaces).
     ///
     /// Validates type correctness of the AST.
     pub fn type_check(&mut self, ast: &AstNode) -> Result<(), CompilerError> {
         let source = self.source;
-        execute_phase!(
-            "type_checking",
-            &mut self.metrics,
-            &mut self.error_collector,
-            &source,
-            self.filename,
-            ErrorCategory::Type,
-            {
-                let mut type_checker = DslTypeChecker::new();
-                type_checker.check_types(ast)
+        self.metrics.start_phase("type_checking");
+        let result = {
+            let mut type_checker = DslTypeChecker::new();
+            type_checker.check_types(ast)
+        };
+
+        match result {
+            Ok(()) => {
+                self.metrics.end_phase();
+                Ok(())
             }
-        )
+            Err(vm_error) => {
+                let compiler_error =
+                    crate::compiler::error_handling::convert_vm_error_to_compiler_error_with_ast(
+                        vm_error,
+                        ast,
+                        ErrorCategory::Type,
+                        "type_checking",
+                        source,
+                        self.filename,
+                    );
+                let error_msg = format!("{}", compiler_error);
+                self.error_collector.error(compiler_error.clone());
+                self.metrics.record_error(&error_msg, "type_checking");
+                Err(compiler_error)
+            }
+        }
     }
 
     /// Execute type checking with interface preprocessing (full version).
@@ -252,34 +297,47 @@ impl<'a> CompilationPipeline<'a> {
         )?;
 
         // Phase 2: Type checking with interface definitions
-        execute_phase!(
-            "type_checking",
-            &mut self.metrics,
-            &mut self.error_collector,
-            &source,
-            self.filename,
-            ErrorCategory::Type,
+        self.metrics.start_phase("type_checking");
+        let result = {
+            let mut type_checker = DslTypeChecker::new();
+
+            let preprocess_result = if let AstNode::Program {
+                interface_definitions,
+                ..
+            } = ast
             {
-                let mut type_checker = DslTypeChecker::new();
+                type_checker.process_interface_definitions(interface_definitions)
+            } else {
+                Ok(())
+            };
 
-                // Pass interface definitions to type checker
-                let preprocess_result = if let AstNode::Program {
-                    interface_definitions,
-                    ..
-                } = ast
-                {
-                    type_checker.process_interface_definitions(interface_definitions)
-                } else {
-                    Ok(())
-                };
-
-                if let Err(vm_error) = preprocess_result {
-                    Err(vm_error)
-                } else {
-                    type_checker.check_types(ast)
-                }
+            if let Err(vm_error) = preprocess_result {
+                Err(vm_error)
+            } else {
+                type_checker.check_types(ast)
             }
-        )?;
+        };
+
+        match result {
+            Ok(()) => {
+                self.metrics.end_phase();
+            }
+            Err(vm_error) => {
+                let compiler_error =
+                    crate::compiler::error_handling::convert_vm_error_to_compiler_error_with_ast(
+                        vm_error,
+                        ast,
+                        ErrorCategory::Type,
+                        "type_checking",
+                        source,
+                        self.filename,
+                    );
+                let error_msg = format!("{}", compiler_error);
+                self.error_collector.error(compiler_error.clone());
+                self.metrics.record_error(&error_msg, "type_checking");
+                return Err(compiler_error);
+            }
+        }
 
         Ok(interface_registry)
     }
@@ -533,6 +591,41 @@ mod tests {
             .expect("interface preprocessing failed");
 
         assert!(true);
+    }
+
+    #[test]
+    fn test_parse_annotates_import_statement_locations() {
+        let source = "script main {\n    use left::Pool;\n    use right::submit;\n}";
+        let mut pipeline = CompilationPipeline::new(source, None);
+        let tokens = pipeline.tokenize().expect("tokenization failed");
+        let ast = pipeline.parse(tokens).expect("parsing failed");
+
+        let AstNode::Program {
+            import_statements, ..
+        } = ast
+        else {
+            panic!("expected program AST");
+        };
+
+        let AstNode::ImportStatement {
+            location: Some(first_location),
+            ..
+        } = &import_statements[0]
+        else {
+            panic!("expected first import to have a location");
+        };
+        assert_eq!(first_location.line, 1);
+        assert_eq!(first_location.column, 4);
+
+        let AstNode::ImportStatement {
+            location: Some(second_location),
+            ..
+        } = &import_statements[1]
+        else {
+            panic!("expected second import to have a location");
+        };
+        assert_eq!(second_location.line, 2);
+        assert_eq!(second_location.column, 4);
     }
 
     #[test]

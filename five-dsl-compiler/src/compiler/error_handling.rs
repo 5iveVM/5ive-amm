@@ -1,5 +1,6 @@
 // Compiler error handling.
 
+use crate::ast::{AstNode, SourceLocation as AstSourceLocation};
 use crate::error::types::{ErrorBuilder, ErrorContext, ErrorSeverity};
 use crate::error::{integration, CompilerError, ErrorCategory, ErrorCode, SourceLocation};
 use crate::metrics::MetricsCollector;
@@ -183,34 +184,21 @@ pub fn convert_vm_error_to_compiler_error(
 
             return builder.build();
         }
-        VMError::DuplicateImport { symbol, namespace } => {
+        VMError::DuplicateImport {
+            symbol,
+            namespace,
+            ..
+        } => {
             let symbol_text = symbol.to_string();
             let namespace_text = namespace.to_string();
             let location = find_identifier_location(source, &symbol_text, &file_path);
-            let context = ErrorContext::new()
-                .with_identifier(symbol_text.clone())
-                .add_data("namespace".to_string(), namespace_text.clone());
-
-            let mut builder = ErrorBuilder::new(
-                ErrorCode::INVALID_OPERATION,
-                format!(
-                    "duplicate imported {} symbol `{}`",
-                    namespace_text, symbol_text
-                ),
-            )
-            .severity(ErrorSeverity::Error)
-            .category(category)
-            .description(
-                "Each imported symbol name must be unique within its namespace. Rename one import or use the module path explicitly."
-                    .to_string(),
-            )
-            .context(context);
-
-            if let Some(loc) = location {
-                builder = builder.location(loc);
-            }
-
-            return builder.build();
+            return build_duplicate_import_error(
+                symbol_text,
+                namespace_text,
+                None,
+                location,
+                category,
+            );
         }
         VMError::UndefinedIdentifier => (
             ErrorCode::UNDEFINED_VARIABLE,
@@ -252,6 +240,38 @@ pub fn convert_vm_error_to_compiler_error(
         .severity(ErrorSeverity::Error)
         .category(category)
         .build()
+}
+
+pub fn convert_vm_error_to_compiler_error_with_ast(
+    vm_error: VMError,
+    ast: &AstNode,
+    category: ErrorCategory,
+    phase: &str,
+    source: &str,
+    filename: Option<&str>,
+) -> CompilerError {
+    if let VMError::DuplicateImport {
+        ref symbol,
+        ref namespace,
+        import_ordinal,
+    } = vm_error
+    {
+        let file_path = PathBuf::from(filename.unwrap_or("input.v"));
+        let symbol_text = symbol.to_string();
+        let namespace_text = namespace.to_string();
+        let location = find_import_location_in_ast(ast, import_ordinal as usize, source, &file_path)
+            .or_else(|| find_identifier_location(source, &symbol_text, &file_path));
+
+        return build_duplicate_import_error(
+            symbol_text,
+            namespace_text,
+            Some(import_ordinal),
+            location,
+            category,
+        );
+    }
+
+    convert_vm_error_to_compiler_error(vm_error, category, phase, source, filename)
 }
 
 /// Convert byte position to line and column for error reporting.
@@ -319,6 +339,84 @@ fn find_identifier_location(
     }
 
     None
+}
+
+fn find_import_location_in_ast(
+    ast: &AstNode,
+    import_ordinal: usize,
+    source: &str,
+    file_path: &PathBuf,
+) -> Option<SourceLocation> {
+    let AstNode::Program {
+        import_statements, ..
+    } = ast
+    else {
+        return None;
+    };
+
+    let AstNode::ImportStatement {
+        location: Some(location),
+        ..
+    } = import_statements.get(import_ordinal)?
+    else {
+        return None;
+    };
+
+    Some(ast_location_to_compiler_location(*location, source, file_path))
+}
+
+fn ast_location_to_compiler_location(
+    location: AstSourceLocation,
+    source: &str,
+    file_path: &PathBuf,
+) -> SourceLocation {
+    let offset = source
+        .lines()
+        .take(location.line as usize)
+        .map(|line| line.chars().count() + 1)
+        .sum::<usize>()
+        .saturating_add(location.column as usize);
+
+    SourceLocation::new(location.line + 1, location.column + 1, offset)
+        .with_length(location.length as usize)
+        .with_file(file_path.clone())
+}
+
+fn build_duplicate_import_error(
+    symbol_text: String,
+    namespace_text: String,
+    import_ordinal: Option<u32>,
+    location: Option<SourceLocation>,
+    category: ErrorCategory,
+) -> CompilerError {
+    let mut context = ErrorContext::new()
+        .with_identifier(symbol_text.clone())
+        .add_data("namespace".to_string(), namespace_text.clone());
+
+    if let Some(import_ordinal) = import_ordinal {
+        context = context.add_data("import_ordinal".to_string(), import_ordinal.to_string());
+    }
+
+    let mut builder = ErrorBuilder::new(
+        ErrorCode::INVALID_OPERATION,
+        format!(
+            "duplicate imported {} symbol `{}`",
+            namespace_text, symbol_text
+        ),
+    )
+    .severity(ErrorSeverity::Error)
+    .category(category)
+    .description(
+        "Each imported symbol name must be unique within its namespace. Rename one import or use the module path explicitly."
+            .to_string(),
+    )
+    .context(context);
+
+    if let Some(loc) = location {
+        builder = builder.location(loc);
+    }
+
+    builder.build()
 }
 
 fn is_identifier_char(c: char) -> bool {

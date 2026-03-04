@@ -428,6 +428,7 @@ impl FunctionDispatcher {
                 if let AstNode::ImportStatement {
                     module_specifier,
                     imported_items,
+                    ..
                 } = import_stmt
                 {
                     // Extract account address or module path
@@ -801,6 +802,7 @@ impl FunctionDispatcher {
                 let AstNode::ImportStatement {
                     module_specifier,
                     imported_items,
+                    ..
                 } = import_stmt
                 else {
                     continue;

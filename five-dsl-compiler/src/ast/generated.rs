@@ -637,6 +637,7 @@ impl From<Definition> for AstNode {
             Definition::ImportStatement(node) => AstNode::ImportStatement {
                 module_specifier: node.module_specifier,
                 imported_items: node.imported_items,
+                location: None,
             },
             Definition::ArrowFunction(node) => AstNode::ArrowFunction {
                 parameters: node.parameters,

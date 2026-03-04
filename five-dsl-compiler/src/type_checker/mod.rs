@@ -57,10 +57,11 @@ impl types::TypeCheckerContext {
                 self.imported_type_symbols.clear();
                 self.imported_value_symbols.clear();
                 self.imported_module_aliases.clear();
-                for import_stmt in import_statements {
+                for (import_idx, import_stmt) in import_statements.iter().enumerate() {
                     if let AstNode::ImportStatement {
                         module_specifier,
                         imported_items,
+                        ..
                     } = import_stmt
                     {
                         let Some((full_module_path, alias)) =
@@ -76,7 +77,7 @@ impl types::TypeCheckerContext {
                                 if let Some(kind) =
                                     self.resolve_exported_symbol_kind(&module_path, &name)
                                 {
-                                    self.register_imported_symbol(&name, kind)?;
+                                    self.register_imported_symbol(&name, kind, import_idx as u32)?;
                                 }
                             }
                             continue;
@@ -85,7 +86,11 @@ impl types::TypeCheckerContext {
                         if let Some((symbol_name, kind)) =
                             self.resolve_nested_symbol_import(module_specifier)?
                         {
-                            self.register_imported_symbol(&symbol_name, kind)?;
+                            self.register_imported_symbol(
+                                &symbol_name,
+                                kind,
+                                import_idx as u32,
+                            )?;
                             continue;
                         }
 
@@ -425,13 +430,18 @@ impl types::TypeCheckerContext {
         &mut self,
         symbol_name: &str,
         kind: ImportedSymbolKind,
+        import_ordinal: u32,
     ) -> Result<(), VMError> {
         match kind {
             ImportedSymbolKind::Interface => {
                 if self.imported_interface_symbols.contains_key(symbol_name)
                     || self.imported_type_symbols.contains(symbol_name)
                 {
-                    return Err(VMError::duplicate_import(symbol_name, "type"));
+                    return Err(VMError::duplicate_import(
+                        symbol_name,
+                        "type",
+                        import_ordinal,
+                    ));
                 }
                 self.imported_interface_symbols
                     .insert(symbol_name.to_string(), symbol_name.to_string());
@@ -441,14 +451,22 @@ impl types::TypeCheckerContext {
                 if self.imported_interface_symbols.contains_key(symbol_name)
                     || self.imported_type_symbols.contains(symbol_name)
                 {
-                    return Err(VMError::duplicate_import(symbol_name, "type"));
+                    return Err(VMError::duplicate_import(
+                        symbol_name,
+                        "type",
+                        import_ordinal,
+                    ));
                 }
                 self.imported_type_symbols.insert(symbol_name.to_string());
                 Ok(())
             }
             ImportedSymbolKind::Value => {
                 if self.imported_value_symbols.contains(symbol_name) {
-                    return Err(VMError::duplicate_import(symbol_name, "value"));
+                    return Err(VMError::duplicate_import(
+                        symbol_name,
+                        "value",
+                        import_ordinal,
+                    ));
                 }
                 self.imported_value_symbols.insert(symbol_name.to_string());
                 Ok(())

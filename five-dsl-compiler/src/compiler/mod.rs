@@ -322,8 +322,9 @@ impl DslCompiler {
             let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(entry_module);
             type_checker.check_types(&merged_ast).map_err(|e| {
-                crate::compiler::error_handling::convert_vm_error_to_compiler_error(
+                crate::compiler::error_handling::convert_vm_error_to_compiler_error_with_ast(
                     e,
+                    &merged_ast,
                     ErrorCategory::Type,
                     "type checking",
                     &entry_source_for_errors,
@@ -462,8 +463,9 @@ impl DslCompiler {
             let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(main_module_name);
             type_checker.check_types(&merged_ast).map_err(|e| {
-                crate::compiler::error_handling::convert_vm_error_to_compiler_error(
+                crate::compiler::error_handling::convert_vm_error_to_compiler_error_with_ast(
                     e,
+                    &merged_ast,
                     ErrorCategory::Type,
                     "type checking",
                     &entry_source_for_errors,
@@ -726,8 +728,9 @@ impl DslCompiler {
             let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(entry_module);
             type_checker.check_types(&merged_ast).map_err(|e| {
-                crate::compiler::error_handling::convert_vm_error_to_compiler_error(
+                crate::compiler::error_handling::convert_vm_error_to_compiler_error_with_ast(
                     e,
+                    &merged_ast,
                     ErrorCategory::Type,
                     "type checking",
                     &entry_source_for_errors,
@@ -871,8 +874,9 @@ impl DslCompiler {
             let mut type_checker = DslTypeChecker::new().with_module_scope(module_scope);
             type_checker.set_current_module(main_module_name);
             type_checker.check_types(&merged_ast).map_err(|e| {
-                crate::compiler::error_handling::convert_vm_error_to_compiler_error(
+                crate::compiler::error_handling::convert_vm_error_to_compiler_error_with_ast(
                     e,
+                    &merged_ast,
                     ErrorCategory::Type,
                     "type checking",
                     &entry_source_for_errors,

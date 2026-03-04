@@ -613,6 +613,8 @@ fn test_duplicate_imported_type_symbol_in_same_namespace_fails() {
         .expect_err("duplicate type imports should fail");
     let err_text = err.to_string();
     assert!(err_text.contains("duplicate imported type symbol `Pool`"));
+    let loc = err.location.expect("duplicate type import should have a location");
+    assert_eq!(loc.line, 3, "location should point at the second import");
 }
 
 #[test]
@@ -647,6 +649,8 @@ fn test_duplicate_imported_value_symbol_in_same_namespace_fails() {
         .expect_err("duplicate value imports should fail");
     let err_text = err.to_string();
     assert!(err_text.contains("duplicate imported value symbol `submit`"));
+    let loc = err.location.expect("duplicate value import should have a location");
+    assert_eq!(loc.line, 3, "location should point at the second import");
 }
 
 #[test]
