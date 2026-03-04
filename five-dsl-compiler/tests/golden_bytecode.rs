@@ -448,6 +448,42 @@ fn golden_derive_pda_with_bump_unwraps_to_pubkey() {
     );
 }
 
+/// Golden test: tuple destructuring must not emit a stray arity byte after UNPACK_TUPLE
+#[test]
+fn golden_tuple_destructuring_unpack_has_no_inline_arity() {
+    let source = r#"
+        script golden_tuple_destructure {
+            init {
+                let (a, b) = (1, 2);
+            }
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
+    let unpack_positions = find_opcode_positions(&bytecode, opcodes::UNPACK_TUPLE);
+    assert!(
+        !unpack_positions.is_empty(),
+        "expected UNPACK_TUPLE in bytecode"
+    );
+
+    let has_valid_following_store = unpack_positions.iter().any(|&u| {
+        let next = bytecode.get(u + 1).copied();
+        matches!(
+            next,
+            Some(opcodes::SET_LOCAL)
+                | Some(opcodes::SET_LOCAL_0)
+                | Some(opcodes::SET_LOCAL_1)
+                | Some(opcodes::SET_LOCAL_2)
+                | Some(opcodes::SET_LOCAL_3)
+        )
+    });
+
+    assert!(
+        has_valid_following_store,
+        "expected UNPACK_TUPLE to be followed by local store opcodes, not an inline arity byte"
+    );
+}
+
 /// Golden test: array creation and length opcodes
 #[test]
 fn golden_array_create_and_length() {

@@ -193,8 +193,10 @@ impl ASTGenerator {
         value: &AstNode,
     ) -> Result<(), VMError> {
         self.generate_ast_node(emitter, value)?;
+        // UNPACK_TUPLE has no inline arity operand. The VM unpacks elements from the
+        // serialized tuple payload at runtime, so emitting an extra count byte here
+        // corrupts decoding of the following instruction stream.
         emitter.emit_opcode(UNPACK_TUPLE);
-        emitter.emit_u8(targets.len() as u8);
 
         // Track max offset used to update field_counter if necessary
         let mut max_offset_used = self.field_counter;

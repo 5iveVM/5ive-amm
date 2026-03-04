@@ -1378,6 +1378,50 @@ fn test_derive_pda_with_bump_typechecks_as_pubkey() {
 }
 
 #[test]
+fn test_tuple_destructuring_from_derive_pda_compiles() {
+    let source = r#"
+        script tuple_destructure_pda {
+            pub fn f(authority: pubkey) -> pubkey {
+                let (expected, _bump) = derive_pda("repro", authority);
+                return expected;
+            }
+        }
+    "#;
+
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("tuple destructuring of derive_pda should compile");
+    assert!(bytecode.starts_with(&five_protocol::FIVE_MAGIC));
+}
+
+#[test]
+fn test_tuple_literal_destructuring_compiles() {
+    let source = r#"
+        script tuple_destructure_literal {
+            pub fn f() -> u64 {
+                let (a, b) = (1, 2);
+                return a + b;
+            }
+        }
+    "#;
+
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("tuple literal destructuring should compile");
+    assert!(bytecode.starts_with(&five_protocol::FIVE_MAGIC));
+}
+
+#[test]
+fn test_single_pool_derive_pda_repro_compiles() {
+    let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../5ive-single-pool/repros/derive_pda_stateful_failure.v");
+    let source = std::fs::read_to_string(&source_path)
+        .expect("single-pool derive_pda repro should be readable");
+
+    let bytecode =
+        DslCompiler::compile_dsl(&source).expect("single-pool derive_pda repro should compile");
+    assert!(bytecode.starts_with(&five_protocol::FIVE_MAGIC));
+}
+
+#[test]
 fn test_transfer_identifier_not_reserved_for_function_name() {
     let source = r#"
         script transfer_name_ok {
