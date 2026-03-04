@@ -1,0 +1,39 @@
+{
+  "network": "localnet",
+  "rpc_url": "http://127.0.0.1:8899",
+  "program_id": "FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb",
+  "commitment": "confirmed",
+  "commit_sha": "unknown",
+  "cu_mode": "parity",
+  "started_unix_ms": 1772636473825,
+  "completed_unix_ms": 1772636473825,
+  "scenarios": [
+    {
+      "name": "arithmetic_intensive",
+      "deploy_signature": "5UYZV5wy9uP2DZMwCeQNyXS18cko9YQ5FhRL3BE49rdiib5M3uHYhLxZiteUJpa2oyczxtSZ2LUHefaXiUr1T3Hp",
+      "deploy_units": 15941,
+      "step_results": [
+        {
+          "name": "compute_intensive_pass_1",
+          "signature": "5tcAY1g3GxyQZWeB6fTDaUtGwYbX9UvuniLH3STgPaJfyHPwssMkjPsvfVzCyMBREZM5W2P7B4sFNdo5ymtywwCd",
+          "units": 15967,
+          "success": true
+        },
+        {
+          "name": "compute_intensive_pass_2",
+          "signature": "4KTAMmrmhdUM2aQuHbv6w5WrzwwYvkKzGo23HoBUNaKVQJ7xtm7F73KD5EVVVLppZVobKWzWk5g1Y6FXGMUbvGd1",
+          "units": 15967,
+          "success": true
+        },
+        {
+          "name": "compute_intensive_pass_3",
+          "signature": "62nyJqESjfzjKTkFgmRDAcdQNfCiZKH9Z86cvHCrox8jA5u7jZk6jxiLoLqiUGR92beVMCk18fCwdkJ6Nr4DfzMi",
+          "units": 15967,
+          "success": true
+        }
+      ],
+      "total_units": 63842,
+      "elapsed_ms": 3052
+    }
+  ]
+}

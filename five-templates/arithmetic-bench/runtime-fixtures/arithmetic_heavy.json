@@ -11,8 +11,8 @@
   "vm_state_name": "vm_state",
   "script_name": "script",
   "vm_fees": {
-    "deploy_fee_bps": 0,
-    "execute_fee_bps": 0
+    "deploy_fee_bps": 1,
+    "execute_fee_bps": 1
   },
   "extra_accounts": [
     {

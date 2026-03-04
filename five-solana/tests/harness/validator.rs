@@ -1805,7 +1805,7 @@ pub fn run_external_interface_mapping_non_cpi(
 
     let caller_source = format!(
         r#"
-        use "{}"::{{interface TokenOps}};
+        use "{}"::TokenOps;
 
         pub fn call_interface(
             source_account: account @mut,
@@ -1813,7 +1813,7 @@ pub fn run_external_interface_mapping_non_cpi(
             owner: account @mut,
             TokenOps: account
         ) {{
-            TokenOps.transfer(source_account, destination_account, owner, 50);
+            TokenOps::transfer(source_account, destination_account, owner, 50);
         }}
     "#,
         bs58::encode(callee_pubkey.to_bytes()).into_string()

@@ -4,7 +4,9 @@
 //! - INIT_ACCOUNT: Create regular accounts
 //! - INIT_PDA_ACCOUNT: Create Program Derived Address accounts
 //!
-//! These handlers implement @init constraint functionality for automatic account creation.
+//! These handlers implement @init constraint functionality for automatic account creation
+//! using a single SystemProgram::CreateAccount CPI. PDA creation uses `invoke_signed`
+//! to satisfy the new-account signer requirement.
 
 use crate::{
     context::ExecutionManager,
@@ -57,7 +59,7 @@ pub fn handle_init_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
     }
 }
 
-/// Handle INIT_ACCOUNT opcode - Create regular account via System Program
+/// Handle INIT_ACCOUNT opcode - Create regular account via System Program::CreateAccount
 ///
 /// Stack layout: [account_idx, space, payer_idx, lamports, owner_pubkey]
 ///
@@ -134,11 +136,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Extract owner pubkey from ValueRef
     let owner = extract_owner_pubkey(owner_ref, ctx)?;
 
-    // Create account via System Program CPI with the actual target size
-    // NOTE: The previous "Create 0-size + Resize" pattern was removed because
-    // Solana's runtime doesn't allow modifying account data/metadata after
-    // ownership transfer within the same instruction. This caused
-    // "ExternalAccountDataModified" errors.
+    // Create the account in one CPI with the actual target size.
     match ctx.create_account_with_payer(account_idx, payer_idx, space, lamports, &owner) {
         Ok(()) => {
             debug_log!(
@@ -207,7 +205,8 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     Ok(())
 }
 
-/// Handle INIT_PDA_ACCOUNT opcode - Create PDA account via System Program
+/// Handle INIT_PDA_ACCOUNT opcode - Create PDA account via
+/// System Program::CreateAccount + invoke_signed
 ///
 /// Stack layout: [account_idx, space, payer_idx, lamports, owner_pubkey, seeds_count, seed1, seed2, ..., bump]
 ///

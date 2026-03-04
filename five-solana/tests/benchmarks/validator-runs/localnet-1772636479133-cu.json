@@ -1,0 +1,282 @@
+{
+  "network": "localnet",
+  "rpc_url": "http://127.0.0.1:8899",
+  "program_id": "FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb",
+  "commitment": "confirmed",
+  "commit_sha": "unknown",
+  "cu_mode": "parity",
+  "started_unix_ms": 1772636479133,
+  "completed_unix_ms": 1772636479133,
+  "scenarios": [
+    {
+      "name": "token_full_e2e",
+      "deploy_signature": "5GDzuU7LjDLWdhcWsphhEG4N6beABaWjSRHHZjbFFGENq7yGWQK8GjS8mHkKzYVqNEjBA96QhgRJ8w541dM2nk7E",
+      "deploy_units": 2757,
+      "step_results": [
+        {
+          "name": "init_mint",
+          "signature": "3rns8MBPX1aXDqrhkmFqpWhMWyEZQPYweujxAAzGeyHWkYbRr9PzrDihiyH5BMpkQnFkN8ctF8ewDmmuSPgVCqsN",
+          "units": 10018,
+          "success": true
+        },
+        {
+          "name": "init_token_account_user1",
+          "signature": "3MtUyqgrnbPE1sBiFjR9pNZKdPZz7ApLQYc7sdJWftDx634pMrSqeA2hwMUs9GpknDsQE89btXCEGX6qQhGeAEaT",
+          "units": 9131,
+          "success": true
+        },
+        {
+          "name": "init_token_account_user2",
+          "signature": "4jiAScCwWRF3AdCn6JkuQEYfrk6jM1s6toedVsaaUDDC7TtS4Vu3wnKMRxp5NJFfqZ5tSFN2PNUwn9DhBmvTUojF",
+          "units": 9131,
+          "success": true
+        },
+        {
+          "name": "init_token_account_user3",
+          "signature": "4XPAcoHezGUp5U4aca6CbuoqTDFuE2MvCLPJyo12r97N1EawtFM7v4d4siijby3XMBtyhUoWwwWhF1xqAbatrjf9",
+          "units": 9150,
+          "success": true
+        },
+        {
+          "name": "mint_to_user1",
+          "signature": "43nD1v1DRjoBmie5rF2BpGUW1DzfDgcSTv6zkX78RSbz8L9hMCibRH41hpgyHvL2na6j2c69LzaJmYGfgNKwPcUv",
+          "units": 4492,
+          "success": true
+        },
+        {
+          "name": "mint_to_user2",
+          "signature": "5SUzQQiUwyAM4AYqgxdYUkkzhk4oPMYbZrsWab7532XXn4HjiGcYd15d3s82aCZioizrpnjVV6zBWULURMyrMfLp",
+          "units": 4492,
+          "success": true
+        },
+        {
+          "name": "mint_to_user3",
+          "signature": "2kw8cf3xn7KZhBZLmtCf9uH2KBiLmHZG3mXUt4qis4jJwzVVBbvbcqH4YaPNFj1MuhWdXhnUGzuzsxmsNddGz2gp",
+          "units": 4492,
+          "success": true
+        },
+        {
+          "name": "transfer_user2_to_user3",
+          "signature": "5bY4wsMGBsBwNNLWsMWSshJdcf4WupZw6xuo7dNomrNnN6zo5NBprcJEjGcnyLoUbhnineU1CYQvpZGosq8QWSvg",
+          "units": 4190,
+          "success": true
+        },
+        {
+          "name": "approve_user3_to_user2",
+          "signature": "3KuUgdVGVmZnugU66nY3qmqoFDTEahLrqyQWqcBiHEc7gfRtRvz6hBgEPuGk3XQKFCDnvUqEU3QsCxU4bFjZ5jDF",
+          "units": 4023,
+          "success": true
+        },
+        {
+          "name": "transfer_from_user3_to_user1_by_user2",
+          "signature": "3QGCnx8ffNZRPuuQ8RawUWuWd4KwZcrW7D2yYwPH4jCYRiF5Mwz64Ws2p5AmHkzigow9pLNfXpup4ECj8GdAQT32",
+          "units": 5402,
+          "success": true
+        },
+        {
+          "name": "revoke_user3",
+          "signature": "3BVew52jj25YTLoHWiGkMK5GkR5TTKzwu4nBZBNGuhHKyYWiGPPru1FWgEEz1hUdB7oPbtZS8gfNQ8qeYNVyL7o7",
+          "units": 3697,
+          "success": true
+        },
+        {
+          "name": "burn_user1",
+          "signature": "25VHRdrgfCk6SvhTskQrgfDriaZCkxbwMyfrQqT7AHHh71wi3H6qmPgiuwFFrc13kWVtzZfEUwRGJJcUH7W5yQAa",
+          "units": 4577,
+          "success": true
+        },
+        {
+          "name": "freeze_user2",
+          "signature": "4q1DNrB43ZGG26R4uBqRpSaMFPd5sUGncqRMGFF6fzvF1hqQLoU54Sx1ChQVy1EKRR7ttkYEbEsNnWoht751yn2z",
+          "units": 4276,
+          "success": true
+        },
+        {
+          "name": "thaw_user2",
+          "signature": "4xkPPztCpFB6xMjUN5QYdCfoS6bFktqSdSVFKcABUKrKg9qRCj8uTxhP982uLzmsinu11YNiTZvNcSrhwzQwU5rm",
+          "units": 4277,
+          "success": true
+        },
+        {
+          "name": "disable_mint",
+          "signature": "HwR58GqZm2u3fMuUxcaUdhRWbdTEKZTFSParRfvdoQFqRMddc9TaVJwujaBPaQ18SQpnxt7AxoYf1JgjGt7C39w",
+          "units": 3608,
+          "success": true
+        }
+      ],
+      "total_units": 87713,
+      "elapsed_ms": 15791
+    },
+    {
+      "name": "external_non_cpi",
+      "deploy_signature": "2GF1jFWs6cQK8mCBRBfGjMvk1MRXSiPZ2g5KrLJ9tk1oTktfAoPN19EZtXKZjyVVDhnVCcYo4Bwq12TXZMwJT6G9",
+      "deploy_units": 6056,
+      "step_results": [
+        {
+          "name": "external_transfer_non_cpi",
+          "signature": "4jCk8ozds3FUtWMo2WP3XntVK3843wDVwjeu2p3zw5eNz7dcgBmZsZBCj36Z7jRtY7k4z3Q5jwV3UqD6WJKihdYX",
+          "units": 7559,
+          "success": true
+        }
+      ],
+      "total_units": 13615,
+      "elapsed_ms": 11729
+    },
+    {
+      "name": "external_interface_mapping_non_cpi",
+      "deploy_signature": "3Vkcir6f3bYzKNHWZ2pVgYmewAAG7QvxKHXanhrxw1WwMzQKTeCPbJLUrGEBP6UDhFsCtedjqibu9UKWoXf5ULao",
+      "deploy_units": 6192,
+      "step_results": [
+        {
+          "name": "external_interface_mapping_non_cpi",
+          "signature": "GBj8SHRz7TByKEfjStSEaovPeF7KZWim5pAxp1KuzJvbfRbAwT7HZvtumbzdYjjW5CjwzeX7WLwbxtHPgdaYaFP",
+          "units": 5870,
+          "success": true
+        }
+      ],
+      "total_units": 12062,
+      "elapsed_ms": 4060
+    },
+    {
+      "name": "external_burst_non_cpi",
+      "deploy_signature": "4TgZypwCrZQpLgVFm7e7bmyxixLxmF9J6b4FHBGFbDUpur88VcsrrKM4Yp2Y7cU7Cc4ScighAHo97Ru3u7Xpiznu",
+      "deploy_units": 7274,
+      "step_results": [
+        {
+          "name": "external_transfer_burst_non_cpi",
+          "signature": "cRgD7Djjj8Zod47mdXdiGAvVJNJbnUfuiLavAuLRxWHtoBrRigLMMkDgeEVRQWMZYBKw8FtPxUh7q9AEYPsu1SR",
+          "units": 16178,
+          "success": true
+        }
+      ],
+      "total_units": 23452,
+      "elapsed_ms": 0
+    },
+    {
+      "name": "memory_string_heavy",
+      "deploy_signature": "xs9Lc1w1YGMJkzqd2wdonwQnVGbJE3PPovi2rEjH1WXuNjn6MD7K9TzKK9zypMbFv4KAXhz86cQ9oAQLtZHjfym",
+      "deploy_units": 2757,
+      "step_results": [
+        {
+          "name": "init_mint",
+          "signature": "5Da8J33iCPTG3z2KEAXVkZ3WUZT9YNijQygXFt26iNfC8oeyRC6FN2fLv2j8HFcVSSj499GAmqZSzYdJMrSZab6",
+          "units": 10018,
+          "success": true
+        },
+        {
+          "name": "init_token_account_user1",
+          "signature": "5y45xMGJaMjkFU5bhmeddssuwhXfG2aHa17KjQv823LTPsLDm4AkW2qfFiqFBaw2WKqcyGM2Wp5UJmSDXtJ7HjNU",
+          "units": 9131,
+          "success": true
+        },
+        {
+          "name": "init_token_account_user2",
+          "signature": "2tHLxFYQj2n8zR8T6HZuR1MwfJa5c4PgDs8RDxU4e4DgPHQ113Hq7JrzxJSHP4uDT3FU3Z8iLT3BuJpNjqkPXGcC",
+          "units": 9131,
+          "success": true
+        },
+        {
+          "name": "init_token_account_user3",
+          "signature": "4yJS59WmhbhnzUZvupgrJ5vAzfDBiJkLYeVJsKogitXJLBnPo3bW2D4QSdzGLZqicka2hDN9E1jxzu5tbbh5Devj",
+          "units": 9131,
+          "success": true
+        },
+        {
+          "name": "mint_to_user1",
+          "signature": "cTVAvsCPgTM5K8AEBnBsw1bNUFzDrdNkmjQpVcdyQ6GZeuAGa2KtaNLfLHy3H6hd6aobwCwyn3SKeje5am55ip6",
+          "units": 4492,
+          "success": true
+        },
+        {
+          "name": "mint_to_user2",
+          "signature": "3acpyTbu7KEzvN2UBX4MHhQN6E5fGkz24z2c9KoD1SmAjPxvxTtjrMSVwUT3m251CmnwZVJ3ggsXUdFyxdTqt7x4",
+          "units": 4492,
+          "success": true
+        },
+        {
+          "name": "mint_to_user3",
+          "signature": "4f4bwGFPY6ZVWTpePYx4jLeb42WUypQRcK8VsQ8MXWWaB7UTimYwXK1BVGdkG37pne13gTGkGsF4coghuTsLVonD",
+          "units": 4492,
+          "success": true
+        },
+        {
+          "name": "transfer_user2_to_user3",
+          "signature": "2UDyS3YR9xenXAhXUEb3CiU6A1hZCpSsidg9xsW3LpJyH3dvxPNXRCu2T7FBMTLTTe1N5Cj19oLAiPqDFG6m6esH",
+          "units": 4190,
+          "success": true
+        },
+        {
+          "name": "approve_user3_to_user2",
+          "signature": "3pP92eezPF1ZP4dhvj87nCUHTYp4FxGMiBW89nfiHLPuDH5v9iiwGhad7vkL7QJJyXYjJxtBXTcgbvXWGHioxuAG",
+          "units": 4023,
+          "success": true
+        },
+        {
+          "name": "transfer_from_user3_to_user1_by_user2",
+          "signature": "5888d4o1L1gH3oWnvcyCNvRME69ZcbiGkkjU9SWTsig9mmSEk8TYowhuAxjNwBffBtDqPCcSH2MDyb87dKrt3XUS",
+          "units": 5402,
+          "success": true
+        },
+        {
+          "name": "revoke_user3",
+          "signature": "2smoGFqWK6BFbbYBWQXpJVpy9AZeuRLX4BxQgzctX8BUU9SS3RLBZA2QyKtFs196KuXSWJ6J3xRYEYZfGEjwf3e9",
+          "units": 3697,
+          "success": true
+        },
+        {
+          "name": "burn_user1",
+          "signature": "ftzPxPevRWFmPa7kzK8HKcDVWBgostnFLMVbmCdWTdkf6HsJ66JXUXGJQcMUS9ShNXKN92KLgJszcBFzXAmXP9F",
+          "units": 4577,
+          "success": true
+        },
+        {
+          "name": "freeze_user2",
+          "signature": "28Zj2yxVV9BXaGsm6TpePKYnJUy5e4bbRWhMFhcA2k6uASHM5SvZsoj3qsQF7cvavKLpKL62qE6vVi9JZGEEpp2n",
+          "units": 4276,
+          "success": true
+        },
+        {
+          "name": "thaw_user2",
+          "signature": "55o8nwkP11cS2s4YsD732NRLdg1FSEKnTXQ8rtmgBMxUNoTpMVJ7Absfe8Qr5Qo2Ha3jU3UD9PBDhAkatpsxZq6o",
+          "units": 4277,
+          "success": true
+        },
+        {
+          "name": "disable_mint",
+          "signature": "4FqzY8FGCW7nc77sUhLgbJ7m5SJzfvf2KsumMbBg9tJn9aDAWH4p3Cio2qwk7u5t1gACBMJKmyNbtyRYy9y7qCjX",
+          "units": 3608,
+          "success": true
+        }
+      ],
+      "total_units": 87694,
+      "elapsed_ms": 15224
+    },
+    {
+      "name": "arithmetic_intensive",
+      "deploy_signature": "4nrfp9TXhAALPWkW3px4zbxK97tByAMimgidsftMC5odqogqP74Dvi6ahVN9gvm9RwY9gxiMNVbvEuNwd62yWDwm",
+      "deploy_units": 15941,
+      "step_results": [
+        {
+          "name": "compute_intensive_pass_1",
+          "signature": "5ZtbycTdfNAqDVjUmnJXT9fNX9rgRFF3JWvPezcaDccwBcH7kPMQufxTtHk4cYbFTZZ5VZhPkAXMYGsHdu2E3Ua9",
+          "units": 15967,
+          "success": true
+        },
+        {
+          "name": "compute_intensive_pass_2",
+          "signature": "4wfFgEVzdsBwUJgeTmSqH84MScpH98r7seNmpkwwqeu8DotTiGLW9awB5j5WYDcwSzLaMxsVz8P1vknBvsgzYMR8",
+          "units": 15967,
+          "success": true
+        },
+        {
+          "name": "compute_intensive_pass_3",
+          "signature": "jk4SEFnLP3qUWG8toVVXsoNsweXLokL5pTwJNtGg5wrGpv5wf7NjYS1vepq3fnFmji18w8SgnQnjhtxBqzbfTpJ",
+          "units": 15967,
+          "success": true
+        }
+      ],
+      "total_units": 63842,
+      "elapsed_ms": 3044
+    }
+  ]
+}

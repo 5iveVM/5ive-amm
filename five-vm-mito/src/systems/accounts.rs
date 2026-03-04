@@ -120,82 +120,39 @@ impl<'a> AccountManager<'a> {
     ) -> CompactResult<()> {
         #[cfg(target_os = "solana")]
         {
-            // Step 1: Transfer
-            if lamports > 0 {
-                let mut transfer_data = [0u8; 12];
-                transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes());
-                transfer_data[4..12].copy_from_slice(&lamports.to_le_bytes());
+            // Use a single SystemProgram::CreateAccount CPI for both regular accounts
+            // and PDAs (the latter satisfy the new-account signer requirement via seeds).
+            let mut create_account_data = [0u8; 52];
+            create_account_data[0..4].copy_from_slice(&0u32.to_le_bytes());
+            create_account_data[4..12].copy_from_slice(&lamports.to_le_bytes());
+            create_account_data[12..20].copy_from_slice(&space.to_le_bytes());
+            create_account_data[20..52].copy_from_slice(owner.as_ref());
 
-                let transfer_metas = [
-                    AccountMeta {
-                        pubkey: payer.key(),
-                        is_signer: true,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: new_account.key(),
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                ];
+            let create_account_metas = [
+                AccountMeta {
+                    pubkey: payer.key(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                AccountMeta {
+                    pubkey: new_account.key(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+            ];
 
-                let transfer_instruction = Instruction {
-                    program_id: system_program.key(),
-                    accounts: &transfer_metas,
-                    data: &transfer_data,
-                };
-
-                invoke_signed::<3>(
-                    &transfer_instruction,
-                    &[payer, new_account, system_program],
-                    signers,
-                )
-                .map_err(|_| VMErrorCode::InvokeError)?;
-            }
-
-            // Step 2: Allocate
-            let mut allocate_data = [0u8; 12];
-            allocate_data[0..4].copy_from_slice(&8u32.to_le_bytes());
-            allocate_data[4..12].copy_from_slice(&space.to_le_bytes());
-
-            let allocate_metas = [AccountMeta {
-                pubkey: new_account.key(),
-                is_signer: true,
-                is_writable: true,
-            }];
-
-            let allocate_instruction = Instruction {
+            let create_account_instruction = Instruction {
                 program_id: system_program.key(),
-                accounts: &allocate_metas,
-                data: &allocate_data,
+                accounts: &create_account_metas,
+                data: &create_account_data,
             };
 
-            invoke_signed::<2>(
-                &allocate_instruction,
-                &[new_account, system_program],
+            invoke_signed::<3>(
+                &create_account_instruction,
+                &[payer, new_account, system_program],
                 signers,
             )
             .map_err(|_| VMErrorCode::InvokeError)?;
-
-            // Step 3: Assign
-            let mut assign_data = [0u8; 36];
-            assign_data[0..4].copy_from_slice(&1u32.to_le_bytes());
-            assign_data[4..36].copy_from_slice(owner.as_ref());
-
-            let assign_metas = [AccountMeta {
-                pubkey: new_account.key(),
-                is_signer: true,
-                is_writable: true,
-            }];
-
-            let assign_instruction = Instruction {
-                program_id: system_program.key(),
-                accounts: &assign_metas,
-                data: &assign_data,
-            };
-
-            invoke_signed::<2>(&assign_instruction, &[new_account, system_program], signers)
-                .map_err(|_| VMErrorCode::InvokeError)?;
         }
 
         #[cfg(not(target_os = "solana"))]
@@ -478,5 +435,59 @@ mod tests {
             manager.check_authorization(1),
             Err(VMErrorCode::ScriptNotAuthorized)
         );
+    }
+
+    #[test]
+    fn create_account_with_payer_updates_account_state() {
+        let program_id = Pubkey::from([3u8; 32]);
+        let payer_key = Pubkey::from([4u8; 32]);
+        let new_account_key = Pubkey::from([5u8; 32]);
+        let system_program_key = Pubkey::from(SYSTEM_PROGRAM_ID);
+        let owner = Pubkey::from([6u8; 32]);
+
+        let mut payer_lamports = 10_000;
+        let mut new_account_lamports = 0;
+        let mut system_program_lamports = 0;
+
+        let mut payer_data = [0u8; 0];
+        let mut new_account_data = [0u8; 0];
+        let mut system_program_data = [0u8; 0];
+
+        let payer = create_account_info(
+            &payer_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &program_id,
+        );
+        let new_account = create_account_info(
+            &new_account_key,
+            false,
+            true,
+            &mut new_account_lamports,
+            &mut new_account_data,
+            &system_program_key,
+        );
+        let system_program = create_account_info(
+            &system_program_key,
+            false,
+            false,
+            &mut system_program_lamports,
+            &mut system_program_data,
+            &system_program_key,
+        );
+
+        let accounts = [payer, new_account, system_program];
+        let mut manager = AccountManager::new(&accounts, program_id);
+
+        manager
+            .create_account_with_payer(1, 0, 64, 1_500, &owner)
+            .expect("create_account_with_payer should succeed");
+
+        assert_eq!(accounts[0].lamports(), 8_500);
+        assert_eq!(accounts[1].lamports(), 1_500);
+        assert_eq!(accounts[1].data_len(), 64);
+        assert_eq!(accounts[1].owner(), &owner);
     }
 }

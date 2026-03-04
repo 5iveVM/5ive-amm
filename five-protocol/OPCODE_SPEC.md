@@ -184,7 +184,7 @@ Standard arithmetic on U64/I64 values.
 | 0x82 | `GET_CLOCK` | None | +1 | Get SysvarClock. | Accessing time/slot. |
 | 0x83 | `GET_RENT` | None | +1 | Get SysvarRent. | Calculating rent exemption. |
 | 0x84 | `INIT_ACCOUNT` | None | -4 | SystemProgram::CreateAccount. | Standard account creation helper. |
-| 0x85 | `INIT_PDA_ACCOUNT` | None | Dynamic | SystemProgram::CreateAccountWithSeed. | Creating PDAs. |
+| 0x85 | `INIT_PDA_ACCOUNT` | None | Dynamic | SystemProgram::CreateAccount via `invoke_signed`. | Creating PDAs from seeds + bump. |
 | 0x86 | `DERIVE_PDA` | None | +1 | Compute PDA address. | Finding addresses. |
 | 0x87 | `FIND_PDA` | None | +1 | Find PDA + bump. | Finding valid PDA bumps. |
 | 0x88 | `DERIVE_PDA_PARAMS` | None | Dynamic | Derive with explicit params. | Flexible derivation. |
