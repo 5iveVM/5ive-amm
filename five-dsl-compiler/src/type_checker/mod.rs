@@ -76,7 +76,7 @@ impl types::TypeCheckerContext {
                                 if let Some(kind) =
                                     self.resolve_exported_symbol_kind(&module_path, &name)
                                 {
-                                    self.register_imported_symbol(&name, kind);
+                                    self.register_imported_symbol(&name, kind)?;
                                 }
                             }
                             continue;
@@ -85,7 +85,7 @@ impl types::TypeCheckerContext {
                         if let Some((symbol_name, kind)) =
                             self.resolve_nested_symbol_import(module_specifier)?
                         {
-                            self.register_imported_symbol(&symbol_name, kind);
+                            self.register_imported_symbol(&symbol_name, kind)?;
                             continue;
                         }
 
@@ -421,17 +421,37 @@ impl types::TypeCheckerContext {
         }
     }
 
-    fn register_imported_symbol(&mut self, symbol_name: &str, kind: ImportedSymbolKind) {
+    fn register_imported_symbol(
+        &mut self,
+        symbol_name: &str,
+        kind: ImportedSymbolKind,
+    ) -> Result<(), VMError> {
         match kind {
             ImportedSymbolKind::Interface => {
+                if self.imported_interface_symbols.contains_key(symbol_name)
+                    || self.imported_type_symbols.contains(symbol_name)
+                {
+                    return Err(VMError::InvalidOperation);
+                }
                 self.imported_interface_symbols
                     .insert(symbol_name.to_string(), symbol_name.to_string());
+                Ok(())
             }
             ImportedSymbolKind::Type => {
+                if self.imported_interface_symbols.contains_key(symbol_name)
+                    || self.imported_type_symbols.contains(symbol_name)
+                {
+                    return Err(VMError::InvalidOperation);
+                }
                 self.imported_type_symbols.insert(symbol_name.to_string());
+                Ok(())
             }
             ImportedSymbolKind::Value => {
+                if self.imported_value_symbols.contains(symbol_name) {
+                    return Err(VMError::InvalidOperation);
+                }
                 self.imported_value_symbols.insert(symbol_name.to_string());
+                Ok(())
             }
         }
     }

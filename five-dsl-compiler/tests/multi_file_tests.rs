@@ -582,6 +582,103 @@ fn test_local_module_brace_type_and_value_import_compile(
 }
 
 #[test]
+fn test_duplicate_imported_type_symbol_in_same_namespace_fails() {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use left::Pool;
+            use right::Pool;
+        }"
+        .to_string(),
+    );
+    files.insert(
+        "left.v".to_string(),
+        "script left {
+            account Pool { balance: u64; }
+        }"
+        .to_string(),
+    );
+    files.insert(
+        "right.v".to_string(),
+        "script right {
+            account Pool { amount: u64; }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files).unwrap();
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+    assert!(result.is_err(), "duplicate type imports should fail");
+}
+
+#[test]
+fn test_duplicate_imported_value_symbol_in_same_namespace_fails() {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use left::submit;
+            use right::submit;
+        }"
+        .to_string(),
+    );
+    files.insert(
+        "left.v".to_string(),
+        "script left {
+            pub fn submit() { }
+        }"
+        .to_string(),
+    );
+    files.insert(
+        "right.v".to_string(),
+        "script right {
+            pub fn submit() { }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files).unwrap();
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let result = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config);
+    assert!(result.is_err(), "duplicate value imports should fail");
+}
+
+#[test]
+fn test_module_and_type_import_can_coexist_across_namespaces(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = HashMap::new();
+    files.insert(
+        "main.v".to_string(),
+        "script main {
+            use remote;
+            use remote::RemoteSink;
+            pub fn run(target: Account) {
+                remote::RemoteSink::submit(target, \"vault\");
+                RemoteSink::submit(target, \"vault\");
+            }
+        }"
+        .to_string(),
+    );
+    files.insert(
+        "remote.v".to_string(),
+        "script remote {
+            interface RemoteSink @program(\"11111111111111111111111111111111\") @serializer(raw) {
+                submit @discriminator_bytes([]) (target: Account, label: string<32>);
+            }
+        }"
+        .to_string(),
+    );
+
+    let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_point_path, &config)?;
+    assert!(!bytecode.is_empty());
+    Ok(())
+}
+
+#[test]
 fn test_old_explicit_interface_import_syntax_rejected() {
     let mut files = HashMap::new();
     files.insert(
