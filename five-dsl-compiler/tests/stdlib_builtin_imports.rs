@@ -61,8 +61,8 @@ fn builtin_inventory_matches_stdlib_exports() {
 
     assert_eq!(
         matrix_names.len(),
-        29,
-        "expected 29 stdlib builtin wrappers in inventory"
+        28,
+        "expected 28 stdlib builtin wrappers in inventory"
     );
     assert_eq!(
         matrix_names, stdlib_names,

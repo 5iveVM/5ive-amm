@@ -47,47 +47,6 @@ pub struct FunctionDispatcher {
 }
 
 impl FunctionDispatcher {
-    fn emit_unlowerable_builtin_wrapper_stub<T: OpcodeEmitter>(
-        &self,
-        emitter: &mut T,
-        function_name: &str,
-        body: &AstNode,
-    ) -> Result<bool, VMError> {
-        let return_stmt = match body {
-            AstNode::ReturnStatement { .. } => body,
-            AstNode::Block { statements, .. } if statements.len() == 1 => &statements[0],
-            _ => return Ok(false),
-        };
-
-        let AstNode::ReturnStatement {
-            value: Some(value),
-        } = return_stmt
-        else {
-            return Ok(false);
-        };
-        let AstNode::FunctionCall { name, args } = value.as_ref() else {
-            return Ok(false);
-        };
-
-        let is_load_account_word_wrapper = function_name.ends_with("load_account_u64_word")
-            && name == "load_account_u64"
-            && args.len() == 2
-            && matches!(args[0], AstNode::Identifier(_))
-            && matches!(args[1], AstNode::Identifier(_));
-
-        if !is_load_account_word_wrapper {
-            return Ok(false);
-        }
-
-        // `load_account_u64*` lowers to LOAD_EXTERNAL_FIELD with an immediate u32 offset.
-        // The stdlib wrapper forwards a dynamic parameter, which the current VM cannot encode.
-        // Emit an abort stub so importing `std::builtins` still compiles, while any runtime use
-        // of this unsupported wrapper fails immediately instead of silently returning bad data.
-        emitter.emit_opcode(five_protocol::opcodes::CALL_NATIVE);
-        emitter.emit_u8(1);
-        Ok(true)
-    }
-
     fn external_selector(name: &str) -> u16 {
         const OFFSET: u32 = 0x811C9DC5;
         const PRIME: u32 = 0x01000193;
@@ -1286,17 +1245,6 @@ impl FunctionDispatcher {
             "DEBUG: About to generate AST node for function: {}",
             function_name
         );
-        if self.emit_unlowerable_builtin_wrapper_stub(emitter, function_name, body)? {
-            println!(
-                "DEBUG: Emitted abort stub for unsupported builtin wrapper: {}",
-                function_name
-            );
-            ast_generator.set_function_context(None);
-            ast_generator.current_function_parameters = None;
-            ast_generator.set_precomputed_allocations(HashMap::new());
-            scope_analyzer.end_function()?;
-            return Ok(());
-        }
         match ast_generator.generate_ast_node(emitter, body) {
             Ok(()) => {
                 println!(
