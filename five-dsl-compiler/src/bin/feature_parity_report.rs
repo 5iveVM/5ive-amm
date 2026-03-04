@@ -122,7 +122,7 @@ fn classify(
 fn write_markdown(report: &ParityReport, path: &Path) -> std::io::Result<()> {
     let mut md = String::new();
     md.push_str("# 5IVE DSL Feature Parity Matrix\n\n");
-    md.push_str("| Category | Scenarios | Positive | Negative | Compiler | VM | CLI | WASM | LSP | Runtime | Localnet | Devnet Tracked | Uncataloged | Strength |\n");
+    md.push_str("| Category | Scenarios | Positive | Negative | Compiler | VM | CLI | WASM | LSP | Runtime | Localnet | Devnet Tracked | Outside Matrix | Strength |\n");
     md.push_str(
         "|---|---:|---:|---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---:|:---:|\n",
     );
@@ -164,7 +164,10 @@ fn write_markdown(report: &ParityReport, path: &Path) -> std::io::Result<()> {
     ));
 
     if !report.uncataloged_fixtures.is_empty() {
-        md.push_str("## Uncataloged Fixtures\n\n");
+        md.push_str(
+            "Full fixture classification lives in `target/feature-parity/feature-inventory.json`.\n\n",
+        );
+        md.push_str("## Fixtures Outside Representative Matrix\n\n");
         for fixture in &report.uncataloged_fixtures {
             md.push_str(&format!("- `{}`\n", fixture));
         }

@@ -371,6 +371,20 @@
       "preferred_runner": "compiler_unit"
     },
     {
+      "path": "05-blockchain-integration/builtin-clock-sysvar.v",
+      "family": "blockchain_integration",
+      "status": "unit_only",
+      "coverage_notes": "Builtin sysvar smoke is tracked outside the representative matrix and paired with builtin-matrix/runtime probe coverage.",
+      "preferred_runner": "runtime_unit"
+    },
+    {
+      "path": "05-blockchain-integration/builtin-now-seconds.v",
+      "family": "blockchain_integration",
+      "status": "unit_only",
+      "coverage_notes": "Builtin time smoke is tracked outside the representative matrix and paired with builtin-matrix/runtime probe coverage.",
+      "preferred_runner": "runtime_unit"
+    },
+    {
       "path": "05-blockchain-integration/bump-management.v",
       "family": "blockchain_integration",
       "status": "covered",
@@ -452,6 +466,13 @@
       "family": "diagnostics",
       "status": "unit_only",
       "coverage_notes": "Parser recovery regression remains diagnostics-focused.",
+      "preferred_runner": "lsp_matrix"
+    },
+    {
+      "path": "07-error-system/obvious-syntax-error.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Additional syntax-failure regression remains in diagnostics-focused compiler/LSP coverage.",
       "preferred_runner": "lsp_matrix"
     },
     {
@@ -641,6 +662,13 @@
       "family": "diagnostics",
       "status": "unit_only",
       "coverage_notes": "Diagnostic fixture stays in targeted compiler/LSP coverage.",
+      "preferred_runner": "compiler_unit"
+    },
+    {
+      "path": "99-diagnostic/test-g-empty-copy.v",
+      "family": "diagnostics",
+      "status": "unit_only",
+      "coverage_notes": "Diagnostic empty-copy regression remains in targeted compiler/LSP suites.",
       "preferred_runner": "compiler_unit"
     },
     {

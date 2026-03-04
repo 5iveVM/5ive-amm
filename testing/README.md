@@ -15,7 +15,7 @@ The `testing/` directory now holds three related coverage contracts:
 
 ## `dsl-feature-matrix.json`
 
-`dsl-feature-matrix.json` is the shared coverage contract for representative DSL feature testing.
+`dsl-feature-matrix.json` is the shared coverage contract for representative DSL feature testing. It is intentionally not a complete inventory of every canonical fixture under `five-cli/test-scripts/`.
 
 ## Top-Level Shape
 
@@ -115,7 +115,7 @@ Builtin layer names:
 
 ## `dsl-feature-inventory.json`
 
-`dsl-feature-inventory.json` tracks the larger fixture surface so uncataloged files do not silently disappear behind a green representative report.
+`dsl-feature-inventory.json` tracks the larger fixture surface so fixtures outside the representative matrix do not silently disappear behind a green representative report.
 
 Top-level fields:
 
@@ -145,4 +145,6 @@ Fixture fields:
 - Representative end-to-end suites continue to use `dsl-feature-matrix.json`.
 - Exhaustive reporting and builtin/fixture expansion use `dsl-builtin-matrix.json` and `dsl-feature-inventory.json`.
 - Validation scripts should fail fast if a builtin, promoted fixture, or inventory entry references a missing DSL file or invalid layer name.
+- Validation also fails if a canonical `.v` fixture exists in `five-cli/test-scripts/` but is present in neither `dsl-feature-matrix.json` nor `dsl-feature-inventory.json`.
 - Reports should distinguish “representative category health” from “builtin completeness” and “fixture inventory classification”.
+- The feature parity markdown report's “Outside Matrix” count means “not in the representative matrix,” not “unclassified.” The true unclassified set lives in `target/feature-parity/feature-inventory.json`.

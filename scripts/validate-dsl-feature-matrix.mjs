@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {
+  assertNoUnclassifiedCanonicalFixtures,
   loadDslBuiltinMatrix,
   loadDslFeatureInventory,
   loadDslFeatureMatrix,
@@ -8,7 +9,8 @@ import {
 } from './lib/dsl-feature-matrix.mjs';
 
 const repoRoot = repoRootFrom(import.meta.url);
-loadDslFeatureMatrix(repoRoot);
+const featureMatrix = loadDslFeatureMatrix(repoRoot);
 loadDslBuiltinMatrix(repoRoot);
-loadDslFeatureInventory(repoRoot);
+const featureInventory = loadDslFeatureInventory(repoRoot);
+assertNoUnclassifiedCanonicalFixtures(repoRoot, featureMatrix, featureInventory);
 console.log('DSL feature matrix, builtin matrix, and feature inventory are valid.');

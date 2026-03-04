@@ -76,6 +76,29 @@ export function canonicalFixtureRoot(repoRoot) {
   return path.join(repoRoot, 'five-cli', 'test-scripts');
 }
 
+export function collectCanonicalFixtures(repoRoot) {
+  const root = canonicalFixtureRoot(repoRoot);
+  const out = [];
+
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+        continue;
+      }
+      if (!entry.name.endsWith('.v')) {
+        continue;
+      }
+      out.push(path.relative(root, fullPath).split(path.sep).join('/'));
+    }
+  }
+
+  walk(root);
+  out.sort();
+  return out;
+}
+
 export function loadDslFeatureMatrix(repoRoot) {
   const file = matrixPath(repoRoot);
   const raw = fs.readFileSync(file, 'utf8');
@@ -490,29 +513,29 @@ export function parseMatrixToken(token) {
 
 export function findUntrackedCanonicalFixtures(repoRoot, matrix) {
   const tracked = new Set(matrix.scenarios.map((scenario) => scenario.source));
-  const root = canonicalFixtureRoot(repoRoot);
-  const out = [];
+  return collectCanonicalFixtures(repoRoot).filter((fixture) => !tracked.has(fixture));
+}
 
-  function walk(dir) {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(fullPath);
-        continue;
-      }
-      if (!entry.name.endsWith('.v')) {
-        continue;
-      }
-      const relative = path.relative(root, fullPath).split(path.sep).join('/');
-      if (!tracked.has(relative)) {
-        out.push(relative);
-      }
-    }
+export function findUnclassifiedCanonicalFixtures(repoRoot, matrix, inventory) {
+  const tracked = new Set(matrix.scenarios.map((scenario) => scenario.source));
+  const classified = new Set(
+    inventory.fixtures.map((fixture) =>
+      fixture.path.startsWith('__root__/') ? fixture.path.slice('__root__/'.length) : fixture.path
+    )
+  );
+
+  return collectCanonicalFixtures(repoRoot).filter(
+    (fixture) => !tracked.has(fixture) && !classified.has(fixture)
+  );
+}
+
+export function assertNoUnclassifiedCanonicalFixtures(repoRoot, matrix, inventory) {
+  const unclassified = findUnclassifiedCanonicalFixtures(repoRoot, matrix, inventory);
+  if (unclassified.length > 0) {
+    throw new Error(
+      `canonical DSL fixtures must be tracked by dsl-feature-matrix.json or dsl-feature-inventory.json; missing entries: ${unclassified.join(', ')}`
+    );
   }
-
-  walk(root);
-  out.sort();
-  return out;
 }
 
 export function parseEmbeddedJsonFromStdout(stdout) {
