@@ -976,7 +976,15 @@ async function ensureOnChainBalance(
   if (target === 'local' || target === 'localnet') {
     logger.info('Low localnet balance detected; requesting airdrop...');
     const sig = await connection.requestAirdrop(signerKeypair.publicKey, 2_000_000_000);
-    await connection.confirmTransaction(sig, 'confirmed');
+    const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+    const confirmation = await connection.confirmTransaction({
+      signature: sig,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    }, 'confirmed');
+    if (confirmation.value.err) {
+      throw new Error(JSON.stringify(confirmation.value.err));
+    }
     return;
   }
 

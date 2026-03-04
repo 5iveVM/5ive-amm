@@ -92,6 +92,7 @@ describe("executeOnSolana preflight behavior", () => {
 
   it("uses preflight by default", async () => {
     const sendRawTransaction = jest.fn(async () => "tx-default");
+    const confirmTransaction = jest.fn(async () => ({ value: { err: null } }));
     const connection = {
       getLatestBlockhash: jest.fn(async () => ({
         blockhash: "bh",
@@ -99,7 +100,7 @@ describe("executeOnSolana preflight behavior", () => {
       })),
       getAccountInfo: jest.fn(async () => null),
       sendRawTransaction,
-      confirmTransaction: jest.fn(async () => ({ value: { err: null } })),
+      confirmTransaction,
       getTransaction: jest.fn(async () => ({
         meta: { computeUnitsConsumed: 1, logMessages: ["ok"] },
       })),
@@ -128,6 +129,14 @@ describe("executeOnSolana preflight behavior", () => {
       skipPreflight: false,
       preflightCommitment: "confirmed",
     });
+    expect(confirmTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signature: "tx-default",
+        blockhash: "bh",
+        lastValidBlockHeight: 100,
+      }),
+      "confirmed",
+    );
   });
 
   it("supports explicit preflight opt-out", async () => {

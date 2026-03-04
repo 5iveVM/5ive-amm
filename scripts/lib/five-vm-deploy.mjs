@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import web3 from '../../five-cli/node_modules/@solana/web3.js/lib/index.cjs.js';
+import { confirmSignature } from './solana-confirm.mjs';
 
 const {
   Connection,
@@ -141,15 +142,30 @@ function resolveFeeVault(fiveProgramId, feeShardIndex, feeVaultAccount) {
   )[0];
 }
 
-async function confirmTx(connection, signature, description) {
-  const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-  const confirmation = await connection.confirmTransaction(
-    { signature, ...latestBlockhash },
-    'confirmed',
-  );
-  if (confirmation.value.err) {
-    throw new Error(`${description} failed: ${JSON.stringify(confirmation.value.err)}`);
+async function confirmTx(connection, sendResult, description) {
+  const confirmation = await confirmSignature(connection, {
+    signature: sendResult.signature,
+    commitment: 'confirmed',
+    blockhash: sendResult.blockhash,
+    lastValidBlockHeight: sendResult.lastValidBlockHeight,
+  });
+  if (!confirmation.success) {
+    throw new Error(`${description} failed: ${confirmation.error}`);
   }
+}
+
+async function sendAndTrack(connection, tx, signers, options) {
+  const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+  tx.recentBlockhash = latestBlockhash.blockhash;
+  if (!tx.feePayer && signers[0]?.publicKey) {
+    tx.feePayer = signers[0].publicKey;
+  }
+  const signature = await connection.sendTransaction(tx, signers, options);
+  return {
+    signature,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  };
 }
 
 export async function deployFiveVmScript({
@@ -234,14 +250,14 @@ export async function deployFiveVmScript({
     initIx,
   );
 
-  const initSignature = await connection.sendTransaction(tx, [payer, scriptKeypair], {
-    skipPreflight: false,
+  const initResult = await sendAndTrack(connection, tx, [payer, scriptKeypair], {
+    skipPreflight: true,
     preflightCommitment: 'confirmed',
     maxRetries: 5,
   });
-  await confirmTx(connection, initSignature, `${label} init`);
+  await confirmTx(connection, initResult, `${label} init`);
 
-  let lastSignature = initSignature;
+  let lastSignature = initResult.signature;
   for (let offset = firstChunk.length; offset < uploadPayload.length; offset += DEFAULT_CHUNK_SIZE) {
     const chunk = uploadPayload.subarray(offset, Math.min(offset + DEFAULT_CHUNK_SIZE, uploadPayload.length));
     const appendIx = new TransactionInstruction({
@@ -253,12 +269,13 @@ export async function deployFiveVmScript({
       ComputeBudgetProgram.setComputeUnitLimit({ units: DEFAULT_COMPUTE_UNIT_LIMIT }),
       appendIx,
     );
-    lastSignature = await connection.sendTransaction(appendTx, [payer], {
-      skipPreflight: false,
+    const appendResult = await sendAndTrack(connection, appendTx, [payer], {
+      skipPreflight: true,
       preflightCommitment: 'confirmed',
       maxRetries: 5,
     });
-    await confirmTx(connection, lastSignature, `${label} append`);
+    await confirmTx(connection, appendResult, `${label} append`);
+    lastSignature = appendResult.signature;
   }
 
   const finalizeTx = new Transaction().add(
@@ -272,12 +289,13 @@ export async function deployFiveVmScript({
       data: Buffer.from([7]),
     }),
   );
-  lastSignature = await connection.sendTransaction(finalizeTx, [payer], {
-    skipPreflight: false,
+  const finalizeResult = await sendAndTrack(connection, finalizeTx, [payer], {
+    skipPreflight: true,
     preflightCommitment: 'confirmed',
     maxRetries: 5,
   });
-  await confirmTx(connection, lastSignature, `${label} finalize`);
+  await confirmTx(connection, finalizeResult, `${label} finalize`);
+  lastSignature = finalizeResult.signature;
 
   return {
     signature: lastSignature,

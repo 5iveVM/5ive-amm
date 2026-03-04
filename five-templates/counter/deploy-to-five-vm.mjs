@@ -5,6 +5,7 @@ import {
   Connection, Keypair, PublicKey, Transaction, TransactionInstruction,
   SystemProgram, LAMPORTS_PER_SOL, ComputeBudgetProgram
 } from '@solana/web3.js';
+import { confirmSignature } from '../../scripts/lib/solana-confirm.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,10 +36,14 @@ async function deployProgram() {
     throw new Error('VM state missing or owned by wrong program');
   }
 
-  const confirmTx = async (signature, description) => {
-    const latestBlockhash = await connection.getLatestBlockhash();
-    const confirmation = await connection.confirmTransaction({ signature, ...latestBlockhash }, 'confirmed');
-    if (confirmation.value.err) throw new Error(`${description} failed: ${JSON.stringify(confirmation.value.err)}`);
+  const confirmTx = async (signature, blockhash, lastValidBlockHeight, description) => {
+    const confirmation = await confirmSignature(connection, {
+      signature,
+      commitment: 'confirmed',
+      blockhash,
+      lastValidBlockHeight,
+    });
+    if (!confirmation.success) throw new Error(`${description} failed: ${confirmation.error}`);
   };
 
   const scriptKeypair = Keypair.generate();
@@ -69,8 +74,11 @@ async function deployProgram() {
     })
   );
 
+  let latestBlockhash = await connection.getLatestBlockhash('confirmed');
+  initTx.recentBlockhash = latestBlockhash.blockhash;
+  initTx.feePayer = payer.publicKey;
   const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
-  await confirmTx(initSig, 'Script Account Init');
+  await confirmTx(initSig, latestBlockhash.blockhash, latestBlockhash.lastValidBlockHeight, 'Script Account Init');
 
   const appendTx = new Transaction().add(
     ComputeBudgetProgram.setComputeUnitLimit({ units: 1400000 }),
@@ -86,8 +94,11 @@ async function deployProgram() {
       data: Buffer.concat([Buffer.from([5]), bytecode]),
     })
   );
+  latestBlockhash = await connection.getLatestBlockhash('confirmed');
+  appendTx.recentBlockhash = latestBlockhash.blockhash;
+  appendTx.feePayer = payer.publicKey;
   const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
-  await confirmTx(appendSig, 'AppendBytecode');
+  await confirmTx(appendSig, latestBlockhash.blockhash, latestBlockhash.lastValidBlockHeight, 'AppendBytecode');
 
   const config = {
     counterScriptAccount: scriptKeypair.publicKey.toBase58(),

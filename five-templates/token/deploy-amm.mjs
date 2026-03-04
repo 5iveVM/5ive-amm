@@ -18,6 +18,7 @@ import {
     LAMPORTS_PER_SOL,
     ComputeBudgetProgram
 } from '@solana/web3.js';
+import { confirmSignature } from '../../scripts/lib/solana-confirm.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,14 +76,15 @@ async function deployAMM() {
         console.log(`  Bytecode size: ${bytecode.length} bytes`);
 
         // Helper for robust confirmation
-        const confirmTx = async (signature, description) => {
-            const latestBlockhash = await connection.getLatestBlockhash();
-            const confirmation = await connection.confirmTransaction(
-                { signature, ...latestBlockhash },
-                'confirmed'
-            );
-            if (confirmation.value.err) {
-                throw new Error(`${description} failed: ${JSON.stringify(confirmation.value.err)}`);
+        const confirmTx = async (signature, blockhash, lastValidBlockHeight, description) => {
+            const confirmation = await confirmSignature(connection, {
+                signature,
+                commitment: 'confirmed',
+                blockhash,
+                lastValidBlockHeight,
+            });
+            if (!confirmation.success) {
+                throw new Error(`${description} failed: ${confirmation.error}`);
             }
             return signature;
         };
@@ -154,8 +156,11 @@ async function deployAMM() {
             })
         );
 
+        let latestBlockhash = await connection.getLatestBlockhash('confirmed');
+        initTx.recentBlockhash = latestBlockhash.blockhash;
+        initTx.feePayer = payer.publicKey;
         const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
-        await confirmTx(initSig, 'Script Account Init');
+        await confirmTx(initSig, latestBlockhash.blockhash, latestBlockhash.lastValidBlockHeight, 'Script Account Init');
         console.log(`  Script Account: ${scriptKeypair.publicKey.toBase58()} (${initSig})`);
 
         await new Promise(r => setTimeout(r, 1000));
@@ -193,11 +198,12 @@ async function deployAMM() {
                 ]),
             }));
 
-            appendTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+            latestBlockhash = await connection.getLatestBlockhash('confirmed');
+            appendTx.recentBlockhash = latestBlockhash.blockhash;
             appendTx.feePayer = payer.publicKey;
 
             const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
-            await confirmTx(appendSig, `Chunk ${i} append`);
+            await confirmTx(appendSig, latestBlockhash.blockhash, latestBlockhash.lastValidBlockHeight, `Chunk ${i} append`);
             process.stdout.write('.');
 
             currentSize = newSize;
@@ -221,8 +227,11 @@ async function deployAMM() {
             })
         );
 
+        latestBlockhash = await connection.getLatestBlockhash('confirmed');
+        finalizeTx.recentBlockhash = latestBlockhash.blockhash;
+        finalizeTx.feePayer = payer.publicKey;
         const finalizeSig = await connection.sendTransaction(finalizeTx, [payer], { skipPreflight: true });
-        await confirmTx(finalizeSig, 'Finalize Script');
+        await confirmTx(finalizeSig, latestBlockhash.blockhash, latestBlockhash.lastValidBlockHeight, 'Finalize Script');
         console.log(`${GREEN}✓ Script finalized: ${finalizeSig}${NC}\n`);
 
         const ammScriptAccount = scriptKeypair.publicKey.toBase58();

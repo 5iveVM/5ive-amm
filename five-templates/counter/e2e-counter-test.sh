@@ -245,32 +245,19 @@ build_template() {
     fi
 
     print_step "Source: $SOURCE_FILE"
-    print_step "Building with local debug_compile..."
+    print_step "Building with local CLI project build..."
 
-    # 1. Compile with local debug_compile to get .bin and .abi.json
-    cd "$PROJECT_ROOT/../../five-dsl-compiler"
-    if cargo run -q --bin debug_compile -- "$PROJECT_ROOT/src/counter.v"; then
-        print_success "Compilation successful"
-        
-        # 2. Create the .five artifact
-        cd "$PROJECT_ROOT"
-        if node create-artifact.js; then
-            print_success "Artifact created"
-            BUILD_SUCCESSFUL=true
-            
-            # Show summary
-            BYTECODE_SIZE=$(ls -lh "$COMPILED_FILE" 2>/dev/null | awk '{print $5}' || echo "0")
-            print_info "Artifact: $COMPILED_FILE ($BYTECODE_SIZE)"
-        else
-            print_error "Artifact creation failed"
-            exit 1
-        fi
+    cd "$PROJECT_ROOT"
+    if node ../../five-cli/dist/index.js build --project .; then
+        print_success "Build successful"
+        BUILD_SUCCESSFUL=true
+
+        BYTECODE_SIZE=$(ls -lh "$COMPILED_FILE" 2>/dev/null | awk '{print $5}' || echo "0")
+        print_info "Artifact: $COMPILED_FILE ($BYTECODE_SIZE)"
     else
-        print_error "Compilation failed"
+        print_error "Build failed"
         exit 1
     fi
-    
-    cd "$PROJECT_ROOT"
 }
 
 ##############################################################################
@@ -307,6 +294,13 @@ deploy_to_localnet() {
             exit 1
         fi
     fi
+
+    DEPLOYED_SCRIPT=$(grep -E '^counterScriptAccount=' /tmp/deploy_out.json 2>/dev/null | tail -1 | cut -d= -f2- || true)
+    if [ -z "$DEPLOYED_SCRIPT" ]; then
+        print_error "Deployment completed but did not return counterScriptAccount"
+        exit 1
+    fi
+    print_info "Using deployed counter script account: $DEPLOYED_SCRIPT"
 }
 
 ##############################################################################

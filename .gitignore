@@ -50,3 +50,4 @@ test-ledger*/
 .claude/worktrees/
 /.localnet-vm-parity-ledger
 /.localnet-cu-ledger
+/.codex-local-validator-ledger

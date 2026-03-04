@@ -697,8 +697,8 @@ export async function executeOnSolana(
     transaction.add(executeInstruction);
 
     transaction.feePayer = signerKeypair.publicKey;
-    const { blockhash } = await connection.getLatestBlockhash("confirmed");
-    transaction.recentBlockhash = blockhash;
+    const latestBlockhash = await connection.getLatestBlockhash("confirmed");
+    transaction.recentBlockhash = latestBlockhash.blockhash;
 
     transaction.partialSign(signerKeypair);
     const firstSig = transaction.signatures[0]?.signature;
@@ -716,12 +716,11 @@ export async function executeOnSolana(
     );
     lastSignature = signature;
 
-    const latestBlockhash = await connection.getLatestBlockhash("confirmed");
     const confirmation = await confirmTransactionRobust(connection, signature, {
       commitment: "confirmed",
       timeoutMs: 120000,
       debug: options.debug,
-      blockhash,
+      blockhash: latestBlockhash.blockhash,
       lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
     });
     if (!confirmation.success) {

@@ -324,10 +324,13 @@ export class FiveTestRunner {
         try {
           const content = await readFile(test.path, 'utf8');
           const data = JSON.parse(content);
+          const testCases = Array.isArray(data.tests || data.testCases)
+            ? (data.tests || data.testCases)
+            : [];
           suites.push({
             name: data.name || basename(test.path, '.test.json'),
             description: data.description,
-            testCases: data.tests || data.testCases || []
+            testCases
           });
           loadedJsonSuites.add(test.path);
         } catch (error) {

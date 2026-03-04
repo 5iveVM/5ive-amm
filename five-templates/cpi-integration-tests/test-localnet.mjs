@@ -27,6 +27,7 @@ import { FiveProgram, FiveSDK } from '../../five-sdk/dist/index.js';
 import { loadSdkValidatorConfig } from '../../scripts/lib/sdk-validator-config.mjs';
 import { emitStepEvent } from '../../scripts/lib/sdk-validator-reporter.mjs';
 import { compileWithRustFiveCompiler } from '../../scripts/lib/rust-five-compiler.mjs';
+import { confirmSignature } from '../../scripts/lib/solana-confirm.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -213,11 +214,15 @@ async function deployBytecodeToFiveVM(connection, payer, bytecode) {
     const feeSeedPrefix = Buffer.from([0xff, ...Buffer.from('five_vm_fee_vault_v1')]);
     const feeVault = PublicKey.findProgramAddressSync([feeSeedPrefix, Buffer.from([0])], FIVE_PROGRAM_ID)[0];
 
-    const confirmTx = async (signature, label) => {
-        const latestBlockhash = await connection.getLatestBlockhash();
-        const confirmation = await connection.confirmTransaction({ signature, ...latestBlockhash }, 'confirmed');
-        if (confirmation.value.err) {
-            throw new Error(`${label} failed: ${JSON.stringify(confirmation.value.err)}`);
+    const confirmTx = async (signature, blockhash, lastValidBlockHeight, label) => {
+        const confirmation = await confirmSignature(connection, {
+            signature,
+            commitment: 'confirmed',
+            blockhash,
+            lastValidBlockHeight,
+        });
+        if (!confirmation.success) {
+            throw new Error(`${label} failed: ${confirmation.error}`);
         }
     };
 
@@ -244,8 +249,11 @@ async function deployBytecodeToFiveVM(connection, payer, bytecode) {
         })
     );
 
+    let latestBlockhash = await connection.getLatestBlockhash('confirmed');
+    initTx.recentBlockhash = latestBlockhash.blockhash;
+    initTx.feePayer = payer.publicKey;
     const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
-    await confirmTx(initSig, 'Script init');
+    await confirmTx(initSig, latestBlockhash.blockhash, latestBlockhash.lastValidBlockHeight, 'Script init');
 
     const CHUNK_SIZE = 380;
     for (let i = 0; i < bytecode.length; i += CHUNK_SIZE) {
@@ -263,8 +271,11 @@ async function deployBytecodeToFiveVM(connection, payer, bytecode) {
                 data: Buffer.concat([Buffer.from([5]), Buffer.from(chunk)]),
             })
         );
+        latestBlockhash = await connection.getLatestBlockhash('confirmed');
+        appendTx.recentBlockhash = latestBlockhash.blockhash;
+        appendTx.feePayer = payer.publicKey;
         const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
-        await confirmTx(appendSig, `Append chunk ${Math.floor(i / CHUNK_SIZE) + 1}`);
+        await confirmTx(appendSig, latestBlockhash.blockhash, latestBlockhash.lastValidBlockHeight, `Append chunk ${Math.floor(i / CHUNK_SIZE) + 1}`);
     }
 
     return scriptKeypair.publicKey;

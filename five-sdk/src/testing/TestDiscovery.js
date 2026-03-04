@@ -12,6 +12,16 @@ import { FiveSDK } from '../FiveSDK.js';
  * Discover tests from directory
  */
 export class TestDiscovery {
+    static normalizeJsonTestCases(data) {
+        const testCases = data.tests || data.testCases || [];
+        if (Array.isArray(testCases)) {
+            return testCases;
+        }
+        if (testCases && typeof testCases === 'object') {
+            return null;
+        }
+        return [];
+    }
     /**
      * Discover all tests in a directory
      */
@@ -66,7 +76,10 @@ export class TestDiscovery {
                 try {
                     const content = await readFile(file, 'utf8');
                     const data = JSON.parse(content);
-                    const testCases = data.tests || data.testCases || [];
+                    const testCases = this.normalizeJsonTestCases(data);
+                    if (testCases === null) {
+                        continue;
+                    }
                     for (const testCase of testCases) {
                         tests.push({
                             name: testCase.name,
@@ -98,7 +111,10 @@ export class TestDiscovery {
             try {
                 const content = await readFile(file, 'utf8');
                 const data = JSON.parse(content);
-                const testCases = data.tests || data.testCases || [];
+                const testCases = this.normalizeJsonTestCases(data);
+                if (testCases === null) {
+                    return [];
+                }
                 return testCases.map((testCase) => ({
                     name: testCase.name,
                     path: file,
