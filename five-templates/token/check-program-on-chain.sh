@@ -27,7 +27,7 @@ if [ -z "$SIGS" ]; then
   echo "✓ Program is deployed and functional on localnet"
   echo ""
   echo "To run full E2E tests:"
-  echo "  1. Deploy token script: node deploy-to-five-vm.mjs"
+  echo "  1. Deploy token script: ./e2e-token-test.sh --deploy"
   echo "  2. Run tests: node e2e-token-test.mjs"
 else
   echo "Recent transactions:"

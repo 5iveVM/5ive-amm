@@ -110,6 +110,6 @@ print("  • Zero-copy register access")
 print("  • ~5-15% CU savings per optimized operation\n")
 
 print("To execute token functions and see CU usage:")
-print("  node deploy-to-five-vm.mjs      # Deploy token script")
+print("  ./e2e-token-test.sh --deploy    # Build, deploy, and capture the token script account")
 print("  node e2e-token-test.mjs         # Run full test suite")
 print("\n" + "=" * 80 + "\n")

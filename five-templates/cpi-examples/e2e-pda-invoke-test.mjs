@@ -26,7 +26,6 @@ import { FiveSDK, FiveProgram } from '../../five-sdk/dist/index.js';
 import { loadSdkValidatorConfig } from '../../scripts/lib/sdk-validator-config.mjs';
 import { emitStepEvent } from '../../scripts/lib/sdk-validator-reporter.mjs';
 import { compileWithRustFiveCompiler } from '../../scripts/lib/rust-five-compiler.mjs';
-import { confirmSignature } from '../../scripts/lib/solana-confirm.mjs';
 import {
     TOKEN_PROGRAM_ID, createMint, getOrCreateAssociatedTokenAccount,
     mintTo, burn, getAccount
@@ -155,79 +154,17 @@ async function sendInstruction(connection, instructionData, signers, step = 'exe
 }
 
 async function deployBytecodeToFiveVM(connection, payer, bytecode) {
-    const scriptKeypair = Keypair.generate();
-    const SCRIPT_HEADER_SIZE = 64;
-    const finalScriptSize = SCRIPT_HEADER_SIZE + bytecode.length;
-    const rentRequired = await connection.getMinimumBalanceForRentExemption(finalScriptSize);
-    const initialLamports = rentRequired + 0.01 * LAMPORTS_PER_SOL;
-    const feeSeedPrefix = Buffer.from([0xff, ...Buffer.from('five_vm_fee_vault_v1')]);
-    const feeVault = PublicKey.findProgramAddressSync([feeSeedPrefix, Buffer.from([0])], FIVE_PROGRAM_ID)[0];
-
-    const confirmTx = async (signature, blockhash, lastValidBlockHeight, label) => {
-        const confirmation = await confirmSignature(connection, {
-            signature,
-            commitment: 'confirmed',
-            blockhash,
-            lastValidBlockHeight,
-        });
-        if (!confirmation.success) {
-            throw new Error(`${label} failed: ${confirmation.error}`);
-        }
-    };
-
-    const lenBuf = Buffer.alloc(4);
-    lenBuf.writeUInt32LE(bytecode.length, 0);
-    const initTx = new Transaction().add(
-        SystemProgram.createAccount({
-            fromPubkey: payer.publicKey,
-            newAccountPubkey: scriptKeypair.publicKey,
-            lamports: initialLamports,
-            space: finalScriptSize,
-            programId: FIVE_PROGRAM_ID,
-        }),
-        new TransactionInstruction({
-            keys: [
-                { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
-                { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-                { pubkey: VM_STATE_PDA, isSigner: false, isWritable: true },
-                { pubkey: feeVault, isSigner: false, isWritable: true },
-                { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-            ],
-            programId: FIVE_PROGRAM_ID,
-            data: Buffer.concat([Buffer.from([4]), lenBuf]),
-        })
-    );
-
-    let latestBlockhash = await connection.getLatestBlockhash('confirmed');
-    initTx.recentBlockhash = latestBlockhash.blockhash;
-    initTx.feePayer = payer.publicKey;
-    const initSig = await connection.sendTransaction(initTx, [payer, scriptKeypair], { skipPreflight: true });
-    await confirmTx(initSig, latestBlockhash.blockhash, latestBlockhash.lastValidBlockHeight, 'Script init');
-
-    const CHUNK_SIZE = 380;
-    for (let i = 0; i < bytecode.length; i += CHUNK_SIZE) {
-        const chunk = bytecode.slice(i, Math.min(i + CHUNK_SIZE, bytecode.length));
-        const appendTx = new Transaction().add(
-            new TransactionInstruction({
-                keys: [
-                    { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
-                    { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-                    { pubkey: VM_STATE_PDA, isSigner: false, isWritable: true },
-                    { pubkey: feeVault, isSigner: false, isWritable: true },
-                    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-                ],
-                programId: FIVE_PROGRAM_ID,
-                data: Buffer.concat([Buffer.from([5]), Buffer.from(chunk)]),
-            })
-        );
-        latestBlockhash = await connection.getLatestBlockhash('confirmed');
-        appendTx.recentBlockhash = latestBlockhash.blockhash;
-        appendTx.feePayer = payer.publicKey;
-        const appendSig = await connection.sendTransaction(appendTx, [payer], { skipPreflight: true });
-        await confirmTx(appendSig, latestBlockhash.blockhash, latestBlockhash.lastValidBlockHeight, `Append chunk ${Math.floor(i / CHUNK_SIZE) + 1}`);
+    const result = await FiveSDK.deployLargeProgramToSolana(bytecode, connection, payer, {
+        debug: false,
+        network: 'localnet',
+        fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
+        vmStateAccount: VM_STATE_PDA.toBase58(),
+        maxRetries: 3,
+    });
+    if (!result.success || !(result.scriptAccount || result.programId)) {
+        throw new Error(`FiveSDK deployment failed: ${result.error || 'unknown error'}`);
     }
-
-    return scriptKeypair.publicKey;
+    return new PublicKey(result.scriptAccount || result.programId);
 }
 
 // ============================================================================

@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "build": "node ../../five-cli/dist/index.js artifact pack --bytecode src/token.bin --abi src/token.abi.json -o build/five-token-template.five",
-    "deploy": "node deploy-to-five-vm.mjs",
+    "build": "node ../../five-cli/dist/index.js build --project .",
+    "deploy": "node ../../five-cli/dist/index.js deploy build/five-token-template.five --project .",
     "test": "node e2e-token-test.mjs",
     "test:e2e": "node e2e-token-test.mjs",
     "test:debug-owner": "node debug-illegal-owner.mjs",

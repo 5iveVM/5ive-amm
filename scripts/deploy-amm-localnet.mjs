@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { loadClusterConfig, deriveVmAddresses } from './lib/vm-cluster-config.mjs';
-import { deployFiveVmScript, loadExplicitDeployEnv } from './lib/five-vm-deploy.mjs';
+import { deployFiveVmScript } from './lib/five-vm-deploy.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,7 +19,13 @@ const profile = loadClusterConfig({ cluster });
 const derived = deriveVmAddresses(profile);
 
 async function main() {
-  const env = loadExplicitDeployEnv(path.join(__dirname, '..', '5ive-amm', 'build', '5ive-amm.five'));
+  const env = {
+    rpcUrl: process.env.FIVE_RPC_URL || process.env.RPC_URL || profile.rpcUrl || 'http://127.0.0.1:8899',
+    fiveProgramId: process.env.FIVE_PROGRAM_ID || profile.programId,
+    vmStatePda: process.env.VM_STATE_PDA || derived.vmStatePda,
+    keypairPath: process.env.FIVE_KEYPAIR_PATH || path.join(process.env.HOME, '.config', 'solana', 'id.json'),
+    artifactPath: path.join(__dirname, '..', '5ive-amm', 'build', '5ive-amm.five'),
+  };
 
   console.log(`${CYAN}═══════════════════════════════════════════════════════════${NC}`);
   console.log(`${CYAN}5ive-amm - Five VM Deployment${NC}`);

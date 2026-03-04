@@ -886,6 +886,24 @@ async function executeDeployment(
 
     // Deploy using 5IVE SDK
     const spinner = isTTY() ? ora('Deploying via 5IVE SDK...').start() : null;
+    const suppressSdkStdout = options.format === 'json' && !options.debug;
+    const withSuppressedSdkOutput = async <T>(action: () => Promise<T>): Promise<T> => {
+      if (!suppressSdkStdout) {
+        return action();
+      }
+
+      const originalConsoleLog = console.log;
+      const originalConsoleError = console.error;
+      console.log = () => {};
+      console.error = () => {};
+
+      try {
+        return await action();
+      } finally {
+        console.log = originalConsoleLog;
+        console.error = originalConsoleError;
+      }
+    };
 
     // Auto-safe deploy strategy:
     // 1) Respect explicit chunked mode
@@ -913,7 +931,7 @@ async function executeDeployment(
         }
 
         const chunkResult = useOptimizedChunked
-          ? await FiveSDK.deployLargeProgramOptimizedToSolana(
+          ? await withSuppressedSdkOutput(() => FiveSDK.deployLargeProgramOptimizedToSolana(
             bytecodeArray,
             connection,
             deployerKeypair,
@@ -930,8 +948,8 @@ async function executeDeployment(
                 if (spinner) spinner.text = `Optimized deployment: transaction ${transaction}/${total}...`;
               } : undefined
             },
-          )
-          : await FiveSDK.deployLargeProgramToSolana(
+          ))
+          : await withSuppressedSdkOutput(() => FiveSDK.deployLargeProgramToSolana(
             bytecodeArray,
             connection,
             deployerKeypair,
@@ -947,7 +965,7 @@ async function executeDeployment(
                 if (spinner) spinner.text = `Deploying chunk ${chunk}/${total}...`;
               } : undefined
             },
-          );
+          ));
 
         if (chunkResult?.success) {
           return chunkResult;
@@ -971,13 +989,13 @@ async function executeDeployment(
           : 'Deploying via chunked mode (forced)...';
       }
     } else {
-      const fitResult = await __regularDeployFitsTransaction(
+      const fitResult = await withSuppressedSdkOutput(() => __regularDeployFitsTransaction(
         bytecodeArray,
         connection,
         deployerKeypair,
         deploymentOptions,
         options,
-      );
+      ));
       preflightSerializedSize = fitResult.serializedSize;
       if (!fitResult.fits) {
         fallbackReason = fitResult.reason ?? 'simulation_failed';
@@ -992,7 +1010,7 @@ async function executeDeployment(
       if (spinner) {
         spinner.text = 'Deploying via regular mode...';
       }
-      result = await FiveSDK.deployToSolana(
+      result = await withSuppressedSdkOutput(() => FiveSDK.deployToSolana(
         bytecodeArray,
         connection,
         deployerKeypair,
@@ -1005,7 +1023,7 @@ async function executeDeployment(
           exportMetadata: deploymentOptions.exportMetadata,
           maxRetries: 3
         }
-      );
+      ));
 
       if (!result.success && (__isTransactionSizeError(result.error) || /invalidinstructiondata/i.test(String(result.error || '')))) {
         fallbackReason = __deriveFallbackReason(result.error);
@@ -1020,8 +1038,13 @@ async function executeDeployment(
       fallbackReason = undefined;
     }
 
+    const scriptAccount = result?.scriptAccount || result?.programId;
     result = {
       ...result,
+      scriptAccount,
+      programId: scriptAccount,
+      fiveVmProgramId: deploymentOptions.fiveVMProgramId,
+      vmStateAccount: result?.vmStateAccount || deploymentOptions.vmStateAccount,
       deploymentMode: selectedMode,
       fallbackReason,
     };
@@ -1106,9 +1129,14 @@ async function simulateDeployment(
 
   const estimatedCost = Math.ceil(deploymentOptions.bytecode.length / 1000) * 1000000; // Rough estimate
 
+  const simulatedScriptAccount = 'SIMULATED_PROGRAM_ID_' + Date.now();
+
   return {
     success: true,
-    programId: 'SIMULATED_PROGRAM_ID_' + Date.now(),
+    scriptAccount: simulatedScriptAccount,
+    programId: simulatedScriptAccount,
+    fiveVmProgramId: deploymentOptions.fiveVMProgramId,
+    vmStateAccount: deploymentOptions.vmStateAccount,
     transactionId: 'SIMULATED_TX_' + Date.now(),
     deploymentCost: estimatedCost,
     logs: [
@@ -1134,8 +1162,9 @@ function displayDeploymentResult(result: DeploymentResult, options: any, logger:
   if (result.success) {
     console.log(uiSuccess('Deployment succeeded'));
 
-    if (result.programId) {
-      console.log(keyValue('Program', result.programId));
+    const scriptAccount = result.scriptAccount || result.programId;
+    if (scriptAccount) {
+      console.log(keyValue('Script Account', scriptAccount));
     }
 
     if (result.transactionId) {

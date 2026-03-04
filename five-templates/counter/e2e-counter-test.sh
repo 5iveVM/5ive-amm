@@ -50,6 +50,9 @@ DEPLOY=false
 CLEAN=false
 SKIP_BUILD=false
 RPC_URL="${FIVE_RPC_URL:-http://127.0.0.1:8899}"
+PROGRAM_ID="${FIVE_PROGRAM_ID:-}"
+VM_STATE_PDA="${VM_STATE_PDA:-}"
+KEYPAIR_PATH="${FIVE_KEYPAIR_PATH:-${HOME}/.config/solana/id.json}"
 SHOW_HELP=false
 
 # Counters & Status
@@ -89,6 +92,17 @@ print_info() {
 
 print_separator() {
     echo -e "${MAGENTA}────────────────────────────────────────${NC}"
+}
+
+parse_json_field() {
+    local file="$1"
+    local field="$2"
+
+    if command -v jq >/dev/null 2>&1; then
+        jq -r ".${field} // empty" "$file"
+    else
+        node -e 'const fs=require("fs"); const [file, field]=process.argv.slice(1); const data=JSON.parse(fs.readFileSync(file, "utf8")); const value=data[field] ?? ""; if (value !== null && value !== undefined) process.stdout.write(String(value));' "$file" "$field"
+    fi
 }
 
 show_help() {
@@ -266,6 +280,7 @@ build_template() {
 
 deploy_to_localnet() {
     print_header "Deploying to Localnet"
+    local deploy_output_file="/tmp/deploy_counter_out.json"
 
     if [ ! -f "$COMPILED_FILE" ]; then
         print_error "Compiled file not found: $COMPILED_FILE"
@@ -274,32 +289,59 @@ deploy_to_localnet() {
 
     print_step "Deploying $COMPILED_FILE..."
 
+    local deploy_cmd=(node ../../five-cli/dist/index.js deploy "$COMPILED_FILE" --project . --format json --network "$RPC_URL" --keypair "$KEYPAIR_PATH")
+    if [ -n "${PROGRAM_ID:-}" ]; then
+        deploy_cmd+=(--program-id "$PROGRAM_ID")
+    fi
+    if [ -n "${VM_STATE_PDA:-}" ]; then
+        deploy_cmd+=(--vm-state-account "$VM_STATE_PDA")
+    fi
+
     if [ "$VERBOSE" = true ]; then
-        if node deploy-to-five-vm.mjs; then
+        if "${deploy_cmd[@]}" | tee "$deploy_output_file"; then
             DEPLOYMENT_SUCCESSFUL=true
             print_success "Deployment successful"
-            cat /tmp/deploy_out.json 2>/dev/null || true
         else
             print_error "Deployment failed"
             exit 1
         fi
     else
-        if node deploy-to-five-vm.mjs > /tmp/deploy_out.json 2>&1; then
+        if "${deploy_cmd[@]}" > "$deploy_output_file" 2>&1; then
             DEPLOYMENT_SUCCESSFUL=true
             print_success "Deployment successful"
-            print_info "Deployment output captured in /tmp/deploy_out.json"
+            print_info "Deployment output captured in $deploy_output_file"
         else
             print_error "Deployment failed"
-            cat /tmp/deploy_out.json
+            cat "$deploy_output_file"
             exit 1
         fi
     fi
 
-    DEPLOYED_SCRIPT=$(grep -E '^counterScriptAccount=' /tmp/deploy_out.json 2>/dev/null | tail -1 | cut -d= -f2- || true)
+    DEPLOYED_SCRIPT="$(parse_json_field "$deploy_output_file" "scriptAccount")"
     if [ -z "$DEPLOYED_SCRIPT" ]; then
-        print_error "Deployment completed but did not return counterScriptAccount"
+        DEPLOYED_SCRIPT="$(parse_json_field "$deploy_output_file" "programId")"
+    fi
+    if [ -z "$DEPLOYED_SCRIPT" ]; then
+        print_error "Deployment completed but did not return scriptAccount"
         exit 1
     fi
+    RESOLVED_VM_PROGRAM_ID="$(parse_json_field "$deploy_output_file" "fiveVmProgramId")"
+    RESOLVED_VM_STATE="$(parse_json_field "$deploy_output_file" "vmStateAccount")"
+    if [ -n "$RESOLVED_VM_PROGRAM_ID" ]; then
+        PROGRAM_ID="$RESOLVED_VM_PROGRAM_ID"
+    fi
+    if [ -n "$RESOLVED_VM_STATE" ]; then
+        VM_STATE_PDA="$RESOLVED_VM_STATE"
+    fi
+    cat > "$PROJECT_ROOT/deployment-config.json" <<EOF
+{
+  "counterScriptAccount": "$DEPLOYED_SCRIPT",
+  "fiveProgramId": "${PROGRAM_ID}",
+  "vmStatePda": "${VM_STATE_PDA}",
+  "rpcUrl": "${RPC_URL}",
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
     print_info "Using deployed counter script account: $DEPLOYED_SCRIPT"
 }
 

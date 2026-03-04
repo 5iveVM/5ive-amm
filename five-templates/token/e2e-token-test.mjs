@@ -344,7 +344,7 @@ async function assertDeploymentOwnership(connection) {
         if (!accountInfo) {
             throw new Error(
                 `${check.label} not found on-chain: ${check.pubkey.toBase58()}\n` +
-                `Run deploy-to-five-vm.mjs to create/update deployment accounts.`
+                `Run ./e2e-token-test.sh --deploy or five deploy build/five-token-template.five to create/update deployment accounts.`
             );
         }
 
@@ -353,7 +353,7 @@ async function assertDeploymentOwnership(connection) {
                 `${check.label} owner mismatch for ${check.pubkey.toBase58()}\n` +
                 `Expected owner: ${FIVE_PROGRAM_ID.toBase58()}\n` +
                 `Actual owner:   ${accountInfo.owner.toBase58()}\n` +
-                `Redeploy with deploy-to-five-vm.mjs and pass the returned tokenScriptAccount explicitly.`
+                `Redeploy with ./e2e-token-test.sh --deploy or five deploy build/five-token-template.five and pass the returned script account explicitly.`
             );
         }
 

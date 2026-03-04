@@ -4,8 +4,8 @@
   "description": "Counter template E2E test for Five VM state persistence validation",
   "type": "module",
   "scripts": {
-    "build": "node ../../five-cli/dist/index.js artifact pack --bytecode src/counter.bin --abi src/counter.abi.json -o build/five-counter-template.five",
-    "deploy": "node deploy-to-five-vm.mjs",
+    "build": "node ../../five-cli/dist/index.js build --project .",
+    "deploy": "node ../../five-cli/dist/index.js deploy build/five-counter-template.five --project .",
     "test": "node e2e-counter-test.mjs",
     "verify": "node verify-on-chain.mjs",
     "e2e": "./e2e-counter-test.sh",

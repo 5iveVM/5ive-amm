@@ -16,6 +16,7 @@ RESULTS_DIR=""
 usage() {
   cat <<USAGE
 Usage: $0 [--network localnet|devnet] [--program-id <pubkey>] [--vm-state <pubkey>] [--keypair <path>] [--token-script-account <pubkey>] [--amm-script-account <pubkey>] [--lending-script-account <pubkey>] [--lending-oracle-script-account <pubkey>] [--scenarios csv] [--results-dir path]
+Provision localnet script accounts first with: node ./scripts/provision-user-journey-localnet.mjs [--shell]
 USAGE
 }
 

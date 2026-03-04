@@ -52,6 +52,7 @@ SKIP_BUILD=false
 RPC_URL="${FIVE_RPC_URL:-}"
 PROGRAM_ID="${FIVE_PROGRAM_ID:-}"
 VM_STATE_PDA="${VM_STATE_PDA:-}"
+KEYPAIR_PATH="${FIVE_KEYPAIR_PATH:-${HOME}/.config/solana/id.json}"
 TOKEN_SCRIPT_ACCOUNT="${FIVE_TOKEN_SCRIPT_ACCOUNT:-${TOKEN_SCRIPT_ACCOUNT:-}}"
 SHOW_HELP=false
 
@@ -92,6 +93,17 @@ print_info() {
 
 print_separator() {
     echo -e "${MAGENTA}────────────────────────────────────────${NC}"
+}
+
+parse_json_field() {
+    local file="$1"
+    local field="$2"
+
+    if command -v jq >/dev/null 2>&1; then
+        jq -r ".${field} // empty" "$file"
+    else
+        node -e 'const fs=require("fs"); const [file, field]=process.argv.slice(1); const data=JSON.parse(fs.readFileSync(file, "utf8")); const value=data[field] ?? ""; if (value !== null && value !== undefined) process.stdout.write(String(value));' "$file" "$field"
+    fi
 }
 
 show_help() {
@@ -283,7 +295,7 @@ build_template() {
 
 deploy_to_localnet() {
     print_header "Deploying to Localnet"
-    DEPLOY_OUTPUT_FILE="/tmp/deploy_token_out.txt"
+    DEPLOY_OUTPUT_FILE="/tmp/deploy_token_out.json"
 
     if [ ! -f "$COMPILED_FILE" ]; then
         print_error "Compiled file not found: $COMPILED_FILE"
@@ -292,8 +304,16 @@ deploy_to_localnet() {
 
     print_step "Deploying $COMPILED_FILE..."
 
+    local deploy_cmd=(node ../../five-cli/dist/index.js deploy "$COMPILED_FILE" --project . --format json --network "$RPC_URL" --keypair "$KEYPAIR_PATH")
+    if [ -n "${PROGRAM_ID:-}" ]; then
+        deploy_cmd+=(--program-id "$PROGRAM_ID")
+    fi
+    if [ -n "${VM_STATE_PDA:-}" ]; then
+        deploy_cmd+=(--vm-state-account "$VM_STATE_PDA")
+    fi
+
     if [ "$VERBOSE" = true ]; then
-        if node deploy-to-five-vm.mjs | tee "${DEPLOY_OUTPUT_FILE}"; then
+        if "${deploy_cmd[@]}" | tee "${DEPLOY_OUTPUT_FILE}"; then
             DEPLOYMENT_SUCCESSFUL=true
             print_success "Deployment successful"
         else
@@ -302,7 +322,7 @@ deploy_to_localnet() {
         fi
     else
         # Capture output but show minimal success
-        if node deploy-to-five-vm.mjs > "${DEPLOY_OUTPUT_FILE}" 2>&1; then
+        if "${deploy_cmd[@]}" > "${DEPLOY_OUTPUT_FILE}" 2>&1; then
             DEPLOYMENT_SUCCESSFUL=true
             print_success "Deployment successful"
             print_info "Deployment output captured in ${DEPLOY_OUTPUT_FILE}"
@@ -313,13 +333,26 @@ deploy_to_localnet() {
         fi
     fi
     if [ -f "${DEPLOY_OUTPUT_FILE}" ]; then
-        DEPLOYED_SCRIPT=$(grep -E '^tokenScriptAccount=' "${DEPLOY_OUTPUT_FILE}" | tail -1 | cut -d= -f2- || true)
+        DEPLOYED_SCRIPT="$(parse_json_field "${DEPLOY_OUTPUT_FILE}" "scriptAccount")"
+        if [ -z "${DEPLOYED_SCRIPT}" ]; then
+            DEPLOYED_SCRIPT="$(parse_json_field "${DEPLOY_OUTPUT_FILE}" "programId")"
+        fi
         if [ -n "${DEPLOYED_SCRIPT}" ]; then
             TOKEN_SCRIPT_ACCOUNT="${DEPLOYED_SCRIPT}"
             export FIVE_TOKEN_SCRIPT_ACCOUNT="${TOKEN_SCRIPT_ACCOUNT}"
+            RESOLVED_VM_PROGRAM_ID="$(parse_json_field "${DEPLOY_OUTPUT_FILE}" "fiveVmProgramId")"
+            RESOLVED_VM_STATE="$(parse_json_field "${DEPLOY_OUTPUT_FILE}" "vmStateAccount")"
+            if [ -n "${RESOLVED_VM_PROGRAM_ID}" ]; then
+                PROGRAM_ID="${RESOLVED_VM_PROGRAM_ID}"
+                export FIVE_PROGRAM_ID="${PROGRAM_ID}"
+            fi
+            if [ -n "${RESOLVED_VM_STATE}" ]; then
+                VM_STATE_PDA="${RESOLVED_VM_STATE}"
+                export VM_STATE_PDA="${VM_STATE_PDA}"
+            fi
             print_info "Using deployed token script account: ${TOKEN_SCRIPT_ACCOUNT}"
         else
-            print_error "Deployment completed but did not return tokenScriptAccount"
+            print_error "Deployment completed but did not return scriptAccount"
             exit 1
         fi
     fi

@@ -266,8 +266,14 @@ export interface DeploymentOptions {
 
 export interface DeploymentResult {
   success: boolean;
+  scriptAccount?: string;
   programId?: string;
+  fiveVmProgramId?: string;
+  vmStateAccount?: string;
   transactionId?: string;
+  transactionIds?: string[];
+  totalTransactions?: number;
+  chunksUsed?: number;
   deploymentCost?: number;
   error?: string;
   logs?: string[];

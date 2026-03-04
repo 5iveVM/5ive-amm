@@ -34,7 +34,7 @@ jest.mock('ora', () => {
 });
 
 // Mock SDK and managers to avoid real WASM/network calls
-jest.mock('five-sdk', () => ({
+jest.mock('@5ive-tech/sdk', () => ({
   normalizeAbiFunctions: (abiFunctions: any) => {
     if (!abiFunctions) return [];
     const functionsArray = Array.isArray(abiFunctions)
@@ -110,7 +110,7 @@ jest.mock('five-sdk', () => ({
       bytecode: new Uint8Array(),
       metadata: {}
     }),
-    validateBytecode: jest.fn().mockResolvedValue({ success: true }),
+    validateBytecode: jest.fn().mockResolvedValue({ success: true, valid: true }),
     deployToSolana: jest.fn().mockResolvedValue({
       success: true,
       programId: 'mock-program',
@@ -124,6 +124,9 @@ jest.mock('five-sdk', () => ({
       cost: 0
     }),
     create: jest.fn(() => ({ run: jest.fn() }))
+  },
+  ProgramIdResolver: {
+    resolve: jest.fn((programId?: string) => programId ?? 'FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb')
   },
   FiveTestRunner: class {
     constructor() {}
@@ -257,6 +260,31 @@ describe('project-aware commands', () => {
     await expect(
       executeCommand.handler([], {}, ctx as any)
     ).rejects.toThrow(/No bytecode or script account provided/);
+  });
+
+  it('deploy emits JSON with scriptAccount alias in dry-run mode', async () => {
+    const root = await createProject();
+    const ctx = createContext();
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    await deployCommand.handler(
+      [join(root, 'build', 'demo.five')],
+      {
+        project: root,
+        format: 'json',
+        dryRun: true,
+        programId: 'FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb',
+      },
+      ctx as any,
+    );
+
+    const payload = JSON.parse(String(consoleSpy.mock.calls.at(-1)?.[0] || '{}'));
+    expect(payload.success).toBe(true);
+    expect(payload.scriptAccount).toBeTruthy();
+    expect(payload.programId).toBe(payload.scriptAccount);
+    expect(payload.transactionId).toBeTruthy();
+
+    consoleSpy.mockRestore();
   });
 
   it('test handler uses default tests path when project present', async () => {
