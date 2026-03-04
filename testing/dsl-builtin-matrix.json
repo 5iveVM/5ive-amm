@@ -188,7 +188,7 @@
         "compiler": true,
         "bytecode_unit": true,
         "vm_unit": true,
-        "runtime_unit": false,
+        "runtime_unit": true,
         "cli_matrix": false,
         "wasm_matrix": false,
         "lsp_matrix": false,
@@ -220,7 +220,7 @@
         "compiler": true,
         "bytecode_unit": true,
         "vm_unit": true,
-        "runtime_unit": false,
+        "runtime_unit": true,
         "cli_matrix": false,
         "wasm_matrix": false,
         "lsp_matrix": false,
@@ -252,7 +252,7 @@
         "compiler": true,
         "bytecode_unit": true,
         "vm_unit": true,
-        "runtime_unit": false,
+        "runtime_unit": true,
         "cli_matrix": false,
         "wasm_matrix": false,
         "lsp_matrix": false,
@@ -412,7 +412,7 @@
         "compiler": true,
         "bytecode_unit": true,
         "vm_unit": true,
-        "runtime_unit": true,
+        "runtime_unit": false,
         "cli_matrix": false,
         "wasm_matrix": false,
         "lsp_matrix": false,
@@ -447,7 +447,7 @@
         "compiler": true,
         "bytecode_unit": true,
         "vm_unit": true,
-        "runtime_unit": false,
+        "runtime_unit": true,
         "cli_matrix": false,
         "wasm_matrix": false,
         "lsp_matrix": false,
@@ -457,10 +457,11 @@
       "unit_suites": [
         "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
         "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
-        "five-vm-mito/tests/stdlib_sysvar_tests.rs"
+        "five-vm-mito/tests/stdlib_sysvar_tests.rs",
+        "five-solana/tests/runtime_stdlib_builtin_unit_tests.rs"
       ],
       "matrix_scenario": null,
-      "expected_limitations": "The wrapper is VM-covered, but runtime and validator assertions are not yet stable enough to gate."
+      "expected_limitations": null
     },
     {
       "id": "builtin_derive_program_address",
@@ -610,7 +611,7 @@
         "compiler": true,
         "bytecode_unit": true,
         "vm_unit": true,
-        "runtime_unit": false,
+        "runtime_unit": true,
         "cli_matrix": false,
         "wasm_matrix": false,
         "lsp_matrix": false,
@@ -620,10 +621,11 @@
       "unit_suites": [
         "five-dsl-compiler/tests/stdlib_builtin_imports.rs",
         "five-dsl-compiler/tests/stdlib_builtin_negative.rs",
-        "five-vm-mito/tests/stdlib_sysvar_tests.rs"
+        "five-vm-mito/tests/stdlib_sysvar_tests.rs",
+        "five-solana/tests/runtime_stdlib_builtin_unit_tests.rs"
       ],
       "matrix_scenario": null,
-      "expected_limitations": "Rent wrapper is VM-covered; validator coverage still needs a stable fixture path."
+      "expected_limitations": "Rent wrapper is VM- and runtime-covered; validator coverage still needs a stable fixture path."
     },
     {
       "id": "builtin_return_data_get",

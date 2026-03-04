@@ -69,6 +69,37 @@ pub run() -> u64 {
     );
 }
 
+#[test]
+fn rent_sysvar_builtin_equivalent_deploys_and_executes_in_runtime_unit() {
+    run_stdlib_builtin_case(
+        r#"
+pub rent_sysvar() {
+    get_rent_sysvar();
+}
+
+pub run() -> u64 {
+    rent_sysvar();
+    return 1;
+}
+"#,
+    );
+}
+
+#[test]
+fn remaining_cu_builtin_equivalent_deploys_and_executes_in_runtime_unit() {
+    run_stdlib_builtin_case(
+        r#"
+pub remaining_cu() -> u64 {
+    return remaining_compute_units();
+}
+
+pub run() -> u64 {
+    return remaining_cu();
+}
+"#,
+    );
+}
+
 fn run_stdlib_builtin_case(source: &str) {
     let program_id = runtime_program_id();
     let vm_key = vm_state_pda(&program_id);
