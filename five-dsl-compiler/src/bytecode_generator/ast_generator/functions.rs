@@ -349,26 +349,52 @@ impl ASTGenerator {
             // Fallback for imported interface symbols that are stored under fully-qualified
             // registry keys: resolve by qualifier/method shape.
             let qualifier_lower = qualifier.to_ascii_lowercase();
-            let mut candidates: Vec<(String, InterfaceInfo, InterfaceMethod)> = self
+            let tail = qualifier.rsplit("::").next().unwrap_or(qualifier);
+            let tail_lower = tail.to_ascii_lowercase();
+            let mut candidates: Vec<(u8, String, InterfaceInfo, InterfaceMethod)> = self
                 .interface_registry
                 .iter()
                 .filter_map(|(iface_name, iface_info)| {
                     let method = iface_info.methods.get(method_name)?;
                     let iface_lower = iface_name.to_ascii_lowercase();
-                    let qualifier_matches = iface_name == qualifier
-                        || iface_name.ends_with(&format!("::{}", qualifier))
-                        || iface_lower.contains(&qualifier_lower);
-                    if qualifier_matches {
-                        Some((iface_name.clone(), iface_info.clone(), method.clone()))
+                    let score = if iface_name == qualifier {
+                        5
+                    } else if iface_name.ends_with(&format!("::{}", qualifier)) {
+                        4
+                    } else if iface_name == tail {
+                        3
+                    } else if iface_name.ends_with(&format!("::{}", tail)) {
+                        2
+                    } else if iface_lower == qualifier_lower
+                        || iface_lower.ends_with(&format!("::{}", qualifier_lower))
+                        || iface_lower == tail_lower
+                        || iface_lower.ends_with(&format!("::{}", tail_lower))
+                        || iface_lower.contains(&qualifier_lower)
+                    {
+                        1
+                    } else {
+                        0
+                    };
+                    if score > 0 {
+                        Some((score, iface_name.clone(), iface_info.clone(), method.clone()))
                     } else {
                         None
                     }
                 })
                 .collect();
-            candidates.sort_by(|a, b| a.0.cmp(&b.0));
-            candidates.dedup_by(|a, b| a.0 == b.0);
+            candidates.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+            candidates.dedup_by(|a, b| a.1 == b.1);
+            if let Some((best_score, _, info, method_info)) = candidates.first().cloned() {
+                let tie_count = candidates
+                    .iter()
+                    .filter(|(score, _, _, _)| *score == best_score)
+                    .count();
+                if tie_count == 1 {
+                    return self.emit_interface_invoke(emitter, &info, &method_info, args);
+                }
+            }
             if candidates.len() == 1 {
-                let (_, info, method_info) = candidates.remove(0);
+                let (_, _, info, method_info) = candidates.remove(0);
                 return self.emit_interface_invoke(emitter, &info, &method_info, args);
             }
         }
@@ -781,10 +807,35 @@ impl ASTGenerator {
         }
 
         let suffix = format!("::{}", interface_name);
-        self.interface_registry
+        if let Some(found) = self
+            .interface_registry
             .keys()
             .find(|name| name.ends_with(&suffix))
             .cloned()
+        {
+            return Some(found);
+        }
+
+        // Final fallback for import-merger variants that may register the
+        // interface under bare names or other namespace forms.
+        let mut candidates: Vec<String> = self
+            .interface_registry
+            .keys()
+            .filter(|name| {
+                let key = name.as_str();
+                key == interface_name
+                    || key.ends_with(interface_name)
+                    || key.eq_ignore_ascii_case(interface_name)
+            })
+            .cloned()
+            .collect();
+        candidates.sort();
+        candidates.dedup();
+        if candidates.len() == 1 {
+            return candidates.pop();
+        }
+
+        None
     }
 
     fn resolve_qualified_function_name(&self, name: &str) -> Option<String> {
@@ -1107,16 +1158,23 @@ impl ASTGenerator {
             .as_ref()
             .map(|s| s.get_account_registry());
 
-        for (idx, param) in params.iter().enumerate() {
-            if param.name != name {
-                continue;
-            }
-            if super::super::account_utils::is_account_parameter(
+        let mut account_ordinal: u8 = 0;
+        for param in params.iter() {
+            let is_account = super::super::account_utils::is_account_parameter(
                 &param.param_type,
                 &param.attributes,
                 registry,
-            ) {
-                return Some(account_index_from_param_index(idx as u8));
+            );
+
+            if param.name == name {
+                if is_account {
+                    return Some(account_index_from_param_index(account_ordinal));
+                }
+                return None;
+            }
+
+            if is_account {
+                account_ordinal = account_ordinal.saturating_add(1);
             }
         }
         None
@@ -1746,5 +1804,146 @@ mod tests {
         assert!(emitter.bytes.contains(&ARRAY_CONCAT));
         assert!(emitter.bytes.contains(&INVOKE));
         assert!(!emitter.bytes.contains(&PUSH_ARRAY_LITERAL));
+    }
+
+    #[test]
+    fn emits_invoke_for_stdlib_qualified_interface_call() {
+        let mut gen = ASTGenerator::new();
+        gen.current_function_parameters = Some(vec![
+            InstructionParameter {
+                name: "source".to_string(),
+                param_type: TypeNode::Account,
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "mut".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+                pda_config: None,
+            },
+            InstructionParameter {
+                name: "destination".to_string(),
+                param_type: TypeNode::Account,
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "mut".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+                pda_config: None,
+            },
+            InstructionParameter {
+                name: "authority".to_string(),
+                param_type: TypeNode::Account,
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "signer".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+                pda_config: None,
+            },
+            InstructionParameter {
+                name: "amount".to_string(),
+                param_type: TypeNode::Primitive("u64".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![],
+                is_init: false,
+                init_config: None,
+                pda_config: None,
+            },
+        ]);
+
+        let mut methods = HashMap::new();
+        methods.insert(
+            "transfer".to_string(),
+            InterfaceMethod {
+                discriminator: 3,
+                discriminator_bytes: None,
+                is_anchor: false,
+                parameters: vec![
+                    InstructionParameter {
+                        name: "source".to_string(),
+                        param_type: TypeNode::Account,
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![],
+                        is_init: false,
+                        init_config: None,
+                        pda_config: None,
+                    },
+                    InstructionParameter {
+                        name: "destination".to_string(),
+                        param_type: TypeNode::Account,
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![],
+                        is_init: false,
+                        init_config: None,
+                        pda_config: None,
+                    },
+                    InstructionParameter {
+                        name: "authority".to_string(),
+                        param_type: TypeNode::Account,
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![Attribute {
+                            name: "authority".to_string(),
+                            args: vec![],
+                        }],
+                        is_init: false,
+                        init_config: None,
+                        pda_config: None,
+                    },
+                    InstructionParameter {
+                        name: "amount".to_string(),
+                        param_type: TypeNode::Primitive("u64".to_string()),
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![],
+                        is_init: false,
+                        init_config: None,
+                        pda_config: None,
+                    },
+                ],
+                return_type: None,
+            },
+        );
+
+        gen.interface_registry.insert(
+            "std::interfaces::spl_token::SPLToken".to_string(),
+            InterfaceInfo {
+                program_id: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string(),
+                serializer: InterfaceSerializer::Raw,
+                is_anchor: false,
+                methods,
+            },
+        );
+
+        let mut emitter = MockEmitter::new();
+        gen.generate_function_call(
+            &mut emitter,
+            "spl_token::SPLToken::transfer",
+            &[
+                AstNode::Identifier("source".to_string()),
+                AstNode::Identifier("destination".to_string()),
+                AstNode::Identifier("authority".to_string()),
+                AstNode::Literal(Value::U64(1)),
+            ],
+        )
+        .expect("qualified stdlib interface call should lower to INVOKE");
+
+        assert!(
+            emitter.bytes.contains(&INVOKE) || emitter.bytes.contains(&INVOKE_SIGNED),
+            "expected INVOKE or INVOKE_SIGNED in emitted bytes, got {:?}",
+            emitter.bytes
+        );
     }
 }

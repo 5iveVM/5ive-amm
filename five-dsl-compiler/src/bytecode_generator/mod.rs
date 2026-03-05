@@ -446,18 +446,18 @@ impl DslBytecodeGenerator {
             let mut scope_analyzer = scope_analyzer::ScopeAnalyzer::new();
             let mut ast_generator = ASTGenerator::with_optimization_level(self.optimization_level);
 
-            // Pass interface registry to AST generator if available
+            // Seed interface registry from type-checking pipeline when available.
             if let Some(ref interface_registry) = self.interface_registry {
                 ast_generator.set_interface_registry(interface_registry.clone());
-            } else {
-                // Fallback: Process interface definitions to populate the interface registry
-                if let AstNode::Program {
-                    interface_definitions,
-                    ..
-                } = ast
-                {
-                    ast_generator.process_interface_definitions(interface_definitions)?;
-                }
+            }
+            // Always merge interfaces present in the merged AST to ensure imported
+            // stdlib/module interfaces are available during bytecode lowering.
+            if let AstNode::Program {
+                interface_definitions,
+                ..
+            } = ast
+            {
+                ast_generator.process_interface_definitions(interface_definitions)?;
             }
 
             dispatcher.generate_dispatcher(
@@ -481,18 +481,18 @@ impl DslBytecodeGenerator {
             // Use direct AST generation for simple scripts
             let mut ast_generator = ASTGenerator::with_optimization_level(self.optimization_level);
 
-            // Pass interface registry to AST generator if available
+            // Seed interface registry from type-checking pipeline when available.
             if let Some(ref interface_registry) = self.interface_registry {
                 ast_generator.set_interface_registry(interface_registry.clone());
-            } else {
-                // Fallback: Process interface definitions to populate the interface registry
-                if let AstNode::Program {
-                    interface_definitions,
-                    ..
-                } = ast
-                {
-                    ast_generator.process_interface_definitions(interface_definitions)?;
-                }
+            }
+            // Always merge interfaces present in the merged AST to ensure imported
+            // stdlib/module interfaces are available during bytecode lowering.
+            if let AstNode::Program {
+                interface_definitions,
+                ..
+            } = ast
+            {
+                ast_generator.process_interface_definitions(interface_definitions)?;
             }
 
             self.generate_node(ast)?;

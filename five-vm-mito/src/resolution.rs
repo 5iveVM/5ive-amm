@@ -127,6 +127,23 @@ fn resolve_value_ref_with_depth(
             Ok(Value::U64(u64::from_le_bytes(bytes)))
         }
         ValueRef::PubkeyRef(offset) => {
+            if (*offset & 0xFF00) == 0xFF00 {
+                let account_idx = (*offset & 0x00FF) as usize;
+                if account_idx < ctx.accounts().len() {
+                    let pk = *ctx.accounts()[account_idx].key();
+                    return Ok(Value::Pubkey(pk));
+                }
+                return Err(VMErrorCode::InvalidAccountIndex);
+            }
+            if (*offset & 0xFF00) == 0xFE00 {
+                let account_idx = (*offset & 0x00FF) as usize;
+                if account_idx < ctx.accounts().len() {
+                    let owner = *ctx.accounts()[account_idx].owner();
+                    return Ok(Value::Pubkey(Pubkey::from(owner)));
+                }
+                return Err(VMErrorCode::InvalidAccountIndex);
+            }
+
             let start = *offset as usize;
             let end = start + 32;
             let data = ctx.instruction_data();

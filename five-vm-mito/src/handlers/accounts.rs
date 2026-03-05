@@ -8,7 +8,7 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
-    error_log, pop_u64,
+    pop_u64,
 };
 use core::convert::TryFrom;
 use five_protocol::{opcodes::*, ValueRef};
@@ -19,6 +19,8 @@ use pinocchio::program::invoke_signed;
 use pinocchio::pubkey::Pubkey;
 
 const CLOSED_MARKER: [u8; 4] = *b"CLSD";
+const PUBKEY_REF_KEY_TAG_BASE: u16 = 0xFF00;
+const PUBKEY_REF_OWNER_TAG_BASE: u16 = 0xFE00;
 
 /// Execute Solana account operations including creation, metadata access, and lamport management.
 /// Handles the 0x50-0x5F opcode range.
@@ -139,10 +141,14 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         }
         GET_KEY => {
             let account_idx = ctx.fetch_byte()?;
-            // SAFETY: Copy key bytes immediately to avoid holding account borrow
-            let key_bytes = *ctx.get_account(account_idx)?.key();
-
-            push_bytes_as_temp(ctx, &key_bytes, "GET_KEY", account_idx)?;
+            // Encode account key refs in a tagged PubkeyRef range (0xFFxx).
+            let pubkey_ref_offset = PUBKEY_REF_KEY_TAG_BASE | account_idx as u16;
+            ctx.push(ValueRef::PubkeyRef(pubkey_ref_offset))?;
+            debug_log!(
+                "MitoVM: GET_KEY account {} pushed PubkeyRef(tagged=0x{:04X})",
+                account_idx,
+                pubkey_ref_offset
+            );
         }
         GET_DATA => {
             let account_idx = ctx.fetch_byte()?;
@@ -165,10 +171,14 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         }
         GET_OWNER => {
             let account_idx = ctx.fetch_byte()?;
-            // SAFETY: Copy owner bytes immediately to avoid holding account borrow
-            let owner_bytes = *ctx.get_account(account_idx)?.owner();
-
-            push_bytes_as_temp(ctx, &owner_bytes, "GET_OWNER", account_idx)?;
+            // Encode account owner refs in a tagged PubkeyRef range (0xFExx).
+            let pubkey_ref_offset = PUBKEY_REF_OWNER_TAG_BASE | account_idx as u16;
+            ctx.push(ValueRef::PubkeyRef(pubkey_ref_offset))?;
+            debug_log!(
+                "MitoVM: GET_OWNER account {} pushed PubkeyRef(tagged=0x{:04X})",
+                account_idx,
+                pubkey_ref_offset
+            );
         }
         SET_LAMPORTS => {
             let account_idx = ctx.fetch_byte()?;
@@ -326,48 +336,4 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         _ => return Err(VMErrorCode::InvalidInstruction.into()),
     }
     Ok(())
-}
-
-/// Helper to allocate temp space, copy bytes, and push TempRef
-/// Encapsulates common pattern for GET_KEY, GET_OWNER etc.
-#[inline(always)]
-fn push_bytes_as_temp(
-    ctx: &mut ExecutionManager,
-    bytes: &[u8],
-    op_name: &str,
-    account_idx: u8,
-) -> CompactResult<()> {
-    // We assume bytes.len() fits in u8 for these operations (32 bytes for Pubkey)
-    let len = bytes.len() as u8;
-    match ctx.alloc_temp(len) {
-        Ok(temp_offset) => {
-            debug_log!(
-                "MitoVM: {} account {} allocated temp at offset {}",
-                op_name,
-                account_idx,
-                temp_offset
-            );
-            ctx.temp_buffer_mut()[temp_offset as usize..(temp_offset as usize + bytes.len())]
-                .copy_from_slice(bytes);
-            ctx.push(ValueRef::TempRef(temp_offset, len))?;
-            debug_log!(
-                "MitoVM: {} account {} pushed TempRef({}, {})",
-                op_name,
-                account_idx,
-                temp_offset,
-                len
-            );
-            Ok(())
-        }
-        Err(e) => {
-            error_log!(
-                "MitoVM: {} account {} alloc_temp({}) FAILED - error code: {}",
-                op_name,
-                account_idx,
-                len,
-                e as u32
-            );
-            Err(e)
-        }
-    }
 }

@@ -441,6 +441,7 @@ impl ASTGenerator {
                         // Check if the field is optional and if it is a pubkey
                         let mut is_optional = false;
                         let mut is_pubkey = false;
+                        let mut field_type_name: Option<String> = None;
                         let mut field_found_in_registry = false;
 
                         if let Some(account_system) = &self.account_system {
@@ -463,6 +464,7 @@ impl ASTGenerator {
                                 {
                                     is_optional = struct_field_info.is_optional;
                                     is_pubkey = struct_field_info.field_type == "pubkey";
+                                    field_type_name = Some(struct_field_info.field_type.clone());
                                     field_found_in_registry = true;
                                 }
                             }
@@ -490,6 +492,20 @@ impl ASTGenerator {
 
                         if is_optional {
                             emitter.emit_opcode(OPTIONAL_UNWRAP);
+                        }
+
+                        // LOAD_FIELD returns 8 bytes by default. Mask narrower integer fields
+                        // so comparisons/arithmetic observe declared bit width.
+                        if !is_pubkey {
+                            if let Some(mask) = field_type_name.as_deref().and_then(|ty| match ty {
+                                "u8" | "bool" => Some(0xFFu64),
+                                "u16" => Some(0xFFFFu64),
+                                "u32" => Some(0xFFFF_FFFFu64),
+                                _ => None,
+                            }) {
+                                emitter.emit_const_u64(mask)?;
+                                emitter.emit_opcode(BITWISE_AND);
+                            }
                         }
                     } else {
                         #[cfg(debug_assertions)]

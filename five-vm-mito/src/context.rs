@@ -770,16 +770,29 @@ impl<'a> ExecutionContext<'a> {
     pub fn extract_pubkey(&self, value_ref: &ValueRef) -> CompactResult<[u8; 32]> {
         match value_ref {
             ValueRef::PubkeyRef(offset) => {
+                // Tagged account refs produced by GET_KEY / GET_OWNER.
+                if (*offset & 0xFF00) == 0xFF00 {
+                    let account_idx = (*offset & 0x00FF) as u8;
+                    return Ok(*self.get_account(account_idx)?.key());
+                }
+                if (*offset & 0xFF00) == 0xFE00 {
+                    let account_idx = (*offset & 0x00FF) as u8;
+                    return Ok(*self.get_account(account_idx)?.owner());
+                }
+
                 let start = *offset as usize;
                 let end = start + 32;
-                if end <= self.instruction_data.len() {
+                let input_len = self.instruction_data.len();
+                let accounts_len = self.accounts.accounts().len();
+
+                if end <= input_len {
                     let mut pubkey = [0u8; 32];
                     pubkey.copy_from_slice(&self.instruction_data[start..end]);
                     Ok(pubkey)
                 } else {
                     // Fallback to accounts check if not in instruction data
                     // Original code: if start < self.accounts.len() { Ok(*self.accounts[start].key()) }
-                    if start < self.accounts.accounts().len() {
+                    if start < accounts_len {
                         Ok(*self.accounts.accounts()[start].key())
                     } else {
                         Err(VMErrorCode::MemoryError)

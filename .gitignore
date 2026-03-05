@@ -53,3 +53,5 @@ test-ledger*/
 /.codex-local-validator-ledger
 /.ledger-localnet
 /.reports
+/.localnet-escrow-2026-ledger-probe
+/.localnet-escrow-2026-ledger

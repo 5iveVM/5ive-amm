@@ -9,6 +9,35 @@ use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    fn resolve_account_param_index(&self, param_name: &str, fallback_param_index: usize) -> u8 {
+        if let Some(params) = self.current_function_parameters.as_ref() {
+            let registry = self
+                .account_system
+                .as_ref()
+                .map(|s| s.get_account_registry());
+            let mut account_ordinal: u8 = 0;
+            for param in params.iter() {
+                let is_account = super::super::account_utils::is_account_parameter(
+                    &param.param_type,
+                    &param.attributes,
+                    registry,
+                );
+                if param.name == param_name {
+                    if is_account {
+                        return super::super::account_utils::account_index_from_param_index(
+                            account_ordinal,
+                        );
+                    }
+                    break;
+                }
+                if is_account {
+                    account_ordinal = account_ordinal.saturating_add(1);
+                }
+            }
+        }
+        super::super::account_utils::account_index_from_param_index(fallback_param_index as u8)
+    }
+
     pub(crate) fn init_ctx_bump_alias(account_name: &str) -> String {
         format!("__ctx_bump_{}", account_name)
     }
@@ -56,8 +85,7 @@ impl ASTGenerator {
                 continue;
             };
 
-            let account_index =
-                super::super::account_utils::account_index_from_param_index(index as u8);
+            let account_index = self.resolve_account_param_index(&param.name, index);
             let bump_alias = Self::init_ctx_bump_alias(&param.name);
 
             if let Some(bump_var) = &pda_config.bump {
@@ -232,8 +260,7 @@ impl ASTGenerator {
 
         // Get the init configuration
         let init_config = param.init_config.as_ref().ok_or(VMError::InvalidScript)?;
-        let account_index =
-            super::super::account_utils::account_index_from_param_index(index as u8);
+        let account_index = self.resolve_account_param_index(&param.name, index);
 
         // Generate pre-creation validation: CHECK_UNINITIALIZED
         // This ensures the account is not already initialized
@@ -437,8 +464,7 @@ impl ASTGenerator {
                 }
 
                 // Account indices use centralized ACCOUNT_INDEX_OFFSET constant
-                let account_idx =
-                    super::super::account_utils::account_index_from_param_index(idx as u8);
+                let account_idx = self.resolve_account_param_index(&param.name, idx);
                 return Ok(account_idx);
             }
         }
@@ -455,8 +481,7 @@ impl ASTGenerator {
 
         for (idx, param) in params.iter().enumerate() {
             if param.attributes.iter().any(|a| a.name == "signer") {
-                let account_idx =
-                    super::super::account_utils::account_index_from_param_index(idx as u8);
+                let account_idx = self.resolve_account_param_index(&param.name, idx);
                 return Ok(account_idx);
             }
         }

@@ -527,8 +527,10 @@ macro_rules! polymorphic_comparison_op {
 #[macro_export]
 macro_rules! bitwise_op {
     ($ctx:expr, $op_name:expr, $op:tt) => {{
-        let b = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
-        let a = $ctx.pop()?.as_u64().ok_or($crate::error::VMErrorCode::TypeMismatch)?;
+        let b_ref = $ctx.pop()?;
+        let a_ref = $ctx.pop()?;
+        let b = $crate::utils::resolve_u64(b_ref, &$ctx)?;
+        let a = $crate::utils::resolve_u64(a_ref, &$ctx)?;
         let result = a $op b;
         debug_log!("MitoVM: {} {} {} {} = {}", $op_name, a, stringify!($op), b, result);
         $ctx.push(five_protocol::ValueRef::U64(result))?;

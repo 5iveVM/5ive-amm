@@ -77,6 +77,22 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
                 Ok(a == val_b)
             }
         }
+        (ValueRef::AccountRef(account_idx, _), ValueRef::U8(b)) => {
+            if account_idx == 0 || account_idx == 255 {
+                Ok(account_idx == b)
+            } else {
+                let val_a = crate::utils::resolve_u8(a, ctx)?;
+                Ok(val_a == b)
+            }
+        }
+        (ValueRef::U8(a), ValueRef::AccountRef(account_idx, _)) => {
+            if account_idx == 0 || account_idx == 255 {
+                Ok(a == account_idx)
+            } else {
+                let val_b = crate::utils::resolve_u8(b, ctx)?;
+                Ok(a == val_b)
+            }
+        }
 
         // Pubkey/Temp comparisons
         (ValueRef::PubkeyRef(_), _)

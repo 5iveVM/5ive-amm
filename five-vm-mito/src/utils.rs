@@ -107,6 +107,22 @@ pub fn resolve_bool(
     }
 }
 
+/// Helper to resolve a value (including AccountRef) to u8.
+/// This reads 1 byte from account data if given an AccountRef.
+pub fn resolve_u8(value: ValueRef, ctx: &crate::context::ExecutionManager) -> CompactResult<u8> {
+    match value {
+        ValueRef::AccountRef(account_idx, offset) => {
+            let account = ctx.get_account(account_idx)?;
+            let data = unsafe { account.borrow_data_unchecked() };
+            if (offset as usize + 1) > data.len() {
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            Ok(data[offset as usize])
+        }
+        _ => value.as_u8().ok_or(VMErrorCode::TypeMismatch),
+    }
+}
+
 /// Utility functions for bytecode validation
 pub struct BytecodeUtils;
 
@@ -393,6 +409,11 @@ pub fn value_ref_to_seed_bytes(
             let account = ctx.get_account(account_index)?;
             Vec::from_slice(account.key().as_ref()).map_err(|_| VMErrorCode::MemoryError)
         }
+        ValueRef::PubkeyRef(_) => {
+            debug_log!("MitoVM: value_ref_to_seed_bytes - PubkeyRef");
+            let pubkey = ctx.extract_pubkey(&value_ref)?;
+            Vec::from_slice(&pubkey).map_err(|_| VMErrorCode::MemoryError)
+        }
         ValueRef::StringRef(offset) => {
             debug_log!(
                 "MitoVM: value_ref_to_seed_bytes - StringRef offset: {}",
@@ -423,7 +444,6 @@ pub fn value_ref_to_seed_bytes(
         ValueRef::TupleRef(_, _)
         | ValueRef::OptionalRef(_, _)
         | ValueRef::ResultRef(_, _)
-        | ValueRef::PubkeyRef(_)
         | ValueRef::ArrayRef(_)
         | ValueRef::HeapString(_)
         | ValueRef::HeapArray(_) => {

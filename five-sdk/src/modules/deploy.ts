@@ -1317,7 +1317,7 @@ export async function deployLargeProgramOptimizedToSolana(
         {
           pubkey: vmStatePubkey,
           isSigner: false,
-          isWritable: false,
+          isWritable: true,
         },
         ...feeVaultKeys,
       ],

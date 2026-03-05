@@ -951,9 +951,12 @@ export class FiveCompilerWasm {
 
     if (typeof result.get_abi === "function") {
       try {
-        const abiJson = result.get_abi();
-        if (abiJson) {
-          return JSON.parse(abiJson);
+        const abiValue = result.get_abi();
+        if (abiValue) {
+          if (typeof abiValue === "string") {
+            return JSON.parse(abiValue);
+          }
+          return abiValue;
         }
       } catch (error) {
         this.logger.debug("Failed to parse ABI from get_abi():", error);
@@ -1105,16 +1108,7 @@ export class FiveCompilerWasm {
     const formattedErrors = this.extractFormattedErrors(result);
 
     if (result.success && result.bytecode) {
-      // Extract ABI - get_abi() returns JSON string, parse it
-      let abi = undefined;
-      try {
-        const abiJson = result.get_abi();
-        if (abiJson) {
-          abi = JSON.parse(abiJson);
-        }
-      } catch (e) {
-        this.logger.debug('Failed to parse ABI from get_abi():', e);
-      }
+      const abi = this.extractAbi(result);
 
       return {
         success: true,
