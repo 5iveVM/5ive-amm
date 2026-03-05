@@ -133,6 +133,39 @@ Anchor-porting default:
 4. If porting older code that uses `owner`, rename to `authority` unless compatibility constraints require preserving the external name.
 5. If an `ImmutableField` or similar checker error appears around identifiers, treat naming as the first triage step before deeper refactors.
 
+## 8.4) Account Serializer State Access Contract (Mandatory)
+
+Use these rules whenever reading external account state via typed fields.
+
+1. Keep CPI and account decoding concepts separate:
+- Interface `@serializer(...)` = instruction-data encoding for CPI calls.
+- Account/parameter `@serializer(...)` = account-state decode mode for field access.
+2. Account decode precedence is strict:
+- parameter instance `@serializer(...)` > account type `@serializer(...)` > contextual default.
+3. For SPL Token `Mint` and `TokenAccount`, use `raw` decoding.
+4. Do not decode SPL accounts with `anchor`.
+5. `anchor` in account decode context means discriminator-aware mode (`8-byte discriminator + borsh payload`), not a standalone wire serializer.
+6. If you only need a subset of fields, partial definitions can compile, but production integrations should prefer canonical full layouts for external programs.
+7. Enforce behavior with on-chain assertion instructions (`require(...)` checks over decoded fields), not only local mocks.
+
+Authoring examples:
+
+```five
+account Mint @serializer("raw") {
+    mint_authority_option: u32;
+    mint_authority: pubkey;
+    supply: u64;
+    decimals: u8;
+    is_initialized: bool;
+    freeze_authority_option: u32;
+    freeze_authority: pubkey;
+}
+
+pub read_supply(mint: Mint @serializer("raw")) -> u64 {
+    return mint.supply;
+}
+```
+
 ## 8.1) Crypto Capability Contract (Mandatory)
 
 1. Hash builtins use explicit output buffers:
@@ -172,6 +205,10 @@ Porting rules:
 3. Do not replace verified randomness/auth paths with counters, placeholders, or simplified arithmetic.
 4. If Anchor used Ed25519 instruction-sysvar proofs, the 5IVE port must also verify them before accepting entropy/authenticated input.
 5. If Anchor used raw byte hashing, reproduce the byte layout exactly and prove it with a deterministic vector.
+
+For serializer/state-access details, see:
+1. `docs/ACCOUNT_SERIALIZER_STATE_ACCESS_GUIDE.md`
+2. `docs/CPI_GUIDE.md`
 
 ## 9) Mismatch and Fallback Rules
 

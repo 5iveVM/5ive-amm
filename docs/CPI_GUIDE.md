@@ -2,6 +2,9 @@
 
 This guide covers Cross-Program Invocation (CPI) in Five, including interface definition, serialization formats, and real-world usage patterns.
 
+For external account state decoding (`Mint`, `TokenAccount`, etc.), see:
+- [`ACCOUNT_SERIALIZER_STATE_ACCESS_GUIDE.md`](./ACCOUNT_SERIALIZER_STATE_ACCESS_GUIDE.md)
+
 ## Overview
 
 CPI allows Five contracts to invoke instructions on other Solana programs, including:
@@ -15,6 +18,10 @@ Five implements CPI through:
 2. **INVOKE/INVOKE_SIGNED opcodes** - Execute the CPI at runtime
 3. **Serialization** - Encode instruction data in Borsh or Bincode format
 4. **Account management** - Partition accounts and data at compile time
+
+Important distinction:
+- Interface `@serializer(...)` controls CPI instruction-data encoding.
+- Account `@serializer(...)` controls account-state decoding for typed field access.
 
 ## Interface Declarations
 
@@ -461,7 +468,7 @@ CPI adds ~15,000 compute units per call (varies by target program). Budget accor
 | CPI return data | ❌ Not implemented | Can't capture return values |
 | Dynamic data args | ❌ Not implemented | Can only use compile-time constants |
 | Account constraint enforcement | ❌ Not implemented | Constraints parsed but not validated |
-| Raw serializer | ❌ Stubbed | Not usable yet |
+| Account-state decoding metadata | ✅ Works | Type + param serializer precedence supported |
 
 ## Testing Your CPIs
 
@@ -491,6 +498,9 @@ five execute <SCRIPT_ACCOUNT> -f 0
 ```
 
 See `five-templates/cpi-examples/` for complete integration test examples.
+For typed external account reads and serializer precedence tests, see:
+- `five-templates/cpi-integration-tests/test-localnet.mjs`
+- `five-templates/cpi-integration-tests/test-spl-state-read.v`
 
 ## Further Reading
 
