@@ -18,7 +18,7 @@ pub mint_to_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.mint_to(mint, user2_token, user1, 500);
+    SPLToken::mint_to(mint, user2_token, user1, 500);
 }
 
 pub transfer_dynamic(
@@ -27,5 +27,5 @@ pub transfer_dynamic(
     user2: account @signer,
     amount: u64
 ) {
-    SPLToken.transfer(user2_token, user3_token, user2, amount);
+    SPLToken::transfer(user2_token, user3_token, user2, amount);
 }

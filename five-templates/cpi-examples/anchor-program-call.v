@@ -7,5 +7,5 @@ pub increment_remote(
     counter: account @mut,
     user: account @signer @mut
 ) {
-    SystemProgram.transfer(user, counter, 1);
+    SystemProgram::transfer(user, counter, 1);
 }

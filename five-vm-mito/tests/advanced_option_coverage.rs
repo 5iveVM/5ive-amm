@@ -3,7 +3,7 @@
 //! Additional tests for edge cases and error conditions in Option/Result operations.
 
 use five_protocol::{opcodes::*, Value, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{stack::StackStorage, MitoVM, Result as VmResult, FIVE_VM_PROGRAM_ID};
+use five_vm_mito::{stack::StackStorage, MitoVM, Result as VmResult, VMError, FIVE_VM_PROGRAM_ID};
 
 fn build_script(build: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
     let mut script = Vec::with_capacity(FIVE_HEADER_OPTIMIZED_SIZE + 32);
@@ -45,7 +45,6 @@ fn test_optional_get_value_none() {
 }
 
 #[test]
-#[ignore = "Failing unexpectedly with Ok(Some(Bool(false))), needs investigation"]
 fn test_optional_is_some_type_mismatch() {
     // Test OPTIONAL_IS_SOME on non-optional value
     match execute(|script| {
@@ -53,9 +52,8 @@ fn test_optional_is_some_type_mismatch() {
         script.push(OPTIONAL_IS_SOME);
         script.push(RETURN_VALUE);
     }) {
-        Err(e) => {
-            println!("✅ OPTIONAL_IS_SOME type mismatch test passed: {:?}", e);
-        }
+        Err(VMError::TypeMismatch) => println!("✅ OPTIONAL_IS_SOME type mismatch test passed"),
+        Err(e) => panic!("❌ Expected TypeMismatch, got {:?}", e),
         Ok(result) => panic!("❌ Expected error, but got result: {:?}", result),
     }
 }

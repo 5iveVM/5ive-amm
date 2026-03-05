@@ -55,7 +55,7 @@ pub anchor_mint_to_user1(
     user1_token: account @mut,
     user1: account @signer
 ) {
-    AnchorToken.mint_to(mint, user1_token, user1, 1000);
+    AnchorToken::mint_to(mint, user1_token, user1, 1000);
 }
 
 pub anchor_mint_to_user2(
@@ -63,7 +63,7 @@ pub anchor_mint_to_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    AnchorToken.mint_to(mint, user2_token, user1, 500);
+    AnchorToken::mint_to(mint, user2_token, user1, 500);
 }
 
 pub anchor_mint_to_user3(
@@ -71,7 +71,7 @@ pub anchor_mint_to_user3(
     user3_token: account @mut,
     user1: account @signer
 ) {
-    AnchorToken.mint_to(mint, user3_token, user1, 500);
+    AnchorToken::mint_to(mint, user3_token, user1, 500);
 }
 
 pub anchor_transfer_user2_to_user3(
@@ -79,7 +79,7 @@ pub anchor_transfer_user2_to_user3(
     user3_token: account @mut,
     user2: account @signer
 ) {
-    AnchorToken.transfer(user2_token, user3_token, user2, 100);
+    AnchorToken::transfer(user2_token, user3_token, user2, 100);
 }
 
 pub anchor_approve_user3_to_user2(
@@ -87,7 +87,7 @@ pub anchor_approve_user3_to_user2(
     user3: account @signer,
     delegate: pubkey
 ) {
-    AnchorToken.approve(user3_token, user3, delegate, 150);
+    AnchorToken::approve(user3_token, user3, delegate, 150);
 }
 
 pub anchor_transfer_from_user3_to_user1_by_user2(
@@ -95,14 +95,14 @@ pub anchor_transfer_from_user3_to_user1_by_user2(
     user1_token: account @mut,
     user2: account @signer
 ) {
-    AnchorToken.transfer_from(user3_token, user1_token, user2, 50);
+    AnchorToken::transfer_from(user3_token, user1_token, user2, 50);
 }
 
 pub anchor_revoke_user3(
     user3_token: account @mut,
     user3: account @signer
 ) {
-    AnchorToken.revoke(user3_token, user3);
+    AnchorToken::revoke(user3_token, user3);
 }
 
 pub anchor_burn_user1(
@@ -110,7 +110,7 @@ pub anchor_burn_user1(
     user1_token: account @mut,
     user1: account @signer
 ) {
-    AnchorToken.burn(mint, user1_token, user1, 100);
+    AnchorToken::burn(mint, user1_token, user1, 100);
 }
 
 pub anchor_freeze_user2(
@@ -118,7 +118,7 @@ pub anchor_freeze_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    AnchorToken.freeze_account(mint, user2_token, user1);
+    AnchorToken::freeze_account(mint, user2_token, user1);
 }
 
 pub anchor_thaw_user2(
@@ -126,5 +126,5 @@ pub anchor_thaw_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    AnchorToken.thaw_account(mint, user2_token, user1);
+    AnchorToken::thaw_account(mint, user2_token, user1);
 }

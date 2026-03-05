@@ -13,5 +13,5 @@ pub mint_tokens(
     authority: account @signer,
     token_program: account
 ) {
-    SPLToken.mint_to(mint, to, authority, 1000);
+    SPLToken::mint_to(mint, to, authority, 1000);
 }

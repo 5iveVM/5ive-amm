@@ -22,7 +22,7 @@ pub mint_source(
     user1_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.mint_to(mint, user1_token, user1, 500);
+    SPLToken::mint_to(mint, user1_token, user1, 500);
 }
 
 pub transfer_with_state(
@@ -33,5 +33,5 @@ pub transfer_with_state(
     amount: u64
 ) {
     require(amount > 0);
-    SPLToken.transfer(user1_token, user2_token, user1, amount);
+    SPLToken::transfer(user1_token, user2_token, user1, amount);
 }

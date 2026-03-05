@@ -47,7 +47,7 @@ pub mint_to_user1(
     user1_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.mint_to(mint, user1_token, user1, 1000);
+    SPLToken::mint_to(mint, user1_token, user1, 1000);
 }
 
 pub mint_to_user2(
@@ -55,7 +55,7 @@ pub mint_to_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.mint_to(mint, user2_token, user1, 500);
+    SPLToken::mint_to(mint, user2_token, user1, 500);
 }
 
 pub mint_to_user3(
@@ -63,7 +63,7 @@ pub mint_to_user3(
     user3_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.mint_to(mint, user3_token, user1, 500);
+    SPLToken::mint_to(mint, user3_token, user1, 500);
 }
 
 pub transfer_user2_to_user3(
@@ -71,7 +71,7 @@ pub transfer_user2_to_user3(
     user3_token: account @mut,
     user2: account @signer
 ) {
-    SPLToken.transfer(user2_token, user3_token, user2, 100);
+    SPLToken::transfer(user2_token, user3_token, user2, 100);
 }
 
 pub approve_user3_to_user2(
@@ -79,7 +79,7 @@ pub approve_user3_to_user2(
     user2: account,
     user3: account @signer
 ) {
-    SPLToken.approve(user3_token, user2, user3, 150);
+    SPLToken::approve(user3_token, user2, user3, 150);
 }
 
 pub transfer_from_user3_to_user1_by_user2(
@@ -87,14 +87,14 @@ pub transfer_from_user3_to_user1_by_user2(
     user1_token: account @mut,
     user2: account @signer
 ) {
-    SPLToken.transfer(user3_token, user1_token, user2, 50);
+    SPLToken::transfer(user3_token, user1_token, user2, 50);
 }
 
 pub revoke_user3(
     user3_token: account @mut,
     user3: account @signer
 ) {
-    SPLToken.revoke(user3_token, user3);
+    SPLToken::revoke(user3_token, user3);
 }
 
 pub burn_user1(
@@ -102,7 +102,7 @@ pub burn_user1(
     user1_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.burn(user1_token, mint, user1, 100);
+    SPLToken::burn(user1_token, mint, user1, 100);
 }
 
 pub freeze_user2(
@@ -110,7 +110,7 @@ pub freeze_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.freeze_account(user2_token, mint, user1);
+    SPLToken::freeze_account(user2_token, mint, user1);
 }
 
 pub thaw_user2(
@@ -118,5 +118,5 @@ pub thaw_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.thaw_account(user2_token, mint, user1);
+    SPLToken::thaw_account(user2_token, mint, user1);
 }

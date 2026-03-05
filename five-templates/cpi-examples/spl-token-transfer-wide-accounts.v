@@ -18,7 +18,7 @@ pub mint_source(
     user1_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.mint_to(mint, user1_token, user1, 500);
+    SPLToken::mint_to(mint, user1_token, user1, 500);
 }
 
 pub transfer_wide(
@@ -31,5 +31,5 @@ pub transfer_wide(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.transfer(user1_token, user2_token, user1, 100);
+    SPLToken::transfer(user1_token, user2_token, user1, 100);
 }

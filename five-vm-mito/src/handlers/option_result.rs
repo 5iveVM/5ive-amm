@@ -181,7 +181,7 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 {
                     read_account_option_tag(ctx, account_idx, offset)?.is_some()
                 }
-                _ => false, // Preserve prior "invalid => false" behavior
+                _ => return Err(VMErrorCode::TypeMismatch),
             };
             ctx.push(ValueRef::Bool(is_some))?;
         }
@@ -203,7 +203,7 @@ pub fn handle_option_result_ops(opcode: u8, ctx: &mut ExecutionManager) -> Compa
                 {
                     read_account_option_tag(ctx, account_idx, offset)?.is_none()
                 }
-                _ => false, // Preserve prior "invalid => false" behavior
+                _ => return Err(VMErrorCode::TypeMismatch),
             };
             ctx.push(ValueRef::Bool(is_none))?;
         }

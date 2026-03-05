@@ -18,7 +18,7 @@ pub mint_source(
     user1_token: account @mut,
     user1: account @signer
 ) {
-    SPLToken.mint_to(mint, user1_token, user1, 500);
+    SPLToken::mint_to(mint, user1_token, user1, 500);
 }
 
 pub transfer_after_branch(
@@ -38,5 +38,5 @@ pub transfer_after_branch(
     }
 
     require(liquidity >= min_liquidity);
-    SPLToken.transfer(user1_token, user2_token, user1, amount_a);
+    SPLToken::transfer(user1_token, user2_token, user1, amount_a);
 }

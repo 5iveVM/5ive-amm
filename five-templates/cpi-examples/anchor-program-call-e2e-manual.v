@@ -37,7 +37,7 @@ pub mint_to_user1(
     user1_token: account @mut,
     user1: account @signer
 ) {
-    AnchorTokenComparison.mint_to(mint, user1_token, user1, 1000);
+    AnchorTokenComparison::mint_to(mint, user1_token, user1, 1000);
 }
 
 pub mint_to_user2(
@@ -45,7 +45,7 @@ pub mint_to_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    AnchorTokenComparison.mint_to(mint, user2_token, user1, 500);
+    AnchorTokenComparison::mint_to(mint, user2_token, user1, 500);
 }
 
 pub mint_to_user3(
@@ -53,7 +53,7 @@ pub mint_to_user3(
     user3_token: account @mut,
     user1: account @signer
 ) {
-    AnchorTokenComparison.mint_to(mint, user3_token, user1, 500);
+    AnchorTokenComparison::mint_to(mint, user3_token, user1, 500);
 }
 
 pub transfer_user2_to_user3(
@@ -61,7 +61,7 @@ pub transfer_user2_to_user3(
     user3_token: account @mut,
     user2: account @signer
 ) {
-    AnchorTokenComparison.transfer(user2_token, user3_token, user2, 100);
+    AnchorTokenComparison::transfer(user2_token, user3_token, user2, 100);
 }
 
 pub burn_user1(
@@ -69,7 +69,7 @@ pub burn_user1(
     user1_token: account @mut,
     user1: account @signer
 ) {
-    AnchorTokenComparison.burn(mint, user1_token, user1, 100);
+    AnchorTokenComparison::burn(mint, user1_token, user1, 100);
 }
 
 pub freeze_user2(
@@ -77,7 +77,7 @@ pub freeze_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    AnchorTokenComparison.freeze_account(mint, user2_token, user1);
+    AnchorTokenComparison::freeze_account(mint, user2_token, user1);
 }
 
 pub thaw_user2(
@@ -85,5 +85,5 @@ pub thaw_user2(
     user2_token: account @mut,
     user1: account @signer
 ) {
-    AnchorTokenComparison.thaw_account(mint, user2_token, user1);
+    AnchorTokenComparison::thaw_account(mint, user2_token, user1);
 }

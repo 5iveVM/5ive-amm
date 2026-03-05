@@ -37,7 +37,7 @@ pub init_user(user_account: UserTokenAccount @mut @init, vault: TokenVault, owne
 pub deposit(vault: TokenVault @mut, user_account: UserTokenAccount @mut, user_token_account: pubkey, vault_token_account: pubkey, owner: account @signer, amount: u64) {
     require(amount > 0);
 
-    SPLToken.transfer(user_token_account, vault_token_account, owner, amount);
+    SPLToken::transfer(user_token_account, vault_token_account, owner, amount);
 
     vault.total_deposited = vault.total_deposited + amount;
     user_account.balance = user_account.balance + amount;
@@ -48,7 +48,7 @@ pub withdraw(vault: TokenVault @mut, user_account: UserTokenAccount @mut, vault_
     require(amount > 0);
     require(user_account.balance >= amount);
 
-    SPLToken.transfer(vault_token_account, user_token_account, vault_authority, amount);
+    SPLToken::transfer(vault_token_account, user_token_account, vault_authority, amount);
 
     vault.total_deposited = vault.total_deposited - amount;
     user_account.balance = user_account.balance - amount;

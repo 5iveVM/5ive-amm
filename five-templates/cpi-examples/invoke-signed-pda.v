@@ -13,5 +13,5 @@ pub burn_from_pda(
     mint: account @mut,
     token_program: account
 ) {
-    SPLToken.burn(token_account, mint, pda_authority, 1000);
+    SPLToken::burn(token_account, mint, pda_authority, 1000);
 }
