@@ -126,9 +126,29 @@ fn append_raw_bytes_with_depth(
             out[0] = *byte;
             Ok(1)
         }
+        ValueRef::U16(word) => {
+            out[..2].copy_from_slice(&word.to_le_bytes());
+            Ok(2)
+        }
+        ValueRef::U32(word) => {
+            out[..4].copy_from_slice(&word.to_le_bytes());
+            Ok(4)
+        }
         ValueRef::Bool(flag) => {
             out[0] = u8::from(*flag);
             Ok(1)
+        }
+        ValueRef::I8(byte) => {
+            out[0] = *byte as u8;
+            Ok(1)
+        }
+        ValueRef::I16(word) => {
+            out[..2].copy_from_slice(&word.to_le_bytes());
+            Ok(2)
+        }
+        ValueRef::I32(word) => {
+            out[..4].copy_from_slice(&word.to_le_bytes());
+            Ok(4)
         }
         ValueRef::U64(word) => {
             out[..8].copy_from_slice(&word.to_le_bytes());
@@ -344,16 +364,21 @@ fn append_raw_optional_like(
 fn value_ref_kind(value_ref: &ValueRef) -> u32 {
     match value_ref {
         ValueRef::U8(_) => 1,
-        ValueRef::U64(_) => 2,
-        ValueRef::I64(_) => 3,
-        ValueRef::Bool(_) => 4,
-        ValueRef::TempRef(_, _) => 5,
-        ValueRef::StringRef(_) => 6,
-        ValueRef::HeapString(_) => 7,
-        ValueRef::ArrayRef(_) => 8,
-        ValueRef::PubkeyRef(_) => 9,
-        ValueRef::AccountRef(_, _) => 10,
-        ValueRef::U128(_) => 11,
+        ValueRef::U16(_) => 2,
+        ValueRef::U32(_) => 3,
+        ValueRef::U64(_) => 4,
+        ValueRef::I8(_) => 5,
+        ValueRef::I16(_) => 6,
+        ValueRef::I32(_) => 7,
+        ValueRef::I64(_) => 8,
+        ValueRef::Bool(_) => 9,
+        ValueRef::TempRef(_, _) => 10,
+        ValueRef::StringRef(_) => 11,
+        ValueRef::HeapString(_) => 12,
+        ValueRef::ArrayRef(_) => 13,
+        ValueRef::PubkeyRef(_) => 14,
+        ValueRef::AccountRef(_, _) => 15,
+        ValueRef::U128(_) => 16,
         _ => 255,
     }
 }
@@ -492,7 +517,12 @@ fn handle_array_literals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                     let element = ctx.stack.stack[idx];
                     let is_u8 = match element {
                         ValueRef::U8(_) | ValueRef::Bool(_) => true,
+                        ValueRef::U16(v) => v <= u8::MAX as u16,
+                        ValueRef::U32(v) => v <= u8::MAX as u32,
                         ValueRef::U64(v) => v <= u8::MAX as u64,
+                        ValueRef::I8(v) => v >= 0,
+                        ValueRef::I16(v) => (0..=u8::MAX as i16).contains(&v),
+                        ValueRef::I32(v) => (0..=u8::MAX as i32).contains(&v),
                         ValueRef::I64(v) => (0..=u8::MAX as i64).contains(&v),
                         _ => false,
                     };
@@ -518,8 +548,8 @@ fn handle_array_literals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             // Determine binary element type: 0=FIXED_SIZE, 1=VARIABLE_SIZE
             let first_element_type_id = element_type_id.unwrap_or(0);
             let array_element_type = match first_element_type_id {
-                // Fixed-size elements (Type 0): u8, u64, i64, bool, pubkey
-                1 | 4 | 8 | 9 | 10 => 0, // U8, U64, I64, Bool, Pubkey
+                // Fixed-size elements (Type 0): scalar and pubkey immediates
+                1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 => 0,
                 // Variable-size elements (Type 1): strings, nested arrays
                 11 | _ => 1, // String and others default to variable-size
             };
@@ -570,7 +600,13 @@ fn handle_array_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
             // Get index value
             let index = match index_ref {
                 ValueRef::U8(i) => i as usize,
+                ValueRef::U16(i) => i as usize,
+                ValueRef::U32(i) => i as usize,
                 ValueRef::U64(i) => i as usize,
+                ValueRef::I8(i) if i >= 0 => i as usize,
+                ValueRef::I16(i) if i >= 0 => i as usize,
+                ValueRef::I32(i) if i >= 0 => i as usize,
+                ValueRef::I64(i) if i >= 0 => i as usize,
                 _ => return Err(VMErrorCode::TypeMismatch),
             };
 
@@ -724,7 +760,13 @@ fn handle_array_operations(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
             // Get index value
             let index = match index_ref {
                 ValueRef::U8(i) => i as usize,
+                ValueRef::U16(i) => i as usize,
+                ValueRef::U32(i) => i as usize,
                 ValueRef::U64(i) => i as usize,
+                ValueRef::I8(i) if i >= 0 => i as usize,
+                ValueRef::I16(i) if i >= 0 => i as usize,
+                ValueRef::I32(i) if i >= 0 => i as usize,
+                ValueRef::I64(i) if i >= 0 => i as usize,
                 _ => return Err(VMErrorCode::TypeMismatch),
             };
 
@@ -1136,6 +1178,8 @@ fn handle_array_creation(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{context::ExecutionContext, stack::StackStorage};
+    use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
 
     #[test]
     fn test_bounds_checking_core_logic() {
@@ -1219,5 +1263,61 @@ mod tests {
         // Invalid conversion (should be caught by bounds check)
         assert!(invalid_boundary > 63);
         // The fix would return Err(VMError::IndexOutOfBounds) here
+    }
+
+    #[test]
+    fn append_raw_bytes_serializes_narrow_scalars_exactly() {
+        let program_id = Pubkey::from([21u8; 32]);
+        let mut lamports = 0u64;
+        let mut data: [u8; 0] = [];
+        let account = AccountInfo::new(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &program_id,
+            true,
+            0,
+        );
+        let accounts = [account];
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        let mut out = [0u8; 16];
+        let len =
+            append_raw_bytes_with_depth(&mut ctx, &ValueRef::U16(0xBEEF), &mut out, 0).unwrap();
+        assert_eq!(len, 2);
+        assert_eq!(&out[..2], &0xBEEFu16.to_le_bytes());
+
+        let len = append_raw_bytes_with_depth(&mut ctx, &ValueRef::U32(0x1122_3344), &mut out, 0)
+            .unwrap();
+        assert_eq!(len, 4);
+        assert_eq!(&out[..4], &0x1122_3344u32.to_le_bytes());
+
+        let len = append_raw_bytes_with_depth(&mut ctx, &ValueRef::I16(-2), &mut out, 0).unwrap();
+        assert_eq!(len, 2);
+        assert_eq!(&out[..2], &(-2i16).to_le_bytes());
+
+        let len = append_raw_bytes_with_depth(&mut ctx, &ValueRef::I32(-3), &mut out, 0).unwrap();
+        assert_eq!(len, 4);
+        assert_eq!(&out[..4], &(-3i32).to_le_bytes());
+
+        let len = append_raw_bytes_with_depth(&mut ctx, &ValueRef::I8(-1), &mut out, 0).unwrap();
+        assert_eq!(len, 1);
+        assert_eq!(out[0], 0xFF);
     }
 }

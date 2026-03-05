@@ -34,6 +34,14 @@ pub struct ResourceManager<'a> {
     chunk_is_static: [bool; 4],
 }
 
+#[derive(Clone, Copy)]
+pub struct HeapCheckpoint {
+    heap_chunk_count: u8,
+    current_chunk: u8,
+    total_heap_usage: usize,
+    used_sizes: [usize; 4],
+}
+
 impl<'a> ResourceManager<'a> {
     /// Create a new ResourceManager with pre-allocated buffers
     #[inline(always)]
@@ -337,6 +345,49 @@ impl<'a> ResourceManager<'a> {
     #[inline(always)]
     pub fn heap_usage(&self) -> usize {
         self.total_heap_usage
+    }
+
+    #[inline(always)]
+    pub fn heap_checkpoint(&self) -> HeapCheckpoint {
+        let mut used_sizes = [0usize; 4];
+        for i in 0..self.heap_chunk_count as usize {
+            used_sizes[i] = self.heap_chunks[i].2;
+        }
+        HeapCheckpoint {
+            heap_chunk_count: self.heap_chunk_count,
+            current_chunk: self.current_chunk,
+            total_heap_usage: self.total_heap_usage,
+            used_sizes,
+        }
+    }
+
+    pub fn restore_heap(&mut self, checkpoint: HeapCheckpoint) {
+        // Free dynamically allocated chunks created after the checkpoint.
+        for i in checkpoint.heap_chunk_count as usize..self.heap_chunk_count as usize {
+            if self.chunk_is_static[i] {
+                self.heap_chunks[i].2 = 0;
+                continue;
+            }
+            let (ptr, cap, _) = self.heap_chunks[i];
+            if !ptr.is_null() && cap > 0 {
+                unsafe {
+                    let layout = Layout::from_size_align(cap, 8).unwrap();
+                    dealloc(ptr, layout);
+                }
+            }
+            self.heap_chunks[i] = (ptr::null_mut(), 0, 0);
+            self.chunk_is_static[i] = false;
+        }
+
+        // Restore used sizes for chunks that existed at checkpoint time.
+        for i in 0..checkpoint.heap_chunk_count as usize {
+            let (ptr, cap, _) = self.heap_chunks[i];
+            self.heap_chunks[i] = (ptr, cap, checkpoint.used_sizes[i]);
+        }
+
+        self.heap_chunk_count = checkpoint.heap_chunk_count;
+        self.current_chunk = checkpoint.current_chunk;
+        self.total_heap_usage = checkpoint.total_heap_usage;
     }
 }
 

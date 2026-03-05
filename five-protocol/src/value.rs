@@ -55,8 +55,18 @@ pub enum ValueRef {
     Empty,
     /// Immediate 8-bit value stored inline
     U8(u8),
+    /// Immediate 16-bit unsigned value stored inline
+    U16(u16),
+    /// Immediate 32-bit unsigned value stored inline
+    U32(u32),
     /// Immediate 64-bit value stored inline  
     U64(u64),
+    /// Immediate 8-bit signed value stored inline
+    I8(i8),
+    /// Immediate 16-bit signed value stored inline
+    I16(i16),
+    /// Immediate 32-bit signed value stored inline
+    I32(i32),
     /// Immediate 64-bit signed value stored inline
     I64(i64),
     /// Immediate 128-bit value stored inline (MITO-style BPF-optimized)
@@ -132,7 +142,12 @@ impl ValueRef {
         match self {
             ValueRef::Empty => 1,
             ValueRef::U8(_) => 1 + 1,
+            ValueRef::U16(_) => 1 + 2,
+            ValueRef::U32(_) => 1 + 4,
             ValueRef::U64(_) => 1 + 8,
+            ValueRef::I8(_) => 1 + 1,
+            ValueRef::I16(_) => 1 + 2,
+            ValueRef::I32(_) => 1 + 4,
             ValueRef::I64(_) => 1 + 8,
             ValueRef::U128(_) => 1 + 16,
             ValueRef::Bool(_) => 1 + 1,
@@ -160,7 +175,12 @@ impl ValueRef {
         match self {
             ValueRef::Empty => {}
             ValueRef::U8(v) => buffer[1] = *v,
+            ValueRef::U16(v) => buffer[1..3].copy_from_slice(&v.to_le_bytes()),
+            ValueRef::U32(v) => buffer[1..5].copy_from_slice(&v.to_le_bytes()),
             ValueRef::U64(v) => buffer[1..9].copy_from_slice(&v.to_le_bytes()),
+            ValueRef::I8(v) => buffer[1] = *v as u8,
+            ValueRef::I16(v) => buffer[1..3].copy_from_slice(&v.to_le_bytes()),
+            ValueRef::I32(v) => buffer[1..5].copy_from_slice(&v.to_le_bytes()),
             ValueRef::I64(v) => buffer[1..9].copy_from_slice(&v.to_le_bytes()),
             ValueRef::U128(v) => buffer[1..17].copy_from_slice(&v.to_le_bytes()),
             ValueRef::Bool(v) => buffer[1] = *v as u8,
@@ -211,6 +231,24 @@ impl ValueRef {
                 }
                 Ok(ValueRef::U8(buffer[1]))
             }
+            t if t == types::U16 => {
+                // 2
+                if buffer.len() < 3 {
+                    return Err(ProtocolError::InvalidInstruction);
+                }
+                let mut bytes = [0u8; 2];
+                bytes.copy_from_slice(&buffer[1..3]);
+                Ok(ValueRef::U16(u16::from_le_bytes(bytes)))
+            }
+            t if t == types::U32 => {
+                // 3
+                if buffer.len() < 5 {
+                    return Err(ProtocolError::InvalidInstruction);
+                }
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&buffer[1..5]);
+                Ok(ValueRef::U32(u32::from_le_bytes(bytes)))
+            }
             t if t == types::U64 => {
                 // 4 (FIXED: was 2)
                 if buffer.len() < 9 {
@@ -219,6 +257,31 @@ impl ValueRef {
                 let mut bytes = [0u8; 8];
                 bytes.copy_from_slice(&buffer[1..9]);
                 Ok(ValueRef::U64(u64::from_le_bytes(bytes)))
+            }
+            t if t == types::I8 => {
+                // 5
+                if buffer.len() < 2 {
+                    return Err(ProtocolError::InvalidInstruction);
+                }
+                Ok(ValueRef::I8(buffer[1] as i8))
+            }
+            t if t == types::I16 => {
+                // 6
+                if buffer.len() < 3 {
+                    return Err(ProtocolError::InvalidInstruction);
+                }
+                let mut bytes = [0u8; 2];
+                bytes.copy_from_slice(&buffer[1..3]);
+                Ok(ValueRef::I16(i16::from_le_bytes(bytes)))
+            }
+            t if t == types::I32 => {
+                // 7
+                if buffer.len() < 5 {
+                    return Err(ProtocolError::InvalidInstruction);
+                }
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&buffer[1..5]);
+                Ok(ValueRef::I32(i32::from_le_bytes(bytes)))
             }
             t if t == types::I64 => {
                 // 8 (FIXED: was 3)
@@ -327,7 +390,12 @@ impl ValueRef {
         match self {
             ValueRef::Empty
             | ValueRef::U8(_)
+            | ValueRef::U16(_)
+            | ValueRef::U32(_)
             | ValueRef::U64(_)
+            | ValueRef::I8(_)
+            | ValueRef::I16(_)
+            | ValueRef::I32(_)
             | ValueRef::I64(_)
             | ValueRef::U128(_)
             | ValueRef::Bool(_) => true,
@@ -346,7 +414,30 @@ impl ValueRef {
     pub const fn immediate_as_u64(&self) -> Option<u64> {
         match self {
             ValueRef::U64(v) => Some(*v),
+            ValueRef::U32(v) => Some(*v as u64),
+            ValueRef::U16(v) => Some(*v as u64),
             ValueRef::U8(v) => Some(*v as u64),
+            ValueRef::I32(v) => {
+                if *v >= 0 {
+                    Some(*v as u64)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I16(v) => {
+                if *v >= 0 {
+                    Some(*v as u64)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I8(v) => {
+                if *v >= 0 {
+                    Some(*v as u64)
+                } else {
+                    None
+                }
+            }
             ValueRef::I64(v) => {
                 if *v >= 0 {
                     Some(*v as u64)
@@ -364,7 +455,12 @@ impl ValueRef {
         match self {
             ValueRef::Bool(v) => Some(*v),
             ValueRef::U64(v) => Some(*v != 0),
+            ValueRef::U32(v) => Some(*v != 0),
+            ValueRef::U16(v) => Some(*v != 0),
             ValueRef::U8(v) => Some(*v != 0),
+            ValueRef::I32(v) => Some(*v != 0),
+            ValueRef::I16(v) => Some(*v != 0),
+            ValueRef::I8(v) => Some(*v != 0),
             _ => None,
         }
     }
@@ -374,6 +470,9 @@ impl ValueRef {
     pub const fn immediate_as_i64(&self) -> Option<i64> {
         match self {
             ValueRef::I64(v) => Some(*v),
+            ValueRef::I32(v) => Some(*v as i64),
+            ValueRef::I16(v) => Some(*v as i64),
+            ValueRef::I8(v) => Some(*v as i64),
             ValueRef::U64(v) => {
                 if *v <= i64::MAX as u64 {
                     Some(*v as i64)
@@ -381,6 +480,8 @@ impl ValueRef {
                     None
                 }
             }
+            ValueRef::U32(v) => Some(*v as i64),
+            ValueRef::U16(v) => Some(*v as i64),
             ValueRef::U8(v) => Some(*v as i64),
             _ => None,
         }
@@ -393,6 +494,41 @@ impl ValueRef {
             ValueRef::U8(v) => Some(*v),
             ValueRef::U64(v) => {
                 if *v <= u8::MAX as u64 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
+            ValueRef::U32(v) => {
+                if *v <= u8::MAX as u32 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
+            ValueRef::U16(v) => {
+                if *v <= u8::MAX as u16 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I32(v) => {
+                if *v >= 0 && *v <= u8::MAX as i32 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I16(v) => {
+                if *v >= 0 && *v <= u8::MAX as i16 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I8(v) => {
+                if *v >= 0 {
                     Some(*v as u8)
                 } else {
                     None
@@ -419,7 +555,12 @@ impl ValueRef {
             // Protocol-defined types (match types.rs constants)
             ValueRef::Empty => types::EMPTY,              // 0
             ValueRef::U8(_) => types::U8,                 // 1
+            ValueRef::U16(_) => types::U16,               // 2
+            ValueRef::U32(_) => types::U32,               // 3
             ValueRef::U64(_) => types::U64,               // 4 (FIXED: was 2)
+            ValueRef::I8(_) => types::I8,                 // 5
+            ValueRef::I16(_) => types::I16,               // 6
+            ValueRef::I32(_) => types::I32,               // 7
             ValueRef::I64(_) => types::I64,               // 8 (FIXED: was 3)
             ValueRef::U128(_) => types::U128,             // 14 (FIXED: was 4)
             ValueRef::Bool(_) => types::BOOL,             // 9 (FIXED: was 5)
@@ -446,7 +587,12 @@ impl ValueRef {
         match self {
             ValueRef::Empty => Some(Value::Empty),
             ValueRef::U8(v) => Some(Value::U8(*v)),
+            ValueRef::U16(v) => Some(Value::U64(*v as u64)),
+            ValueRef::U32(v) => Some(Value::U64(*v as u64)),
             ValueRef::U64(v) => Some(Value::U64(*v)),
+            ValueRef::I8(v) => Some(Value::I64(*v as i64)),
+            ValueRef::I16(v) => Some(Value::I64(*v as i64)),
+            ValueRef::I32(v) => Some(Value::I64(*v as i64)),
             ValueRef::I64(v) => Some(Value::I64(*v)),
             ValueRef::U128(v) => Some(Value::U128(*v)),
             ValueRef::Bool(v) => Some(Value::Bool(*v)),
@@ -464,7 +610,30 @@ impl ValueRef {
     pub const fn as_u64(&self) -> Option<u64> {
         match self {
             ValueRef::U64(v) => Some(*v),
+            ValueRef::U32(v) => Some(*v as u64),
+            ValueRef::U16(v) => Some(*v as u64),
             ValueRef::U8(v) => Some(*v as u64),
+            ValueRef::I32(v) => {
+                if *v >= 0 {
+                    Some(*v as u64)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I16(v) => {
+                if *v >= 0 {
+                    Some(*v as u64)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I8(v) => {
+                if *v >= 0 {
+                    Some(*v as u64)
+                } else {
+                    None
+                }
+            }
             ValueRef::I64(v) => {
                 if *v >= 0 {
                     Some(*v as u64)
@@ -482,7 +651,12 @@ impl ValueRef {
         match self {
             ValueRef::Bool(v) => Some(*v),
             ValueRef::U64(v) => Some(*v != 0),
+            ValueRef::U32(v) => Some(*v != 0),
+            ValueRef::U16(v) => Some(*v != 0),
             ValueRef::U8(v) => Some(*v != 0),
+            ValueRef::I32(v) => Some(*v != 0),
+            ValueRef::I16(v) => Some(*v != 0),
+            ValueRef::I8(v) => Some(*v != 0),
             _ => None,
         }
     }
@@ -519,6 +693,41 @@ impl ValueRef {
                     None
                 }
             }
+            ValueRef::U32(v) => {
+                if *v <= u8::MAX as u32 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
+            ValueRef::U16(v) => {
+                if *v <= u8::MAX as u16 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I32(v) => {
+                if *v >= 0 && *v <= u8::MAX as i32 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I16(v) => {
+                if *v >= 0 && *v <= u8::MAX as i16 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
+            ValueRef::I8(v) => {
+                if *v >= 0 {
+                    Some(*v as u8)
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -529,12 +738,22 @@ impl ValueRef {
         match self {
             ValueRef::U64(0) => false,
             ValueRef::U64(_) => true,
+            ValueRef::U32(0) => false,
+            ValueRef::U32(_) => true,
+            ValueRef::U16(0) => false,
+            ValueRef::U16(_) => true,
             ValueRef::U128(0) => false,
             ValueRef::U128(_) => true,
             ValueRef::Bool(b) => *b,
             ValueRef::Empty => false,
             ValueRef::I64(0) => false,
             ValueRef::I64(_) => true,
+            ValueRef::I32(0) => false,
+            ValueRef::I32(_) => true,
+            ValueRef::I16(0) => false,
+            ValueRef::I16(_) => true,
+            ValueRef::I8(0) => false,
+            ValueRef::I8(_) => true,
             ValueRef::U8(0) => false,
             ValueRef::U8(_) => true,
             _ => true, // All references are truthy

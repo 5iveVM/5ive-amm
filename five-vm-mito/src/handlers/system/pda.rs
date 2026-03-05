@@ -24,6 +24,16 @@ pub fn process_seed_value(
     ctx: &ExecutionManager,
 ) -> CompactResult<usize> {
     match seed_value {
+        ValueRef::U32(val) => {
+            let bytes = val.to_le_bytes();
+            seeds[seed_idx][..4].copy_from_slice(&bytes);
+            Ok(4)
+        }
+        ValueRef::U16(val) => {
+            let bytes = val.to_le_bytes();
+            seeds[seed_idx][..2].copy_from_slice(&bytes);
+            Ok(2)
+        }
         ValueRef::U64(val) => {
             let bytes = val.to_le_bytes();
             seeds[seed_idx][..8].copy_from_slice(&bytes);
@@ -31,6 +41,20 @@ pub fn process_seed_value(
         }
         ValueRef::U8(val) => {
             seeds[seed_idx][0] = val;
+            Ok(1)
+        }
+        ValueRef::I32(val) => {
+            let bytes = val.to_le_bytes();
+            seeds[seed_idx][..4].copy_from_slice(&bytes);
+            Ok(4)
+        }
+        ValueRef::I16(val) => {
+            let bytes = val.to_le_bytes();
+            seeds[seed_idx][..2].copy_from_slice(&bytes);
+            Ok(2)
+        }
+        ValueRef::I8(val) => {
+            seeds[seed_idx][0] = val as u8;
             Ok(1)
         }
         ValueRef::PubkeyRef(_) => {

@@ -1031,6 +1031,12 @@ impl VMError {
                 five_protocol::ValueRef::U8(n) => {
                     let _ = write!(s, "u8({})", n);
                 }
+                five_protocol::ValueRef::U16(n) => {
+                    let _ = write!(s, "u16({})", n);
+                }
+                five_protocol::ValueRef::U32(n) => {
+                    let _ = write!(s, "u32({})", n);
+                }
                 five_protocol::ValueRef::Empty => {
                     let _ = s.push_str("empty");
                 }
@@ -1054,6 +1060,15 @@ impl VMError {
                 }
                 five_protocol::ValueRef::I64(n) => {
                     let _ = write!(s, "i64({})", n);
+                }
+                five_protocol::ValueRef::I8(n) => {
+                    let _ = write!(s, "i8({})", n);
+                }
+                five_protocol::ValueRef::I16(n) => {
+                    let _ = write!(s, "i16({})", n);
+                }
+                five_protocol::ValueRef::I32(n) => {
+                    let _ = write!(s, "i32({})", n);
                 }
                 five_protocol::ValueRef::ResultRef(status, value) => {
                     let _ = write!(s, "result({}, {})", status, value);

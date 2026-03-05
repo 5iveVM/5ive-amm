@@ -13,8 +13,8 @@ interface StakeProgram @program("Stake11111111111111111111111111111111111111") @
 
     split @discriminator_bytes([3, 0, 0, 0]) (
         source_stake_account: Account @mut,
-        authority: Account @authority,
         destination_stake_account: Account @mut,
+        authority: Account @authority,
         lamports: u64
     );
 
@@ -48,5 +48,20 @@ interface StakeProgram @program("Stake11111111111111111111111111111111111111") @
         authority: Account @authority,
         new_authority: Account @authority,
         stake_authorize_kind: u32
+    );
+
+    // Compatibility wrappers for fixed authorize kinds; generic authorize_checked(kind: u32) is now the canonical path.
+    authorize_checked_staker @discriminator_bytes([10, 0, 0, 0, 0, 0, 0, 0]) (
+        stake_account: Account @mut,
+        clock_sysvar: Account,
+        authority: Account @authority,
+        new_authority: Account @authority
+    );
+
+    authorize_checked_withdrawer @discriminator_bytes([10, 0, 0, 0, 1, 0, 0, 0]) (
+        stake_account: Account @mut,
+        clock_sysvar: Account,
+        authority: Account @authority,
+        new_authority: Account @authority
     );
 }

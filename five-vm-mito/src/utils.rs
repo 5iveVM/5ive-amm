@@ -18,8 +18,37 @@ impl ValueRefUtils {
     pub fn as_u64(value: ValueRef) -> CompactResult<u64> {
         match value {
             ValueRef::U64(v) => Ok(v),
+            ValueRef::U32(v) => Ok(v as u64),
+            ValueRef::U16(v) => Ok(v as u64),
             ValueRef::U8(v) => Ok(v as u64),
-            ValueRef::I64(v) => Ok(v as u64),
+            ValueRef::I64(v) => {
+                if v < 0 {
+                    Err(VMErrorCode::TypeMismatch)
+                } else {
+                    Ok(v as u64)
+                }
+            }
+            ValueRef::I32(v) => {
+                if v < 0 {
+                    Err(VMErrorCode::TypeMismatch)
+                } else {
+                    Ok(v as u64)
+                }
+            }
+            ValueRef::I16(v) => {
+                if v < 0 {
+                    Err(VMErrorCode::TypeMismatch)
+                } else {
+                    Ok(v as u64)
+                }
+            }
+            ValueRef::I8(v) => {
+                if v < 0 {
+                    Err(VMErrorCode::TypeMismatch)
+                } else {
+                    Ok(v as u64)
+                }
+            }
             ValueRef::Bool(v) => Ok(if v { 1 } else { 0 }),
             ValueRef::AccountRef(account, offset) => Ok(((account as u64) << 16) | (offset as u64)),
             _ => Err(VMErrorCode::TypeMismatch),
@@ -32,8 +61,13 @@ impl ValueRefUtils {
         match value {
             ValueRef::Bool(v) => Ok(v),
             ValueRef::U8(v) => Ok(v != 0),
+            ValueRef::U16(v) => Ok(v != 0),
+            ValueRef::U32(v) => Ok(v != 0),
             ValueRef::U64(v) => Ok(v != 0),
             ValueRef::I64(v) => Ok(v != 0),
+            ValueRef::I32(v) => Ok(v != 0),
+            ValueRef::I16(v) => Ok(v != 0),
+            ValueRef::I8(v) => Ok(v != 0),
             ValueRef::AccountRef(account, offset) => Ok(account != 0 || offset != 0),
             _ => Err(VMErrorCode::TypeMismatch),
         }
@@ -44,7 +78,12 @@ impl ValueRefUtils {
     pub fn as_i64(value: ValueRef) -> CompactResult<i64> {
         match value {
             ValueRef::I64(v) => Ok(v),
+            ValueRef::I32(v) => Ok(v as i64),
+            ValueRef::I16(v) => Ok(v as i64),
+            ValueRef::I8(v) => Ok(v as i64),
             ValueRef::U64(v) => Ok(v as i64),
+            ValueRef::U32(v) => Ok(v as i64),
+            ValueRef::U16(v) => Ok(v as i64),
             ValueRef::U8(v) => Ok(v as i64),
             ValueRef::Bool(v) => Ok(if v { 1 } else { 0 }),
             ValueRef::AccountRef(account, offset) => Ok(((account as i64) << 16) | (offset as i64)),
@@ -58,7 +97,12 @@ impl ValueRefUtils {
         match value {
             ValueRef::U8(v) => Ok(v),
             ValueRef::U64(v) => Ok(v as u8),
+            ValueRef::U32(v) => Ok(v as u8),
+            ValueRef::U16(v) => Ok(v as u8),
             ValueRef::I64(v) => Ok(v as u8),
+            ValueRef::I32(v) => Ok(v as u8),
+            ValueRef::I16(v) => Ok(v as u8),
+            ValueRef::I8(v) => Ok(v as u8),
             ValueRef::Bool(v) => Ok(if v { 1 } else { 0 }),
             ValueRef::AccountRef(account, _) => Ok(account),
             _ => Err(VMErrorCode::TypeMismatch),
@@ -268,11 +312,26 @@ impl DebugUtils {
             ValueRef::U8(v) => {
                 let _ = write!(s, "U8({})", v);
             }
+            ValueRef::U16(v) => {
+                let _ = write!(s, "U16({})", v);
+            }
+            ValueRef::U32(v) => {
+                let _ = write!(s, "U32({})", v);
+            }
             ValueRef::U64(v) => {
                 let _ = write!(s, "U64({})", v);
             }
             ValueRef::U128(v) => {
                 let _ = write!(s, "U128({})", v);
+            }
+            ValueRef::I8(v) => {
+                let _ = write!(s, "I8({})", v);
+            }
+            ValueRef::I16(v) => {
+                let _ = write!(s, "I16({})", v);
+            }
+            ValueRef::I32(v) => {
+                let _ = write!(s, "I32({})", v);
             }
             ValueRef::I64(v) => {
                 let _ = write!(s, "I64({})", v);
@@ -350,6 +409,14 @@ pub fn value_ref_to_seed_bytes(
             debug_log!("MitoVM: value_ref_to_seed_bytes - U8 value: {}", val);
             Vec::from_slice(&[val]).map_err(|_| VMErrorCode::MemoryError)
         }
+        ValueRef::U16(val) => {
+            debug_log!("MitoVM: value_ref_to_seed_bytes - U16 value: {}", val as u32);
+            Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
+        }
+        ValueRef::U32(val) => {
+            debug_log!("MitoVM: value_ref_to_seed_bytes - U32 value: {}", val);
+            Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
+        }
         ValueRef::U64(val) => {
             debug_log!("MitoVM: value_ref_to_seed_bytes - U64 value: {}", val);
             Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
@@ -361,6 +428,18 @@ pub fn value_ref_to_seed_bytes(
         ValueRef::I64(val) => {
             debug_log!("MitoVM: value_ref_to_seed_bytes - I64 value: {}", val);
             Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
+        }
+        ValueRef::I32(val) => {
+            debug_log!("MitoVM: value_ref_to_seed_bytes - I32 value: {}", val as u32);
+            Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
+        }
+        ValueRef::I16(val) => {
+            debug_log!("MitoVM: value_ref_to_seed_bytes - I16 value: {}", val as i32 as u32);
+            Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
+        }
+        ValueRef::I8(val) => {
+            debug_log!("MitoVM: value_ref_to_seed_bytes - I8 value: {}", val as i32 as u32);
+            Vec::from_slice(&[val as u8]).map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::Bool(val) => {
             debug_log!(
@@ -515,8 +594,13 @@ pub fn value_ref_to_bytes_ref<'a>(
             Ok(account.key().as_ref())
         }
         ValueRef::U8(_)
+        | ValueRef::U16(_)
+        | ValueRef::U32(_)
         | ValueRef::U64(_)
         | ValueRef::U128(_)
+        | ValueRef::I8(_)
+        | ValueRef::I16(_)
+        | ValueRef::I32(_)
         | ValueRef::I64(_)
         | ValueRef::Bool(_)
         | ValueRef::Empty => {

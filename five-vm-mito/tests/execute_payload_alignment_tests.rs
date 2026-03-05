@@ -78,6 +78,32 @@ fn many_large_strings_payload(string_count: u32, string_len: u32) -> Vec<u8> {
     out
 }
 
+fn narrow_integer_payload() -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(&0u32.to_le_bytes()); // function index
+    out.extend_from_slice(&6u32.to_le_bytes()); // param count
+
+    out.push(types::U8);
+    out.extend_from_slice(&7u32.to_le_bytes());
+
+    out.push(types::U16);
+    out.extend_from_slice(&513u32.to_le_bytes());
+
+    out.push(types::U32);
+    out.extend_from_slice(&0x1122_3344u32.to_le_bytes());
+
+    out.push(types::I8);
+    out.extend_from_slice(&(-2i32).to_le_bytes());
+
+    out.push(types::I16);
+    out.extend_from_slice(&(-1234i32).to_le_bytes());
+
+    out.push(types::I32);
+    out.extend_from_slice(&(-123_456i32).to_le_bytes());
+
+    out
+}
+
 #[test]
 fn parse_parameters_decodes_fixed_width_execute_envelope() {
     let payload = canonical_typed_payload();
@@ -160,6 +186,47 @@ fn parse_parameters_token_shape_parses_without_panicking() {
     assert!(matches!(params[5], ValueRef::StringRef(_)));
     assert_eq!(params[6], ValueRef::Empty);
     assert_eq!(params[7], ValueRef::Empty);
+}
+
+#[test]
+fn parse_parameters_preserves_narrow_integer_variants() {
+    let payload = narrow_integer_payload();
+    let mut storage = StackStorage::new();
+    let mut ctx = new_context(&payload, &mut storage);
+
+    ctx.parse_parameters()
+        .expect("narrow integer payload should parse");
+    let params = ctx.parameters();
+
+    assert_eq!(params[1], ValueRef::U8(7));
+    assert_eq!(params[2], ValueRef::U16(513));
+    assert_eq!(params[3], ValueRef::U32(0x1122_3344));
+    assert_eq!(params[4], ValueRef::I8(-2));
+    assert_eq!(params[5], ValueRef::I16(-1234));
+    assert_eq!(params[6], ValueRef::I32(-123_456));
+}
+
+#[test]
+fn parse_parameters_rejects_u8_and_u16_overflow() {
+    let mut payload_u8 = Vec::new();
+    payload_u8.extend_from_slice(&0u32.to_le_bytes());
+    payload_u8.extend_from_slice(&1u32.to_le_bytes());
+    payload_u8.push(types::U8);
+    payload_u8.extend_from_slice(&256u32.to_le_bytes());
+
+    let mut storage = StackStorage::new();
+    let mut ctx = new_context(&payload_u8, &mut storage);
+    assert_eq!(ctx.parse_parameters().unwrap_err(), VMErrorCode::TypeMismatch);
+
+    let mut payload_u16 = Vec::new();
+    payload_u16.extend_from_slice(&0u32.to_le_bytes());
+    payload_u16.extend_from_slice(&1u32.to_le_bytes());
+    payload_u16.push(types::U16);
+    payload_u16.extend_from_slice(&(u16::MAX as u32 + 1).to_le_bytes());
+
+    let mut storage = StackStorage::new();
+    let mut ctx = new_context(&payload_u16, &mut storage);
+    assert_eq!(ctx.parse_parameters().unwrap_err(), VMErrorCode::TypeMismatch);
 }
 
 #[test]

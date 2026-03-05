@@ -15,7 +15,13 @@ use five_protocol::opcodes::*;
 fn value_to_u64(value: five_protocol::ValueRef) -> Option<u64> {
     match value {
         five_protocol::ValueRef::U8(v) => Some(v as u64),
+        five_protocol::ValueRef::U16(v) => Some(v as u64),
+        five_protocol::ValueRef::U32(v) => Some(v as u64),
         five_protocol::ValueRef::U64(v) => Some(v),
+        five_protocol::ValueRef::I8(v) if v >= 0 => Some(v as u64),
+        five_protocol::ValueRef::I16(v) if v >= 0 => Some(v as u64),
+        five_protocol::ValueRef::I32(v) if v >= 0 => Some(v as u64),
+        five_protocol::ValueRef::I64(v) if v >= 0 => Some(v as u64),
         five_protocol::ValueRef::Bool(v) => Some(v as u64),
         _ => None,
     }
@@ -238,7 +244,13 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
 
             let is_equal = match stack_value {
                 five_protocol::ValueRef::U8(val) => val == compare_value,
+                five_protocol::ValueRef::U16(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::U32(val) => val as u8 == compare_value,
                 five_protocol::ValueRef::U64(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::I8(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::I16(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::I32(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::I64(val) => val as u8 == compare_value,
                 five_protocol::ValueRef::Bool(val) => (val as u8) == compare_value,
                 _ => false, // Other types don't match u8
             };

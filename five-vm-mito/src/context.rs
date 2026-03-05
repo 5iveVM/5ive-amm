@@ -21,7 +21,8 @@ use pinocchio::{
 };
 
 use crate::systems::{
-    accounts::AccountManager, frame::FrameManager, resource::ResourceManager, stack::StackManager,
+    accounts::AccountManager, frame::FrameManager, resource::HeapCheckpoint,
+    resource::ResourceManager, stack::StackManager,
 };
 
 pub const EXTERNAL_CALL_CACHE_SIZE: usize = 32;
@@ -426,6 +427,16 @@ impl<'a> ExecutionContext<'a> {
     #[inline(always)]
     pub fn heap_usage(&self) -> usize {
         self.memory.heap_usage()
+    }
+
+    #[inline(always)]
+    pub fn heap_checkpoint(&self) -> HeapCheckpoint {
+        self.memory.heap_checkpoint()
+    }
+
+    #[inline(always)]
+    pub fn restore_heap(&mut self, checkpoint: HeapCheckpoint) {
+        self.memory.restore_heap(checkpoint);
     }
 
     #[inline(always)]
@@ -1321,7 +1332,29 @@ impl<'a> ExecutionContext<'a> {
                     if scalar_count >= MAX_PARAMETERS {
                         return Err(VMErrorCode::InvalidParameter);
                     }
+                    if val > u8::MAX as u32 {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
                     self.frame.parameters[scalar_count + 1] = ValueRef::U8(val as u8);
+                    scalar_count += 1;
+                }
+                t if t == types::U16 => {
+                    if offset + 4 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let val = u32::from_le_bytes(
+                        self.instruction_data[offset..offset + 4]
+                            .try_into()
+                            .unwrap(),
+                    );
+                    offset += 4;
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    if val > u16::MAX as u32 {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::U16(val as u16);
                     scalar_count += 1;
                 }
                 t if t == types::U32 => {
@@ -1337,7 +1370,61 @@ impl<'a> ExecutionContext<'a> {
                     if scalar_count >= MAX_PARAMETERS {
                         return Err(VMErrorCode::InvalidParameter);
                     }
-                    self.frame.parameters[scalar_count + 1] = ValueRef::U64(val as u64);
+                    self.frame.parameters[scalar_count + 1] = ValueRef::U32(val);
+                    scalar_count += 1;
+                }
+                t if t == types::I8 => {
+                    if offset + 4 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let val = i32::from_le_bytes(
+                        self.instruction_data[offset..offset + 4]
+                            .try_into()
+                            .unwrap(),
+                    );
+                    offset += 4;
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    if !(i8::MIN as i32..=i8::MAX as i32).contains(&val) {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::I8(val as i8);
+                    scalar_count += 1;
+                }
+                t if t == types::I16 => {
+                    if offset + 4 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let val = i32::from_le_bytes(
+                        self.instruction_data[offset..offset + 4]
+                            .try_into()
+                            .unwrap(),
+                    );
+                    offset += 4;
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    if !(i16::MIN as i32..=i16::MAX as i32).contains(&val) {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::I16(val as i16);
+                    scalar_count += 1;
+                }
+                t if t == types::I32 => {
+                    if offset + 4 > input_len {
+                        return Err(VMErrorCode::InvalidInstructionPointer);
+                    }
+                    let val = i32::from_le_bytes(
+                        self.instruction_data[offset..offset + 4]
+                            .try_into()
+                            .unwrap(),
+                    );
+                    offset += 4;
+                    if scalar_count >= MAX_PARAMETERS {
+                        return Err(VMErrorCode::InvalidParameter);
+                    }
+                    self.frame.parameters[scalar_count + 1] = ValueRef::I32(val);
                     scalar_count += 1;
                 }
                 t if t == types::U64 => {

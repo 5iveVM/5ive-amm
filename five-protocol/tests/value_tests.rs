@@ -5,7 +5,12 @@ fn test_valueref_serialization_roundtrip() {
     let test_cases = vec![
         ValueRef::Empty,
         ValueRef::U8(42),
+        ValueRef::U16(0xBEEF),
+        ValueRef::U32(0xDEADBEEF),
         ValueRef::U64(1234567890),
+        ValueRef::I8(-12),
+        ValueRef::I16(-1234),
+        ValueRef::I32(-123456),
         ValueRef::I64(-1234567890),
         ValueRef::U128(123456789012345678901234567890),
         ValueRef::Bool(true),
@@ -104,4 +109,16 @@ fn test_valueref_immediate_helpers() {
     let v_ref = ValueRef::TempRef(0, 0);
     assert!(!v_ref.is_immediate());
     assert!(v_ref.is_reference());
+
+    // Narrow integer helpers
+    let v_u32 = ValueRef::U32(1234);
+    assert!(v_u32.is_immediate());
+    assert_eq!(v_u32.immediate_as_u64(), Some(1234));
+    assert_eq!(v_u32.immediate_as_i64(), Some(1234));
+    assert_eq!(v_u32.immediate_as_bool(), Some(true));
+
+    let v_i16 = ValueRef::I16(-7);
+    assert!(v_i16.is_immediate());
+    assert_eq!(v_i16.immediate_as_i64(), Some(-7));
+    assert_eq!(v_i16.immediate_as_u64(), None);
 }

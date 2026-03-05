@@ -184,19 +184,53 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
         CAST => {
             let target_type = ctx.fetch_byte()?;
             let value = ctx.pop()?;
-
-            // Handle U8 cast
-            if target_type == five_protocol::types::U8 {
-                let u8_val = value.as_u64().ok_or(VMErrorCode::TypeMismatch)? as u8;
-                debug_log!(
-                    "MitoVM: CAST to U8: {} -> {}",
-                    value.as_u64().unwrap(),
-                    u8_val
-                );
-                ctx.push(ValueRef::U8(u8_val))?;
-            } else {
-                debug_log!("MitoVM: CAST unsupported type: {}", target_type);
-                return Err(VMErrorCode::InvalidInstruction);
+            match target_type {
+                five_protocol::types::U8 => {
+                    let v = value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+                    if v > u8::MAX as u64 {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                    ctx.push(ValueRef::U8(v as u8))?;
+                }
+                five_protocol::types::U16 => {
+                    let v = value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+                    if v > u16::MAX as u64 {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                    ctx.push(ValueRef::U16(v as u16))?;
+                }
+                five_protocol::types::U32 => {
+                    let v = value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+                    if v > u32::MAX as u64 {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                    ctx.push(ValueRef::U32(v as u32))?;
+                }
+                five_protocol::types::I8 => {
+                    let v = value.immediate_as_i64().ok_or(VMErrorCode::TypeMismatch)?;
+                    if !(i8::MIN as i64..=i8::MAX as i64).contains(&v) {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                    ctx.push(ValueRef::I8(v as i8))?;
+                }
+                five_protocol::types::I16 => {
+                    let v = value.immediate_as_i64().ok_or(VMErrorCode::TypeMismatch)?;
+                    if !(i16::MIN as i64..=i16::MAX as i64).contains(&v) {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                    ctx.push(ValueRef::I16(v as i16))?;
+                }
+                five_protocol::types::I32 => {
+                    let v = value.immediate_as_i64().ok_or(VMErrorCode::TypeMismatch)?;
+                    if !(i32::MIN as i64..=i32::MAX as i64).contains(&v) {
+                        return Err(VMErrorCode::TypeMismatch);
+                    }
+                    ctx.push(ValueRef::I32(v as i32))?;
+                }
+                _ => {
+                    debug_log!("MitoVM: CAST unsupported type: {}", target_type);
+                    return Err(VMErrorCode::InvalidInstruction);
+                }
             }
         }
 

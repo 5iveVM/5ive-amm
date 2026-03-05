@@ -107,8 +107,16 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
             }
         }
 
-        // Default fallback
-        _ => Ok(false),
+        // Numeric fallback: compare coercible scalar values
+        _ => {
+            let a_num = crate::utils::ValueRefUtils::as_u64(a);
+            let b_num = crate::utils::ValueRefUtils::as_u64(b);
+            if let (Ok(av), Ok(bv)) = (a_num, b_num) {
+                Ok(av == bv)
+            } else {
+                Ok(false)
+            }
+        }
     }
 }
 

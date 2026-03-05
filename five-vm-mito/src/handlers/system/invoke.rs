@@ -36,7 +36,12 @@ fn value_ref_tag(value: &ValueRef) -> &'static str {
     match value {
         ValueRef::Empty => "Empty",
         ValueRef::U8(_) => "U8",
+        ValueRef::U16(_) => "U16",
+        ValueRef::U32(_) => "U32",
         ValueRef::U64(_) => "U64",
+        ValueRef::I8(_) => "I8",
+        ValueRef::I16(_) => "I16",
+        ValueRef::I32(_) => "I32",
         ValueRef::I64(_) => "I64",
         ValueRef::U128(_) => "U128",
         ValueRef::Bool(_) => "Bool",
@@ -134,12 +139,32 @@ fn write_seed_value_into_slice(
     out: &mut [u8; MAX_SIGNER_SEED_LEN],
 ) -> CompactResult<usize> {
     match seed_value {
+        ValueRef::U32(val) => {
+            out[..4].copy_from_slice(&val.to_le_bytes());
+            Ok(4)
+        }
+        ValueRef::U16(val) => {
+            out[..2].copy_from_slice(&val.to_le_bytes());
+            Ok(2)
+        }
         ValueRef::U64(val) => {
             out[..8].copy_from_slice(&val.to_le_bytes());
             Ok(8)
         }
         ValueRef::U8(val) => {
             out[0] = val;
+            Ok(1)
+        }
+        ValueRef::I32(val) => {
+            out[..4].copy_from_slice(&val.to_le_bytes());
+            Ok(4)
+        }
+        ValueRef::I16(val) => {
+            out[..2].copy_from_slice(&val.to_le_bytes());
+            Ok(2)
+        }
+        ValueRef::I8(val) => {
+            out[0] = val as u8;
             Ok(1)
         }
         ValueRef::PubkeyRef(_) => {
@@ -363,6 +388,20 @@ fn invoke_signed_grouped_from_array_ref(
     instruction_data_ref: ValueRef,
     program_id_ref: ValueRef,
 ) -> CompactResult<()> {
+    struct TempOffsetGuard {
+        ctx: *mut ExecutionManager<'static>,
+    }
+    impl Drop for TempOffsetGuard {
+        fn drop(&mut self) {
+            unsafe {
+                (*self.ctx).set_temp_offset(0);
+            }
+        }
+    }
+    let _temp_guard = TempOffsetGuard {
+        ctx: (ctx as *mut ExecutionManager<'_>).cast::<ExecutionManager<'static>>(),
+    };
+
     debug_log!("MitoVM: INVOKE_SIGNED grouped signer payload");
 
     if accounts_count as usize > MAX_CPI_ACCOUNTS {
@@ -385,11 +424,12 @@ fn invoke_signed_grouped_from_array_ref(
         account_indices[(accounts_count as usize - 1) - i] = account_idx;
     }
 
-    let mut group_offsets = [0u16; MAX_SIGNER_GROUPS];
-    let (workspace_base, group_count) =
-        materialize_grouped_signer_workspace(ctx, signer_groups_ref, &mut group_offsets)?;
+    let heap_checkpoint = ctx.heap_checkpoint();
+    let invoke_result = (|| -> CompactResult<()> {
+        let mut group_offsets = [0u16; MAX_SIGNER_GROUPS];
+        let (workspace_base, group_count) =
+            materialize_grouped_signer_workspace(ctx, signer_groups_ref, &mut group_offsets)?;
 
-    let invoke_result = {
         let accounts_ref = ctx.accounts();
         let mut account_metas: [AccountMeta; MAX_CPI_ACCOUNTS] =
             core::array::from_fn(|_| AccountMeta {
@@ -441,7 +481,8 @@ fn invoke_signed_grouped_from_array_ref(
             &invoke_accounts,
             invoke_account_len,
         )
-    };
+    })();
+    ctx.restore_heap(heap_checkpoint);
 
     invoke_result?;
     let _ = ctx.refresh_account_pointers_after_cpi(&account_indices[..accounts_count as usize]);
@@ -478,12 +519,47 @@ fn append_serialized_value_with_depth(
             out[*write_offset] = byte;
             *write_offset += 1;
         }
+        ValueRef::U16(word) => {
+            if *write_offset + 2 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + 2].copy_from_slice(&word.to_le_bytes());
+            *write_offset += 2;
+        }
+        ValueRef::U32(word) => {
+            if *write_offset + 4 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + 4].copy_from_slice(&word.to_le_bytes());
+            *write_offset += 4;
+        }
         ValueRef::Bool(flag) => {
             if *write_offset + 1 > out.len() {
                 return Err(VMErrorCode::InvalidOperation);
             }
             out[*write_offset] = u8::from(flag);
             *write_offset += 1;
+        }
+        ValueRef::I8(byte) => {
+            if *write_offset + 1 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset] = byte as u8;
+            *write_offset += 1;
+        }
+        ValueRef::I16(word) => {
+            if *write_offset + 2 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + 2].copy_from_slice(&word.to_le_bytes());
+            *write_offset += 2;
+        }
+        ValueRef::I32(word) => {
+            if *write_offset + 4 > out.len() {
+                return Err(VMErrorCode::InvalidOperation);
+            }
+            out[*write_offset..*write_offset + 4].copy_from_slice(&word.to_le_bytes());
+            *write_offset += 4;
         }
         ValueRef::U64(word) => {
             if *write_offset + 8 > out.len() {
@@ -769,16 +845,21 @@ fn materialize_instruction_data(
 fn value_ref_kind(value_ref: &ValueRef) -> u32 {
     match value_ref {
         ValueRef::U8(_) => 1,
-        ValueRef::U64(_) => 2,
-        ValueRef::I64(_) => 3,
-        ValueRef::Bool(_) => 4,
-        ValueRef::TempRef(_, _) => 5,
-        ValueRef::StringRef(_) => 6,
-        ValueRef::HeapString(_) => 7,
-        ValueRef::ArrayRef(_) => 8,
-        ValueRef::PubkeyRef(_) => 9,
-        ValueRef::AccountRef(_, _) => 10,
-        ValueRef::U128(_) => 11,
+        ValueRef::U16(_) => 2,
+        ValueRef::U32(_) => 3,
+        ValueRef::U64(_) => 4,
+        ValueRef::I8(_) => 5,
+        ValueRef::I16(_) => 6,
+        ValueRef::I32(_) => 7,
+        ValueRef::I64(_) => 8,
+        ValueRef::Bool(_) => 9,
+        ValueRef::TempRef(_, _) => 10,
+        ValueRef::StringRef(_) => 11,
+        ValueRef::HeapString(_) => 12,
+        ValueRef::ArrayRef(_) => 13,
+        ValueRef::PubkeyRef(_) => 14,
+        ValueRef::AccountRef(_, _) => 15,
+        ValueRef::U128(_) => 16,
         _ => 255,
     }
 }
@@ -786,6 +867,20 @@ fn value_ref_kind(value_ref: &ValueRef) -> u32 {
 /// Handle invoke operations for cross-program invocation
 #[inline(always)]
 pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
+    struct TempOffsetGuard {
+        ctx: *mut ExecutionManager<'static>,
+    }
+    impl Drop for TempOffsetGuard {
+        fn drop(&mut self) {
+            unsafe {
+                (*self.ctx).set_temp_offset(0);
+            }
+        }
+    }
+    let _temp_guard = TempOffsetGuard {
+        ctx: (ctx as *mut ExecutionManager<'_>).cast::<ExecutionManager<'static>>(),
+    };
+
     match opcode {
         INVOKE => {
             // Pop parameters from stack
@@ -795,21 +890,26 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 match &count_val {
                     ValueRef::Empty => 0,
                     ValueRef::U8(_) => 1,
-                    ValueRef::U64(_) => 2,
-                    ValueRef::I64(_) => 3,
-                    ValueRef::U128(_) => 4,
-                    ValueRef::Bool(_) => 5,
-                    ValueRef::AccountRef(_, _) => 6,
-                    ValueRef::InputRef(_) => 7,
-                    ValueRef::TempRef(_, _) => 8,
-                    ValueRef::TupleRef(_, _) => 9,
-                    ValueRef::OptionalRef(_, _) => 10,
-                    ValueRef::ResultRef(_, _) => 11,
-                    ValueRef::PubkeyRef(_) => 12,
-                    ValueRef::ArrayRef(_) => 13,
-                    ValueRef::StringRef(_) => 14,
-                    ValueRef::HeapString(_) => 15,
-                    ValueRef::HeapArray(_) => 16,
+                    ValueRef::U16(_) => 2,
+                    ValueRef::U32(_) => 3,
+                    ValueRef::U64(_) => 4,
+                    ValueRef::I8(_) => 5,
+                    ValueRef::I16(_) => 6,
+                    ValueRef::I32(_) => 7,
+                    ValueRef::I64(_) => 8,
+                    ValueRef::U128(_) => 9,
+                    ValueRef::Bool(_) => 10,
+                    ValueRef::AccountRef(_, _) => 11,
+                    ValueRef::InputRef(_) => 12,
+                    ValueRef::TempRef(_, _) => 13,
+                    ValueRef::TupleRef(_, _) => 14,
+                    ValueRef::OptionalRef(_, _) => 15,
+                    ValueRef::ResultRef(_, _) => 16,
+                    ValueRef::PubkeyRef(_) => 17,
+                    ValueRef::ArrayRef(_) => 18,
+                    ValueRef::StringRef(_) => 19,
+                    ValueRef::HeapString(_) => 20,
+                    ValueRef::HeapArray(_) => 21,
                 } as u32
             );
             let accounts_count = match count_val.as_u8() {
@@ -1469,5 +1569,62 @@ mod tests {
 
         assert_eq!(len, 8);
         assert_eq!(&instruction_data[..8], &42u64.to_le_bytes());
+    }
+
+    #[test]
+    fn materialize_instruction_data_serializes_narrow_ints_at_exact_width() {
+        let program_id = Pubkey::from([99u8; 32]);
+        let mut lamports = 1;
+        let mut account_data = [];
+        let account = create_account_info(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        let data_ref = store_array(
+            &mut ctx,
+            0,
+            &[
+                ValueRef::U16(0xBEEF),
+                ValueRef::U32(0x1122_3344),
+                ValueRef::I16(-2),
+                ValueRef::I32(-3),
+                ValueRef::I8(-1),
+            ],
+        );
+
+        let mut instruction_data = [0u8; MAX_CPI_DATA_LEN];
+        let len = materialize_instruction_data(&ctx, data_ref, &mut instruction_data)
+            .expect("materialize instruction data");
+
+        assert_eq!(len, 13);
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&0xBEEFu16.to_le_bytes());
+        expected.extend_from_slice(&0x1122_3344u32.to_le_bytes());
+        expected.extend_from_slice(&(-2i16).to_le_bytes());
+        expected.extend_from_slice(&(-3i32).to_le_bytes());
+        expected.push((-1i8) as u8);
+        assert_eq!(&instruction_data[..len], expected.as_slice());
     }
 }

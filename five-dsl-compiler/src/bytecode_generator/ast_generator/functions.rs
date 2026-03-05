@@ -1289,6 +1289,10 @@ impl ASTGenerator {
                     emitter.emit_const_bytes(&[byte])?;
                 } else {
                     self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(CAST);
+                    emitter.emit_u8(five_protocol::types::U8);
+                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+                    emitter.emit_u8(1);
                 }
                 Ok(())
             }
@@ -1302,6 +1306,8 @@ impl ASTGenerator {
                     emitter.emit_const_bytes(&word.to_le_bytes())?;
                 } else {
                     self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(CAST);
+                    emitter.emit_u8(five_protocol::types::U16);
                     emitter.emit_opcode(PUSH_ARRAY_LITERAL);
                     emitter.emit_u8(1);
                 }
@@ -1317,6 +1323,56 @@ impl ASTGenerator {
                     emitter.emit_const_bytes(&word.to_le_bytes())?;
                 } else {
                     self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(CAST);
+                    emitter.emit_u8(five_protocol::types::U32);
+                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+                    emitter.emit_u8(1);
+                }
+                Ok(())
+            }
+            TypeNode::Primitive(name) if name == "i8" => {
+                if let AstNode::Literal(val) = arg {
+                    let word = val.as_i64().ok_or(VMError::TypeMismatch)?;
+                    if !(i8::MIN as i64..=i8::MAX as i64).contains(&word) {
+                        return Err(VMError::TypeMismatch);
+                    }
+                    emitter.emit_const_bytes(&[word as i8 as u8])?;
+                } else {
+                    self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(CAST);
+                    emitter.emit_u8(five_protocol::types::I8);
+                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+                    emitter.emit_u8(1);
+                }
+                Ok(())
+            }
+            TypeNode::Primitive(name) if name == "i16" => {
+                if let AstNode::Literal(val) = arg {
+                    let word = val.as_i64().ok_or(VMError::TypeMismatch)?;
+                    if !(i16::MIN as i64..=i16::MAX as i64).contains(&word) {
+                        return Err(VMError::TypeMismatch);
+                    }
+                    emitter.emit_const_bytes(&(word as i16).to_le_bytes())?;
+                } else {
+                    self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(CAST);
+                    emitter.emit_u8(five_protocol::types::I16);
+                    emitter.emit_opcode(PUSH_ARRAY_LITERAL);
+                    emitter.emit_u8(1);
+                }
+                Ok(())
+            }
+            TypeNode::Primitive(name) if name == "i32" => {
+                if let AstNode::Literal(val) = arg {
+                    let word = val.as_i64().ok_or(VMError::TypeMismatch)?;
+                    if !(i32::MIN as i64..=i32::MAX as i64).contains(&word) {
+                        return Err(VMError::TypeMismatch);
+                    }
+                    emitter.emit_const_bytes(&(word as i32).to_le_bytes())?;
+                } else {
+                    self.generate_ast_node(emitter, arg)?;
+                    emitter.emit_opcode(CAST);
+                    emitter.emit_u8(five_protocol::types::I32);
                     emitter.emit_opcode(PUSH_ARRAY_LITERAL);
                     emitter.emit_u8(1);
                 }
@@ -1804,6 +1860,80 @@ mod tests {
         assert!(emitter.bytes.contains(&ARRAY_CONCAT));
         assert!(emitter.bytes.contains(&INVOKE));
         assert!(!emitter.bytes.contains(&PUSH_ARRAY_LITERAL));
+    }
+
+    #[test]
+    fn interface_variable_u32_argument_emits_cast_before_serialization() {
+        let mut gen = ASTGenerator::new();
+        gen.current_function_parameters = Some(vec![
+            InstructionParameter {
+                name: "authority".to_string(),
+                param_type: TypeNode::Account,
+                is_optional: false,
+                default_value: None,
+                attributes: vec![Attribute {
+                    name: "signer".to_string(),
+                    args: vec![],
+                }],
+                is_init: false,
+                init_config: None,
+                pda_config: None,
+            },
+        ]);
+
+        let method = InterfaceMethod {
+            discriminator: 42,
+            discriminator_bytes: None,
+            is_anchor: false,
+            parameters: vec![
+                InstructionParameter {
+                    name: "authority".to_string(),
+                    param_type: TypeNode::Account,
+                    is_optional: false,
+                    default_value: None,
+                    attributes: vec![],
+                    is_init: false,
+                    init_config: None,
+                    pda_config: None,
+                },
+                InstructionParameter {
+                    name: "kind".to_string(),
+                    param_type: TypeNode::Primitive("u32".to_string()),
+                    is_optional: false,
+                    default_value: None,
+                    attributes: vec![],
+                    is_init: false,
+                    init_config: None,
+                    pda_config: None,
+                },
+            ],
+            return_type: None,
+        };
+        let interface = InterfaceInfo {
+            program_id: "11111111111111111111111111111111".to_string(),
+            serializer: crate::type_checker::InterfaceSerializer::Raw,
+            is_anchor: false,
+            methods: HashMap::new(),
+        };
+        let args = vec![
+            AstNode::Identifier("authority".to_string()),
+            AstNode::BinaryExpression {
+                operator: "+".to_string(),
+                left: Box::new(AstNode::Literal(Value::U64(40))),
+                right: Box::new(AstNode::Literal(Value::U64(2))),
+            },
+        ];
+
+        let mut emitter = MockEmitter::new();
+        gen.emit_interface_invoke(&mut emitter, &interface, &method, &args)
+            .expect("u32 variable argument should lower with cast");
+
+        let expected = [CAST, five_protocol::types::U32, PUSH_ARRAY_LITERAL, 1];
+        let found = emitter
+            .bytes
+            .windows(expected.len())
+            .any(|window| window == expected);
+        assert!(found, "expected CAST->U32->PUSH_ARRAY_LITERAL sequence");
     }
 
     #[test]

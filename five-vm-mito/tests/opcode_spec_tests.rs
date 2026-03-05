@@ -4,7 +4,7 @@
 //! It focuses on edge cases, stack effects, and specific bit-level behaviors.
 
 use five_protocol::{opcodes::*, FIVE_HEADER_OPTIMIZED_SIZE, FIVE_MAGIC};
-use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, Value, FIVE_VM_PROGRAM_ID};
+use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, VMError, Value, FIVE_VM_PROGRAM_ID};
 
 fn execute_test(
     bytecode: &[u8],
@@ -37,6 +37,53 @@ fn push_u64(script: &mut Vec<u8>, value: u64) {
 fn push_u16(script: &mut Vec<u8>, value: u16) {
     script.push(PUSH_U16);
     script.extend_from_slice(&value.to_le_bytes());
+}
+
+fn push_i64(script: &mut Vec<u8>, value: i64) {
+    script.push(PUSH_I64);
+    script.extend_from_slice(&(value as u64).to_le_bytes());
+}
+
+#[test]
+fn test_spec_cast_to_narrow_types() {
+    let cast_u32 = build_script(|script| {
+        push_u64(script, 65_537);
+        script.push(CAST);
+        script.push(five_protocol::types::U32);
+        script.push(HALT);
+    });
+    let res = execute_test(&cast_u32, &[], &[]).unwrap();
+    assert_eq!(res, Some(Value::U64(65_537)));
+
+    let cast_i16 = build_script(|script| {
+        push_i64(script, -1234);
+        script.push(CAST);
+        script.push(five_protocol::types::I16);
+        script.push(HALT);
+    });
+    let res = execute_test(&cast_i16, &[], &[]).unwrap();
+    assert_eq!(res, Some(Value::I64(-1234)));
+}
+
+#[test]
+fn test_spec_cast_rejects_narrow_overflow() {
+    let overflow_u16 = build_script(|script| {
+        push_u64(script, u16::MAX as u64 + 1);
+        script.push(CAST);
+        script.push(five_protocol::types::U16);
+        script.push(HALT);
+    });
+    let err = execute_test(&overflow_u16, &[], &[]).unwrap_err();
+    assert_eq!(err, VMError::TypeMismatch);
+
+    let overflow_i8 = build_script(|script| {
+        push_i64(script, i8::MAX as i64 + 1);
+        script.push(CAST);
+        script.push(five_protocol::types::I8);
+        script.push(HALT);
+    });
+    let err = execute_test(&overflow_i8, &[], &[]).unwrap_err();
+    assert_eq!(err, VMError::TypeMismatch);
 }
 
 #[test]

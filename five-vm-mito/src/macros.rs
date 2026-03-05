@@ -322,43 +322,48 @@ macro_rules! dispatch_polymorphic_op {
             (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U64(b_val)) => {
                 $op_macro!(u64, a_val, b_val, $ctx, $($args)*)
             }
-            // U8 × U8 → U64 (promote both to u64)
-            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U8(b_val)) => {
-                let a_promoted = a_val as u64;
-                let b_promoted = b_val as u64;
-                $op_macro!(u64, a_promoted, b_promoted, $ctx, $($args)*)
-            }
-            // U8 × U64 → U64 (promote u8 to u64)
-            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U64(b_val)) => {
-                let a_promoted = a_val as u64;
-                $op_macro!(u64, a_promoted, b_val, $ctx, $($args)*)
-            }
-            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U8(b_val)) => {
-                let b_promoted = b_val as u64;
-                $op_macro!(u64, a_val, b_promoted, $ctx, $($args)*)
-            }
-            // U8 × U128 → U128 (promote both to u128)
-            (five_protocol::ValueRef::U8(a_val), five_protocol::ValueRef::U128(b_val)) => {
-                let a_promoted = a_val as u128;
-                $op_macro!(u128, a_promoted, b_val, $ctx, $($args)*)
-            }
-            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U8(b_val)) => {
-                let b_promoted = b_val as u128;
-                $op_macro!(u128, a_val, b_promoted, $ctx, $($args)*)
-            }
-            // Promotion paths: any u128 involvement → u128 result
-            (five_protocol::ValueRef::U64(a_val), five_protocol::ValueRef::U128(b_val)) => {
-                let a_promoted = a_val as u128;
-                $op_macro!(u128, a_promoted, b_val, $ctx, $($args)*)
-            }
-            (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U64(b_val)) => {
-                let b_promoted = b_val as u128;
-                $op_macro!(u128, a_val, b_promoted, $ctx, $($args)*)
-            }
             (five_protocol::ValueRef::U128(a_val), five_protocol::ValueRef::U128(b_val)) => {
                 $op_macro!(u128, a_val, b_val, $ctx, $($args)*)
             }
-            _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
+            // Promotion paths: any u128 involvement → u128 result
+            (five_protocol::ValueRef::U128(a_val), rhs) => {
+                let b_promoted = match rhs {
+                    five_protocol::ValueRef::U128(v) => v,
+                    five_protocol::ValueRef::U64(v) => v as u128,
+                    five_protocol::ValueRef::U32(v) => v as u128,
+                    five_protocol::ValueRef::U16(v) => v as u128,
+                    five_protocol::ValueRef::U8(v) => v as u128,
+                    five_protocol::ValueRef::I8(v) if v >= 0 => v as u128,
+                    five_protocol::ValueRef::I16(v) if v >= 0 => v as u128,
+                    five_protocol::ValueRef::I32(v) if v >= 0 => v as u128,
+                    five_protocol::ValueRef::I64(v) if v >= 0 => v as u128,
+                    five_protocol::ValueRef::Bool(v) => if v { 1 } else { 0 },
+                    _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
+                };
+                $op_macro!(u128, a_val, b_promoted, $ctx, $($args)*)
+            }
+            (lhs, five_protocol::ValueRef::U128(b_val)) => {
+                let a_promoted = match lhs {
+                    five_protocol::ValueRef::U128(v) => v,
+                    five_protocol::ValueRef::U64(v) => v as u128,
+                    five_protocol::ValueRef::U32(v) => v as u128,
+                    five_protocol::ValueRef::U16(v) => v as u128,
+                    five_protocol::ValueRef::U8(v) => v as u128,
+                    five_protocol::ValueRef::I8(v) if v >= 0 => v as u128,
+                    five_protocol::ValueRef::I16(v) if v >= 0 => v as u128,
+                    five_protocol::ValueRef::I32(v) if v >= 0 => v as u128,
+                    five_protocol::ValueRef::I64(v) if v >= 0 => v as u128,
+                    five_protocol::ValueRef::Bool(v) => if v { 1 } else { 0 },
+                    _ => return Err($crate::error::VMErrorCode::TypeMismatch.into()),
+                };
+                $op_macro!(u128, a_promoted, b_val, $ctx, $($args)*)
+            }
+            // General scalar coercion path (u8/u16/u32/u64 and non-negative signed)
+            (lhs, rhs) => {
+                let a_val = $crate::utils::ValueRefUtils::as_u64(lhs)?;
+                let b_val = $crate::utils::ValueRefUtils::as_u64(rhs)?;
+                $op_macro!(u64, a_val, b_val, $ctx, $($args)*)
+            }
         }
     }
 }

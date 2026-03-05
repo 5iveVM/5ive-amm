@@ -35,8 +35,13 @@ fn resolve_value_ref_with_depth(
         // Immediate values - no context needed
         ValueRef::Empty => Ok(Value::Empty),
         ValueRef::U8(v) => Ok(Value::U8(*v)), // Preserve U8 type
+        ValueRef::U16(v) => Ok(Value::U64(*v as u64)),
+        ValueRef::U32(v) => Ok(Value::U64(*v as u64)),
         ValueRef::U64(v) => Ok(Value::U64(*v)),
         ValueRef::U128(v) => Ok(Value::U128(*v)),
+        ValueRef::I8(v) => Ok(Value::I64(*v as i64)),
+        ValueRef::I16(v) => Ok(Value::I64(*v as i64)),
+        ValueRef::I32(v) => Ok(Value::I64(*v as i64)),
         ValueRef::I64(v) => Ok(Value::I64(*v)),
         ValueRef::Bool(v) => Ok(Value::Bool(*v)),
 
