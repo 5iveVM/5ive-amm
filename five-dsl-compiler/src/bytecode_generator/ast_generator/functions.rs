@@ -1241,6 +1241,15 @@ impl ASTGenerator {
                 return Err(VMError::InvalidParameterCount);
             };
 
+            if interface_info.program_id == "Stake11111111111111111111111111111111111111"
+                && interface_method.discriminator_bytes.as_deref() == Some(&[10, 0, 0, 0])
+            {
+                eprintln!(
+                    "DEBUG authorize_checked param_type arg_idx={} => {:?}",
+                    arg_idx, param_type
+                );
+            }
+
             let arg = &args[arg_idx];
             self.emit_argument_serialization(emitter, &interface_info.serializer, param_type, arg)?;
             emitter.emit_opcode(ARRAY_CONCAT);

@@ -203,3 +203,112 @@ fn one_shot_amm_fixture_compiles_when_present() {
         "fixture should include CPI INVOKE opcode(s)"
     );
 }
+
+#[test]
+fn raw_u32_variable_interface_arg_emits_cast_opcode() {
+    let source = r#"
+        interface StakeProgram @program("Stake11111111111111111111111111111111111111") @serializer(raw) {
+            authorize_checked @discriminator_bytes([10, 0, 0, 0]) (
+                stake_account: Account,
+                clock_sysvar: Account,
+                authority: Account,
+                new_authority: Account,
+                stake_authorize_kind: u32
+            );
+        }
+
+        pub test_call(
+            stake_account: account @mut,
+            clock_sysvar: account,
+            authority: account @signer,
+            new_authority: account @signer
+        ) {
+            let kind: u32 = 1;
+            StakeProgram::authorize_checked(
+                stake_account,
+                clock_sysvar,
+                authority,
+                new_authority,
+                kind
+            );
+        }
+    "#;
+
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("u32 variable interface arg source should compile");
+    assert!(
+        bytecode.iter().any(|op| *op == opcodes::CAST),
+        "u32 variable interface arg should emit CAST before serialization"
+    );
+}
+
+#[test]
+fn raw_u32_function_arg_emits_cast_opcode() {
+    let source = r#"
+        interface StakeProgram @program("Stake11111111111111111111111111111111111111") @serializer(raw) {
+            authorize_checked @discriminator_bytes([10, 0, 0, 0]) (
+                stake_account: Account,
+                clock_sysvar: Account,
+                authority: Account,
+                new_authority: Account,
+                stake_authorize_kind: u32
+            );
+        }
+
+        kind() -> u32 {
+            return 1;
+        }
+
+        pub test_call(
+            stake_account: account @mut,
+            clock_sysvar: account,
+            authority: account @signer,
+            new_authority: account @signer
+        ) {
+            StakeProgram::authorize_checked(
+                stake_account,
+                clock_sysvar,
+                authority,
+                new_authority,
+                kind()
+            );
+        }
+    "#;
+
+    let bytecode =
+        DslCompiler::compile_dsl(source).expect("u32 function interface arg source should compile");
+    assert!(
+        bytecode.iter().any(|op| *op == opcodes::CAST),
+        "u32 function interface arg should emit CAST before serialization"
+    );
+}
+
+#[test]
+fn stdlib_stake_authorize_checked_variable_emits_cast_opcode() {
+    let source = r#"
+        use std::interfaces::stake_program;
+
+        pub test_call(
+            stake_account: account @mut,
+            clock_sysvar: account,
+            authority: account @signer,
+            new_authority: account @signer
+        ) {
+            let kind: u32 = 1;
+            stake_program::authorize_checked(
+                stake_account,
+                clock_sysvar,
+                authority,
+                new_authority,
+                kind
+            );
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source)
+        .expect("stdlib stake authorize_checked variable source should compile");
+    assert!(
+        bytecode.iter().any(|op| *op == opcodes::CAST),
+        "stdlib stake authorize_checked variable should emit CAST before serialization"
+    );
+}
