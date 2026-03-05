@@ -104,7 +104,7 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
 /// ```rust
 /// # use five_vm_mito::{*, StackStorage, ExecutionManager};
 /// # use five_vm_mito::handlers::handle_arithmetic;
-/// # use five_protocol::{ValueRef, opcodes::ADD};
+/// # use five_vm_mito::{ValueRef, opcodes::ADD};
 /// # use pinocchio::pubkey::Pubkey;
 /// # let bytecode: &[u8] = &[0x11, 10, 0x11, 5, 0x20, 0x07];
 /// # let mut storage = StackStorage::new();

@@ -391,7 +391,7 @@ impl MitoVM {
     ///
     /// let mut storage = five_vm_mito::StackStorage::new();
     /// let result = MitoVM::execute_direct(bytecode, input_data, accounts, &program_id, &mut storage)?;
-    /// assert_eq!(result, Some(five_protocol::Value::U8(42)));
+    /// assert_eq!(result, Some(five_vm_mito::Value::U8(42)));
     /// # Ok::<(), five_vm_mito::VMError>(())
     /// ```
     #[inline(never)]

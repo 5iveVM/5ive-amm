@@ -323,7 +323,7 @@ pub create_spl_mint(
     decimals: u8
 ) -> pubkey {
     // Call the SPL Token program's initialize_mint instruction
-    SPLToken.initialize_mint(
+    SPLToken::initialize_mint(
         get_key(mint),
         decimals,
         payer.ctx.key,
@@ -341,7 +341,7 @@ pub mint_spl_tokens(
     amount: u64
 ) {
     // Call the SPL Token program's mint_to instruction
-    SPLToken.mint_to(
+    SPLToken::mint_to(
         get_key(mint),
         get_key(destination),
         authority.ctx.key,
@@ -357,7 +357,7 @@ pub transfer_spl_tokens(
     amount: u64
 ) {
     // Call the SPL Token program's transfer instruction
-    SPLToken.transfer(
+    SPLToken::transfer(
         get_key(source),
         get_key(destination),
         authority.ctx.key,
@@ -373,7 +373,7 @@ pub burn_spl_tokens(
     amount: u64
 ) {
     // Call the SPL Token program's burn instruction
-    SPLToken.burn(
+    SPLToken::burn(
         get_key(mint),
         get_key(token_account),
         authority.ctx.key,

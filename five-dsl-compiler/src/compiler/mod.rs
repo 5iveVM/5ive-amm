@@ -1206,7 +1206,7 @@ pub mint_tokens(
     authority: account @signer,
     amount: u64
 ) {
-    TokenLike.mint_to(mint, destination, authority, amount);
+    TokenLike::mint_to(mint, destination, authority, amount);
 }
 "#;
 
@@ -1235,7 +1235,7 @@ pub mint_tokens(
     authority: account @pda(seeds=["mint_auth", mint]),
     amount: u64
 ) -> u64 {
-    TokenLike.mint_to(mint, destination, authority, amount);
+    TokenLike::mint_to(mint, destination, authority, amount);
     return authority.ctx.bump as u64;
 }
 "#;
@@ -1266,7 +1266,7 @@ pub mint_tokens(
     authority: account,
     amount: u64
 ) {
-    TokenLike.mint_to(mint, destination, authority, amount);
+    TokenLike::mint_to(mint, destination, authority, amount);
 }
 "#;
 
@@ -1284,7 +1284,7 @@ interface CryptoSink @program("11111111111111111111111111111111") @serializer(ra
 }
 
 pub send(sink: account) {
-    CryptoSink.submit(
+    CryptoSink::submit(
         sink,
         [
             0, 1, 2, 3, 4, 5, 6, 7,
@@ -1321,7 +1321,7 @@ interface StringSink @program("11111111111111111111111111111111") @serializer(ra
 }
 
 pub send(sink: account) {
-    StringSink.submit(sink, "vault");
+    StringSink::submit(sink, "vault");
 }
 "#;
 
@@ -1351,7 +1351,7 @@ interface StringSink @program("11111111111111111111111111111111") @serializer({s
 }}
 
 pub send(sink: account) {{
-    StringSink.submit(sink, "vault");
+    StringSink::submit(sink, "vault");
 }}
 "#
             );
@@ -1376,7 +1376,7 @@ interface StringSink @program("11111111111111111111111111111111") @serializer(ra
 }
 
 pub send(sink: account) {
-    StringSink.submit(sink, "hello");
+    StringSink::submit(sink, "hello");
 }
 "#;
 

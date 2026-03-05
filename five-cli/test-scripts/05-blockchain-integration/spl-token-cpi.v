@@ -6,11 +6,11 @@
     
 pub create_mint(payer: account @signer, mint: account @init, decimals: u8) -> pubkey {
         // Call interface function using dot notation
-        SPLToken.initialize_mint(mint, decimals, payer, payer);
+        SPLToken::initialize_mint(mint, decimals, payer, payer);
         return mint;
     }
     
 mint_tokens(mint: account @mut, dest: account @mut, amount: u64) {
         // Call interface function using dot notation
-        SPLToken.mint_to(mint, dest, mint, amount);
+        SPLToken::mint_to(mint, dest, mint, amount);
     }

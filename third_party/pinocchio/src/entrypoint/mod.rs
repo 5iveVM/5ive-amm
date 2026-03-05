@@ -19,8 +19,12 @@ use core::{
 use crate::{
     account_info::{Account, AccountInfo, MAX_PERMITTED_DATA_INCREASE},
     pubkey::Pubkey,
-    BPF_ALIGN_OF_U128, MAX_TX_ACCOUNTS,
+    BPF_ALIGN_OF_U128,
 };
+
+// Keep a local transaction-account limit constant to avoid using the deprecated
+// crate-root alias.
+const MAX_TX_ACCOUNTS: usize = (u8::MAX - 1) as usize;
 
 /// Start address of the memory region used for program heap.
 pub const HEAP_START_ADDRESS: u64 = 0x300000000;

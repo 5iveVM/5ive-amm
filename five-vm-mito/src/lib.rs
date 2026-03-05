@@ -98,6 +98,7 @@ pub use execution::MitoVM;
 #[cfg(not(target_os = "solana"))]
 pub use execution::VMExecutionContext;
 pub use five_protocol::Value;
+pub use five_protocol::ValueRef;
 pub use lazy_validation::{LazyAccountValidator, ValidationStats};
 pub use stack::StackStorage;
 pub use types::{CallFrame, LocalVariables};

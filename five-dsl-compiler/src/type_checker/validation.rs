@@ -1,8 +1,6 @@
 // Type validation utilities
 
-use super::type_helpers::{
-    is_builtin_account_property, is_numeric_type_name, numeric_type_meta, type_names,
-};
+use super::type_helpers::{is_numeric_type_name, numeric_type_meta, type_names};
 use super::types::TypeCheckerContext;
 use crate::ast::{AstNode, TypeNode};
 use five_protocol::Value;
@@ -172,16 +170,6 @@ impl TypeCheckerContext {
             Ok(())
         } else {
             Err(VMError::TypeMismatch)
-        }
-    }
-
-    /// Validate built-in account properties
-    pub(crate) fn validate_builtin_account_property(&self, property: &str) -> Result<(), VMError> {
-        if is_builtin_account_property(property) {
-            Ok(())
-        } else {
-            // Not a built-in property, which is fine - could be user-defined
-            Ok(())
         }
     }
 

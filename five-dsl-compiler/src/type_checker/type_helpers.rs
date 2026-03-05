@@ -34,7 +34,8 @@ pub mod type_names {
     pub const UNKNOWN_SUCCESS: &str = "UnknownSuccess";
 }
 
-// Constants for built-in properties
+// Constants for built-in properties (test-only helpers).
+#[cfg(test)]
 pub mod property_names {
     pub const LAMPORTS: &str = "lamports";
     pub const OWNER: &str = "owner";
@@ -190,7 +191,8 @@ pub fn is_primitive_type_name(name: &str) -> bool {
     )
 }
 
-/// Check if a string is a built-in account property
+/// Check if a string is a built-in account property.
+#[cfg(test)]
 pub fn is_builtin_account_property(name: &str) -> bool {
     matches!(
         name,

@@ -30,7 +30,7 @@ interface MemoProgram @program("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr") @s
 }}
 
 pub cpi_memo(memo_program: account) -> u64 {{
-    MemoProgram.write([{memo_literal}]);
+    MemoProgram::write([{memo_literal}]);
     return 1;
 }}
 "#,
@@ -58,7 +58,7 @@ interface MemoProgram @program("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr") @s
 }}
 
 pub cpi_memo_with_signer(memo_program: account, authority: account) -> u64 {{
-    MemoProgram.write(authority, [{memo_literal}]);
+    MemoProgram::write(authority, [{memo_literal}]);
     return 1;
 }}
 "#,
@@ -86,7 +86,7 @@ interface MemoProgram @program("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr") @s
 }}
 
 pub cpi_memo_auto(vm_state: account @pda(seeds=["vm_state"]), memo_program: account) -> u64 {{
-    MemoProgram.write(vm_state, [{memo_literal}]);
+    MemoProgram::write(vm_state, [{memo_literal}]);
     return 1;
 }}
 "#,

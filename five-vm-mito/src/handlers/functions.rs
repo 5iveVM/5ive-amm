@@ -1166,7 +1166,8 @@ mod tests {
         handlers::{
             accounts::handle_accounts, arrays::handle_arrays, constraints::handle_constraints,
             control_flow::handle_control_flow, locals::handle_locals, memory::handle_memory,
-            stack_ops::handle_stack_ops, system::sysvars::handle_sysvar_ops,
+            option_result::handle_option_result_ops, stack_ops::handle_stack_ops,
+            system::sysvars::handle_sysvar_ops,
         },
         context::ExecutionContext, error::VMErrorCode, stack::StackStorage, MitoVM,
         MAX_PARAMETERS,
@@ -2080,6 +2081,9 @@ mod tests {
             five_protocol::opcodes::CHECK_WRITABLE,
             1,
             five_protocol::opcodes::GET_CLOCK,
+            five_protocol::opcodes::PUSH_U8,
+            0,
+            five_protocol::opcodes::TUPLE_GET,
             five_protocol::opcodes::SET_LOCAL_0,
             five_protocol::opcodes::GET_LOCAL_0,
             five_protocol::opcodes::STORE_FIELD,
@@ -2152,6 +2156,12 @@ mod tests {
 
         let opcode = ctx.fetch_byte().expect("fetch GET_CLOCK");
         handle_sysvar_ops(opcode, &mut ctx).expect("GET_CLOCK should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch PUSH_U8");
+        handle_stack_ops(opcode, &mut ctx).expect("PUSH_U8 should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch TUPLE_GET");
+        handle_option_result_ops(opcode, &mut ctx).expect("TUPLE_GET should succeed");
 
         let opcode = ctx.fetch_byte().expect("fetch SET_LOCAL_0");
         crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)

@@ -21,7 +21,7 @@ fn cpi_minimal_interface_call_compiles_without_jump_verification_failure() {
             user_authority: account @signer,
             amount_a: u64
         ) {
-            SPLToken.transfer(user_token_a, pool_token_a_vault, user_authority, amount_a);
+            SPLToken::transfer(user_token_a, pool_token_a_vault, user_authority, amount_a);
         }
     "#;
 
@@ -84,9 +84,9 @@ fn amm_like_cpi_program_compiles_and_emits_invoke() {
                 liquidity = (amount_a * pool.lp_supply) / pool.reserve_a;
             }
 
-            SPLToken.transfer(user_token_a, pool_token_a_vault, user_authority, amount_a);
-            SPLToken.transfer(user_token_b, pool_token_b_vault, user_authority, amount_b);
-            SPLToken.mint_to(lp_mint, user_lp_account, user_authority, liquidity);
+            SPLToken::transfer(user_token_a, pool_token_a_vault, user_authority, amount_a);
+            SPLToken::transfer(user_token_b, pool_token_b_vault, user_authority, amount_b);
+            SPLToken::mint_to(lp_mint, user_lp_account, user_authority, liquidity);
         }
     "#;
 
@@ -111,7 +111,7 @@ fn raw_interface_with_bounded_string_data_compiles_and_emits_invoke() {
         }
 
         pub send(sink: account) {
-            StringSink.submit(sink, "vault");
+            StringSink::submit(sink, "vault");
         }
     "#;
 
@@ -156,7 +156,7 @@ fn metaplex_like_raw_interface_shape_with_multiple_bounded_strings_compiles() {
             update_authority: account @signer,
             system_program_account: account
         ) {
-            MetadataProgram.create_metadata_account_v3(
+            MetadataProgram::create_metadata_account_v3(
                 metadata,
                 mint,
                 mint_authority,

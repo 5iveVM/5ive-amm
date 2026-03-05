@@ -38,5 +38,21 @@ pub fn find_bundled_stdlib_root(project_root: &Path) -> Option<PathBuf> {
         cursor = dir.parent().map(|p| p.to_path_buf());
     }
 
+    // Test/CLI fallback when project_root is a temp dir outside the monorepo.
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workspace_root = manifest_dir.parent().map(|p| p.to_path_buf());
+    if let Some(root) = workspace_root {
+        let candidates = [
+            root.join("five-cli").join("dist").join("assets").join("stdlib"),
+            root.join("five-cli").join("assets").join("stdlib"),
+            root.join("five-stdlib"),
+        ];
+        for candidate in candidates {
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+
     None
 }

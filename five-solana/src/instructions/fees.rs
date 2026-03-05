@@ -18,7 +18,6 @@ use crate::{
 
 use super::{require_min_accounts, require_signer};
 
-const ERR_INVALID_FEE_RECIPIENT: u32 = 1113;
 pub const FEE_BYPASS_SHARD_INDEX: u8 = u8::MAX;
 
 #[inline(always)]

@@ -6,7 +6,9 @@
 
 use pinocchio::pubkey::Pubkey;
 
+#[allow(dead_code)]
 pub const GENERATED_CLUSTER: &str = "localnet";
+#[allow(dead_code)]
 pub const VM_PROGRAM_ID: &str = "FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb";
 pub const VM_PROGRAM_ID_BYTES: [u8; 32] = [
     0xdb, 0x8a, 0x02, 0x4a, 0xac, 0x34, 0x4d, 0x0e,
@@ -15,13 +17,16 @@ pub const VM_PROGRAM_ID_BYTES: [u8; 32] = [
     0x81, 0xef, 0xec, 0xd1, 0xe7, 0x74, 0xcc, 0x9a,
 ];
 
+#[allow(dead_code)]
 pub const HARDCODED_VM_STATE_PDA: [u8; 32] = [
     0xe4, 0x19, 0x34, 0x38, 0x23, 0x98, 0x2f, 0xe7,
     0x2f, 0xc9, 0x16, 0xf8, 0xdc, 0xfa, 0x57, 0xca,
     0x4a, 0x08, 0xe4, 0x17, 0x70, 0x52, 0x4e, 0x93,
     0xce, 0x69, 0x66, 0x26, 0x2b, 0xe8, 0xd6, 0xd3,
 ];
+#[allow(dead_code)]
 pub const HARDCODED_VM_STATE_BUMP: u8 = 251;
+#[allow(dead_code)]
 pub const HARDCODED_FEE_VAULT_COUNT: u8 = 2;
 
 pub const HARDCODED_FEE_VAULT_0: [u8; 32] = [
@@ -55,4 +60,3 @@ pub fn get_hardcoded_fee_vault_bump(shard_index: u8) -> Option<u8> {
         _ => None,
     }
 }
-

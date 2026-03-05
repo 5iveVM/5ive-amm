@@ -25,6 +25,7 @@ pub fn derive_canonical_vm_state_pda(program_id: &Pubkey) -> Result<(Pubkey, u8)
 }
 
 #[inline(always)]
+#[allow(dead_code)]
 pub fn validate_vm_state_pda_with_bump(
     vm_state_account: &AccountInfo,
     program_id: &Pubkey,
@@ -489,6 +490,7 @@ pub fn verify_program_owned(account: &AccountInfo, program_id: &Pubkey) -> Progr
 }
 
 #[inline(always)]
+#[allow(dead_code)]
 pub fn verify_canonical_vm_state_account(
     vm_state_account: &AccountInfo,
     program_id: &Pubkey,
@@ -578,6 +580,7 @@ pub fn verify_hardcoded_fee_vault_account(
 }
 
 #[inline(always)]
+#[allow(dead_code)]
 pub fn verify_hardcoded_fee_vault_account_with_bump(
     fee_vault_account: &AccountInfo,
     program_id: &Pubkey,
@@ -598,6 +601,7 @@ pub fn verify_hardcoded_fee_vault_account_with_bump(
 
 /// Get hardcoded VM state PDA address
 #[inline(always)]
+#[allow(dead_code)]
 pub fn get_hardcoded_vm_state_pda() -> Pubkey {
     #[cfg(not(feature = "cluster-hardcoded-pdas"))]
     unreachable!("hardcoded VM state PDA requires the cluster-hardcoded-pdas feature");
@@ -670,6 +674,7 @@ pub fn derive_fee_vault_pda(
 }
 
 #[inline(always)]
+#[allow(dead_code)]
 pub fn derive_fee_vault_pda_with_bump(
     program_id: &Pubkey,
     shard_index: u8,
@@ -696,6 +701,7 @@ pub fn derive_fee_vault_pda_with_bump(
 }
 
 #[inline(always)]
+#[allow(dead_code)]
 pub fn verify_fee_vault_account(
     fee_vault_account: &AccountInfo,
     program_id: &Pubkey,
