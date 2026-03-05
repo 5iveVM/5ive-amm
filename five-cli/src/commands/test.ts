@@ -1,7 +1,7 @@
 // Test command.
 
 import { readFile, readdir, stat } from 'fs/promises';
-import { join, basename } from 'path';
+import { join, basename, dirname, isAbsolute, resolve } from 'path';
 import ora from 'ora';
 
 import {
@@ -83,6 +83,7 @@ interface OnChainTestSummary {
 
 interface OnChainFixtureAccount {
   owner?: string; // "system" or base58 pubkey
+  address?: string; // "payer", "system_program", or base58 pubkey
   lamports?: number;
   data_len?: number;
   is_signer?: boolean;
@@ -90,6 +91,7 @@ interface OnChainFixtureAccount {
 }
 
 interface OnChainFixtureTestSpec {
+  function?: string;
   accounts?: string[];
   parameters?: any[];
   expected?: {
@@ -99,6 +101,8 @@ interface OnChainFixtureTestSpec {
 }
 
 interface OnChainFixtureFile {
+  source?: string;
+  contract?: string;
   accounts?: Record<string, OnChainFixtureAccount>;
   tests?: Record<string, OnChainFixtureTestSpec>;
 }
@@ -107,6 +111,34 @@ type ExecuteAccountMetadata = Map<
   string,
   { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }
 >;
+
+interface OnChainFixtureSuite {
+  fixturePath: string;
+  sourceFile: string;
+  fixture: OnChainFixtureFile;
+  tests: Array<{ testName: string; functionName: string; spec: OnChainFixtureTestSpec }>;
+}
+
+function resolveFixtureParameters(
+  rawParameters: any[] | undefined,
+  accountNameToAddress: Record<string, string>,
+  signerAddress: string
+): any[] {
+  const parameters = Array.isArray(rawParameters) ? rawParameters : [];
+  return parameters.map((value) => {
+    if (typeof value !== 'string' || !value.startsWith('$')) {
+      return value;
+    }
+    const key = value.slice(1);
+    if (key === 'payer') {
+      return signerAddress;
+    }
+    if (key === 'system_program' || key === 'system') {
+      return '11111111111111111111111111111111';
+    }
+    return accountNameToAddress[key] || value;
+  });
+}
 
 /**
  * 5IVE test command implementation
@@ -913,9 +945,23 @@ async function runOnChainTests(
 
     const discovered = await TestDiscovery.discoverTests(testPath, { verbose: options.verbose });
     const vTests = discovered.filter((t) => t.type === 'v-source' && t.source);
+    const fixtureSuites = await discoverOnChainFixtureSuites(testPath, options.verbose);
+    enforceNoTestSourceFunctionsOnChain(vTests);
+    if (fixtureSuites.length > 0) {
+      logger.info(`Found ${fixtureSuites.length} on-chain fixture suite(s)`);
+    }
 
     let results: OnChainTestSummary;
-    if (vTests.length > 0) {
+    if (fixtureSuites.length > 0) {
+      results = await runOnChainFixtureSuites(
+        fixtureSuites,
+        connection,
+        signerKeypair,
+        options,
+        config,
+        maxCostLamports
+      );
+    } else if (vTests.length > 0) {
       results = await runDiscoveredVOnChainTests(
         vTests,
         connection,
@@ -927,7 +973,7 @@ async function runOnChainTests(
     } else {
       // Fall back to artifact-driven on-chain mode
       if (testFiles.length === 0) {
-        logger.warn('No on-chain tests discovered (.v test functions or .bin/.five artifacts)');
+        logger.warn('No on-chain tests discovered (fixture .test.json, .v test functions, or .bin/.five artifacts)');
         return;
       }
       results = await runBatchOnChainTests(
@@ -955,6 +1001,112 @@ async function runOnChainTests(
     logger.error('On-chain testing failed:', error);
     throw error;
   }
+}
+
+function enforceNoTestSourceFunctionsOnChain(discoveredVTests: any[]): void {
+  if (discoveredVTests.length === 0) return;
+  const testFileCases = discoveredVTests.filter((t) => {
+    const p = String(t?.path || '');
+    return p.endsWith('.test.v') || p.includes('/tests/') || p.includes('\\tests\\');
+  });
+  if (testFileCases.length === 0) return;
+  const discoveredNames = Array.from(
+    new Set(
+      testFileCases
+        .map((t) => String(t?.source?.functionName || '').trim())
+        .filter((name) => name.length > 0)
+    )
+  );
+  throw new Error(
+    'On-chain test misconfiguration: discovered pub test_* functions under tests/*.test.v. ' +
+    'Test helper functions must never be deployed/executed on-chain. ' +
+    'Use local test mode for DSL helper tests, and use contract-instruction fixtures for on-chain validation. ' +
+    `Discovered helper functions: ${discoveredNames.join(', ')}`
+  );
+}
+
+async function discoverOnChainFixtureSuites(
+  testPath: string,
+  verbose: boolean
+): Promise<OnChainFixtureSuite[]> {
+  const fixtureFiles = await findFilesByExtension(testPath, '.test.json');
+  const suites: OnChainFixtureSuite[] = [];
+
+  for (const fixturePath of fixtureFiles) {
+    try {
+      const content = await readFile(fixturePath, 'utf8');
+      const parsed = JSON.parse(content) as OnChainFixtureFile;
+      const testsObject = parsed?.tests;
+      if (!testsObject || Array.isArray(testsObject) || typeof testsObject !== 'object') {
+        continue;
+      }
+
+      const tests = Object.entries(testsObject).map(([testName, spec]) => {
+        const typedSpec = (spec || {}) as OnChainFixtureTestSpec;
+        return {
+          testName,
+          functionName: typedSpec.function || testName,
+          spec: typedSpec
+        };
+      });
+      if (tests.length === 0) {
+        continue;
+      }
+
+      const sourceFile = await resolveFixtureSourceFile(fixturePath, parsed);
+      if (!sourceFile) {
+        if (verbose) {
+          console.warn(`[on-chain fixture] skipping ${fixturePath}; unable to resolve contract source`);
+        }
+        continue;
+      }
+
+      suites.push({
+        fixturePath,
+        sourceFile,
+        fixture: parsed,
+        tests
+      });
+    } catch (error) {
+      if (verbose) {
+        console.warn(`[on-chain fixture] failed to parse ${fixturePath}: ${error}`);
+      }
+    }
+  }
+
+  return suites;
+}
+
+async function resolveFixtureSourceFile(
+  fixturePath: string,
+  fixture: OnChainFixtureFile
+): Promise<string | undefined> {
+  const fixtureDir = dirname(fixturePath);
+  const sourceByName = basename(fixturePath).replace(/\.test\.json$/, '.v');
+  const hints = [fixture.source, fixture.contract].filter(
+    (value): value is string => typeof value === 'string' && value.length > 0
+  );
+  const candidates: string[] = [];
+
+  for (const hint of hints) {
+    candidates.push(isAbsolute(hint) ? hint : resolve(fixtureDir, hint));
+  }
+
+  candidates.push(resolve(fixtureDir, '..', 'src', sourceByName));
+  candidates.push(resolve(fixtureDir, sourceByName));
+  candidates.push(resolve(fixtureDir, '..', 'src', 'main.v'));
+
+  for (const candidate of candidates) {
+    try {
+      const fileStats = await stat(candidate);
+      if (fileStats.isFile()) {
+        return candidate;
+      }
+    } catch {
+      // Ignore missing candidates.
+    }
+  }
+  return undefined;
 }
 
 function parseMaxCostLamports(raw: unknown): number | undefined {
@@ -1400,7 +1552,6 @@ async function runDiscoveredVOnChainTests(
       const testStart = Date.now();
       const fixtureSpec = fixture?.tests?.[test.source.functionName];
       const expectedSuccess = fixtureSpec?.expected?.success ?? true;
-      const params = fixtureSpec?.parameters ?? test.parameters ?? [];
       const { accounts, accountNameToAddress, error: fixtureError } = await createPerTestFixtureAccounts(
         connection,
         signerKeypair,
@@ -1424,6 +1575,11 @@ async function runDiscoveredVOnChainTests(
         });
         continue;
       }
+      const params = resolveFixtureParameters(
+        fixtureSpec?.parameters ?? test.parameters ?? [],
+        accountNameToAddress,
+        signerKeypair.publicKey.toBase58()
+      );
 
       const accountMetadata = buildFixtureAccountMetadataForExecution(
         compilation.abi,
@@ -1510,6 +1666,190 @@ async function loadOnChainFixture(sourceFile: string): Promise<OnChainFixtureFil
   }
 }
 
+async function runOnChainFixtureSuites(
+  suites: OnChainFixtureSuite[],
+  connection: Connection,
+  signerKeypair: Keypair,
+  options: any,
+  config: any,
+  maxCostLamports?: number
+): Promise<OnChainTestSummary> {
+  const results: OnChainTestResult[] = [];
+  let totalCost = 0;
+  const start = Date.now();
+
+  for (const suite of suites) {
+    const source = await readFile(suite.sourceFile, 'utf8');
+    const compilation = await FiveSDK.compile(
+      { filename: suite.sourceFile, content: source },
+      { debug: options.verbose, optimize: false }
+    );
+    if (!compilation.success || !compilation.bytecode) {
+      for (const test of suite.tests) {
+        results.push({
+          scriptFile: `${suite.fixturePath}::${test.testName}`,
+          passed: false,
+          totalDuration: 0,
+          totalCost: 0,
+          error: `Compilation failed: ${compilation.errors?.join(', ')}`
+        });
+      }
+      continue;
+    }
+
+    const deploy = await FiveSDK.deployToSolana(
+      compilation.bytecode,
+      connection,
+      signerKeypair,
+      {
+        debug: options.verbose || false,
+        network: config.target,
+        computeBudget: 1_000_000,
+        maxRetries: 3
+      }
+    );
+    totalCost += deploy.deploymentCost || 0;
+    if (!deploy.success || !deploy.programId) {
+      for (const test of suite.tests) {
+        results.push({
+          scriptFile: `${suite.fixturePath}::${test.testName}`,
+          passed: false,
+          deployResult: {
+            success: false,
+            error: deploy.error,
+            cost: deploy.deploymentCost || 0
+          },
+          totalDuration: 0,
+          totalCost: deploy.deploymentCost || 0,
+          error: `Deployment failed: ${deploy.error || 'unknown error'}`
+        });
+      }
+      continue;
+    }
+
+    for (const test of suite.tests) {
+      const testStart = Date.now();
+      const expectedSuccess = test.spec?.expected?.success ?? true;
+      if (!resolveFunctionDefinitionFromAbi(compilation.abi, test.functionName)) {
+        results.push({
+          scriptFile: `${suite.fixturePath}::${test.testName}`,
+          passed: false,
+          deployResult: {
+            success: true,
+            scriptAccount: deploy.programId,
+            transactionId: deploy.transactionId,
+            cost: deploy.deploymentCost || 0
+          },
+          totalDuration: Date.now() - testStart,
+          totalCost: 0,
+          error: `Fixture misconfiguration: function '${test.functionName}' not found in ABI`
+        });
+        continue;
+      }
+      const { accounts, accountNameToAddress, error: fixtureError } = await createPerTestFixtureAccounts(
+        connection,
+        signerKeypair,
+        suite.fixture,
+        test.spec,
+        options.verbose
+      );
+      if (fixtureError) {
+        results.push({
+          scriptFile: `${suite.fixturePath}::${test.testName}`,
+          passed: false,
+          deployResult: {
+            success: true,
+            scriptAccount: deploy.programId,
+            transactionId: deploy.transactionId,
+            cost: deploy.deploymentCost || 0
+          },
+          totalDuration: Date.now() - testStart,
+          totalCost: 0,
+          error: fixtureError
+        });
+        continue;
+      }
+      const params = resolveFixtureParameters(
+        test.spec?.parameters ?? [],
+        accountNameToAddress,
+        signerKeypair.publicKey.toBase58()
+      );
+
+      const accountMetadata = buildFixtureAccountMetadataForExecution(
+        compilation.abi,
+        test.functionName,
+        test.spec,
+        suite.fixture,
+        accountNameToAddress
+      );
+
+      const execute = await FiveSDK.executeOnSolana(
+        deploy.programId,
+        connection,
+        signerKeypair,
+        test.functionName,
+        params,
+        accounts,
+        {
+          debug: options.verbose || false,
+          network: config.target,
+          computeUnitLimit: 1_000_000,
+          maxRetries: 3,
+          abi: compilation.abi,
+          accountMetadata
+        }
+      );
+
+      const testCost = execute.cost || 0;
+      totalCost += testCost;
+      if (maxCostLamports !== undefined && totalCost > maxCostLamports) {
+        throw new Error(
+          `On-chain test cost cap exceeded: ${(totalCost / 1e9).toFixed(6)} SOL > ${(maxCostLamports / 1e9).toFixed(6)} SOL`
+        );
+      }
+
+      const passed = expectedSuccess ? execute.success : !execute.success;
+      const errorContains = test.spec?.expected?.errorContains;
+      const errorMatches = errorContains
+        ? (execute.error || '').includes(errorContains)
+        : true;
+
+      results.push({
+        scriptFile: `${suite.fixturePath}::${test.testName}`,
+        passed: passed && errorMatches,
+        deployResult: {
+          success: true,
+          scriptAccount: deploy.programId,
+          transactionId: deploy.transactionId,
+          cost: deploy.deploymentCost || 0
+        },
+        executeResult: {
+          success: execute.success || false,
+          transactionId: execute.transactionId,
+          computeUnitsUsed: execute.computeUnitsUsed,
+          cost: execute.cost,
+          result: execute.result,
+          error: execute.error
+        },
+        totalDuration: Date.now() - testStart,
+        totalCost: testCost,
+        error: passed && errorMatches ? undefined : execute.error
+      });
+    }
+  }
+
+  const passed = results.filter((r) => r.passed).length;
+  const failed = results.length - passed;
+  return {
+    totalScripts: results.length,
+    passed,
+    failed,
+    totalCost,
+    totalDuration: Date.now() - start,
+    results
+  };
+}
+
 async function createPerTestFixtureAccounts(
   connection: Connection,
   signerKeypair: Keypair,
@@ -1537,6 +1877,15 @@ async function createPerTestFixtureAccounts(
     const spec = fixture.accounts[accountName];
     if (!spec) {
       return { accounts: [], accountNameToAddress: {}, error: `Fixture account '${accountName}' not found in companion fixture file` };
+    }
+    const fixedAddress = resolveFixtureAddress(spec.address, signerKeypair.publicKey.toBase58());
+    if (fixedAddress) {
+      createdAccounts.push(fixedAddress);
+      accountNameToAddress[accountName] = fixedAddress;
+      if (verbose) {
+        console.log(`[on-chain fixture] using ${accountName}=${fixedAddress}`);
+      }
+      continue;
     }
     if (spec.is_signer) {
       return {
@@ -1579,6 +1928,15 @@ function resolveFixtureOwner(owner: string | undefined, fallback: string): strin
     return fallback;
   }
   return owner;
+}
+
+function resolveFixtureAddress(address: string | undefined, signerAddress: string): string | undefined {
+  if (!address) return undefined;
+  if (address === 'payer') return signerAddress;
+  if (address === 'system_program' || address === 'system') {
+    return '11111111111111111111111111111111';
+  }
+  return address;
 }
 
 function resolveFunctionDefinitionFromAbi(abi: any, functionName: string): any | undefined {
